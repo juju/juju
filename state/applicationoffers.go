@@ -158,7 +158,7 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 // RemoveOfferOperation returns a model operation that will allow relation to leave scope.
 func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) *RemoveOfferOperation {
 	return &RemoveOfferOperation{
-		offers:          &applicationOffers{s.st},
+		offerStore:      &applicationOffers{s.st},
 		offerName:       offerName,
 		ForcedOperation: ForcedOperation{Force: force},
 	}
@@ -166,19 +166,19 @@ func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) *
 
 // RemoveOfferOperation is a model operation to remove application offer.
 type RemoveOfferOperation struct {
+	offerStore *applicationOffers
+
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
-
-	// offers holds the application offers to remove.
-	offers *applicationOffers
-
 	// offerName is the offer name to remove.
 	offerName string
+	// offer is the offer itself, set as the operation runs.
+	offer *crossmodel.ApplicationOffer
 }
 
 // Build is part of the ModelOperation interface.
-func (op *RemoveOfferOperation) Build(attempt int) ([]txn.Op, error) {
-	offer, err := op.offers.ApplicationOffer(op.offerName)
+func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
+	op.offer, err = op.offerStore.ApplicationOffer(op.offerName)
 	if errors.IsNotFound(err) {
 		return nil, jujutxn.ErrNoOperations
 	}
@@ -188,7 +188,7 @@ func (op *RemoveOfferOperation) Build(attempt int) ([]txn.Op, error) {
 	// When 'force' is set on the operation, this call will return needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.internalRemove(offer, attempt); err {
+	switch ops, err = op.internalRemove(op.offer, attempt); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -208,6 +208,15 @@ func (op *RemoveOfferOperation) Build(attempt int) ([]txn.Op, error) {
 func (op *RemoveOfferOperation) Done(err error) error {
 	if err != nil {
 		if !op.Force {
+			if errors.Cause(err) == jujutxn.ErrExcessiveContention {
+				relCount, err := op.countOfferRelations(op.offer)
+				if err != nil {
+					return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
+				}
+				if relCount > 0 {
+					return errors.Errorf("cannot delete application offer %q since its underlying application still has %d relations", op.offerName, relCount)
+				}
+			}
 			return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
 		}
 		op.AddError(errors.Errorf("forced offer %v removal but proceeded despite encountering ERROR %v", op.offerName, err))
@@ -225,14 +234,40 @@ func (s *applicationOffers) Remove(offerName string, force bool) error {
 	return err
 }
 
+func (op *RemoveOfferOperation) countOfferRelations(offer *crossmodel.ApplicationOffer) (int, error) {
+	if offer == nil {
+		return 0, nil
+	}
+	app, err := op.offerStore.st.Application(offer.ApplicationName)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	rels, err := app.Relations()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	var count int
+	for _, rel := range rels {
+		remoteApp, isCrossModel, err := rel.RemoteApplication()
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+		if !isCrossModel || remoteApp.OfferUUID() != offer.OfferUUID {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
 func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer, attempt int) ([]txn.Op, error) {
 	// Load the application before counting the connections
 	// so we can do a consistency check on relation count.
-	app, err := op.offers.st.Application(offer.ApplicationName)
+	app, err := op.offerStore.st.Application(offer.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conns, err := op.offers.st.OfferConnections(offer.OfferUUID)
+	conns, err := op.offerStore.st.OfferConnections(offer.OfferUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -260,7 +295,12 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		if isCrossModel && remoteApp.OfferUUID() != offer.OfferUUID {
+			logger.Debugf("removing offer %q, skipping relation %q for another offer %v", offer.OfferName, rel, remoteApp.OfferUUID())
+			isCrossModel = false
+		}
 		if isCrossModel && !op.Force {
+			logger.Debugf("aborting removal of offer %q due to relation %q", offer.OfferName, rel)
 			return nil, jujutxn.ErrTransientFailure
 		}
 		if op.Force {
@@ -315,7 +355,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			})
 		}
 	}
-	decRefOp, err := decApplicationOffersRefOp(op.offers.st, offer.ApplicationName)
+	decRefOp, err := decApplicationOffersRefOp(op.offerStore.st, offer.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
