@@ -1019,19 +1019,19 @@ func (m *Model) Metrics() (ModelMetrics, error) {
 func (m *Model) applicationCount() (int, error) {
 	coll, closer := m.st.db().GetCollection(applicationsC)
 	defer closer()
-	return coll.Count()
+	return coll.Find(isAliveDoc).Count()
 }
 
 func (m *Model) machineCount() (int, error) {
 	coll, closer := m.st.db().GetCollection(machinesC)
 	defer closer()
-	return coll.Count()
+	return coll.Find(isAliveDoc).Count()
 }
 
 func (m *Model) unitCount() (int, error) {
 	coll, closer := m.st.db().GetCollection(unitsC)
 	defer closer()
-	return coll.Count()
+	return coll.Find(isAliveDoc).Count()
 }
 
 // AllEndpointBindings returns all endpoint->space bindings
