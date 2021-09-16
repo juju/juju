@@ -5,6 +5,7 @@ package secretsmanager_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -31,7 +32,7 @@ type SecretsManagerSuite struct {
 	resources  *facademocks.MockResources
 
 	secretsService         *mocks.MockSecretsService
-	secretsWatcherService  *mocks.MockSecretsWatcher
+	secretsRotationService *mocks.MockSecretsRotation
 	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
 	accessSecret           common.GetAuthFunc
 	ownerTag               names.Tag
@@ -52,7 +53,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.resources = facademocks.NewMockResources(ctrl)
 
 	s.secretsService = mocks.NewMockSecretsService(ctrl)
-	s.secretsWatcherService = mocks.NewMockSecretsWatcher(ctrl)
+	s.secretsRotationService = mocks.NewMockSecretsRotation(ctrl)
 	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
 	s.ownerTag = names.NewApplicationTag("mariadb")
 	s.accessSecret = func() (common.AuthFunc, error) {
@@ -63,7 +64,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.expectAuthUnitAgent()
 
 	var err error
-	s.facade, err = secretsmanager.NewTestAPI(s.authorizer, s.resources, s.secretsService, s.secretsWatcherService, s.accessSecret, s.ownerTag)
+	s.facade, err = secretsmanager.NewTestAPI(s.authorizer, s.resources, s.secretsService, s.secretsRotationService, s.accessSecret, s.ownerTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -226,7 +227,7 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 
 	results, err := s.facade.GetSecretValues(params.GetSecretArgs{
 		Args: []params.GetSecretArg{{
-			ID: URL.String(),
+			URL: URL.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,7 +243,7 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
-	URL, _ := coresecrets.ParseURL("secret://deadbeef-1bad-500d-9000-4b1d0d061111/deadbeef-1bad-500d-9000-4b1d0d062222/app/password")
+	URL, _ := coresecrets.ParseURL("secret://deadbeef-1bad-500d-9000-4b1d0d061111/deadbeef-1bad-500d-9000-4b1d0d062222/app/mariadb/password")
 	URL.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
 	URL.ModelUUID = "deadbeef-1bad-500d-9000-4b1d0d062222"
 	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), URL).Return(
@@ -251,7 +252,7 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 
 	results, err := s.facade.GetSecretValues(params.GetSecretArgs{
 		Args: []params.GetSecretArg{{
-			ID: URL.String(),
+			URL: URL.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -265,7 +266,7 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsWatcherService.EXPECT().WatchSecretsRotationChanges("application-mariadb").Return(
+	s.secretsRotationService.EXPECT().WatchSecretsRotationChanges("application-mariadb").Return(
 		s.secretsRotationWatcher,
 	)
 	s.resources.EXPECT().Register(s.secretsRotationWatcher).Return("1")
@@ -299,5 +300,35 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		}, {
 			Error: &params.Error{Code: "unauthorized access", Message: "permission denied"},
 		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	URL, _ := coresecrets.ParseURL("secret://app/mariadb/password")
+	URL.ControllerUUID = coretesting.ControllerTag.Id()
+	URL.ModelUUID = coretesting.ModelTag.Id()
+	now := time.Now()
+	s.secretsRotationService.EXPECT().SecretRotated(URL, now).Return(errors.New("boom"))
+
+	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+		Args: []params.SecretRotatedArg{{
+			URL:  "secret://app/mariadb/password",
+			When: now,
+		}, {
+			URL: "bad",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Code: "", Message: `boom`},
+			},
+			{
+				Error: &params.Error{Code: "", Message: `secret URL scheme "" not valid`},
+			},
+		},
 	})
 }

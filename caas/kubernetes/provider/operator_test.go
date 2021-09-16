@@ -195,7 +195,7 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	}
 	labels := map[string]string{"operator.juju.is/name": "gitlab", "operator.juju.is/target": "application"}
 	pod, err := provider.OperatorPod(
-		"gitlab", "gitlab", "10666", "/var/lib/juju", "2.99.0",
+		"gitlab", "gitlab", "10666", "/var/lib/juju",
 		resources.DockerImageDetails{RegistryPath: "jujusolutions/jujud-operator"},
 		labels, tags, "operator-service-account",
 	)

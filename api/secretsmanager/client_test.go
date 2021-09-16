@@ -140,8 +140,7 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 	cfg.Description = stringPtr("my secret")
 	cfg.Status = statusPtr(secrets.StatusActive)
 	cfg.Tags = tagPtr(map[string]string{"foo": "bar"})
-	URL := secrets.NewSimpleURL("app/foo")
-	result, err := client.Update(URL, cfg, value)
+	result, err := client.Update("secret://app/foo", cfg, value)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "secret://app/foo?revision=2")
 }
@@ -157,13 +156,12 @@ func (s *SecretsSuite) TestUpdateSecretsError(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	value := secrets.NewSecretValue(nil)
-	URL := secrets.NewSimpleURL("app/foo")
-	result, err := client.Update(URL, secrets.NewSecretConfig("app", "password"), value)
+	result, err := client.Update("secret://app/foo", secrets.NewSecretConfig("app", "password"), value)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, gc.Equals, "")
 }
 
-func (s *SecretsSuite) TestGetSecret(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretByURL(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
@@ -171,7 +169,7 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 		c.Check(request, gc.Equals, "GetSecretValues")
 		c.Check(arg, gc.DeepEquals, params.GetSecretArgs{
 			Args: []params.GetSecretArg{{
-				ID: "secret://app/foo",
+				URL: "secret://app/foo",
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretValueResults{})
@@ -184,6 +182,32 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	result, err := client.GetValue("secret://app/foo")
+	c.Assert(err, jc.ErrorIsNil)
+	value := secrets.NewSecretValue(map[string]string{"foo": "bar"})
+	c.Assert(result, jc.DeepEquals, value)
+}
+
+func (s *SecretsSuite) TestGetSecretByID(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretValues")
+		c.Check(arg, gc.DeepEquals, params.GetSecretArgs{
+			Args: []params.GetSecretArg{{
+				ID: "1234",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretValueResults{})
+		*(result.(*params.SecretValueResults)) = params.SecretValueResults{
+			[]params.SecretValueResult{{
+				Data: map[string]string{"foo": "bar"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetValue("1234")
 	c.Assert(err, jc.ErrorIsNil)
 	value := secrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(result, jc.DeepEquals, value)
@@ -224,4 +248,30 @@ func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	_, err := client.WatchSecretsRotationChanges("application-app")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
+	now := time.Now()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SecretsRotated")
+		c.Check(arg, gc.DeepEquals, params.SecretRotatedArgs{
+			Args: []params.SecretRotatedArg{{
+				URL:  "secret://app/foo",
+				When: now,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.SecretRotated("secret://app/foo", now)
+	c.Assert(err, gc.ErrorMatches, "boom")
 }

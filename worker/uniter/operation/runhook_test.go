@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"time"
+
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -27,7 +29,7 @@ var _ = gc.Suite(&RunHookSuite{})
 type newHook func(operation.Factory, hook.Info) (operation.Operation, error)
 
 func (s *RunHookSuite) testPrepareHookError(
-	c *gc.C, newHook newHook, expectClearResolvedFlag, expectSkip bool,
+	c *gc.C, newHook newHook, expectSkip bool,
 ) {
 	callbacks := &PrepareHookCallbacks{
 		MockPrepareHook: &MockPrepareHook{err: errors.New("pow")},
@@ -99,16 +101,16 @@ func (s *RunHookSuite) TestPrepareHookCtxError(c *gc.C) {
 }
 
 func (s *RunHookSuite) TestPrepareHookError_Run(c *gc.C) {
-	s.testPrepareHookError(c, operation.Factory.NewRunHook, false, false)
+	s.testPrepareHookError(c, operation.Factory.NewRunHook, false)
 }
 
 func (s *RunHookSuite) TestPrepareHookError_Skip(c *gc.C) {
-	s.testPrepareHookError(c, operation.Factory.NewSkipHook, true, true)
+	s.testPrepareHookError(c, operation.Factory.NewSkipHook, true)
 }
 
 func (s *RunHookSuite) TestPrepareHookError_LeaderElectedNotLeader(c *gc.C) {
 	callbacks := &PrepareHookCallbacks{
-		MockPrepareHook: &MockPrepareHook{nil, string(hook.LeaderElected), nil},
+		MockPrepareHook: &MockPrepareHook{nil, string(hooks.LeaderElected), nil},
 	}
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{
@@ -127,7 +129,7 @@ func (s *RunHookSuite) TestPrepareHookError_LeaderElectedNotLeader(c *gc.C) {
 }
 
 func (s *RunHookSuite) testPrepareRunnerError(c *gc.C, newHook newHook) {
-	callbacks := NewPrepareHookCallbacks()
+	callbacks := NewPrepareHookCallbacks(hooks.ConfigChanged)
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{err: errors.New("splat")},
 	}
@@ -151,7 +153,7 @@ func (s *RunHookSuite) testPrepareSuccess(
 	c *gc.C, newHook newHook, before, after operation.State,
 ) {
 	runnerFactory := NewRunHookRunnerFactory(errors.New("should not call"))
-	callbacks := NewPrepareHookCallbacks()
+	callbacks := NewPrepareHookCallbacks(hooks.ConfigChanged)
 	factory := newOpFactory(runnerFactory, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +193,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(
 ) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
 	runnerFactory := NewRunHookRunnerFactory(runErr, contextOps...)
 	callbacks := &ExecuteHookCallbacks{
-		PrepareHookCallbacks:    NewPrepareHookCallbacks(),
+		PrepareHookCallbacks:    NewPrepareHookCallbacks(kind),
 		MockNotifyHookCompleted: &MockNotify{},
 		MockNotifyHookFailed:    &MockNotify{},
 	}
@@ -218,7 +220,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 
 		s.assertStateMatches(c, newState, operation.RunHook, operation.Done, kind)
 
-		c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
+		c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, string(kind))
 		c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 		c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
 
@@ -248,8 +250,8 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 
 	s.assertStateMatches(c, newState, operation.RunHook, operation.Queued, hooks.ConfigChanged)
 
-	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
-	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
+	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "config-changed")
+	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "config-changed")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
 	c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
 }
@@ -265,8 +267,8 @@ func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
 
 	s.assertStateMatches(c, newState, operation.RunHook, operation.Done, hooks.ConfigChanged)
 
-	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
-	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
+	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "config-changed")
+	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "config-changed")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
 	c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
 }
@@ -280,8 +282,8 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
-	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "some-hook-name")
+	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "config-changed")
+	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "config-changed")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
 	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 }
@@ -299,7 +301,7 @@ func (s *RunHookSuite) TestInstallHookPreservesStatus(c *gc.C) {
 
 	_, err = op.Execute(*midState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(callbacks.executingMessage, gc.Equals, "running some-hook-name hook")
+	c.Assert(callbacks.executingMessage, gc.Equals, "running install hook")
 	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Status, gc.Equals, "blocked")
@@ -317,7 +319,7 @@ func (s *RunHookSuite) TestInstallHookWHenNoStatusSet(c *gc.C) {
 
 	_, err = op.Execute(*midState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(callbacks.executingMessage, gc.Equals, "running some-hook-name hook")
+	c.Assert(callbacks.executingMessage, gc.Equals, "running install hook")
 	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Status, gc.Equals, "maintenance")
@@ -340,7 +342,7 @@ func (s *RunHookSuite) testExecuteSuccess(
 	c.Assert(newState.Started, gc.Equals, after.Started)
 	c.Assert(newState.StatusSet, gc.Equals, after.StatusSet)
 
-	c.Check(callbacks.executingMessage, gc.Equals, "running some-hook-name hook")
+	c.Check(callbacks.executingMessage, gc.Equals, "running config-changed hook")
 }
 
 func (s *RunHookSuite) TestExecuteSuccess_BlankSlate(c *gc.C) {
@@ -604,7 +606,7 @@ func (s *RunHookSuite) assertCommitSuccess_RelationBroken_SetStatus(c *gc.C, sus
 		},
 	}
 	callbacks := &ExecuteHookCallbacks{
-		PrepareHookCallbacks:    NewPrepareHookCallbacks(),
+		PrepareHookCallbacks:    NewPrepareHookCallbacks(hooks.RelationBroken),
 		MockNotifyHookCompleted: &MockNotify{},
 	}
 	factory := newOpFactory(runnerFactory, callbacks)
@@ -875,4 +877,60 @@ func (s *RunHookSuite) TestRunningHookMessageForRelationHooks(c *gc.C) {
 		},
 	)
 	c.Assert(msg, gc.Equals, "running install hook", gc.Commentf("expected remote unit not to be included for a non-relation hook"))
+}
+
+func (s *RunHookSuite) TestRunningHookMessageForSecretsHooks(c *gc.C) {
+	msg := operation.RunningHookMessage(
+		"secret-rotate",
+		hook.Info{
+			Kind:      hooks.SecretRotate,
+			SecretURL: "secret://app/mariadb/password",
+		},
+	)
+	c.Assert(msg, gc.Equals, `running secret-rotate hook for secret://app/mariadb/password`)
+}
+
+func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
+	callbacks := &CommitHookCallbacks{
+		MockCommitHook: &MockCommitHook{},
+	}
+	factory := newOpFactory(nil, callbacks)
+	op, err := factory.NewRunHook(hook.Info{
+		Kind: hooks.SecretRotate, SecretURL: "secret://app/mariadb/password",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectState := &operation.State{
+		Kind: operation.Continue,
+		Step: operation.Pending,
+	}
+
+	now := time.Now()
+	newState, err := op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState, jc.DeepEquals, expectState)
+	c.Assert(callbacks.rotatedSecretURL, gc.Equals, "secret://app/mariadb/password")
+	c.Assert(callbacks.rotatedSecretTime.After(now), jc.IsTrue)
+}
+
+func (s *RunHookSuite) TestPrepareHookError_SecretRotate_NotLeader(c *gc.C) {
+	callbacks := &PrepareHookCallbacks{
+		MockPrepareHook: &MockPrepareHook{nil, string(hooks.SecretRotate), nil},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: &MockContext{isLeader: false},
+			},
+		},
+	}
+	factory := newOpFactory(runnerFactory, callbacks)
+
+	op, err := factory.NewRunHook(hook.Info{
+		Kind: hooks.SecretRotate, SecretURL: "secret://app/mariadb/password",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 }

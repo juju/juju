@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/secrets"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
@@ -489,7 +490,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-			Logger: u.logger,
+			Secrets: secrets.NewSecretsResolver(watcher.RotateSecretCompleted),
+			Logger:  u.logger,
 		}
 		if u.modelType == model.CAAS && u.isRemoteUnit {
 			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewRemoteContainerInitResolver())
@@ -963,6 +965,9 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 			hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
 			hookMessage = hookName
 		}
+	}
+	if hookInfo.Kind.IsSecret() {
+		statusData["secret-url"] = hookInfo.SecretURL
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)
