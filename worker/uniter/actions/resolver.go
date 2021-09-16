@@ -54,6 +54,16 @@ func (r *actionsResolver) NextOp(
 	// deferred until the unit is running. If the remote charm needs
 	// updating, hold off on action running.
 	if remoteState.ActionsBlocked || localState.OutdatedRemoteCharm {
+		// If we were somehow running an action during remote container changes/restart
+		// we need to fail it and move on.
+		if localState.Kind == operation.RunAction {
+			if localState.Hook != nil {
+				r.logger.Infof("found incomplete action %v; ignoring", localState.ActionId)
+				r.logger.Infof("recommitting prior %q hook", localState.Hook.Kind)
+				return opFactory.NewSkipHook(*localState.Hook)
+			}
+			return opFactory.NewFailAction(*localState.ActionId)
+		}
 		return nil, resolver.ErrNoOperation
 	}
 	// If there are no operation left to be run, then we cannot return the
