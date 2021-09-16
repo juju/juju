@@ -8,6 +8,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/hashicorp/raft"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -25,6 +26,7 @@ type applyOperationSuite struct {
 	applyFuture  *MockApplyFuture
 	configFuture *MockConfigurationFuture
 	response     *MockFSMResponse
+	clock        *testclock.Clock
 }
 
 var _ = gc.Suite(&applyOperationSuite{})
@@ -34,6 +36,7 @@ func (s *applyOperationSuite) TestApplyLease(c *gc.C) {
 
 	cmd := []byte("do it")
 	timeout := time.Second
+	deadline := s.clock.Now().Add(timeout)
 
 	s.raft.EXPECT().State().Return(raft.Leader)
 	s.raft.EXPECT().Apply(cmd, timeout).Return(s.applyFuture)
@@ -42,7 +45,8 @@ func (s *applyOperationSuite) TestApplyLease(c *gc.C) {
 	s.response.EXPECT().Notify(s.target)
 	s.response.EXPECT().Error().Return(nil)
 
-	err := ApplyOperation(s.raft, queue.Operation{Command: cmd, Timeout: timeout}, s.target, fakeLogger{})
+	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
+	err := applier.ApplyOperation(queue.Operation{Command: cmd, Deadline: deadline})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -51,12 +55,14 @@ func (s *applyOperationSuite) TestApplyLeaseWithError(c *gc.C) {
 
 	cmd := []byte("do it")
 	timeout := time.Second
+	deadline := s.clock.Now().Add(timeout)
 
 	s.raft.EXPECT().State().Return(raft.Leader)
 	s.raft.EXPECT().Apply(cmd, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(errors.New("boom"))
 
-	err := ApplyOperation(s.raft, queue.Operation{Command: cmd, Timeout: timeout}, s.target, fakeLogger{})
+	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
+	err := applier.ApplyOperation(queue.Operation{Command: cmd, Deadline: deadline})
 	c.Assert(err, gc.ErrorMatches, `boom`)
 }
 
@@ -65,11 +71,13 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithNoLeaderAddress(c *gc.C
 
 	cmd := []byte("do it")
 	timeout := time.Second
+	deadline := s.clock.Now().Add(timeout)
 
 	s.raft.EXPECT().State().Return(raft.Follower)
 	s.raft.EXPECT().Leader().Return(raft.ServerAddress(""))
 
-	err := ApplyOperation(s.raft, queue.Operation{Command: cmd, Timeout: timeout}, s.target, fakeLogger{})
+	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
+	err := applier.ApplyOperation(queue.Operation{Command: cmd, Deadline: deadline})
 	c.Assert(err, gc.ErrorMatches, `not currently the leader.*`)
 }
 
@@ -78,6 +86,7 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeader(c *gc.C) {
 
 	cmd := []byte("do it")
 	timeout := time.Second
+	deadline := s.clock.Now().Add(timeout)
 
 	s.raft.EXPECT().State().Return(raft.Follower)
 	s.raft.EXPECT().Leader().Return(raft.ServerAddress("1.1.1.1"))
@@ -90,7 +99,8 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeader(c *gc.C) {
 		}},
 	})
 
-	err := ApplyOperation(s.raft, queue.Operation{Command: cmd, Timeout: timeout}, s.target, fakeLogger{})
+	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
+	err := applier.ApplyOperation(queue.Operation{Command: cmd, Deadline: deadline})
 	c.Assert(err, gc.ErrorMatches, `not currently the leader, try "1"`)
 }
 
@@ -99,6 +109,7 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithNoLeaderID(c *gc.C) {
 
 	cmd := []byte("do it")
 	timeout := time.Second
+	deadline := s.clock.Now().Add(timeout)
 
 	s.raft.EXPECT().State().Return(raft.Follower)
 	s.raft.EXPECT().Leader().Return(raft.ServerAddress("1.1.1.1"))
@@ -111,7 +122,8 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithNoLeaderID(c *gc.C) {
 		}},
 	})
 
-	err := ApplyOperation(s.raft, queue.Operation{Command: cmd, Timeout: timeout}, s.target, fakeLogger{})
+	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
+	err := applier.ApplyOperation(queue.Operation{Command: cmd, Deadline: deadline})
 	c.Assert(err, gc.ErrorMatches, `not currently the leader, try ""`)
 }
 
@@ -120,13 +132,15 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithConfigurationError(c *g
 
 	cmd := []byte("do it")
 	timeout := time.Second
+	deadline := s.clock.Now().Add(timeout)
 
 	s.raft.EXPECT().State().Return(raft.Follower)
 	s.raft.EXPECT().Leader().Return(raft.ServerAddress("1.1.1.1"))
 	s.raft.EXPECT().GetConfiguration().Return(s.configFuture)
 	s.configFuture.EXPECT().Error().Return(errors.New("boom"))
 
-	err := ApplyOperation(s.raft, queue.Operation{Command: cmd, Timeout: timeout}, s.target, fakeLogger{})
+	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
+	err := applier.ApplyOperation(queue.Operation{Command: cmd, Deadline: deadline})
 	c.Assert(err, gc.ErrorMatches, `boom`)
 }
 
@@ -138,6 +152,8 @@ func (s *applyOperationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.applyFuture = NewMockApplyFuture(ctrl)
 	s.configFuture = NewMockConfigurationFuture(ctrl)
 	s.response = NewMockFSMResponse(ctrl)
+
+	s.clock = testclock.NewClock(time.Now())
 
 	return ctrl
 }

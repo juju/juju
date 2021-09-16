@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/raft/queue"
 )
@@ -34,6 +36,24 @@ type Raft interface {
 	Apply([]byte, time.Duration) raft.ApplyFuture
 }
 
+// Applier applies a new operation against a raft instance.
+type Applier struct {
+	raft         Raft
+	notifyTarget raftlease.NotifyTarget
+	clock        clock.Clock
+	logger       Logger
+}
+
+// NewApplier creates a new Applier.
+func NewApplier(raft Raft, target raftlease.NotifyTarget, clock clock.Clock, logger Logger) *Applier {
+	return &Applier{
+		raft:         raft,
+		notifyTarget: target,
+		clock:        clock,
+		logger:       logger,
+	}
+}
+
 // ApplyOperation applies an lease opeartion against the raft instance. If the
 // raft instance isn't the leader, then an error is returned with the leader
 // information if available.
@@ -42,11 +62,11 @@ type Raft interface {
 // the leader, if known." (see 6.2.1).
 // If the leader is the current raft instance, then attempt to apply it to
 // the fsm.
-func ApplyOperation(r Raft, op queue.Operation, notifyTarget raftlease.NotifyTarget, logger Logger) error {
-	if state := r.State(); state != raft.Leader {
-		leaderAddress := r.Leader()
+func (a *Applier) ApplyOperation(op queue.Operation) error {
+	if state := a.raft.State(); state != raft.Leader {
+		leaderAddress := a.raft.Leader()
 
-		logger.Infof("Attempt to apply the lease failed, we're not the leader. State: %v, Leader: %v", state, leaderAddress)
+		a.logger.Infof("Attempt to apply the lease failed, we're not the leader. State: %v, Leader: %v", state, leaderAddress)
 
 		// If the leaderAddress is empty, this implies that either we don't
 		// have a leader or there is no raft cluster setup.
@@ -59,7 +79,7 @@ func ApplyOperation(r Raft, op queue.Operation, notifyTarget raftlease.NotifyTar
 		// If we have a leader address, we hope that we can use that leader
 		// address to locate the associate server ID. The server ID can be used
 		// as a mapping for the machine ID.
-		future := r.GetConfiguration()
+		future := a.raft.GetConfiguration()
 		if err := future.Error(); err != nil {
 			return errors.Trace(err)
 		}
@@ -81,9 +101,10 @@ func ApplyOperation(r Raft, op queue.Operation, notifyTarget raftlease.NotifyTar
 		return NewNotLeaderError(string(leaderAddress), leaderID)
 	}
 
-	logger.Tracef("Applying command %v", string(op.Command))
+	a.logger.Tracef("Applying command %v", string(op.Command))
 
-	future := r.Apply(op.Command, op.Timeout)
+	timeout := op.Deadline.Sub(a.clock.Now())
+	future := a.raft.Apply(op.Command, timeout)
 	if err := future.Error(); err != nil {
 		return errors.Trace(err)
 	}
@@ -98,7 +119,7 @@ func ApplyOperation(r Raft, op queue.Operation, notifyTarget raftlease.NotifyTar
 		return errors.Trace(err)
 	}
 
-	fsmResponse.Notify(notifyTarget)
+	fsmResponse.Notify(a.notifyTarget)
 
 	return nil
 }
