@@ -34,11 +34,16 @@ type SecretsManagerAPI struct {
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
 func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
-	if !context.Auth().AuthUnitAgent() {
+	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	unitOwner := context.Auth().GetAuthTag().(names.UnitTag)
-	owner, _ := names.UnitApplication(unitOwner.Id())
+	// Work out the app name associated with the agent since this is
+	// the secret owner for newly created secrets.
+	agentTag := context.Auth().GetAuthTag()
+	agentName := agentTag.Id()
+	if agentTag.Kind() == names.UnitTagKind {
+		agentName, _ = names.UnitApplication(agentName)
+	}
 
 	// For now we just support the Juju secrets provider.
 	service, err := provider.NewSecretProvider(juju.Provider, secrets.ProviderConfig{
@@ -48,13 +53,13 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		return nil, errors.Annotate(err, "creating juju secrets service")
 	}
 	return &SecretsManagerAPI{
-		authOwner:      names.NewApplicationTag(owner),
+		authOwner:      names.NewApplicationTag(agentName),
 		controllerUUID: context.State().ControllerUUID(),
 		modelUUID:      context.State().ModelUUID(),
 		secretsService: service,
 		resources:      context.Resources(),
 		secretsWatcher: context.State(),
-		accessSecret:   secretAccessor(context.Auth()),
+		accessSecret:   secretAccessor(agentName),
 	}, nil
 }
 

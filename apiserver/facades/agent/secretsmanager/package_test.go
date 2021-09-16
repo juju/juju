@@ -30,13 +30,14 @@ func NewTestAPI(
 	service secrets.SecretsService,
 	secretsWatcher SecretsWatcher,
 	accessSecret common.GetAuthFunc,
+	ownerTag names.Tag,
 ) (*SecretsManagerAPI, error) {
-	if !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &SecretsManagerAPI{
-		authOwner:      names.NewApplicationTag("app"),
+		authOwner:      ownerTag,
 		controllerUUID: coretesting.ControllerTag.Id(),
 		modelUUID:      coretesting.ModelTag.Id(),
 		resources:      resources,
