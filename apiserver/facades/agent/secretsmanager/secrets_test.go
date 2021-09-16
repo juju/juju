@@ -34,6 +34,7 @@ type SecretsManagerSuite struct {
 	secretsWatcherService  *mocks.MockSecretsWatcher
 	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
 	accessSecret           common.GetAuthFunc
+	ownerTag               names.Tag
 
 	facade *secretsmanager.SecretsManagerAPI
 }
@@ -53,15 +54,16 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsService = mocks.NewMockSecretsService(ctrl)
 	s.secretsWatcherService = mocks.NewMockSecretsWatcher(ctrl)
 	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
+	s.ownerTag = names.NewApplicationTag("mariadb")
 	s.accessSecret = func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return tag.Id() == "mariadb"
+			return tag.Id() == s.ownerTag.Id()
 		}, nil
 	}
 	s.expectAuthUnitAgent()
 
 	var err error
-	s.facade, err = secretsmanager.NewTestAPI(s.authorizer, s.resources, s.secretsService, s.secretsWatcherService, s.accessSecret)
+	s.facade, err = secretsmanager.NewTestAPI(s.authorizer, s.resources, s.secretsService, s.secretsWatcherService, s.accessSecret, s.ownerTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -77,8 +79,8 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	p := secrets.CreateParams{
 		Version:        secrets.Version,
 		Type:           "blob",
-		Owner:          "application-app",
-		Path:           "app/password",
+		Owner:          "application-mariadb",
+		Path:           "app/mariadb/password",
 		RotateInterval: time.Hour,
 		Status:         coresecrets.StatusActive,
 		Description:    "my secret",
@@ -86,14 +88,14 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
-	URL := coresecrets.NewSimpleURL("app/password")
+	URL := coresecrets.NewSimpleURL("app/mariadb/password")
 	URL.ControllerUUID = coretesting.ControllerTag.Id()
 	URL.ModelUUID = coretesting.ModelTag.Id()
 	s.secretsService.EXPECT().CreateSecret(gomock.Any(), URL, p).DoAndReturn(
 		func(_ context.Context, URL *coresecrets.URL, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
 				URL:  URL,
-				Path: "app/password",
+				Path: "app/mariadb/password",
 			}
 			return md, nil
 		},
@@ -102,7 +104,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			Type:           "blob",
-			Path:           "app/password",
+			Path:           "app/mariadb/password",
 			RotateInterval: time.Hour,
 			Status:         "active",
 			Description:    "my secret",
