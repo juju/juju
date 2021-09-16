@@ -564,6 +564,20 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
+	// Add a machine/unit/application and destroy it, to
+	// ensure we're only counting entities that are alive.
+	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	err := m.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	one := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "one",
+	})
+	u := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+	err = one.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
