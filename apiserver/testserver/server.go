@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.
@@ -54,6 +55,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 			return state.RestoreNotActive
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
+		RaftOpQueue:      queue.NewBlockingOpQueue(testclock),
 	}
 }
 

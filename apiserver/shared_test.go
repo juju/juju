@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 type sharedServerContextSuite struct {
@@ -78,6 +79,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},
 		controllerConfig:    controllerConfig,
+		raftOpQueue:         queue.NewBlockingOpQueue(clock.WallClock),
 		logger:              loggo.GetLogger("test"),
 	}
 }

@@ -609,6 +609,13 @@ func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 	)
 }
 
+func (ctx *facadeContext) Raft() facade.RaftContext {
+	return &raftMediator{
+		queue:  ctx.r.shared.raftOpQueue,
+		logger: ctx.r.shared.logger,
+	}
+}
+
 // adminRoot dispatches API calls to those available to an anonymous connection
 // which has not logged in, which here is the admin facade.
 type adminRoot struct {

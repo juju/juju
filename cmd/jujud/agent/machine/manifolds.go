@@ -726,6 +726,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
+			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{

@@ -87,6 +87,7 @@ import (
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -1023,6 +1024,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return state.RestoreNotActive
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
+				RaftOpQueue:      queue.NewBlockingOpQueue(clock.WallClock),
 			})
 			if err != nil {
 				panic(err)

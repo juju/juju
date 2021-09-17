@@ -17,6 +17,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	jujuhttp "github.com/juju/http/v2"
@@ -49,6 +50,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/raft/queue"
 )
 
 const (
@@ -180,6 +182,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
+		RaftOpQueue: queue.NewBlockingOpQueue(testclock.NewClock(time.Now())),
 	}
 }
 

@@ -56,6 +56,18 @@ type LeadershipContext interface {
 	SingularClaimer() (lease.Claimer, error)
 }
 
+// RaftContext describes methods for handling raft related capabilities.
+type RaftContext interface {
+
+	// ApplyLease attempts to apply the command on to the raft FSM. It only
+	// takes a command and enqueues that against the raft instance. If the raft
+	// instance is already processing a application, then back pressure is
+	// applied to the caller and a ErrEnqueueDeadlineExceeded will be sent.
+	// It's up to the caller to retry or drop depending on how the retry
+	// algorithm is implemented.
+	ApplyLease([]byte) error
+}
+
 // Context exposes useful capabilities to a Facade.
 type Context interface {
 	// TODO (stickupkid): This shouldn't be embedded, instead this should be
@@ -143,6 +155,9 @@ type Context interface {
 
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
+
+	// Raft returns a lease context for managing raft.
+	Raft() RaftContext
 }
 
 // RequestRecorder is implemented by types that can record information about
