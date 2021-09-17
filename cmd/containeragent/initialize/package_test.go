@@ -61,6 +61,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/application",
 		"core/arch",
 		"core/charm",
+		"core/charm/metrics",
 		"core/constraints",
 		"core/devices",
 		"core/instance",
