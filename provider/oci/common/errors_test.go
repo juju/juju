@@ -6,7 +6,7 @@ package common_test
 import (
 	"fmt"
 
-	ocicommon "github.com/oracle/oci-go-sdk/common"
+	ocicommon "github.com/oracle/oci-go-sdk/v47/common"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/oci/common"
 
-	ociCore "github.com/oracle/oci-go-sdk/core"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 )
 
 const (

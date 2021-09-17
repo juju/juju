@@ -34,9 +34,9 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 
-	ociCommon "github.com/oracle/oci-go-sdk/common"
-	ociCore "github.com/oracle/oci-go-sdk/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/identity"
+	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
 )
 
 type Environ struct {

@@ -20,8 +20,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	ociCore "github.com/oracle/oci-go-sdk/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/identity"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
 
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"

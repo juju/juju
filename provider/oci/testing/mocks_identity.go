@@ -7,7 +7,7 @@ package testing
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	identity "github.com/oracle/oci-go-sdk/identity"
+	identity "github.com/oracle/oci-go-sdk/v47/identity"
 	reflect "reflect"
 )
 

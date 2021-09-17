@@ -11,8 +11,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	ociCore "github.com/oracle/oci-go-sdk/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/identity"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"

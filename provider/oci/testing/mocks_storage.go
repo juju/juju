@@ -7,7 +7,7 @@ package testing
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	core "github.com/oracle/oci-go-sdk/core"
+	core "github.com/oracle/oci-go-sdk/v47/core"
 	reflect "reflect"
 )
 

@@ -6,8 +6,8 @@ package common
 import (
 	"context"
 
-	ociCore "github.com/oracle/oci-go-sdk/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/identity"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package testing -destination ../testing/mocks_identity.go github.com/juju/juju/provider/oci/common OCIIdentityClient

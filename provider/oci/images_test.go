@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	ociCore "github.com/oracle/oci-go-sdk/core"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 
 	"github.com/juju/juju/provider/oci"
 )
