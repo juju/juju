@@ -72,14 +72,14 @@ ID   Revision  Rotate  Backend  Path                  Age
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	URL, err := coresecrets.ParseURL("secret://app/mariadb/password")
+	secretUrl, err := coresecrets.ParseURL("secret://app/mariadb/password")
 	c.Assert(err, jc.ErrorIsNil)
-	URL2, err := coresecrets.ParseURL("secret://app/gitlab/apitoken")
+	secretUrl2, err := coresecrets.ParseURL("secret://app/gitlab/apitoken")
 	c.Assert(err, jc.ErrorIsNil)
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URL: URL, ID: 666, RotateInterval: time.Hour,
+				URL: secretUrl, ID: 666, RotateInterval: time.Hour,
 				Version: 1, Revision: 2, Path: "app/mariadb/password", Provider: "juju",
 				Status: coresecrets.StatusActive, Description: "my secret",
 				Tags: map[string]string{"foo": "bar"},
@@ -87,7 +87,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URL: URL2, ID: 667, Version: 1, Revision: 1, Path: "app/gitlab/apitoken", Provider: "juju",
+				URL: secretUrl2, ID: 667, Version: 1, Revision: 1, Path: "app/gitlab/apitoken", Provider: "juju",
 				Status: coresecrets.StatusPending,
 			},
 			Error: "boom",
@@ -129,12 +129,12 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	URL, err := coresecrets.ParseURL("secret://app/mariadb/password")
+	secretUrl, err := coresecrets.ParseURL("secret://app/mariadb/password")
 	c.Assert(err, jc.ErrorIsNil)
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URL: URL, ID: 666,
+				URL: secretUrl, ID: 666,
 				Version: 1, Revision: 2, Path: "app/mariadb/password", Provider: "juju",
 				Status: coresecrets.StatusActive,
 			},

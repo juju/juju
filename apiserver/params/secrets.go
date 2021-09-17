@@ -67,8 +67,10 @@ type GetSecretArgs struct {
 }
 
 // GetSecretArg holds the args for getting a secret.
+// Either specify a URL or ID.
 type GetSecretArg struct {
-	ID string `json:"id"`
+	URL string `json:"url,omitempty"`
+	ID  string `json:"id,omitempty"`
 }
 
 // SecretValueResults holds secret value results.
@@ -129,4 +131,15 @@ type SecretRotationWatchResult struct {
 // returning a list of SecretRotationWatchResult.
 type SecretRotationWatchResults struct {
 	Results []SecretRotationWatchResult `json:"results"`
+}
+
+// SecretRotatedArgs holds the args for updating rotated secret info.
+type SecretRotatedArgs struct {
+	Args []SecretRotatedArg `json:"args"`
+}
+
+// SecretRotatedArg holds the args for updating rotated secret info.
+type SecretRotatedArg struct {
+	URL  string    `json:"url"`
+	When time.Time `json:"when"`
 }

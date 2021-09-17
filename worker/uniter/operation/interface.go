@@ -4,6 +4,8 @@
 package operation
 
 import (
+	"time"
+
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -17,7 +19,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory,Callbacks
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, pass one in to the needed functions.
@@ -82,16 +84,6 @@ func Unwrap(op Operation) Operation {
 		return wrapped.WrappedOperation()
 	}
 	return op
-}
-
-// UnwrapAll peels back all operation wrappers.
-func UnwrapAll(op Operation) Operation {
-	unwrapped := Unwrap(op)
-	for unwrapped != nil && unwrapped != op {
-		op = unwrapped
-		unwrapped = Unwrap(op)
-	}
-	return unwrapped
 }
 
 // Executor records and exposes uniter state, and applies suitable changes as
@@ -218,6 +210,7 @@ type Callbacks interface {
 
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.
+
 	NotifyHookCompleted(string, context.Context)
 	NotifyHookFailed(string, context.Context)
 
@@ -242,11 +235,14 @@ type Callbacks interface {
 	// charm or the application's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
 
-	// SetSeriesStatusUpgrade is intended to give the uniter a chance to
+	// SetUpgradeSeriesStatus is intended to give the uniter a chance to
 	// upgrade the status of a running series upgrade before or after
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+
+	// SetSecretRotated updates the time when the secret was rotated.
+	SetSecretRotated(url string, when time.Time) error
 
 	// PostStartHook indiciates that the charms start hook has successfully run
 	PostStartHook()

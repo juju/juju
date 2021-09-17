@@ -4,6 +4,9 @@
 package secretsmanager
 
 import (
+	"strings"
+	"time"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -71,7 +74,11 @@ func (c *Client) Create(cfg *secrets.SecretConfig, secretType secrets.SecretType
 }
 
 // Update updates an existing secret value and/or config like rotate interval.
-func (c *Client) Update(URL *secrets.URL, cfg *secrets.SecretConfig, value secrets.SecretValue) (string, error) {
+func (c *Client) Update(url string, cfg *secrets.SecretConfig, value secrets.SecretValue) (string, error) {
+	secretUrl, err := secrets.ParseURL(url)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if err := cfg.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -87,7 +94,7 @@ func (c *Client) Update(URL *secrets.URL, cfg *secrets.SecretConfig, value secre
 	var results params.StringResults
 
 	arg := params.UpdateSecretArg{
-		URL:            URL.ID(),
+		URL:            secretUrl.ID(),
 		RotateInterval: cfg.RotateInterval,
 		Description:    cfg.Description,
 		Tags:           cfg.Tags,
@@ -113,15 +120,22 @@ func (c *Client) Update(URL *secrets.URL, cfg *secrets.SecretConfig, value secre
 }
 
 // GetValue returns the value of a secret.
-func (c *Client) GetValue(ID string) (secrets.SecretValue, error) {
-	//TODO(wallyworld) - validate ID format
+func (c *Client) GetValue(urlOrId string) (secrets.SecretValue, error) {
+	arg := params.GetSecretArg{}
+	if strings.HasPrefix(urlOrId, secrets.SecretScheme+"://") {
+		secretUrl, err := secrets.ParseURL(urlOrId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		arg.URL = secretUrl.ID()
+	} else {
+		arg.ID = urlOrId
+	}
 
 	var results params.SecretValueResults
 
 	if err := c.facade.FacadeCall("GetSecretValues", params.GetSecretArgs{
-		Args: []params.GetSecretArg{{
-			ID: ID,
-		}},
+		Args: []params.GetSecretArg{arg},
 	}, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -155,4 +169,32 @@ func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRot
 	}
 	w := apiwatcher.NewSecretsRotationWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// SecretRotated records when a secret was last rotated.
+func (c *Client) SecretRotated(url string, when time.Time) error {
+	secretUrl, err := secrets.ParseURL(url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var results params.ErrorResults
+	args := params.SecretRotatedArgs{
+		Args: []params.SecretRotatedArg{{
+			URL:  secretUrl.ID(),
+			When: when,
+		}},
+	}
+	err = c.facade.FacadeCall("SecretsRotated", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

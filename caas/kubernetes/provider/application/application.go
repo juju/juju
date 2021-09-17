@@ -14,6 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/juju/osenv"
 	jujustorage "github.com/juju/juju/storage"
 )
 
@@ -1217,6 +1219,22 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		resourceRequests[corev1.ResourceMemory] = *resource.NewQuantity(int64(bytes), resource.BinarySI)
 	}
 
+	env := []corev1.EnvVar{
+		{
+			Name:  "JUJU_CONTAINER_NAMES",
+			Value: strings.Join(containerNames, ","),
+		},
+		{
+			Name:  constants.EnvAgentHTTPProbePort,
+			Value: constants.AgentHTTPProbePort,
+		},
+	}
+	if features := featureflag.AsEnvironmentValue(); features != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  osenv.JujuFeatureFlagEnvKey,
+			Value: features,
+		})
+	}
 	containerSpecs := []corev1.Container{{
 		Name:            unitContainerName,
 		ImagePullPolicy: corev1.PullIfNotPresent,
@@ -1229,16 +1247,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
 			"--append-env", "PATH=$PATH:/charm/bin",
 		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "JUJU_CONTAINER_NAMES",
-				Value: strings.Join(containerNames, ","),
-			},
-			{
-				Name:  constants.EnvAgentHTTPProbePort,
-				Value: constants.AgentHTTPProbePort,
-			},
-		},
+		Env: env,
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:  pointer.Int64Ptr(0),
 			RunAsGroup: pointer.Int64Ptr(0),

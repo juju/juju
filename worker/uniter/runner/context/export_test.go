@@ -115,6 +115,11 @@ func NewMockUnitHookContextWithSecrets(mockUnit *mocks.MockHookUnit, client *sec
 	}
 }
 
+// SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
+func SetEnvironmentHookContextSecret(context *HookContext, secretURL string) {
+	context.secretURL = secretURL
+}
+
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
 func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName, remoteAppName, departingUnitName string) {
