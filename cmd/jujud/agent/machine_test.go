@@ -78,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
 	raftworker "github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
 
@@ -119,6 +120,7 @@ func bootstrapRaft(c *gc.C, dataDir string) {
 		StorageDir: filepath.Join(dataDir, "raft"),
 		LocalID:    "0",
 		Logger:     loggo.GetLogger("machine_test.raft"),
+		Queue:      queue.NewBlockingOpQueue(clock.WallClock),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

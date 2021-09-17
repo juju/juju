@@ -4,22 +4,37 @@
 package queue
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 )
 
+const (
+	// EnqueueTimeout is the timeout for enqueueing an operation. If an
+	// operation can't be processed in the time, a ErrDeadlineExceeded is
+	// returned.
+	EnqueueTimeout time.Duration = time.Second
+)
+
 var (
 	// ErrDeadlineExceeded is a sentinel error for all exceeded deadlines for
 	// operations.
-	ErrDeadlineExceeded = errors.Errorf("deadline exceeded")
+	ErrDeadlineExceeded = errors.Errorf("enqueueing deadline exceeded")
 )
 
 // Operation holds the operations that a queue can hold.
 type Operation struct {
-	Command  []byte
-	Deadline time.Time
+	Commands [][]byte
+}
+
+func (o Operation) String() string {
+	var res []string
+	for _, v := range o.Commands {
+		res = append(res, string(v))
+	}
+	return strings.Join(res, ", ")
 }
 
 // BlockingOpQueue holds the operations in a blocking queue. The purpose of this
@@ -50,7 +65,7 @@ func (q *BlockingOpQueue) Enqueue(op Operation) error {
 	// before then, bail out.
 	select {
 	case q.queue <- op:
-	case <-q.clock.After(op.Deadline.Sub(q.clock.Now())):
+	case <-q.clock.After(EnqueueTimeout):
 		return ErrDeadlineExceeded
 	}
 
