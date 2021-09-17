@@ -74,6 +74,7 @@ var (
 
 // Logger represents the logging methods called.
 type Logger interface {
+	Criticalf(message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 	Infof(message string, args ...interface{})

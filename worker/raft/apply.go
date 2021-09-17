@@ -125,8 +125,8 @@ func (a *Applier) ApplyOperation(op queue.Operation, applyTimeout time.Duration)
 		response := future.Response()
 		fsmResponse, ok := response.(raftlease.FSMResponse)
 		if !ok {
-			// This should never happen.
-			panic(errors.Errorf("programming error: expected an FSMResponse, got %T: %#v", response, response))
+			a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
+			return errors.Errorf("invalid FSM response")
 		}
 		if err := fsmResponse.Error(); err != nil {
 			return errors.Trace(err)

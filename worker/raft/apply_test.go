@@ -69,6 +69,22 @@ func (s *applyOperationSuite) TestApplyLeaseMultipleCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applyOperationSuite) TestApplyLeaseWithProgrammingError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cmds := commandsN(1)
+	timeout := time.Second
+
+	s.raft.EXPECT().State().Return(raft.Leader)
+	s.raft.EXPECT().Apply(cmds[0], timeout).Return(s.applyFuture)
+	s.applyFuture.EXPECT().Error().Return(nil)
+	s.applyFuture.EXPECT().Response().Return(struct{}{})
+
+	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
+	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
+	c.Assert(err, gc.ErrorMatches, `invalid FSM response`)
+}
+
 func (s *applyOperationSuite) TestApplyLeaseWithError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -186,6 +202,7 @@ func commandsN(n int) [][]byte {
 
 type fakeLogger struct{}
 
+func (fakeLogger) Criticalf(message string, args ...interface{})               {}
 func (fakeLogger) Warningf(message string, args ...interface{})                {}
 func (fakeLogger) Errorf(message string, args ...interface{})                  {}
 func (fakeLogger) Infof(message string, args ...interface{})                   {}
