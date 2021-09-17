@@ -1855,11 +1855,32 @@ func (k *kubernetesClient) configurePVCForStatelessResource(
 
 func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	_, err := deployments.Update(context.TODO(), spec, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		_, err = deployments.Create(context.TODO(), spec, v1.CreateOptions{})
+	_, err := k.createDeployment(spec)
+	if err == nil || !errors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
+	}
+	existing, err := k.getDeployment(spec.GetName())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	existing.SetAnnotations(spec.GetAnnotations())
+	existing.Spec = spec.Spec
+	_, err = deployments.Update(context.TODO(), existing, v1.UpdateOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) createDeployment(spec *apps.Deployment) (*apps.Deployment, error) {
+	out, err := k.client().AppsV1().Deployments(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		return nil, errors.AlreadyExistsf("deployment %q", spec.GetName())
+	}
+	if k8serrors.IsInvalid(err) {
+		return nil, errors.NotValidf("deployment %q", spec.GetName())
+	}
+	return out, errors.Trace(err)
 }
 
 func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) {
