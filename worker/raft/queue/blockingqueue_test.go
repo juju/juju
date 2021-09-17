@@ -28,14 +28,14 @@ func (s *BlockingOpQueueSuite) TestEnqueue(c *gc.C) {
 	results := consumeN(c, queue, 1)
 
 	err := queue.Enqueue(Operation{
-		Command:  opName(0),
-		Deadline: now.Add(time.Second),
+		Commands: commandsN(1),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var count int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(count))
+		c.Assert(len(result), gc.Equals, 1)
+		c.Assert(result[0], gc.DeepEquals, opName(count))
 		count++
 	}
 	c.Assert(count, gc.Equals, 1)
@@ -48,14 +48,14 @@ func (s *BlockingOpQueueSuite) TestEnqueueWithError(c *gc.C) {
 	results := consumeNUntilErr(c, queue, 1, errors.New("boom"))
 
 	err := queue.Enqueue(Operation{
-		Command:  opName(0),
-		Deadline: now.Add(time.Second),
+		Commands: commandsN(1),
 	})
 	c.Assert(err, gc.ErrorMatches, `boom`)
 
 	var count int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(count))
+		c.Assert(len(result), gc.Equals, 1)
+		c.Assert(result[0], gc.DeepEquals, opName(count))
 		count++
 	}
 	c.Assert(count, gc.Equals, 1)
@@ -67,14 +67,13 @@ func (s *BlockingOpQueueSuite) TestEnqueueTimesout(c *gc.C) {
 	queue := NewBlockingOpQueue(clock)
 
 	go func() {
-		c.Assert(clock.WaitAdvance(time.Millisecond, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(time.Second*2, testing.ShortWait, 1), jc.ErrorIsNil)
 	}()
 
 	err := queue.Enqueue(Operation{
-		Command:  []byte("abc-1"),
-		Deadline: now.Add(time.Nanosecond),
+		Commands: commandsN(1),
 	})
-	c.Assert(err, gc.ErrorMatches, `deadline exceeded`)
+	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
 }
 
 func (s *BlockingOpQueueSuite) TestMultipleEnqueue(c *gc.C) {
@@ -85,15 +84,15 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueue(c *gc.C) {
 
 	for i := 0; i < 2; i++ {
 		err := queue.Enqueue(Operation{
-			Command:  opName(i),
-			Deadline: now.Add(time.Second),
+			Commands: [][]byte{opName(i)},
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	var count int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(count))
+		c.Assert(len(result), gc.Equals, 1)
+		c.Assert(result[0], gc.DeepEquals, opName(count))
 		count++
 	}
 	c.Assert(count, gc.Equals, 2)
@@ -104,19 +103,19 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 	clock := testclock.NewClock(now)
 	queue := NewBlockingOpQueue(clock)
 
-	results := make(chan []byte, 3)
+	results := make(chan [][]byte, 3)
 	go func() {
 		defer close(results)
 
 		var count int
 		for op := range queue.Queue() {
-			results <- op.Command
+			results <- op.Commands
 			queue.Error() <- nil
 
 			count++
 			switch count {
 			case 1:
-				time.Sleep(time.Millisecond * 500)
+				time.Sleep(EnqueueTimeout * 3)
 				count++
 			case 3:
 				return
@@ -125,8 +124,7 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 	}()
 
 	err := queue.Enqueue(Operation{
-		Command:  opName(0),
-		Deadline: now.Add(time.Nanosecond),
+		Commands: [][]byte{opName(0)},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -135,25 +133,24 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 	go func() {
 		defer wg.Done()
 
-		c.Assert(clock.WaitAdvance(time.Millisecond, testing.ShortWait, 2), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(time.Second*2, testing.ShortWait, 2), jc.ErrorIsNil)
 	}()
 
 	// Fail this one
 	err = queue.Enqueue(Operation{
-		Command:  opName(1),
-		Deadline: now.Add(time.Nanosecond),
+		Commands: [][]byte{opName(1)},
 	})
-	c.Assert(err, gc.ErrorMatches, `deadline exceeded`)
+	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
 
 	err = queue.Enqueue(Operation{
-		Command:  opName(2),
-		Deadline: now.Add(time.Millisecond * 100),
+		Commands: [][]byte{opName(2)},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var received []string
 	for result := range results {
-		received = append(received, string(result))
+		c.Assert(len(result), gc.Equals, 1)
+		received = append(received, string(result[0]))
 	}
 	c.Assert(len(received), gc.Equals, 2)
 	c.Assert(received, gc.DeepEquals, []string{
@@ -177,8 +174,7 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 			defer wg.Done()
 
 			err := queue.Enqueue(Operation{
-				Command:  opName(i),
-				Deadline: now.Add(time.Second),
+				Commands: [][]byte{opName(i)},
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		}(i)
@@ -187,7 +183,8 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 
 	var received []string
 	for result := range results {
-		received = append(received, string(result))
+		c.Assert(len(result), gc.Equals, 1)
+		received = append(received, string(result[0]))
 	}
 	c.Assert(len(received), gc.Equals, 10)
 	c.Assert(received, jc.SameContents, []string{
@@ -200,12 +197,20 @@ func opName(i int) []byte {
 	return []byte(fmt.Sprintf("abc-%d", i))
 }
 
-func consumeN(c *gc.C, queue *BlockingOpQueue, n int) <-chan []byte {
+func commandsN(n int) [][]byte {
+	res := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		res[i] = opName(i)
+	}
+	return res
+}
+
+func consumeN(c *gc.C, queue *BlockingOpQueue, n int) <-chan [][]byte {
 	return consumeNUntilErr(c, queue, n, nil)
 }
 
-func consumeNUntilErr(c *gc.C, queue *BlockingOpQueue, n int, err error) <-chan []byte {
-	results := make(chan []byte, n)
+func consumeNUntilErr(c *gc.C, queue *BlockingOpQueue, n int, err error) <-chan [][]byte {
+	results := make(chan [][]byte, n)
 
 	go func() {
 		defer close(results)
@@ -213,7 +218,7 @@ func consumeNUntilErr(c *gc.C, queue *BlockingOpQueue, n int, err error) <-chan 
 		var count int
 		for op := range queue.Queue() {
 			select {
-			case results <- op.Command:
+			case results <- op.Commands:
 			case <-time.After(testing.LongWait):
 				c.Fatal("timed out setting results")
 			}
