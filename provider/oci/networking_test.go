@@ -20,24 +20,23 @@ type networkingSuite struct {
 
 var _ = gc.Suite(&networkingSuite{})
 
-func (n *networkingSuite) SetUpTest(c *gc.C) {
-	n.commonSuite.SetUpTest(c)
+func (s *networkingSuite) SetUpTest(c *gc.C) {
+	s.commonSuite.SetUpTest(c)
 }
 
-func (n *networkingSuite) setupNetworkInterfacesExpectations(vnicID, vcnID string) {
-
-	attachRequest, attachResponse := makeListVnicAttachmentsRequestResponse([]ociCore.VnicAttachment{
+func (s *networkingSuite) setupNetworkInterfacesExpectations(vnicID, vcnID string) {
+	attachResponse := []ociCore.VnicAttachment{
 		{
 			Id:                 makeStringPointer("fakeAttachmentId"),
 			AvailabilityDomain: makeStringPointer("fake"),
-			CompartmentId:      &n.testCompartment,
-			InstanceId:         &n.testInstanceID,
+			CompartmentId:      &s.testCompartment,
+			InstanceId:         &s.testInstanceID,
 			LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
 			DisplayName:        makeStringPointer("fakeAttachmentName"),
 			NicIndex:           makeIntPointer(0),
 			VnicId:             &vnicID,
 		},
-	})
+	}
 
 	vnicRequest, vnicResponse := makeGetVnicRequestResponse([]ociCore.GetVnicResponse{
 		{
@@ -53,107 +52,101 @@ func (n *networkingSuite) setupNetworkInterfacesExpectations(vnicID, vcnID strin
 		},
 	})
 
-	vcnRequest, vcnResponse := makeListVcnRequestResponse([]ociCore.Vcn{
+	vcnResponse := []ociCore.Vcn{
 		{
-			CompartmentId:         &n.testCompartment,
+			CompartmentId:         &s.testCompartment,
 			CidrBlock:             makeStringPointer("1.0.0.0/8"),
 			Id:                    makeStringPointer(vcnID),
 			LifecycleState:        ociCore.VcnLifecycleStateAvailable,
 			DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
 			DefaultSecurityListId: makeStringPointer("fakeSeclist"),
 			DisplayName:           makeStringPointer("amazingVcn"),
-			FreeformTags:          n.tags,
+			FreeformTags:          s.tags,
 		},
-	})
+	}
 
-	subnetRequest, subnetResponse := makeListSubnetsRequestResponse([]ociCore.Subnet{
+	subnetResponse := []ociCore.Subnet{
 		{
 			AvailabilityDomain: makeStringPointer("us-phoenix-1"),
 			CidrBlock:          makeStringPointer("1.0.0.0/8"),
-			CompartmentId:      &n.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			Id:                 makeStringPointer("fakeSubnetId"),
 			VcnId:              &vcnID,
 			DisplayName:        makeStringPointer("fakeSubnet"),
 			RouteTableId:       makeStringPointer("fakeRouteTable"),
 			LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
 		},
-	})
+	}
 
 	request, response := makeGetInstanceRequestResponse(ociCore.Instance{
-		CompartmentId:      &n.testCompartment,
+		CompartmentId:      &s.testCompartment,
 		AvailabilityDomain: makeStringPointer("QXay:PHX-AD-3"),
-		Id:                 &n.testInstanceID,
+		Id:                 &s.testInstanceID,
 		Region:             makeStringPointer("us-phoenix-1"),
 		Shape:              makeStringPointer("VM.Standard1.1"),
 		DisplayName:        makeStringPointer("fake"),
-		FreeformTags:       n.tags,
+		FreeformTags:       s.tags,
 		LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 	})
 
 	gomock.InOrder(
-		n.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil),
-		n.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil),
-		n.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
-		n.netw.EXPECT().ListVcns(context.Background(), vcnRequest).Return(vcnResponse, nil),
-		n.netw.EXPECT().ListSubnets(context.Background(), subnetRequest).Return(subnetResponse, nil),
+		s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil),
+		s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
+		s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
+		s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil),
+		s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil),
 	)
 }
 
-func (n *networkingSuite) setupListSubnetsExpectations() {
+func (s *networkingSuite) setupListSubnetsExpectations() {
 	vcnID := "fakeVcn"
 
-	vcnRequest, vcnResponse := makeListVcnRequestResponse(
-		[]ociCore.Vcn{
-			{
-				CompartmentId:         &n.testCompartment,
-				CidrBlock:             makeStringPointer("1.0.0.0/8"),
-				Id:                    makeStringPointer(vcnID),
-				LifecycleState:        ociCore.VcnLifecycleStateAvailable,
-				DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
-				DefaultSecurityListId: makeStringPointer("fakeSeclist"),
-				DisplayName:           makeStringPointer("amazingVcn"),
-				FreeformTags:          n.tags,
-			},
+	vcnResponse := []ociCore.Vcn{
+		{
+			CompartmentId:         &s.testCompartment,
+			CidrBlock:             makeStringPointer("1.0.0.0/8"),
+			Id:                    makeStringPointer(vcnID),
+			LifecycleState:        ociCore.VcnLifecycleStateAvailable,
+			DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
+			DefaultSecurityListId: makeStringPointer("fakeSeclist"),
+			DisplayName:           makeStringPointer("amazingVcn"),
+			FreeformTags:          s.tags,
 		},
-	)
+	}
 
-	subnetRequest, subnetResponse := makeListSubnetsRequestResponse(
-		[]ociCore.Subnet{
-			{
-				AvailabilityDomain: makeStringPointer("us-phoenix-1"),
-				CidrBlock:          makeStringPointer("1.0.0.0/8"),
-				CompartmentId:      &n.testCompartment,
-				Id:                 makeStringPointer("fakeSubnetId"),
-				VcnId:              makeStringPointer(vcnID),
-				DisplayName:        makeStringPointer("fakeSubnet"),
-				RouteTableId:       makeStringPointer("fakeRouteTable"),
-				LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
-			},
+	subnetResponse := []ociCore.Subnet{
+		{
+			AvailabilityDomain: makeStringPointer("us-phoenix-1"),
+			CidrBlock:          makeStringPointer("1.0.0.0/8"),
+			CompartmentId:      &s.testCompartment,
+			Id:                 makeStringPointer("fakeSubnetId"),
+			VcnId:              makeStringPointer(vcnID),
+			DisplayName:        makeStringPointer("fakeSubnet"),
+			RouteTableId:       makeStringPointer("fakeRouteTable"),
+			LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
 		},
-	)
+	}
 
-	n.netw.EXPECT().ListVcns(context.Background(), vcnRequest).Return(vcnResponse, nil).Times(2)
-	n.netw.EXPECT().ListSubnets(context.Background(), subnetRequest).Return(subnetResponse, nil).Times(2)
+	s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
+	s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
 }
 
-func (n *networkingSuite) setupSubnetsKnownInstanceExpectations() {
+func (s *networkingSuite) setupSubnetsKnownInstanceExpectations() {
 	vnicID := "fakeVnicId"
 	vcnID := "fakeVcn"
 
-	attachRequest, attachResponse := makeListVnicAttachmentsRequestResponse(
-		[]ociCore.VnicAttachment{
-			{
-				Id:                 makeStringPointer("fakeAttachmentId"),
-				AvailabilityDomain: makeStringPointer("fake"),
-				CompartmentId:      &n.testCompartment,
-				InstanceId:         &n.testInstanceID,
-				LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-				DisplayName:        makeStringPointer("fakeAttachmentName"),
-				NicIndex:           makeIntPointer(0),
-				VnicId:             &vnicID,
-			},
+	attachResponse := []ociCore.VnicAttachment{
+		{
+			Id:                 makeStringPointer("fakeAttachmentId"),
+			AvailabilityDomain: makeStringPointer("fake"),
+			CompartmentId:      &s.testCompartment,
+			InstanceId:         &s.testInstanceID,
+			LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
+			DisplayName:        makeStringPointer("fakeAttachmentName"),
+			NicIndex:           makeIntPointer(0),
+			VnicId:             &vnicID,
 		},
-	)
+	}
 
 	vnicRequest, vnicResponse := makeGetVnicRequestResponse([]ociCore.GetVnicResponse{
 		{
@@ -169,75 +162,71 @@ func (n *networkingSuite) setupSubnetsKnownInstanceExpectations() {
 		},
 	})
 
-	vcnRequest, vcnResponse := makeListVcnRequestResponse(
-		[]ociCore.Vcn{
-			{
-				CompartmentId:         &n.testCompartment,
-				CidrBlock:             makeStringPointer("1.0.0.0/8"),
-				Id:                    makeStringPointer(vcnID),
-				LifecycleState:        ociCore.VcnLifecycleStateAvailable,
-				DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
-				DefaultSecurityListId: makeStringPointer("fakeSeclist"),
-				DisplayName:           makeStringPointer("amazingVcn"),
-				FreeformTags:          n.tags,
-			},
+	vcnResponse := []ociCore.Vcn{
+		{
+			CompartmentId:         &s.testCompartment,
+			CidrBlock:             makeStringPointer("1.0.0.0/8"),
+			Id:                    makeStringPointer(vcnID),
+			LifecycleState:        ociCore.VcnLifecycleStateAvailable,
+			DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
+			DefaultSecurityListId: makeStringPointer("fakeSeclist"),
+			DisplayName:           makeStringPointer("amazingVcn"),
+			FreeformTags:          s.tags,
 		},
-	)
+	}
 
-	subnetRequest, subnetResponse := makeListSubnetsRequestResponse(
-		[]ociCore.Subnet{
-			{
-				AvailabilityDomain: makeStringPointer("us-phoenix-1"),
-				CidrBlock:          makeStringPointer("1.0.0.0/8"),
-				CompartmentId:      &n.testCompartment,
-				Id:                 makeStringPointer("fakeSubnetId"),
-				VcnId:              &vcnID,
-				DisplayName:        makeStringPointer("fakeSubnet"),
-				RouteTableId:       makeStringPointer("fakeRouteTable"),
-				LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
-			},
-			{
-				AvailabilityDomain: makeStringPointer("us-phoenix-1"),
-				CidrBlock:          makeStringPointer("1.0.0.0/8"),
-				CompartmentId:      &n.testCompartment,
-				Id:                 makeStringPointer("anotherFakeSubnetId"),
-				VcnId:              &vcnID,
-				DisplayName:        makeStringPointer("fakeSubnet"),
-				RouteTableId:       makeStringPointer("fakeRouteTable"),
-				LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
-			},
+	subnetResponse := []ociCore.Subnet{
+		{
+			AvailabilityDomain: makeStringPointer("us-phoenix-1"),
+			CidrBlock:          makeStringPointer("1.0.0.0/8"),
+			CompartmentId:      &s.testCompartment,
+			Id:                 makeStringPointer("fakeSubnetId"),
+			VcnId:              &vcnID,
+			DisplayName:        makeStringPointer("fakeSubnet"),
+			RouteTableId:       makeStringPointer("fakeRouteTable"),
+			LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
 		},
-	)
+		{
+			AvailabilityDomain: makeStringPointer("us-phoenix-1"),
+			CidrBlock:          makeStringPointer("1.0.0.0/8"),
+			CompartmentId:      &s.testCompartment,
+			Id:                 makeStringPointer("anotherFakeSubnetId"),
+			VcnId:              &vcnID,
+			DisplayName:        makeStringPointer("fakeSubnet"),
+			RouteTableId:       makeStringPointer("fakeRouteTable"),
+			LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
+		},
+	}
 
 	request, response := makeGetInstanceRequestResponse(
 		ociCore.Instance{
-			CompartmentId:      &n.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			AvailabilityDomain: makeStringPointer("QXay:PHX-AD-3"),
-			Id:                 &n.testInstanceID,
+			Id:                 &s.testInstanceID,
 			Region:             makeStringPointer("us-phoenix-1"),
 			Shape:              makeStringPointer("VM.Standard1.1"),
 			DisplayName:        makeStringPointer("fake"),
-			FreeformTags:       n.tags,
+			FreeformTags:       s.tags,
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 		})
 
-	n.netw.EXPECT().ListVcns(context.Background(), vcnRequest).Return(vcnResponse, nil).Times(2)
-	n.netw.EXPECT().ListSubnets(context.Background(), subnetRequest).Return(subnetResponse, nil).Times(2)
-	n.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil).Times(2)
-	n.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil).Times(2)
-	n.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil).Times(2)
+	s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
+	s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
+	s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil).Times(2)
+	s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil).Times(2)
+	s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil).Times(2)
 }
 
-func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
-	ctrl := n.patchEnv(c)
+func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
 	vcnID := "fakeVcn"
 
-	n.setupNetworkInterfacesExpectations(vnicID, vcnID)
+	s.setupNetworkInterfacesExpectations(vnicID, vcnID)
 
-	infoList, err := n.env.NetworkInterfaces(nil, []instance.Id{instance.Id(n.testInstanceID)})
+	infoList, err := s.env.NetworkInterfaces(nil, []instance.Id{instance.Id(s.testInstanceID)})
 	c.Assert(err, gc.IsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	info := infoList[0]
@@ -255,35 +244,35 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(info[0].ProviderSubnetId, gc.Equals, network.Id("fakeSubnetId"))
 }
 
-func (n *networkingSuite) TestSubnets(c *gc.C) {
-	ctrl := n.patchEnv(c)
+func (s *networkingSuite) TestSubnets(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	n.setupListSubnetsExpectations()
+	s.setupListSubnetsExpectations()
 
 	lookFor := []network.Id{
 		network.Id("fakeSubnetId"),
 	}
-	info, err := n.env.Subnets(nil, instance.UnknownId, lookFor)
+	info, err := s.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 
 	lookFor = []network.Id{"IDontExist"}
-	_, err = n.env.Subnets(nil, instance.UnknownId, lookFor)
+	_, err = s.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
 }
 
-func (n *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
-	ctrl := n.patchEnv(c)
+func (s *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	n.setupSubnetsKnownInstanceExpectations()
+	s.setupSubnetsKnownInstanceExpectations()
 
 	lookFor := []network.Id{
 		network.Id("fakeSubnetId"),
 	}
-	info, err := n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
+	info, err := s.env.Subnets(nil, instance.Id(s.testInstanceID), lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
@@ -291,6 +280,6 @@ func (n *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
 	lookFor = []network.Id{
 		network.Id("notHere"),
 	}
-	_, err = n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
+	_, err = s.env.Subnets(nil, instance.Id(s.testInstanceID), lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*notHere.*")
 }

@@ -28,58 +28,57 @@ import (
 type environSuite struct {
 	commonSuite
 
-	listInstancesRequest  ociCore.ListInstancesRequest
-	listInstancesResponse ociCore.ListInstancesResponse
+	listInstancesResponse []ociCore.Instance
 }
 
 var _ = gc.Suite(&environSuite{})
 
-func (e *environSuite) SetUpTest(c *gc.C) {
-	e.commonSuite.SetUpTest(c)
+func (s *environSuite) SetUpTest(c *gc.C) {
+	s.commonSuite.SetUpTest(c)
 	*oci.MaxPollIterations = 2
-	e.listInstancesRequest, e.listInstancesResponse = makeListInstancesRequestResponse(
+	s.listInstancesResponse =
 		[]ociCore.Instance{
 			{
 				AvailabilityDomain: makeStringPointer("fakeZone1"),
-				CompartmentId:      &e.testCompartment,
+				CompartmentId:      &s.testCompartment,
 				Id:                 makeStringPointer("fakeInstance1"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 				Region:             makeStringPointer("us-phoenix-1"),
 				Shape:              makeStringPointer("VM.Standard1.1"),
 				DisplayName:        makeStringPointer("fakeName"),
-				FreeformTags:       e.tags,
+				FreeformTags:       s.tags,
 			},
 			{
 				AvailabilityDomain: makeStringPointer("fakeZone2"),
-				CompartmentId:      &e.testCompartment,
+				CompartmentId:      &s.testCompartment,
 				Id:                 makeStringPointer("fakeInstance2"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 				Region:             makeStringPointer("us-phoenix-1"),
 				Shape:              makeStringPointer("VM.Standard1.1"),
 				DisplayName:        makeStringPointer("fakeName2"),
-				FreeformTags:       e.tags,
+				FreeformTags:       s.tags,
 			},
-		},
-	)
+		}
+
 }
 
-func (e *environSuite) setupAvailabilityDomainsExpectations(times int) {
+func (s *environSuite) setupAvailabilityDomainsExpectations(times int) {
 	request, response := makeListAvailabilityDomainsRequestResponse([]ociIdentity.AvailabilityDomain{
 		{
 			Name:          makeStringPointer("fakeZone1"),
-			CompartmentId: &e.testCompartment,
+			CompartmentId: &s.testCompartment,
 		},
 		{
 			Name:          makeStringPointer("fakeZone2"),
-			CompartmentId: &e.testCompartment,
+			CompartmentId: &s.testCompartment,
 		},
 		{
 			Name:          makeStringPointer("fakeZone3"),
-			CompartmentId: &e.testCompartment,
+			CompartmentId: &s.testCompartment,
 		},
 	})
 
-	expect := e.ident.EXPECT().ListAvailabilityDomains(context.Background(), request).Return(response, nil)
+	expect := s.ident.EXPECT().ListAvailabilityDomains(context.Background(), request).Return(response, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -91,22 +90,22 @@ func makeVcnName(controllerUUID, modelUUID string) string {
 	return fmt.Sprintf("%s-%s-%s", oci.VcnNamePrefix, controllerUUID, modelUUID)
 }
 
-func (e *environSuite) setupVcnExpectations(vcnId string, t map[string]string, times int) {
+func (s *environSuite) setupVcnExpectations(vcnId string, t map[string]string, times int) {
 	vcnName := makeVcnName(t[tags.JujuController], t[tags.JujuModel])
-	vcnRequest, vcnResponse := makeListVcnRequestResponse([]ociCore.Vcn{
+	vcnResponse := []ociCore.Vcn{
 		{
-			CompartmentId:         &e.testCompartment,
+			CompartmentId:         &s.testCompartment,
 			CidrBlock:             makeStringPointer(oci.DefaultAddressSpace),
 			Id:                    &vcnId,
 			LifecycleState:        ociCore.VcnLifecycleStateAvailable,
 			DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
 			DefaultSecurityListId: makeStringPointer("fakeSeclist"),
 			DisplayName:           &vcnName,
-			FreeformTags:          e.tags,
+			FreeformTags:          s.tags,
 		},
-	})
+	}
 
-	expect := e.netw.EXPECT().ListVcns(context.Background(), vcnRequest).Return(vcnResponse, nil)
+	expect := s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -114,11 +113,11 @@ func (e *environSuite) setupVcnExpectations(vcnId string, t map[string]string, t
 	}
 }
 
-func (e *environSuite) setupSecurityListExpectations(vcnId string, t map[string]string, times int) {
+func (s *environSuite) setupSecurityListExpectations(vcnId string, t map[string]string, times int) {
 	name := fmt.Sprintf("juju-seclist-%s-%s", t[tags.JujuController], t[tags.JujuModel])
 	request, response := makeListSecurityListsRequestResponse([]ociCore.SecurityList{
 		{
-			CompartmentId: &e.testCompartment,
+			CompartmentId: &s.testCompartment,
 			VcnId:         &vcnId,
 			Id:            makeStringPointer("fakeSecList"),
 			DisplayName:   &name,
@@ -137,7 +136,7 @@ func (e *environSuite) setupSecurityListExpectations(vcnId string, t map[string]
 			},
 		},
 	})
-	expect := e.fw.EXPECT().ListSecurityLists(context.Background(), request).Return(response, nil)
+	expect := s.fw.EXPECT().PaginatedListSecurityLists(context.Background(), request.CompartmentId, &vcnId).Return(response.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -145,19 +144,19 @@ func (e *environSuite) setupSecurityListExpectations(vcnId string, t map[string]
 	}
 }
 
-func (e *environSuite) setupInternetGatewaysExpectations(vcnId string, t map[string]string, times int) {
+func (s *environSuite) setupInternetGatewaysExpectations(vcnId string, t map[string]string, times int) {
 	name := fmt.Sprintf("%s-%s", oci.InternetGatewayPrefix, t[tags.JujuController])
 	enabled := true
 	request, response := makeListInternetGatewaysRequestResponse([]ociCore.InternetGateway{
 		{
-			CompartmentId: &e.testCompartment,
+			CompartmentId: &s.testCompartment,
 			Id:            makeStringPointer("fakeGwId"),
 			VcnId:         &vcnId,
 			DisplayName:   &name,
 			IsEnabled:     &enabled,
 		},
 	})
-	expect := e.netw.EXPECT().ListInternetGateways(context.Background(), request).Return(response, nil)
+	expect := s.netw.EXPECT().PaginatedListInternetGateways(context.Background(), request.CompartmentId, request.VcnId).Return(response.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -165,11 +164,11 @@ func (e *environSuite) setupInternetGatewaysExpectations(vcnId string, t map[str
 	}
 }
 
-func (e *environSuite) setupListRouteTableExpectations(vcnId string, t map[string]string, times int) {
+func (s *environSuite) setupListRouteTableExpectations(vcnId string, t map[string]string, times int) {
 	name := fmt.Sprintf("%s-%s", oci.RouteTablePrefix, t[tags.JujuController])
 	request, response := makeListRouteTableRequestResponse([]ociCore.RouteTable{
 		{
-			CompartmentId:  &e.testCompartment,
+			CompartmentId:  &s.testCompartment,
 			Id:             makeStringPointer("fakeRouteTableId"),
 			VcnId:          &vcnId,
 			DisplayName:    &name,
@@ -177,7 +176,7 @@ func (e *environSuite) setupListRouteTableExpectations(vcnId string, t map[strin
 			LifecycleState: ociCore.RouteTableLifecycleStateAvailable,
 		},
 	})
-	expect := e.netw.EXPECT().ListRouteTables(context.Background(), request).Return(response, nil)
+	expect := s.netw.EXPECT().PaginatedListRouteTables(context.Background(), request.CompartmentId, request.VcnId).Return(response.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -185,18 +184,18 @@ func (e *environSuite) setupListRouteTableExpectations(vcnId string, t map[strin
 	}
 }
 
-func (e *environSuite) setupListSubnetsExpectations(vcnId, route string, t map[string]string, times int) {
+func (s *environSuite) setupListSubnetsExpectations(vcnId, route string, t map[string]string, times int) {
 	zone1 := "fakeZone1"
 	zone2 := "fakeZone2"
 	zone3 := "fakeZone3"
 	displayNameZone1 := fmt.Sprintf("juju-%s-%s-%s", zone1, t[tags.JujuController], t[tags.JujuModel])
 	displayNameZone2 := fmt.Sprintf("juju-%s-%s-%s", zone2, t[tags.JujuController], t[tags.JujuModel])
 	displayNameZone3 := fmt.Sprintf("juju-%s-%s-%s", zone3, t[tags.JujuController], t[tags.JujuModel])
-	request, response := makeListSubnetsRequestResponse([]ociCore.Subnet{
+	response := []ociCore.Subnet{
 		{
 			AvailabilityDomain: &zone1,
 			CidrBlock:          makeStringPointer(oci.DefaultAddressSpace),
-			CompartmentId:      &e.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			Id:                 makeStringPointer("fakeSubnetId1"),
 			VcnId:              &vcnId,
 			DisplayName:        &displayNameZone1,
@@ -207,7 +206,7 @@ func (e *environSuite) setupListSubnetsExpectations(vcnId, route string, t map[s
 		{
 			AvailabilityDomain: &zone2,
 			CidrBlock:          makeStringPointer(oci.DefaultAddressSpace),
-			CompartmentId:      &e.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			Id:                 makeStringPointer("fakeSubnetId2"),
 			VcnId:              &vcnId,
 			DisplayName:        &displayNameZone2,
@@ -218,7 +217,7 @@ func (e *environSuite) setupListSubnetsExpectations(vcnId, route string, t map[s
 		{
 			AvailabilityDomain: &zone3,
 			CidrBlock:          makeStringPointer(oci.DefaultAddressSpace),
-			CompartmentId:      &e.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			Id:                 makeStringPointer("fakeSubnetId3"),
 			VcnId:              &vcnId,
 			DisplayName:        &displayNameZone3,
@@ -226,9 +225,9 @@ func (e *environSuite) setupListSubnetsExpectations(vcnId, route string, t map[s
 			LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
 			FreeformTags:       t,
 		},
-	})
+	}
 
-	expect := e.netw.EXPECT().ListSubnets(context.Background(), request).Return(response, nil)
+	expect := s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnId).Return(response, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -236,39 +235,39 @@ func (e *environSuite) setupListSubnetsExpectations(vcnId, route string, t map[s
 	}
 }
 
-func (e *environSuite) setupListImagesExpectations() {
-	request, response := makeListImageRequestResponse([]ociCore.Image{
+func (s *environSuite) setupListImagesExpectations() {
+	response := []ociCore.Image{
 		{
-			CompartmentId:          &e.testCompartment,
+			CompartmentId:          &s.testCompartment,
 			Id:                     makeStringPointer("fakeUbuntu1"),
 			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
 			OperatingSystemVersion: makeStringPointer("14.04"),
 			DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.11-0"),
 		},
 		{
-			CompartmentId:          &e.testCompartment,
+			CompartmentId:          &s.testCompartment,
 			Id:                     makeStringPointer("fakeUbuntu2"),
 			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
 			OperatingSystemVersion: makeStringPointer("14.04"),
 			DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.12-0"),
 		},
 		{
-			CompartmentId:          &e.testCompartment,
+			CompartmentId:          &s.testCompartment,
 			Id:                     makeStringPointer("fakeCentOS"),
 			OperatingSystem:        makeStringPointer("CentOS"),
 			OperatingSystemVersion: makeStringPointer("7"),
 			DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
 		},
-	})
-	_, shapesResponse := makeShapesRequestResponse(
-		e.testCompartment, "fake", []string{
+	}
+	shapesResponse := makeShapesRequestResponse(
+		s.testCompartment, "fake", []string{
 			"VM.Standard1.1",
 		})
-	e.compute.EXPECT().ListImages(context.Background(), request).Return(response, nil)
-	e.compute.EXPECT().ListShapes(context.Background(), gomock.Any()).Return(shapesResponse, nil).AnyTimes()
+	s.compute.EXPECT().PaginatedListImages(context.Background(), &s.testCompartment).Return(response, nil)
+	s.compute.EXPECT().PaginatedListShapes(context.Background(), gomock.Any(), gomock.Any()).Return(shapesResponse, nil).AnyTimes()
 }
 
-func (e *environSuite) TestMachineIdShortening(c *gc.C) {
+func (s *environSuite) TestMachineIdShortening(c *gc.C) {
 	blank := oci.ShortenMachineId(makeStringPointer(""), 6)
 	c.Check(blank, gc.Equals, "")
 
@@ -288,30 +287,30 @@ func (e *environSuite) TestMachineIdShortening(c *gc.C) {
 	c.Check(shorter, gc.Equals, "...21")
 }
 
-func (e *environSuite) TestAvailabilityZones(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestAvailabilityZones(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupAvailabilityDomainsExpectations(1)
+	s.setupAvailabilityDomainsExpectations(1)
 
-	az, err := e.env.AvailabilityZones(nil)
+	az, err := s.env.AvailabilityZones(nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(az), gc.Equals, 3)
 }
 
-func (e *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.compute.EXPECT().ListInstances(
-		context.Background(), e.listInstancesRequest).Return(
-		e.listInstancesResponse, nil).Times(2)
+	s.compute.EXPECT().PaginatedListInstances(
+		context.Background(), &s.testCompartment).Return(
+		s.listInstancesResponse, nil).Times(2)
 
 	id := instance.Id("fakeInstance1")
 	req := []instance.Id{
 		id,
 	}
-	zones, err := e.env.InstanceAvailabilityZoneNames(nil, req)
+	zones, err := s.env.InstanceAvailabilityZoneNames(nil, req)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(zones), gc.Equals, 1)
 	c.Assert(zones[id], gc.Equals, "fakeZone1")
@@ -320,24 +319,24 @@ func (e *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 		instance.Id("fakeInstance1"),
 		instance.Id("fakeInstance3"),
 	}
-	zones, err = e.env.InstanceAvailabilityZoneNames(nil, req)
+	zones, err = s.env.InstanceAvailabilityZoneNames(nil, req)
 	c.Assert(err, gc.ErrorMatches, "only some instances were found")
 	c.Check(len(zones), gc.Equals, 1)
 }
 
-func (e *environSuite) TestInstances(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestInstances(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.compute.EXPECT().ListInstances(
-		context.Background(), e.listInstancesRequest).Return(
-		e.listInstancesResponse, nil).Times(2)
+	s.compute.EXPECT().PaginatedListInstances(
+		context.Background(), &s.testCompartment).Return(
+		s.listInstancesResponse, nil).Times(2)
 
 	req := []instance.Id{
 		instance.Id("fakeInstance1"),
 	}
 
-	inst, err := e.env.Instances(nil, req)
+	inst, err := s.env.Instances(nil, req)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(inst), gc.Equals, 1)
 	c.Assert(inst[0].Id(), gc.Equals, instance.Id("fakeInstance1"))
@@ -346,47 +345,47 @@ func (e *environSuite) TestInstances(c *gc.C) {
 		instance.Id("fakeInstance1"),
 		instance.Id("fakeInstance3"),
 	}
-	inst, err = e.env.Instances(nil, req)
+	inst, err = s.env.Instances(nil, req)
 	c.Assert(err, gc.ErrorMatches, "only some instances were found")
 	c.Check(len(inst), gc.Equals, 1)
 	c.Assert(inst[0].Id(), gc.Equals, instance.Id("fakeInstance1"))
 }
 
-func (e *environSuite) TestPrepareForBootstrap(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupAvailabilityDomainsExpectations(1)
-	e.ident.EXPECT().ListAvailabilityDomains(
+	s.setupAvailabilityDomainsExpectations(1)
+	s.ident.EXPECT().ListAvailabilityDomains(
 		gomock.Any(), gomock.Any()).Return(
 		ociIdentity.ListAvailabilityDomainsResponse{}, errors.New("got error"))
 
 	ctx := envtesting.BootstrapTODOContext(c)
-	err := e.env.PrepareForBootstrap(ctx, "controller-1")
+	err := s.env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.IsNil)
 
-	err = e.env.PrepareForBootstrap(ctx, "controller-1")
+	err = s.env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.ErrorMatches, "got error")
 }
 
-func (e *environSuite) TestCreate(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestCreate(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupAvailabilityDomainsExpectations(1)
-	e.ident.EXPECT().ListAvailabilityDomains(
+	s.setupAvailabilityDomainsExpectations(1)
+	s.ident.EXPECT().ListAvailabilityDomains(
 		gomock.Any(), gomock.Any()).Return(
 		ociIdentity.ListAvailabilityDomainsResponse{}, errors.New("got error"))
 
-	err := e.env.Create(nil, environs.CreateParams{})
+	err := s.env.Create(nil, environs.CreateParams{})
 	c.Assert(err, gc.IsNil)
 
-	err = e.env.Create(nil, environs.CreateParams{})
+	err = s.env.Create(nil, environs.CreateParams{})
 	c.Assert(err, gc.ErrorMatches, "got error")
 }
 
-func (e *environSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+func (s *environSuite) TestConstraintsValidator(c *gc.C) {
+	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -397,8 +396,8 @@ func (e *environSuite) TestConstraintsValidator(c *gc.C) {
 
 }
 
-func (e *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+func (s *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
+	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -407,8 +406,8 @@ func (e *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	c.Check(unsupported, gc.HasLen, 0)
 }
 
-func (e *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -418,8 +417,8 @@ func (e *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	c.Check(unsupported, jc.SameContents, []string{"tags", "virt-type"})
 }
 
-func (e *environSuite) TestConstraintsValidatorWrongArch(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+func (s *environSuite) TestConstraintsValidatorWrongArch(c *gc.C) {
+	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
@@ -427,35 +426,35 @@ func (e *environSuite) TestConstraintsValidatorWrongArch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 }
 
-func (e *environSuite) TestControllerInstancesNoControllerInstances(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestControllerInstancesNoControllerInstances(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.compute.EXPECT().ListInstances(
-		context.Background(), e.listInstancesRequest).Return(
-		e.listInstancesResponse, nil)
+	s.compute.EXPECT().PaginatedListInstances(
+		context.Background(), &s.testCompartment).Return(
+		s.listInstancesResponse, nil)
 
-	ids, err := e.env.ControllerInstances(nil, e.controllerUUID)
+	ids, err := s.env.ControllerInstances(nil, s.controllerUUID)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 0)
 }
 
-func (e *environSuite) TestControllerInstancesOneController(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestControllerInstancesOneController(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.listInstancesResponse.Items[0].FreeformTags = e.ctrlTags
-	e.compute.EXPECT().ListInstances(
-		context.Background(), e.listInstancesRequest).Return(
-		e.listInstancesResponse, nil)
+	s.listInstancesResponse[0].FreeformTags = s.ctrlTags
+	s.compute.EXPECT().PaginatedListInstances(
+		context.Background(), &s.testCompartment).Return(
+		s.listInstancesResponse, nil)
 
-	ids, err := e.env.ControllerInstances(nil, e.controllerUUID)
+	ids, err := s.env.ControllerInstances(nil, s.controllerUUID)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 1)
 }
 
-func (e *environSuite) TestCloudInit(c *gc.C) {
-	cfg, err := oci.GetCloudInitConfig(e.env, "quantal", 1234, 4321)
+func (s *environSuite) TestCloudInit(c *gc.C) {
+	cfg, err := oci.GetCloudInitConfig(s.env, "quantal", 1234, 4321)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err := cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -463,7 +462,7 @@ func (e *environSuite) TestCloudInit(c *gc.C) {
 	c.Check(script, jc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
 	c.Check(script, jc.Contains, "/etc/init.d/netfilter-persistent save")
 
-	cfg, err = oci.GetCloudInitConfig(e.env, "quantal", 0, 0)
+	cfg, err = oci.GetCloudInitConfig(s.env, "quantal", 0, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err = cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -471,7 +470,7 @@ func (e *environSuite) TestCloudInit(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
 	c.Check(script, gc.Not(jc.Contains), "/etc/init.d/netfilter-persistent save")
 
-	cfg, err = oci.GetCloudInitConfig(e.env, "centos7", 1234, 4321)
+	cfg, err = oci.GetCloudInitConfig(s.env, "centos7", 1234, 4321)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err = cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -490,21 +489,21 @@ type ociInstanceTermination struct {
 	err      error
 }
 
-func (e *environSuite) setupStopInstanceExpectations(instancesDetails []instanceTermination) {
-	exp := e.compute.EXPECT()
+func (s *environSuite) setupStopInstanceExpectations(instancesDetails []instanceTermination) {
+	exp := s.compute.EXPECT()
 	instancesListWithError := []ociInstanceTermination{}
 	instancesList := []ociCore.Instance{}
 
 	for _, inst := range instancesDetails {
 		ociInstance := ociCore.Instance{
 			AvailabilityDomain: makeStringPointer("fakeZone1"),
-			CompartmentId:      &e.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			Id:                 makeStringPointer(inst.instanceId),
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 			Region:             makeStringPointer("us-phoenix-1"),
 			Shape:              makeStringPointer("VM.Standard1.1"),
 			DisplayName:        makeStringPointer("fakeName"),
-			FreeformTags:       e.tags,
+			FreeformTags:       s.tags,
 		}
 		instancesListWithError = append(
 			instancesListWithError,
@@ -514,15 +513,15 @@ func (e *environSuite) setupStopInstanceExpectations(instancesDetails []instance
 		instancesList = append(instancesList, ociInstance)
 	}
 
-	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(instancesList)
+	_, listInstancesResponse := makeListInstancesRequestResponse(instancesList)
 
 	listInstancesResponse.RawResponse = &http.Response{
 		StatusCode: 200,
 	}
 
-	listCall := exp.ListInstances(
-		context.Background(), listInstancesRequest).Return(
-		listInstancesResponse, nil).AnyTimes()
+	listCall := exp.PaginatedListInstances(
+		context.Background(), &s.testCompartment).Return(
+		listInstancesResponse.Items, nil).AnyTimes()
 
 	for _, inst := range instancesListWithError {
 		requestMachine, responseMachine := makeGetInstanceRequestResponse(inst.instance)
@@ -572,11 +571,11 @@ func (e *environSuite) setupStopInstanceExpectations(instancesDetails []instance
 	}
 }
 
-func (e *environSuite) TestStopInstances(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestStopInstances(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupStopInstanceExpectations(
+	s.setupStopInstanceExpectations(
 		[]instanceTermination{
 			{
 				instanceId: "instance1",
@@ -588,16 +587,16 @@ func (e *environSuite) TestStopInstances(c *gc.C) {
 	ids := []instance.Id{
 		instance.Id("instance1"),
 	}
-	err := e.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(nil, ids...)
 	c.Assert(err, gc.IsNil)
 
 }
 
-func (e *environSuite) TestStopInstancesSingleFail(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestStopInstancesSingleFail(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupStopInstanceExpectations(
+	s.setupStopInstanceExpectations(
 		[]instanceTermination{
 			{
 				instanceId: "fakeInstance1",
@@ -619,16 +618,16 @@ func (e *environSuite) TestStopInstancesSingleFail(c *gc.C) {
 		instance.Id("fakeInstance2"),
 		instance.Id("fakeInstance3"),
 	}
-	err := e.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(nil, ids...)
 	c.Assert(err, gc.ErrorMatches, "failed to stop instance fakeInstance2: I failed to terminate")
 
 }
 
-func (e *environSuite) TestStopInstancesMultipleFail(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestStopInstancesMultipleFail(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupStopInstanceExpectations(
+	s.setupStopInstanceExpectations(
 		[]instanceTermination{
 			{
 				instanceId: "fakeInstance1",
@@ -655,27 +654,27 @@ func (e *environSuite) TestStopInstancesMultipleFail(c *gc.C) {
 		instance.Id("fakeInstance3"),
 		instance.Id("fakeInstance4"),
 	}
-	err := e.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(nil, ids...)
 	// order in which the instances are returned or fail is not guaranteed
 	c.Assert(err, gc.ErrorMatches, `failed to stop instances \[fakeInstance[24] fakeInstance[24]\]: \[I failed to terminate fakeInstance[24] I failed to terminate fakeInstance[24]\]`)
 
 }
 
-func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
 		[]ociCore.Instance{
 			{
 				AvailabilityDomain: makeStringPointer("fakeZone1"),
-				CompartmentId:      &e.testCompartment,
+				CompartmentId:      &s.testCompartment,
 				Id:                 makeStringPointer("fakeInstance1"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 				Region:             makeStringPointer("us-phoenix-1"),
 				Shape:              makeStringPointer("VM.Standard1.1"),
 				DisplayName:        makeStringPointer("fakeName"),
-				FreeformTags:       e.tags,
+				FreeformTags:       s.tags,
 			},
 		},
 	)
@@ -691,9 +690,9 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.
 		LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 	})
 
-	e.listInstancesResponse.RawResponse = &http.Response{
-		StatusCode: 200,
-	}
+	//s.listInstancesResponse.RawResponse = &http.Response{
+	//	StatusCode: 200,
+	//}
 	responseMachine1.RawResponse = &http.Response{
 		StatusCode: 200,
 	}
@@ -709,16 +708,16 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.
 	}
 
 	gomock.InOrder(
-		e.compute.EXPECT().ListInstances(
-			context.Background(), listInstancesRequest).Return(
-			listInstancesResponse, nil),
-		e.compute.EXPECT().GetInstance(
+		s.compute.EXPECT().PaginatedListInstances(
+			context.Background(), listInstancesRequest.CompartmentId).Return(
+			listInstancesResponse.Items, nil),
+		s.compute.EXPECT().GetInstance(
 			context.Background(), requestMachine1).Return(
 			responseMachine1, nil),
-		e.compute.EXPECT().TerminateInstance(
+		s.compute.EXPECT().TerminateInstance(
 			context.Background(), terminateRequestMachine1).Return(
 			terminateResponse, nil),
-		e.compute.EXPECT().GetInstance(
+		s.compute.EXPECT().GetInstance(
 			context.Background(), requestMachine1).Return(
 			responseMachine1, nil).Times(3),
 	)
@@ -726,26 +725,26 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.
 	ids := []instance.Id{
 		instance.Id("fakeInstance1"),
 	}
-	err := e.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(nil, ids...)
 	c.Check(err, gc.ErrorMatches, ".*Instance still in running state after 2 checks")
 
 }
 
-func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
 		[]ociCore.Instance{
 			{
 				AvailabilityDomain: makeStringPointer("fakeZone1"),
-				CompartmentId:      &e.testCompartment,
+				CompartmentId:      &s.testCompartment,
 				Id:                 makeStringPointer("fakeInstance2"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 				Region:             makeStringPointer("us-phoenix-1"),
 				Shape:              makeStringPointer("VM.Standard1.1"),
 				DisplayName:        makeStringPointer("fakeName"),
-				FreeformTags:       e.tags,
+				FreeformTags:       s.tags,
 			},
 		},
 	)
@@ -782,16 +781,16 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C
 	responseMachine1Terminating.Instance.LifecycleState = ociCore.InstanceLifecycleStateTerminating
 
 	gomock.InOrder(
-		e.compute.EXPECT().ListInstances(
-			context.Background(), listInstancesRequest).Return(
-			listInstancesResponse, nil),
-		e.compute.EXPECT().GetInstance(
+		s.compute.EXPECT().PaginatedListInstances(
+			context.Background(), listInstancesRequest.CompartmentId).Return(
+			listInstancesResponse.Items, nil),
+		s.compute.EXPECT().GetInstance(
 			context.Background(), requestMachine1).Return(
 			responseMachine1, nil),
-		e.compute.EXPECT().TerminateInstance(
+		s.compute.EXPECT().TerminateInstance(
 			context.Background(), terminateRequestMachine1).Return(
 			terminateResponse, nil),
-		e.compute.EXPECT().GetInstance(
+		s.compute.EXPECT().GetInstance(
 			context.Background(), requestMachine1).Return(
 			responseMachine1Terminating, nil).AnyTimes(),
 	)
@@ -799,49 +798,49 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C
 	ids := []instance.Id{
 		instance.Id("fakeInstance2"),
 	}
-	err := e.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(nil, ids...)
 	c.Check(err, gc.ErrorMatches, ".*Timed out waiting for instance to transition from TERMINATING to TERMINATED")
 
 }
 
-func (e *environSuite) TestAllRunningInstances(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestAllRunningInstances(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.compute.EXPECT().ListInstances(
-		context.Background(), e.listInstancesRequest).Return(
-		e.listInstancesResponse, nil)
+	s.compute.EXPECT().PaginatedListInstances(
+		context.Background(), &s.testCompartment).Return(
+		s.listInstancesResponse, nil)
 
-	ids, err := e.env.AllRunningInstances(nil)
+	ids, err := s.env.AllRunningInstances(nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 2)
 }
 
-func (e *environSuite) TestAllRunningInstancesExtraUnrelatedInstance(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestAllRunningInstancesExtraUnrelatedInstance(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	// This instance does not have the model tags. It should be ignored.
 	unrelatedInstance := newFakeOCIInstance(
-		"notRelated", e.testCompartment, ociCore.InstanceLifecycleStateRunning)
-	e.listInstancesResponse.Items = append(
-		e.listInstancesResponse.Items, *unrelatedInstance)
+		"notRelated", s.testCompartment, ociCore.InstanceLifecycleStateRunning)
+	s.listInstancesResponse = append(
+		s.listInstancesResponse, *unrelatedInstance)
 
-	e.compute.EXPECT().ListInstances(
-		context.Background(), e.listInstancesRequest).Return(
-		e.listInstancesResponse, nil)
+	s.compute.EXPECT().PaginatedListInstances(
+		context.Background(), &s.testCompartment).Return(
+		s.listInstancesResponse, nil)
 
-	ids, err := e.env.AllRunningInstances(nil)
+	ids, err := s.env.AllRunningInstances(nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 2)
 }
 
-func (e *environSuite) setupLaunchInstanceExpectations(
+func (s *environSuite) setupLaunchInstanceExpectations(
 	isController bool, tags map[string]string, publicIP bool, launchInstanceMatcher gomock.Matcher,
 ) {
 	inst := ociCore.Instance{
 		AvailabilityDomain: makeStringPointer("fakeZone1"),
-		CompartmentId:      &e.testCompartment,
+		CompartmentId:      &s.testCompartment,
 		Id:                 makeStringPointer("fakeInstanceId"),
 		LifecycleState:     ociCore.InstanceLifecycleStateProvisioning,
 		Region:             makeStringPointer("us-phoenix-1"),
@@ -852,7 +851,7 @@ func (e *environSuite) setupLaunchInstanceExpectations(
 	responseLaunch := ociCore.LaunchInstanceResponse{
 		Instance: inst,
 	}
-	e.compute.EXPECT().LaunchInstance(context.Background(), launchInstanceMatcher).Return(responseLaunch, nil)
+	s.compute.EXPECT().LaunchInstance(context.Background(), launchInstanceMatcher).Return(responseLaunch, nil)
 
 	getInst := inst
 	if isController {
@@ -862,7 +861,7 @@ func (e *environSuite) setupLaunchInstanceExpectations(
 	getResponse := ociCore.GetInstanceResponse{
 		Instance: getInst,
 	}
-	e.compute.EXPECT().GetInstance(context.Background(), gomock.Any()).Return(getResponse, nil)
+	s.compute.EXPECT().GetInstance(context.Background(), gomock.Any()).Return(getResponse, nil)
 
 	if isController {
 		vnicID := "fakeVnicId"
@@ -870,7 +869,7 @@ func (e *environSuite) setupLaunchInstanceExpectations(
 			{
 				Id:                 makeStringPointer("fakeAttachmentId"),
 				AvailabilityDomain: makeStringPointer("fake"),
-				CompartmentId:      &e.testCompartment,
+				CompartmentId:      &s.testCompartment,
 				InstanceId:         makeStringPointer("fakeInstanceId"),
 				LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
 				DisplayName:        makeStringPointer("fakeAttachmentName"),
@@ -896,22 +895,22 @@ func (e *environSuite) setupLaunchInstanceExpectations(
 		// These calls are only expected if we assign a public IP.
 		// They occur when polling for the IP after the instance is started.
 		if publicIP {
-			e.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil)
-			e.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil)
+			s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), attachRequest.CompartmentId, makeStringPointer("fakeInstanceId")).Return(attachResponse.Items, nil)
+			s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil)
 		}
 	}
 }
 
-func (e *environSuite) setupEnsureNetworksExpectations(vcnId string, machineTags map[string]string) {
-	e.setupAvailabilityDomainsExpectations(0)
-	e.setupVcnExpectations(vcnId, machineTags, 1)
-	e.setupSecurityListExpectations(vcnId, machineTags, 1)
-	e.setupInternetGatewaysExpectations(vcnId, machineTags, 1)
-	e.setupListRouteTableExpectations(vcnId, machineTags, 1)
-	e.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 1)
+func (s *environSuite) setupEnsureNetworksExpectations(vcnId string, machineTags map[string]string) {
+	s.setupAvailabilityDomainsExpectations(0)
+	s.setupVcnExpectations(vcnId, machineTags, 1)
+	s.setupSecurityListExpectations(vcnId, machineTags, 1)
+	s.setupInternetGatewaysExpectations(vcnId, machineTags, 1)
+	s.setupListRouteTableExpectations(vcnId, machineTags, 1)
+	s.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 1)
 }
 
-func (e *environSuite) setupStartInstanceExpectations(
+func (s *environSuite) setupStartInstanceExpectations(
 	isController bool, publicIP bool, launchInstanceMatcher gomock.Matcher) {
 	vcnId := "fakeVCNId"
 	machineTags := map[string]string{
@@ -923,19 +922,19 @@ func (e *environSuite) setupStartInstanceExpectations(
 		machineTags[tags.JujuIsController] = "true"
 	}
 
-	e.setupEnsureNetworksExpectations(vcnId, machineTags)
-	e.setupListImagesExpectations()
-	e.setupLaunchInstanceExpectations(isController, machineTags, publicIP, launchInstanceMatcher)
+	s.setupEnsureNetworksExpectations(vcnId, machineTags)
+	s.setupListImagesExpectations()
+	s.setupLaunchInstanceExpectations(isController, machineTags, publicIP, launchInstanceMatcher)
 }
 
-func (e *environSuite) TestBootstrap(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestBootstrap(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupStartInstanceExpectations(true, true, gomock.Any())
+	s.setupStartInstanceExpectations(true, true, gomock.Any())
 
 	ctx := envtesting.BootstrapTODOContext(c)
-	_, err := e.env.Bootstrap(ctx, nil,
+	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
@@ -955,14 +954,14 @@ func (noPublicIPMatcher) Matches(arg interface{}) bool {
 
 func (noPublicIPMatcher) String() string { return "" }
 
-func (e *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupStartInstanceExpectations(true, false, noPublicIPMatcher{})
+	s.setupStartInstanceExpectations(true, false, noPublicIPMatcher{})
 
 	ctx := envtesting.BootstrapTODOContext(c)
-	_, err := e.env.Bootstrap(ctx, nil,
+	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
@@ -973,8 +972,8 @@ func (e *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vcnId := "fakeVCNId"
@@ -984,15 +983,15 @@ func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 		tags.JujuIsController: "true",
 	}
 
-	e.setupAvailabilityDomainsExpectations(0)
-	e.setupVcnExpectations(vcnId, machineTags, 0)
-	e.setupSecurityListExpectations(vcnId, machineTags, 0)
-	e.setupInternetGatewaysExpectations(vcnId, machineTags, 0)
-	e.setupListRouteTableExpectations(vcnId, machineTags, 0)
-	e.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 0)
+	s.setupAvailabilityDomainsExpectations(0)
+	s.setupVcnExpectations(vcnId, machineTags, 0)
+	s.setupSecurityListExpectations(vcnId, machineTags, 0)
+	s.setupInternetGatewaysExpectations(vcnId, machineTags, 0)
+	s.setupListRouteTableExpectations(vcnId, machineTags, 0)
+	s.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 0)
 
 	ctx := envtesting.BootstrapTODOContext(c)
-	_, err := e.env.Bootstrap(ctx, nil,
+	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("windows"),
@@ -1003,7 +1002,7 @@ func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 
 }
 
-func (e *environSuite) setupDeleteSecurityListExpectations(seclistId string, times int) {
+func (s *environSuite) setupDeleteSecurityListExpectations(seclistId string, times int) {
 	request := ociCore.DeleteSecurityListRequest{
 		SecurityListId: makeStringPointer(seclistId),
 	}
@@ -1014,7 +1013,7 @@ func (e *environSuite) setupDeleteSecurityListExpectations(seclistId string, tim
 		},
 	}
 
-	expect := e.fw.EXPECT().DeleteSecurityList(context.Background(), request).Return(response, nil)
+	expect := s.fw.EXPECT().DeleteSecurityList(context.Background(), request).Return(response, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -1034,11 +1033,11 @@ func (e *environSuite) setupDeleteSecurityListExpectations(seclistId string, tim
 		SecurityList: seclist,
 	}
 
-	e.fw.EXPECT().GetSecurityList(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
+	s.fw.EXPECT().GetSecurityList(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 
 }
 
-func (e *environSuite) setupDeleteSubnetExpectations(subnetIds []string) {
+func (s *environSuite) setupDeleteSubnetExpectations(subnetIds []string) {
 	for _, id := range subnetIds {
 		request := ociCore.DeleteSubnetRequest{
 			SubnetId: makeStringPointer(id),
@@ -1049,7 +1048,7 @@ func (e *environSuite) setupDeleteSubnetExpectations(subnetIds []string) {
 				StatusCode: 201,
 			},
 		}
-		e.netw.EXPECT().DeleteSubnet(context.Background(), request).Return(response, nil).AnyTimes()
+		s.netw.EXPECT().DeleteSubnet(context.Background(), request).Return(response, nil).AnyTimes()
 
 		requestGet := ociCore.GetSubnetRequest{
 			SubnetId: makeStringPointer(id),
@@ -1064,12 +1063,12 @@ func (e *environSuite) setupDeleteSubnetExpectations(subnetIds []string) {
 			Subnet: subnet,
 		}
 
-		e.netw.EXPECT().GetSubnet(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
+		s.netw.EXPECT().GetSubnet(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 	}
 }
 
-func (e *environSuite) setupDeleteRouteTableExpectations(vcnId, routeTableId string, t map[string]string) {
-	e.setupListRouteTableExpectations(vcnId, t, 1)
+func (s *environSuite) setupDeleteRouteTableExpectations(vcnId, routeTableId string, t map[string]string) {
+	s.setupListRouteTableExpectations(vcnId, t, 1)
 	request := ociCore.DeleteRouteTableRequest{
 		RtId: makeStringPointer(routeTableId),
 	}
@@ -1079,7 +1078,7 @@ func (e *environSuite) setupDeleteRouteTableExpectations(vcnId, routeTableId str
 			StatusCode: 201,
 		},
 	}
-	e.netw.EXPECT().DeleteRouteTable(context.Background(), request).Return(response, nil).AnyTimes()
+	s.netw.EXPECT().DeleteRouteTable(context.Background(), request).Return(response, nil).AnyTimes()
 
 	requestGet := ociCore.GetRouteTableRequest{
 		RtId: makeStringPointer(routeTableId),
@@ -1094,11 +1093,11 @@ func (e *environSuite) setupDeleteRouteTableExpectations(vcnId, routeTableId str
 		RouteTable: rt,
 	}
 
-	e.netw.EXPECT().GetRouteTable(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
+	s.netw.EXPECT().GetRouteTable(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 }
 
-func (e *environSuite) setupDeleteInternetGatewayExpectations(vcnId, IgId string, t map[string]string) {
-	e.setupInternetGatewaysExpectations(vcnId, t, 1)
+func (s *environSuite) setupDeleteInternetGatewayExpectations(vcnId, IgId string, t map[string]string) {
+	s.setupInternetGatewaysExpectations(vcnId, t, 1)
 	request := ociCore.DeleteInternetGatewayRequest{
 		IgId: &IgId,
 	}
@@ -1108,7 +1107,7 @@ func (e *environSuite) setupDeleteInternetGatewayExpectations(vcnId, IgId string
 			StatusCode: 201,
 		},
 	}
-	e.netw.EXPECT().DeleteInternetGateway(context.Background(), request).Return(response, nil)
+	s.netw.EXPECT().DeleteInternetGateway(context.Background(), request).Return(response, nil)
 
 	requestGet := ociCore.GetInternetGatewayRequest{
 		IgId: &IgId,
@@ -1123,10 +1122,10 @@ func (e *environSuite) setupDeleteInternetGatewayExpectations(vcnId, IgId string
 		InternetGateway: ig,
 	}
 
-	e.netw.EXPECT().GetInternetGateway(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
+	s.netw.EXPECT().GetInternetGateway(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 }
 
-func (e *environSuite) setupDeleteVcnExpectations(vcnId string) {
+func (s *environSuite) setupDeleteVcnExpectations(vcnId string) {
 	request := ociCore.DeleteVcnRequest{
 		VcnId: &vcnId,
 	}
@@ -1136,7 +1135,7 @@ func (e *environSuite) setupDeleteVcnExpectations(vcnId string) {
 			StatusCode: 201,
 		},
 	}
-	e.netw.EXPECT().DeleteVcn(context.Background(), request).Return(response, nil)
+	s.netw.EXPECT().DeleteVcn(context.Background(), request).Return(response, nil)
 
 	requestGet := ociCore.GetVcnRequest{
 		VcnId: &vcnId,
@@ -1151,32 +1150,32 @@ func (e *environSuite) setupDeleteVcnExpectations(vcnId string) {
 		Vcn: vcn,
 	}
 
-	e.netw.EXPECT().GetVcn(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
+	s.netw.EXPECT().GetVcn(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 }
 
-func (e *environSuite) setupDeleteVolumesExpectations() {
+func (s *environSuite) setupDeleteVolumesExpectations() {
 	size := int64(50)
 	volumes := []ociCore.Volume{
 		{
 			Id:                 makeStringPointer("fakeVolumeID1"),
 			AvailabilityDomain: makeStringPointer("fakeZone1"),
-			CompartmentId:      &e.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			DisplayName:        makeStringPointer("fakeVolume1"),
 			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
 			SizeInGBs:          &size,
 			FreeformTags: map[string]string{
-				tags.JujuController: e.controllerUUID,
+				tags.JujuController: s.controllerUUID,
 			},
 		},
 		{
 			Id:                 makeStringPointer("fakeVolumeID2"),
 			AvailabilityDomain: makeStringPointer("fakeZone1"),
-			CompartmentId:      &e.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			DisplayName:        makeStringPointer("fakeVolume2"),
 			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
 			SizeInGBs:          &size,
 			FreeformTags: map[string]string{
-				tags.JujuController: e.controllerUUID,
+				tags.JujuController: s.controllerUUID,
 			},
 		},
 	}
@@ -1186,7 +1185,7 @@ func (e *environSuite) setupDeleteVolumesExpectations() {
 	copyVolumes[1].LifecycleState = ociCore.VolumeLifecycleStateTerminated
 
 	listRequest := ociCore.ListVolumesRequest{
-		CompartmentId: &e.testCompartment,
+		CompartmentId: &s.testCompartment,
 	}
 
 	listResponse := ociCore.ListVolumesResponse{
@@ -1209,13 +1208,13 @@ func (e *environSuite) setupDeleteVolumesExpectations() {
 		Volume: copyVolumes[1],
 	}
 
-	e.storage.EXPECT().ListVolumes(context.Background(), listRequest).Return(listResponse, nil).AnyTimes()
-	e.storage.EXPECT().GetVolume(context.Background(), requestVolume1).Return(responseVolume1, nil).AnyTimes()
-	e.storage.EXPECT().GetVolume(context.Background(), requestVolume2).Return(responseVolume2, nil).AnyTimes()
+	s.storage.EXPECT().PaginatedListVolumes(context.Background(), listRequest.CompartmentId).Return(listResponse.Items, nil).AnyTimes()
+	s.storage.EXPECT().GetVolume(context.Background(), requestVolume1).Return(responseVolume1, nil).AnyTimes()
+	s.storage.EXPECT().GetVolume(context.Background(), requestVolume2).Return(responseVolume2, nil).AnyTimes()
 }
 
-func (e *environSuite) TestDestroyController(c *gc.C) {
-	ctrl := e.patchEnv(c)
+func (s *environSuite) TestDestroyController(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	machineTags := map[string]string{
@@ -1224,26 +1223,26 @@ func (e *environSuite) TestDestroyController(c *gc.C) {
 	}
 
 	vcnId := "fakeVCNId"
-	e.setupListInstancesExpectations(e.testInstanceID, ociCore.InstanceLifecycleStateRunning, 1)
-	e.setupStopInstanceExpectations(
+	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 1)
+	s.setupStopInstanceExpectations(
 		[]instanceTermination{
 			{
-				instanceId: e.testInstanceID,
+				instanceId: s.testInstanceID,
 				err:        nil,
 			},
 		},
 	)
-	e.setupListInstancesExpectations(e.testInstanceID, ociCore.InstanceLifecycleStateTerminated, 0)
-	e.setupVcnExpectations(vcnId, machineTags, 1)
-	e.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 1)
-	e.setupSecurityListExpectations(vcnId, machineTags, 1)
-	e.setupDeleteRouteTableExpectations(vcnId, "fakeRouteTableId", machineTags)
-	e.setupDeleteSubnetExpectations([]string{"fakeSubnetId1", "fakeSubnetId2", "fakeSubnetId3"})
-	e.setupDeleteSecurityListExpectations("fakeSecList", 0)
-	e.setupDeleteInternetGatewayExpectations(vcnId, "fakeGwId", machineTags)
-	e.setupDeleteVcnExpectations(vcnId)
-	e.setupDeleteVolumesExpectations()
+	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateTerminated, 0)
+	s.setupVcnExpectations(vcnId, machineTags, 1)
+	s.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 1)
+	s.setupSecurityListExpectations(vcnId, machineTags, 1)
+	s.setupDeleteRouteTableExpectations(vcnId, "fakeRouteTableId", machineTags)
+	s.setupDeleteSubnetExpectations([]string{"fakeSubnetId1", "fakeSubnetId2", "fakeSubnetId3"})
+	s.setupDeleteSecurityListExpectations("fakeSecList", 0)
+	s.setupDeleteInternetGatewayExpectations(vcnId, "fakeGwId", machineTags)
+	s.setupDeleteVcnExpectations(vcnId)
+	s.setupDeleteVolumesExpectations()
 
-	err := e.env.DestroyController(nil, e.controllerUUID)
+	err := s.env.DestroyController(nil, s.controllerUUID)
 	c.Assert(err, gc.IsNil)
 }

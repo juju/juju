@@ -16,7 +16,6 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
 	"gopkg.in/ini.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -241,17 +240,17 @@ func (e *EnvironProvider) Open(_ stdcontext.Context, params environs.OpenParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	compute, err := ociCore.NewComputeClientWithConfigurationProvider(provider)
+	compute, err := common.NewComputeClient(provider)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	networking, err := ociCore.NewVirtualNetworkClientWithConfigurationProvider(provider)
+	networking, err := common.NewNetworkClient(provider)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	storage, err := ociCore.NewBlockstorageClientWithConfigurationProvider(provider)
+	storage, err := common.NewStorageClient(provider)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

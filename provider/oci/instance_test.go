@@ -26,28 +26,28 @@ type instanceSuite struct {
 
 var _ = gc.Suite(&instanceSuite{})
 
-func (i *instanceSuite) SetUpTest(c *gc.C) {
-	i.commonSuite.SetUpTest(c)
+func (s *instanceSuite) SetUpTest(c *gc.C) {
+	s.commonSuite.SetUpTest(c)
 }
 
-func (i *instanceSuite) TestNewInstance(c *gc.C) {
-	_, err := oci.NewInstance(ociCore.Instance{}, i.env)
+func (s *instanceSuite) TestNewInstance(c *gc.C) {
+	_, err := oci.NewInstance(ociCore.Instance{}, s.env)
 	c.Assert(err, gc.ErrorMatches, "Instance response does not contain an ID")
 }
 
-func (i *instanceSuite) TestId(c *gc.C) {
-	inst, err := oci.NewInstance(*i.ociInstance, i.env)
+func (s *instanceSuite) TestId(c *gc.C) {
+	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 	id := inst.Id()
-	c.Assert(id, gc.Equals, instance.Id(i.testInstanceID))
+	c.Assert(id, gc.Equals, instance.Id(s.testInstanceID))
 }
 
-func (i *instanceSuite) TestStatus(c *gc.C) {
-	ctrl := i.patchEnv(c)
+func (s *instanceSuite) TestStatus(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	i.compute.EXPECT().GetInstance(gomock.Any(), gomock.Any()).Return(ociCore.GetInstanceResponse{Instance: *i.ociInstance}, nil)
-	inst, err := oci.NewInstance(*i.ociInstance, i.env)
+	s.compute.EXPECT().GetInstance(gomock.Any(), gomock.Any()).Return(ociCore.GetInstanceResponse{Instance: *s.ociInstance}, nil)
+	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
 	instStatus := inst.Status(nil)
@@ -58,10 +58,10 @@ func (i *instanceSuite) TestStatus(c *gc.C) {
 	c.Assert(instStatus, gc.DeepEquals, expectedStatus)
 
 	// Change lifecycle and check again
-	i.ociInstance.LifecycleState = ociCore.InstanceLifecycleStateTerminating
+	s.ociInstance.LifecycleState = ociCore.InstanceLifecycleStateTerminating
 
-	i.compute.EXPECT().GetInstance(gomock.Any(), gomock.Any()).Return(ociCore.GetInstanceResponse{Instance: *i.ociInstance}, nil)
-	inst, err = oci.NewInstance(*i.ociInstance, i.env)
+	s.compute.EXPECT().GetInstance(gomock.Any(), gomock.Any()).Return(ociCore.GetInstanceResponse{Instance: *s.ociInstance}, nil)
+	inst, err = oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
 	instStatus = inst.Status(nil)
@@ -72,25 +72,25 @@ func (i *instanceSuite) TestStatus(c *gc.C) {
 	c.Assert(instStatus, gc.DeepEquals, expectedStatus)
 }
 
-func (i *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
-	ctrl := i.patchEnv(c)
+func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	request, response := makeGetInstanceRequestResponse(
 		ociCore.Instance{
-			CompartmentId:      &i.testCompartment,
+			CompartmentId:      &s.testCompartment,
 			AvailabilityDomain: makeStringPointer("QXay:PHX-AD-3"),
-			Id:                 &i.testInstanceID,
+			Id:                 &s.testInstanceID,
 			Region:             makeStringPointer("us-phoenix-1"),
 			Shape:              makeStringPointer("VM.Standard1.1"),
 			DisplayName:        makeStringPointer("fake"),
-			FreeformTags:       i.tags,
+			FreeformTags:       s.tags,
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 		})
 
-	i.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil)
+	s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil)
 
-	inst, err := oci.NewInstance(*i.ociInstance, i.env)
+	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
 	instStatus := inst.Status(nil)
@@ -101,21 +101,19 @@ func (i *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
 	c.Assert(instStatus, gc.DeepEquals, expectedStatus)
 }
 
-func (i *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
-	attachRequest, attachResponse := makeListVnicAttachmentsRequestResponse(
-		[]ociCore.VnicAttachment{
-			{
-				Id:                 makeStringPointer("fakeAttachmentId"),
-				AvailabilityDomain: makeStringPointer("fake"),
-				CompartmentId:      makeStringPointer(i.testCompartment),
-				InstanceId:         makeStringPointer(i.testInstanceID),
-				LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-				DisplayName:        makeStringPointer("fakeAttachmentName"),
-				NicIndex:           makeIntPointer(0),
-				VnicId:             makeStringPointer(vnicID),
-			},
+func (s *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
+	attachResponse := []ociCore.VnicAttachment{
+		{
+			Id:                 makeStringPointer("fakeAttachmentId"),
+			AvailabilityDomain: makeStringPointer("fake"),
+			CompartmentId:      makeStringPointer(s.testCompartment),
+			InstanceId:         makeStringPointer(s.testInstanceID),
+			LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
+			DisplayName:        makeStringPointer("fakeAttachmentName"),
+			NicIndex:           makeIntPointer(0),
+			VnicId:             makeStringPointer(vnicID),
 		},
-	)
+	}
 
 	// I am really sorry for this
 	trueBoolean := true
@@ -136,19 +134,19 @@ func (i *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
 	})
 
 	gomock.InOrder(
-		i.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil),
-		i.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
+		s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
+		s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
 	)
 }
 
-func (i *instanceSuite) TestAddresses(c *gc.C) {
-	ctrl := i.patchEnv(c)
+func (s *instanceSuite) TestAddresses(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	i.setupListVnicsExpectations(i.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
 
-	inst, err := oci.NewInstance(*i.ociInstance, i.env)
+	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := inst.Addresses(nil)
@@ -158,14 +156,14 @@ func (i *instanceSuite) TestAddresses(c *gc.C) {
 	c.Check(addresses[1].Scope, gc.Equals, corenetwork.ScopePublic)
 }
 
-func (i *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
-	ctrl := i.patchEnv(c)
+func (s *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	i.setupListVnicsExpectations(i.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
 
-	inst, err := oci.NewInstance(*i.ociInstance, i.env)
+	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := inst.Addresses(nil)
@@ -175,12 +173,12 @@ func (i *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
 	c.Check(addresses[1].Scope, gc.Equals, corenetwork.ScopePublic)
 }
 
-func (i *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
-	ctrl := i.patchEnv(c)
+func (s *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
+	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	i.setupListVnicsExpectations(i.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
 
 	rules := firewall.IngressRules{{
 		PortRange: corenetwork.PortRange{
@@ -198,7 +196,7 @@ func (i *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
 		return ic
 	}
 
-	inst, err := oci.NewInstanceWithConfigurator(*i.ociInstance, i.env, factory)
+	inst, err := oci.NewInstanceWithConfigurator(*s.ociInstance, s.env, factory)
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst.OpenPorts(nil, "", rules), gc.IsNil)
 }

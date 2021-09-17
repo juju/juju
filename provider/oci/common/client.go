@@ -4,14 +4,12 @@
 package common
 
 import (
-	// "context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 
 	"github.com/juju/errors"
-
 	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
 )
 

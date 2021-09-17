@@ -42,11 +42,11 @@ import (
 type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
 
-	Compute    providerCommon.OCIComputeClient
-	Networking providerCommon.OCINetworkingClient
-	Storage    providerCommon.OCIStorageClient
-	Firewall   providerCommon.OCIFirewallClient
-	Identity   providerCommon.OCIIdentityClient
+	Compute    ComputeClient
+	Networking NetworkingClient
+	Storage    StorageClient
+	Firewall   FirewallClient
+	Identity   IdentityClient
 	ociConfig  ociCommon.ConfigurationProvider
 	p          *EnvironProvider
 	clock      clock.Clock
@@ -77,17 +77,15 @@ func (e *Environ) ecfg() *environConfig {
 
 func (e *Environ) allInstances(ctx envcontext.ProviderCallContext, tags map[string]string) ([]*ociInstance, error) {
 	compartment := e.ecfg().compartmentID()
-	request := ociCore.ListInstancesRequest{
-		CompartmentId: compartment,
-	}
-	response, err := e.Compute.ListInstances(context.Background(), request)
+
+	insts, err := e.Compute.PaginatedListInstances(context.Background(), compartment)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
 	ret := []*ociInstance{}
-	for _, val := range response.Items {
+	for _, val := range insts {
 		if val.LifecycleState == ociCore.InstanceLifecycleStateTerminated {
 			continue
 		}
@@ -231,21 +229,18 @@ func (e *Environ) getOciInstances(ctx envcontext.ProviderCallContext, ids ...ins
 	ret := []*ociInstance{}
 
 	compartmentID := e.ecfg().compartmentID()
-	request := ociCore.ListInstancesRequest{
-		CompartmentId: compartmentID,
-	}
 
-	instances, err := e.Compute.ListInstances(context.Background(), request)
+	instances, err := e.Compute.PaginatedListInstances(context.Background(), compartmentID)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	if len(instances.Items) == 0 {
+	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	for _, val := range instances.Items {
+	for _, val := range instances {
 		oInstance, err := newInstance(val, e)
 		if err != nil {
 			providerCommon.HandleCredentialError(err, ctx)

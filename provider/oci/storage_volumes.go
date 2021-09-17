@@ -36,8 +36,8 @@ type volumeSource struct {
 	env        *Environ
 	envName    string
 	modelUUID  string
-	storageAPI common.OCIStorageClient
-	computeAPI common.OCIComputeClient
+	storageAPI StorageClient
+	computeAPI ComputeClient
 	clock      clock.Clock
 }
 
@@ -88,18 +88,18 @@ func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storag
 		return nil, errors.Errorf("volume %s has no attachments", p.Tag.String())
 	}
 	instanceId := p.Attachment.InstanceId
-	instance, ok := instanceMap[instanceId]
+	inst, ok := instanceMap[instanceId]
 	if !ok {
 		ociInstances, err := v.env.getOciInstances(ctx, instanceId)
 		if err != nil {
 			common.HandleCredentialError(err, ctx)
 			return nil, errors.Trace(err)
 		}
-		instance = ociInstances[0]
-		instanceMap[instanceId] = instance
+		inst = ociInstances[0]
+		instanceMap[instanceId] = inst
 	}
 
-	availabilityZone := instance.availabilityZone()
+	availabilityZone := inst.availabilityZone()
 	name := p.Tag.String()
 
 	volTags := map[string]string{}
@@ -140,7 +140,7 @@ func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storag
 		return nil, errors.Trace(err)
 	}
 
-	return &storage.Volume{p.Tag, makeVolumeInfo(volumeDetails.Volume)}, nil
+	return &storage.Volume{Tag: p.Tag, VolumeInfo: makeVolumeInfo(volumeDetails.Volume)}, nil
 }
 
 func makeVolumeInfo(vol ociCore.Volume) storage.VolumeInfo {
@@ -188,15 +188,12 @@ func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params 
 
 func (v *volumeSource) allVolumes() (map[string]ociCore.Volume, error) {
 	result := map[string]ociCore.Volume{}
-	request := ociCore.ListVolumesRequest{
-		CompartmentId: v.env.ecfg().compartmentID(),
-	}
-	response, err := v.storageAPI.ListVolumes(context.Background(), request)
+	volumes, err := v.storageAPI.PaginatedListVolumes(context.Background(), v.env.ecfg().compartmentID())
 	if err != nil {
 		return nil, err
 	}
 
-	for _, val := range response.Items {
+	for _, val := range volumes {
 		if t, ok := val.FreeformTags[tags.JujuModel]; !ok {
 			continue
 		} else {
@@ -210,7 +207,7 @@ func (v *volumeSource) allVolumes() (map[string]ociCore.Volume, error) {
 }
 
 func (v *volumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string, error) {
-	ids := []string{}
+	var ids []string
 	volumes, err := v.allVolumes()
 	if err != nil {
 		common.HandleCredentialError(err, ctx)
@@ -358,17 +355,14 @@ func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 
 func (v *volumeSource) volumeAttachments(instanceId instance.Id) ([]ociCore.IScsiVolumeAttachment, error) {
 	instId := string(instanceId)
-	request := ociCore.ListVolumeAttachmentsRequest{
-		CompartmentId: v.env.ecfg().compartmentID(),
-		InstanceId:    &instId,
-	}
-	result, err := v.computeAPI.ListVolumeAttachments(context.Background(), request)
+
+	attachments, err := v.computeAPI.PaginatedListVolumeAttachments(context.Background(), v.env.ecfg().compartmentID(), &instId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ret := make([]ociCore.IScsiVolumeAttachment, len(result.Items))
+	ret := make([]ociCore.IScsiVolumeAttachment, len(attachments))
 
-	for idx, att := range result.Items {
+	for idx, att := range attachments {
 		// The oracle oci client will return a VolumeAttachment type, which is an
 		// interface. This is due to the fact that they will at some point support
 		// different attachment types. For the moment, there is only iSCSI, as stated
@@ -410,9 +404,9 @@ func makeVolumeAttachmentResult(attachment ociCore.IScsiVolumeAttachment, param 
 	}
 	result := storage.AttachVolumesResult{
 		VolumeAttachment: &storage.VolumeAttachment{
-			param.Volume,
-			param.Machine,
-			storage.VolumeAttachmentInfo{
+			Volume:  param.Volume,
+			Machine: param.Machine,
+			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 				PlanInfo: planInfo,
 			},
 		},
@@ -452,12 +446,12 @@ func (v *volumeSource) attachVolume(ctx envcontext.ProviderCallContext, param st
 	if len(instances) != 1 {
 		return storage.AttachVolumesResult{}, errors.Errorf("expected 1 instance, got %d", len(instances))
 	}
-	instance := instances[0]
-	if instance.raw.LifecycleState == ociCore.InstanceLifecycleStateTerminated || instance.raw.LifecycleState == ociCore.InstanceLifecycleStateTerminating {
-		return storage.AttachVolumesResult{}, errors.Errorf("invalid instance state for volume attachment: %s", instance.raw.LifecycleState)
+	inst := instances[0]
+	if inst.raw.LifecycleState == ociCore.InstanceLifecycleStateTerminated || inst.raw.LifecycleState == ociCore.InstanceLifecycleStateTerminating {
+		return storage.AttachVolumesResult{}, errors.Errorf("invalid instance state for volume attachment: %s", inst.raw.LifecycleState)
 	}
 
-	if err := instance.waitForMachineStatus(
+	if err := inst.waitForMachineStatus(
 		ociCore.InstanceLifecycleStateRunning,
 		5*time.Minute); err != nil {
 		return storage.AttachVolumesResult{}, errors.Trace(err)
@@ -542,7 +536,7 @@ func (v *volumeSource) getAttachmentStatus(resourceID *string) (string, error) {
 }
 
 func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
-	instanceIds := []instance.Id{}
+	var instanceIds []instance.Id
 	for _, val := range params {
 		instanceIds = append(instanceIds, val.InstanceId)
 	}
@@ -554,7 +548,7 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params 
 	if err != nil {
 		if isAuthFailure(err, ctx) {
 			common.HandleCredentialError(err, ctx)
-			// Exit out early to improve readibilty on handling credential
+			// Exit out early to improve readability on handling credential
 			// errors.
 			for idx := range params {
 				ret[idx].Error = errors.Trace(err)

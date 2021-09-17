@@ -150,39 +150,6 @@ func makeGetVnicRequestResponse(vnicDetails []ociCore.GetVnicResponse) ([]ociCor
 	return requests, responses
 }
 
-func makeListVcnRequestResponse(vcnDetails []ociCore.Vcn) (ociCore.ListVcnsRequest, ociCore.ListVcnsResponse) {
-	if len(vcnDetails) == 0 {
-		return ociCore.ListVcnsRequest{}, ociCore.ListVcnsResponse{}
-	}
-	compartment := vcnDetails[0].CompartmentId
-	request := ociCore.ListVcnsRequest{
-		CompartmentId: compartment,
-	}
-
-	response := ociCore.ListVcnsResponse{
-		Items: vcnDetails,
-	}
-	return request, response
-}
-
-func makeListSubnetsRequestResponse(subnetDetails []ociCore.Subnet) (ociCore.ListSubnetsRequest, ociCore.ListSubnetsResponse) {
-	if len(subnetDetails) == 0 {
-		return ociCore.ListSubnetsRequest{}, ociCore.ListSubnetsResponse{}
-	}
-	compartment := subnetDetails[0].CompartmentId
-	vcnID := subnetDetails[0].VcnId
-
-	request := ociCore.ListSubnetsRequest{
-		CompartmentId: compartment,
-		VcnId:         vcnID,
-	}
-
-	response := ociCore.ListSubnetsResponse{
-		Items: subnetDetails,
-	}
-	return request, response
-}
-
 func newFakeOCIInstance(Id, compartment string, state ociCore.InstanceLifecycleStateEnum) *ociCore.Instance {
 	return &ociCore.Instance{
 		AvailabilityDomain: makeStringPointer("fake-az"),
@@ -226,12 +193,7 @@ func makeListVnicAttachmentsRequestResponse(vnicAttachDetails []ociCore.VnicAtta
 	return request, response
 }
 
-func makeShapesRequestResponse(compartment, id string, shapeNames []string) (ociCore.ListShapesRequest, ociCore.ListShapesResponse) {
-	shapesRequest := ociCore.ListShapesRequest{
-		CompartmentId: &compartment,
-		ImageId:       &id,
-	}
-
+func makeShapesRequestResponse(compartment, id string, shapeNames []string) []ociCore.Shape {
 	ociShapes := []ociCore.Shape{}
 	for _, val := range shapeNames {
 		shape := ociCore.Shape{
@@ -240,26 +202,7 @@ func makeShapesRequestResponse(compartment, id string, shapeNames []string) (oci
 		ociShapes = append(ociShapes, shape)
 	}
 
-	shapesResponse := ociCore.ListShapesResponse{
-		Items: ociShapes,
-	}
-
-	return shapesRequest, shapesResponse
-}
-
-func makeListImageRequestResponse(imgDetails []ociCore.Image) (ociCore.ListImagesRequest, ociCore.ListImagesResponse) {
-	if len(imgDetails) == 0 {
-		return ociCore.ListImagesRequest{}, ociCore.ListImagesResponse{}
-	}
-
-	compartment := imgDetails[0].CompartmentId
-	request := ociCore.ListImagesRequest{
-		CompartmentId: compartment,
-	}
-	response := ociCore.ListImagesResponse{
-		Items: imgDetails,
-	}
-	return request, response
+	return ociShapes
 }
 
 type commonSuite struct {
@@ -269,11 +212,11 @@ type commonSuite struct {
 	testCompartment string
 	controllerUUID  string
 
-	ident   *ocitesting.MockOCIIdentityClient
-	compute *ocitesting.MockOCIComputeClient
-	netw    *ocitesting.MockOCINetworkingClient
-	fw      *ocitesting.MockOCIFirewallClient
-	storage *ocitesting.MockOCIStorageClient
+	ident   *ocitesting.MockIdentityClient
+	compute *ocitesting.MockComputeClient
+	netw    *ocitesting.MockNetworkingClient
+	fw      *ocitesting.MockFirewallClient
+	storage *ocitesting.MockStorageClient
 
 	env         *oci.Environ
 	provider    environs.EnvironProvider
@@ -335,9 +278,9 @@ func (e *commonSuite) setupListInstancesExpectations(instanceId string, state oc
 			},
 		},
 	)
-	expect := e.compute.EXPECT().ListInstances(
-		context.Background(), listInstancesRequest).Return(
-		listInstancesResponse, nil)
+	expect := e.compute.EXPECT().PaginatedListInstances(
+		context.Background(), listInstancesRequest.CompartmentId).Return(
+		listInstancesResponse.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -347,11 +290,11 @@ func (e *commonSuite) setupListInstancesExpectations(instanceId string, state oc
 
 func (s *commonSuite) patchEnv(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.compute = ocitesting.NewMockOCIComputeClient(ctrl)
-	s.ident = ocitesting.NewMockOCIIdentityClient(ctrl)
-	s.netw = ocitesting.NewMockOCINetworkingClient(ctrl)
-	s.fw = ocitesting.NewMockOCIFirewallClient(ctrl)
-	s.storage = ocitesting.NewMockOCIStorageClient(ctrl)
+	s.compute = ocitesting.NewMockComputeClient(ctrl)
+	s.ident = ocitesting.NewMockIdentityClient(ctrl)
+	s.netw = ocitesting.NewMockNetworkingClient(ctrl)
+	s.fw = ocitesting.NewMockFirewallClient(ctrl)
+	s.storage = ocitesting.NewMockStorageClient(ctrl)
 
 	s.env.Compute = s.compute
 	s.env.Networking = s.netw

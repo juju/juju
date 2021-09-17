@@ -66,16 +66,13 @@ func (e *Environ) getVCNStatus(vcnID *string) (string, error) {
 }
 
 func (e *Environ) allVCNs(controllerUUID, modelUUID string) ([]ociCore.Vcn, error) {
-	request := ociCore.ListVcnsRequest{
-		CompartmentId: e.ecfg().compartmentID(),
-	}
-	response, err := e.Networking.ListVcns(context.Background(), request)
+	vcns, err := e.Networking.PaginatedListVcns(context.Background(), e.ecfg().compartmentID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ret := []ociCore.Vcn{}
-	if len(response.Items) > 0 {
-		for _, val := range response.Items {
+	if len(vcns) > 0 {
+		for _, val := range vcns {
 			tag, ok := val.FreeformTags[tags.JujuController]
 			if !ok || tag != controllerUUID {
 				continue
@@ -174,19 +171,15 @@ func (e *Environ) getSecurityListStatus(resourceID *string) (string, error) {
 func (e *Environ) jujuSecurityLists(vcnId *string) ([]ociCore.SecurityList, error) {
 	var ret []ociCore.SecurityList
 
-	request := ociCore.ListSecurityListsRequest{
-		CompartmentId: e.ecfg().compartmentID(),
-		VcnId:         vcnId,
-	}
-	response, err := e.Firewall.ListSecurityLists(context.Background(), request)
+	lists, err := e.Firewall.PaginatedListSecurityLists(context.Background(), e.ecfg().compartmentID(), vcnId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(response.Items) == 0 {
+	if len(lists) == 0 {
 		return ret, errors.NotFoundf("security lists for vcn: %q", *vcnId)
 	}
-	for _, val := range response.Items {
+	for _, val := range lists {
 		if !strings.HasPrefix(*val.DisplayName, SecListNamePrefix) {
 			continue
 		}
@@ -270,17 +263,13 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 }
 
 func (e *Environ) allSubnets(controllerUUID, modelUUID string, vcnID *string) (map[string][]ociCore.Subnet, error) {
-	request := ociCore.ListSubnetsRequest{
-		CompartmentId: e.ecfg().compartmentID(),
-		VcnId:         vcnID,
-	}
-	response, err := e.Networking.ListSubnets(context.Background(), request)
+	subnets, err := e.Networking.PaginatedListSubnets(context.Background(), e.ecfg().compartmentID(), vcnID)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := map[string][]ociCore.Subnet{}
-	for _, val := range response.Items {
+	for _, val := range subnets {
 		tag, ok := val.FreeformTags[tags.JujuController]
 		if !ok || tag != controllerUUID {
 			continue
@@ -653,20 +642,16 @@ func (e *Environ) getInternetGateway(vcnID *string) (ociCore.InternetGateway, er
 	if vcnID == nil {
 		return ociCore.InternetGateway{}, errors.Errorf("vcnID may not be nil")
 	}
-	request := ociCore.ListInternetGatewaysRequest{
-		CompartmentId: e.ecfg().compartmentID(),
-		VcnId:         vcnID,
-	}
 
-	response, err := e.Networking.ListInternetGateways(context.Background(), request)
+	internetGateways, err := e.Networking.PaginatedListInternetGateways(context.Background(), e.ecfg().compartmentID(), vcnID)
 	if err != nil {
 		return ociCore.InternetGateway{}, errors.Trace(err)
 	}
-	if len(response.Items) == 0 {
+	if len(internetGateways) == 0 {
 		return ociCore.InternetGateway{}, errors.NotFoundf("internet gateways for vcn %q", *vcnID)
 	}
 
-	return response.Items[0], nil
+	return internetGateways[0], nil
 }
 
 func (e *Environ) internetGatewayName(controllerUUID, modelUUID string) string {
@@ -760,17 +745,13 @@ func (e *Environ) jujuRouteTables(vcnId *string) ([]ociCore.RouteTable, error) {
 	if vcnId == nil {
 		return ret, errors.Errorf("vcnId may not be nil")
 	}
-	request := ociCore.ListRouteTablesRequest{
-		CompartmentId: e.ecfg().compartmentID(),
-		VcnId:         vcnId,
-	}
 
-	response, err := e.Networking.ListRouteTables(context.Background(), request)
+	routeTables, err := e.Networking.PaginatedListRouteTables(context.Background(), e.ecfg().compartmentID(), vcnId)
 	if err != nil {
 		return ret, errors.Trace(err)
 	}
 
-	for _, val := range response.Items {
+	for _, val := range routeTables {
 		if !strings.HasPrefix(*val.DisplayName, RouteTablePrefix) {
 			continue
 		}
@@ -907,32 +888,24 @@ func (e *Environ) deleteRouteTable(controllerUUID, modelUUID string, vcnId *stri
 }
 
 func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, error) {
-	request := ociCore.ListVcnsRequest{
-		CompartmentId: e.ecfg().compartmentID(),
-	}
-
-	response, err := e.Networking.ListVcns(context.Background(), request)
+	vcns, err := e.Networking.PaginatedListVcns(context.Background(), e.ecfg().compartmentID())
 	if err != nil {
 		return map[string]ociCore.Subnet{}, errors.Trace(err)
 	}
 
 	result := map[string]ociCore.Subnet{}
-	for _, vcn := range response.Items {
+	for _, vcn := range vcns {
 		if modelUUID != "" {
 			tag, ok := vcn.FreeformTags[tags.JujuModel]
 			if !ok || tag != modelUUID {
 				continue
 			}
 		}
-		subnetRequest := ociCore.ListSubnetsRequest{
-			CompartmentId: e.ecfg().compartmentID(),
-			VcnId:         vcn.Id,
-		}
-		subnets, err := e.Networking.ListSubnets(context.Background(), subnetRequest)
+		subnets, err := e.Networking.PaginatedListSubnets(context.Background(), e.ecfg().compartmentID(), vcn.Id)
 		if err != nil {
 			return map[string]ociCore.Subnet{}, err
 		}
-		for _, subnet := range subnets.Items {
+		for _, subnet := range subnets {
 			if subnet.Id == nil {
 				continue
 			}
