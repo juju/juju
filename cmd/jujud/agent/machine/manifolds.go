@@ -279,7 +279,13 @@ type ManifoldsConfig struct {
 	LeaseLog io.Writer
 
 	// RaftOpQueue represents a way to apply operations on to the raft
-	// instance from the API.
+	// instance from the API. The RaftQueue exists outside of the dependency
+	// engine to prevent a circular dependency that can not be solved. By
+	// allowing back pressure on a client callee, we can allow for serialized
+	// operations upon the raft leader.
+	// If the queue becomes stalled there is now way to bounce this without
+	// restarting the agent itself. The same architecture is also applied to
+	// pubsub. Monitoring might be useful to detect this in the future.
 	RaftOpQueue *queue.BlockingOpQueue
 }
 

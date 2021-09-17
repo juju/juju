@@ -180,7 +180,8 @@ type withRaftOutputs interface {
 	LogStore() (raft.LogStore, error)
 }
 
-// NewTarget is a shim to construct a raftlease.NotifyTarget for testability.
+// NewTarget creates a new lease notify target using the dependencies in a late
+// fashion.
 func NewTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
 	return st.LeaseNotifyTarget(logger)
 }
