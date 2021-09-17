@@ -33,6 +33,7 @@ type refreshOne struct {
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
+	metrics     transport.ContextMetrics
 }
 
 // InstanceKey returns the underlying instance key.
@@ -59,6 +60,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			Revision:        c.Revision,
 			Base:            base,
 			TrackingChannel: c.Channel,
+			Metrics:         c.metrics,
 			// TODO (stickupkid): We need to model the refreshed date. It's
 			// currently optional, but will be required at some point. This
 			// is the installed date of the charm on the system.
