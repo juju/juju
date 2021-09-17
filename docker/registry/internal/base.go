@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/docker"
 )
 
-var logger = loggo.GetLogger("juju.docker.registry")
+var logger = loggo.GetLogger("juju.docker.registry.internal")
 
 const (
 	defaultTimeout = 15 * time.Second
@@ -86,24 +86,51 @@ func (c *baseClient) APIVersion() APIVersion {
 	return APIVersionV1
 }
 
-func (c *baseClient) WrapTransport() error {
-	transport := c.client.Transport
-	if c.repoDetails.IsPrivate() {
-		if !c.repoDetails.BasicAuthConfig.Empty() {
+// TransportWrapper wraps RoundTripper then return.
+type TransportWrapper func(http.RoundTripper, *docker.ImageRepoDetails) (http.RoundTripper, error)
+
+func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
+	if repoDetails.IsPrivate() {
+		if !repoDetails.BasicAuthConfig.Empty() {
 			transport = newTokenTransport(
-				transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "", false,
+				transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
 			)
 		}
-		if !c.repoDetails.TokenAuthConfig.Empty() {
-			return errors.New(
+		if !repoDetails.TokenAuthConfig.Empty() {
+			return nil, errors.New(
 				fmt.Sprintf(
 					`only "username" and "password" or "auth" token authorization is supported for registry %q`,
-					c.repoDetails.ServerAddress,
+					repoDetails.ServerAddress,
 				),
 			)
 		}
 	}
-	c.client.Transport = newErrorTransport(transport)
+	return transport, nil
+}
+
+func wrapTransport(
+	transport http.RoundTripper,
+	repoDetails *docker.ImageRepoDetails,
+	wrappers ...TransportWrapper,
+) (http.RoundTripper, error) {
+	var err error
+	for _, wrap := range wrappers {
+		if transport, err = wrap(transport, repoDetails); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return transport, nil
+}
+
+func wrapErrorTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
+	return newErrorTransport(transport), nil
+}
+
+func (c *baseClient) WrapTransport(wrappers ...TransportWrapper) (err error) {
+	wrappers = append(wrappers, transportCommon, wrapErrorTransport)
+	if c.client.Transport, err = wrapTransport(c.client.Transport, c.repoDetails, wrappers...); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

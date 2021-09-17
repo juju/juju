@@ -61,23 +61,31 @@ func (c *googleContainerRegistry) APIVersion() APIVersion {
 	return APIVersionV2
 }
 
-func (c *googleContainerRegistry) WrapTransport() error {
-	transport := c.client.Transport
-	if c.repoDetails.IsPrivate() {
-		if !c.repoDetails.BasicAuthConfig.Empty() {
-			if err := validateGoogleContainerRegistryCredential(c.repoDetails.BasicAuthConfig); err != nil {
-				return errors.Annotatef(err, "validating the google container registry credential")
+func googleContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
+) (http.RoundTripper, error) {
+	if repoDetails.IsPrivate() {
+		if !repoDetails.BasicAuthConfig.Empty() {
+			if err := validateGoogleContainerRegistryCredential(repoDetails.BasicAuthConfig); err != nil {
+				return nil, errors.Annotatef(err, "validating the google container registry credential")
 			}
 			transport = newTokenTransport(
 				transport,
-				c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "", false,
+				repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
 			)
 		}
-		if !c.repoDetails.TokenAuthConfig.Empty() {
-			return errors.New("google container registry only supports username and password or auth token")
+		if !repoDetails.TokenAuthConfig.Empty() {
+			return nil, errors.New("google container registry only supports username and password or auth token")
 		}
 	}
-	c.client.Transport = newErrorTransport(transport)
+	return transport, nil
+}
+
+func (c *googleContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
+	if c.client.Transport, err = wrapTransport(
+		c.client.Transport, c.repoDetails, googleContainerRegistryTransport, wrapErrorTransport,
+	); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

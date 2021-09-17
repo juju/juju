@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
+	registryutils "github.com/juju/juju/docker/registry/utils"
 	"github.com/juju/juju/pki"
 )
 
@@ -861,6 +862,12 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	defer func() { _ = r.Close() }()
+
+	if err = r.Ping(); registryutils.IsPublicRegistryAPINotAvailableError(err) {
+		logger.Warningf("%v, upgrade controller/model will not work, please consider to provide registry credential", err)
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
 	return r.ImageRepoDetails().String(), nil
 }
 

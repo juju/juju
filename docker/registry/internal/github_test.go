@@ -61,17 +61,6 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 				},
 			),
 		)
-	} else {
-		gomock.InOrder(
-			// registry.Ping()
-			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v1`)
-					return &http.Response{Request: req, StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
-				},
-			),
-		)
 	}
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
@@ -79,11 +68,16 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := reg.(*internal.GithubContainerRegistry)
 	c.Assert(ok, jc.IsTrue)
+	err = reg.Ping()
+	if s.isPrivate {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, `.*public registry API is not available for "ghcr.io"`)
+	}
 	return reg, ctrl
 }
 
 func (s *githubSuite) TestPingPublicRepository(c *gc.C) {
-	c.Skip("TODO(ycliuhw): support github public registry")
 	s.isPrivate = false
 	_, ctrl := s.getRegistry(c)
 	ctrl.Finish()
@@ -95,37 +89,13 @@ func (s *githubSuite) TestPingPrivateRepository(c *gc.C) {
 	ctrl.Finish()
 }
 
-func (s *githubSuite) TestTagsV1(c *gc.C) {
-	c.Skip("TODO(ycliuhw): support github public registry")
-	// Use v1 for public repository.
+func (s *githubSuite) TestTagsPublic(c *gc.C) {
 	s.isPrivate = false
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
 
-	data := `
-[{"name": "2.9.10.1"},{"name": "2.9.10.2"},{"name": "2.9.10"}]
-`[1:]
-
-	gomock.InOrder(
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags`)
-			resps := &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
-			}
-			return resps, nil
-		}),
-	)
-	vers, err := reg.Tags("jujud-operator")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, tools.Versions{
-		image.NewImageInfo(version.MustParse("2.9.10.1")),
-		image.NewImageInfo(version.MustParse("2.9.10.2")),
-		image.NewImageInfo(version.MustParse("2.9.10")),
-	})
+	_, err := reg.Tags("jujud-operator")
+	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags": public registry API is not available for "ghcr.io"`)
 }
 
 func (s *githubSuite) TestTagsV2(c *gc.C) {
@@ -161,31 +131,13 @@ func (s *githubSuite) TestTagsV2(c *gc.C) {
 	})
 }
 
-func (s *githubSuite) TestTagsErrorResponseV1(c *gc.C) {
-	c.Skip("TODO(ycliuhw): support github public registry")
+func (s *githubSuite) TestTagsErrorResponsePublic(c *gc.C) {
 	s.isPrivate = false
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
 
-	data := `
-{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}
-`[1:]
-
-	gomock.InOrder(
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags`)
-			resps := &http.Response{
-				Request:    req,
-				StatusCode: http.StatusForbidden,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
-			}
-			return resps, nil
-		}),
-	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags": non-successful response status=403`)
+	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags": public registry API is not available for "ghcr.io"`)
 }
 
 func (s *githubSuite) TestTagsErrorResponseV2(c *gc.C) {

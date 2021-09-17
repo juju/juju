@@ -34,8 +34,5 @@ func InitProvider(c Initializer) error {
 	if err := c.WrapTransport(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.Ping(); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }

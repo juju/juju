@@ -43,24 +43,29 @@ func getBearerTokenForGithub(auth string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(token)), nil
 }
 
-func (c *githubContainerRegistry) WrapTransport() error {
-	transport := c.client.Transport
-	if c.repoDetails.IsPrivate() {
-		if !c.repoDetails.BasicAuthConfig.Empty() {
-			bearerToken, err := getBearerTokenForGithub(c.repoDetails.Auth)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			transport = newTokenTransport(
-				transport, "", "", "", bearerToken, true,
-			)
+func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
+) (http.RoundTripper, error) {
+	if !repoDetails.BasicAuthConfig.Empty() {
+		bearerToken, err := getBearerTokenForGithub(repoDetails.Auth)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		if !c.repoDetails.TokenAuthConfig.Empty() {
-			return errors.New("github only supports username and password or auth token")
-		}
+		transport = newTokenTransport(
+			transport, "", "", "", bearerToken, true,
+		)
 	}
-	// TODO(ycliuhw): support github public registry.
-	c.client.Transport = newErrorTransport(transport)
+	if !repoDetails.TokenAuthConfig.Empty() {
+		return nil, errors.New("github only supports username and password or auth token")
+	}
+	return transport, nil
+}
+
+func (c *githubContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
+	if c.client.Transport, err = wrapTransport( // TODO: test!!
+		c.client.Transport, c.repoDetails, newPrivateOnlyTransport, githubContainerRegistryTransport, wrapErrorTransport,
+	); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -76,5 +81,5 @@ func (c githubContainerRegistry) Ping() error {
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	return errors.Trace(err)
+	return err
 }

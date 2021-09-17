@@ -26,6 +26,8 @@ func (c *quayContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "quay.io")
 }
 
-func (c *quayContainerRegistry) WrapTransport() error {
+func (c *quayContainerRegistry) WrapTransport(...TransportWrapper) error {
 	return errors.NotSupportedf("quay.io container registry")
 }
+
+// TODO: !!
