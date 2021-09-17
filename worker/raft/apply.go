@@ -14,6 +14,17 @@ import (
 	"github.com/juju/juju/worker/raft/queue"
 )
 
+const (
+	// InitialApplyTimeout is the initial timeout for applying a time. When
+	// starting up a raft backend, on some machines it might take more than the
+	// running apply timeout. For that reason, we allow a grace period when
+	// initializing.
+	InitialApplyTimeout time.Duration = time.Second * 5
+	// ApplyTimeout is the timeout for applying a command in an operation. It
+	// is expected that raft can commit a log with in this timeout.
+	ApplyTimeout time.Duration = time.Second * 2
+)
+
 // Raft defines a local use Raft instance.
 type Raft interface {
 	// State is used to return the current raft state.
@@ -62,7 +73,7 @@ func NewApplier(raft Raft, target raftlease.NotifyTarget, clock clock.Clock, log
 // the leader, if known." (see 6.2.1).
 // If the leader is the current raft instance, then attempt to apply it to
 // the fsm.
-func (a *Applier) ApplyOperation(op queue.Operation) error {
+func (a *Applier) ApplyOperation(op queue.Operation, applyTimeout time.Duration) error {
 	if state := a.raft.State(); state != raft.Leader {
 		leaderAddress := a.raft.Leader()
 
@@ -101,25 +112,28 @@ func (a *Applier) ApplyOperation(op queue.Operation) error {
 		return NewNotLeaderError(string(leaderAddress), leaderID)
 	}
 
-	a.logger.Tracef("Applying command %v", string(op.Command))
+	// TODO (stickupkid): Use the raft batch apply. For now we're only ever
+	// going to apply one at a time, so we can change this at a later date.
+	for i, command := range op.Commands {
+		a.logger.Tracef("Applying command %d %v", i, string(command))
 
-	timeout := op.Deadline.Sub(a.clock.Now())
-	future := a.raft.Apply(op.Command, timeout)
-	if err := future.Error(); err != nil {
-		return errors.Trace(err)
-	}
+		future := a.raft.Apply(command, applyTimeout)
+		if err := future.Error(); err != nil {
+			return errors.Trace(err)
+		}
 
-	response := future.Response()
-	fsmResponse, ok := response.(raftlease.FSMResponse)
-	if !ok {
-		// This should never happen.
-		panic(errors.Errorf("programming error: expected an FSMResponse, got %T: %#v", response, response))
-	}
-	if err := fsmResponse.Error(); err != nil {
-		return errors.Trace(err)
-	}
+		response := future.Response()
+		fsmResponse, ok := response.(raftlease.FSMResponse)
+		if !ok {
+			// This should never happen.
+			panic(errors.Errorf("programming error: expected an FSMResponse, got %T: %#v", response, response))
+		}
+		if err := fsmResponse.Error(); err != nil {
+			return errors.Trace(err)
+		}
 
-	fsmResponse.Notify(a.notifyTarget)
+		fsmResponse.Notify(a.notifyTarget)
+	}
 
 	return nil
 }

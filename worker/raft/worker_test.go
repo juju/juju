@@ -59,7 +59,7 @@ type testLeaseApplier struct {
 	operations chan queue.Operation
 }
 
-func (a testLeaseApplier) ApplyOperation(op queue.Operation) error {
+func (a testLeaseApplier) ApplyOperation(op queue.Operation, _ time.Duration) error {
 	a.operations <- op
 	return nil
 }
@@ -402,15 +402,15 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 // TestApplyOperation tests that we get a new operation on the queue, not if
 // the operation was processed. That's up to the apply test suite.
 func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
-	cmd := []byte("do it")
+	cmds := [][]byte{[]byte("do it")}
 
-	results := make(chan []byte, 1)
+	results := make(chan [][]byte, 1)
 	go func() {
 		defer close(results)
 
 		// We expect at least one operation to come through.
 		for op := range s.operations {
-			results <- op.Command
+			results <- op.Commands
 			break
 		}
 	}()
@@ -418,14 +418,13 @@ func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
 	s.waitLeader(c)
 
 	err := s.queue.Enqueue(queue.Operation{
-		Command:  cmd,
-		Deadline: s.clock.Now().Add(testing.ShortWait),
+		Commands: cmds,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var amount int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, cmd)
+		c.Assert(result, gc.DeepEquals, cmds)
 		amount++
 	}
 	c.Assert(amount, gc.Equals, 1)

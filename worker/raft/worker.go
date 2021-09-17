@@ -79,6 +79,7 @@ type Logger interface {
 	Infof(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	Logf(level loggo.Level, message string, args ...interface{})
+	IsTraceEnabled() bool
 }
 
 // Queue is a blocking queue to guard access and to serialize raft applications,
@@ -94,15 +95,17 @@ type Queue interface {
 // LeaseApplier applies operations from the queue onto the underlying raft
 // instance.
 type LeaseApplier interface {
-	// ApplyOperation applies an lease opeartion against the raft instance. If the
-	// raft instance isn't the leader, then an error is returned with the leader
-	// information if available.
-	// This Raft spec outlines this "The first option, which we recommend ..., is
-	// for the server to reject the request and return to the client the address of
-	// the leader, if known." (see 6.2.1).
+	// ApplyOperation applies an lease opeartion against the raft instance. If
+	// the raft instance isn't the leader, then an error is returned with the
+	// leader information if available.
+	// This Raft spec outlines this "The first option, which we recommend ...,
+	// is for the server to reject the request and return to the client the
+	// address of the leader, if known." (see 6.2.1).
 	// If the leader is the current raft instance, then attempt to apply it to
 	// the fsm.
-	ApplyOperation(queue.Operation) error
+	// The time duration is the applying of a command in an operation, not for
+	// the whole operation.
+	ApplyOperation(queue.Operation, time.Duration) error
 }
 
 // Config is the configuration required for running a raft worker.
@@ -412,6 +415,11 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 
 	applier := w.config.NewApplier(r, w.config.NotifyTarget, w.config.Clock, w.config.Logger)
 
+	// applyTimeout represents the amount of time we allow for raft to apply
+	// a command. As raft is bootstrapping, we allow an initial timeout and once
+	// applied, we reduce the timeout. 5 seconds is a lifetime for every apply.
+	applyTimeout := InitialApplyTimeout
+
 	shutdown := make(chan raft.Observation)
 	observer := raft.NewObserver(shutdown, true, func(o *raft.Observation) bool {
 		return o.Data == raft.Shutdown
@@ -456,11 +464,14 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 			}
 
 		case op := <-w.config.Queue.Queue():
-			w.config.Logger.Tracef("New operation to be applied on raft logs: %v", string(op.Command))
+			if w.config.Logger.IsTraceEnabled() {
+				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log: %v", len(op.Commands), op.String())
+			}
 			// Apply any operation on to the current raft implementation.
 			// This ensures that we serialize the applying of operations onto
 			// the raft state.
-			w.config.Queue.Error() <- applier.ApplyOperation(op)
+			w.config.Queue.Error() <- applier.ApplyOperation(op, applyTimeout)
+			applyTimeout = ApplyTimeout
 
 		case w.raftCh <- r:
 		case w.logStoreCh <- logStore:
@@ -576,6 +587,6 @@ func (BootstrapNotifyTarget) Expired(lease.Key) {}
 
 type BootstrapLeaseApplier struct{}
 
-func (BootstrapLeaseApplier) ApplyOperation(queue.Operation) error {
+func (BootstrapLeaseApplier) ApplyOperation(queue.Operation, time.Duration) error {
 	panic("ApplyOperation should not be called during bootstrap")
 }
