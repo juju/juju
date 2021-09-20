@@ -302,6 +302,18 @@ var parseConstraintsTests = []struct {
 		args:    []string{"spaces="},
 	},
 
+	// instance roles
+	{
+		summary: "set instance role",
+		args:    []string{"instance-role=foobarir"},
+	}, {
+		summary: "instance role empty",
+		args:    []string{"instance-role="},
+	}, {
+		summary: "instance role auto",
+		args:    []string{"instance-role=auto"},
+	},
+
 	// instance type
 	{
 		summary: "set instance type",
@@ -371,7 +383,8 @@ var parseConstraintsTests = []struct {
 		summary: "kitchen sink together",
 		args: []string{
 			"root-disk=8G mem=2T  arch=i386  cores=4096 cpu-power=9001 container=lxd " +
-				"tags=foo,bar spaces=space1,^space2 instance-type=foo",
+				"tags=foo,bar spaces=space1,^space2 instance-type=foo " +
+				"instance-role=foo1",
 			"virt-type=kvm zones=az1,az2 allocate-public-ip=true root-disk-source=sourcename"},
 		result: &constraints.Value{
 			Arch:             strp("i386"),
@@ -383,6 +396,7 @@ var parseConstraintsTests = []struct {
 			RootDiskSource:   strp("sourcename"),
 			Tags:             &[]string{"foo", "bar"},
 			Spaces:           &[]string{"space1", "^space2"},
+			InstanceRole:     strp("foo1"),
 			InstanceType:     strp("foo"),
 			VirtType:         strp("kvm"),
 			Zones:            &[]string{"az1", "az2"},
@@ -393,7 +407,8 @@ var parseConstraintsTests = []struct {
 		args: []string{
 			"root-disk=8G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf",
 			"container=lxd", "tags=foo,bar", "spaces=space1,^space2",
-			"instance-type=foo", "virt-type=kvm", "zones=az1,az2", "allocate-public-ip=false"},
+			"instance-type=foo", "virt-type=kvm", "zones=az1,az2", "allocate-public-ip=false",
+			"instance-role=foo2"},
 		result: &constraints.Value{
 			Arch:             strp("armhf"),
 			Container:        (*instance.ContainerType)(strp("lxd")),
@@ -403,6 +418,7 @@ var parseConstraintsTests = []struct {
 			RootDisk:         uint64p(8192),
 			Tags:             &[]string{"foo", "bar"},
 			Spaces:           &[]string{"space1", "^space2"},
+			InstanceRole:     strp("foo2"),
 			InstanceType:     strp("foo"),
 			VirtType:         strp("kvm"),
 			Zones:            &[]string{"az1", "az2"},
@@ -412,7 +428,7 @@ var parseConstraintsTests = []struct {
 		summary: "kitchen sink together with spaced zones",
 		args: []string{
 			`root-disk=8G mem=2T  arch=i386  cores=4096 zones=Availability\ zone\ 1 cpu-power=9001 container=lxd ` +
-				"tags=foo,bar spaces=space1,^space2 instance-type=foo",
+				"tags=foo,bar spaces=space1,^space2 instance-type=foo instance-role=foo3",
 			"virt-type=kvm"},
 		result: &constraints.Value{
 			Arch:         strp("i386"),
@@ -423,6 +439,7 @@ var parseConstraintsTests = []struct {
 			RootDisk:     uint64p(8192),
 			Tags:         &[]string{"foo", "bar"},
 			Spaces:       &[]string{"space1", "^space2"},
+			InstanceRole: strp("foo3"),
 			InstanceType: strp("foo"),
 			VirtType:     strp("kvm"),
 			Zones:        &[]string{"Availability zone 1"},
@@ -620,6 +637,8 @@ func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("container=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("instance-role=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("instance-type=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("zones=")
@@ -677,6 +696,8 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Spaces1", constraints.Value{Spaces: nil}},
 	{"Spaces2", constraints.Value{Spaces: &[]string{}}},
 	{"Spaces3", constraints.Value{Spaces: &[]string{"space1", "^space2"}}},
+	{"InstanceRole1", constraints.Value{InstanceRole: strp("")}},
+	{"InstanceRole2", constraints.Value{InstanceRole: strp("foo")}},
 	{"InstanceType1", constraints.Value{InstanceType: strp("")}},
 	{"InstanceType2", constraints.Value{InstanceType: strp("foo")}},
 	{"Zones1", constraints.Value{Zones: nil}},

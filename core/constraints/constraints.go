@@ -30,6 +30,7 @@ const (
 	RootDisk         = "root-disk"
 	RootDiskSource   = "root-disk-source"
 	Tags             = "tags"
+	InstanceRole     = "instance-role"
 	InstanceType     = "instance-type"
 	Spaces           = "spaces"
 	VirtType         = "virt-type"
@@ -80,6 +81,11 @@ type Value struct {
 	// An empty list is treated the same as a nil (unspecified) list, except an
 	// empty list will override any default tags, where a nil list will not.
 	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
+
+	// InstanceRole, if not nil, indicates that the specificed role/profile for
+	// the given cloud should be used. Only valid for clouds which support
+	// instance roles. Currently only for AWS with instance-profiles
+	InstanceRole *string `json:"instance-role,omitempty" yaml:"instance-role,omitempty"`
 
 	// InstanceType, if not nil, indicates that the specified cloud instance type
 	// be used. Only valid for clouds which support instance types.
@@ -156,6 +162,12 @@ func (v *Value) HasRootDisk() bool {
 // source for its root disk.
 func (v *Value) HasRootDiskSource() bool {
 	return v.RootDiskSource != nil && *v.RootDiskSource != ""
+}
+
+// HasInstanceRole returns true if the constraints.Value specifies an instance
+// role.
+func (v *Value) HasInstanceRole() bool {
+	return v.InstanceRole != nil && *v.InstanceRole != ""
 }
 
 // HasInstanceType returns true if the constraints.Value specifies an instance type.
@@ -235,6 +247,9 @@ func (v Value) String() string {
 	if v.CpuPower != nil {
 		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
 	}
+	if v.InstanceRole != nil {
+		strs = append(strs, "instance-role="+(*v.InstanceRole))
+	}
 	if v.InstanceType != nil {
 		strs = append(strs, "instance-type="+(*v.InstanceType))
 	}
@@ -301,6 +316,9 @@ func (v Value) GoString() string {
 	}
 	if v.RootDisk != nil {
 		values = append(values, fmt.Sprintf("RootDisk: %v", *v.RootDisk))
+	}
+	if v.InstanceRole != nil {
+		values = append(values, fmt.Sprintf("InstanceRole: %q", *v.InstanceRole))
 	}
 	if v.InstanceType != nil {
 		values = append(values, fmt.Sprintf("InstanceType: %q", *v.InstanceType))
@@ -490,6 +508,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setRootDiskSource(str)
 	case Tags:
 		err = v.setTags(str)
+	case InstanceRole:
+		err = v.setInstanceRole(str)
 	case InstanceType:
 		err = v.setInstanceType(str)
 	case Spaces:
@@ -539,6 +559,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		case Container:
 			ctype := instance.ContainerType(vstr)
 			v.Container = &ctype
+		case InstanceRole:
+			v.InstanceRole = &vstr
 		case InstanceType:
 			v.InstanceType = &vstr
 		case Cores:
@@ -626,6 +648,14 @@ func (v *Value) setCpuPower(str string) (err error) {
 	}
 	v.CpuPower, err = parseUint64(str)
 	return
+}
+
+func (v *Value) setInstanceRole(str string) error {
+	if v.InstanceRole != nil {
+		return errors.Errorf("already set")
+	}
+	v.InstanceRole = &str
+	return nil
 }
 
 func (v *Value) setInstanceType(str string) error {
