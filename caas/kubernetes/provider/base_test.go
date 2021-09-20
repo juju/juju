@@ -38,7 +38,6 @@ import (
 	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	"k8s.io/client-go/rest"
-	// k8srestfake "k8s.io/client-go/rest/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -473,9 +472,6 @@ type fakeClientSuite struct {
 	mockValidatingWebhookConfigurationV1Beta1 admissionregistrationv1beta1.ValidatingWebhookConfigurationInterface
 
 	mockDynamicClient dynamic.Interface
-	// TODO
-	// mockResourceClient              dynamic.ResourceInterface
-	// mockNamespaceableResourceClient dynamic.NamespaceableResourceInterface
 
 	mockServiceAccounts     corev1.ServiceAccountInterface
 	mockRoles               rbacv1.RoleInterface
@@ -520,7 +516,7 @@ func (s *fakeClientSuite) SetUpTest(c *gc.C) {
 	s.namespace = s.cfg.Name()
 	s.clock = testclock.NewClock(time.Time{})
 
-	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, s.namespace)
+	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
@@ -530,6 +526,13 @@ func (s *fakeClientSuite) SetUpTest(c *gc.C) {
 func (s *fakeClientSuite) TearDownTest(c *gc.C) {
 	s.watchers = nil
 	s.IsolationSuite.TearDownTest(c)
+}
+
+func (s *fakeClientSuite) getNamespace() string {
+	if s.broker != nil {
+		return s.broker.GetCurrentNamespace()
+	}
+	return s.namespace
 }
 
 func (s *fakeClientSuite) setupBroker(
@@ -559,7 +562,7 @@ func (s *fakeClientSuite) setupBroker(
 	})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.namespace, newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 }

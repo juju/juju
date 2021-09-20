@@ -9,6 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -170,4 +171,12 @@ func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.P
 
 func GetCloudProviderFromNodeMeta(node core.Node) (string, string) {
 	return getCloudRegionFromNodeMeta(node)
+}
+
+func (k *kubernetesClient) GetPod(podName string) (*core.Pod, error) {
+	return k.getPod(podName)
+}
+
+func (k *kubernetesClient) GetStatefulSet(name string) (*apps.StatefulSet, error) {
+	return k.getStatefulSet(name)
 }
