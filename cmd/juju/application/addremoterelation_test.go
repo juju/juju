@@ -4,6 +4,7 @@
 package application
 
 import (
+	"os"
 	"regexp"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -32,6 +33,10 @@ var _ = gc.Suite(&AddRemoteRelationSuiteNewAPI{})
 func (s *AddRemoteRelationSuiteNewAPI) SetUpTest(c *gc.C) {
 	s.baseAddRemoteRelationSuite.SetUpTest(c)
 	s.mockAPI.version = 5
+}
+
+func (s *AddRemoteRelationSuiteNewAPI) TearDownSuite(c *gc.C) {
+	os.Exit(1)
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationNoRemoteApplications(c *gc.C) {

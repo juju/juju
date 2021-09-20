@@ -146,6 +146,7 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 		}
 	}
 	fullpath := f.fullPath(name)
+	fmt.Println("!!!!", fullpath)
 	dir := filepath.Dir(fullpath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -161,6 +162,7 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 		return err
 	}
 	_, err = io.CopyN(file, r, length)
+	fmt.Println("????", file.Name(), fullpath)
 	file.Close()
 	if err != nil {
 		os.Remove(file.Name())

@@ -479,6 +479,7 @@ var writeMetadataFiles = func(stor storage.Storage, metadataInfo []MetadataFile)
 	for _, md := range metadataInfo {
 		filePath := path.Join(storage.BaseToolsPath, md.Path)
 		logger.Infof("Writing %s", filePath)
+		logger.Criticalf("Setting %v", filePath, string(md.Data))
 		err := stor.Put(filePath, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
