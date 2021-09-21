@@ -203,10 +203,10 @@ func (s *remoteApplicationSuite) TestGetSetStatusNotFound(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.application.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status: remote application not found`)
+	c.Check(err, gc.ErrorMatches, `cannot set status: saas application "mysql" not found`)
 
 	statusInfo, err := s.application.Status()
-	c.Check(err, gc.ErrorMatches, `cannot get status: remote application not found`)
+	c.Check(err, gc.ErrorMatches, `cannot get status: saas application "mysql" not found`)
 	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
 }
 
@@ -289,7 +289,7 @@ func (s *remoteApplicationSuite) TestBindings(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 	_, err := s.application.Endpoint("foo")
-	c.Assert(err, gc.ErrorMatches, `remote application "mysql" has no "foo" relation`)
+	c.Assert(err, gc.ErrorMatches, `saas application "mysql" has no "foo" relation`)
 
 	serverEP, err := s.application.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
@@ -359,7 +359,7 @@ func (s *remoteApplicationSuite) TestAddRelationBothRemote(c *gc.C) {
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps[0], eps[1])
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:db": cannot add relation between remote applications "wordpress" and "mysql"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:db": cannot add relation between saas applications "wordpress" and "mysql"`)
 }
 
 func (s *remoteApplicationSuite) TestInferEndpointsWrongScope(c *gc.C) {
@@ -372,18 +372,18 @@ func (s *remoteApplicationSuite) TestInferEndpointsWrongScope(c *gc.C) {
 func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "haha/borken", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "haha/borken": name "haha/borken" not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add saas application "haha/borken": name "haha/borken" not valid`)
 	_, err = s.State.RemoteApplication("haha/borken")
-	c.Assert(err, gc.ErrorMatches, `remote application name "haha/borken" not valid`)
+	c.Assert(err, gc.ErrorMatches, `saas application name "haha/borken" not valid`)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "borken", URL: "haha/borken", SourceModel: s.Model.ModelTag()})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add remote application "borken": validating offer URL: `+
+		`cannot add saas application "borken": validating offer URL: `+
 			`application offer URL is missing application`,
 	)
 	_, err = s.State.RemoteApplication("borken")
-	c.Assert(err, gc.ErrorMatches, `remote application "borken" not found`)
+	c.Assert(err, gc.ErrorMatches, `saas application "borken" not found`)
 }
 
 func (s *remoteApplicationSuite) TestParamsValidateChecksBindings(c *gc.C) {
@@ -944,6 +944,17 @@ func (s *remoteApplicationSuite) TestDestroyTerminated(c *gc.C) {
 	s.assertDestroyAppWithStatus(c, &appStatus)
 }
 
+func (s *remoteApplicationSuite) TestDestroyTerminatedDead(c *gc.C) {
+	err := s.application.SetStatus(status.StatusInfo{Status: status.Terminated})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.SetDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *remoteApplicationSuite) TestAllRemoteApplicationsNone(c *gc.C) {
 	err := s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -983,7 +994,7 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add saas application "s1": model is no longer alive`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
@@ -992,7 +1003,7 @@ func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add saas application "s1": local application with same name already exists`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
@@ -1006,7 +1017,7 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add saas application "s1": local application with same name already exists`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
@@ -1015,7 +1026,7 @@ func (s *remoteApplicationSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add saas application "s1": saas application already exists`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
@@ -1029,7 +1040,7 @@ func (s *remoteApplicationSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add saas application "s1": saas application already exists`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C) {
@@ -1044,7 +1055,7 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model "testmodel" is dying`)
+	c.Assert(err, gc.ErrorMatches, `cannot add saas application "s1": model "testmodel" is dying`)
 }
 
 func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
@@ -1131,10 +1142,13 @@ func (s *remoteApplicationSuite) TestTerminateOperationLeavesScopes(c *gc.C) {
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = s.application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Terminated)
 	c.Assert(appStatus.Message, gc.Equals, "do-do-do do-do-do do-do")
+	c.Assert(s.application.Life(), gc.Equals, state.Dead)
 
 	remoteRelUnits1, err := rel1.AllRemoteUnits("mysql")
 	c.Assert(err, jc.ErrorIsNil)

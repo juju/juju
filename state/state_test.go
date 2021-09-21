@@ -1704,7 +1704,7 @@ func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 		Name: "s1", SourceModel: s.Model.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": saas application with same name already exists`)
 }
 
 func (s *StateSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
@@ -1718,7 +1718,7 @@ func (s *StateSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": saas application with same name already exists`)
 }
 
 func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {

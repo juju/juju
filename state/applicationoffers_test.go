@@ -718,8 +718,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
 	err = wordpress.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	assertLife(c, wordpress, state.Dying)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *gc.C) {

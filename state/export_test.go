@@ -673,6 +673,15 @@ func ResetMigrationMode(c *gc.C, st *State) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (a *RemoteApplication) SetDead() error {
+	ops := []txn.Op{{
+		C:      remoteApplicationsC,
+		Id:     a.doc.Name,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}}
+	return a.st.db().RunTransaction(ops)
+}
+
 func RemoveRelationStatus(c *gc.C, rel *Relation) {
 	st := rel.st
 	ops := []txn.Op{removeStatusOp(st, rel.globalScope())}

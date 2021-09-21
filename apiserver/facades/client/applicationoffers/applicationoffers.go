@@ -396,7 +396,7 @@ func (api *OffersAPI) getApplicationOffers(user names.UserTag, urls params.Offer
 		}
 		if url.HasEndpoint() {
 			results.Results[i].Error = apiservererrors.ServerError(
-				errors.Errorf("remote application %q shouldn't include endpoint", url))
+				errors.Errorf("saas application %q shouldn't include endpoint", url))
 			continue
 		}
 		if url.Source != "" {

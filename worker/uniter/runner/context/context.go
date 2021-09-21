@@ -964,7 +964,7 @@ func (ctx *HookContext) RemoteUnitName() (string, error) {
 // Implements jujuc.RelationHookContext.relationHookContext, part of runner.Context.
 func (ctx *HookContext) RemoteApplicationName() (string, error) {
 	if ctx.remoteApplicationName == "" {
-		return "", errors.NotFoundf("remote application")
+		return "", errors.NotFoundf("saas application")
 	}
 	return ctx.remoteApplicationName, nil
 }

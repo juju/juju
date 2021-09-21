@@ -310,6 +310,7 @@ type RemoteApplication interface {
 	Spaces() []state.RemoteSpace
 	Destroy() error
 	DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation
+	Status() (status.StatusInfo, error)
 }
 
 func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {

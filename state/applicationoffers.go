@@ -321,21 +321,12 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			}
 			ops = append(ops, remoteAppOps...)
 
-			// Force any remote units to leave scope so the offer
-			// can be cleaned up.
-			logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
-			remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
+			// Force any remote units to leave scope so the offer can be cleaned up.
+			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, rel, false)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			logger.Debugf("got %v relation units to clean", len(remoteUnits))
-			for _, ru := range remoteUnits {
-				leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-				if err != nil && err != jujutxn.ErrNoOperations {
-					op.AddError(err)
-				}
-				ops = append(ops, leaveScopeOps...)
-			}
+			ops = append(ops, destroyRelUnitOps...)
 
 			// When 'force' is set, this call will return needed operations
 			// and accumulate all operational errors encountered in the operation.

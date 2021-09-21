@@ -211,7 +211,7 @@ func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"mysql" is not a valid unit name`)
 
 	_, err = rel.RemoteUnit("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `remote application "wordpress" not found`)
+	c.Assert(err, gc.ErrorMatches, `saas application "wordpress" not found`)
 
 	_, err = rel.RemoteUnit("mysql1/0")
 	c.Assert(err, gc.ErrorMatches, `application "mysql1" is not a member of "wordpress:db mysql:server"`)

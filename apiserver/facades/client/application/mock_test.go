@@ -321,11 +321,16 @@ type mockRemoteApplication struct {
 	spaces         []state.RemoteSpace
 	offerUUID      string
 	offerURL       string
+	status         status.Status
 	mac            *macaroon.Macaroon
 }
 
 func (m *mockRemoteApplication) Name() string {
 	return m.name
+}
+
+func (m *mockRemoteApplication) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: m.status}, nil
 }
 
 func (m *mockRemoteApplication) SourceModel() names.ModelTag {
@@ -721,6 +726,7 @@ func (m *mockBackend) AddRemoteApplication(args state.AddRemoteApplicationParams
 		offerURL:       args.URL,
 		bindings:       args.Bindings,
 		mac:            args.Macaroon,
+		status:         status.Active,
 	}
 	for _, ep := range args.Endpoints {
 		app.endpoints = append(app.endpoints, state.Endpoint{
@@ -761,7 +767,7 @@ func (m *mockBackend) RemoteApplication(name string) (application.RemoteApplicat
 	}
 	app, ok := m.remoteApplications[name]
 	if !ok {
-		return nil, errors.NotFoundf("remote application %q", name)
+		return nil, errors.NotFoundf("saas application %q", name)
 	}
 	return app, nil
 }
