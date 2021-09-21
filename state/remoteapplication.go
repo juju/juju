@@ -298,7 +298,7 @@ func (op *DestroyRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("force destroy remote application %v despite error %v", op.app, err)
+			logger.Warningf("force destroy saas application %v despite error %v", op.app, err)
 			return ops, nil
 		}
 		return nil, err
@@ -312,22 +312,22 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 	//            that RemoveOfferOperation is modified to suit
 	if err != nil {
 		if !op.Force {
-			return errors.Annotatef(err, "cannot destroy remote application %q", op.app)
+			return errors.Annotatef(err, "cannot destroy saas application %q", op.app)
 		}
-		op.AddError(errors.Errorf("force destroy of remote application %v failed but proceeded despite encountering ERROR %v", op.app, err))
+		op.AddError(errors.Errorf("force destroy of saas application %v failed but proceeded despite encountering ERROR %v", op.app, err))
 	}
 	if err := op.eraseHistory(); err != nil {
 		if !op.Force {
-			logger.Errorf("cannot delete history for remote application %q: %v", op.app, err)
+			logger.Errorf("cannot delete history for saas application %q: %v", op.app, err)
 		}
-		op.AddError(errors.Errorf("force erase remote application %q history proceeded despite encountering ERROR %v", op.app, err))
+		op.AddError(errors.Errorf("force erase saas application %q history proceeded despite encountering ERROR %v", op.app, err))
 	}
 	return nil
 }
 
 func (op *DestroyRemoteApplicationOperation) eraseHistory() error {
 	if err := eraseStatusHistory(op.app.st, op.app.globalKey()); err != nil {
-		one := errors.Annotate(err, "remote application")
+		one := errors.Annotate(err, "saas application")
 		if op.FatalError(one) {
 			return one
 		}
@@ -356,7 +356,7 @@ func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) 
 func (s *RemoteApplication) Destroy() error {
 	errs, err := s.DestroyWithForce(false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors destroying remote application %v: %v", s.Name(), errs)
+		logger.Warningf("operational errors destroying saas application %v: %v", s.Name(), errs)
 	}
 	return err
 }
@@ -382,46 +382,34 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 		haveRels = false
 	}
 
-	if haveRels && len(rels) != op.app.doc.RelationCount {
+	// We'll need status below when processing relations.
+	statusInfo, statusErr := op.app.Status()
+	if op.FatalError(statusErr) && !errors.IsNotFound(statusErr) {
+		return nil, statusErr
+	}
+	// If the application is already terminated and dead, the removal
+	// can be short circuited.
+	forceTerminate := op.Force || statusInfo.Status == status.Terminated && op.app.Life() == Dead
+
+	if !forceTerminate && haveRels && len(rels) != op.app.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
 		// be wrong, but that situation will be caught by a combination of
 		// asserts on relationcount and on each known relation, below.
 		return nil, errRefresh
 	}
 
-	// We'll need status below when processing relations.
-	statusInfo, statusErr := op.app.Status()
-	if op.FatalError(statusErr) && !errors.IsNotFound(statusErr) {
-		return nil, statusErr
-	}
-
+	op.ForcedOperation.Force = forceTerminate
 	removeCount := 0
 	if haveRels {
 		failRels := false
 		for _, rel := range rels {
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
-			if statusErr == nil && statusInfo.Status == status.Terminated {
-				logger.Debugf("forcing cleanup of units for %v", op.app.Name())
-				remoteUnits, err := rel.AllRemoteUnits(op.app.Name())
-				if err != nil {
-					op.AddError(err)
-					failRels = true
-					continue
-				}
-				if countRemoteUnits := len(remoteUnits); countRemoteUnits != 0 {
-					logger.Debugf("got %v relation units to clean", countRemoteUnits)
-					for _, ru := range remoteUnits {
-						leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-						if err != nil && err != jujutxn.ErrNoOperations {
-							op.AddError(err)
-							failRels = true
-							continue
-						}
-						ops = append(ops, leaveScopeOps...)
-					}
-				}
+			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
+			ops = append(ops, destroyRelUnitOps...)
 			// When 'force' is set, this call will return both needed operations
 			// as well as all operational errors encountered.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
@@ -448,12 +436,12 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	}
 	// If all of the application's known relations will be
 	// removed, the application can also be removed.
-	if op.app.doc.RelationCount == removeCount {
-		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
-		removeOps, err := op.app.removeOps(hasLastRefs)
-		if op.FatalError(err) {
-			return nil, errors.Trace(err)
+	if forceTerminate || op.app.doc.RelationCount == removeCount {
+		var hasLastRefs bson.D
+		if !forceTerminate {
+			hasLastRefs = bson.D{{"life", Alive}, {"relationcount", removeCount}}
 		}
+		removeOps := op.app.removeOps(hasLastRefs)
 		ops = append(ops, removeOps...)
 		return ops, nil
 	}
@@ -485,7 +473,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 
 // removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
-func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
+func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
 	r := s.st.RemoteEntities()
 	ops := []txn.Op{
 		{
@@ -498,12 +486,12 @@ func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	}
 	tokenOps := r.removeRemoteEntityOps(s.Tag())
 	ops = append(ops, tokenOps...)
-	return ops, nil
+	return ops
 }
 
 // Status returns the status of the remote application.
 func (s *RemoteApplication) Status() (status.StatusInfo, error) {
-	return getStatus(s.st.db(), s.globalKey(), "remote application")
+	return getStatus(s.st.db(), s.globalKey(), fmt.Sprintf("saas application %q", s.doc.Name))
 }
 
 // SetStatus sets the status for the application.
@@ -513,7 +501,7 @@ func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
 	}
 
 	return setStatus(s.st.db(), setStatusParams{
-		badge:     "remote application",
+		badge:     fmt.Sprintf("saas application %q", s.doc.Name),
 		globalKey: s.globalKey(),
 		status:    info.Status,
 		message:   info.Message,
@@ -543,31 +531,41 @@ type terminateRemoteApplicationOperation struct {
 
 // Build is part of ModelOperation.
 func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		err := op.app.Refresh()
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if err != nil || op.app.Life() == Dead {
+			return nil, jujutxn.ErrNoOperations
+		}
+	}
 	ops, err := statusSetOps(op.app.st.db(), op.doc, op.app.globalKey())
 	if err != nil {
 		return nil, errors.Annotate(err, "setting status")
 	}
+	// Strict speaking, we should transition through Dying state.
+	ops = append(ops, txn.Op{
+		C:      remoteApplicationsC,
+		Id:     op.app.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	})
 	name := op.app.Name()
 	logger.Debugf("leaving scope on all %q relation units", name)
 	rels, err := op.app.Relations()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting relations for %q", name)
 	}
+	// Termination happens when the offer has disappeared so we can force destroy any
+	// relations on the consuming side.
+	// Destroying each relation also forces remote units to leave scope.
 	for _, rel := range rels {
-		remoteUnits, err := rel.AllRemoteUnits(name)
+		relOps, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
 		if err != nil {
-			return nil, errors.Annotatef(err, "getting remote units for %q", name)
+			return nil, errors.Annotatef(err, "removing relation %q", rel)
 		}
-		for _, ru := range remoteUnits {
-			leaveOperation := ru.LeaveScopeOperation(false)
-			leaveOps, err := leaveOperation.Build(attempt)
-			if errors.Cause(err) == jujutxn.ErrNoOperations {
-				continue
-			} else if err != nil {
-				return nil, errors.Annotatef(err, "leaving scope for %q", ru.key())
-			}
-			ops = append(ops, leaveOps...)
-		}
+		ops = append(ops, relOps...)
 	}
 	return ops, nil
 }
@@ -575,10 +573,17 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 // Done is part of ModelOperation.
 func (op *terminateRemoteApplicationOperation) Done(err error) error {
 	if err != nil {
-		return errors.Annotatef(err, "updating unit %q", op.app.Name())
+		return errors.Annotatef(err, "terminating saas application %q", op.app.Name())
 	}
 	_, _ = probablyUpdateStatusHistory(op.app.st.db(), op.app.globalKey(), op.doc)
-	return nil
+	// Set the life to Dead so that the lifecycle watcher will trigger to inform the
+	// relevant workers that this application is gone.
+	ops := []txn.Op{{
+		C:      remoteApplicationsC,
+		Id:     op.app.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}}
+	return op.app.st.db().RunTransaction(ops)
 }
 
 // Endpoints returns the application's currently available relation endpoints.
@@ -614,7 +619,7 @@ func (s *RemoteApplication) Endpoint(relationName string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, fmt.Errorf("remote application %q has no %q relation", s, relationName)
+	return Endpoint{}, fmt.Errorf("saas application %q has no %q relation", s, relationName)
 }
 
 // AddEndpoints adds the specified endpoints to the remote application.
@@ -732,7 +737,7 @@ func (s *RemoteApplication) Refresh() error {
 
 	err := applications.FindId(s.doc.DocID).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("remote application %q", s)
+		return errors.NotFoundf("saas application %q", s)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh application %q: %v", s, err)
@@ -816,7 +821,7 @@ func (p AddRemoteApplicationParams) Validate() error {
 // having the supplied relation endpoints, with the supplied name,
 // which must be unique across all applications, local and remote.
 func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *RemoteApplication, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add remote application %q", args.Name)
+	defer errors.DeferredAnnotatef(&err, "cannot add saas application %q", args.Name)
 
 	// Sanity checks.
 	if err := args.Validate(); err != nil {
@@ -902,7 +907,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 			if exists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
 				return nil, errors.Trace(err)
 			} else if exists {
-				return nil, errors.AlreadyExistsf("remote application")
+				return nil, errors.AlreadyExistsf("saas application")
 			}
 		}
 		ops := []txn.Op{
@@ -919,7 +924,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 			},
 		}
 		if !args.IsConsumerProxy {
-			logger.Criticalf("SET STATUS %v", appDoc.Name)
 			statusDoc := statusDoc{
 				ModelUUID: st.ModelUUID(),
 				Status:    status.Unknown,
@@ -943,7 +947,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 // RemoteApplication returns a remote application state by name.
 func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error) {
 	if !names.IsValidApplication(name) {
-		return nil, errors.NotValidf("remote application name %q", name)
+		return nil, errors.NotValidf("saas application name %q", name)
 	}
 
 	applications, closer := st.db().GetCollection(remoteApplicationsC)
@@ -952,10 +956,10 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 	appDoc := &remoteApplicationDoc{}
 	err = applications.FindId(name).One(appDoc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("remote application %q", name)
+		return nil, errors.NotFoundf("saas application %q", name)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get remote application %q", name)
+		return nil, errors.Annotatef(err, "cannot get saas application %q", name)
 	}
 	return newRemoteApplication(st, appDoc), nil
 }
@@ -968,10 +972,10 @@ func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, e
 	appDoc := &remoteApplicationDoc{}
 	err = apps.Find(bson.D{{"token", token}}).One(appDoc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("remote application with token %q", token)
+		return nil, errors.NotFoundf("saas application with token %q", token)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get remote application with token %q", token)
+		return nil, errors.Annotatef(err, "cannot get saas application with token %q", token)
 	}
 	return newRemoteApplication(st, appDoc), nil
 }
@@ -984,7 +988,7 @@ func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err
 	appDocs := []remoteApplicationDoc{}
 	err = applicationsCollection.Find(bson.D{}).All(&appDocs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all remote applications")
+		return nil, errors.Errorf("cannot get all saas applications")
 	}
 	for _, v := range appDocs {
 		applications = append(applications, newRemoteApplication(st, &v))

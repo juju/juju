@@ -282,7 +282,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
-			"hosted-db2": &mockRemoteApplication{},
+			"hosted-db2": &mockRemoteApplication{status: status.Active},
 		},
 		charm: &mockCharm{
 			meta: &charm.Meta{},
@@ -872,7 +872,7 @@ func (s *ApplicationSuite) TestDestroyConsumedApplicationNotFound(c *gc.C) {
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeNotFound,
-			Message: `remote application "hosted-db2" not found`,
+			Message: `saas application "hosted-db2" not found`,
 		},
 	})
 }
@@ -1602,6 +1602,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
 		name:           "hosted-mysql",
 		sourceModelTag: coretesting.ModelTag,
+		status:         status.Active,
 		offerUUID:      "hosted-mysql-uuid",
 		offerURL:       "othermodel.hosted-mysql",
 		endpoints: []state.Endpoint{
@@ -1639,6 +1640,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
 		name:           "hosted-mysql",
 		sourceModelTag: coretesting.ModelTag,
+		status:         status.Active,
 		offerUUID:      "hosted-mysql-uuid",
 		offerURL:       "othermodel.hosted-mysql",
 		endpoints: []state.Endpoint{
@@ -1779,7 +1781,50 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 		Args: []params.ConsumeApplicationArg{arg},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.OneError(), gc.ErrorMatches, `remote application called "hosted-mysql" from a different model already exists`)
+	c.Assert(results.OneError(), gc.ErrorMatches, `saas application called "hosted-mysql" from a different model already exists`)
+}
+
+func (s *ApplicationSuite) TestConsumeRemoteAppTerminated(c *gc.C) {
+	arg := params.ConsumeApplicationArg{
+		ApplicationOfferDetails: params.ApplicationOfferDetails{
+			SourceModelTag:         coretesting.ModelTag.String(),
+			OfferName:              "hosted-mysql",
+			OfferUUID:              "hosted-mysql-uuid",
+			ApplicationDescription: "a database",
+			Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+			OfferURL:               "othermodel.hosted-mysql",
+		},
+	}
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	originalApp, ok := s.backend.remoteApplications["hosted-mysql"].(*mockRemoteApplication)
+	c.Assert(ok, jc.IsTrue)
+	originalApp.status = status.Terminated
+	s.backend.remoteApplications["hosted-mysql"] = originalApp
+
+	arg.Endpoints = []params.RemoteEndpoint{{Name: "db-admin", Interface: "mysql", Role: "provider"}}
+	results, err = s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+	originalApp.Stub.CheckCallNames(c, "DestroyOperation")
+
+	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	endpoints, err := obtained.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	epNames := make([]string, len(endpoints))
+	for i, ep := range endpoints {
+		epNames[i] = ep.Name
+	}
+	c.Assert(epNames, jc.SameContents, []string{"db-admin"})
 }
 
 func (s *ApplicationSuite) assertConsumeWithNoSpacesInfoAvailable(c *gc.C) {

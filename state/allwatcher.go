@@ -842,7 +842,7 @@ type backingRemoteApplication remoteApplicationDoc
 func (app *backingRemoteApplication) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`remote application "%s:%s" updated`, ctx.modelUUID, ctx.id)
 	if app.Name == "" {
-		return errors.Errorf("remote application name is not set")
+		return errors.Errorf("saas application name is not set")
 	}
 	if app.IsConsumerProxy {
 		// Since this is a consumer proxy, we update the offer
@@ -861,12 +861,12 @@ func (app *backingRemoteApplication) updated(ctx *allWatcherContext) error {
 		allWatcherLogger.Debugf("new remote application %q added to backing state", app.Name)
 		// Fetch the status.
 		key := remoteApplicationGlobalKey(app.Name)
-		appStatus, err := ctx.getStatus(key, "remote application")
+		appStatus, err := ctx.getStatus(key, "saas application")
 		if err != nil {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
 		}
 		info.Status = appStatus
-		allWatcherLogger.Debugf("remote application status %#v", info.Status)
+		allWatcherLogger.Debugf("saas application status %#v", info.Status)
 	} else {
 		allWatcherLogger.Debugf("use status from existing app")
 		switch t := oldInfo.(type) {

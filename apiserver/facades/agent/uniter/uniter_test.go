@@ -2178,11 +2178,11 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
+			{&params.Error{Message: `"bar" is not a valid tag`}},
 			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{&params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
+			{&params.Error{Message: `"application-mysql" is not a valid unit tag`}},
+			{&params.Error{Message: `"user-foo" is not a valid unit tag`}},
 		},
 	})
 

@@ -58,7 +58,7 @@ func (c *ContextRelationHook) RemoteApplicationName() (string, error) {
 	_ = c.stub.NextErr()
 	var err error
 	if c.info.RemoteApplicationName == "" {
-		err = errors.NotFoundf("remote application")
+		err = errors.NotFoundf("saas application")
 	}
 
 	return c.info.RemoteApplicationName, err
