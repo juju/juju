@@ -9,33 +9,32 @@ import (
 	"github.com/juju/errors"
 )
 
-type publicRegistryAPINotAvailableError struct {
+type publicAPINotAvailableError struct {
 	registry string
 }
 
-func (e publicRegistryAPINotAvailableError) Error() string {
+func (e publicAPINotAvailableError) Error() string {
 	return fmt.Sprintf("public registry API is not available for %q", e.registry)
 }
 
-// PublicRegistryAPINotAvailableError returns a publicRegistryAPINotAvailableError error.
-func PublicRegistryAPINotAvailableError(registry string) error {
-	return publicRegistryAPINotAvailableError{registry: registry}
+// NewPublicAPINotAvailableError returns a publicAPINotAvailableError error.
+func NewPublicAPINotAvailableError(registry string) error {
+	return publicAPINotAvailableError{registry: registry}
 }
 
 type urlError interface {
 	Unwrap() error
 }
 
-// IsPublicRegistryAPINotAvailableError returns true when the supplied error is
-// caused by a publicRegistryAPINotAvailableError.
-func IsPublicRegistryAPINotAvailableError(err error) bool {
+// IsPublicAPINotAvailableError returns true when the supplied error is
+// caused by a publicAPINotAvailableError.
+func IsPublicAPINotAvailableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	err = errors.Cause(err)
-	if wrapped, ok := err.(urlError); ok {
+	if wrapped, ok := errors.Cause(err).(urlError); ok {
 		err = wrapped.Unwrap()
 	}
-	_, ok := err.(publicRegistryAPINotAvailableError)
+	_, ok := errors.Cause(err).(publicAPINotAvailableError)
 	return ok
 }

@@ -863,8 +863,8 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 	}
 	defer func() { _ = r.Close() }()
 
-	if err = r.Ping(); registryutils.IsPublicRegistryAPINotAvailableError(err) {
-		logger.Warningf("%v, upgrade controller/model will not work, please consider to provide registry credential", err)
+	if err = r.Ping(); registryutils.IsPublicAPINotAvailableError(err) {
+		logger.Warningf("docker registry for %q requires authentication: %v", imageDetails.Repository, err)
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}

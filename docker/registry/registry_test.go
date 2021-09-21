@@ -19,16 +19,9 @@ var _ = gc.Suite(&registrySuite{})
 
 func (s *registrySuite) TestNewRegistryNotSupported(c *gc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{
-		Repository:    "quay.io/jujuqa-project",
-		ServerAddress: "quay.io",
-	}
-	_, err := registry.New(imageRepoDetails)
-	c.Assert(err, gc.ErrorMatches, `quay.io container registry not supported`)
-
-	imageRepoDetails = docker.ImageRepoDetails{
 		Repository:    "ecr.aws/jujuqa-project",
 		ServerAddress: "ecr.aws",
 	}
-	_, err = registry.New(imageRepoDetails)
+	_, err := registry.New(imageRepoDetails)
 	c.Assert(err, gc.ErrorMatches, `AWS elastic container registry not supported`)
 }

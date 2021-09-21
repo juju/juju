@@ -126,3 +126,16 @@ func (s *baseSuite) TestPingPrivateRepository(c *gc.C) {
 	_, ctrl := s.getRegistry(c)
 	ctrl.Finish()
 }
+
+func (s *baseSuite) TestInvalidAuth(c *gc.C) {
+	s.imageRepoDetails = docker.ImageRepoDetails{
+		Repository:    "example.com/jujuqa",
+		ServerAddress: "example.com",
+	}
+	s.imageRepoDetails.TokenAuthConfig = docker.TokenAuthConfig{
+		RegistryToken: `xxxxx==`,
+	}
+
+	_, err := registry.New(s.imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `only {"username", "password"} or {"auth"} authorization is supported for registry "example.com"`)
+}

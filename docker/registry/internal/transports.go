@@ -186,7 +186,7 @@ func (t *tokenTransport) authorizeRequest(req *http.Request) error {
 func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	defer func() {
 		if !t.reuseOAuthToken {
-			// We usually do not re-use the OAuth token because echo API call might have different scope.
+			// We usually do not re-use the OAuth token because each API call might have different scope.
 			// But some of the provider use long life token and there is no need to refresh.
 			t.OAuthToken = ""
 		}
@@ -273,20 +273,19 @@ type privateOnlyTransport struct {
 	repoDetails *docker.ImageRepoDetails
 }
 
-// TODO: test!!
 func newPrivateOnlyTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
 	return &privateOnlyTransport{transport: transport, repoDetails: repoDetails}, nil
 }
 
 // RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
 func (t privateOnlyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if !t.repoDetails.IsPrivate() {
-		key := t.repoDetails.ServerAddress
-		if key == "" {
-			key = t.repoDetails.Repository
-		}
-		return nil, utils.PublicRegistryAPINotAvailableError(key)
+	if t.repoDetails.IsPrivate() {
+		resp, err := t.transport.RoundTrip(request)
+		return resp, errors.Trace(err)
 	}
-	resp, err := t.transport.RoundTrip(request)
-	return resp, errors.Trace(err)
+	key := t.repoDetails.ServerAddress
+	if key == "" {
+		key = t.repoDetails.Repository
+	}
+	return nil, utils.NewPublicAPINotAvailableError(key)
 }

@@ -63,25 +63,23 @@ func (c *googleContainerRegistry) APIVersion() APIVersion {
 
 func googleContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
 ) (http.RoundTripper, error) {
-	if repoDetails.IsPrivate() {
-		if !repoDetails.BasicAuthConfig.Empty() {
-			if err := validateGoogleContainerRegistryCredential(repoDetails.BasicAuthConfig); err != nil {
-				return nil, errors.Annotatef(err, "validating the google container registry credential")
-			}
-			transport = newTokenTransport(
-				transport,
-				repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
-			)
+	if !repoDetails.BasicAuthConfig.Empty() {
+		if err := validateGoogleContainerRegistryCredential(repoDetails.BasicAuthConfig); err != nil {
+			return nil, errors.Annotatef(err, "validating the google container registry credential")
 		}
-		if !repoDetails.TokenAuthConfig.Empty() {
-			return nil, errors.New("google container registry only supports username and password or auth token")
-		}
+		return newTokenTransport(
+			transport,
+			repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
+		), nil
+	}
+	if !repoDetails.TokenAuthConfig.Empty() {
+		return nil, errors.New("google container registry only supports username and password or auth token")
 	}
 	return transport, nil
 }
 
 func (c *googleContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
-	if c.client.Transport, err = wrapTransport(
+	if c.client.Transport, err = mergeTransportWrappers(
 		c.client.Transport, c.repoDetails, googleContainerRegistryTransport, wrapErrorTransport,
 	); err != nil {
 		return errors.Trace(err)
@@ -90,7 +88,7 @@ func (c *googleContainerRegistry) WrapTransport(...TransportWrapper) (err error)
 }
 
 func (c googleContainerRegistry) url(pathTemplate string, args ...interface{}) string {
-	return commonURL(c.APIVersion(), *c.baseURL, pathTemplate, args...)
+	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
 }
 
 // DecideBaseURL decides the API url to use.
@@ -121,8 +119,5 @@ func (c googleContainerRegistry) Ping() error {
 // Tags fetches tags for an OCI image.
 func (c googleContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
 	// google container registry always uses v2.
-	repo := getRepositoryOnly(c.repoDetails.Repository)
-	url := c.url("/%s/%s/tags/list", repo, imageName)
-	var response tagsResponseV2
-	return c.fetchTags(url, &response)
+	return fetchTagsV2(c, imageName)
 }

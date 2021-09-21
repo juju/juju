@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
+	"github.com/juju/juju/docker/registry/utils"
 	"github.com/juju/juju/tools"
 )
 
@@ -72,6 +73,7 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 	if s.isPrivate {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
+		c.Assert(err, jc.Satisfies, utils.IsPublicAPINotAvailableError)
 		c.Assert(err, gc.ErrorMatches, `.*public registry API is not available for "ghcr.io"`)
 	}
 	return reg, ctrl

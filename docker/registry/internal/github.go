@@ -50,9 +50,9 @@ func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		transport = newTokenTransport(
+		return newTokenTransport(
 			transport, "", "", "", bearerToken, true,
-		)
+		), nil
 	}
 	if !repoDetails.TokenAuthConfig.Empty() {
 		return nil, errors.New("github only supports username and password or auth token")
@@ -61,8 +61,9 @@ func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 }
 
 func (c *githubContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
-	if c.client.Transport, err = wrapTransport( // TODO: test!!
-		c.client.Transport, c.repoDetails, newPrivateOnlyTransport, githubContainerRegistryTransport, wrapErrorTransport,
+	if c.client.Transport, err = mergeTransportWrappers(
+		c.client.Transport, c.repoDetails,
+		newPrivateOnlyTransport, githubContainerRegistryTransport, wrapErrorTransport,
 	); err != nil {
 		return errors.Trace(err)
 	}

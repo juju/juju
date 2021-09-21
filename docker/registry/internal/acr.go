@@ -67,7 +67,7 @@ func azureContainerRegistryTransport(
 }
 
 func (c *azureContainerRegistry) WrapTransport(wrappers ...TransportWrapper) (err error) {
-	if c.client.Transport, err = wrapTransport(
+	if c.client.Transport, err = mergeTransportWrappers(
 		c.client.Transport, c.repoDetails, azureContainerRegistryTransport, wrapErrorTransport,
 	); err != nil {
 		return errors.Trace(err)
@@ -79,6 +79,7 @@ func (c *azureContainerRegistry) WrapTransport(wrappers ...TransportWrapper) (er
 func (c azureContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
 	apiVersion := c.APIVersion()
 
+	// acr puts the namespace under subdomain.
 	if apiVersion == APIVersionV1 {
 		url := c.url("/repositories/%s/tags", imageName)
 		var response tagsResponseV1

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/tools"
 )
@@ -47,23 +48,38 @@ func getRepositoryOnly(s string) string {
 	return s[i+1:]
 }
 
-// Tags fetches tags for an OCI image.
-func (c baseClient) Tags(imageName string) (versions tools.Versions, err error) {
-	apiVersion := c.APIVersion()
+type tagFetcher interface {
+	url(string, ...interface{}) string
+	fetchTags(string, tagsGetter) (tools.Versions, error)
+	ImageRepoDetails() docker.ImageRepoDetails
+}
 
-	repo := getRepositoryOnly(c.repoDetails.Repository)
-	if apiVersion == APIVersionV1 {
-		url := c.url("/repositories/%s/%s/tags", repo, imageName)
-		var response tagsResponseV1
-		return c.fetchTags(url, &response)
+func fetchTagsV1(c tagFetcher, imageName string) (tools.Versions, error) {
+	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
+	url := c.url("/repositories/%s/%s/tags", repo, imageName)
+	var response tagsResponseV1
+	return c.fetchTags(url, &response)
+}
+
+func fetchTagsV2(c tagFetcher, imageName string) (tools.Versions, error) {
+	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
+	url := c.url("/%s/%s/tags/list", repo, imageName)
+	var response tagsResponseV2
+	return c.fetchTags(url, &response)
+}
+
+// Tags fetches tags for an OCI image.
+func (c baseClient) Tags(imageName string) (tools.Versions, error) {
+	switch c.APIVersion() {
+	case APIVersionV1:
+		return fetchTagsV1(c, imageName)
+	case APIVersionV2:
+		return fetchTagsV2(c, imageName)
+	default:
+		// This should never happen.
+		return nil, nil
 	}
-	if apiVersion == APIVersionV2 {
-		url := c.url("/%s/%s/tags/list", repo, imageName)
-		var response tagsResponseV2
-		return c.fetchTags(url, &response)
-	}
-	// This should never happen.
-	return nil, nil
+
 }
 
 func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
@@ -71,15 +87,16 @@ func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versio
 		for _, tag := range tags {
 			v, err := version.Parse(tag)
 			if err != nil {
-				logger.Warningf("ignoring unexpected image tag %q", tag)
+				logger.Warningf("ignoring invalid image tag %q", tag)
 				continue
 			}
 			versions = append(versions, image.NewImageInfo(v))
 		}
 	}
 	for {
+		logger.Tracef("fetching tags %q", url)
 		url, err = c.getPaginatedJSON(url, &res)
-		logger.Tracef("fetching tags %q, response %#v, err %#v", url, res, err)
+		logger.Tracef("response %#v, err %v", res, err)
 		switch err {
 		case errNoMorePages:
 			pushVersions(res.GetTags())

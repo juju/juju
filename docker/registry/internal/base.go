@@ -86,29 +86,27 @@ func (c *baseClient) APIVersion() APIVersion {
 	return APIVersionV1
 }
 
-// TransportWrapper wraps RoundTripper then return.
+// TransportWrapper wraps RoundTripper.
 type TransportWrapper func(http.RoundTripper, *docker.ImageRepoDetails) (http.RoundTripper, error)
 
 func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
-	if repoDetails.IsPrivate() {
-		if !repoDetails.BasicAuthConfig.Empty() {
-			transport = newTokenTransport(
-				transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
-			)
-		}
-		if !repoDetails.TokenAuthConfig.Empty() {
-			return nil, errors.New(
-				fmt.Sprintf(
-					`only "username" and "password" or "auth" token authorization is supported for registry %q`,
-					repoDetails.ServerAddress,
-				),
-			)
-		}
+	if !repoDetails.TokenAuthConfig.Empty() {
+		return nil, errors.New(
+			fmt.Sprintf(
+				`only {"username", "password"} or {"auth"} authorization is supported for registry %q`,
+				repoDetails.ServerAddress,
+			),
+		)
+	}
+	if !repoDetails.BasicAuthConfig.Empty() {
+		return newTokenTransport(
+			transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
+		), nil
 	}
 	return transport, nil
 }
 
-func wrapTransport(
+func mergeTransportWrappers(
 	transport http.RoundTripper,
 	repoDetails *docker.ImageRepoDetails,
 	wrappers ...TransportWrapper,
@@ -128,7 +126,7 @@ func wrapErrorTransport(transport http.RoundTripper, repoDetails *docker.ImageRe
 
 func (c *baseClient) WrapTransport(wrappers ...TransportWrapper) (err error) {
 	wrappers = append(wrappers, transportCommon, wrapErrorTransport)
-	if c.client.Transport, err = wrapTransport(c.client.Transport, c.repoDetails, wrappers...); err != nil {
+	if c.client.Transport, err = mergeTransportWrappers(c.client.Transport, c.repoDetails, wrappers...); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -164,7 +162,7 @@ func (c *baseClient) DecideBaseURL() error {
 	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
 }
 
-func commonURL(version APIVersion, url url.URL, pathTemplate string, args ...interface{}) string {
+func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args ...interface{}) string {
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
 	ver := version.String()
 	if !strings.HasSuffix(strings.TrimRight(url.Path, "/"), ver) {
@@ -178,7 +176,7 @@ func commonURL(version APIVersion, url url.URL, pathTemplate string, args ...int
 }
 
 func (c baseClient) url(pathTemplate string, args ...interface{}) string {
-	return commonURL(c.APIVersion(), *c.baseURL, pathTemplate, args...)
+	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
 }
 
 // Ping pings the baseClient endpoint.
