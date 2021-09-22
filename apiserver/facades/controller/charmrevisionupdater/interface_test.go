@@ -116,13 +116,17 @@ func (charmhubConfigMatcher) String() string {
 // charmhubMetricsMatcher matches the controller and model parts of the metrics, then
 // a value within each part.
 type charmhubMetricsMatcher struct {
-	c *gc.C
+	c     *gc.C
+	exist bool
 }
 
 func (m charmhubMetricsMatcher) Matches(x interface{}) bool {
 	switch y := x.(type) {
 	case map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string:
 		if len(y) != 2 {
+			if !m.exist {
+				return true
+			}
 			return false
 		}
 		for k := range y {
@@ -153,13 +157,15 @@ func (charmhubMetricsMatcher) String() string {
 	return "matches metrics"
 }
 
-func newFakeCharmstoreClient(st charmrevisionupdater.State) (charmstore.Client, error) {
-	charms := map[string]charmstoreCharm{
-		"mysql":     {name: "mysql", revision: 23},
-		"wordpress": {name: "wordpress", revision: 26},
+func newFakeCharmstoreClientFunc(expectMetadata bool) func(st charmrevisionupdater.State) (charmstore.Client, error) {
+	return func(st charmrevisionupdater.State) (charmstore.Client, error) {
+		charms := map[string]charmstoreCharm{
+			"mysql":     {name: "mysql", revision: 23},
+			"wordpress": {name: "wordpress", revision: 26},
+		}
+		client := &fakeCharmstoreClient{charms: charms, expectMetadata: expectMetadata}
+		return charmstore.NewCustomClient(client), nil
 	}
-	client := &fakeCharmstoreClient{charms: charms}
-	return charmstore.NewCustomClient(client), nil
 }
 
 type charmstoreCharm struct {
@@ -168,10 +174,17 @@ type charmstoreCharm struct {
 }
 
 type fakeCharmstoreClient struct {
-	charms map[string]charmstoreCharm
+	charms         map[string]charmstoreCharm
+	expectMetadata bool
 }
 
-func (c *fakeCharmstoreClient) Latest(_ csparams.Channel, ids []*charm.URL, _ map[string][]string) ([]csparams.CharmRevision, error) {
+func (c *fakeCharmstoreClient) Latest(_ csparams.Channel, ids []*charm.URL, metrics map[string][]string) ([]csparams.CharmRevision, error) {
+	if len(metrics) <= 0 && c.expectMetadata {
+		return nil, errors.BadRequestf("Failing test, expected metadata and non provided.")
+	}
+	if len(metrics) > 0 && !c.expectMetadata {
+		return nil, errors.BadRequestf("Failing test, did not expect metadata and some provided.")
+	}
 	revisions := make([]csparams.CharmRevision, len(ids))
 	for i, id := range ids {
 		charm, ok := c.charms[id.Name]
