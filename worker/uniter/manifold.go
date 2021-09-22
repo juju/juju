@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -120,6 +121,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			downloader := api.NewCharmDownloader(apiConn)
 
+			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
+				client := secretsmanager.NewClient(apiConn)
+				appName, _ := names.UnitApplication(unitTag.Id())
+				return secretrotate.New(secretrotate.Config{
+					SecretManagerFacade: client,
+					Clock:               config.Clock,
+					Logger:              config.Logger.Child("secretsrotate"),
+					SecretOwner:         names.NewApplicationTag(appName),
+					RotateSecrets:       rotateSecrets,
+				})
+			}
+
 			manifoldConfig := config
 			// Configure and start the uniter.
 			agentConfig := agent.CurrentConfig()
@@ -134,6 +147,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UnitTag:                      unitTag,
 				ModelType:                    config.ModelType,
 				LeadershipTrackerFunc:        leadershipTrackerFunc,
+				SecretRotateWatcherFunc:      secretRotateWatcherFunc,
 				DataDir:                      agentConfig.DataDir(),
 				Downloader:                   downloader,
 				MachineLock:                  manifoldConfig.MachineLock,

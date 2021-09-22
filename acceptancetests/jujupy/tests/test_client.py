@@ -1729,20 +1729,20 @@ class TestModelClient(ClientTest):
     def test__acquire_model_client_returns_self_when_match(self):
         client = ModelClient(JujuData('foo', {}), None, None)
 
-        self.assertEqual(client._acquire_model_client('foo'), client)
-        self.assertEqual(client._acquire_model_client('foo', None), client)
+        self.assertEqual(client.acquire_model_client('foo'), client)
+        self.assertEqual(client.acquire_model_client('foo', None), client)
 
     def test__acquire_model_client_adds_username_component(self):
         client = ModelClient(JujuData('foo', {}), None, None)
 
-        new_client = client._acquire_model_client('bar', None)
+        new_client = client.acquire_model_client('bar', None)
         self.assertEqual(new_client.model_name, 'bar')
 
-        new_client = client._acquire_model_client('bar', 'user1')
+        new_client = client.acquire_model_client('bar', 'user1')
         self.assertEqual(new_client.model_name, 'user1/bar')
 
         client.env.user_name = 'admin'
-        new_client = client._acquire_model_client('baz', 'admin')
+        new_client = client.acquire_model_client('baz', 'admin')
         self.assertEqual(new_client.model_name, 'baz')
 
     def test_get_controller_model_name(self):

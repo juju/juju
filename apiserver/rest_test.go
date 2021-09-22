@@ -96,7 +96,7 @@ func (s *restSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
-		`cannot retrieve model data: remote application "foo" not found`,
+		`cannot retrieve model data: saas application "foo" not found`,
 	)
 }
 

@@ -499,6 +499,7 @@ func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "wordpress",
 		SourceModel: testing.ModelTag,
+		OfferUUID:   offerUUID,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "server",
@@ -668,7 +669,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-wordpress",
 		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-uuid",
+		OfferUUID:   offer.OfferUUID,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Limit:     1,
@@ -706,6 +707,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 
 	s.addOfferConnection(c, offer.OfferUUID)
 	ao := state.NewApplicationOffers(s.State)
+
 	err = ao.Remove("hosted-mysql", true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
@@ -716,8 +718,36 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
 	err = wordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *gc.C) {
+	offer, owner := s.createOffer(c, "hosted-mysql", "offer one")
+	sd := state.NewApplicationOffers(s.State)
+	offerArgs := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "mysql-admin",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "mysql admin",
+		Endpoints:              map[string]string{"db-admin": "server-admin"},
+		Owner:                  owner,
+	}
+	offer2, err := sd.AddOffer(offerArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	assertLife(c, wordpress, state.Dying)
+
+	s.addOfferConnection(c, offer.OfferUUID)
+	ao := state.NewApplicationOffers(s.State)
+
+	err = ao.Remove(offer2.OfferName, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ao.ApplicationOffer("mysql-admin")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// The other offer is unaffected.
+	appOffer, err := ao.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	conn, err := s.State.OfferConnections(appOffer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.HasLen, 1)
 }
 
 func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {

@@ -596,7 +596,7 @@ func (s *crossmodelSuite) TestRemoveSaas(c *gc.C) {
 		"-m", "admin/controller", "hosted-mysql")
 	c.Check(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
-removing SAAS application hosted-mysql failed: remote application "hosted-mysql" not found
+removing SAAS application hosted-mysql failed: saas application "hosted-mysql" not found
 `[1:])
 }
 
@@ -616,7 +616,7 @@ func (s *crossmodelSuite) TestRemoveSaasForce(c *gc.C) {
 		"-m", "admin/controller", "hosted-mysql")
 	c.Check(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
-removing SAAS application hosted-mysql failed: remote application "hosted-mysql" not found
+removing SAAS application hosted-mysql failed: saas application "hosted-mysql" not found
 `[1:])
 }
 
@@ -640,6 +640,6 @@ func (s *crossmodelSuite) TestRemoveSaasNoWait(c *gc.C) {
 		"-m", "admin/controller", "hosted-mysql")
 	c.Check(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
-removing SAAS application hosted-mysql failed: remote application "hosted-mysql" not found
+removing SAAS application hosted-mysql failed: saas application "hosted-mysql" not found
 `[1:])
 }

@@ -60,8 +60,6 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
             stable_client = stable_bsm.client
             devel_client = devel_bsm.client
             resource_contents = get_random_string()
-            # Possible stable version doesn't handle migration subords (a fixed
-            # bug in later versions.)
             test_stable_model, application = deploy_simple_server_to_new_model(
                 stable_client,
                 'version-migration',
@@ -77,14 +75,13 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
                 another_bsm.client.get_controller_client().wait_for(
                     AllMachinesRunning())
                 another_migration_client = migrate_model_to_controller(
-                    test_stable_model,
+                    migration_target_client.acquire_model_client('version-migration'),
                     migration_target_client, another_bsm.client)
                 assert_model_migrated_successfully(
                     another_migration_client, application, resource_contents)
 
 
 class AllMachinesRunning(BaseCondition):
-
     def iter_blocking_state(self, status):
         for machine_no, status in status.iter_machines():
             if status['machine-status']['current'] != 'running':

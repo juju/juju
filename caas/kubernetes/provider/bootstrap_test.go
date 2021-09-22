@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -694,6 +695,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
+			Env: []core.EnvVar{{
+				Name:  osenv.JujuFeatureFlagEnvKey,
+				Value: "developer-mode",
+			}},
 			Command: []string{
 				"/bin/sh",
 			},

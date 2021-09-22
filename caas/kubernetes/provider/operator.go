@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 	apps "k8s.io/api/apps/v1"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/juju/osenv"
 )
 
 const (
@@ -260,7 +262,6 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		appName,
 		svc.Spec.ClusterIP,
 		agentPath,
-		config.Version.String(),
 		config.ImageDetails,
 		selectorLabels,
 		annotations.Copy(),
@@ -715,8 +716,7 @@ func operatorPod(
 	podName,
 	appName,
 	operatorServiceIP,
-	agentPath,
-	version string,
+	agentPath string,
 	operatorImageDetails resources.DockerImageDetails,
 	selectorLabels map[string]string,
 	annotations k8sannotations.Annotation,
@@ -733,6 +733,32 @@ func operatorPod(
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	mountToken := true
+	env := []core.EnvVar{
+		{Name: "JUJU_APPLICATION", Value: appName},
+		{Name: k8sconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
+		{
+			Name: k8sconstants.OperatorPodIPEnvName,
+			ValueFrom: &core.EnvVarSource{
+				FieldRef: &core.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+		{
+			Name: k8sconstants.OperatorNamespaceEnvName,
+			ValueFrom: &core.EnvVarSource{
+				FieldRef: &core.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+	}
+	if features := featureflag.AsEnvironmentValue(); features != "" {
+		env = append(env, core.EnvVar{
+			Name:  osenv.JujuFeatureFlagEnvKey,
+			Value: features,
+		})
+	}
 	pod := &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        podName,
@@ -759,26 +785,7 @@ func operatorPod(
 						jujudCmd,
 					),
 				},
-				Env: []core.EnvVar{
-					{Name: "JUJU_APPLICATION", Value: appName},
-					{Name: k8sconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
-					{
-						Name: k8sconstants.OperatorPodIPEnvName,
-						ValueFrom: &core.EnvVarSource{
-							FieldRef: &core.ObjectFieldSelector{
-								FieldPath: "status.podIP",
-							},
-						},
-					},
-					{
-						Name: k8sconstants.OperatorNamespaceEnvName,
-						ValueFrom: &core.EnvVarSource{
-							FieldRef: &core.ObjectFieldSelector{
-								FieldPath: "metadata.namespace",
-							},
-						},
-					},
-				},
+				Env: env,
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
 					MountPath: filepath.Join(agent.Dir(agentPath, appTag), k8sconstants.TemplateFileNameAgentConf),

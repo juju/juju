@@ -130,7 +130,10 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 
 	// On the consuming side, watch for status changes to the offer.
-	var offerStatusChanges watcher.OfferStatusChannel
+	var (
+		offerStatusWatcher watcher.OfferStatusWatcher
+		offerStatusChanges watcher.OfferStatusChannel
+	)
 	if !w.isConsumerProxy {
 		if err := w.newRemoteRelationsFacadeWithRedirect(); err != nil {
 			return errors.Trace(err)
@@ -145,7 +148,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			arg.BakeryVersion = bakery.LatestVersion
 		}
 
-		offerStatusWatcher, err := w.remoteModelFacade.WatchOfferStatus(arg)
+		offerStatusWatcher, err = w.remoteModelFacade.WatchOfferStatus(arg)
 		if err != nil {
 			w.checkOfferPermissionDenied(err, "", "")
 			if params.IsCodeNotFound(err) {
@@ -214,6 +217,15 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			for _, change := range changes {
 				if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, change.Status.Status, change.Status.Message); err != nil {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+				}
+				// If the offer is terminated the status watcher can be stopped immediately.
+				if change.Status.Status == status.Terminated {
+					offerStatusWatcher.Kill()
+					if err := offerStatusWatcher.Wait(); err != nil {
+						w.logger.Warningf("error stopping status watcher for saas application %s: %v", w.applicationName, err)
+					}
+					offerStatusChanges = nil
+					break
 				}
 			}
 		}

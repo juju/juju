@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry_test
+package internal_test
 
 import (
 	"encoding/base64"
@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
 )
 
@@ -41,7 +41,7 @@ func (s *transportSuite) TestErrorTransport(c *gc.C) {
 		}
 		return resps, nil
 	})
-	t := registry.NewErrorTransport(mockRoundTripper)
+	t := internal.NewErrorTransport(mockRoundTripper)
 	_, err = t.RoundTrip(&http.Request{URL: url})
 	c.Assert(err, gc.ErrorMatches, `non-successful response status=403`)
 }
@@ -65,7 +65,7 @@ func (s *transportSuite) TestBasicTransport(c *gc.C) {
 			}, nil
 		},
 	)
-	t := registry.NewBasicTransport(mockRoundTripper, "username", "pwd", "")
+	t := internal.NewBasicTransport(mockRoundTripper, "username", "pwd", "")
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -83,7 +83,7 @@ func (s *transportSuite) TestBasicTransport(c *gc.C) {
 			}, nil
 		},
 	)
-	t = registry.NewBasicTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
+	t = internal.NewBasicTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==")
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -91,7 +91,7 @@ func (s *transportSuite) TestBasicTransport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// missing credentials.
-	t = registry.NewBasicTransport(mockRoundTripper, "", "", "")
+	t = internal.NewBasicTransport(mockRoundTripper, "", "", "")
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -116,7 +116,7 @@ func (s *transportSuite) TestTokenTransportOAuthTokenProvided(c *gc.C) {
 			},
 		),
 	)
-	t := registry.NewTokenTransport(mockRoundTripper, "", "", "", "OAuth-jwt-token")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "", "OAuth-jwt-token", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -171,7 +171,7 @@ func (s *transportSuite) TestTokenTransportTokenRefresh(c *gc.C) {
 			},
 		),
 	)
-	t := registry.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -205,7 +205,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedRealmMissing(c *gc.
 			},
 		),
 	)
-	t := registry.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
@@ -239,7 +239,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 			},
 		),
 	)
-	t := registry.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "")
+	t := internal.NewTokenTransport(mockRoundTripper, "", "", "dXNlcm5hbWU6cHdkMQ==", "", false)
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,

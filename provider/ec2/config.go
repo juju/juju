@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+const (
+	// awsInstanceProfileAutoCreateVal is the key used for the instance profile
+	// constraint to tell Juju to auto create an instance profile in AWS for the
+	// machine. This is only used for bootstrapped controllers.
+	awsInstanceProfileAutoCreateVal = "auto"
+)
+
 var configSchema = environschema.Fields{
 	"vpc-id": {
 		Description: "Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region.",

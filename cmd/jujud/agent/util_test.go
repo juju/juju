@@ -46,7 +46,6 @@ import (
 
 const (
 	initialMachinePassword = "machine-password-1234567890"
-	startWorkerWait        = 250 * time.Millisecond
 )
 
 var fastDialOpts = api.DialOpts{
@@ -87,15 +86,6 @@ func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}
 	case <-aChannel:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for %v", intent)
-	}
-}
-
-func (s *commonMachineSuite) assertChannelInactive(c *gc.C, aChannel chan struct{}, intent string) {
-	// Now make sure the channel is not active.
-	select {
-	case <-aChannel:
-		c.Fatalf("%v unexpectedly", intent)
-	case <-time.After(startWorkerWait):
 	}
 }
 
@@ -252,14 +242,6 @@ func (s *signal) assertTriggered(c *gc.C, thing string) {
 	case <-s.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for " + thing)
-	}
-}
-
-func (s *signal) assertNotTriggered(c *gc.C, wait time.Duration, thing string) {
-	select {
-	case <-s.triggered():
-		c.Fatalf("%v unexpectedly", thing)
-	case <-time.After(wait):
 	}
 }
 

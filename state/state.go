@@ -989,7 +989,7 @@ func (st *State) addPeerRelationsOps(applicationName string, peers map[string]ch
 }
 
 var (
-	errSameNameRemoteApplicationExists = errors.Errorf("remote application with same name already exists")
+	errSameNameRemoteApplicationExists = errors.Errorf("saas application with same name already exists")
 	errLocalApplicationExists          = errors.Errorf("application already exists")
 )
 
@@ -1994,7 +1994,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return nil, err
 	}
 	if app1.IsRemote() && app2.IsRemote() {
-		return nil, errors.Errorf("cannot add relation between remote applications %q and %q", eps[0].ApplicationName, eps[1].ApplicationName)
+		return nil, errors.Errorf("cannot add relation between saas applications %q and %q", eps[0].ApplicationName, eps[1].ApplicationName)
 	}
 	remoteRelation := app1.IsRemote() || app2.IsRemote()
 	ep0ok := app1.IsRemote() || eps[0].Scope == charm.ScopeGlobal

@@ -1426,7 +1426,7 @@ func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, 
 	for i, arg := range args.RelationUnits {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
