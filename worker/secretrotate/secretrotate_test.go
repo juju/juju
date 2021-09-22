@@ -250,6 +250,7 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 		RotateInterval: 30 * time.Minute,
 		LastRotateTime: now,
 	}}
+	time.Sleep(testing.ShortWait) // ensure advanceClock happens after timer is updated
 	s.advanceClock(c, 15*time.Minute)
 	s.expectRotated(c, url2.ShortString())
 
@@ -275,6 +276,7 @@ func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
 		RotateInterval: time.Hour,
 		LastRotateTime: now,
 	}}
+	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
 
 	url2 := secrets.NewSimpleURL("app/mysql/password")
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
@@ -334,6 +336,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 		RotateInterval: time.Hour,
 		LastRotateTime: now,
 	}}
+	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
 
 	url2 := secrets.NewSimpleURL("app/mysql/password")
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
@@ -375,6 +378,8 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 		RotateInterval: 45 * time.Second,
 		LastRotateTime: now,
 	}}
+	err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1) // ensure some fake time has elapsed
+	c.Assert(err, jc.ErrorIsNil)
 
 	url2 := secrets.NewSimpleURL("app/mysql/password")
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
