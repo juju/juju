@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"context"
 	"net/http"
 	"net/textproto"
 	"net/url"
@@ -1275,7 +1276,7 @@ func (f *stubMasterFacade) Reap() error {
 	return nil
 }
 
-func (f *stubMasterFacade) StreamModelLog(start time.Time) (<-chan common.LogMessage, error) {
+func (f *stubMasterFacade) StreamModelLog(_ context.Context, start time.Time) (<-chan common.LogMessage, error) {
 	f.stub.AddCall("StreamModelLog", start)
 	if f.streamErr != nil {
 		return nil, f.streamErr
