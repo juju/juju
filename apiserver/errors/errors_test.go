@@ -232,6 +232,10 @@ var errorTransformTests = []struct {
 		return true
 	},
 }, {
+	err:    apiservererrors.NewNotLeaderError("1.1.1.1", "1"),
+	code:   params.CodeNotLeader,
+	status: http.StatusTemporaryRedirect,
+}, {
 	err:    nil,
 	code:   "",
 	status: http.StatusOK,

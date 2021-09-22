@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -54,6 +55,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 			return state.RestoreNotActive
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
+		RaftOpQueue:      queue.NewBlockingOpQueue(testclock),
 	}
 }
 

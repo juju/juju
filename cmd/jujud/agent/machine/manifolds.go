@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/lease"
 	"github.com/juju/juju/state"
@@ -79,7 +80,6 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/raft/raftbackstop"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
@@ -726,6 +726,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
+			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{

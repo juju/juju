@@ -420,6 +420,20 @@ func (mr *MockContextMockRecorder) Presence() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Presence", reflect.TypeOf((*MockContext)(nil).Presence))
 }
 
+// Raft mocks base method.
+func (m *MockContext) Raft() facade.RaftContext {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Raft")
+	ret0, _ := ret[0].(facade.RaftContext)
+	return ret0
+}
+
+// Raft indicates an expected call of Raft.
+func (mr *MockContextMockRecorder) Raft() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Raft", reflect.TypeOf((*MockContext)(nil).Raft))
+}
+
 // RequestRecorder mocks base method.
 func (m *MockContext) RequestRecorder() facade.RequestRecorder {
 	m.ctrl.T.Helper()
