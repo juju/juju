@@ -18,6 +18,7 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
-	"github.com/juju/juju/worker/raft/queue"
 )
 
 type sharedServerContextSuite struct {

@@ -20,8 +20,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 

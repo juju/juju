@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/raft/queue"
 )
 
 // Queue is a blocking queue to guard access and to serialize raft applications,

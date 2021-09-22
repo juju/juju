@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/queue"
 )
 
 type Logger interface {

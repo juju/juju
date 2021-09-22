@@ -68,6 +68,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -87,7 +88,6 @@ import (
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
-	"github.com/juju/juju/worker/raft/queue"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")

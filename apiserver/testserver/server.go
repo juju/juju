@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/raft/queue"
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.

@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
-	"github.com/juju/juju/worker/raft/queue"
 )
 
 type workerFixture struct {
