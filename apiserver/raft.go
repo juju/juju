@@ -14,6 +14,7 @@ import (
 type Logger interface {
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
+	IsTraceEnabled() bool
 }
 
 // Queue is a blocking queue to guard access and to serialize raft applications,
@@ -39,7 +40,9 @@ type raftMediator struct {
 // caller and a ErrEnqueueDeadlineExceeded will be sent. It's up to the caller
 // to retry or drop depending on how the retry algorithm is implemented.
 func (m *raftMediator) ApplyLease(cmd []byte) error {
-	m.logger.Tracef("Applying Lease with command %s", string(cmd))
+	if m.logger.IsTraceEnabled() {
+		m.logger.Tracef("Applying Lease with command %s", string(cmd))
+	}
 
 	err := m.queue.Enqueue(queue.Operation{
 		Commands: [][]byte{cmd},
