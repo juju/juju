@@ -89,6 +89,9 @@ type ImageRepoDetails struct {
 
 	// ServerAddress is the auth server address.
 	ServerAddress string `json:"serveraddress,omitempty" yaml:"serveraddress,omitempty"`
+
+	// Region is the cloud region.
+	Region string `json:"region,omitempty" yaml:"region,omitempty"`
 }
 
 // AuthEqual compares if the provided one equals to current repository detail.

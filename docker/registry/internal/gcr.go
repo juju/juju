@@ -44,7 +44,7 @@ func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) (err
 	}
 	username := auth.Username
 	if auth.Auth != "" {
-		username, err = getUserNameFromAuth(auth.Auth)
+		username, _, err = unpackAuthToken(auth.Auth)
 		if err != nil {
 			return errors.Annotate(err, "getting username from the google container registry auth token")
 		}
