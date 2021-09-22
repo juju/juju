@@ -589,7 +589,7 @@ func (manager *Manager) setNextTimeout(t time.Time) {
 
 	// Ensure we never walk the next check back without have performed a
 	// scheduled check *unless* we're just starting up.
-	if !manager.nextTimeout.IsZero() && t.After(manager.nextTimeout) {
+	if !manager.nextTimeout.IsZero() && !t.Before(manager.nextTimeout) {
 		return
 	}
 	manager.nextTimeout = t
