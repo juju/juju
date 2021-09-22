@@ -962,7 +962,7 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	// When 'force' is set on the operation, this call will return both needed operations
 	// as well as all operational errors encountered.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.removeOps(); err {
+	switch ops, err := op.removeOps(attempt); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -1011,7 +1011,7 @@ func (u *Unit) RemoveWithForce(force bool, maxWait time.Duration) ([]error, erro
 // When 'force' is set, this call will return needed operations
 // and all operational errors will be accumulated in operation itself.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
+func (op *RemoveUnitOperation) removeOps(attempt int) (ops []txn.Op, err error) {
 	if op.unit.doc.Life != Dead {
 		return nil, errors.New("unit is not dead")
 	}
@@ -1032,7 +1032,7 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 				failRelations = true
 				continue
 			}
-			leaveScopOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
+			leaveScopOps, err := ru.leaveScopeForcedOps(attempt, &op.ForcedOperation)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				op.AddError(err)
 				failRelations = true

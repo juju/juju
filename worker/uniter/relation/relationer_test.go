@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 
@@ -105,6 +106,19 @@ func (s *relationerSuite) TestCommitHookRelationBrokenDies(c *gc.C) {
 	// Setup for test
 	s.expectEndpoint(endpoint())
 	s.expectLeaveScope()
+	s.expectRemoveRelation()
+
+	r := s.newRelationer()
+
+	err := r.CommitHook(hook.Info{Kind: hooks.RelationBroken})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationerSuite) TestCommitHookRelationRemoved(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Setup for test
+	s.expectEndpoint(endpoint())
+	s.relationUnit.EXPECT().LeaveScope().Return(&params.Error{Code: "not found"})
 	s.expectRemoveRelation()
 
 	r := s.newRelationer()

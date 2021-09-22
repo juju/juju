@@ -290,7 +290,7 @@ func (op *DestroyRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error
 	// When 'force' is set on the operation, this call will return needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.destroyOps(); err {
+	switch ops, err := op.destroyOps(attempt); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -367,7 +367,7 @@ func (s *RemoteApplication) Destroy() error {
 // When 'force' is set, this call will return needed operations
 // and accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err error) {
+func (op *DestroyRemoteApplicationOperation) destroyOps(attempt int) (ops []txn.Op, err error) {
 	if op.app.doc.Life == Dying {
 		if !op.Force {
 			return nil, errAlreadyDying
@@ -405,7 +405,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 		for _, rel := range rels {
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
-			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
+			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(attempt, &op.ForcedOperation, op.app, rel, true)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -413,7 +413,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 			// When 'force' is set, this call will return both needed operations
 			// as well as all operational errors encountered.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, &op.ForcedOperation)
+			relOps, isRemove, err := rel.destroyOps(attempt, op.app.doc.Name, &op.ForcedOperation)
 			if err == errAlreadyDying {
 				relOps = []txn.Op{{
 					C:      relationsC,
@@ -544,7 +544,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	if err != nil {
 		return nil, errors.Annotate(err, "setting status")
 	}
-	// Strict speaking, we should transition through Dying state.
+	// Strictly speaking, we should transition through Dying state.
 	ops = append(ops, txn.Op{
 		C:      remoteApplicationsC,
 		Id:     op.app.doc.DocID,
@@ -561,7 +561,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	// relations on the consuming side.
 	// Destroying each relation also forces remote units to leave scope.
 	for _, rel := range rels {
-		relOps, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
+		relOps, err := destroyCrossModelRelationUnitsOps(attempt, &ForcedOperation{Force: true}, op.app, rel, false)
 		if err != nil {
 			return nil, errors.Annotatef(err, "removing relation %q", rel)
 		}

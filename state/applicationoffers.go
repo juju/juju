@@ -314,15 +314,8 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 				return nil, err
 			}
 
-			logger.Debugf("forcing cleanup of remote application %v", remoteApp.Name())
-			remoteAppOps, err := remoteApp.DestroyOperation(op.Force).Build(attempt)
-			if err != nil && err != jujutxn.ErrNoOperations {
-				op.AddError(err)
-			}
-			ops = append(ops, remoteAppOps...)
-
 			// Force any remote units to leave scope so the offer can be cleaned up.
-			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, rel, false)
+			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(attempt, &op.ForcedOperation, remoteApp, rel, false)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -331,7 +324,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			// When 'force' is set, this call will return needed operations
 			// and accumulate all operational errors encountered in the operation.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			relOps, _, err := rel.destroyOps("", &op.ForcedOperation)
+			relOps, _, err := rel.destroyOps(attempt, "", &op.ForcedOperation)
 			if err == errAlreadyDying {
 				continue
 			} else if err != nil {
@@ -346,6 +339,24 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			})
 		}
 	}
+	// If the offer is being removed, then any proxies for applications on the
+	// consuming side also need to be removed.
+	remoteApps, err := op.offerStore.st.AllRemoteApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, remoteApp := range remoteApps {
+		if remoteApp.OfferUUID() != op.offer.OfferUUID {
+			continue
+		}
+		logger.Debugf("destroy consumer proxy %v for offer %v", remoteApp.Name(), op.offerName)
+		remoteAppOps, err := remoteApp.DestroyOperation(true).Build(attempt)
+		if err != nil && err != jujutxn.ErrNoOperations {
+			op.AddError(err)
+		}
+		ops = append(ops, remoteAppOps...)
+	}
+
 	decRefOp, err := decApplicationOffersRefOp(op.offerStore.st, offer.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -490,7 +490,7 @@ func (s *RunHookSuite) testCommitError(c *gc.C, newHook newHook) {
 
 	newState, err := op.Commit(operation.State{})
 	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, gc.ErrorMatches, "committing hook.*: pow")
 }
 
 func (s *RunHookSuite) TestCommitError_Run(c *gc.C) {

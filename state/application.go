@@ -314,7 +314,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	// and may be of interest to the user. Without 'force', these errors are considered fatal.
 	// If 'force' is specified, they are treated as non-fatal - they will not prevent further
 	// processing: we'll still try to remove application.
-	ops, err := op.destroyOps()
+	ops, err := op.destroyOps(attempt)
 	switch errors.Cause(err) {
 	case errRefresh:
 		return nil, jujutxn.ErrTransientFailure
@@ -389,7 +389,7 @@ func (op *DestroyApplicationOperation) eraseHistory() error {
 //
 // When the 'force' is not set, any operational errors will be considered fatal. All operations
 // constructed up until the error will be discarded and the error will be returned.
-func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
+func (op *DestroyApplicationOperation) destroyOps(attempt int) ([]txn.Op, error) {
 	rels, err := op.app.Relations()
 	if op.FatalError(err) {
 		return nil, err
@@ -410,7 +410,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		// relation as well as all operational errors encountered.
 		// If the 'force' is not set and the call came across some errors,
 		// these errors will be fatal and no operations will be returned.
-		relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, &op.ForcedOperation)
+		relOps, isRemove, err := rel.destroyOps(attempt, op.app.doc.Name, &op.ForcedOperation)
 		if errors.Cause(err) == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,

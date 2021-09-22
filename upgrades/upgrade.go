@@ -29,7 +29,7 @@ type Step interface {
 
 // Operation defines what steps to perform to upgrade to a target version.
 type Operation interface {
-	// The Juju version for which this operation is applicable.
+	// TargetVersion is the Juju version for which this operation is applicable.
 	// Upgrade operations designed for versions of Juju earlier
 	// than we are upgrading from are not run since such steps would
 	// already have been used to get to the version we are running now.
