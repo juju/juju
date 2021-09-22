@@ -50,14 +50,35 @@ func NewFacade(auth facade.Authorizer, raft facade.RaftContext) (*Facade, error)
 // topic).
 func (facade *Facade) ApplyLease(args params.LeaseOperations) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Operations))
+
 	for k, op := range args.Operations {
-		if err := facade.raft.ApplyLease([]byte(op.Command)); err != nil {
-			results[k] = params.ErrorResult{
+		err := facade.raft.ApplyLease([]byte(op.Command))
+		if err == nil {
+			continue
+		}
+
+		// If we're not the leader anymore, then we don't want to apply
+		// any more leases. In this instance we do want to bail out
+		// early, but mark all subsequent errors as the same as this
+		// error.
+		if apiservererrors.IsNotLeaderError(err) {
+			// Fill up any remaining operations with the same error.
+			errResult := params.ErrorResult{
 				Error: apiservererrors.ServerError(err),
+			}
+			for i := k; i < len(args.Operations); i++ {
+				results[i] = errResult
 			}
 			break
 		}
+
+		// A non leader error type, we should mark this one as an error, but
+		// continue on applying leases.
+		results[k] = params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}
 	}
+
 	return params.ErrorResults{
 		Results: results,
 	}, nil
