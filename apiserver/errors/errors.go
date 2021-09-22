@@ -330,14 +330,8 @@ func RestoreError(err error) error {
 		if !ok {
 			return err
 		}
-		var serverAddress string
-		if s, ok := e.Info["server-address"]; ok {
-			serverAddress = s.(string)
-		}
-		var serverID string
-		if s, ok := e.Info["server-id"]; ok {
-			serverID = s.(string)
-		}
+		serverAddress, _ := e.Info["server-address"].(string)
+		serverID, _ := e.Info["server-id"].(string)
 		return NewNotLeaderError(serverAddress, serverID)
 	default:
 		return err
