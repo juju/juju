@@ -24,7 +24,6 @@ func (c *gitlabContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "registry.gitlab.com")
 }
 
-func (c *gitlabContainerRegistry) WrapTransport() error {
-	// TODO(ycliuhw): implement gitlab public registry.
-	return c.baseClient.WrapTransport()
+func (c *gitlabContainerRegistry) WrapTransport(...TransportWrapper) error {
+	return c.baseClient.WrapTransport(newPrivateOnlyTransport)
 }
