@@ -190,7 +190,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 		if !ok {
 			return nil, errors.NewNotValid(nil, "cannot find controller name in config")
 		}
-		instProfile, err := ensureControllerInstanceProfile(ctx.Context(), e.iamClient, controllerName)
+		controllerUUID := args.ControllerConfig[controller.ControllerUUIDKey].(string)
+		instProfile, err := ensureControllerInstanceProfile(
+			ctx.Context(),
+			e.iamClient,
+			controllerName,
+			controllerUUID)
 		if err != nil {
 			return nil, err
 		}

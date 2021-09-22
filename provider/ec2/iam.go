@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/tags"
 )
 
 // instanceProfileClient is a subset interface of the ec2 client for attaching
@@ -70,10 +71,17 @@ func ensureControllerInstanceProfile(
 	ctx stdcontext.Context,
 	client IAMClient,
 	controllerName string,
+	controllerUUID string,
 ) (*iamtypes.InstanceProfile, error) {
 	profileName := fmt.Sprintf("juju-controller-%s", controllerName)
 	res, err := client.CreateInstanceProfile(ctx, &iam.CreateInstanceProfileInput{
 		InstanceProfileName: aws.String(profileName),
+		Tags: []iamtypes.Tag{
+			{
+				Key:   aws.String(tags.JujuController),
+				Value: aws.String(controllerUUID),
+			},
+		},
 	})
 	if err != nil {
 		var alreadyExistsErr *iamtypes.EntityAlreadyExistsException
