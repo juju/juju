@@ -402,7 +402,6 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 		res[reqIdx].Meta = chArchive.Meta()
 		res[reqIdx].Manifest = chArchive.Manifest()
 		res[reqIdx].Config = chArchive.Config()
-		res[reqIdx].LXDProfile = chArchive.LXDProfile()
 	}
 
 	return res, nil

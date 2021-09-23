@@ -65,8 +65,7 @@ type MetadataRequest struct {
 type EssentialMetadata struct {
 	ResolvedOrigin Origin
 
-	Meta       *charm.Meta
-	Manifest   *charm.Manifest
-	Config     *charm.Config
-	LXDProfile *charm.LXDProfile
+	Meta     *charm.Meta
+	Manifest *charm.Manifest
+	Config   *charm.Config
 }

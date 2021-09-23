@@ -171,29 +171,6 @@ func (c *CharmStoreRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRe
 		res[reqIdx].Meta = csMetaRes.CharmMetadata
 		res[reqIdx].Config = csMetaRes.CharmConfig
 		res[reqIdx].ResolvedOrigin = req.Origin
-
-		// The metadata call does not return back LXD profile
-		// information.  We need to make a separate call to grab it
-		// from within the archive.
-		profileReader, fetchErr := client.GetFileFromArchive(req.CharmURL, "lxd-profile.yaml")
-		if fetchErr != nil {
-			// It's fine if the charm does not provide an lxd profile
-			if errors.Cause(fetchErr) == csparams.ErrNotFound {
-				continue
-			}
-
-			return nil, errors.Annotatef(err, "retrieving metadata for %q", req.CharmURL)
-		}
-
-		res[reqIdx].LXDProfile, err = charm.ReadLXDProfile(profileReader)
-		if cErr := profileReader.Close(); cErr != nil {
-			c.logger.Errorf("unable to close LXD profile reader while retrieving metadata for %q: %v", req.CharmURL, cErr)
-			// NOTE(achilleasa): this is a non-fatal error; if the
-			// profile was successfully read we should continue.
-		}
-		if err != nil {
-			return nil, errors.Annotatef(err, "parsing lxd profile for %q", req.CharmURL)
-		}
 	}
 
 	return res, nil
