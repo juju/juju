@@ -607,7 +607,7 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		defer closer()
 
 		app := &RemoteApplication{st: r.st}
-		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
+		hasLastRef := bson.D{{"life", bson.D{{"$ne", Alive}}}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
 		if err := applications.Find(removable).One(&app.doc); err == nil {
 			removeOps := app.removeOps(hasLastRef)

@@ -679,6 +679,19 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	orphaned, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-orphaned",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   offer.OfferUUID,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	wordpress, err := s.State.RemoteApplication("remote-wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	wordpressEP, err := rwordpress.Endpoint("db")
@@ -718,6 +731,10 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
 	err = wordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = orphaned.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

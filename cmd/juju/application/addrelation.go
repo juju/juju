@@ -298,12 +298,21 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 Use 'juju status --relations' to view the current relations.`)
 		return errors.Annotatef(infoErr, splitError)
 	}
-	if err != nil && offerTerminatedRegexp.MatchString(err.Error()) {
-		offerName := offerTerminatedRegexp.ReplaceAllString(err.Error(), "$offer")
-		return errors.New(fmt.Sprintf(
-			`Offer %q has been removed from the remote model.
+	if err != nil {
+		if offerTerminatedRegexp.MatchString(err.Error()) {
+			offerName := offerTerminatedRegexp.ReplaceAllString(err.Error(), "$offer")
+			return errors.New(fmt.Sprintf(
+				`Offer %q has been removed from the remote model.
 To relate to a new offer with the same name, first run
 'juju remove-saas %s' to remove the SAAS record from this model.`, offerName, offerName))
+		}
+		if c.remoteEndpoint != nil && strings.HasSuffix(err.Error(), "not alive") {
+			saasName := c.remoteEndpoint.ApplicationName
+			return errors.New(fmt.Sprintf(
+				`SAAS application %q has been removed but termination has not completed.
+To relate to a new offer with the same name, first run
+'juju remove-saas %s --force' to remove the SAAS record from this model.`, saasName, saasName))
+		}
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

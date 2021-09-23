@@ -389,7 +389,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	}
 	// If the application is already terminated and dead, the removal
 	// can be short circuited.
-	forceTerminate := op.Force || statusInfo.Status == status.Terminated && op.app.Life() == Dead
+	forceTerminate := op.Force || statusInfo.Status == status.Terminated
 
 	if !forceTerminate && haveRels && len(rels) != op.app.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
@@ -544,7 +544,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	if err != nil {
 		return nil, errors.Annotate(err, "setting status")
 	}
-	// Strict speaking, we should transition through Dying state.
+	// Strictly speaking, we should transition through Dying state.
 	ops = append(ops, txn.Op{
 		C:      remoteApplicationsC,
 		Id:     op.app.doc.DocID,
@@ -964,20 +964,21 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 	return newRemoteApplication(st, appDoc), nil
 }
 
-// RemoteApplicationByToken returns a remote application state by token.
-func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, err error) {
+// RemoteApplicationsByOffer returns remote applications state by offer uuid.
+func (st *State) RemoteApplicationsByOffer(offerUUID string) (_ []*RemoteApplication, err error) {
 	apps, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
-	appDoc := &remoteApplicationDoc{}
-	err = apps.Find(bson.D{{"token", token}}).One(appDoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("saas application with token %q", token)
-	}
+	var appDocs []remoteApplicationDoc
+	err = apps.Find(bson.D{{"offer-uuid", offerUUID}}).All(&appDocs)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get saas application with token %q", token)
+		return nil, errors.Annotatef(err, "cannot get saas applications with offer-uuid %q", offerUUID)
 	}
-	return newRemoteApplication(st, appDoc), nil
+	result := make([]*RemoteApplication, len(appDocs))
+	for i, appDoc := range appDocs {
+		result[i] = newRemoteApplication(st, &appDoc)
+	}
+	return result, nil
 }
 
 // AllRemoteApplications returns all the remote applications used by the model.
