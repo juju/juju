@@ -14,13 +14,15 @@ func TestPackage(t *testing.T) {
 }
 
 type (
-	AzureContainerRegistry  = azureContainerRegistry
-	BaseClient              = baseClient
-	Dockerhub               = dockerhub
-	GoogleContainerRegistry = googleContainerRegistry
-	GithubContainerRegistry = githubContainerRegistry
-	GitlabContainerRegistry = gitlabContainerRegistry
-	QuayContainerRegistry   = quayContainerRegistry
+	AzureContainerRegistry         = azureContainerRegistry
+	BaseClient                     = baseClient
+	Dockerhub                      = dockerhub
+	GoogleContainerRegistry        = googleContainerRegistry
+	GithubContainerRegistry        = githubContainerRegistry
+	GitlabContainerRegistry        = gitlabContainerRegistry
+	QuayContainerRegistry          = quayContainerRegistry
+	ElasticContainerRegistry       = elasticContainerRegistry
+	ElasticContainerRegistryPublic = elasticContainerRegistryPublic
 )
 
 var (

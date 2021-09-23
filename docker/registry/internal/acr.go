@@ -32,11 +32,11 @@ func (c *azureContainerRegistry) Match() bool {
 func unpackAuthToken(auth string) (string, string, error) {
 	content, err := base64.StdEncoding.DecodeString(auth)
 	if err != nil {
-		return "", errors.Annotate(err, "doing base64 decode on the auth token")
+		return "", "", errors.Annotate(err, "doing base64 decode on the auth token")
 	}
 	parts := strings.Split(string(content), ":")
 	if len(parts) < 2 {
-		return "", errors.NotValidf("registry auth token")
+		return "", "", errors.NotValidf("registry auth token")
 	}
 	return parts[0], parts[1], nil
 }
