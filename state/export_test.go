@@ -939,7 +939,7 @@ func AppDeviceConstraints(app *Application) (map[string]DeviceConstraints, error
 
 func RemoveRelation(c *gc.C, rel *Relation, force bool) {
 	op := &ForcedOperation{Force: force}
-	ops, err := rel.removeOps(0, "", "", op)
+	ops, err := rel.removeOps("", "", op)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("operational errors %v", op.Errors)
 	c.Assert(op.Errors, gc.HasLen, 0)

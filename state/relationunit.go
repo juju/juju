@@ -343,7 +343,7 @@ func (op *LeaveScopeOperation) Build(attempt int) ([]txn.Op, error) {
 	// When 'force' is set on the operation, this call will return needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.internalLeaveScope(attempt); err {
+	switch ops, err := op.internalLeaveScope(); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -400,17 +400,17 @@ func (ru *RelationUnit) LeaveScope() error {
 // leaveScopeForcedOps is an internal method used by other state objects when they just want
 // to get database operations that are involved in leaving scope without
 // the actual immediate act of leaving scope.
-func (ru *RelationUnit) leaveScopeForcedOps(attempt int, existingOperation *ForcedOperation) ([]txn.Op, error) {
+func (ru *RelationUnit) leaveScopeForcedOps(existingOperation *ForcedOperation) ([]txn.Op, error) {
 	// It does not matter that we are say false to force here- we'll overwrite the whole ForcedOperation.
 	leaveScopeOperation := ru.LeaveScopeOperation(false)
 	leaveScopeOperation.ForcedOperation = *existingOperation
-	return leaveScopeOperation.internalLeaveScope(attempt)
+	return leaveScopeOperation.internalLeaveScope()
 }
 
 // When 'force' is set, this call will return needed operations
 // and will accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.
-func (op *LeaveScopeOperation) internalLeaveScope(attempt int) ([]txn.Op, error) {
+func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 	relationScopes, closer := op.ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
@@ -450,16 +450,6 @@ func (op *LeaveScopeOperation) internalLeaveScope(attempt int) ([]txn.Op, error)
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
-
-	// Cross model relations might get out of sync between models.
-	// If this is not the first attempt to run the leave scope txns,
-	// force the removal of the relation rather than trying to do it cleanly.
-	_, isCrossModel, err := op.ru.relation.RemoteApplication()
-	if op.FatalError(errors.Trace(err)) {
-		return nil, err
-	}
-	forceRemove := isCrossModel && attempt > 0 && op.Force
-
 	if op.ru.relation.doc.Life == Alive {
 		ops = append(ops, txn.Op{
 			C:      relationsC,
@@ -467,7 +457,7 @@ func (op *LeaveScopeOperation) internalLeaveScope(attempt int) ([]txn.Op, error)
 			Assert: bson.D{{"life", Alive}},
 			Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 		})
-	} else if !forceRemove && op.ru.relation.doc.UnitCount > 1 {
+	} else if op.ru.relation.doc.UnitCount > 1 {
 		ops = append(ops, txn.Op{
 			C:      relationsC,
 			Id:     op.ru.relation.doc.DocID,
@@ -478,7 +468,7 @@ func (op *LeaveScopeOperation) internalLeaveScope(attempt int) ([]txn.Op, error)
 		// When 'force' is set, this call will return needed operations
 		// and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		relOps, err := op.ru.relation.removeOps(attempt, "", op.ru.unitName, &op.ForcedOperation)
+		relOps, err := op.ru.relation.removeOps("", op.ru.unitName, &op.ForcedOperation)
 		if op.FatalError(err) {
 			return nil, err
 		}

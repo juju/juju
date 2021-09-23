@@ -285,7 +285,7 @@ func (op *DestroyRelationOperation) Build(attempt int) ([]txn.Op, error) {
 	// When 'force' is set on the operation, this call will return needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.internalDestroy(attempt); err {
+	switch ops, err := op.internalDestroy(); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -334,7 +334,7 @@ func (r *Relation) Destroy() error {
 
 // destroyCrossModelRelationUnitsOps returns the operations necessary for the units
 // of the specified remote application to leave scope.
-func destroyCrossModelRelationUnitsOps(attempt int, op *ForcedOperation, remoteApp *RemoteApplication, rel *Relation, onlyForTerminated bool) ([]txn.Op, error) {
+func destroyCrossModelRelationUnitsOps(op *ForcedOperation, remoteApp *RemoteApplication, rel *Relation, onlyForTerminated bool) ([]txn.Op, error) {
 	if onlyForTerminated {
 		statusInfo, err := remoteApp.Status()
 		if op.FatalError(err) && !errors.IsNotFound(err) {
@@ -356,7 +356,7 @@ func destroyCrossModelRelationUnitsOps(attempt int, op *ForcedOperation, remoteA
 	logger.Debugf("got %v relation units to clean", len(remoteUnits))
 	failRemoteUnits := false
 	for _, ru := range remoteUnits {
-		leaveScopeOps, err := ru.leaveScopeForcedOps(attempt, op)
+		leaveScopeOps, err := ru.leaveScopeForcedOps(op)
 		if err != nil && err != jujutxn.ErrNoOperations {
 			op.AddError(err)
 			failRemoteUnits = true
@@ -372,7 +372,7 @@ func destroyCrossModelRelationUnitsOps(attempt int, op *ForcedOperation, remoteA
 // When 'force' is set, this call will construct and apply needed operations
 // as well as accumulate all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.
-func (op *DestroyRelationOperation) internalDestroy(attempt int) (ops []txn.Op, err error) {
+func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) {
 	if len(op.r.doc.Endpoints) == 1 && op.r.doc.Endpoints[0].Role == charm.RolePeer {
 		return nil, errors.Errorf("is a peer relation")
 	}
@@ -391,7 +391,7 @@ func (op *DestroyRelationOperation) internalDestroy(attempt int) (ops []txn.Op, 
 		// If the status of the consumed app is terminated, we will never
 		// get an orderly exit of units from scope so force the issue.
 		if isCrossModel {
-			destroyOps, err := destroyCrossModelRelationUnitsOps(attempt, &op.ForcedOperation, remoteApp, op.r, true)
+			destroyOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, op.r, true)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -406,7 +406,7 @@ func (op *DestroyRelationOperation) internalDestroy(attempt int) (ops []txn.Op, 
 	// When 'force' is set, this call will return  needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	destroyOps, _, err := rel.destroyOps(attempt, "", &op.ForcedOperation)
+	destroyOps, _, err := rel.destroyOps("", &op.ForcedOperation)
 	if err == errAlreadyDying {
 		return nil, jujutxn.ErrNoOperations
 	} else if op.FatalError(err) {
@@ -423,7 +423,7 @@ func (op *DestroyRelationOperation) internalDestroy(attempt int) (ops []txn.Op, 
 // When 'force' is set, this call will return both operations to remove this
 // relation as well as all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (r *Relation) destroyOps(attempt int, ignoreApplication string, op *ForcedOperation) (ops []txn.Op, isRemove bool, err error) {
+func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (ops []txn.Op, isRemove bool, err error) {
 	if r.doc.Life != Alive {
 		if !op.Force {
 			return nil, false, errAlreadyDying
@@ -450,7 +450,7 @@ func (r *Relation) destroyOps(attempt int, ignoreApplication string, op *ForcedO
 		// When 'force' is set, this call will return both needed operations
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		removeOps, err := r.removeOps(attempt, ignoreApplication, "", op)
+		removeOps, err := r.removeOps(ignoreApplication, "", op)
 		if err != nil {
 			if !op.Force {
 				return nil, false, err
@@ -485,7 +485,7 @@ func (r *Relation) destroyOps(attempt int, ignoreApplication string, op *ForcedO
 // When 'force' is set, this call will return needed operations
 // and accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (r *Relation) removeOps(attempt int, ignoreApplication string, departingUnitName string, op *ForcedOperation) ([]txn.Op, error) {
+func (r *Relation) removeOps(ignoreApplication string, departingUnitName string, op *ForcedOperation) ([]txn.Op, error) {
 	relOp := txn.Op{
 		C:      relationsC,
 		Id:     r.doc.DocID,
@@ -513,7 +513,7 @@ func (r *Relation) removeOps(attempt int, ignoreApplication string, departingUni
 			op.AddError(err)
 		} else {
 			if app.IsRemote() {
-				epOps, err := r.removeRemoteEndpointOps(attempt, ep, departingUnitName != "")
+				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
 				if err != nil {
 					op.AddError(err)
 				}
@@ -593,7 +593,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 	}}, cleanupOps...), nil
 }
 
-func (r *Relation) removeRemoteEndpointOps(attempt int, ep Endpoint, unitDying bool) ([]txn.Op, error) {
+func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
 	var asserts bson.D
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
 	if !unitDying {
@@ -607,13 +607,7 @@ func (r *Relation) removeRemoteEndpointOps(attempt int, ep Endpoint, unitDying b
 		defer closer()
 
 		app := &RemoteApplication{st: r.st}
-		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
-		// Cross model relations might get out of sync between models.
-		// If this is not the first attempt to run the remove endpoint txns,
-		// force through the removal so long as the app is not alive.
-		if attempt > 0 {
-			hasLastRef = bson.D{{"life", bson.D{{"$ne", Alive}}}}
-		}
+		hasLastRef := bson.D{{"life", bson.D{{"$ne", Alive}, {"relationcount", 1}}}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
 		if err := applications.Find(removable).One(&app.doc); err == nil {
 			removeOps := app.removeOps(hasLastRef)

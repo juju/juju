@@ -986,6 +986,18 @@ func (s *remoteApplicationSuite) TestAllRemoteApplications(c *gc.C) {
 	c.Assert(names[1], gc.Equals, "mysql")
 }
 
+func (s *remoteApplicationSuite) TestAllRemoteApplicationsByOffer(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "another", SourceModel: s.Model.ModelTag(), OfferUUID: "another-offer"})
+	c.Assert(err, jc.ErrorIsNil)
+	applications, err := s.State.RemoteApplicationsByOffer("another-offer")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(applications, gc.HasLen, 1)
+
+	c.Assert(applications[0].Name(), gc.Equals, "another")
+	c.Assert(applications[0].OfferUUID(), gc.Equals, "another-offer")
+}
+
 func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
 	// Check that applications cannot be added if the model is initially Dying.
 	model, err := s.State.Model()

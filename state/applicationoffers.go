@@ -166,14 +166,11 @@ func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) (
 	}
 	var associatedAppProxies []*DestroyRemoteApplicationOperation
 	if err == nil {
-		remoteApps, err := s.st.AllRemoteApplications()
+		remoteApps, err := s.st.RemoteApplicationsByOffer(offer.OfferUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, remoteApp := range remoteApps {
-			if remoteApp.OfferUUID() != offer.OfferUUID {
-				continue
-			}
 			logger.Debugf("destroy consumer proxy %v for offer %v", remoteApp.Name(), offerName)
 			associatedAppProxies = append(associatedAppProxies, remoteApp.DestroyOperation(force))
 		}
@@ -214,7 +211,7 @@ func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
 	// When 'force' is set on the operation, this call will return needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err = op.internalRemove(op.offer, attempt); err {
+	switch ops, err = op.internalRemove(op.offer); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -310,7 +307,7 @@ func (op *RemoveOfferOperation) countOfferRelations(offer *crossmodel.Applicatio
 	return count, nil
 }
 
-func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer, attempt int) ([]txn.Op, error) {
+func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer) ([]txn.Op, error) {
 	// Load the application before counting the connections
 	// so we can do a consistency check on relation count.
 	app, err := op.offerStore.st.Application(offer.ApplicationName)
@@ -365,7 +362,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			}
 
 			// Force any remote units to leave scope so the offer can be cleaned up.
-			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(attempt, &op.ForcedOperation, remoteApp, rel, false)
+			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, rel, false)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -374,7 +371,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			// When 'force' is set, this call will return needed operations
 			// and accumulate all operational errors encountered in the operation.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			relOps, _, err := rel.destroyOps(attempt, "", &op.ForcedOperation)
+			relOps, _, err := rel.destroyOps("", &op.ForcedOperation)
 			if err == errAlreadyDying {
 				continue
 			} else if err != nil {
