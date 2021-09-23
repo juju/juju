@@ -298,6 +298,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				localModelUUID:                    w.config.ModelUUID,
 				remoteModelUUID:                   remoteApp.ModelUUID,
 				isConsumerProxy:                   remoteApp.IsConsumerProxy,
+				consumeVersion:                    remoteApp.ConsumeVersion,
 				offerMacaroon:                     remoteApp.Macaroon,
 				localRelationChanges:              make(chan RelationUnitChangeEvent),
 				remoteRelationChanges:             make(chan RelationUnitChangeEvent),

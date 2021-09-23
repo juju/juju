@@ -44,6 +44,7 @@ type remoteApplicationDoc struct {
 	Life            Life                `bson:"life"`
 	RelationCount   int                 `bson:"relationcount"`
 	IsConsumerProxy bool                `bson:"is-consumer-proxy"`
+	Version         int                 `bson:"version"`
 	Macaroon        string              `bson:"macaroon,omitempty"`
 }
 
@@ -136,6 +137,12 @@ func (s *RemoteApplication) SourceModel() names.ModelTag {
 // from a registration operation by a consuming model.
 func (s *RemoteApplication) IsConsumerProxy() bool {
 	return s.doc.IsConsumerProxy
+}
+
+// ConsumeVersion is incremented each time a new consumer proxy
+// is created for an offer.
+func (s *RemoteApplication) ConsumeVersion() int {
+	return s.doc.Version
 }
 
 // Name returns the application name.
@@ -785,6 +792,10 @@ type AddRemoteApplicationParams struct {
 	// of a registration operation from a remote model.
 	IsConsumerProxy bool
 
+	// ConsumeVersion is incremented each time a new consumer proxy
+	// is created for an offer.
+	ConsumeVersion int
+
 	// Macaroon is used for authentication on the offering side.
 	Macaroon *macaroon.Macaroon
 }
@@ -843,6 +854,12 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		macJSON = string(b)
 	}
 	applicationID := st.docID(args.Name)
+	version := args.ConsumeVersion
+	if !args.IsConsumerProxy {
+		if version, err = sequenceWithMin(st, args.OfferUUID, 1); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	// Create the application addition operations.
 	appDoc := &remoteApplicationDoc{
 		DocID:           applicationID,
@@ -853,6 +870,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		Bindings:        args.Bindings,
 		Life:            Alive,
 		IsConsumerProxy: args.IsConsumerProxy,
+		Version:         version,
 		Macaroon:        macJSON,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))

@@ -282,6 +282,7 @@ func (api *API) RemoteApplications(entities params.Entities) (params.RemoteAppli
 			Life:            life.Value(remoteApp.Life().String()),
 			ModelUUID:       remoteApp.SourceModel().Id(),
 			IsConsumerProxy: remoteApp.IsConsumerProxy(),
+			ConsumeVersion:  remoteApp.ConsumeVersion(),
 			Macaroon:        mac,
 		}, nil
 	}

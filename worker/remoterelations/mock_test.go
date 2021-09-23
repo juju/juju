@@ -154,6 +154,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 					ModelUUID:       app.modelUUID,
 					IsConsumerProxy: app.registered,
 					Status:          string(app.status),
+					ConsumeVersion:  app.consumeVersion,
 					Macaroon:        mac,
 				},
 			}
@@ -407,13 +408,14 @@ func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 
 type mockRemoteApplication struct {
 	testing.Stub
-	name       string
-	offeruuid  string
-	url        string
-	life       life.Value
-	modelUUID  string
-	registered bool
-	status     status.Status
+	name           string
+	offeruuid      string
+	url            string
+	life           life.Value
+	modelUUID      string
+	registered     bool
+	status         status.Status
+	consumeVersion int
 }
 
 type mockRemoteRelationWatcher struct {
@@ -486,7 +488,8 @@ func (w *mockOfferStatusWatcher) Changes() watcher.OfferStatusChannel {
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 	return &mockRemoteApplication{
 		name: name, url: url, life: life.Alive, offeruuid: "offer-" + name + "-uuid",
-		modelUUID: "remote-model-uuid",
+		modelUUID:      "remote-model-uuid",
+		consumeVersion: 666,
 	}
 }
 

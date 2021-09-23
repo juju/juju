@@ -21613,6 +21613,9 @@
                         "bakery-version": {
                             "type": "integer"
                         },
+                        "consume-version": {
+                            "type": "integer"
+                        },
                         "local-endpoint-name": {
                             "type": "string"
                         },
@@ -38440,6 +38443,9 @@
                 "RemoteApplication": {
                     "type": "object",
                     "properties": {
+                        "consume-version": {
+                            "type": "integer"
+                        },
                         "is-consumer-proxy": {
                             "type": "boolean"
                         },

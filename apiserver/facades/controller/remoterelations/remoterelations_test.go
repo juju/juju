@@ -379,11 +379,12 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
 		Result: &params.RemoteApplication{
-			Name:      "django",
-			OfferUUID: "django-uuid",
-			Life:      "alive",
-			ModelUUID: "model-uuid",
-			Macaroon:  mac,
+			Name:           "django",
+			OfferUUID:      "django-uuid",
+			ConsumeVersion: 666,
+			Life:           "alive",
+			ModelUUID:      "model-uuid",
+			Macaroon:       mac,
 		}}})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"RemoteApplication", []interface{}{"django"}},

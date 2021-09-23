@@ -104,6 +104,10 @@ type remoteApplicationShim struct {
 	*state.RemoteApplication
 }
 
+func (a remoteApplicationShim) DestroyOperation(force bool) state.ModelOperation {
+	return a.RemoteApplication.DestroyOperation(force)
+}
+
 func (st stateShim) RemoteApplication(name string) (RemoteApplication, error) {
 	a, err := st.State.RemoteApplication(name)
 	if err != nil {
