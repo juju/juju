@@ -853,7 +853,7 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Drop the last reference to the first relation; check the relation and
-	// the application are are both removed.
+	// the application are both removed.
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Refresh()
@@ -921,8 +921,12 @@ func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.application.Life(), gc.Equals, state.Dying)
+	if appStatus == nil || *appStatus != status.Terminated {
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(s.application.Life(), gc.Equals, state.Dying)
+	} else {
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
 
 	// If the remote app is terminated, any remote units are
 	// forcibly removed from scope, but not local ones.
