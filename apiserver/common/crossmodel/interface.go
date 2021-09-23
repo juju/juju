@@ -4,6 +4,8 @@
 package crossmodel
 
 import (
+	"time"
+
 	"github.com/juju/charm/v8"
 	"gopkg.in/macaroon.v2"
 
@@ -234,10 +236,10 @@ type Charm interface {
 // RemoteApplication represents the state of an application hosted in an external
 // (remote) model.
 type RemoteApplication interface {
-	// Destroy ensures that this remote application reference and all its relations
-	// will be removed at some point; if no relation involving the
-	// application has any units in scope, they are all removed immediately.
-	Destroy() error
+	// DestroyWithForce in addition to doing what Destroy() does,
+	// when force is passed in as 'true', forces th destruction of remote application,
+	// ignoring errors.
+	DestroyWithForce(bool, time.Duration) (opErrs []error, err error)
 
 	// Name returns the name of the remote application.
 	Name() string

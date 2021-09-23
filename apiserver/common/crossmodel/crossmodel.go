@@ -105,8 +105,12 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		}
 		if err == nil && remoteApp.IsConsumerProxy() {
 			logger.Debugf("destroy consuming app proxy for %v", applicationTag.Id())
-			if err := remoteApp.Destroy(); err != nil {
+			opErrs, err := remoteApp.DestroyWithForce(true, 0)
+			if err != nil {
 				return errors.Trace(err)
+			}
+			if len(opErrs) > 0 {
+				logger.Warningf("errors removing consuming app proxy for %v: %v", applicationTag.Id(), opErrs)
 			}
 		}
 

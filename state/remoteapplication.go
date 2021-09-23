@@ -496,6 +496,11 @@ func (s *RemoteApplication) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status for the application.
 func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
+	// We only care about status for alive apps; we want to
+	// avoid stray updates from the other model.
+	if s.Life() != Alive {
+		return nil
+	}
 	if !info.Status.KnownWorkloadStatus() {
 		return errors.Errorf("cannot set invalid status %q", info.Status)
 	}

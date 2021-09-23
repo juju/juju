@@ -203,7 +203,7 @@ func (s *remoteApplicationSuite) TestGetSetStatusNotFound(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.application.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status: saas application "mysql" not found`)
+	c.Check(err, jc.ErrorIsNil)
 
 	statusInfo, err := s.application.Status()
 	c.Check(err, gc.ErrorMatches, `cannot get status: saas application "mysql" not found`)

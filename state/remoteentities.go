@@ -262,6 +262,15 @@ func (r *RemoteEntities) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) 
 		macJSON = string(b)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			// The entity may have been removed; if so,
+			// return a not found error.
+			_, err := r.GetToken(entity)
+			if err == nil {
+				return nil, errors.Errorf("unexpected entity %q", entity)
+			}
+			return nil, errors.Trace(err)
+		}
 		ops := []txn.Op{{
 			C:      remoteEntitiesC,
 			Id:     entity.String(),
