@@ -77,6 +77,9 @@ func (config Config) Validate() error {
 	if config.Random == nil {
 		return errors.NotValidf("nil Random")
 	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	return nil
 }
 

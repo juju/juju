@@ -41,6 +41,7 @@ func (s *RaftLeaseClientValidationSuite) SetUpTest(c *gc.C) {
 		Logger:        fakeLogger{},
 		ClientMetrics: fakeClientMetrics{},
 		Random:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		Clock:         clock.WallClock,
 	}
 }
 
@@ -71,6 +72,9 @@ func (s *RaftLeaseClientValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *Config) { cfg.Random = nil },
 		"nil Random not valid",
+	}, {
+		func(cfg *Config) { cfg.Clock = nil },
+		"nil Clock not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
