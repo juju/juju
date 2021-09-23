@@ -2107,7 +2107,7 @@ data of the store. (default false)`,
 		Group: environschema.EnvironGroup,
 	},
 	DisableTelemetryKey: {
-		Description: `Whether the model disables telemetry`,
+		Description: `Disable telemetry reporting of model information`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
