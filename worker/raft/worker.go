@@ -19,6 +19,9 @@ import (
 	"github.com/juju/worker/v2/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raft/queue"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 
@@ -71,10 +74,39 @@ var (
 
 // Logger represents the logging methods called.
 type Logger interface {
+	Criticalf(message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	Logf(level loggo.Level, message string, args ...interface{})
+	IsTraceEnabled() bool
+}
+
+// Queue is a blocking queue to guard access and to serialize raft applications,
+// allowing for client side backoff.
+type Queue interface {
+	// Queue returns the queue of operations. Removing an item from the channel
+	// will unblock to allow another to take it's place.
+	Queue() <-chan queue.Operation
+	// Error places the resulting error for the enqueue to pick it up.
+	Error() chan<- error
+}
+
+// LeaseApplier applies operations from the queue onto the underlying raft
+// instance.
+type LeaseApplier interface {
+	// ApplyOperation applies an lease opeartion against the raft instance. If
+	// the raft instance isn't the leader, then an error is returned with the
+	// leader information if available.
+	// This Raft spec outlines this "The first option, which we recommend ...,
+	// is for the server to reject the request and return to the client the
+	// address of the leader, if known." (see 6.2.1).
+	// If the leader is the current raft instance, then attempt to apply it to
+	// the fsm.
+	// The time duration is the applying of a command in an operation, not for
+	// the whole operation.
+	ApplyOperation(queue.Operation, time.Duration) error
 }
 
 // Config is the configuration required for running a raft worker.
@@ -137,6 +169,17 @@ type Config struct {
 
 	// PrometheusRegisterer is used to register the raft metrics.
 	PrometheusRegisterer prometheus.Registerer
+
+	// Queue is a blocking queue to apply raft operations.
+	Queue Queue
+
+	// NotifyTarget is used to notify the changes from the raft operation
+	// applications.
+	NotifyTarget raftlease.NotifyTarget
+
+	// NewApplier is used to apply the raft operations on to the raft
+	// instance, before notifying a target of the changes.
+	NewApplier func(Raft, raftlease.NotifyTarget, clock.Clock, Logger) LeaseApplier
 }
 
 // Validate validates the raft worker configuration.
@@ -162,6 +205,15 @@ func (config Config) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if config.Queue == nil {
+		return errors.NotValidf("nil Queue")
+	}
+	if config.NotifyTarget == nil {
+		return errors.NotValidf("nil NotifyTarget")
+	}
+	if config.NewApplier == nil {
+		return errors.NotValidf("nil NewApplier")
+	}
 	return nil
 }
 
@@ -176,6 +228,12 @@ func Bootstrap(config Config) error {
 	if config.Transport != nil {
 		return errors.NotValidf("non-nil Transport during Bootstrap")
 	}
+	if config.NotifyTarget != nil {
+		return errors.NotValidf("non-nil NotifyTarget during Bootstrap")
+	}
+	if config.NewApplier != nil {
+		return errors.NotValidf("non-nil NewApplier during Bootstrap")
+	}
 
 	// During bootstrap we use an in-memory transport. We just need
 	// to make sure we use the same local address as we'll use later.
@@ -185,6 +243,10 @@ func Bootstrap(config Config) error {
 
 	// During bootstrap, we do not require an FSM.
 	config.FSM = BootstrapFSM{}
+	config.NotifyTarget = BootstrapNotifyTarget{}
+	config.NewApplier = func(r Raft, nt raftlease.NotifyTarget, c clock.Clock, l Logger) LeaseApplier {
+		return BootstrapLeaseApplier{}
+	}
 
 	w, err := newWorker(config)
 	if err != nil {
@@ -352,6 +414,13 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		}
 	}()
 
+	applier := w.config.NewApplier(r, w.config.NotifyTarget, w.config.Clock, w.config.Logger)
+
+	// applyTimeout represents the amount of time we allow for raft to apply
+	// a command. As raft is bootstrapping, we allow an initial timeout and once
+	// applied, we reduce the timeout. 5 seconds is a lifetime for every apply.
+	applyTimeout := InitialApplyTimeout
+
 	shutdown := make(chan raft.Observation)
 	observer := raft.NewObserver(shutdown, true, func(o *raft.Observation) bool {
 		return o.Data == raft.Shutdown
@@ -367,12 +436,14 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case <-shutdown:
 			// The raft server shutdown without this worker
 			// telling it to do so. This typically means that
 			// the local node was removed from the cluster
 			// configuration, causing it to shutdown.
 			return errors.New("raft shutdown")
+
 		case now := <-noLeaderCheck:
 			noLeaderCheck = w.config.Clock.After(noLeaderFrequency)
 			if r.State() == raft.Leader {
@@ -392,6 +463,17 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 					humanize.Time(lastContact), w.config.NoLeaderTimeout)
 				return ErrNoLeaderTimeout
 			}
+
+		case op := <-w.config.Queue.Queue():
+			if w.config.Logger.IsTraceEnabled() {
+				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log: %v", len(op.Commands), op.String())
+			}
+			// Apply any operation on to the current raft implementation.
+			// This ensures that we serialize the applying of operations onto
+			// the raft state.
+			w.config.Queue.Error() <- applier.ApplyOperation(op, applyTimeout)
+			applyTimeout = ApplyTimeout
+
 		case w.raftCh <- r:
 		case w.logStoreCh <- logStore:
 		}
@@ -490,4 +572,22 @@ func (BootstrapFSM) Snapshot() (raft.FSMSnapshot, error) {
 // Restore is part of raft.FSM.
 func (BootstrapFSM) Restore(io.ReadCloser) error {
 	panic("Restore should not be called during bootstrap")
+}
+
+type BootstrapNotifyTarget struct{}
+
+// Claimed will be called when a new lease has been claimed. Not
+// allowed to return an error because this is purely advisory -
+// the lease claim has still occurred, whether or not the callback
+// succeeds.
+func (BootstrapNotifyTarget) Claimed(lease.Key, string) {}
+
+// Expired will be called when an existing lease has expired. Not
+// allowed to return an error because this is purely advisory.
+func (BootstrapNotifyTarget) Expired(lease.Key) {}
+
+type BootstrapLeaseApplier struct{}
+
+func (BootstrapLeaseApplier) ApplyOperation(queue.Operation, time.Duration) error {
+	panic("ApplyOperation should not be called during bootstrap")
 }

@@ -336,6 +336,9 @@ type HookContext struct {
 	// updated to when Juju is issued the `upgrade-series` command.
 	seriesUpgradeTarget string
 
+	// secretURL is the reference to the secret relevant to the hook.
+	secretURL string
+
 	mu sync.Mutex
 }
 
@@ -795,7 +798,7 @@ func (ctx *HookContext) UpdateSecret(name string, args *jujuc.UpsertArgs) (strin
 	cfg.Description = args.Description
 	cfg.Tags = args.Tags
 	URL := coresecrets.NewSimpleURL(cfg.Path)
-	return ctx.secretFacade.Update(URL, cfg, args.Value)
+	return ctx.secretFacade.Update(URL.ID(), cfg, args.Value)
 }
 
 // GoalState returns the goal state for the current unit.
@@ -961,7 +964,7 @@ func (ctx *HookContext) RemoteUnitName() (string, error) {
 // Implements jujuc.RelationHookContext.relationHookContext, part of runner.Context.
 func (ctx *HookContext) RemoteApplicationName() (string, error) {
 	if ctx.remoteApplicationName == "" {
-		return "", errors.NotFoundf("remote application")
+		return "", errors.NotFoundf("saas application")
 	}
 	return ctx.remoteApplicationName, nil
 }
@@ -1095,6 +1098,13 @@ func (ctx *HookContext) HookVars(
 			"JUJU_TARGET_SERIES="+ctx.seriesUpgradeTarget,
 		)
 	}
+
+	if ctx.secretURL != "" {
+		vars = append(vars,
+			"JUJU_SECRET_URL="+ctx.secretURL,
+		)
+	}
+
 	return append(vars, OSDependentEnvVars(paths, env)...), nil
 }
 
@@ -1399,4 +1409,14 @@ func (ctx *HookContext) WorkloadName() (string, error) {
 		return "", errors.NotFoundf("workload name")
 	}
 	return ctx.workloadName, nil
+}
+
+// SecretURL returns the secret URL for secret hooks.
+// This is not yet used by any hook commands - it is exported
+// for tests to use.
+func (ctx *HookContext) SecretURL() (string, error) {
+	if ctx.secretURL == "" {
+		return "", errors.NotFoundf("secret URL")
+	}
+	return ctx.secretURL, nil
 }

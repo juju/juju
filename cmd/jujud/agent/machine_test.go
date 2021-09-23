@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -119,6 +120,7 @@ func bootstrapRaft(c *gc.C, dataDir string) {
 		StorageDir: filepath.Join(dataDir, "raft"),
 		LocalID:    "0",
 		Logger:     loggo.GetLogger("machine_test.raft"),
+		Queue:      queue.NewBlockingOpQueue(clock.WallClock),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

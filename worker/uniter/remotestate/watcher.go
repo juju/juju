@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
@@ -230,6 +231,8 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	for k, v := range w.current.ActionChanged {
 		snapshot.ActionChanged[k] = v
 	}
+	snapshot.SecretRotations = make([]string, len(w.current.SecretRotations))
+	copy(snapshot.SecretRotations, w.current.SecretRotations)
 	return snapshot
 }
 
@@ -264,6 +267,23 @@ func (w *RemoteStateWatcher) WorkloadEventCompleted(workloadEventID string) {
 		w.current.WorkloadEvents = append(
 			w.current.WorkloadEvents[:i],
 			w.current.WorkloadEvents[i+1:]...,
+		)
+		break
+	}
+}
+
+// RotateSecretCompleted is called when a secret identified by the URL
+// has been rotated.
+func (w *RemoteStateWatcher) RotateSecretCompleted(rotatedURL string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i, url := range w.current.SecretRotations {
+		if url != rotatedURL {
+			continue
+		}
+		w.current.SecretRotations = append(
+			w.current.SecretRotations[:i],
+			w.current.SecretRotations[i+1:]...,
 		)
 		break
 	}
@@ -683,7 +703,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok || len(urls) == 0 {
 				continue
 			}
-			w.logger.Warningf("got rotate secret URLS: %q", urls)
+			w.logger.Debugf("got rotate secret URLS: %q", urls)
 			w.rotateSecretURLs(urls)
 
 		case change := <-w.storageAttachmentChanges:
@@ -910,6 +930,7 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 		}
 		w.secretRotateWatcher = nil
 		w.rotateSecretsChanges = nil
+		w.current.SecretRotations = nil
 		return nil
 	}
 	if w.secretRotateWatcher != nil {
@@ -930,8 +951,19 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	return nil
 }
 
+// rotateSecretURLs adds the specified URLs to those that need
+// to be rotated.
 func (w *RemoteStateWatcher) rotateSecretURLs(urls []string) {
-	// TODO(wallyworld)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	pending := set.NewStrings(w.current.SecretRotations...)
+	for _, url := range urls {
+		if !pending.Contains(url) {
+			pending.Add(url)
+			w.current.SecretRotations = append(w.current.SecretRotations, url)
+		}
+	}
 }
 
 // relationsChanged responds to application relation changes.

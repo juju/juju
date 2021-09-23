@@ -247,7 +247,7 @@ func (st *mockState) RemoteApplication(id string) (commoncrossmodel.RemoteApplic
 	}
 	a, ok := st.remoteApplications[id]
 	if !ok {
-		return nil, errors.NotFoundf("remote application %q", id)
+		return nil, errors.NotFoundf("saas application %q", id)
 	}
 	return a, nil
 }

@@ -52,6 +52,7 @@ type ManifoldConfig struct {
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
+	RaftOpQueue                       Queue
 
 	NewWorker           func(Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -112,6 +113,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewMetricsCollector == nil {
 		return errors.NotValidf("nil NewMetricsCollector")
+	}
+	if config.RaftOpQueue == nil {
+		return errors.NotValidf("nil RaftOpQueue")
 	}
 	return nil
 }
@@ -243,6 +247,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
+		RaftOpQueue:                       config.RaftOpQueue,
 	})
 	if err != nil {
 		_ = stTracker.Done()

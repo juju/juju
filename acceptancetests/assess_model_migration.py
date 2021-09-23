@@ -268,6 +268,7 @@ def assert_model_migrated_successfully(
     assert_deployed_charm_is_responding(client, resource_contents)
     ensure_model_is_functional(client, application)
 
+
 def migrate_model_to_controller(
         source_model, source_client, dest_client, include_user_name=False):
     log.info('Initiating migration process')

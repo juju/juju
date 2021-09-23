@@ -89,8 +89,10 @@ func (w *commonWatcher) commonLoop() {
 		defer wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
-			// Don't log an error if a watcher is stopped due to an agent restart.
-			if err.Error() != worker.ErrRestartAgent.Error() && err.Error() != rpc.ErrShutdown.Error() {
+			// Don't log an error if a watcher is stopped due to an agent restart,
+			// or if the entity being watched is already removed.
+			if err.Error() != worker.ErrRestartAgent.Error() &&
+				err.Error() != rpc.ErrShutdown.Error() && !params.IsCodeNotFound(err) {
 				logger.Errorf("error trying to stop watcher: %v", err)
 			}
 		}

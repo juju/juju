@@ -13,12 +13,14 @@ require (
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
 	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878
-	github.com/aws/aws-sdk-go v1.40.46
-	github.com/aws/aws-sdk-go-v2 v1.6.0
+	github.com/aws/aws-sdk-go v1.40.47 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.9.1
 	github.com/aws/aws-sdk-go-v2/config v1.3.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.2.1
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
-	github.com/aws/smithy-go v1.4.0
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.6.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
+	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/pebble v0.0.0-20210629225259-602ad4b50023
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
@@ -50,7 +52,7 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20210706145210-9283cdf370b5
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v8 v8.0.0-20210722102001-7d7bf2b0acef
+	github.com/juju/charm/v8 v8.0.0-20210914234543-4da410e3f680
 	github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0

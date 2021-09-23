@@ -1086,11 +1086,15 @@ class BootstrapManager:
                     self.client.list_controllers()
                     self.client.list_models()
 
-                    # Only show status for models the backend is tracking.
-                    # This prevents errors attempting to retrieve status for
-                    # models that have been issued a destroy command.
-                    for m_client in self.client._backend.added_models:
-                        m_client.show_status()
+                    # Never let emission of model status constitute an error.
+                    # Controllers in various stages of teardown can cause a
+                    # race here.
+                    for m_client in self.client.iter_model_clients():
+                        try:
+                            m_client.show_status()
+                        except Exception as e:
+                            logging.info("Exception calling status on tracked model: {}".format(e))
+
         finally:
             with self.client.ignore_soft_deadline():
                 with self.tear_down_client.ignore_soft_deadline():

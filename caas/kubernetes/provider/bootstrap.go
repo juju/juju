@@ -1276,7 +1276,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		containerSpec = append(containerSpec, core.Container{
+		container := core.Container{
 			Name:            apiServerContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           controllerImage,
@@ -1327,7 +1327,14 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 					ReadOnly:  true,
 				},
 			},
-		})
+		}
+		if features := featureflag.AsEnvironmentValue(); features != "" {
+			container.Env = []core.EnvVar{{
+				Name:  osenv.JujuFeatureFlagEnvKey,
+				Value: features,
+			}}
+		}
+		containerSpec = append(containerSpec, container)
 		c.containerCount = len(containerSpec)
 		return containerSpec, nil
 	}

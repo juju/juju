@@ -62,6 +62,8 @@ func (s *UnitAccessorSuite) TestUnitAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ok := authFunc(names.NewUnitTag("gitlab/0"))
 	c.Assert(ok, jc.IsTrue)
+	ok = authFunc(names.NewApplicationTag("gitlab"))
+	c.Assert(ok, jc.IsTrue)
 	ok = authFunc(names.NewUnitTag("gitlab/1"))
 	c.Assert(ok, jc.IsFalse)
 	ok = authFunc(names.NewUnitTag("mysql/0"))

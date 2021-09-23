@@ -20,8 +20,8 @@ type secretGetCommand struct {
 	ctx Context
 	out cmd.Output
 
-	URL      *secrets.URL
-	asBase64 bool
+	secretUrl *secrets.URL
+	asBase64  bool
 }
 
 // NewSecretGetCommand returns a command to get a secret value.
@@ -74,7 +74,7 @@ func (c *secretGetCommand) Init(args []string) (err error) {
 	if len(args) < 1 {
 		return errors.New("missing secret ID")
 	}
-	c.URL, err = secrets.ParseURL(args[0])
+	c.secretUrl, err = secrets.ParseURL(args[0])
 	if err != nil {
 		return errors.NotValidf("secret URL %q", args[0])
 	}
@@ -83,7 +83,7 @@ func (c *secretGetCommand) Init(args []string) (err error) {
 
 // Run implements cmd.Command.
 func (c *secretGetCommand) Run(ctx *cmd.Context) error {
-	value, err := c.ctx.GetSecret(c.URL.String())
+	value, err := c.ctx.GetSecret(c.secretUrl.String())
 	if err != nil {
 		return err
 	}
@@ -94,8 +94,8 @@ func (c *secretGetCommand) Run(ctx *cmd.Context) error {
 			val, _ = value.EncodedValue()
 		} else {
 			valMap := value.EncodedValues()
-			if c.URL.Attribute != "" {
-				val = valMap[c.URL.Attribute]
+			if c.secretUrl.Attribute != "" {
+				val = valMap[c.secretUrl.Attribute]
 			} else {
 				val = valMap
 			}
@@ -111,8 +111,8 @@ func (c *secretGetCommand) Run(ctx *cmd.Context) error {
 			if err != nil {
 				return err
 			}
-			if c.URL.Attribute != "" {
-				val = valMap[c.URL.Attribute]
+			if c.secretUrl.Attribute != "" {
+				val = valMap[c.secretUrl.Attribute]
 			} else {
 				val = valMap
 			}

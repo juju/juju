@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"fmt"
+	"time"
 
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
@@ -158,4 +159,9 @@ func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRun
 		return nil
 	}
 	return opc.u.remoteInitFunc(runningStatus, abort)
+}
+
+// SetSecretRotated is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) SetSecretRotated(url string, when time.Time) error {
+	return opc.u.secrets.SecretRotated(url, when)
 }

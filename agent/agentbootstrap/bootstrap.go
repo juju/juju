@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -403,6 +404,7 @@ func initRaft(agentConfig agent.Config) error {
 		StorageDir: raftDir,
 		Logger:     logger,
 		LocalID:    coreraft.ServerID(agentConfig.Tag().Id()),
+		Queue:      queue.NewBlockingOpQueue(clock.WallClock),
 	})
 }
 

@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/relation/mocks"
@@ -105,6 +106,19 @@ func (s *relationerSuite) TestCommitHookRelationBrokenDies(c *gc.C) {
 	// Setup for test
 	s.expectEndpoint(endpoint())
 	s.expectLeaveScope()
+	s.expectRemoveRelation()
+
+	r := s.newRelationer()
+
+	err := r.CommitHook(hook.Info{Kind: hooks.RelationBroken})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationerSuite) TestCommitHookRelationRemoved(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Setup for test
+	s.expectEndpoint(endpoint())
+	s.relationUnit.EXPECT().LeaveScope().Return(&params.Error{Code: "not found"})
 	s.expectRemoveRelation()
 
 	r := s.newRelationer()

@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -84,7 +85,7 @@ func (s *RemoteInitSuite) TestRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RunHook,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +93,7 @@ func (s *RemoteInitSuite) TestRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
@@ -104,7 +105,7 @@ func (s *RemoteInitSuite) TestRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Done,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.DeepEquals, &runningStatus)
@@ -116,7 +117,7 @@ func (s *RemoteInitSuite) TestRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RunHook,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 }
@@ -206,7 +207,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
@@ -218,7 +219,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
@@ -230,7 +231,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -238,7 +239,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitWithHook(c *gc.C) {
 		Kind: operation.RunHook,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 }
@@ -295,7 +296,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetryWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Done,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
@@ -307,7 +308,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetryWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Done,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
@@ -319,7 +320,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetryWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Done,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,7 +328,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetryWithHook(c *gc.C) {
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
-			Kind: hook.LeaderElected,
+			Kind: hooks.LeaderElected,
 		},
 	})
 }

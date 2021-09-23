@@ -32,7 +32,7 @@ type backend struct {
 	stateApplicationGetter
 }
 
-// Application implements ApplicationGetter.
+// ApplicationExists implements ApplicationGetter.
 func (b backend) ApplicationExists(name string) error {
 	_, err := b.stateApplicationGetter.Application(name)
 	return err
@@ -42,11 +42,11 @@ func (b backend) ApplicationExists(name string) error {
 // authenticated entity can access a unit or application.
 func UnitAccessor(authorizer facade.Authorizer, st ApplicationGetter) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
+		switch authTag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
 			// If called by an application agent, any of the units
 			// belonging to that application can be accessed.
-			appName := tag.Name
+			appName := authTag.Name
 			err := st.ApplicationExists(appName)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -63,10 +63,17 @@ func UnitAccessor(authorizer facade.Authorizer, st ApplicationGetter) common.Get
 			}, nil
 		case names.UnitTag:
 			return func(tag names.Tag) bool {
+				if tag.Kind() == names.ApplicationTagKind {
+					unitApp, err := names.UnitApplication(authTag.Id())
+					if err != nil {
+						return false
+					}
+					return unitApp == tag.Id()
+				}
 				return authorizer.AuthOwner(tag)
 			}, nil
 		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", authTag)
 		}
 	}
 }

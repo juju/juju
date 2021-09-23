@@ -204,6 +204,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	s.AssertRelationContext(c, ctx, 1, "", "")
 	s.AssertNotStorageContext(c, ctx)
 	s.AssertNotWorkloadContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
@@ -218,6 +219,7 @@ func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
@@ -291,6 +293,22 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
+}
+
+func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
+	hi := hook.Info{
+		Kind:      hooks.SecretRotate,
+		SecretURL: "secret://app/mariadb/password",
+	}
+	ctx, err := s.factory.HookContext(hi)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertSecretContext(c, ctx, hi.SecretURL)
+	s.AssertNotWorkloadContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 }
 
 var podSpec = `

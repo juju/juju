@@ -125,7 +125,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if url.HasEndpoint() {
-		return errors.Errorf("remote offer %q shouldn't include endpoint", c.remoteApplication)
+		return errors.Errorf("saas offer %q shouldn't include endpoint", c.remoteApplication)
 	}
 	if url.User == "" {
 		url.User = accountDetails.User

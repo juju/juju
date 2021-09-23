@@ -332,6 +332,43 @@ func (r *Relation) Destroy() error {
 	return err
 }
 
+// destroyCrossModelRelationUnitsOps returns the operations necessary for the units
+// of the specified remote application to leave scope.
+func destroyCrossModelRelationUnitsOps(op *ForcedOperation, remoteApp *RemoteApplication, rel *Relation, onlyForTerminated bool) ([]txn.Op, error) {
+	if onlyForTerminated {
+		statusInfo, err := remoteApp.Status()
+		if op.FatalError(err) && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if err != nil || statusInfo.Status != status.Terminated {
+			return nil, nil
+		}
+	}
+	logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
+	remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	} else if err != nil {
+		logger.Warningf("could not get remote units for %q: %v", remoteApp.Name(), err)
+	}
+
+	var ops []txn.Op
+	logger.Debugf("got %v relation units to clean", len(remoteUnits))
+	failRemoteUnits := false
+	for _, ru := range remoteUnits {
+		leaveScopeOps, err := ru.leaveScopeForcedOps(op)
+		if err != nil && err != jujutxn.ErrNoOperations {
+			op.AddError(err)
+			failRemoteUnits = true
+		}
+		ops = append(ops, leaveScopeOps...)
+	}
+	if !op.Force && failRemoteUnits {
+		return nil, errors.Trace(op.LastError())
+	}
+	return ops, nil
+}
+
 // When 'force' is set, this call will construct and apply needed operations
 // as well as accumulate all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.
@@ -354,30 +391,11 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 		// If the status of the consumed app is terminated, we will never
 		// get an orderly exit of units from scope so force the issue.
 		if isCrossModel {
-			statusInfo, err := remoteApp.Status()
-			if op.FatalError(err) && !errors.IsNotFound(err) {
+			destroyOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, op.r, true)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err == nil && statusInfo.Status == status.Terminated {
-				logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
-				remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
-				if op.FatalError(err) {
-					return nil, errors.Trace(err)
-				}
-				logger.Debugf("got %v relation units to clean", len(remoteUnits))
-				failRemoteUnits := false
-				for _, ru := range remoteUnits {
-					leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-					if err != nil && err != jujutxn.ErrNoOperations {
-						op.AddError(err)
-						failRemoteUnits = true
-					}
-					ops = append(ops, leaveScopeOps...)
-				}
-				if !op.Force && failRemoteUnits {
-					return nil, errors.Trace(op.LastError())
-				}
-			}
+			ops = append(ops, destroyOps...)
 		}
 	}
 
@@ -589,13 +607,10 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		defer closer()
 
 		app := &RemoteApplication{st: r.st}
-		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
+		hasLastRef := bson.D{{"life", bson.D{{"$ne", Alive}}}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
 		if err := applications.Find(removable).One(&app.doc); err == nil {
-			removeOps, err := app.removeOps(hasLastRef)
-			if err != nil {
-				return nil, err
-			}
+			removeOps := app.removeOps(hasLastRef)
 			return removeOps, nil
 		} else if err != mgo.ErrNotFound {
 			return nil, err

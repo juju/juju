@@ -194,6 +194,10 @@ type ServerConfig struct {
 
 	// ExecEmbeddedCommand is a function which creates an embedded Juju CLI instance.
 	ExecEmbeddedCommand ExecEmbeddedCommandFunc
+
+	// RaftOpQueue is used by the API to apply operations to the raft
+	// instance.
+	RaftOpQueue Queue
 }
 
 // Validate validates the API server configuration.
@@ -242,6 +246,9 @@ func (c ServerConfig) Validate() error {
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
 	}
+	if c.RaftOpQueue == nil {
+		return errors.NotValidf("missing RaftOpQueue")
+	}
 	return nil
 }
 
@@ -285,6 +292,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		presence:            cfg.Presence,
 		leaseManager:        cfg.LeaseManager,
 		controllerConfig:    controllerConfig,
+		raftOpQueue:         cfg.RaftOpQueue,
 		logger:              loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {

@@ -212,6 +212,7 @@ const (
 	CodeCloudRegionRequired       = "cloud region required"
 	CodeIncompatibleClouds        = "incompatible clouds"
 	CodeQuotaLimitExceeded        = "quota limit exceeded"
+	CodeNotLeader                 = "not leader"
 )
 
 // ErrCode returns the error code associated with
@@ -394,4 +395,8 @@ func IsCodeCloudRegionRequired(err error) bool {
 // error code.
 func IsCodeQuotaLimitExceeded(err error) bool {
 	return ErrCode(err) == CodeQuotaLimitExceeded
+}
+
+func IsCodeNotLeader(err error) bool {
+	return ErrCode(err) == CodeNotLeader
 }

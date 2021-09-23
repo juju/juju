@@ -19,6 +19,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -127,6 +128,9 @@ type Config struct {
 	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
 	Clock                    clock.Clock
 	Logger                   Logger
+
+	// Used for testing.
+	Runner *worker.Runner
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -155,9 +159,9 @@ func New(config Config) (*Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	w := &Worker{
-		config: config,
-		runner: worker.NewRunner(worker.RunnerParams{
+	runner := config.Runner
+	if runner == nil {
+		runner = worker.NewRunner(worker.RunnerParams{
 			Clock: config.Clock,
 
 			// One of the remote application workers failing should not
@@ -166,7 +170,12 @@ func New(config Config) (*Worker, error) {
 
 			// For any failures, try again in 15 seconds.
 			RestartDelay: 15 * time.Second,
-		}),
+		})
+	}
+	w := &Worker{
+		config:     config,
+		offerUUIDs: make(map[string]string),
+		runner:     runner,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -184,6 +193,9 @@ type Worker struct {
 	logger   loggo.Logger
 
 	runner *worker.Runner
+
+	// offerUUIDs records the offer UUID used for each saas name.
+	offerUUIDs map[string]string
 }
 
 // Kill is defined on worker.Worker.
@@ -240,23 +252,45 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 
 	for i, result := range results {
 		name := applicationIds[i]
-		if result.Error != nil {
-			// The the remote application has been removed, stop its worker.
-			if params.IsCodeNotFound(result.Error) {
-				if err := w.runner.StopWorker(name); err != nil {
-					return err
+
+		// The remote application may refer to an offer that has been removed from
+		// the offering model, or it may refer to a new offer with a different UUID.
+		// If it is for a new offer, we need to stop any current worker for the old offer.
+		appGone := result.Error != nil && params.IsCodeNotFound(result.Error)
+		if result.Error != nil && !appGone {
+			return errors.Annotatef(result.Error, "querying remote application %q", name)
+		}
+
+		var remoteApp *params.RemoteApplication
+		offerChanged := false
+		if !appGone {
+			remoteApp = result.Result
+			existingOfferUUID, ok := w.offerUUIDs[result.Result.Name]
+			appGone = remoteApp.Status == string(status.Terminated) || remoteApp.Life == life.Dead
+			offerChanged = ok && existingOfferUUID != result.Result.OfferUUID
+		}
+		if appGone || offerChanged {
+			// The remote application has been removed, stop its worker.
+			logger.Debugf("saas application %q gone from offering model", name)
+			existingWorker, err := w.runner.Worker(name, w.catacomb.Dying())
+			if err != nil {
+				w.logger.Warningf("error getting existing saas worker for %q", name, err)
+			}
+			if existingWorker != nil {
+				existingWorker.Kill()
+				if err := existingWorker.Wait(); err != nil {
+					w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
 				}
+			}
+			delete(w.offerUUIDs, name)
+			if appGone {
 				continue
 			}
-			return errors.Annotatef(err, "querying remote application %q", name)
-		}
-		if _, err := w.runner.Worker(name, w.catacomb.Dying()); err == nil {
-			// TODO(wallyworld): handle application dying or dead.
-			// As of now, if the worker is already running, that's all we need.
+		} else if _, err := w.runner.Worker(name, w.catacomb.Dying()); err == nil {
+			w.logger.Debugf("already running remote application worker for %q", name)
 			continue
 		}
 
-		remoteApp := *result.Result
 		startFunc := func() (worker.Worker, error) {
 			appWorker := &remoteApplicationWorker{
 				offerUUID:                         remoteApp.OfferUUID,
@@ -285,6 +319,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		if err := w.runner.StartWorker(name, startFunc); err != nil {
 			return errors.Annotate(err, "error starting remote application worker")
 		}
+		w.offerUUIDs[name] = remoteApp.OfferUUID
 	}
 	return nil
 }

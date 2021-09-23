@@ -1356,7 +1356,7 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 		return errors.Trace(err)
 	}
 	if url.HasEndpoint() {
-		return errors.Errorf("remote offer %q shouldn't include endpoint", p.URL)
+		return errors.Errorf("saas offer %q shouldn't include endpoint", p.URL)
 	}
 	if url.User == "" {
 		url.User = h.accountUser

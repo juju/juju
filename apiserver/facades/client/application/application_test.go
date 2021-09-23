@@ -3429,7 +3429,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `remote application "hosted-mysql" has no "nope" relation`)
+	c.Assert(err, gc.ErrorMatches, `saas application "hosted-mysql" has no "nope" relation`)
 }
 
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {

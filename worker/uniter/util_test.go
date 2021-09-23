@@ -21,6 +21,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/secretsmanager"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	"github.com/juju/names/v4"
@@ -40,6 +42,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -131,6 +134,8 @@ type testContext struct {
 	updateStatusHookTicker *manualTicker
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
+	secretsRotateCh        chan []string
+	secretsFacade          *secretsmanager.Client
 	err                    string
 
 	wg             sync.WaitGroup
@@ -204,6 +209,7 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
+	ctx.secretsFacade = secretsmanager.NewClient(apiConn)
 }
 
 func (ctx *testContext) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
@@ -566,10 +572,12 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			}
 			return client
 		},
-		SecretRotateWatcherFunc: func(u names.UnitTag, _ chan []string) (worker.Worker, error) {
+		SecretRotateWatcherFunc: func(u names.UnitTag, secretsChanged chan []string) (worker.Worker, error) {
 			c.Assert(u.String(), gc.Equals, s.unitTag)
-			return &mockRotateSecretsWatcher{}, nil
+			ctx.secretsRotateCh = secretsChanged
+			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
 		},
+		SecretsFacade: ctx.secretsFacade,
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1609,6 +1617,33 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *testContext) {
 	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
+}
+
+type createSecret struct {
+	secretPath string
+}
+
+func (s createSecret) step(c *gc.C, ctx *testContext) {
+	hr := time.Hour
+	active := secrets.StatusActive
+	_, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
+		Path:           s.secretPath,
+		RotateInterval: &hr,
+		Status:         &active,
+	}, secrets.TypeBlob, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type rotateSecret struct {
+	secretURL string
+}
+
+func (s rotateSecret) step(c *gc.C, ctx *testContext) {
+	select {
+	case ctx.secretsRotateCh <- []string{s.secretURL}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("sending rotate secret change for %q", s.secretURL)
+	}
 }
 
 type expectError struct {

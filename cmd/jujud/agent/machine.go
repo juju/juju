@@ -61,6 +61,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -619,6 +620,7 @@ func (a *MachineAgent) makeEngineCreator(
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			LeaseFSM:                          raftlease.NewFSM(),
 			LeaseLog:                          makeRaftLeaseLog(raftLeaseLogPath),
+			RaftOpQueue:                       queue.NewBlockingOpQueue(clock.WallClock),
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {

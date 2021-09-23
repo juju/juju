@@ -1638,9 +1638,10 @@ class ModelClient:
         for model in models:
             # 2.2-rc1 introduced new model listing output name/short-name.
             model_name = model.get('short-name', model['name'])
-            yield self._acquire_model_client(model_name, model.get('owner'))
+            yield self.acquire_model_client(model_name, model.get('owner'))
 
-    def get_controller_model_name(self):
+    @staticmethod
+    def get_controller_model_name():
         """Return the name of the 'controller' model.
 
         Return the name of the environment when an 'controller' model does
@@ -1648,7 +1649,7 @@ class ModelClient:
         """
         return 'controller'
 
-    def _acquire_model_client(self, name, owner=None):
+    def acquire_model_client(self, name, owner=None):
         """Get a client for a model with the supplied name.
 
         If the name matches self, self is used.  Otherwise, a clone is used.
@@ -1696,7 +1697,7 @@ class ModelClient:
         This may be inaccurate for models created using add_model
         rather than bootstrap.
         """
-        return self._acquire_model_client(self.get_controller_model_name())
+        return self.acquire_model_client(self.get_controller_model_name())
 
     def list_controllers(self):
         """List the controllers."""

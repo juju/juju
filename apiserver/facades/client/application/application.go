@@ -2426,9 +2426,21 @@ func (api *APIBase) saveRemoteApplication(
 
 	// If a remote application with the same name and endpoints from the same
 	// source model already exists, we will use that one.
-	remoteApp, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
+	// If the status was "terminated", the offer had been removed, so we'll replace
+	// the terminated application with a fresh copy.
+	remoteApp, appStatus, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
 	if err == nil {
-		return remoteApp, nil
+		if appStatus != status.Terminated {
+			return remoteApp, nil
+		}
+		// If the same application was previously terminated due to the offer being removed,
+		// first ensure we delete it from this consuming model before adding again.
+		// TODO(wallyworld) - this operation should be in a single txn.
+		logger.Debugf("removing terminated remote app %q before adding a replacement", applicationName)
+		op := remoteApp.DestroyOperation(true)
+		if err := api.backend.ApplyOperation(op); err != nil {
+			return nil, errors.Annotatef(err, "removing terminated saas application %q", applicationName)
+		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -2473,16 +2485,24 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 // maybeUpdateExistingApplicationEndpoints looks for a remote application with the
 // specified name and source model tag and tries to update its endpoints with the
 // new ones specified. If the endpoints are compatible, the newly updated remote
-// application is returned.
+// application is returned.s.backend.remoteApplications["hosted-mysql"]
+// If the application status is Terminated, no updates are done.
 func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	applicationName string, sourceModelTag names.ModelTag, remoteEps []charm.Relation,
-) (RemoteApplication, error) {
+) (RemoteApplication, status.Status, error) {
 	existingRemoteApp, err := api.backend.RemoteApplication(applicationName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 	if existingRemoteApp.SourceModel().Id() != sourceModelTag.Id() {
-		return nil, errors.AlreadyExistsf("remote application called %q from a different model", applicationName)
+		return nil, "", errors.AlreadyExistsf("saas application called %q from a different model", applicationName)
+	}
+	appStatus, err := existingRemoteApp.Status()
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if appStatus.Status == status.Terminated {
+		return existingRemoteApp, appStatus.Status, nil
 	}
 	newEpsMap := make(map[charm.Relation]bool)
 	for _, ep := range remoteEps {
@@ -2490,7 +2510,7 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	}
 	existingEps, err := existingRemoteApp.Endpoints()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 	maybeSameEndpoints := len(newEpsMap) == len(existingEps)
 	existingEpsByName := make(map[string]charm.Relation)
@@ -2500,7 +2520,7 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	}
 	sameEndpoints := maybeSameEndpoints && len(newEpsMap) == 0
 	if sameEndpoints {
-		return existingRemoteApp, nil
+		return existingRemoteApp, appStatus.Status, nil
 	}
 
 	// Gather the new endpoints. All new endpoints passed to AddEndpoints()
@@ -2510,7 +2530,7 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 		// See if we are attempting to update endpoints with the same name but
 		// different relation data.
 		if existing, ok := existingEpsByName[ep.Name]; ok && existing != ep {
-			return nil, errors.Errorf("conflicting endpoint %v", ep.Name)
+			return nil, "", errors.Errorf("conflicting endpoint %v", ep.Name)
 		}
 		newEps = append(newEps, ep)
 	}
@@ -2518,10 +2538,10 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	if len(newEps) > 0 {
 		// Update the existing remote app to have the new, additional endpoints.
 		if err := existingRemoteApp.AddEndpoints(newEps); err != nil {
-			return nil, errors.Trace(err)
+			return nil, "", errors.Trace(err)
 		}
 	}
-	return existingRemoteApp, nil
+	return existingRemoteApp, appStatus.Status, nil
 }
 
 // Mask the new methods from the V4 API. The API reflection code in

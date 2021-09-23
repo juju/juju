@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
-	reflect "reflect"
 )
 
-// MockUnitStateReadWriter is a mock of UnitStateReadWriter interface
+// MockUnitStateReadWriter is a mock of UnitStateReadWriter interface.
 type MockUnitStateReadWriter struct {
 	ctrl     *gomock.Controller
 	recorder *MockUnitStateReadWriterMockRecorder
 }
 
-// MockUnitStateReadWriterMockRecorder is the mock recorder for MockUnitStateReadWriter
+// MockUnitStateReadWriterMockRecorder is the mock recorder for MockUnitStateReadWriter.
 type MockUnitStateReadWriterMockRecorder struct {
 	mock *MockUnitStateReadWriter
 }
 
-// NewMockUnitStateReadWriter creates a new mock instance
+// NewMockUnitStateReadWriter creates a new mock instance.
 func NewMockUnitStateReadWriter(ctrl *gomock.Controller) *MockUnitStateReadWriter {
 	mock := &MockUnitStateReadWriter{ctrl: ctrl}
 	mock.recorder = &MockUnitStateReadWriterMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnitStateReadWriter) EXPECT() *MockUnitStateReadWriterMockRecorder {
 	return m.recorder
 }
 
-// SetState mocks base method
+// SetState mocks base method.
 func (m *MockUnitStateReadWriter) SetState(arg0 params.SetUnitStateArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetState", arg0)
@@ -41,13 +42,13 @@ func (m *MockUnitStateReadWriter) SetState(arg0 params.SetUnitStateArg) error {
 	return ret0
 }
 
-// SetState indicates an expected call of SetState
+// SetState indicates an expected call of SetState.
 func (mr *MockUnitStateReadWriterMockRecorder) SetState(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockUnitStateReadWriter)(nil).SetState), arg0)
 }
 
-// State mocks base method
+// State mocks base method.
 func (m *MockUnitStateReadWriter) State() (params.UnitStateResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State")
@@ -56,7 +57,7 @@ func (m *MockUnitStateReadWriter) State() (params.UnitStateResult, error) {
 	return ret0, ret1
 }
 
-// State indicates an expected call of State
+// State indicates an expected call of State.
 func (mr *MockUnitStateReadWriterMockRecorder) State() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockUnitStateReadWriter)(nil).State))

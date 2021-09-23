@@ -16,6 +16,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
 
@@ -28,6 +29,7 @@ import (
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
 )
@@ -43,6 +45,10 @@ func init() {
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+}
+
+func init() {
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey, osenv.JujuFeatures)
 }
 
 var containerAgentDoc = `

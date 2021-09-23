@@ -86,7 +86,7 @@ func NewPasswordSecretConfig(length int, specialChars bool, nameParts ...string)
 const (
 	// AppSnippet denotes a secret belonging to an application.
 	AppSnippet  = "app"
-	pathSnippet = AppSnippet + `/[a-zA-Z0-9]+(/[a-zA-Z0-9]+)*`
+	pathSnippet = AppSnippet + `/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)*`
 )
 
 var pathRegexp = regexp.MustCompile("^" + pathSnippet + "$")
@@ -120,7 +120,12 @@ Example secret URLs:
 	secret://cfed9630-053e-447a-9751-2dc4ed429d51/11111111-053e-447a-6666-2dc4ed429d51/app/mariadb/password
 */
 
-const uuidSnippet = `[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}`
+const (
+	uuidSnippet = `[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}`
+
+	// SecretScheme is the URL prefix for a secret.
+	SecretScheme = "secret"
+)
 
 var secretURLParse = regexp.MustCompile(`^` +
 	fmt.Sprintf(
@@ -134,7 +139,7 @@ func ParseURL(str string) (*URL, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if u.Scheme != "secret" {
+	if u.Scheme != SecretScheme {
 		return nil, errors.NotValidf("secret URL scheme %q", u.Scheme)
 	}
 	spec := fmt.Sprintf("%s%s", u.Host, u.Path)
@@ -188,6 +193,15 @@ func (u *URL) WithAttribute(attr string) *URL {
 	return &uCopy
 }
 
+// OwnerApplication returns the application part of a secret URL.
+func (u *URL) OwnerApplication() (string, bool) {
+	parts := strings.Split(u.Path, "/")
+	if len(parts) < 2 || parts[0] != AppSnippet {
+		return "", false
+	}
+	return parts[1], true
+}
+
 // ID returns the URL string without any Attribute.
 func (u *URL) ID() string {
 	if u == nil {
@@ -222,7 +236,7 @@ func (u *URL) String() string {
 	fullPath = append(fullPath, u.Path)
 	str := strings.Join(fullPath, "/")
 	urlValue := url.URL{
-		Scheme:   "secret",
+		Scheme:   SecretScheme,
 		Path:     str,
 		Fragment: u.Attribute,
 	}

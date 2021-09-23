@@ -156,29 +156,52 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 }
 
 // RemoveOfferOperation returns a model operation that will allow relation to leave scope.
-func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) *RemoveOfferOperation {
-	return &RemoveOfferOperation{
-		offers:          &applicationOffers{s.st},
-		offerName:       offerName,
-		ForcedOperation: ForcedOperation{Force: force},
+func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) (*RemoveOfferOperation, error) {
+	offerStore := &applicationOffers{s.st}
+
+	// Any proxies for applications on the consuming side also need to be removed.
+	offer, err := offerStore.ApplicationOffer(offerName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
+	var associatedAppProxies []*DestroyRemoteApplicationOperation
+	if err == nil {
+		remoteApps, err := s.st.RemoteApplicationsByOffer(offer.OfferUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, remoteApp := range remoteApps {
+			logger.Debugf("destroy consumer proxy %v for offer %v", remoteApp.Name(), offerName)
+			associatedAppProxies = append(associatedAppProxies, remoteApp.DestroyOperation(force))
+		}
+	}
+	return &RemoveOfferOperation{
+		offerStore:           offerStore,
+		offerName:            offerName,
+		associatedAppProxies: associatedAppProxies,
+		ForcedOperation:      ForcedOperation{Force: force},
+	}, nil
 }
 
 // RemoveOfferOperation is a model operation to remove application offer.
 type RemoveOfferOperation struct {
+	offerStore *applicationOffers
+
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
-
-	// offers holds the application offers to remove.
-	offers *applicationOffers
-
 	// offerName is the offer name to remove.
 	offerName string
+	// offer is the offer itself, set as the operation runs.
+	offer *crossmodel.ApplicationOffer
+
+	// associatedAppProxies are consuming model references that need
+	// to be removed along with the offer.
+	associatedAppProxies []*DestroyRemoteApplicationOperation
 }
 
 // Build is part of the ModelOperation interface.
-func (op *RemoveOfferOperation) Build(attempt int) ([]txn.Op, error) {
-	offer, err := op.offers.ApplicationOffer(op.offerName)
+func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
+	op.offer, err = op.offerStore.ApplicationOffer(op.offerName)
 	if errors.IsNotFound(err) {
 		return nil, jujutxn.ErrNoOperations
 	}
@@ -188,51 +211,110 @@ func (op *RemoveOfferOperation) Build(attempt int) ([]txn.Op, error) {
 	// When 'force' is set on the operation, this call will return needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.internalRemove(offer, attempt); err {
+	switch ops, err = op.internalRemove(op.offer); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
-	case nil:
-		return ops, nil
-	default:
+	}
+	if err != nil {
 		if op.Force {
 			logger.Warningf("force removing offer %v despite error %v", op.offerName, err)
-			return ops, nil
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
-	return nil, jujutxn.ErrNoOperations
+	// If the offer is being removed, then any proxies for applications on the
+	// consuming side also need to be removed.
+	for _, remoteProxyOp := range op.associatedAppProxies {
+		proxyOps, err := remoteProxyOp.Build(attempt)
+		if err == jujutxn.ErrNoOperations {
+			continue
+		}
+		if err != nil {
+			if remoteProxyOp.Force {
+				logger.Warningf("force removing consuming proxy %v despite error %v", remoteProxyOp.app.Name(), err)
+			} else {
+				return nil, err
+			}
+		}
+		ops = append(ops, proxyOps...)
+	}
+	return ops, nil
 }
 
 // Done is part of the ModelOperation interface.
 func (op *RemoveOfferOperation) Done(err error) error {
 	if err != nil {
 		if !op.Force {
+			if errors.Cause(err) == jujutxn.ErrExcessiveContention {
+				relCount, err := op.countOfferRelations(op.offer)
+				if err != nil {
+					return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
+				}
+				if relCount > 0 {
+					return errors.Errorf("cannot delete application offer %q since its underlying application still has %d relations", op.offerName, relCount)
+				}
+			}
 			return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
 		}
 		op.AddError(errors.Errorf("forced offer %v removal but proceeded despite encountering ERROR %v", op.offerName, err))
+	}
+	for _, remoteProxyOp := range op.associatedAppProxies {
+		// Final cleanup of consuming app proxy is best effort.
+		if err := remoteProxyOp.Done(nil); err != nil {
+			op.AddError(errors.Errorf("error finalising removal of consuming proxy %q: %v", remoteProxyOp.app.Name(), err))
+		}
 	}
 	return nil
 }
 
 // Remove deletes the application offer for offerName immediately.
 func (s *applicationOffers) Remove(offerName string, force bool) error {
-	op := s.RemoveOfferOperation(offerName, force)
-	err := s.st.ApplyOperation(op)
+	op, err := s.RemoveOfferOperation(offerName, force)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors removing offer %v: %v", offerName, op.Errors)
 	}
 	return err
 }
 
-func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer, attempt int) ([]txn.Op, error) {
+func (op *RemoveOfferOperation) countOfferRelations(offer *crossmodel.ApplicationOffer) (int, error) {
+	if offer == nil {
+		return 0, nil
+	}
+	app, err := op.offerStore.st.Application(offer.ApplicationName)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	rels, err := app.Relations()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	var count int
+	for _, rel := range rels {
+		remoteApp, isCrossModel, err := rel.RemoteApplication()
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+		if !isCrossModel || remoteApp.OfferUUID() != offer.OfferUUID {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer) ([]txn.Op, error) {
 	// Load the application before counting the connections
 	// so we can do a consistency check on relation count.
-	app, err := op.offers.st.Application(offer.ApplicationName)
+	app, err := op.offerStore.st.Application(offer.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conns, err := op.offers.st.OfferConnections(offer.OfferUUID)
+	conns, err := op.offerStore.st.OfferConnections(offer.OfferUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -260,7 +342,12 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		if isCrossModel && remoteApp.OfferUUID() != offer.OfferUUID {
+			logger.Debugf("removing offer %q, skipping relation %q for another offer %v", offer.OfferName, rel, remoteApp.OfferUUID())
+			isCrossModel = false
+		}
 		if isCrossModel && !op.Force {
+			logger.Debugf("aborting removal of offer %q due to relation %q", offer.OfferName, rel)
 			return nil, jujutxn.ErrTransientFailure
 		}
 		if op.Force {
@@ -274,28 +361,12 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 				return nil, err
 			}
 
-			logger.Debugf("forcing cleanup of remote application %v", remoteApp.Name())
-			remoteAppOps, err := remoteApp.DestroyOperation(op.Force).Build(attempt)
-			if err != nil && err != jujutxn.ErrNoOperations {
-				op.AddError(err)
-			}
-			ops = append(ops, remoteAppOps...)
-
-			// Force any remote units to leave scope so the offer
-			// can be cleaned up.
-			logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
-			remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
+			// Force any remote units to leave scope so the offer can be cleaned up.
+			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, rel, false)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			logger.Debugf("got %v relation units to clean", len(remoteUnits))
-			for _, ru := range remoteUnits {
-				leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-				if err != nil && err != jujutxn.ErrNoOperations {
-					op.AddError(err)
-				}
-				ops = append(ops, leaveScopeOps...)
-			}
+			ops = append(ops, destroyRelUnitOps...)
 
 			// When 'force' is set, this call will return needed operations
 			// and accumulate all operational errors encountered in the operation.
@@ -315,7 +386,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			})
 		}
 	}
-	decRefOp, err := decApplicationOffersRefOp(op.offers.st, offer.ApplicationName)
+	decRefOp, err := decApplicationOffersRefOp(op.offerStore.st, offer.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
