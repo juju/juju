@@ -239,7 +239,7 @@ type RemoteApplication interface {
 	// DestroyWithForce in addition to doing what Destroy() does,
 	// when force is passed in as 'true', forces th destruction of remote application,
 	// ignoring errors.
-	DestroyWithForce(bool, time.Duration) (opErrs []error, err error)
+	DestroyWithForce(force bool, maxWait time.Duration) (opErrs []error, err error)
 
 	// Name returns the name of the remote application.
 	Name() string
