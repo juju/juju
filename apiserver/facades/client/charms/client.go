@@ -485,7 +485,7 @@ func (adapter charmInfoAdapter) Config() *charm.Config {
 }
 
 func (adapter charmInfoAdapter) LXDProfile() *charm.LXDProfile {
-	return adapter.meta.LXDProfile
+	return nil // not part of the essential metadata
 }
 
 func (adapter charmInfoAdapter) Metrics() *charm.Metrics {
