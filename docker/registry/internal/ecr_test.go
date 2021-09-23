@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/aws/aws-sdk-go/service/ecr/ecriface"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -30,7 +29,7 @@ type elasticContainerRegistrySuite struct {
 	testing.IsolationSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
-	mockECRAPI       *internalmocks.MockECRAPI
+	mockECRAPI       *internalmocks.MockECRInterface
 	imageRepoDetails docker.ImageRepoDetails
 	isPrivate        bool
 }
@@ -43,8 +42,8 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry,
 	s.mockRoundTripper = mocks.NewMockRoundTripper(ctrl)
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
-	s.mockECRAPI = internalmocks.NewMockECRAPI(ctrl)
-	s.PatchValue(&internal.GetECRClient, func(_, _, _ string) (ecriface.ECRAPI, error) {
+	s.mockECRAPI = internalmocks.NewMockECRInterface(ctrl)
+	s.PatchValue(&internal.GetECRClient, func(_, _, _ string) (internal.ECRInterface, error) {
 		return s.mockECRAPI, nil
 	})
 

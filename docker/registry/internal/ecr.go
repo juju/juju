@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/aws/aws-sdk-go/service/ecr/ecriface"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
@@ -46,8 +45,12 @@ func getDefaultRetryer() client.DefaultRetryer {
 // GetECRClient is exported for test to patch.
 var GetECRClient = getECRClient
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/ecr_mock.go github.com/aws/aws-sdk-go/service/ecr/ecriface ECRAPI
-func getECRClient(accessKeyID, secretAccessKey, region string) (ecriface.ECRAPI, error) {
+type ECRInterface interface {
+	GetAuthorizationToken(*ecr.GetAuthorizationTokenInput) (*ecr.GetAuthorizationTokenOutput, error)
+}
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/ecr_mock.go github.com/juju/juju/docker/registry/internal ECRInterface
+func getECRClient(accessKeyID, secretAccessKey, region string) (ECRInterface, error) {
 	config := &aws.Config{
 		Retryer: getDefaultRetryer(),
 		Region:  aws.String(region),
