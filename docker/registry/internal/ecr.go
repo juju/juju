@@ -4,16 +4,17 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
@@ -24,49 +25,44 @@ import (
 // Because the token used for image pulling has to be refreshed every 12hrs.
 // https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry_auth.html
 
-type awsLogger struct {
-	session *session.Session
-}
-
-func (l awsLogger) Log(args ...interface{}) {
-	logger.Tracef("awsLogger %p: %s", l.session, fmt.Sprint(args...))
-}
-
-func getDefaultRetryer() client.DefaultRetryer {
-	return client.DefaultRetryer{
-		NumMaxRetries:    10,
-		MinRetryDelay:    time.Second,
-		MinThrottleDelay: time.Second,
-		MaxRetryDelay:    time.Minute,
-		MaxThrottleDelay: time.Minute,
-	}
-}
-
 // GetECRClient is exported for test to patch.
 var GetECRClient = getECRClient
 
-type ECRInterface interface {
-	GetAuthorizationToken(*ecr.GetAuthorizationTokenInput) (*ecr.GetAuthorizationTokenOutput, error)
+type ecrLogger struct {
+	cfg *config.Config
+}
+
+func (l ecrLogger) Write(p []byte) (n int, err error) {
+	logger.Tracef("ecrLogger %p: %s", l.cfg, p)
+	return len(p), nil
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/ecr_mock.go github.com/juju/juju/docker/registry/internal ECRInterface
-func getECRClient(accessKeyID, secretAccessKey, region string) (ECRInterface, error) {
-	config := &aws.Config{
-		Retryer: getDefaultRetryer(),
-		Region:  aws.String(region),
-		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
-			AccessKeyID:     accessKeyID,
-			SecretAccessKey: secretAccessKey,
+type ECRInterface interface {
+	GetAuthorizationToken(context.Context, *ecr.GetAuthorizationTokenInput, ...func(*ecr.Options)) (*ecr.GetAuthorizationTokenOutput, error)
+}
+
+func getECRClient(ctx context.Context, httpClient aws.HTTPClient, accessKeyID, secretAccessKey, region string) (ECRInterface, error) {
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(region),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard()
 		}),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	s := session.Must(session.NewSession())
+
 	// Enable request and response logging, but only if TRACE is enabled (as
 	// they're probably fairly expensive to produce).
 	if logger.IsTraceEnabled() {
-		config.Logger = awsLogger{s}
-		config.LogLevel = aws.LogLevel(aws.LogDebug | aws.LogDebugWithRequestErrors | aws.LogDebugWithRequestRetries)
+		cfg.ClientLogMode = aws.LogRequest | aws.LogResponse | aws.LogRetries
+		cfg.Logger = logging.NewStandardLogger(&ecrLogger{})
 	}
-	return ecr.New(s, config), nil
+	cfg.HTTPClient = httpClient
+	return ecr.NewFromConfig(cfg), nil
 }
 
 type elasticContainerRegistry struct {
@@ -98,23 +94,24 @@ func (c *elasticContainerRegistry) DecideBaseURL() error {
 	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
 }
 
-func getTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) (err error) {
+func getTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails, httpClient aws.HTTPClient) (err error) {
 	if repoDetails.Region == "" {
 		return errors.NewNotValid(nil, "region is required")
 	}
 	if repoDetails.Username == "" || repoDetails.Password == "" {
 		return errors.NewNotValid(nil, fmt.Sprintf("username and password are required for registry %q", repoDetails.Repository))
 	}
-	c, err := GetECRClient(repoDetails.Username, repoDetails.Password, repoDetails.Region)
+	ctx := context.Background()
+	c, err := GetECRClient(ctx, httpClient, repoDetails.Username, repoDetails.Password, repoDetails.Region)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	result, err := c.GetAuthorizationToken(&ecr.GetAuthorizationTokenInput{})
+	result, err := c.GetAuthorizationToken(ctx, &ecr.GetAuthorizationTokenInput{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.AuthorizationData) > 0 {
-		repoDetails.Auth = aws.StringValue(result.AuthorizationData[0].AuthorizationToken)
+		repoDetails.Auth = aws.ToString(result.AuthorizationData[0].AuthorizationToken)
 	}
 	if repoDetails.Auth == "" {
 		return errors.New(fmt.Sprintf("failed to fetch the authorization token for %q", repoDetails.Repository))
@@ -122,7 +119,7 @@ func getTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) (
 	return nil
 }
 
-func elasticContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
+func (c *elasticContainerRegistry) elasticContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
 ) (http.RoundTripper, error) {
 	if !repoDetails.TokenAuthConfig.Empty() {
 		return nil, errors.New("elastic container registry only supports username and password")
@@ -130,7 +127,7 @@ func elasticContainerRegistryTransport(transport http.RoundTripper, repoDetails 
 	if repoDetails.BasicAuthConfig.Empty() {
 		return nil, errors.NewNotValid(nil, "empty credential for elastic container registry")
 	}
-	if err := getTokenForElasticContainerRegistry(repoDetails); err != nil {
+	if err := getTokenForElasticContainerRegistry(repoDetails, c.client); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newBasicTransport(transport, "", "", repoDetails.Auth), nil
@@ -139,7 +136,7 @@ func elasticContainerRegistryTransport(transport http.RoundTripper, repoDetails 
 func (c *elasticContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
 	if c.client.Transport, err = mergeTransportWrappers(
 		c.client.Transport, c.repoDetails,
-		elasticContainerRegistryTransport, wrapErrorTransport,
+		c.elasticContainerRegistryTransport, wrapErrorTransport,
 	); err != nil {
 		return errors.Trace(err)
 	}

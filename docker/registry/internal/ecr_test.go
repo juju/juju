@@ -4,12 +4,14 @@
 package internal_test
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -43,7 +45,7 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry,
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	s.mockECRAPI = internalmocks.NewMockECRInterface(ctrl)
-	s.PatchValue(&internal.GetECRClient, func(_, _, _ string) (internal.ECRInterface, error) {
+	s.PatchValue(&internal.GetECRClient, func(context.Context, aws.HTTPClient, string, string, string) (internal.ECRInterface, error) {
 		return s.mockECRAPI, nil
 	})
 
@@ -57,9 +59,9 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry,
 			Username: "aws_access_key_id",
 			Password: "aws_secret_access_key",
 		}
-		s.mockECRAPI.EXPECT().GetAuthorizationToken(&ecr.GetAuthorizationTokenInput{}).Return(
+		s.mockECRAPI.EXPECT().GetAuthorizationToken(gomock.Any(), &ecr.GetAuthorizationTokenInput{}).Return(
 			&ecr.GetAuthorizationTokenOutput{
-				AuthorizationData: []*ecr.AuthorizationData{
+				AuthorizationData: []types.AuthorizationData{
 					{AuthorizationToken: aws.String(`xxxx===`)},
 				},
 			}, nil,
