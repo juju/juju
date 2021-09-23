@@ -286,7 +286,6 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(cfg *config.Config, ids
 }
 
 func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
-	cfg.Telemetry()
 	var requestMetrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string
 	if cfg.Telemetry() {
 		var err error
