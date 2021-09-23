@@ -41,6 +41,7 @@ type appInfo struct {
 
 type MachineLXDProfileWatcherConfig struct {
 	appTopic         string
+	charmTopic       string
 	provisionedTopic string
 	unitAddTopic     string
 	unitRemoveTopic  string
@@ -64,6 +65,7 @@ func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*Machin
 	deregister := config.resident.registerWorker(w)
 	multi := config.hub.NewMultiplexer()
 	multi.Add(config.appTopic, w.applicationCharmURLChange)
+	multi.Add(config.charmTopic, w.charmChange)
 	multi.Add(config.provisionedTopic, w.provisionedChange)
 	multi.Add(config.unitAddTopic, w.addUnit)
 	multi.Add(config.unitRemoveTopic, w.removeUnit)
@@ -190,6 +192,61 @@ func (w *MachineLXDProfileWatcher) applicationCharmURLChange(_ string, value int
 		logger.Tracef("not watching %s on machine-%s", appName, w.machineId)
 	}
 	logger.Tracef("end of application charm url change %#v", w.applications)
+}
+
+// charmChange sends a notification if there is a mismatch in the lxd profile
+// pointer for any application on the machine that references the charm URL
+// included in the change. No notification is sent if the profile pointer
+// begins and ends as nil.
+func (w *MachineLXDProfileWatcher) charmChange(_ string, value interface{}) {
+	// We don't want to respond to any events until we have been fully initialized.
+	select {
+	case <-w.initialized:
+	case <-w.tomb.Dying():
+		return
+	}
+	var notify bool
+	defer func(notify *bool) {
+		if *notify {
+			w.notify()
+			w.metrics.LXDProfileChangeNotification.Inc()
+		} else {
+			w.metrics.LXDProfileNoChange.Inc()
+		}
+	}(&notify)
+
+	charmChange, ok := value.(CharmChange)
+	if !ok {
+		w.logError("programming error, value not of type CharmChange")
+		return
+	}
+
+	// Scan the list of applications assigned to the machine and only
+	// consider the ones whose charm URL matches the one we observed.
+	//
+	// In a typical scenario, the number of applications associated with
+	// a machine will be small so we can simply iterate the list.
+	chURL, lxdProfile := charmChange.CharmURL, charmChange.LXDProfile
+	for appName, info := range w.applications {
+		if info.charmURL != chURL {
+			continue
+		}
+
+		// notify if:
+		// 1. the prior charm had a profile and the new one does not.
+		// 2. the new profile is not empty.
+		if (!info.charmProfile.Empty() && lxdProfile.Empty()) || !lxdProfile.Empty() {
+			logger.Tracef("notifying due to change of charm lxd profile for %s, machine-%s", appName, w.machineId)
+			notify = true
+		} else {
+			logger.Tracef("no notification of charm lxd profile needed for %s, machine-%s", appName, w.machineId)
+		}
+
+		info.charmProfile = lxdProfile
+		info.charmURL = chURL
+		w.applications[appName] = info
+	}
+	logger.Tracef("end of charm meadata change")
 }
 
 // addUnit modifies the map of applications being watched when a unit is
