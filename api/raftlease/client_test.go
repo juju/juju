@@ -188,6 +188,28 @@ func (s *RaftLeaseClientSuite) TestRequestWithNotLeaderErrorWithSuggestion(c *gc
 	c.Assert(client.lastKnownRemote, gc.NotNil)
 }
 
+func (s *RaftLeaseClientSuite) TestRequestWithDeadlineExceededError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cmd := &raftlease.Command{}
+
+	s.config.APIInfo.Addrs = []string{"localhost", "10.0.0.8"}
+
+	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewDeadlineExceededError("deadline exceeded"))
+	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(nil)
+
+	client, err := NewClient(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer func() {
+		_ = client.Close()
+	}()
+
+	err = client.Request(context.TODO(), cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(client.lastKnownRemote, gc.NotNil)
+}
+
 func (s *RaftLeaseClientSuite) TestRequestWithCancelledContext(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

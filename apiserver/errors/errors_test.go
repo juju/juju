@@ -236,6 +236,10 @@ var errorTransformTests = []struct {
 	code:   params.CodeNotLeader,
 	status: http.StatusTemporaryRedirect,
 }, {
+	err:    apiservererrors.NewDeadlineExceededError("enqueueing deadline exceeded"),
+	code:   params.CodeDeadlineExceeded,
+	status: http.StatusInternalServerError,
+}, {
 	err:    nil,
 	code:   "",
 	status: http.StatusOK,

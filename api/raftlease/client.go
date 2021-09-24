@@ -212,6 +212,11 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 					c.config.Logger.Errorf("No leader found and no cluster available, dropping command: %v", command)
 					return lease.ErrDropped
 				}
+			} else if apiservererrors.IsDeadlineExceededError(err) {
+				// Enqueuing into the queue just timed out, we should just
+				// log this error and try again if possible. The lease manager
+				// will know if a retry at that level is possible.
+				c.config.Logger.Errorf("Deadline exceeded enqueuing command.")
 			}
 
 			return errors.Trace(err)

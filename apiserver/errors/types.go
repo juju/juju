@@ -221,3 +221,27 @@ func IsNotLeaderError(err error) bool {
 	_, ok := errors.Cause(err).(*NotLeaderError)
 	return ok
 }
+
+// DeadlineExceededError creates a typed error for when a raft operation is
+// enqueued, but the deadline is exceeded.
+type DeadlineExceededError struct {
+	message string
+}
+
+func (e *DeadlineExceededError) Error() string {
+	return e.message
+}
+
+// NewDeadlineExceededError creates a new DeadlineExceededError with the
+// underlying message.
+func NewDeadlineExceededError(message string) error {
+	return &DeadlineExceededError{
+		message: message,
+	}
+}
+
+// IsDeadlineExceededError returns true if the error is the DeadlineExceededError.
+func IsDeadlineExceededError(err error) bool {
+	_, ok := errors.Cause(err).(*DeadlineExceededError)
+	return ok
+}

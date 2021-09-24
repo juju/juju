@@ -213,6 +213,7 @@ const (
 	CodeIncompatibleClouds        = "incompatible clouds"
 	CodeQuotaLimitExceeded        = "quota limit exceeded"
 	CodeNotLeader                 = "not leader"
+	CodeDeadlineExceeded          = "deadline exceeded"
 )
 
 // ErrCode returns the error code associated with
@@ -399,4 +400,8 @@ func IsCodeQuotaLimitExceeded(err error) bool {
 
 func IsCodeNotLeader(err error) bool {
 	return ErrCode(err) == CodeNotLeader
+}
+
+func IsCodeDeadlineExceeded(err error) bool {
+	return ErrCode(err) == CodeDeadlineExceeded
 }

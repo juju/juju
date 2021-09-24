@@ -227,6 +227,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotLeader
 		rawErr := errors.Cause(err).(*NotLeaderError)
 		info = rawErr.AsMap()
+	case IsDeadlineExceededError(err):
+		code = params.CodeDeadlineExceeded
 	default:
 		code = params.ErrCode(err)
 	}
@@ -333,6 +335,8 @@ func RestoreError(err error) error {
 		serverAddress, _ := e.Info["server-address"].(string)
 		serverID, _ := e.Info["server-id"].(string)
 		return NewNotLeaderError(serverAddress, serverID)
+	case params.IsCodeDeadlineExceeded(err):
+		return NewDeadlineExceededError(msg)
 	default:
 		return err
 	}
