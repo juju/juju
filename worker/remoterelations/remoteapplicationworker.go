@@ -35,6 +35,7 @@ type remoteApplicationWorker struct {
 	localModelUUID        string // uuid of the model hosting the local application
 	remoteModelUUID       string // uuid of the model hosting the remote offer
 	isConsumerProxy       bool
+	consumeVersion        int
 	localRelationChanges  chan RelationUnitChangeEvent
 	remoteRelationChanges chan RelationUnitChangeEvent
 
@@ -515,7 +516,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
 	relationTag := names.NewRelationTag(key)
 	applicationToken, remoteAppToken, relationToken, mac, err := w.registerRemoteRelation(
-		applicationTag, relationTag, w.offerUUID,
+		applicationTag, relationTag, w.offerUUID, w.consumeVersion,
 		remoteRelation.Endpoint, remoteRelation.RemoteEndpointName)
 	if err != nil {
 		w.checkOfferPermissionDenied(err, "", "")
@@ -583,7 +584,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 }
 
 func (w *remoteApplicationWorker) registerRemoteRelation(
-	applicationTag, relationTag names.Tag, offerUUID string,
+	applicationTag, relationTag names.Tag, offerUUID string, consumeVersion int,
 	localEndpointInfo params.RemoteEndpoint, remoteEndpointName string,
 ) (applicationToken, offeringAppToken, relationToken string, _ *macaroon.Macaroon, _ error) {
 	w.logger.Debugf("register remote relation %v to local application %v", relationTag.Id(), applicationTag.Id())
@@ -615,6 +616,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		OfferUUID:         offerUUID,
 		RemoteEndpoint:    localEndpointInfo,
 		LocalEndpointName: remoteEndpointName,
+		ConsumeVersion:    consumeVersion,
 	}
 	if w.offerMacaroon != nil {
 		arg.Macaroons = macaroon.Slice{w.offerMacaroon}

@@ -12,8 +12,10 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -97,6 +99,10 @@ func (st *mockState) Model() (crossmodelrelations.Model, error) {
 	return &mockModel{}, nil
 }
 
+func (st *mockState) ApplyOperation(state.ModelOperation) error {
+	return nil
+}
+
 func (st *mockState) AddRelation(eps ...state.Endpoint) (commoncrossmodel.Relation, error) {
 	rel := &mockRelation{
 		id:  len(st.relations),
@@ -156,7 +162,9 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (commoncrossmodel.
 func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (commoncrossmodel.RemoteApplication, error) {
 	app := &mockRemoteApplication{
 		sourceModelUUID: params.SourceModel.Id(),
-		consumerproxy:   params.IsConsumerProxy}
+		consumerproxy:   params.IsConsumerProxy,
+		consumeversion:  params.ConsumeVersion,
+	}
 	st.remoteApplications[params.Name] = app
 	return app, nil
 }
@@ -483,11 +491,24 @@ func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface
 	return settings, nil
 }
 
+type mockDestroyOperation struct {
+	state.ModelOperation
+}
+
+func (m *mockDestroyOperation) Build(int) ([]txn.Op, error) {
+	return nil, jujutxn.ErrNoOperations
+}
+
+func (m *mockDestroyOperation) Done(error) error {
+	return nil
+}
+
 type mockRemoteApplication struct {
 	commoncrossmodel.RemoteApplication
 	testing.Stub
 	consumerproxy   bool
 	sourceModelUUID string
+	consumeversion  int
 }
 
 func (r *mockRemoteApplication) IsConsumerProxy() bool {
@@ -495,9 +516,19 @@ func (r *mockRemoteApplication) IsConsumerProxy() bool {
 	return r.consumerproxy
 }
 
+func (a *mockRemoteApplication) ConsumeVersion() int {
+	a.MethodCall(a, "ConsumeVersion")
+	return a.consumeversion
+}
+
 func (r *mockRemoteApplication) Destroy() error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()
+}
+
+func (r *mockRemoteApplication) DestroyOperation(force bool) state.ModelOperation {
+	r.MethodCall(r, "DestroyOperation")
+	return &mockDestroyOperation{}
 }
 
 type mockApplication struct {

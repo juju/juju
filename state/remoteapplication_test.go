@@ -135,6 +135,35 @@ func (s *remoteApplicationSuite) TestNoStatusForConsumerProxy(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *remoteApplicationSuite) TestUseSuppliedVersionForConsumerProxy(c *gc.C) {
+	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application.ConsumeVersion(), gc.Equals, 666)
+}
+
+func (s *remoteApplicationSuite) TestConsumeVersion(c *gc.C) {
+	c.Assert(s.application.ConsumeVersion(), gc.Equals, 1)
+	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "hosted-mysql",
+		URL:         "me/model.mysql",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "app-token",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application.ConsumeVersion(), gc.Equals, 2)
+}
+
 func (s *remoteApplicationSuite) TestInitialStatus(c *gc.C) {
 	appStatus, err := s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)

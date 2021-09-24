@@ -266,6 +266,10 @@ type RemoteApplication interface {
 	// from a registration operation by a consuming model.
 	IsConsumerProxy() bool
 
+	// ConsumeVersion increments each time a new saas proxy
+	// for the same offer is created.
+	ConsumeVersion() int
+
 	// Life returns the lifecycle state of the application.
 	Life() state.Life
 
@@ -276,4 +280,7 @@ type RemoteApplication interface {
 	// remote application to terminated and leave it in a state
 	// enabling it to be removed cleanly.
 	TerminateOperation(string) state.ModelOperation
+
+	// DestroyOperation returns a model operation to destroy remote application.
+	DestroyOperation(bool) state.ModelOperation
 }

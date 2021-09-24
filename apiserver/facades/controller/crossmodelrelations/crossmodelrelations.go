@@ -255,6 +255,22 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	existingRemoteApp, err := api.st.RemoteApplication(uniqueRemoteApplicationName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if err == nil {
+		if existingRemoteApp.ConsumeVersion() < relation.ConsumeVersion {
+			// TODO(wallyworld) - this operation should be in a single txn.
+			logger.Debugf("consume version %d of remote app for offer %v: %v", relation.ConsumeVersion, relation.OfferUUID, uniqueRemoteApplicationName)
+			op := existingRemoteApp.DestroyOperation(true)
+			if err := api.st.ApplyOperation(op); err != nil {
+				return nil, errors.Annotatef(err, "removing old saas application proxy for offer %v: %v", relation.OfferUUID, uniqueRemoteApplicationName)
+			}
+		}
+	}
+
 	_, err = api.st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            uniqueRemoteApplicationName,
 		OfferUUID:       relation.OfferUUID,
@@ -262,6 +278,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		Token:           relation.ApplicationToken,
 		Endpoints:       []charm.Relation{remoteEndpoint.Relation},
 		IsConsumerProxy: true,
+		ConsumeVersion:  relation.ConsumeVersion,
 	})
 	// If it already exists, that's fine.
 	if err != nil && !errors.IsAlreadyExists(err) {
