@@ -37,17 +37,17 @@ const (
 	// Cloud is the name of the cloud this model is operating in.
 	Cloud MetricKey = "cloud"
 	// NumApplications is the number of applications in the model.
-	NumApplications MetricKey = "num-applications"
+	NumApplications MetricKey = "applications"
 	// NumMachines is the number of machines in the model.
-	NumMachines MetricKey = "num-machines"
+	NumMachines MetricKey = "machines"
 	// NumUnits is the number of units in the model.
-	NumUnits MetricKey = "num-units"
+	NumUnits MetricKey = "units"
 
 	//
 	// Charm metrics, included in the RefreshRequestContext Metrics.
 	//
 
-	// CharmURL is the url of the deployed charm, it includes the
-	// type, name, base and revision of the running charm.
-	CharmURL MetricKey = "charm-url"
+	// Relations is a common separated list of charms currently related
+	// to an application.  (no spaces)
+	Relations MetricKey = "relations"
 )
