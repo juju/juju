@@ -280,6 +280,10 @@ const (
 	// TestModeKey is the key for identifying the model should be run in test
 	// mode.
 	TestModeKey = "test-mode"
+
+	// DisableTelemetryKey is a key for determining whether telemetry on juju
+	// models will be done.
+	DisableTelemetryKey = "disable-telemetry"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -490,6 +494,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":           true,
 	"development":                 false,
 	TestModeKey:                   false,
+	DisableTelemetryKey:           false,
 	TransmitVendorMetricsKey:      true,
 	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
 	EgressSubnets:                 "",
@@ -1536,6 +1541,12 @@ func (c *Config) LXDSnapChannel() string {
 	return c.asString(LXDSnapChannel)
 }
 
+// Telemetry returns whether telemetry is enabled for the model.
+func (c *Config) Telemetry() bool {
+	value, _ := c.defined[DisableTelemetryKey].(bool)
+	return !value
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1652,6 +1663,7 @@ var alwaysOptional = schema.Defaults{
 	IgnoreMachineAddresses:        schema.Omit,
 	AutomaticallyRetryHooks:       schema.Omit,
 	TestModeKey:                   schema.Omit,
+	DisableTelemetryKey:           schema.Omit,
 	ModeKey:                       schema.Omit,
 	TransmitVendorMetricsKey:      schema.Omit,
 	NetBondReconfigureDelayKey:    schema.Omit,
@@ -2093,6 +2105,11 @@ If true, accessing the charm store does not affect statistical
 data of the store. (default false)`,
 		Type:  environschema.Tbool,
 		Group: environschema.EnvironGroup,
+	},
+	DisableTelemetryKey: {
+		Description: `Disable telemetry reporting of model information`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
 	},
 	ModeKey: {
 		Description: `Mode sets the type of mode the model should run in.

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -141,6 +142,15 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	model, err := api.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	telemetry := cfg.Telemetry()
 
 	// Partition the charms into charmhub vs charmstore so we can query each
 	// batch separately.
@@ -196,10 +206,12 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 			cid := charmstore.CharmID{
 				URL:     curl,
 				Channel: application.Channel(),
-				Metadata: map[string]string{
+			}
+			if telemetry {
+				cid.Metadata = map[string]string{
 					"series": origin.Platform.Series,
 					"arch":   origin.Platform.Architecture,
-				},
+				}
 			}
 			charmstoreIDs = append(charmstoreIDs, cid)
 			charmstoreApps = append(charmstoreApps, appInfo{
@@ -214,14 +226,14 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 
 	var latest []latestCharmInfo
 	if len(charmstoreIDs) > 0 {
-		storeLatest, err := api.fetchCharmstoreInfos(charmstoreIDs, charmstoreApps)
+		storeLatest, err := api.fetchCharmstoreInfos(cfg, charmstoreIDs, charmstoreApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		latest = append(latest, storeLatest...)
 	}
 	if len(charmhubIDs) > 0 {
-		hubLatest, err := api.fetchCharmhubInfos(charmhubIDs, charmhubApps)
+		hubLatest, err := api.fetchCharmhubInfos(cfg, charmhubIDs, charmhubApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -231,20 +243,20 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 	return latest, nil
 }
 
-func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
+func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(cfg *config.Config, ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
 	client, err := api.newCharmstoreClient(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata, err := charmstoreApiMetadata(api.state)
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	var metadata map[string]string
+	if cfg.Telemetry() {
+		metadata, err = charmstoreApiMetadata(api.state)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		metadata["environment_uuid"] = cfg.UUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	}
-	model, err := api.state.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	metadata["environment_uuid"] = model.UUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -273,10 +285,14 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(ids []charmstore.CharmI
 	return latest, nil
 }
 
-func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
-	requestMetrics, err := charmhubRequestMetadata(api.state)
-	if err != nil {
-		return nil, errors.Trace(err)
+func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
+	var requestMetrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string
+	if cfg.Telemetry() {
+		var err error
+		requestMetrics, err = charmhubRequestMetadata(api.state)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	client, err := api.newCharmhubClient(api.state)
 	if err != nil {
