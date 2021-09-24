@@ -406,7 +406,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
 			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
-			if err != nil {
+			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, destroyRelUnitOps...)
@@ -496,6 +496,11 @@ func (s *RemoteApplication) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status for the application.
 func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
+	// We only care about status for alive apps; we want to
+	// avoid stray updates from the other model.
+	if s.Life() != Alive {
+		return nil
+	}
 	if !info.Status.KnownWorkloadStatus() {
 		return errors.Errorf("cannot set invalid status %q", info.Status)
 	}
@@ -562,7 +567,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	// Destroying each relation also forces remote units to leave scope.
 	for _, rel := range rels {
 		relOps, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
-		if err != nil {
+		if err != nil && err != jujutxn.ErrNoOperations {
 			return nil, errors.Annotatef(err, "removing relation %q", rel)
 		}
 		ops = append(ops, relOps...)

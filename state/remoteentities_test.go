@@ -74,6 +74,10 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	re := s.State.RemoteEntities()
 	mac, err := newMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = re.SaveMacaroon(names.NewApplicationTag("foo"), mac)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	err = re.SaveMacaroon(entity, mac)
 	c.Assert(err, jc.ErrorIsNil)
 

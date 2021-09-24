@@ -341,7 +341,7 @@ func destroyCrossModelRelationUnitsOps(op *ForcedOperation, remoteApp *RemoteApp
 			return nil, errors.Trace(err)
 		}
 		if err != nil || statusInfo.Status != status.Terminated {
-			return nil, nil
+			return nil, jujutxn.ErrNoOperations
 		}
 	}
 	logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
@@ -392,7 +392,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 		// get an orderly exit of units from scope so force the issue.
 		if isCrossModel {
 			destroyOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, op.r, true)
-			if err != nil {
+			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, destroyOps...)
