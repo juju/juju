@@ -420,7 +420,6 @@ charmcraft-version: 0.10.0
 	c.Assert(got[0].Meta.Name, gc.Equals, "dummy")
 	c.Assert(got[0].Config.Options["title"], gc.Not(gc.IsNil))
 	c.Assert(got[0].Manifest.Bases, gc.HasLen, 1)
-	c.Assert(got[0].LXDProfile, gc.Not(gc.IsNil))
 	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "charmCHARMcharmCHARMcharmCHARM01", gc.Commentf("expected origin to be resolved"))
 }
 

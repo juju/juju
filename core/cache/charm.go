@@ -48,6 +48,7 @@ func (c *Charm) setDetails(details CharmChange) {
 	})
 
 	c.details = details
+	c.hub.Publish(modelCharmChanged, details)
 }
 
 // copy returns a copy of the unit, ensuring appropriate deep copying.
