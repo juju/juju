@@ -188,8 +188,6 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 				c.mutex.Lock()
 				c.lastKnownRemote = remote
 				c.mutex.Unlock()
-
-				c.record(command.Operation, "success", start)
 				return nil
 			}
 
@@ -231,6 +229,12 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 		Stop:        ctx.Done(),
 		Clock:       c.config.Clock,
 	})
+
+	// Exit out early and report the operation as a success.
+	if err == nil {
+		c.record(command.Operation, "success", start)
+		return nil
+	}
 
 	// If the retry has stopped, then we've been cancelled, so we need to tell
 	// the lease manager that we've timedout.
