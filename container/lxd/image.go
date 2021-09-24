@@ -84,8 +84,8 @@ func (s *Server) FindImage(
 			continue
 		}
 		for _, alias := range aliases {
-			if result, _, err := source.GetImageAlias(alias); err == nil && result != nil && result.Target != "" {
-				target = result.Target
+			if res, _, err := source.GetImageAliasType("container", alias); err == nil && res != nil && res.Target != "" {
+				target = res.Target
 				break
 			}
 		}
