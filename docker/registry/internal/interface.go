@@ -16,6 +16,8 @@ type Registry interface {
 	Close() error
 	Ping() error
 	ImageRepoDetails() docker.ImageRepoDetails
+	ShouldRefreshAuth() bool
+	RefreshAuth() error
 }
 
 // RegistryInternal provides methods of registry clients for internal operations.

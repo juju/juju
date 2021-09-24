@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
@@ -92,6 +93,9 @@ type ImageRepoDetails struct {
 
 	// Region is the cloud region.
 	Region string `json:"region,omitempty" yaml:"region,omitempty"`
+
+	// ExpiresAt is the unix time in seconds and milliseconds when the authorization token expires.
+	ExpiresAt *time.Time `json:"expires-at,omitempty" yaml:"expires-at,omitempty"`
 }
 
 // AuthEqual compares if the provided one equals to current repository detail.

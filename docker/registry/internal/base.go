@@ -73,6 +73,16 @@ func (c *baseClient) prepare() {
 	}
 }
 
+// ShouldRefreshAuth checks if the repoDetails should be refreshed.
+func (c *baseClient) ShouldRefreshAuth() bool {
+	return false
+}
+
+// RefreshAuth refreshes the repoDetails.
+func (c *baseClient) RefreshAuth() error {
+	return nil
+}
+
 // Match checks if the repository details matches current provider format.
 func (c *baseClient) Match() bool {
 	return false

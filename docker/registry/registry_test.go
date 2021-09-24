@@ -23,5 +23,5 @@ func (s *registrySuite) TestNewRegistryNotSupported(c *gc.C) {
 		ServerAddress: "public.ecr.aws",
 	}
 	_, err := registry.New(imageRepoDetails)
-	c.Assert(err, gc.ErrorMatches, `container registry public.ecr.aws not supported`)
+	c.Assert(err, gc.ErrorMatches, `container registry "public.ecr.aws" not supported`)
 }

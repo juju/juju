@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
@@ -38,7 +39,7 @@ type elasticContainerRegistrySuite struct {
 
 var _ = gc.Suite(&elasticContainerRegistrySuite{})
 
-func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
+func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func()) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.mockRoundTripper = mocks.NewMockRoundTripper(ctrl)
@@ -49,27 +50,35 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry,
 		return s.mockECRAPI, nil
 	})
 
-	s.imageRepoDetails = docker.ImageRepoDetails{
-		Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-		Region:        "ap-southeast-2",
-	}
-	if s.isPrivate {
-		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
-			Username: "aws_access_key_id",
-			Password: "aws_secret_access_key",
+	if s.imageRepoDetails.Empty() {
+		s.imageRepoDetails = docker.ImageRepoDetails{
+			Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+			ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+			Region:        "ap-southeast-2",
 		}
-		s.mockECRAPI.EXPECT().GetAuthorizationToken(gomock.Any(), &ecr.GetAuthorizationTokenInput{}).Return(
-			&ecr.GetAuthorizationTokenOutput{
-				AuthorizationData: []types.AuthorizationData{
-					{AuthorizationToken: aws.String(`xxxx===`)},
-				},
-			}, nil,
-		)
+		if s.isPrivate {
+			s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
+				Username: "aws_access_key_id",
+				Password: "aws_secret_access_key",
+			}
+		}
+	}
+	if ensureAsserts != nil {
+		ensureAsserts()
+	} else {
+		if s.imageRepoDetails.IsPrivate() {
+			s.mockECRAPI.EXPECT().GetAuthorizationToken(gomock.Any(), &ecr.GetAuthorizationTokenInput{}).Return(
+				&ecr.GetAuthorizationTokenOutput{
+					AuthorizationData: []types.AuthorizationData{
+						{AuthorizationToken: aws.String(`xxxx===`)},
+					},
+				}, nil,
+			)
+		}
 	}
 
 	reg, err := registry.New(s.imageRepoDetails)
-	if !s.isPrivate {
+	if !s.imageRepoDetails.IsPrivate() {
 		c.Assert(err, gc.ErrorMatches, `empty credential for elastic container registry`)
 		return nil, ctrl
 	}
@@ -124,22 +133,99 @@ func (s *elasticContainerRegistrySuite) TestInvalidImageRepoDetails(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `region is required`)
 }
 
+func setImageRepoDetails(c *gc.C, reg registry.Registry, i docker.ImageRepoDetails) {
+	registry, ok := reg.(*internal.ElasticContainerRegistry)
+	c.Assert(ok, jc.IsTrue)
+	registry.SetImageRepoDetails(i)
+}
+
+func (s *elasticContainerRegistrySuite) TestShouldRefreshAuthAuthTokenMissing(c *gc.C) {
+	reg, ctrl := s.getRegistry(c, nil)
+	defer ctrl.Finish()
+	repoDetails := docker.ImageRepoDetails{
+		Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Region:        "ap-southeast-2",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "aws_access_key_id",
+			Password: "aws_secret_access_key",
+		},
+	}
+	setImageRepoDetails(c, reg, repoDetails)
+	c.Assert(reg.ShouldRefreshAuth(), jc.IsTrue)
+}
+
+func (s *elasticContainerRegistrySuite) TestShouldRefreshNoExpireTime(c *gc.C) {
+	reg, ctrl := s.getRegistry(c, nil)
+	defer ctrl.Finish()
+	repoDetails := docker.ImageRepoDetails{
+		Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Region:        "ap-southeast-2",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "aws_access_key_id",
+			Password: "aws_secret_access_key",
+			Auth:     `xxx===`,
+		},
+	}
+	setImageRepoDetails(c, reg, repoDetails)
+	c.Assert(reg.ShouldRefreshAuth(), jc.IsTrue)
+}
+
+func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *gc.C) {
+	expiredTime := time.Now().Add(-1 * time.Second)
+	reg, ctrl := s.getRegistry(c, nil)
+	defer ctrl.Finish()
+	repoDetails := docker.ImageRepoDetails{
+		Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Region:        "ap-southeast-2",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "aws_access_key_id",
+			Password: "aws_secret_access_key",
+			Auth:     `xxx===`,
+		},
+		ExpiresAt: &expiredTime,
+	}
+	setImageRepoDetails(c, reg, repoDetails)
+	c.Assert(reg.ShouldRefreshAuth(), jc.IsTrue)
+}
+
+func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenNoNeedRefresh(c *gc.C) {
+	expiredTime := time.Now().Add(1 * time.Second)
+	reg, ctrl := s.getRegistry(c, nil)
+	defer ctrl.Finish()
+	repoDetails := docker.ImageRepoDetails{
+		Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Region:        "ap-southeast-2",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "aws_access_key_id",
+			Password: "aws_secret_access_key",
+			Auth:     `xxx===`,
+		},
+		ExpiresAt: &expiredTime,
+	}
+	setImageRepoDetails(c, reg, repoDetails)
+	c.Assert(reg.ShouldRefreshAuth(), jc.IsFalse)
+}
+
 func (s *elasticContainerRegistrySuite) TestPingPublicRepository(c *gc.C) {
 	s.isPrivate = false
-	_, ctrl := s.getRegistry(c)
+	_, ctrl := s.getRegistry(c, nil)
 	ctrl.Finish()
 }
 
 func (s *elasticContainerRegistrySuite) TestPingPrivateRepository(c *gc.C) {
 	s.isPrivate = true
-	_, ctrl := s.getRegistry(c)
+	_, ctrl := s.getRegistry(c, nil)
 	ctrl.Finish()
 }
 
 func (s *elasticContainerRegistrySuite) TestTags(c *gc.C) {
 	// Use v2 for private repository.
 	s.isPrivate = true
-	reg, ctrl := s.getRegistry(c)
+	reg, ctrl := s.getRegistry(c, nil)
 	defer ctrl.Finish()
 
 	data := `
@@ -170,7 +256,7 @@ func (s *elasticContainerRegistrySuite) TestTags(c *gc.C) {
 
 func (s *elasticContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 	s.isPrivate = true
-	reg, ctrl := s.getRegistry(c)
+	reg, ctrl := s.getRegistry(c, nil)
 	defer ctrl.Finish()
 
 	data := `

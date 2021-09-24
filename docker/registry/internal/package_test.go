@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/docker"
 )
 
 func TestPackage(t *testing.T) {
@@ -31,3 +33,7 @@ var (
 	NewTokenTransport       = newTokenTransport
 	NewPrivateOnlyTransport = newPrivateOnlyTransport
 )
+
+func (c *BaseClient) SetImageRepoDetails(i docker.ImageRepoDetails) {
+	c.repoDetails = &i
+}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -99,7 +100,9 @@ func getTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails, h
 		return errors.NewNotValid(nil, "region is required")
 	}
 	if repoDetails.Username == "" || repoDetails.Password == "" {
-		return errors.NewNotValid(nil, fmt.Sprintf("username and password are required for registry %q", repoDetails.Repository))
+		return errors.NewNotValid(nil,
+			fmt.Sprintf("username and password are required for registry %q", repoDetails.Repository),
+		)
 	}
 	ctx := context.Background()
 	c, err := GetECRClient(ctx, httpClient, repoDetails.Username, repoDetails.Password, repoDetails.Region)
@@ -111,7 +114,9 @@ func getTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails, h
 		return errors.Trace(err)
 	}
 	if len(result.AuthorizationData) > 0 {
-		repoDetails.Auth = aws.ToString(result.AuthorizationData[0].AuthorizationToken)
+		data := result.AuthorizationData[0]
+		repoDetails.Auth = aws.ToString(data.AuthorizationToken)
+		repoDetails.ExpiresAt = data.ExpiresAt
 	}
 	if repoDetails.Auth == "" {
 		return errors.New(fmt.Sprintf("failed to fetch the authorization token for %q", repoDetails.Repository))
@@ -119,7 +124,23 @@ func getTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails, h
 	return nil
 }
 
-func (c *elasticContainerRegistry) elasticContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
+// ShouldRefreshAuth checks if the repoDetails should be refreshed.
+func (c *elasticContainerRegistry) ShouldRefreshAuth() bool {
+	if c.repoDetails.Auth == "" {
+		// auth token is missing, refresh is required.
+		return true
+	}
+	// check if the token has expired or not.
+	return c.repoDetails.ExpiresAt == nil || c.repoDetails.ExpiresAt.Before(time.Now())
+}
+
+// RefreshAuth refreshes the repoDetails.
+func (c *elasticContainerRegistry) RefreshAuth() error {
+	return getTokenForElasticContainerRegistry(c.repoDetails, c.client)
+}
+
+func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
+	transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
 ) (http.RoundTripper, error) {
 	if !repoDetails.TokenAuthConfig.Empty() {
 		return nil, errors.New("elastic container registry only supports username and password")
@@ -172,5 +193,5 @@ func (c *elasticContainerRegistryPublic) Match() bool {
 }
 
 func (c *elasticContainerRegistryPublic) WrapTransport(...TransportWrapper) error {
-	return errors.NotSupportedf("container registry public.ecr.aws")
+	return errors.NotSupportedf("container registry %q", c.repoDetails.ServerAddress)
 }
