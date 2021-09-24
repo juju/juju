@@ -4,12 +4,14 @@
 package caasmodelconfigmanager
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/docker/registry"
 )
 
 // ManifoldConfig describes how to configure and construct a Worker,
@@ -22,6 +24,7 @@ type ManifoldConfig struct {
 	NewWorker func(Config) (worker.Worker, error)
 
 	Logger Logger
+	Clock  clock.Clock
 }
 
 // Validate is called by start to check for bad configuration.
@@ -40,6 +43,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -69,10 +75,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
-		ModelTag: modelTag,
-		Facade:   facade,
-		Broker:   broker,
-		Logger:   config.Logger,
+		ModelTag:     modelTag,
+		Facade:       facade,
+		Broker:       broker,
+		Logger:       config.Logger,
+		RegistryFunc: registry.New,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

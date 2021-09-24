@@ -4,6 +4,9 @@
 package caasmodelconfigmanager
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -14,6 +17,8 @@ import (
 	api "github.com/juju/juju/api/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/utils"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -41,9 +46,11 @@ type CAASBroker interface {
 type Config struct {
 	ModelTag names.ModelTag
 
-	Facade Facade
-	Broker CAASBroker
-	Logger Logger
+	Facade       Facade
+	Broker       CAASBroker
+	Logger       Logger
+	Clock        clock.Clock
+	RegistryFunc func(docker.ImageRepoDetails) (registry.Registry, error)
 }
 
 // Validate returns an error if the config cannot be expected
@@ -61,6 +68,12 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("Logger is missing")
 	}
+	if config.Clock == nil {
+		return errors.NotValidf("Clock is missing")
+	}
+	if config.RegistryFunc == nil {
+		return errors.NotValidf("RegistryFunc is missing")
+	}
 	return nil
 }
 
@@ -70,6 +83,10 @@ type manager struct {
 	name   string
 	config Config
 	logger Logger
+	clock  clock.Clock
+
+	registryFunc func(docker.ImageRepoDetails) (registry.Registry, error)
+	reg          registry.Registry
 }
 
 // NewFacade returns a facade for caasapplicationprovisioner worker to use.
@@ -83,9 +100,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &manager{
-		name:   config.ModelTag.Id(),
-		config: config,
-		logger: config.Logger,
+		name:         config.ModelTag.Id(),
+		config:       config,
+		logger:       config.Logger,
+		clock:        config.Clock,
+		registryFunc: config.RegistryFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -107,13 +126,51 @@ func (w *manager) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *manager) loop() error {
+func (w *manager) loop() (err error) {
 	controllerConfig, err := w.config.Facade.ControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.config.Broker.EnsureImageRepoSecret(controllerConfig.CAASImageRepo()); err != nil {
+	repoDetails := controllerConfig.CAASImageRepo()
+	if !repoDetails.IsPrivate() {
+		// No ops for public registry config.
+		return nil
+	}
+	w.reg, err = w.registryFunc(repoDetails)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	return nil
+	err = w.reg.Ping()
+	if utils.IsPublicAPINotAvailableError(err) {
+		// No ops for public registry config.
+		// This should never happen because we have done this check above.
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.ensureImageRepoSecret(true); err != nil {
+		return errors.Trace(err)
+	}
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case <-w.clock.After(3 * time.Second):
+			if err := w.ensureImageRepoSecret(false); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+}
+
+func (w *manager) ensureImageRepoSecret(isFirstCall bool) error {
+	if !w.reg.ShouldRefreshAuth() && !isFirstCall {
+		return nil
+	}
+	if err := w.reg.RefreshAuth(); err != nil {
+		return errors.Annotatef(err, "refreshing registry auth token for %q", w.name)
+	}
+	err := w.config.Broker.EnsureImageRepoSecret(w.reg.ImageRepoDetails())
+	return errors.Annotatef(err, "ensuring image repository secret for %q", w.name)
 }
