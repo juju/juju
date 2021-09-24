@@ -60,14 +60,20 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.relationsFacade = newMockRelationsFacade(s.stub)
 	s.remoteRelationsFacade = newMockRemoteRelationsFacade(s.stub)
 
+	clk := testclock.NewClock(time.Time{})
 	s.config = remoterelations.Config{
 		ModelUUID:       "local-model-uuid",
 		RelationsFacade: s.relationsFacade,
 		NewRemoteModelFacadeFunc: func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
-		Clock:  testclock.NewClock(time.Time{}),
+		Clock:  clk,
 		Logger: loggo.GetLogger("test"),
+		Runner: worker.NewRunner(worker.RunnerParams{
+			Clock:        clk,
+			IsFatal:      func(error) bool { return false },
+			RestartDelay: time.Second,
+		}),
 	}
 }
 
@@ -201,11 +207,14 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
-	// Checks that when a remote application is removed, the relation
-	// worker is killed.
+	// Checks that when a remote application is removed, the application worker
+	// and relation worker are killed.
 	w := s.assertRemoteApplicationWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
+
+	appWorker, err := s.config.Runner.Worker("mysql", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relWatcher, _ := s.relationsFacade.removeApplication("mysql")
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
@@ -221,6 +230,66 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 		{"Close", nil},
 	}
 	s.waitForWorkerStubCalls(c, expected)
+	err = workertest.CheckKilled(c, appWorker)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *gc.C) {
+	// Checks that when a remote offer is terminated, the application worker
+	// and relation worker are killed.
+	w := s.assertRemoteApplicationWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	appWorker, err := s.config.Runner.Worker("mysql", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatchers["mysql"]
+	c.Assert(ok, jc.IsTrue)
+	s.relationsFacade.remoteApplications["mysql"].status = status.Terminated
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+
+	expected := []jujutesting.StubCall{
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"Close", nil},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+
+	c.Check(relWatcher.killed(), jc.IsTrue)
+	err = workertest.CheckKilled(c, appWorker)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *gc.C) {
+	// Checks that when a remote offer now different to the previous one being used,
+	// the application worker and relation worker are killed.
+	w := s.assertRemoteApplicationWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	oldAppWorker, err := s.config.Runner.Worker("mysql", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatchers["mysql"]
+	c.Assert(ok, jc.IsTrue)
+	mac, err := apitesting.NewMacaroon("test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.relationsFacade.remoteApplications["mysql"].offeruuid = "different-uuid"
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+
+	expected := []jujutesting.StubCall{
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"Close", nil},
+		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"WatchOfferStatus", []interface{}{"different-uuid", macaroon.Slice{mac}}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+
+	c.Check(relWatcher.killed(), jc.IsTrue)
+	err = workertest.CheckKilled(c, oldAppWorker)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *gc.C) {
@@ -272,6 +341,26 @@ func (s *remoteRelationsSuite) TestOfferStatusChange(c *gc.C) {
 		{"SetRemoteApplicationStatus", []interface{}{"mysql", "active", "started"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestOfferStatusTerminatedStopsWatcher(c *gc.C) {
+	w := s.assertRemoteApplicationWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	statusWatcher := s.remoteRelationsFacade.offersStatusWatchers["offer-mysql-uuid"]
+	statusWatcher.changes <- []watcher.OfferStatusChange{{
+		Name: "mysql",
+		Status: status.StatusInfo{
+			Status: status.Terminated,
+		},
+	}}
+
+	expected := []jujutesting.StubCall{
+		{"SetRemoteApplicationStatus", []interface{}{"mysql", "terminated", ""}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+	c.Check(statusWatcher.killed(), jc.IsTrue)
 }
 
 func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *gc.C) {

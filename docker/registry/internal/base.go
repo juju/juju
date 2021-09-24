@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package internal
 
 import (
 	"encoding/json"
@@ -40,11 +40,6 @@ func (v APIVersion) String() string {
 	return string(v)
 }
 
-var (
-	// Override for testing.
-	DefaultTransport = http.DefaultTransport
-)
-
 type baseClient struct {
 	baseURL     *url.URL
 	client      *http.Client
@@ -53,12 +48,14 @@ type baseClient struct {
 
 func newBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *baseClient {
 	c := &baseClient{
+		baseURL:     &url.URL{},
 		repoDetails: &repoDetails,
 		client: &http.Client{
 			Transport: transport,
 			Timeout:   defaultTimeout,
 		},
 	}
+	c.prepare()
 	return c
 }
 
@@ -94,7 +91,7 @@ func (c *baseClient) WrapTransport() error {
 	if c.repoDetails.IsPrivate() {
 		if !c.repoDetails.BasicAuthConfig.Empty() {
 			transport = newTokenTransport(
-				transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "",
+				transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "", false,
 			)
 		}
 		if !c.repoDetails.TokenAuthConfig.Empty() {
@@ -110,36 +107,39 @@ func (c *baseClient) WrapTransport() error {
 	return nil
 }
 
-// DecideBaseURL decides the API url to use.
-func (c *baseClient) DecideBaseURL() error {
-	addr := c.repoDetails.ServerAddress
+func decideBaseURLCommon(version APIVersion, repoDetails *docker.ImageRepoDetails, baseURL *url.URL) error {
+	addr := repoDetails.ServerAddress
 	if addr == "" {
-		return errors.NotValidf("empty server address for %q", c.repoDetails.Repository)
+		return errors.NotValidf("empty server address for %q", repoDetails.Repository)
 	}
 	url, err := url.Parse(addr)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "parsing server address %q", addr)
 	}
 	serverAddressURL := *url
-	apiVersion := c.APIVersion().String()
+	apiVersion := version.String()
 	if !strings.Contains(url.Path, "/"+apiVersion) {
 		url.Path = path.Join(url.Path, apiVersion)
 	}
 	if url.Scheme == "" {
 		url.Scheme = "https"
 	}
-	c.baseURL = url
+	*baseURL = *url
 
 	serverAddressURL.Scheme = ""
-	c.repoDetails.ServerAddress = serverAddressURL.String()
-	logger.Tracef("baseClient repoDetails %#v", c.repoDetails)
+	repoDetails.ServerAddress = serverAddressURL.String()
+	logger.Tracef("baseClient repoDetails %#v", repoDetails)
 	return nil
 }
 
-func (c baseClient) url(pathTemplate string, args ...interface{}) string {
+// DecideBaseURL decides the API url to use.
+func (c *baseClient) DecideBaseURL() error {
+	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
+}
+
+func commonURL(version APIVersion, url url.URL, pathTemplate string, args ...interface{}) string {
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
-	url := *c.baseURL
-	ver := c.APIVersion().String()
+	ver := version.String()
 	if !strings.HasSuffix(strings.TrimRight(url.Path, "/"), ver) {
 		url.Path = path.Join(url.Path, ver)
 	}
@@ -148,6 +148,10 @@ func (c baseClient) url(pathTemplate string, args ...interface{}) string {
 	}
 	url.Path = path.Join(url.Path, pathSuffix)
 	return url.String()
+}
+
+func (c baseClient) url(pathTemplate string, args ...interface{}) string {
+	return commonURL(c.APIVersion(), *c.baseURL, pathTemplate, args...)
 }
 
 // Ping pings the baseClient endpoint.

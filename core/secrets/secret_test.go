@@ -92,10 +92,10 @@ func (s *SecretURLSuite) TestParseURL(c *gc.C) {
 				Revision: 666,
 			},
 		}, {
-			str:      "secret://app/mariadb/password#attr",
-			shortStr: "secret://app/mariadb/password#attr",
+			str:      "secret://app/mariadb-k8s/password#attr",
+			shortStr: "secret://app/mariadb-k8s/password#attr",
 			expected: &secrets.URL{
-				Path:      "app/mariadb/password",
+				Path:      "app/mariadb-k8s/password",
 				Attribute: "attr",
 			},
 		}, {
@@ -221,4 +221,16 @@ func (s *SecretURLSuite) TestWithAttribute(c *gc.C) {
 func (s *SecretURLSuite) TestNewSimpleURL(c *gc.C) {
 	URL := secrets.NewSimpleURL("app/mariadb/password")
 	c.Assert(URL.String(), gc.Equals, "secret://app/mariadb/password")
+}
+
+func (s *SecretURLSuite) TestOwnerApplication(c *gc.C) {
+	URL := secrets.NewSimpleURL("app/mariadb/password")
+	app, ok := URL.OwnerApplication()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(app, gc.Equals, "mariadb")
+
+	URL2 := secrets.NewSimpleURL("unit/mariadb-0/password")
+	_, ok = URL2.OwnerApplication()
+	c.Assert(ok, jc.IsFalse)
+
 }

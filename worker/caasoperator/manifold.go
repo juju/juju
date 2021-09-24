@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apileadership "github.com/juju/juju/api/leadership"
+	"github.com/juju/juju/api/secretsmanager"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -192,6 +194,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 
+			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
+				client := secretsmanager.NewClient(apiCaller)
+				appName, _ := names.UnitApplication(unitTag.Id())
+				return secretrotate.New(secretrotate.Config{
+					SecretManagerFacade: client,
+					Clock:               clock,
+					Logger:              config.Logger.Child("secretsrotate"),
+					SecretOwner:         names.NewApplicationTag(appName),
+					RotateSecrets:       rotateSecrets,
+				})
+			}
+
 			wCfg := Config{
 				Logger:                config.Logger,
 				ModelUUID:             agentConfig.Model().Id(),
@@ -227,17 +241,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			wCfg.OperatorInfo = *operatorInfo
 			wCfg.UniterParams = &uniter.UniterParams{
-				NewOperationExecutor: operation.NewExecutor,
-				NewDeployer:          charm.NewDeployer,
-				NewProcessRunner:     runner.NewRunner,
-				DataDir:              agentConfig.DataDir(),
-				Clock:                clock,
-				MachineLock:          config.MachineLock,
-				CharmDirGuard:        charmDirGuard,
-				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
-				HookRetryStrategy:    hookRetryStrategy,
-				TranslateResolverErr: config.TranslateResolverErr,
-				Logger:               wCfg.Logger.Child("uniter"),
+				NewOperationExecutor:    operation.NewExecutor,
+				NewDeployer:             charm.NewDeployer,
+				NewProcessRunner:        runner.NewRunner,
+				DataDir:                 agentConfig.DataDir(),
+				Clock:                   clock,
+				MachineLock:             config.MachineLock,
+				CharmDirGuard:           charmDirGuard,
+				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
+				HookRetryStrategy:       hookRetryStrategy,
+				TranslateResolverErr:    config.TranslateResolverErr,
+				SecretRotateWatcherFunc: secretRotateWatcherFunc,
+				Logger:                  wCfg.Logger.Child("uniter"),
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
 			if err != nil {

@@ -398,3 +398,20 @@ func (t *mockTicket) Ready() <-chan struct{} {
 func (t *mockTicket) Wait() bool {
 	return t.result
 }
+
+type mockRotateSecretsWatcher struct {
+	rotateCh chan []string
+	stopCh   chan struct{}
+}
+
+func (w *mockRotateSecretsWatcher) Kill() {
+	select {
+	case <-w.stopCh:
+	default:
+		close(w.stopCh)
+	}
+}
+
+func (*mockRotateSecretsWatcher) Wait() error {
+	return nil
+}

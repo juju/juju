@@ -552,7 +552,7 @@ func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Message, gc.Equals, `remote application "fred@external/prod.hosted-db2:db" shouldn't include endpoint`)
+	c.Assert(found.Results[0].Error.Message, gc.Equals, `saas application "fred@external/prod.hosted-db2:db" shouldn't include endpoint`)
 }
 
 func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
@@ -1174,7 +1174,7 @@ func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
-	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "fred@external/prod.application:db" shouldn't include endpoint`)
+	c.Assert(results.Results[0].Error.Message, gc.Equals, `saas application "fred@external/prod.application:db" shouldn't include endpoint`)
 }
 
 func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {

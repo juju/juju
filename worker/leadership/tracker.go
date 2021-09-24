@@ -45,10 +45,10 @@ type Tracker struct {
 // a network connection).
 func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock, duration time.Duration) *Tracker {
 	unitName := tag.Id()
-	serviceName, _ := names.UnitApplication(unitName)
+	applicationName, _ := names.UnitApplication(unitName)
 	t := &Tracker{
 		unitName:          unitName,
-		applicationName:   serviceName,
+		applicationName:   applicationName,
 		claimer:           claimer,
 		clock:             clock,
 		duration:          duration,

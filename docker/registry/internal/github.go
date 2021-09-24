@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package internal
 
 import (
 	"encoding/base64"
@@ -18,13 +18,12 @@ type githubContainerRegistry struct {
 }
 
 func newGithubContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, DefaultTransport)
+	c := newBase(repoDetails, transport)
 	return &githubContainerRegistry{c}
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *githubContainerRegistry) Match() bool {
-	c.prepare()
 	return strings.Contains(c.repoDetails.ServerAddress, "ghcr.io")
 }
 
@@ -53,7 +52,7 @@ func (c *githubContainerRegistry) WrapTransport() error {
 				return errors.Trace(err)
 			}
 			transport = newTokenTransport(
-				transport, "", "", "", bearerToken,
+				transport, "", "", "", bearerToken, true,
 			)
 		}
 		if !c.repoDetails.TokenAuthConfig.Empty() {

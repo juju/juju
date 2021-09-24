@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry_test
+package internal_test
 
 import (
 	"encoding/base64"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
 )
 
@@ -29,6 +30,10 @@ type baseSuite struct {
 
 var _ = gc.Suite(&baseSuite{})
 
+func (s *baseSuite) getAuthToken(username, password string) string {
+	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+}
+
 func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
@@ -36,7 +41,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 		Repository:    "example.com/jujuqa",
 		ServerAddress: "example.com",
 	}
-	authToken := base64.StdEncoding.EncodeToString([]byte("username:pwd"))
+	authToken := s.getAuthToken("username", "pwd")
 	if s.isPrivate {
 		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
 			Auth: authToken,
@@ -103,7 +108,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 
 	reg, err := registry.New(s.imageRepoDetails)
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := reg.(*registry.BaseClient)
+	_, ok := reg.(*internal.BaseClient)
 	c.Assert(ok, jc.IsTrue)
 	return reg, ctrl
 }

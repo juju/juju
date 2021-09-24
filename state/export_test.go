@@ -669,6 +669,15 @@ func ResetMigrationMode(c *gc.C, st *State) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (a *RemoteApplication) SetDead() error {
+	ops := []txn.Op{{
+		C:      remoteApplicationsC,
+		Id:     a.doc.Name,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}}
+	return a.st.db().RunTransaction(ops)
+}
+
 func RemoveRelationStatus(c *gc.C, rel *Relation) {
 	st := rel.st
 	ops := []txn.Op{removeStatusOp(st, rel.globalScope())}
@@ -990,6 +999,16 @@ func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
 func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	resolver := &importer{st: st}
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
+}
+
+func GetSecretRotateTime(c *gc.C, st *State, id int) time.Time {
+	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+	defer closer()
+
+	var doc secretRotationDoc
+	err := secretRotateCollection.FindId(secretGlobalKey(id)).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.LastRotateTime
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

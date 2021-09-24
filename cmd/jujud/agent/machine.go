@@ -88,6 +88,7 @@ import (
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/wrench"
@@ -619,6 +620,7 @@ func (a *MachineAgent) makeEngineCreator(
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			LeaseFSM:                          raftlease.NewFSM(),
 			LeaseLog:                          makeRaftLeaseLog(raftLeaseLogPath),
+			RaftOpQueue:                       queue.NewBlockingOpQueue(clock.WallClock),
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {

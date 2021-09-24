@@ -350,6 +350,59 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	s.assertUpdatedSecret(c, md.URL, newData, durationPtr(2*time.Hour), nil, nil, nil, 3)
 }
 
+func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
+	URL := secrets.NewSimpleURL("app/mariadb/password")
+	URL.ControllerUUID = s.State.ControllerUUID()
+	URL.ModelUUID = s.State.ModelUUID()
+	cp := state.CreateSecretParams{
+		Version:        1,
+		ProviderLabel:  "juju",
+		Type:           "blob",
+		Path:           "app/mariadb/password",
+		RotateInterval: time.Hour,
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar"},
+	}
+	md, err := s.store.CreateSecret(URL, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now()
+	err = s.State.SecretRotated(URL, now)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rotated := state.GetSecretRotateTime(c, s.State, md.ID)
+	c.Assert(rotated, gc.Equals, now.Round(time.Second))
+}
+
+func (s *SecretsSuite) TestSecretRotatedConcurrent(c *gc.C) {
+	URL := secrets.NewSimpleURL("app/mariadb/password")
+	URL.ControllerUUID = s.State.ControllerUUID()
+	URL.ModelUUID = s.State.ModelUUID()
+	cp := state.CreateSecretParams{
+		Version:        1,
+		ProviderLabel:  "juju",
+		Type:           "blob",
+		Path:           "app/mariadb/password",
+		RotateInterval: time.Hour,
+		Params:         nil,
+		Data:           map[string]string{"foo": "bar"},
+	}
+	md, err := s.store.CreateSecret(URL, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	now := time.Now()
+	later := now.Add(time.Hour)
+	state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.SecretRotated(URL, later)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	err = s.State.SecretRotated(URL, now)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rotated := state.GetSecretRotateTime(c, s.State, md.ID)
+	c.Assert(rotated, gc.Equals, later.Round(time.Second))
+}
+
 type SecretsWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore

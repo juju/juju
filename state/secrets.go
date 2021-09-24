@@ -13,6 +13,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
+	jujutxn "github.com/juju/txn/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/secrets"
@@ -229,7 +230,7 @@ func (s *secretsStore) UpdateSecret(url *secrets.URL, p UpdateSecretParams) (*se
 
 	var metadataDoc secretMetadataDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		err := secretMetadataCollection.FindId(url.ID()).One(&metadataDoc)
+		err := secretMetadataCollection.FindId(url.WithRevision(0).ID()).One(&metadataDoc)
 		if errors.Cause(err) == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("secret %q", url.ID())
 		}
@@ -303,7 +304,7 @@ func (s *secretsStore) GetSecretValue(URL *secrets.URL) (secrets.SecretValue, er
 	var doc secretValueDoc
 	err := secretValuesCollection.FindId(URL.ID()).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("secret %q", URL.String())
+		return nil, errors.NotFoundf("secret %q", URL.ID())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -329,7 +330,7 @@ func (s *secretsStore) GetSecret(URL *secrets.URL) (*secrets.SecretMetadata, err
 	var doc secretMetadataDoc
 	err := secretMetadataCollection.FindId(URL.WithRevision(0).ID()).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("secret %q", URL.String())
+		return nil, errors.NotFoundf("secret %q", URL.ID())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -418,6 +419,53 @@ func (s *secretsStore) secretRotationOps(id int, URL *secrets.URL, owner string,
 			LastRotateTime: s.st.nowToTheSecond(),
 		},
 	}}, nil
+}
+
+// SecretRotated records when the given secret was rotated.
+func (st *State) SecretRotated(url *secrets.URL, when time.Time) error {
+	if url.Revision > 0 {
+		return errors.New("cannot specify a revision when updating a secret rotation time")
+	}
+	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	secretRotateCollection, closer2 := st.db().GetCollection(secretRotateC)
+	defer closer2()
+
+	when = when.Round(time.Second)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var metadataDoc secretMetadataDoc
+		err := secretMetadataCollection.FindId(url.WithRevision(0).ID()).One(&metadataDoc)
+		if errors.Cause(err) == mgo.ErrNotFound {
+			return nil, errors.NotFoundf("secret %q", url.ID())
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		secretKey := secretGlobalKey(metadataDoc.ID)
+
+		var currentDoc secretRotationDoc
+		err = secretRotateCollection.FindId(secretKey).One(&currentDoc)
+		if errors.Cause(err) == mgo.ErrNotFound {
+			return nil, errors.NotFoundf("rotation info for secret %q", url.ID())
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If the secret has already been rotated for a time after what we
+		// are trying to set here, keep the newer time.
+		if attempt > 0 && currentDoc.LastRotateTime.After(when) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		ops := []txn.Op{{
+			C:      secretRotateC,
+			Id:     secretKey,
+			Assert: bson.D{{"txn-revno", currentDoc.TxnRevno}},
+			Update: bson.M{"$set": bson.M{"last-rotate-time": when}},
+		}}
+		return ops, nil
+	}
+	return st.db().Run(buildTxn)
 }
 
 // WatchSecretsRotationChanges returns a watcher for rotation updates to secrets

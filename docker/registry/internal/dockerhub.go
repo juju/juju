@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package internal
 
 import (
 	"net/http"
@@ -22,13 +22,12 @@ type dockerhub struct {
 }
 
 func newDockerhub(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, DefaultTransport)
+	c := newBase(repoDetails, transport)
 	return &dockerhub{c}
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *dockerhub) Match() bool {
-	c.prepare()
 	return c.repoDetails.ServerAddress == "" || strings.Contains(c.repoDetails.ServerAddress, "docker.io")
 }
 

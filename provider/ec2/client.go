@@ -45,6 +45,7 @@ type ClientFunc = func(context.Context, cloudspec.CloudSpec, ...ClientOption) (C
 
 // Client defines the subset of *ec2.Client methods that we currently use.
 type Client interface {
+	AssociateIamInstanceProfile(context.Context, *ec2.AssociateIamInstanceProfileInput, ...func(*ec2.Options)) (*ec2.AssociateIamInstanceProfileOutput, error)
 	DescribeInstances(context.Context, *ec2.DescribeInstancesInput, ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
 	DescribeInstanceTypeOfferings(context.Context, *ec2.DescribeInstanceTypeOfferingsInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypeOfferingsOutput, error)
 	DescribeInstanceTypes(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
@@ -88,6 +89,18 @@ func (l awsLogger) Write(p []byte) (n int, err error) {
 
 // clientFunc returns a ec2 client with the given credentials.
 func clientFunc(ctx context.Context, spec cloudspec.CloudSpec, clientOptions ...ClientOption) (Client, error) {
+	cfg, err := configFromCloudSpec(ctx, spec, clientOptions...)
+	if err != nil {
+		return nil, errors.Annotate(err, "building aws config from cloudspec")
+	}
+	return ec2.NewFromConfig(cfg), nil
+}
+
+func configFromCloudSpec(
+	ctx context.Context,
+	spec cloudspec.CloudSpec,
+	clientOptions ...ClientOption,
+) (aws.Config, error) {
 	credentialAttrs := spec.Credential.Attributes()
 	accessKey := credentialAttrs["access-key"]
 	secretKey := credentialAttrs["secret-key"]
@@ -101,7 +114,7 @@ func clientFunc(ctx context.Context, spec cloudspec.CloudSpec, clientOptions ...
 			credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return aws.Config{}, errors.Trace(err)
 	}
 
 	// Enable request and response logging, but only if TRACE is enabled (as
@@ -115,5 +128,6 @@ func clientFunc(ctx context.Context, spec cloudspec.CloudSpec, clientOptions ...
 		option(opts)
 	}
 	cfg.HTTPClient = opts.httpClient
-	return ec2.NewFromConfig(cfg), nil
+
+	return cfg, nil
 }

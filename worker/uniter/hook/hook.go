@@ -5,17 +5,11 @@
 package hook
 
 import (
-	"fmt"
-
 	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-)
 
-// TODO(fwereade): move these definitions to juju/charm/hooks.
-const (
-	LeaderElected         hooks.Kind = "leader-elected"
-	LeaderDeposed         hooks.Kind = "leader-deposed"
-	LeaderSettingsChanged hooks.Kind = "leader-settings-changed"
+	"github.com/juju/juju/core/secrets"
 )
 
 // Info holds details required to execute a hook. Not all fields are
@@ -54,6 +48,9 @@ type Info struct {
 	// updated to when Juju is issued the `upgrade-series` command.
 	// It is only set for the pre-series-upgrade hook.
 	SeriesUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
+
+	// SecretURL is the secret URL relevant to the hook.
+	SecretURL string `yaml:"secret-url,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -62,28 +59,28 @@ func (hi Info) Validate() error {
 	case hooks.RelationChanged:
 		if hi.RemoteUnit == "" {
 			if hi.RemoteApplication == "" {
-				return fmt.Errorf("%q hook requires a remote unit or application", hi.Kind)
+				return errors.Errorf("%q hook requires a remote unit or application", hi.Kind)
 			}
 		} else if hi.RemoteApplication == "" {
-			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
+			return errors.Errorf("%q hook has a remote unit but no application", hi.Kind)
 		}
 		return nil
 	case hooks.RelationJoined, hooks.RelationDeparted:
 		if hi.RemoteUnit == "" {
-			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
+			return errors.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		if hi.RemoteApplication == "" {
-			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
+			return errors.Errorf("%q hook has a remote unit but no application", hi.Kind)
 		}
 		return nil
 	case hooks.PebbleReady:
 		if hi.WorkloadName == "" {
-			return fmt.Errorf("%q hook requires a workload name", hi.Kind)
+			return errors.Errorf("%q hook requires a workload name", hi.Kind)
 		}
 		return nil
 	case hooks.PreSeriesUpgrade:
 		if hi.SeriesUpgradeTarget == "" {
-			return fmt.Errorf("%q hook requires a target series", hi.Kind)
+			return errors.Errorf("%q hook requires a target series", hi.Kind)
 		}
 		return nil
 	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,
@@ -91,17 +88,24 @@ func (hi Info) Validate() error {
 		hooks.PostSeriesUpgrade:
 		return nil
 	case hooks.Action:
-		return fmt.Errorf("hooks.Kind Action is deprecated")
+		return errors.Errorf("hooks.Kind Action is deprecated")
 	case hooks.StorageAttached, hooks.StorageDetaching:
 		if !names.IsValidStorage(hi.StorageId) {
-			return fmt.Errorf("invalid storage ID %q", hi.StorageId)
+			return errors.Errorf("invalid storage ID %q", hi.StorageId)
 		}
 		return nil
-	// TODO(fwereade): define these in charm/hooks...
-	case LeaderElected, LeaderDeposed, LeaderSettingsChanged:
+	case hooks.LeaderElected, hooks.LeaderDeposed, hooks.LeaderSettingsChanged:
+		return nil
+	case hooks.SecretRotate:
+		if hi.SecretURL == "" {
+			return errors.Errorf("%q hook requires a secret URL", hi.Kind)
+		}
+		if _, err := secrets.ParseURL(hi.SecretURL); err != nil {
+			return errors.Errorf("invalid secret URL %q", hi.SecretURL)
+		}
 		return nil
 	}
-	return fmt.Errorf("unknown hook kind %q", hi.Kind)
+	return errors.Errorf("unknown hook kind %q", hi.Kind)
 }
 
 // Committer is an interface that may be used to convey the fact that the

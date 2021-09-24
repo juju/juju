@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/secrets"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
@@ -108,6 +109,10 @@ type Uniter struct {
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
+
+	// secretRotateWatcherFunc returns a watcher that triggers when secrets
+	// created by this unit's application should be rotated.
+	secretRotateWatcherFunc remotestate.SecretRotateWatcherFunc
 
 	Probe Probe
 
@@ -177,6 +182,7 @@ type UniterParams struct {
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
+	SecretRotateWatcherFunc       remotestate.SecretRotateWatcherFunc
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -251,6 +257,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
 			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
+			secretRotateWatcherFunc:       uniterParams.SecretRotateWatcherFunc,
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -382,6 +389,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
+				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
@@ -482,7 +490,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-			Logger: u.logger,
+			Secrets: secrets.NewSecretsResolver(watcher.RotateSecretCompleted),
+			Logger:  u.logger,
 		}
 		if u.modelType == model.CAAS && u.isRemoteUnit {
 			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewRemoteContainerInitResolver())
@@ -958,6 +967,9 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 			hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
 			hookMessage = hookName
 		}
+	}
+	if hookInfo.Kind.IsSecret() {
+		statusData["secret-url"] = hookInfo.SecretURL
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)
