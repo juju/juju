@@ -99,7 +99,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
 	github.com/packethost/packngo v0.19.0
-	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
@@ -141,6 +140,8 @@ require (
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
+require github.com/aws/aws-sdk-go v1.40.46
+
 require (
 	cloud.google.com/go v0.56.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
@@ -148,7 +149,6 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20180810175552-4a21cbd618b4 // indirect
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20170922090931-c385f95c6022 // indirect
-	github.com/aws/aws-sdk-go v1.40.46
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 // indirect
@@ -166,6 +166,7 @@ require (
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
+	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
@@ -178,6 +179,7 @@ require (
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
+	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
@@ -217,11 +219,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.0.1 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
-)
-
-require (
-	github.com/google/go-cmp v0.5.6 // indirect
-	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a // indirect
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
