@@ -83,8 +83,7 @@ func (j JujuConfigProvider) KeyID() (string, error) {
 }
 
 func (j JujuConfigProvider) AuthType() (ociCommon.AuthConfig, error) {
-	return ociCommon.AuthConfig{ociCommon.UnknownAuthenticationType, false, nil},
-		fmt.Errorf("unsupported, keep the interface")
+	return ociCommon.AuthConfig{}, errors.NotImplementedf("AuthType")
 }
 
 func (j JujuConfigProvider) Validate() error {
