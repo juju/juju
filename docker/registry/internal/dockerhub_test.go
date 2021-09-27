@@ -109,6 +109,8 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := reg.(*internal.Dockerhub)
 	c.Assert(ok, jc.IsTrue)
+	err = reg.Ping()
+	c.Assert(err, jc.ErrorIsNil)
 	return reg, ctrl
 }
 

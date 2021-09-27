@@ -3719,3 +3719,36 @@ func EnsureCharmOriginRisk(pool *StatePool) error {
 		return nil
 	}))
 }
+
+func RemoveOrphanedCrossModelProxies(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationOffersC)
+		defer closer()
+
+		// Ideally we'd manipulate the collection data directly, but the
+		// operations to remove remotes apps are too complex to craft by hand.
+		allRemoteApps, err := st.AllRemoteApplications()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var appsToRemove []*RemoteApplication
+		for _, app := range allRemoteApps {
+			num, err := col.Find(bson.D{{"offer-uuid", app.OfferUUID()}}).Count()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if num == 0 {
+				appsToRemove = append(appsToRemove, app)
+			}
+		}
+
+		for _, app := range appsToRemove {
+			op := app.DestroyOperation(true)
+			if err := st.ApplyOperation(op); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return nil
+	}))
+}

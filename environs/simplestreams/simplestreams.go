@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The simplestreams package supports locating, parsing, and filtering metadata in simplestreams format.
+// Package simplestreams supports locating, parsing, and filtering metadata in simplestreams format.
 // See http://launchpad.net/simplestreams and in particular the doc/README file in that project for more information
 // about the file formats.
 //
@@ -163,7 +163,7 @@ type Indices struct {
 	Format  string                    `json:"format"`
 }
 
-// Exported for testing.
+// IndexReference is exported for testing.
 type IndexReference struct {
 	Indices
 	MirroredProductsPath string
@@ -238,7 +238,7 @@ func (entries MirrorRefSlice) filter(match func(*MirrorReference) bool) MirrorRe
 // cloudImageMetadata that are for the given product IDs.  They are kept in
 // the order of the parameter.
 func (metadata *CloudMetadata) extractCatalogsForProducts(productIds []string) []MetadataCatalog {
-	result := []MetadataCatalog{}
+	var result []MetadataCatalog
 	for _, id := range productIds {
 		if catalog, ok := metadata.Products[id]; ok {
 			result = append(result, catalog)
@@ -341,6 +341,7 @@ const (
 
 	// These constants define the currently supported simplestreams data
 	// formats.
+
 	IndexFormat   = "index:1.0"
 	ProductFormat = "products:1.0"
 	MirrorFormat  = "mirrors:1.0"

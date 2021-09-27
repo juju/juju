@@ -16,6 +16,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs/tags"
 )
 
 type IAMSuite struct{}
@@ -58,7 +60,12 @@ func (*IAMSuite) TestEnsureControllerInstanceProfileFromScratch(c *gc.C) {
 
 			c.Assert(*i.InstanceProfileName, gc.Equals, "juju-controller-test")
 			c.Assert(i.Path, gc.IsNil)
-			c.Assert(len(i.Tags), gc.Equals, 0)
+			c.Assert(i.Tags, jc.DeepEquals, []types.Tag{
+				{
+					Key:   aws.String(tags.JujuController),
+					Value: aws.String("AABBCC"),
+				},
+			})
 
 			t := time.Now()
 			return &iam.CreateInstanceProfileOutput{
@@ -71,7 +78,7 @@ func (*IAMSuite) TestEnsureControllerInstanceProfileFromScratch(c *gc.C) {
 		},
 	}
 
-	_, err := ensureControllerInstanceProfile(context.TODO(), client, "test")
+	_, err := ensureControllerInstanceProfile(context.TODO(), client, "test", "AABBCC")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -86,7 +93,12 @@ func (*IAMSuite) TestEnsureControllerInstanceProfileAlreadyExists(c *gc.C) {
 
 			c.Assert(*i.InstanceProfileName, gc.Equals, "juju-controller-test")
 			c.Assert(i.Path, gc.IsNil)
-			c.Assert(len(i.Tags), gc.Equals, 0)
+			c.Assert(i.Tags, jc.DeepEquals, []types.Tag{
+				{
+					Key:   aws.String(tags.JujuController),
+					Value: aws.String("ABCD"),
+				},
+			})
 
 			return nil, &types.EntityAlreadyExistsException{
 				Message: aws.String("already exists"),
@@ -111,7 +123,7 @@ func (*IAMSuite) TestEnsureControllerInstanceProfileAlreadyExists(c *gc.C) {
 		},
 	}
 
-	instanceProfile, err := ensureControllerInstanceProfile(context.TODO(), client, "test")
+	instanceProfile, err := ensureControllerInstanceProfile(context.TODO(), client, "test", "ABCD")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(getInstanceProfileCalled, jc.IsTrue)
 	c.Assert(*instanceProfile.Arn, gc.Equals, "arn://12345")

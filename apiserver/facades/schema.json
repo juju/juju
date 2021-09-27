@@ -21451,6 +21451,9 @@
                         "bakery-version": {
                             "type": "integer"
                         },
+                        "consume-version": {
+                            "type": "integer"
+                        },
                         "local-endpoint-name": {
                             "type": "string"
                         },
@@ -37067,6 +37070,112 @@
         }
     },
     {
+        "Name": "RaftLease",
+        "Description": "Facade allows for modification of the underlying raft instance from a\ncontroller facade.",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "ApplyLease": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/LeaseOperations"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "ApplyLease is a bulk API to allow applying lease operations to a raft\ncontext. If the current controller is not the leader, then a NotLeaderError\nis returned. Information about where they can locate the leader maybe\nsupplied in the error message, but isn't guaranteed.\nIf no information is supplied, it is expected that the client performs their\nown algorithm to locate the leader (roundrobin or listen to the apidetails\ntopic)."
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "LeaseOperation": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "command"
+                    ]
+                },
+                "LeaseOperations": {
+                    "type": "object",
+                    "properties": {
+                        "commands": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/LeaseOperation"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "commands"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "Reboot",
         "Description": "RebootAPI provides access to the Upgrader API facade.",
         "Version": 2,
@@ -38062,6 +38171,9 @@
                 "RemoteApplication": {
                     "type": "object",
                     "properties": {
+                        "consume-version": {
+                            "type": "integer"
+                        },
                         "is-consumer-proxy": {
                             "type": "boolean"
                         },

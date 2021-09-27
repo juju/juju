@@ -279,7 +279,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 			if existingWorker != nil {
 				existingWorker.Kill()
 				if err := existingWorker.Wait(); err != nil {
-					w.logger.Warningf("error stopping saas worker for %q", name, err)
+					w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
 				}
 			}
 			delete(w.offerUUIDs, name)
@@ -287,7 +287,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				continue
 			}
 		} else if _, err := w.runner.Worker(name, w.catacomb.Dying()); err == nil {
-			w.logger.Criticalf("already running remote application worker for %q", name)
+			w.logger.Debugf("already running remote application worker for %q", name)
 			continue
 		}
 
@@ -298,6 +298,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				localModelUUID:                    w.config.ModelUUID,
 				remoteModelUUID:                   remoteApp.ModelUUID,
 				isConsumerProxy:                   remoteApp.IsConsumerProxy,
+				consumeVersion:                    remoteApp.ConsumeVersion,
 				offerMacaroon:                     remoteApp.Macaroon,
 				localRelationChanges:              make(chan RelationUnitChangeEvent),
 				remoteRelationChanges:             make(chan RelationUnitChangeEvent),

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
@@ -55,6 +56,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	state                stubStateTracker
 	upgradeGate          stubGateWaiter
+	queue                *queue.BlockingOpQueue
 
 	stub testing.Stub
 }
@@ -79,6 +81,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.auditConfig = stubAuditConfig{}
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
+	s.queue = queue.NewBlockingOpQueue(testclock.NewClock(time.Now()))
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -100,6 +103,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Presence:                          presence.New(s.clock),
 		NewWorker:                         s.newWorker,
 		NewMetricsCollector:               s.newMetricsCollector,
+		RaftOpQueue:                       s.queue,
 	})
 }
 
@@ -205,6 +209,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		LeaseManager:        s.leaseManager,
 		MetricsCollector:    s.metricsCollector,
 		Hub:                 &s.hub,
+		RaftOpQueue:         s.queue,
 	})
 }
 

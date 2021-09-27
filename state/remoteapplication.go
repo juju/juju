@@ -44,6 +44,7 @@ type remoteApplicationDoc struct {
 	Life            Life                `bson:"life"`
 	RelationCount   int                 `bson:"relationcount"`
 	IsConsumerProxy bool                `bson:"is-consumer-proxy"`
+	Version         int                 `bson:"version"`
 	Macaroon        string              `bson:"macaroon,omitempty"`
 }
 
@@ -136,6 +137,12 @@ func (s *RemoteApplication) SourceModel() names.ModelTag {
 // from a registration operation by a consuming model.
 func (s *RemoteApplication) IsConsumerProxy() bool {
 	return s.doc.IsConsumerProxy
+}
+
+// ConsumeVersion is incremented each time a new consumer proxy
+// is created for an offer.
+func (s *RemoteApplication) ConsumeVersion() int {
+	return s.doc.Version
 }
 
 // Name returns the application name.
@@ -390,7 +397,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	}
 	// If the application is already terminated and dead, the removal
 	// can be short circuited.
-	forceTerminate := op.Force || statusInfo.Status == status.Terminated && op.app.Life() == Dead
+	forceTerminate := op.Force || statusInfo.Status == status.Terminated
 
 	if !forceTerminate && haveRels && len(rels) != op.app.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
@@ -407,7 +414,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
 			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
-			if err != nil {
+			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, destroyRelUnitOps...)
@@ -497,6 +504,11 @@ func (s *RemoteApplication) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status for the application.
 func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
+	// We only care about status for alive apps; we want to
+	// avoid stray updates from the other model.
+	if s.Life() != Alive {
+		return nil
+	}
 	if !info.Status.KnownWorkloadStatus() {
 		return errors.Errorf("cannot set invalid status %q", info.Status)
 	}
@@ -545,7 +557,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	if err != nil {
 		return nil, errors.Annotate(err, "setting status")
 	}
-	// Strict speaking, we should transition through Dying state.
+	// Strictly speaking, we should transition through Dying state.
 	ops = append(ops, txn.Op{
 		C:      remoteApplicationsC,
 		Id:     op.app.doc.DocID,
@@ -563,7 +575,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	// Destroying each relation also forces remote units to leave scope.
 	for _, rel := range rels {
 		relOps, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
-		if err != nil {
+		if err != nil && err != jujutxn.ErrNoOperations {
 			return nil, errors.Annotatef(err, "removing relation %q", rel)
 		}
 		ops = append(ops, relOps...)
@@ -786,6 +798,10 @@ type AddRemoteApplicationParams struct {
 	// of a registration operation from a remote model.
 	IsConsumerProxy bool
 
+	// ConsumeVersion is incremented each time a new consumer proxy
+	// is created for an offer.
+	ConsumeVersion int
+
 	// Macaroon is used for authentication on the offering side.
 	Macaroon *macaroon.Macaroon
 }
@@ -844,6 +860,12 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		macJSON = string(b)
 	}
 	applicationID := st.docID(args.Name)
+	version := args.ConsumeVersion
+	if !args.IsConsumerProxy {
+		if version, err = sequenceWithMin(st, args.OfferUUID, 1); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	// Create the application addition operations.
 	appDoc := &remoteApplicationDoc{
 		DocID:           applicationID,
@@ -854,6 +876,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		Bindings:        args.Bindings,
 		Life:            Alive,
 		IsConsumerProxy: args.IsConsumerProxy,
+		Version:         version,
 		Macaroon:        macJSON,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
@@ -965,20 +988,21 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 	return newRemoteApplication(st, appDoc), nil
 }
 
-// RemoteApplicationByToken returns a remote application state by token.
-func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, err error) {
+// RemoteApplicationsByOffer returns remote applications state by offer uuid.
+func (st *State) RemoteApplicationsByOffer(offerUUID string) (_ []*RemoteApplication, err error) {
 	apps, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
-	appDoc := &remoteApplicationDoc{}
-	err = apps.Find(bson.D{{"token", token}}).One(appDoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("saas application with token %q", token)
-	}
+	var appDocs []remoteApplicationDoc
+	err = apps.Find(bson.D{{"offer-uuid", offerUUID}}).All(&appDocs)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get saas application with token %q", token)
+		return nil, errors.Annotatef(err, "cannot get saas applications with offer-uuid %q", offerUUID)
 	}
-	return newRemoteApplication(st, appDoc), nil
+	result := make([]*RemoteApplication, len(appDocs))
+	for i, appDoc := range appDocs {
+		result[i] = newRemoteApplication(st, &appDoc)
+	}
+	return result, nil
 }
 
 // AllRemoteApplications returns all the remote applications used by the model.

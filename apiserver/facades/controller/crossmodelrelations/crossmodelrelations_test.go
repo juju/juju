@@ -236,6 +236,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 			RemoteEndpoint:    params.RemoteEndpoint{Name: "remote"},
 			OfferUUID:         "offer-uuid",
 			LocalEndpointName: "local",
+			ConsumeVersion:    777,
 			Macaroons:         macaroon.Slice{mac.M()},
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -261,7 +262,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRemoteApp, jc.DeepEquals, &mockRemoteApplication{
-		sourceModelUUID: coretesting.ModelTag.Id(), consumerproxy: true})
+		sourceModelUUID: coretesting.ModelTag.Id(), consumerproxy: true, consumeversion: 777})
 	expectedRel := s.st.relations["offeredapp:local remote-apptoken:remote"]
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})

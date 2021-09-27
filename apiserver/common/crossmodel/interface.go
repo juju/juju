@@ -4,7 +4,10 @@
 package crossmodel
 
 import (
+	"time"
+
 	"github.com/juju/charm/v9"
+	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -13,7 +16,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/names/v4"
 )
 
 type Backend interface {
@@ -234,10 +236,10 @@ type Charm interface {
 // RemoteApplication represents the state of an application hosted in an external
 // (remote) model.
 type RemoteApplication interface {
-	// Destroy ensures that this remote application reference and all its relations
-	// will be removed at some point; if no relation involving the
-	// application has any units in scope, they are all removed immediately.
-	Destroy() error
+	// DestroyWithForce in addition to doing what Destroy() does,
+	// when force is passed in as 'true', forces th destruction of remote application,
+	// ignoring errors.
+	DestroyWithForce(force bool, maxWait time.Duration) (opErrs []error, err error)
 
 	// Name returns the name of the remote application.
 	Name() string
@@ -264,6 +266,10 @@ type RemoteApplication interface {
 	// from a registration operation by a consuming model.
 	IsConsumerProxy() bool
 
+	// ConsumeVersion increments each time a new saas proxy
+	// for the same offer is created.
+	ConsumeVersion() int
+
 	// Life returns the lifecycle state of the application.
 	Life() state.Life
 
@@ -274,4 +280,7 @@ type RemoteApplication interface {
 	// remote application to terminated and leave it in a state
 	// enabling it to be removed cleanly.
 	TerminateOperation(string) state.ModelOperation
+
+	// DestroyOperation returns a model operation to destroy remote application.
+	DestroyOperation(bool) state.ModelOperation
 }

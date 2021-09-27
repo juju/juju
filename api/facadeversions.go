@@ -94,6 +94,7 @@ var facadeVersions = map[string]int{
 	"Pinger":                       1,
 	"Provisioner":                  11,
 	"ProxyUpdater":                 2,
+	"RaftLease":                    1,
 	"Reboot":                       2,
 	"RelationStatusWatcher":        1,
 	"RelationUnitsWatcher":         1,

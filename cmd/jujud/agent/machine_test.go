@@ -60,6 +60,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -80,7 +81,6 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
 	raftworker "github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
 

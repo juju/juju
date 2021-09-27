@@ -2163,6 +2163,9 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	if existingRemoteApp.SourceModel().Id() != sourceModelTag.Id() {
 		return nil, "", errors.AlreadyExistsf("saas application called %q from a different model", applicationName)
 	}
+	if existingRemoteApp.Life() != state.Alive {
+		return nil, "", errors.NewAlreadyExists(nil, fmt.Sprintf("saas application called %q exists but is terminating", applicationName))
+	}
 	appStatus, err := existingRemoteApp.Status()
 	if err != nil {
 		return nil, "", errors.Trace(err)

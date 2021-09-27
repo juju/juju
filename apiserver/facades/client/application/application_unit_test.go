@@ -1723,6 +1723,36 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 	c.Assert(results.OneError(), gc.ErrorMatches, `saas application called "hosted-mysql" from a different model already exists`)
 }
 
+func (s *ApplicationSuite) TestConsumeRemoteAppDying(c *gc.C) {
+	arg := params.ConsumeApplicationArg{
+		ApplicationOfferDetails: params.ApplicationOfferDetails{
+			SourceModelTag:         coretesting.ModelTag.String(),
+			OfferName:              "hosted-mysql",
+			OfferUUID:              "hosted-mysql-uuid",
+			ApplicationDescription: "a database",
+			Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+			OfferURL:               "othermodel.hosted-mysql",
+		},
+	}
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	originalApp, ok := s.backend.remoteApplications["hosted-mysql"].(*mockRemoteApplication)
+	c.Assert(ok, jc.IsTrue)
+	originalApp.life = state.Dying
+	s.backend.remoteApplications["hosted-mysql"] = originalApp
+
+	results, err = s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.ErrorMatches, `saas application called "hosted-mysql" exists but is terminating`)
+}
+
 func (s *ApplicationSuite) TestConsumeRemoteAppTerminated(c *gc.C) {
 	arg := params.ConsumeApplicationArg{
 		ApplicationOfferDetails: params.ApplicationOfferDetails{

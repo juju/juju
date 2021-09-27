@@ -404,6 +404,11 @@ func (r *mockRemoteApplication) SetStatus(info status.StatusInfo) error {
 	return nil
 }
 
+func (a *mockRemoteApplication) ConsumeVersion() int {
+	a.MethodCall(a, "ConsumeVersion")
+	return 666
+}
+
 func (r *mockRemoteApplication) TerminateOperation(message string) state.ModelOperation {
 	r.MethodCall(r, "TerminateOperation", message)
 	r.terminated = true

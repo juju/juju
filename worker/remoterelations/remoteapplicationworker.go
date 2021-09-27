@@ -35,6 +35,7 @@ type remoteApplicationWorker struct {
 	localModelUUID        string // uuid of the model hosting the local application
 	remoteModelUUID       string // uuid of the model hosting the remote offer
 	isConsumerProxy       bool
+	consumeVersion        int
 	localRelationChanges  chan RelationUnitChangeEvent
 	remoteRelationChanges chan RelationUnitChangeEvent
 
@@ -120,7 +121,7 @@ func (w *remoteApplicationWorker) remoteOfferRemoved() error {
 func (w *remoteApplicationWorker) loop() (err error) {
 	// Watch for changes to any remote relations to this application.
 	relationsWatcher, err := w.localModelFacade.WatchRemoteApplicationRelations(w.applicationName)
-	if errors.IsNotFound(err) {
+	if err != nil && params.IsCodeNotFound(err) {
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "watching relations for remote application %q", w.applicationName)
@@ -180,7 +181,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			for i, result := range results {
 				key := change[i]
 				if err := w.relationChanged(key, result, relations); err != nil {
-					if params.IsCodeNotFound(err) {
+					if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
 						// Relation has been deleted, cleanup will occur
 						// via additional events arriving.
 						continue
@@ -401,20 +402,22 @@ func (w *remoteApplicationWorker) localRelationChanged(
 // local model when a change event arrives from the remote model.
 func (w *remoteApplicationWorker) relationChanged(
 	key string, localRelation params.RemoteRelationResult, relations map[string]*relation,
-) error {
+) (err error) {
 	w.logger.Debugf("relation %q changed in local model: %#v", key, localRelation)
-	if localRelation.Error != nil {
-		if !params.IsCodeNotFound(localRelation.Error) {
-			return localRelation.Error
+	defer func() {
+		if err == nil || !params.IsCodeNotFound(err) {
+			return
 		}
-		if err := w.processLocalRelationRemoved(key, relations); err != nil {
-			return errors.Annotate(err, "processing local relation removed")
+		if err2 := w.processLocalRelationRemoved(key, relations); err2 != nil {
+			err = errors.Annotate(err2, "processing local relation removed")
 		}
 		if r := relations[key]; r != nil {
 			r.localDead = true
 			relations[key] = r
 		}
-		return nil
+	}()
+	if localRelation.Error != nil {
+		return localRelation.Error
 	}
 	localRelationInfo := localRelation.Result
 
@@ -513,7 +516,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
 	relationTag := names.NewRelationTag(key)
 	applicationToken, remoteAppToken, relationToken, mac, err := w.registerRemoteRelation(
-		applicationTag, relationTag, w.offerUUID,
+		applicationTag, relationTag, w.offerUUID, w.consumeVersion,
 		remoteRelation.Endpoint, remoteRelation.RemoteEndpointName)
 	if err != nil {
 		w.checkOfferPermissionDenied(err, "", "")
@@ -581,7 +584,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 }
 
 func (w *remoteApplicationWorker) registerRemoteRelation(
-	applicationTag, relationTag names.Tag, offerUUID string,
+	applicationTag, relationTag names.Tag, offerUUID string, consumeVersion int,
 	localEndpointInfo params.RemoteEndpoint, remoteEndpointName string,
 ) (applicationToken, offeringAppToken, relationToken string, _ *macaroon.Macaroon, _ error) {
 	w.logger.Debugf("register remote relation %v to local application %v", relationTag.Id(), applicationTag.Id())
@@ -613,6 +616,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		OfferUUID:         offerUUID,
 		RemoteEndpoint:    localEndpointInfo,
 		LocalEndpointName: remoteEndpointName,
+		ConsumeVersion:    consumeVersion,
 	}
 	if w.offerMacaroon != nil {
 		arg.Macaroons = macaroon.Slice{w.offerMacaroon}

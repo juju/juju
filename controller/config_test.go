@@ -654,6 +654,8 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 		{content: "", expected: ""},
 		{content: "juju-operator-repo", expected: ""},
 		{content: "registry.foo.com/jujuqa", expected: ""},
+		{content: "ghcr.io/jujuqa", expected: ""},
+		{content: "registry.gitlab.com/jujuqa", expected: ""},
 		{
 			content: fmt.Sprintf(`
 {

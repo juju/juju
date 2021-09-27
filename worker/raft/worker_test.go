@@ -15,10 +15,10 @@ import (
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/queue"
 	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/raft/raftutil"
 )

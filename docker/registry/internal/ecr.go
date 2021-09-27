@@ -26,6 +26,6 @@ func (c *elasticContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "ecr.aws")
 }
 
-func (c *elasticContainerRegistry) WrapTransport() error {
+func (c *elasticContainerRegistry) WrapTransport(...TransportWrapper) error {
 	return errors.NotSupportedf("AWS elastic container registry")
 }

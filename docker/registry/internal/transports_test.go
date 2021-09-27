@@ -15,8 +15,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
+	"github.com/juju/juju/docker/registry/utils"
 )
 
 type transportSuite struct {
@@ -245,4 +247,18 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 		URL:    url,
 	})
 	c.Assert(err, gc.ErrorMatches, `refreshing OAuth token: no service specified for token auth challenge`)
+}
+
+func (s *transportSuite) TestPrivateOnlyTransport(c *gc.C) {
+	url, err := url.Parse(`https://example.com`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t, err := internal.NewPrivateOnlyTransport(nil, &docker.ImageRepoDetails{
+		Repository:    "test-account",
+		ServerAddress: "example.com",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = t.RoundTrip(&http.Request{Header: http.Header{}, URL: url})
+	c.Assert(err, jc.Satisfies, utils.IsPublicAPINotAvailableError)
+	c.Assert(err, gc.ErrorMatches, `public registry API is not available for "example.com"`)
 }
