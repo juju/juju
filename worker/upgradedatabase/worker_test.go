@@ -285,7 +285,11 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	}).AnyTimes()
 
 	s.logger.EXPECT().Errorf("timed out waiting for primary database upgrade")
-	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading)
+
+	finished := make(chan struct{})
+	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading).Do(func(...interface{}) {
+		finished <- struct{}{}
+	})
 
 	// Note that UpgradeComplete is not unlocked.
 
@@ -295,6 +299,10 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	w, err := upgradedatabase.NewWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
+	select {
+	case <-finished:
+	case <-time.After(testing.LongWait):
+	}
 	workertest.CleanKill(c, w)
 }
 
