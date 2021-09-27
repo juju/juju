@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -80,6 +79,7 @@ type workerSuite struct {
 	agentCfg    *MockConfig
 	cfgSetter   *MockConfigSetter
 	pool        *MockPool
+	clock       *MockClock
 	upgradeInfo *MockUpgradeInfo
 	watcher     *MockNotifyWatcher
 }
@@ -268,9 +268,21 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	changes <- struct{}{}
 	s.watcher.EXPECT().Changes().Return(changes).AnyTimes()
 
+	timeout := make(chan time.Time, 1)
+	s.clock.EXPECT().After(gomock.Any()).Return(timeout)
+
 	// Primary does not complete the upgrade.
+	// After we have gone to the upgrade pending state, trip the timeout.
 	s.upgradeInfo.EXPECT().Refresh().Return(nil).AnyTimes()
-	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending).AnyTimes()
+	s.upgradeInfo.EXPECT().Status().DoAndReturn(func() state.UpgradeStatus {
+		// We only care about queueing one in the buffer.
+		// Carry on if we're jammed up - we'll fail elsewhere.
+		select {
+		case timeout <- time.Now():
+		default:
+		}
+		return state.UpgradePending
+	}).AnyTimes()
 
 	s.logger.EXPECT().Errorf("timed out waiting for primary database upgrade")
 	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading)
@@ -278,14 +290,10 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	// Note that UpgradeComplete is not unlocked.
 
 	cfg := s.getConfig()
-	clk := testclock.NewClock(time.Now())
-	cfg.Clock = clk
+	cfg.Clock = s.clock
 
 	w, err := upgradedatabase.NewWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Advance the clock beyond the time-out duration for waiting on primary.
-	c.Assert(clk.WaitAdvance(time.Hour, 1*time.Second, 1), jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
@@ -436,6 +444,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentCfg = NewMockConfig(ctrl)
 	s.cfgSetter = NewMockConfigSetter(ctrl)
 	s.logger = NewMockLogger(ctrl)
+	s.clock = NewMockClock(ctrl)
 	s.upgradeInfo = NewMockUpgradeInfo(ctrl)
 
 	s.pool = NewMockPool(ctrl)
