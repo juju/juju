@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/provider/oci"
 	"github.com/juju/juju/storage"
 
-	ociCore "github.com/oracle/oci-go-sdk/core"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 )
 
 type storageVolumeSuite struct {
@@ -173,14 +173,7 @@ func (s *storageVolumeSuite) setupListVolumesExpectations(size int64) map[string
 		},
 	}
 
-	request := ociCore.ListVolumesRequest{
-		CompartmentId: &s.testCompartment,
-	}
-
-	response := ociCore.ListVolumesResponse{
-		Items: volumes,
-	}
-	s.storage.EXPECT().ListVolumes(context.Background(), request).Return(response, nil).AnyTimes()
+	s.storage.EXPECT().ListVolumes(context.Background(), &s.testCompartment).Return(volumes, nil).AnyTimes()
 	asMap := map[string]ociCore.Volume{}
 	for _, vol := range volumes {
 		asMap[*vol.Id] = vol
@@ -344,15 +337,12 @@ func (s *storageVolumeSuite) setupGetInstanceExpectations(instance string, state
 }
 
 func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(instance string, volumeId string, returnEmpty bool, times int) {
-	request := ociCore.ListVolumeAttachmentsRequest{
-		CompartmentId: &s.testCompartment,
-		InstanceId:    &instance,
-	}
+
 	port := 3260
-	response := ociCore.ListVolumeAttachmentsResponse{}
+	response := []ociCore.VolumeAttachment{}
 
 	if returnEmpty == false {
-		response.Items = []ociCore.VolumeAttachment{
+		response = []ociCore.VolumeAttachment{
 			ociCore.IScsiVolumeAttachment{
 				AvailabilityDomain: makeStringPointer("fakeZone1"),
 				InstanceId:         &instance,
@@ -369,7 +359,7 @@ func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(instance strin
 			},
 		}
 	}
-	expect := s.compute.EXPECT().ListVolumeAttachments(context.Background(), request).Return(response, nil)
+	expect := s.compute.EXPECT().ListVolumeAttachments(context.Background(), &s.testCompartment, &instance).Return(response, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {

@@ -14,12 +14,11 @@ import (
 
 	"github.com/juju/errors"
 
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/oci/common"
-
-	ociCore "github.com/oracle/oci-go-sdk/core"
 )
 
 const (
@@ -292,17 +291,13 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType Instanc
 	return imgType, nil
 }
 
-func instanceTypes(cli common.OCIComputeClient, compartmentID, imageID *string) ([]instances.InstanceType, error) {
+func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instances.InstanceType, error) {
 	if cli == nil {
 		return nil, errors.Errorf("cannot use nil client")
 	}
 
-	request := ociCore.ListShapesRequest{
-		CompartmentId: compartmentID,
-		ImageId:       imageID,
-	}
-	// fetch all shapes from the provider
-	shapes, err := cli.ListShapes(context.Background(), request)
+	// fetch all shapes for the image from the provider
+	shapes, err := cli.ListShapes(context.Background(), compartmentID, imageID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -310,7 +305,7 @@ func instanceTypes(cli common.OCIComputeClient, compartmentID, imageID *string) 
 	// convert shapes to InstanceType
 	arch := []string{"amd64"}
 	types := []instances.InstanceType{}
-	for _, val := range shapes.Items {
+	for _, val := range shapes {
 		spec, ok := shapeSpecs[*val.Shape]
 		if !ok {
 			logger.Debugf("shape %s does not have a mapping", *val.Shape)
@@ -322,7 +317,7 @@ func instanceTypes(cli common.OCIComputeClient, compartmentID, imageID *string) 
 			Arches:   arch,
 			Mem:      uint64(spec.Memory),
 			CpuCores: uint64(spec.Cpus),
-			// its not really virtualization type. We have just 3 types of images:
+			// it's not really virtualization type. We have just 3 types of images:
 			// bare metal, virtual and generic (works on metal and VM).
 			VirtType: &instanceType,
 		}
@@ -331,7 +326,7 @@ func instanceTypes(cli common.OCIComputeClient, compartmentID, imageID *string) 
 	return types, nil
 }
 
-func refreshImageCache(cli common.OCIComputeClient, compartmentID *string) (*ImageCache, error) {
+func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, error) {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
 
@@ -339,17 +334,14 @@ func refreshImageCache(cli common.OCIComputeClient, compartmentID *string) (*Ima
 		return globalImageCache, nil
 	}
 
-	request := ociCore.ListImagesRequest{
-		CompartmentId: compartmentID,
-	}
-	response, err := cli.ListImages(context.Background(), request)
+	items, err := cli.ListImages(context.Background(), compartmentID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "listing provider images")
+		return nil, err
 	}
 
 	images := map[string][]InstanceImage{}
 
-	for _, val := range response.Items {
+	for _, val := range items {
 		instTypes, err := instanceTypes(cli, compartmentID, val.Id)
 		if err != nil {
 			return nil, err
