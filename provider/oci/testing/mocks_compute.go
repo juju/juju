@@ -110,79 +110,79 @@ func (mr *MockComputeClientMockRecorder) LaunchInstance(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchInstance", reflect.TypeOf((*MockComputeClient)(nil).LaunchInstance), arg0, arg1)
 }
 
-// PaginatedListImages mocks base method.
-func (m *MockComputeClient) PaginatedListImages(arg0 context.Context, arg1 *string) ([]core.Image, error) {
+// ListImages mocks base method.
+func (m *MockComputeClient) ListImages(arg0 context.Context, arg1 *string) ([]core.Image, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListImages", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListImages", arg0, arg1)
 	ret0, _ := ret[0].([]core.Image)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListImages indicates an expected call of PaginatedListImages.
-func (mr *MockComputeClientMockRecorder) PaginatedListImages(arg0, arg1 interface{}) *gomock.Call {
+// ListImages indicates an expected call of ListImages.
+func (mr *MockComputeClientMockRecorder) ListImages(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListImages", reflect.TypeOf((*MockComputeClient)(nil).PaginatedListImages), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListImages", reflect.TypeOf((*MockComputeClient)(nil).ListImages), arg0, arg1)
 }
 
-// PaginatedListInstances mocks base method.
-func (m *MockComputeClient) PaginatedListInstances(arg0 context.Context, arg1 *string) ([]core.Instance, error) {
+// ListInstances mocks base method.
+func (m *MockComputeClient) ListInstances(arg0 context.Context, arg1 *string) ([]core.Instance, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListInstances", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListInstances", arg0, arg1)
 	ret0, _ := ret[0].([]core.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListInstances indicates an expected call of PaginatedListInstances.
-func (mr *MockComputeClientMockRecorder) PaginatedListInstances(arg0, arg1 interface{}) *gomock.Call {
+// ListInstances indicates an expected call of ListInstances.
+func (mr *MockComputeClientMockRecorder) ListInstances(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListInstances", reflect.TypeOf((*MockComputeClient)(nil).PaginatedListInstances), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInstances", reflect.TypeOf((*MockComputeClient)(nil).ListInstances), arg0, arg1)
 }
 
-// PaginatedListShapes mocks base method.
-func (m *MockComputeClient) PaginatedListShapes(arg0 context.Context, arg1, arg2 *string) ([]core.Shape, error) {
+// ListShapes mocks base method.
+func (m *MockComputeClient) ListShapes(arg0 context.Context, arg1, arg2 *string) ([]core.Shape, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListShapes", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListShapes", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]core.Shape)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListShapes indicates an expected call of PaginatedListShapes.
-func (mr *MockComputeClientMockRecorder) PaginatedListShapes(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ListShapes indicates an expected call of ListShapes.
+func (mr *MockComputeClientMockRecorder) ListShapes(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListShapes", reflect.TypeOf((*MockComputeClient)(nil).PaginatedListShapes), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListShapes", reflect.TypeOf((*MockComputeClient)(nil).ListShapes), arg0, arg1, arg2)
 }
 
-// PaginatedListVnicAttachments mocks base method.
-func (m *MockComputeClient) PaginatedListVnicAttachments(arg0 context.Context, arg1, arg2 *string) ([]core.VnicAttachment, error) {
+// ListVnicAttachments mocks base method.
+func (m *MockComputeClient) ListVnicAttachments(arg0 context.Context, arg1, arg2 *string) ([]core.VnicAttachment, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListVnicAttachments", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListVnicAttachments", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]core.VnicAttachment)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListVnicAttachments indicates an expected call of PaginatedListVnicAttachments.
-func (mr *MockComputeClientMockRecorder) PaginatedListVnicAttachments(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ListVnicAttachments indicates an expected call of ListVnicAttachments.
+func (mr *MockComputeClientMockRecorder) ListVnicAttachments(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListVnicAttachments", reflect.TypeOf((*MockComputeClient)(nil).PaginatedListVnicAttachments), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVnicAttachments", reflect.TypeOf((*MockComputeClient)(nil).ListVnicAttachments), arg0, arg1, arg2)
 }
 
-// PaginatedListVolumeAttachments mocks base method.
-func (m *MockComputeClient) PaginatedListVolumeAttachments(arg0 context.Context, arg1, arg2 *string) ([]core.VolumeAttachment, error) {
+// ListVolumeAttachments mocks base method.
+func (m *MockComputeClient) ListVolumeAttachments(arg0 context.Context, arg1, arg2 *string) ([]core.VolumeAttachment, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListVolumeAttachments", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListVolumeAttachments", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]core.VolumeAttachment)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListVolumeAttachments indicates an expected call of PaginatedListVolumeAttachments.
-func (mr *MockComputeClientMockRecorder) PaginatedListVolumeAttachments(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ListVolumeAttachments indicates an expected call of ListVolumeAttachments.
+func (mr *MockComputeClientMockRecorder) ListVolumeAttachments(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListVolumeAttachments", reflect.TypeOf((*MockComputeClient)(nil).PaginatedListVolumeAttachments), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVolumeAttachments", reflect.TypeOf((*MockComputeClient)(nil).ListVolumeAttachments), arg0, arg1, arg2)
 }
 
 // TerminateInstance mocks base method.

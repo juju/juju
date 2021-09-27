@@ -173,7 +173,7 @@ func (s *storageVolumeSuite) setupListVolumesExpectations(size int64) map[string
 		},
 	}
 
-	s.storage.EXPECT().PaginatedListVolumes(context.Background(), &s.testCompartment).Return(volumes, nil).AnyTimes()
+	s.storage.EXPECT().ListVolumes(context.Background(), &s.testCompartment).Return(volumes, nil).AnyTimes()
 	asMap := map[string]ociCore.Volume{}
 	for _, vol := range volumes {
 		asMap[*vol.Id] = vol
@@ -359,7 +359,7 @@ func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(instance strin
 			},
 		}
 	}
-	expect := s.compute.EXPECT().PaginatedListVolumeAttachments(context.Background(), &s.testCompartment, &instance).Return(response, nil)
+	expect := s.compute.EXPECT().ListVolumeAttachments(context.Background(), &s.testCompartment, &instance).Return(response, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {

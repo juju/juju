@@ -102,7 +102,7 @@ func (s *imagesSuite) TestInstanceTypes(c *gc.C) {
 		},
 	}
 
-	compute.EXPECT().PaginatedListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(response, nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(response, nil)
 
 	types, err := oci.InstanceTypes(compute, &s.testCompartment, &s.testImageID)
 	c.Assert(err, gc.IsNil)
@@ -146,7 +146,7 @@ func (s *imagesSuite) TestInstanceTypesImageWithUnknownShape(c *gc.C) {
 		},
 	}
 
-	compute.EXPECT().PaginatedListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(response, nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(response, nil)
 
 	types, err := oci.InstanceTypes(compute, &s.testCompartment, &s.testImageID)
 	c.Assert(err, gc.IsNil)
@@ -223,10 +223,10 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 		s.testCompartment, "fakeCentOS", []string{"VM.Standard1.2"})
 
 	gomock.InOrder(
-		compute.EXPECT().PaginatedListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil),
-		compute.EXPECT().PaginatedListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(shapesResponseUbuntu, nil),
-		compute.EXPECT().PaginatedListShapes(context.Background(), &s.testCompartment, &fakeUbuntuIDSecond).Return(shapesResponseUbuntu, nil),
-		compute.EXPECT().PaginatedListShapes(context.Background(), &s.testCompartment, &fakeCentOSID).Return(shapesResponseCentOS, nil),
+		compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil),
+		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(shapesResponseUbuntu, nil),
+		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuIDSecond).Return(shapesResponseUbuntu, nil),
+		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeCentOSID).Return(shapesResponseCentOS, nil),
 	)
 
 	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
@@ -253,7 +253,7 @@ func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
 
-	compute.EXPECT().PaginatedListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil)
+	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil)
 
 	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
@@ -269,7 +269,7 @@ func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *gc.C) {
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
 
-	compute.EXPECT().PaginatedListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil).Times(2)
+	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil).Times(2)
 
 	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
@@ -315,9 +315,9 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 		s.testCompartment, fakeBadID, []string{"VM.Standard1.2"})
 
 	gomock.InOrder(
-		compute.EXPECT().PaginatedListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil),
-		compute.EXPECT().PaginatedListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(shapesResponseUbuntu, nil),
-		compute.EXPECT().PaginatedListShapes(context.Background(), &s.testCompartment, &fakeBadID).Return(shapesResponseBadImage, nil),
+		compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil),
+		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(shapesResponseUbuntu, nil),
+		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeBadID).Return(shapesResponseBadImage, nil),
 	)
 
 	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)

@@ -188,7 +188,7 @@ func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params 
 
 func (v *volumeSource) allVolumes() (map[string]ociCore.Volume, error) {
 	result := map[string]ociCore.Volume{}
-	volumes, err := v.storageAPI.PaginatedListVolumes(context.Background(), v.env.ecfg().compartmentID())
+	volumes, err := v.storageAPI.ListVolumes(context.Background(), v.env.ecfg().compartmentID())
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +356,7 @@ func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 func (v *volumeSource) volumeAttachments(instanceId instance.Id) ([]ociCore.IScsiVolumeAttachment, error) {
 	instId := string(instanceId)
 
-	attachments, err := v.computeAPI.PaginatedListVolumeAttachments(context.Background(), v.env.ecfg().compartmentID(), &instId)
+	attachments, err := v.computeAPI.ListVolumeAttachments(context.Background(), v.env.ecfg().compartmentID(), &instId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -297,7 +297,7 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 	}
 
 	// fetch all shapes for the image from the provider
-	shapes, err := cli.PaginatedListShapes(context.Background(), compartmentID, imageID)
+	shapes, err := cli.ListShapes(context.Background(), compartmentID, imageID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -334,7 +334,7 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		return globalImageCache, nil
 	}
 
-	items, err := cli.PaginatedListImages(context.Background(), compartmentID)
+	items, err := cli.ListImages(context.Background(), compartmentID)
 	if err != nil {
 		return nil, err
 	}

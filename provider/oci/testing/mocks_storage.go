@@ -80,19 +80,19 @@ func (mr *MockStorageClientMockRecorder) GetVolume(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolume", reflect.TypeOf((*MockStorageClient)(nil).GetVolume), arg0, arg1)
 }
 
-// PaginatedListVolumes mocks base method.
-func (m *MockStorageClient) PaginatedListVolumes(arg0 context.Context, arg1 *string) ([]core.Volume, error) {
+// ListVolumes mocks base method.
+func (m *MockStorageClient) ListVolumes(arg0 context.Context, arg1 *string) ([]core.Volume, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListVolumes", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListVolumes", arg0, arg1)
 	ret0, _ := ret[0].([]core.Volume)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListVolumes indicates an expected call of PaginatedListVolumes.
-func (mr *MockStorageClientMockRecorder) PaginatedListVolumes(arg0, arg1 interface{}) *gomock.Call {
+// ListVolumes indicates an expected call of ListVolumes.
+func (mr *MockStorageClientMockRecorder) ListVolumes(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListVolumes", reflect.TypeOf((*MockStorageClient)(nil).PaginatedListVolumes), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVolumes", reflect.TypeOf((*MockStorageClient)(nil).ListVolumes), arg0, arg1)
 }
 
 // UpdateVolume mocks base method.

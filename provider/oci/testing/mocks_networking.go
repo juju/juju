@@ -230,62 +230,62 @@ func (mr *MockNetworkingClientMockRecorder) GetVnic(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVnic", reflect.TypeOf((*MockNetworkingClient)(nil).GetVnic), arg0, arg1)
 }
 
-// PaginatedListInternetGateways mocks base method.
-func (m *MockNetworkingClient) PaginatedListInternetGateways(arg0 context.Context, arg1, arg2 *string) ([]core.InternetGateway, error) {
+// ListInternetGateways mocks base method.
+func (m *MockNetworkingClient) ListInternetGateways(arg0 context.Context, arg1, arg2 *string) ([]core.InternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListInternetGateways", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListInternetGateways", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]core.InternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListInternetGateways indicates an expected call of PaginatedListInternetGateways.
-func (mr *MockNetworkingClientMockRecorder) PaginatedListInternetGateways(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ListInternetGateways indicates an expected call of ListInternetGateways.
+func (mr *MockNetworkingClientMockRecorder) ListInternetGateways(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListInternetGateways", reflect.TypeOf((*MockNetworkingClient)(nil).PaginatedListInternetGateways), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInternetGateways", reflect.TypeOf((*MockNetworkingClient)(nil).ListInternetGateways), arg0, arg1, arg2)
 }
 
-// PaginatedListRouteTables mocks base method.
-func (m *MockNetworkingClient) PaginatedListRouteTables(arg0 context.Context, arg1, arg2 *string) ([]core.RouteTable, error) {
+// ListRouteTables mocks base method.
+func (m *MockNetworkingClient) ListRouteTables(arg0 context.Context, arg1, arg2 *string) ([]core.RouteTable, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListRouteTables", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListRouteTables", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]core.RouteTable)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListRouteTables indicates an expected call of PaginatedListRouteTables.
-func (mr *MockNetworkingClientMockRecorder) PaginatedListRouteTables(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ListRouteTables indicates an expected call of ListRouteTables.
+func (mr *MockNetworkingClientMockRecorder) ListRouteTables(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListRouteTables", reflect.TypeOf((*MockNetworkingClient)(nil).PaginatedListRouteTables), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRouteTables", reflect.TypeOf((*MockNetworkingClient)(nil).ListRouteTables), arg0, arg1, arg2)
 }
 
-// PaginatedListSubnets mocks base method.
-func (m *MockNetworkingClient) PaginatedListSubnets(arg0 context.Context, arg1, arg2 *string) ([]core.Subnet, error) {
+// ListSubnets mocks base method.
+func (m *MockNetworkingClient) ListSubnets(arg0 context.Context, arg1, arg2 *string) ([]core.Subnet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListSubnets", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListSubnets", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]core.Subnet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListSubnets indicates an expected call of PaginatedListSubnets.
-func (mr *MockNetworkingClientMockRecorder) PaginatedListSubnets(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ListSubnets indicates an expected call of ListSubnets.
+func (mr *MockNetworkingClientMockRecorder) ListSubnets(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListSubnets", reflect.TypeOf((*MockNetworkingClient)(nil).PaginatedListSubnets), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSubnets", reflect.TypeOf((*MockNetworkingClient)(nil).ListSubnets), arg0, arg1, arg2)
 }
 
-// PaginatedListVcns mocks base method.
-func (m *MockNetworkingClient) PaginatedListVcns(arg0 context.Context, arg1 *string) ([]core.Vcn, error) {
+// ListVcns mocks base method.
+func (m *MockNetworkingClient) ListVcns(arg0 context.Context, arg1 *string) ([]core.Vcn, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListVcns", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListVcns", arg0, arg1)
 	ret0, _ := ret[0].([]core.Vcn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListVcns indicates an expected call of PaginatedListVcns.
-func (mr *MockNetworkingClientMockRecorder) PaginatedListVcns(arg0, arg1 interface{}) *gomock.Call {
+// ListVcns indicates an expected call of ListVcns.
+func (mr *MockNetworkingClientMockRecorder) ListVcns(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListVcns", reflect.TypeOf((*MockNetworkingClient)(nil).PaginatedListVcns), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVcns", reflect.TypeOf((*MockNetworkingClient)(nil).ListVcns), arg0, arg1)
 }

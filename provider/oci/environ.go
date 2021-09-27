@@ -78,7 +78,7 @@ func (e *Environ) ecfg() *environConfig {
 func (e *Environ) allInstances(ctx envcontext.ProviderCallContext, tags map[string]string) ([]*ociInstance, error) {
 	compartment := e.ecfg().compartmentID()
 
-	insts, err := e.Compute.PaginatedListInstances(context.Background(), compartment)
+	insts, err := e.Compute.ListInstances(context.Background(), compartment)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
@@ -230,7 +230,7 @@ func (e *Environ) getOciInstances(ctx envcontext.ProviderCallContext, ids ...ins
 
 	compartmentID := e.ecfg().compartmentID()
 
-	instances, err := e.Compute.PaginatedListInstances(context.Background(), compartmentID)
+	instances, err := e.Compute.ListInstances(context.Background(), compartmentID)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)

@@ -140,7 +140,7 @@ func (s *computeClientSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *computeClientSuite) TestPaginatedListImages(c *gc.C) {
+func (s *computeClientSuite) TestListImages(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -148,12 +148,12 @@ func (s *computeClientSuite) TestPaginatedListImages(c *gc.C) {
 		Items: s.images,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListImages(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.images)
 }
 
-func (s *computeClientSuite) TestPaginatedListImagesPageN(c *gc.C) {
+func (s *computeClientSuite) TestListImagesPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -169,23 +169,23 @@ func (s *computeClientSuite) TestPaginatedListImagesPageN(c *gc.C) {
 		Items: []ociCore.Image{s.images[2]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListImages(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.images)
 }
 
-func (s *computeClientSuite) TestPaginatedListImagesFail(c *gc.C) {
+func (s *computeClientSuite) TestListImagesFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListImages(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListImagesFailPageN(c *gc.C) {
+func (s *computeClientSuite) TestListImagesFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -195,12 +195,12 @@ func (s *computeClientSuite) TestPaginatedListImagesFailPageN(c *gc.C) {
 	}, nil)
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListImages(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListImages(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListShapes(c *gc.C) {
+func (s *computeClientSuite) TestListShapes(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -223,14 +223,14 @@ func (s *computeClientSuite) TestPaginatedListShapes(c *gc.C) {
 	}
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), req).Return(resp, nil)
 
-	obtained, err := s.client.PaginatedListShapes(ctx.TODO(), &compartmentID, s.images[1].Id)
+	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, s.images[1].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.HasLen, 2)
 	c.Assert(obtained[0].Shape, gc.Equals, &shape1)
 	c.Assert(obtained[1].Shape, gc.Equals, &shape2)
 }
 
-func (s *computeClientSuite) TestPaginatedListShapesPageN(c *gc.C) {
+func (s *computeClientSuite) TestListShapesPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -255,25 +255,25 @@ func (s *computeClientSuite) TestPaginatedListShapesPageN(c *gc.C) {
 		Items: []ociCore.Shape{shapes[1]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListShapes(ctx.TODO(), &compartmentID, req.ImageId)
+	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, req.ImageId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.HasLen, 2)
 	c.Assert(obtained[0].Shape, gc.Equals, &shape1)
 	c.Assert(obtained[1].Shape, gc.Equals, &shape2)
 }
 
-func (s *computeClientSuite) TestPaginatedListShapesFail(c *gc.C) {
+func (s *computeClientSuite) TestListShapesFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), gomock.Any()).Return(ociCore.ListShapesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListShapes(ctx.TODO(), &compartmentID, makeStringPointer("testFail"))
+	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, makeStringPointer("testFail"))
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListShapesFailPageN(c *gc.C) {
+func (s *computeClientSuite) TestListShapesFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -295,12 +295,12 @@ func (s *computeClientSuite) TestPaginatedListShapesFailPageN(c *gc.C) {
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), req).Return(
 		ociCore.ListShapesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListShapes(ctx.TODO(), &compartmentID, req.ImageId)
+	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, req.ImageId)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListInstances(c *gc.C) {
+func (s *computeClientSuite) TestListInstances(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -308,12 +308,12 @@ func (s *computeClientSuite) TestPaginatedListInstances(c *gc.C) {
 		Items: s.instances,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListInstances(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.instances)
 }
 
-func (s *computeClientSuite) TestPaginatedListInstancesPageN(c *gc.C) {
+func (s *computeClientSuite) TestListInstancesPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -325,23 +325,23 @@ func (s *computeClientSuite) TestPaginatedListInstancesPageN(c *gc.C) {
 		Items: []ociCore.Instance{s.instances[1]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListInstances(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.instances)
 }
 
-func (s *computeClientSuite) TestPaginatedListInstancesFail(c *gc.C) {
+func (s *computeClientSuite) TestListInstancesFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListInstances(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListInstancesFailPageN(c *gc.C) {
+func (s *computeClientSuite) TestListInstancesFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -351,12 +351,12 @@ func (s *computeClientSuite) TestPaginatedListInstancesFailPageN(c *gc.C) {
 	}, nil)
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListInstances(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListInstances(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListVnicAttachments(c *gc.C) {
+func (s *computeClientSuite) TestListVnicAttachments(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -364,12 +364,12 @@ func (s *computeClientSuite) TestPaginatedListVnicAttachments(c *gc.C) {
 		Items: s.vnics,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
+	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.vnics)
 }
 
-func (s *computeClientSuite) TestPaginatedListVnicAttachmentsPageN(c *gc.C) {
+func (s *computeClientSuite) TestListVnicAttachmentsPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -388,23 +388,23 @@ func (s *computeClientSuite) TestPaginatedListVnicAttachmentsPageN(c *gc.C) {
 			Items: []ociCore.VnicAttachment{s.vnics[1]},
 		}, nil)
 
-	obtained, err := s.client.PaginatedListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
+	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.vnics)
 }
 
-func (s *computeClientSuite) TestPaginatedListVnicAttachmentsFail(c *gc.C) {
+func (s *computeClientSuite) TestListVnicAttachmentsFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAPI.EXPECT().ListVnicAttachments(gomock.Any(), gomock.Any()).Return(ociCore.ListVnicAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
+	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListVnicAttachmentsFailPageN(c *gc.C) {
+func (s *computeClientSuite) TestListVnicAttachmentsFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -420,12 +420,12 @@ func (s *computeClientSuite) TestPaginatedListVnicAttachmentsFailPageN(c *gc.C) 
 	req.Page = resp.OpcNextPage
 	s.mockAPI.EXPECT().ListVnicAttachments(gomock.Any(), req).Return(ociCore.ListVnicAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
+	obtained, err := s.client.ListVnicAttachments(ctx.TODO(), &compartmentID, s.vnics[0].InstanceId)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListVolumeAttachments(c *gc.C) {
+func (s *computeClientSuite) TestListVolumeAttachments(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -438,12 +438,12 @@ func (s *computeClientSuite) TestPaginatedListVolumeAttachments(c *gc.C) {
 	}
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), req).Return(resp, nil)
 
-	obtained, err := s.client.PaginatedListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
+	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.volumes)
 }
 
-func (s *computeClientSuite) TestPaginatedListVolumeAttachmentsPageN(c *gc.C) {
+func (s *computeClientSuite) TestListVolumeAttachmentsPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -462,23 +462,23 @@ func (s *computeClientSuite) TestPaginatedListVolumeAttachmentsPageN(c *gc.C) {
 			Items: []ociCore.VolumeAttachment{s.volumes[1]},
 		}, nil)
 
-	obtained, err := s.client.PaginatedListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
+	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.volumes)
 }
 
-func (s *computeClientSuite) TestPaginatedListVolumeAttachmentsFail(c *gc.C) {
+func (s *computeClientSuite) TestListVolumeAttachmentsFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), gomock.Any()).Return(ociCore.ListVolumeAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
+	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *computeClientSuite) TestPaginatedListVolumeAttachmentsFailPageN(c *gc.C) {
+func (s *computeClientSuite) TestListVolumeAttachmentsFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -494,7 +494,7 @@ func (s *computeClientSuite) TestPaginatedListVolumeAttachmentsFailPageN(c *gc.C
 	req.Page = resp.OpcNextPage
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), req).Return(ociCore.ListVolumeAttachmentsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
+	obtained, err := s.client.ListVolumeAttachments(ctx.TODO(), &compartmentID, s.volumes[0].GetInstanceId())
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
@@ -597,7 +597,7 @@ func (s *networkClientSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *networkClientSuite) TestPaginatedListVcns(c *gc.C) {
+func (s *networkClientSuite) TestListVcns(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -605,12 +605,12 @@ func (s *networkClientSuite) TestPaginatedListVcns(c *gc.C) {
 		Items: s.vcns,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListVcns(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.vcns)
 }
 
-func (s *networkClientSuite) TestPaginatedListVcnsPageN(c *gc.C) {
+func (s *networkClientSuite) TestListVcnsPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -627,23 +627,23 @@ func (s *networkClientSuite) TestPaginatedListVcnsPageN(c *gc.C) {
 		Items: []ociCore.Vcn{s.vcns[1]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListVcns(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.vcns)
 }
 
-func (s *networkClientSuite) TestPaginatedListVcnsFail(c *gc.C) {
+func (s *networkClientSuite) TestListVcnsFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAPI.EXPECT().ListVcns(gomock.Any(), gomock.Any()).Return(ociCore.ListVcnsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVcns(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListVcnsFailPageN(c *gc.C) {
+func (s *networkClientSuite) TestListVcnsFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -658,12 +658,12 @@ func (s *networkClientSuite) TestPaginatedListVcnsFailPageN(c *gc.C) {
 	req.Page = resp.OpcNextPage
 	s.mockAPI.EXPECT().ListVcns(gomock.Any(), req).Return(ociCore.ListVcnsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVcns(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVcns(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListSubnets(c *gc.C) {
+func (s *networkClientSuite) TestListSubnets(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -675,12 +675,12 @@ func (s *networkClientSuite) TestPaginatedListSubnets(c *gc.C) {
 		Items: s.subnets,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.subnets)
 }
 
-func (s *networkClientSuite) TestPaginatedListSubnetsPageN(c *gc.C) {
+func (s *networkClientSuite) TestListSubnetsPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -698,12 +698,12 @@ func (s *networkClientSuite) TestPaginatedListSubnetsPageN(c *gc.C) {
 		Items: []ociCore.Subnet{s.subnets[1]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.subnets)
 }
 
-func (s *networkClientSuite) TestPaginatedListSubnetsFail(c *gc.C) {
+func (s *networkClientSuite) TestListSubnetsFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -713,12 +713,12 @@ func (s *networkClientSuite) TestPaginatedListSubnetsFail(c *gc.C) {
 	}
 	s.mockAPI.EXPECT().ListSubnets(gomock.Any(), req).Return(ociCore.ListSubnetsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListSubnetsFailPageN(c *gc.C) {
+func (s *networkClientSuite) TestListSubnetsFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -734,12 +734,12 @@ func (s *networkClientSuite) TestPaginatedListSubnetsFailPageN(c *gc.C) {
 	req.Page = resp.OpcNextPage
 	s.mockAPI.EXPECT().ListSubnets(gomock.Any(), req).Return(ociCore.ListSubnetsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSubnets(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListInternetGateways(c *gc.C) {
+func (s *networkClientSuite) TestListInternetGateways(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -751,12 +751,12 @@ func (s *networkClientSuite) TestPaginatedListInternetGateways(c *gc.C) {
 		Items: s.gateways,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.gateways)
 }
 
-func (s *networkClientSuite) TestPaginatedListInternetGatewaysPageN(c *gc.C) {
+func (s *networkClientSuite) TestListInternetGatewaysPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -774,12 +774,12 @@ func (s *networkClientSuite) TestPaginatedListInternetGatewaysPageN(c *gc.C) {
 		Items: []ociCore.InternetGateway{s.gateways[1]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.gateways)
 }
 
-func (s *networkClientSuite) TestPaginatedListInternetGatewaysFail(c *gc.C) {
+func (s *networkClientSuite) TestListInternetGatewaysFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -789,12 +789,12 @@ func (s *networkClientSuite) TestPaginatedListInternetGatewaysFail(c *gc.C) {
 	}
 	s.mockAPI.EXPECT().ListInternetGateways(gomock.Any(), req).Return(ociCore.ListInternetGatewaysResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListInternetGatewaysFailPageN(c *gc.C) {
+func (s *networkClientSuite) TestListInternetGatewaysFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -810,12 +810,12 @@ func (s *networkClientSuite) TestPaginatedListInternetGatewaysFailPageN(c *gc.C)
 	req.Page = resp.OpcNextPage
 	s.mockAPI.EXPECT().ListInternetGateways(gomock.Any(), req).Return(ociCore.ListInternetGatewaysResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListInternetGateways(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListRouteTables(c *gc.C) {
+func (s *networkClientSuite) TestListRouteTables(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -827,12 +827,12 @@ func (s *networkClientSuite) TestPaginatedListRouteTables(c *gc.C) {
 		Items: s.tables,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.tables)
 }
 
-func (s *networkClientSuite) TestPaginatedListRouteTablesPageN(c *gc.C) {
+func (s *networkClientSuite) TestListRouteTablesPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -850,12 +850,12 @@ func (s *networkClientSuite) TestPaginatedListRouteTablesPageN(c *gc.C) {
 		Items: []ociCore.RouteTable{s.tables[1]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.tables)
 }
 
-func (s *networkClientSuite) TestPaginatedListRouteTablesFail(c *gc.C) {
+func (s *networkClientSuite) TestListRouteTablesFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -865,12 +865,12 @@ func (s *networkClientSuite) TestPaginatedListRouteTablesFail(c *gc.C) {
 	}
 	s.mockAPI.EXPECT().ListRouteTables(gomock.Any(), req).Return(ociCore.ListRouteTablesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListRouteTablesFailPageN(c *gc.C) {
+func (s *networkClientSuite) TestListRouteTablesFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -886,12 +886,12 @@ func (s *networkClientSuite) TestPaginatedListRouteTablesFailPageN(c *gc.C) {
 	req.Page = resp.OpcNextPage
 	s.mockAPI.EXPECT().ListRouteTables(gomock.Any(), req).Return(ociCore.ListRouteTablesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListRouteTables(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListSecurityLists(c *gc.C) {
+func (s *networkClientSuite) TestListSecurityLists(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -903,12 +903,12 @@ func (s *networkClientSuite) TestPaginatedListSecurityLists(c *gc.C) {
 		Items: s.securityLists,
 	}, nil)
 
-	obtained, err := s.client.PaginatedListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.securityLists)
 }
 
-func (s *networkClientSuite) TestPaginatedListSecurityListsPageN(c *gc.C) {
+func (s *networkClientSuite) TestListSecurityListsPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -926,12 +926,12 @@ func (s *networkClientSuite) TestPaginatedListSecurityListsPageN(c *gc.C) {
 		Items: []ociCore.SecurityList{s.securityLists[1]},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.securityLists)
 }
 
-func (s *networkClientSuite) TestPaginatedListSecurityListsFail(c *gc.C) {
+func (s *networkClientSuite) TestListSecurityListsFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -941,12 +941,12 @@ func (s *networkClientSuite) TestPaginatedListSecurityListsFail(c *gc.C) {
 	}
 	s.mockAPI.EXPECT().ListSecurityLists(gomock.Any(), req).Return(ociCore.ListSecurityListsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *networkClientSuite) TestPaginatedListSecurityListsFailPageN(c *gc.C) {
+func (s *networkClientSuite) TestListSecurityListsFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -962,7 +962,7 @@ func (s *networkClientSuite) TestPaginatedListSecurityListsFailPageN(c *gc.C) {
 	req.Page = resp.OpcNextPage
 	s.mockAPI.EXPECT().ListSecurityLists(gomock.Any(), req).Return(ociCore.ListSecurityListsResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
+	obtained, err := s.client.ListSecurityLists(ctx.TODO(), &compartmentID, s.vcns[0].Id)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
@@ -980,7 +980,7 @@ type storageClientSuite struct {
 	mockAPI *testing.MockOCIStorageClient
 }
 
-func (s *storageClientSuite) TestPaginatedListVolumes(c *gc.C) {
+func (s *storageClientSuite) TestListVolumes(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -989,12 +989,12 @@ func (s *storageClientSuite) TestPaginatedListVolumes(c *gc.C) {
 		Items: []ociCore.Volume{vol},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListVolumes(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, []ociCore.Volume{vol})
 }
 
-func (s *storageClientSuite) TestPaginatedListVolumesPageN(c *gc.C) {
+func (s *storageClientSuite) TestListVolumesPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1009,24 +1009,24 @@ func (s *storageClientSuite) TestPaginatedListVolumesPageN(c *gc.C) {
 		Items: []ociCore.Volume{vol2},
 	}, nil)
 
-	obtained, err := s.client.PaginatedListVolumes(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, []ociCore.Volume{vol, vol2})
 }
 
-func (s *storageClientSuite) TestPaginatedListVolumesFail(c *gc.C) {
+func (s *storageClientSuite) TestListVolumesFail(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAPI.EXPECT().ListVolumes(gomock.Any(), gomock.Any()).Return(
 		ociCore.ListVolumesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVolumes(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }
 
-func (s *storageClientSuite) TestPaginatedListVolumesFailPageN(c *gc.C) {
+func (s *storageClientSuite) TestListVolumesFailPageN(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1038,7 +1038,7 @@ func (s *storageClientSuite) TestPaginatedListVolumesFailPageN(c *gc.C) {
 	s.mockAPI.EXPECT().ListVolumes(gomock.Any(), gomock.Any()).Return(
 		ociCore.ListVolumesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.PaginatedListVolumes(ctx.TODO(), &compartmentID)
+	obtained, err := s.client.ListVolumes(ctx.TODO(), &compartmentID)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 	c.Assert(obtained, gc.HasLen, 0)
 }

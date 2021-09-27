@@ -66,7 +66,7 @@ func (e *Environ) getVCNStatus(vcnID *string) (string, error) {
 }
 
 func (e *Environ) allVCNs(controllerUUID, modelUUID string) ([]ociCore.Vcn, error) {
-	vcns, err := e.Networking.PaginatedListVcns(context.Background(), e.ecfg().compartmentID())
+	vcns, err := e.Networking.ListVcns(context.Background(), e.ecfg().compartmentID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -171,7 +171,7 @@ func (e *Environ) getSecurityListStatus(resourceID *string) (string, error) {
 func (e *Environ) jujuSecurityLists(vcnId *string) ([]ociCore.SecurityList, error) {
 	var ret []ociCore.SecurityList
 
-	lists, err := e.Firewall.PaginatedListSecurityLists(context.Background(), e.ecfg().compartmentID(), vcnId)
+	lists, err := e.Firewall.ListSecurityLists(context.Background(), e.ecfg().compartmentID(), vcnId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,7 +263,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 }
 
 func (e *Environ) allSubnets(controllerUUID, modelUUID string, vcnID *string) (map[string][]ociCore.Subnet, error) {
-	subnets, err := e.Networking.PaginatedListSubnets(context.Background(), e.ecfg().compartmentID(), vcnID)
+	subnets, err := e.Networking.ListSubnets(context.Background(), e.ecfg().compartmentID(), vcnID)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +643,7 @@ func (e *Environ) getInternetGateway(vcnID *string) (ociCore.InternetGateway, er
 		return ociCore.InternetGateway{}, errors.Errorf("vcnID may not be nil")
 	}
 
-	internetGateways, err := e.Networking.PaginatedListInternetGateways(context.Background(), e.ecfg().compartmentID(), vcnID)
+	internetGateways, err := e.Networking.ListInternetGateways(context.Background(), e.ecfg().compartmentID(), vcnID)
 	if err != nil {
 		return ociCore.InternetGateway{}, errors.Trace(err)
 	}
@@ -746,7 +746,7 @@ func (e *Environ) jujuRouteTables(vcnId *string) ([]ociCore.RouteTable, error) {
 		return ret, errors.Errorf("vcnId may not be nil")
 	}
 
-	routeTables, err := e.Networking.PaginatedListRouteTables(context.Background(), e.ecfg().compartmentID(), vcnId)
+	routeTables, err := e.Networking.ListRouteTables(context.Background(), e.ecfg().compartmentID(), vcnId)
 	if err != nil {
 		return ret, errors.Trace(err)
 	}
@@ -888,7 +888,7 @@ func (e *Environ) deleteRouteTable(controllerUUID, modelUUID string, vcnId *stri
 }
 
 func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, error) {
-	vcns, err := e.Networking.PaginatedListVcns(context.Background(), e.ecfg().compartmentID())
+	vcns, err := e.Networking.ListVcns(context.Background(), e.ecfg().compartmentID())
 	if err != nil {
 		return map[string]ociCore.Subnet{}, errors.Trace(err)
 	}
@@ -901,7 +901,7 @@ func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, 
 				continue
 			}
 		}
-		subnets, err := e.Networking.PaginatedListSubnets(context.Background(), e.ecfg().compartmentID(), vcn.Id)
+		subnets, err := e.Networking.ListSubnets(context.Background(), e.ecfg().compartmentID(), vcn.Id)
 		if err != nil {
 			return map[string]ociCore.Subnet{}, err
 		}

@@ -105,7 +105,7 @@ func (s *environSuite) setupVcnExpectations(vcnId string, t map[string]string, t
 		},
 	}
 
-	expect := s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil)
+	expect := s.netw.EXPECT().ListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -136,7 +136,7 @@ func (s *environSuite) setupSecurityListExpectations(vcnId string, t map[string]
 			},
 		},
 	})
-	expect := s.fw.EXPECT().PaginatedListSecurityLists(context.Background(), request.CompartmentId, &vcnId).Return(response.Items, nil)
+	expect := s.fw.EXPECT().ListSecurityLists(context.Background(), request.CompartmentId, &vcnId).Return(response.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -156,7 +156,7 @@ func (s *environSuite) setupInternetGatewaysExpectations(vcnId string, t map[str
 			IsEnabled:     &enabled,
 		},
 	})
-	expect := s.netw.EXPECT().PaginatedListInternetGateways(context.Background(), request.CompartmentId, request.VcnId).Return(response.Items, nil)
+	expect := s.netw.EXPECT().ListInternetGateways(context.Background(), request.CompartmentId, request.VcnId).Return(response.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -176,7 +176,7 @@ func (s *environSuite) setupListRouteTableExpectations(vcnId string, t map[strin
 			LifecycleState: ociCore.RouteTableLifecycleStateAvailable,
 		},
 	})
-	expect := s.netw.EXPECT().PaginatedListRouteTables(context.Background(), request.CompartmentId, request.VcnId).Return(response.Items, nil)
+	expect := s.netw.EXPECT().ListRouteTables(context.Background(), request.CompartmentId, request.VcnId).Return(response.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -227,7 +227,7 @@ func (s *environSuite) setupListSubnetsExpectations(vcnId, route string, t map[s
 		},
 	}
 
-	expect := s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnId).Return(response, nil)
+	expect := s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnId).Return(response, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -263,8 +263,8 @@ func (s *environSuite) setupListImagesExpectations() {
 		s.testCompartment, "fake", []string{
 			"VM.Standard1.1",
 		})
-	s.compute.EXPECT().PaginatedListImages(context.Background(), &s.testCompartment).Return(response, nil)
-	s.compute.EXPECT().PaginatedListShapes(context.Background(), gomock.Any(), gomock.Any()).Return(shapesResponse, nil).AnyTimes()
+	s.compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(response, nil)
+	s.compute.EXPECT().ListShapes(context.Background(), gomock.Any(), gomock.Any()).Return(shapesResponse, nil).AnyTimes()
 }
 
 func (s *environSuite) TestMachineIdShortening(c *gc.C) {
@@ -302,7 +302,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.compute.EXPECT().PaginatedListInstances(
+	s.compute.EXPECT().ListInstances(
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil).Times(2)
 
@@ -328,7 +328,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.compute.EXPECT().PaginatedListInstances(
+	s.compute.EXPECT().ListInstances(
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil).Times(2)
 
@@ -430,7 +430,7 @@ func (s *environSuite) TestControllerInstancesNoControllerInstances(c *gc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.compute.EXPECT().PaginatedListInstances(
+	s.compute.EXPECT().ListInstances(
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
@@ -444,7 +444,7 @@ func (s *environSuite) TestControllerInstancesOneController(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.listInstancesResponse[0].FreeformTags = s.ctrlTags
-	s.compute.EXPECT().PaginatedListInstances(
+	s.compute.EXPECT().ListInstances(
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
@@ -519,7 +519,7 @@ func (s *environSuite) setupStopInstanceExpectations(instancesDetails []instance
 		StatusCode: 200,
 	}
 
-	listCall := exp.PaginatedListInstances(
+	listCall := exp.ListInstances(
 		context.Background(), &s.testCompartment).Return(
 		listInstancesResponse.Items, nil).AnyTimes()
 
@@ -708,7 +708,7 @@ func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.
 	}
 
 	gomock.InOrder(
-		s.compute.EXPECT().PaginatedListInstances(
+		s.compute.EXPECT().ListInstances(
 			context.Background(), listInstancesRequest.CompartmentId).Return(
 			listInstancesResponse.Items, nil),
 		s.compute.EXPECT().GetInstance(
@@ -781,7 +781,7 @@ func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C
 	responseMachine1Terminating.Instance.LifecycleState = ociCore.InstanceLifecycleStateTerminating
 
 	gomock.InOrder(
-		s.compute.EXPECT().PaginatedListInstances(
+		s.compute.EXPECT().ListInstances(
 			context.Background(), listInstancesRequest.CompartmentId).Return(
 			listInstancesResponse.Items, nil),
 		s.compute.EXPECT().GetInstance(
@@ -807,7 +807,7 @@ func (s *environSuite) TestAllRunningInstances(c *gc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.compute.EXPECT().PaginatedListInstances(
+	s.compute.EXPECT().ListInstances(
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
@@ -826,7 +826,7 @@ func (s *environSuite) TestAllRunningInstancesExtraUnrelatedInstance(c *gc.C) {
 	s.listInstancesResponse = append(
 		s.listInstancesResponse, *unrelatedInstance)
 
-	s.compute.EXPECT().PaginatedListInstances(
+	s.compute.EXPECT().ListInstances(
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
@@ -895,7 +895,7 @@ func (s *environSuite) setupLaunchInstanceExpectations(
 		// These calls are only expected if we assign a public IP.
 		// They occur when polling for the IP after the instance is started.
 		if publicIP {
-			s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), attachRequest.CompartmentId, makeStringPointer("fakeInstanceId")).Return(attachResponse.Items, nil)
+			s.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest.CompartmentId, makeStringPointer("fakeInstanceId")).Return(attachResponse.Items, nil)
 			s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil)
 		}
 	}
@@ -1208,7 +1208,7 @@ func (s *environSuite) setupDeleteVolumesExpectations() {
 		Volume: copyVolumes[1],
 	}
 
-	s.storage.EXPECT().PaginatedListVolumes(context.Background(), listRequest.CompartmentId).Return(listResponse.Items, nil).AnyTimes()
+	s.storage.EXPECT().ListVolumes(context.Background(), listRequest.CompartmentId).Return(listResponse.Items, nil).AnyTimes()
 	s.storage.EXPECT().GetVolume(context.Background(), requestVolume1).Return(responseVolume1, nil).AnyTimes()
 	s.storage.EXPECT().GetVolume(context.Background(), requestVolume2).Return(responseVolume2, nil).AnyTimes()
 }

@@ -111,7 +111,7 @@ func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.Status
 }
 
 func (o *ociInstance) getVnics() ([]vnicWithIndex, error) {
-	attachments, err := o.env.Compute.PaginatedListVnicAttachments(context.Background(), o.raw.CompartmentId, o.raw.Id)
+	attachments, err := o.env.Compute.ListVnicAttachments(context.Background(), o.raw.CompartmentId, o.raw.Id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

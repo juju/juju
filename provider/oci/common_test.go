@@ -278,7 +278,7 @@ func (e *commonSuite) setupListInstancesExpectations(instanceId string, state oc
 			},
 		},
 	)
-	expect := e.compute.EXPECT().PaginatedListInstances(
+	expect := e.compute.EXPECT().ListInstances(
 		context.Background(), listInstancesRequest.CompartmentId).Return(
 		listInstancesResponse.Items, nil)
 	if times == 0 {

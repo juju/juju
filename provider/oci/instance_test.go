@@ -134,7 +134,7 @@ func (s *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
 	})
 
 	gomock.InOrder(
-		s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
+		s.compute.EXPECT().ListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
 		s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
 	)
 }

@@ -91,10 +91,10 @@ func (s *networkingSuite) setupNetworkInterfacesExpectations(vnicID, vcnID strin
 
 	gomock.InOrder(
 		s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil),
-		s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
+		s.compute.EXPECT().ListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
 		s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
-		s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil),
-		s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil),
+		s.netw.EXPECT().ListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil),
+		s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil),
 	)
 }
 
@@ -127,8 +127,8 @@ func (s *networkingSuite) setupListSubnetsExpectations() {
 		},
 	}
 
-	s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
-	s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
+	s.netw.EXPECT().ListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
+	s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
 }
 
 func (s *networkingSuite) setupSubnetsKnownInstanceExpectations() {
@@ -210,10 +210,10 @@ func (s *networkingSuite) setupSubnetsKnownInstanceExpectations() {
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 		})
 
-	s.netw.EXPECT().PaginatedListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
-	s.netw.EXPECT().PaginatedListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
+	s.netw.EXPECT().ListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
+	s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
 	s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil).Times(2)
-	s.compute.EXPECT().PaginatedListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil).Times(2)
+	s.compute.EXPECT().ListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil).Times(2)
 	s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil).Times(2)
 }
 

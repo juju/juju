@@ -80,17 +80,17 @@ func (mr *MockFirewallClientMockRecorder) GetSecurityList(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecurityList", reflect.TypeOf((*MockFirewallClient)(nil).GetSecurityList), arg0, arg1)
 }
 
-// PaginatedListSecurityLists mocks base method.
-func (m *MockFirewallClient) PaginatedListSecurityLists(arg0 context.Context, arg1, arg2 *string) ([]core.SecurityList, error) {
+// ListSecurityLists mocks base method.
+func (m *MockFirewallClient) ListSecurityLists(arg0 context.Context, arg1, arg2 *string) ([]core.SecurityList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PaginatedListSecurityLists", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListSecurityLists", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]core.SecurityList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PaginatedListSecurityLists indicates an expected call of PaginatedListSecurityLists.
-func (mr *MockFirewallClientMockRecorder) PaginatedListSecurityLists(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ListSecurityLists indicates an expected call of ListSecurityLists.
+func (mr *MockFirewallClientMockRecorder) ListSecurityLists(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PaginatedListSecurityLists", reflect.TypeOf((*MockFirewallClient)(nil).PaginatedListSecurityLists), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecurityLists", reflect.TypeOf((*MockFirewallClient)(nil).ListSecurityLists), arg0, arg1, arg2)
 }
