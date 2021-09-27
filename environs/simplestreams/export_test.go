@@ -3,6 +3,8 @@
 
 package simplestreams
 
+import jujuhttp "github.com/juju/http/v2"
+
 func ExtractCatalogsForProducts(metadata CloudMetadata, productIds []string) []MetadataCatalog {
 	return metadata.extractCatalogsForProducts(productIds)
 }
@@ -24,3 +26,11 @@ func Filter(entries IndexMetadataSlice, match func(*IndexMetadata) bool) IndexMe
 }
 
 var FetchData = fetchData
+
+func HttpClient(ds DataSource) *jujuhttp.Client {
+	urlds, ok := ds.(*urlDataSource)
+	if ok {
+		return urlds.httpClient
+	}
+	return nil
+}

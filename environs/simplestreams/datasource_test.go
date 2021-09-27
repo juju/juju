@@ -4,6 +4,7 @@
 package simplestreams_test
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,8 +27,8 @@ var _ = gc.Suite(&datasourceHTTPSSuite{})
 type datasourceSuite struct {
 }
 
-func (s *datasourceSuite) TestFetch(c *gc.C) {
-	server := httptest.NewServer(&testDataHandler{})
+func (s *datasourceSuite) assertFetch(c *gc.C, compressed bool) {
+	server := httptest.NewServer(&testDataHandler{supportsGzip: compressed})
 	defer server.Close()
 	ds := testing.VerifyDefaultCloudDataSource("test", server.URL)
 	rc, url, err := ds.Fetch("streams/v1/tools_metadata.json")
@@ -41,6 +42,14 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 	c.Assert(len(cloudMetadata.Products), jc.GreaterThan, 0)
 }
 
+func (s *datasourceSuite) TestFetch(c *gc.C) {
+	s.assertFetch(c, false)
+}
+
+func (s *datasourceSuite) TestFetchGzip(c *gc.C) {
+	s.assertFetch(c, true)
+}
+
 func (s *datasourceSuite) TestURL(c *gc.C) {
 	ds := testing.VerifyDefaultCloudDataSource("test", "foo")
 	url, err := ds.URL("bar")
@@ -48,9 +57,12 @@ func (s *datasourceSuite) TestURL(c *gc.C) {
 	c.Assert(url, gc.Equals, "foo/bar")
 }
 
-type testDataHandler struct{}
+type testDataHandler struct {
+	supportsGzip bool
+}
 
 func (h *testDataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var out io.Writer = w
 	switch r.URL.Path {
 	case "/unauth":
 		w.Header().Set("Content-Type", "application/json")
@@ -58,8 +70,24 @@ func (h *testDataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case "/streams/v1/tools_metadata.json":
 		w.Header().Set("Content-Type", "application/json")
+		// So long as the underlying http transport has not had DisableCompression
+		// set to false, the gzip request and decompression is handled transparently.
+		// This tests that we haven't accidentally turned off compression for the
+		// default http client used by Juju.
+		if h.supportsGzip {
+			if r.Header.Get("Accept-Encoding") != "gzip" {
+				http.Error(w, "Accept-Encoding header missing", 400)
+				return
+			}
+			w.Header().Set("Content-Encoding", "gzip")
+			gout := gzip.NewWriter(w)
+			defer func() { _ = gout.Close() }()
+			_, _ = gout.Write([]byte(unsignedProduct))
+
+		} else {
+			_, _ = io.WriteString(out, unsignedProduct)
+		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(w, unsignedProduct)
 		return
 	default:
 		http.Error(w, r.URL.Path, 404)
@@ -146,4 +174,18 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	byteContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(byteContent), gc.Equals, "Greetings!\n")
+}
+
+func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *gc.C) {
+	ds := simplestreams.NewDataSource(simplestreams.Config{
+		Description:          "test",
+		BaseURL:              s.Server.URL,
+		HostnameVerification: utils.NoVerifySSLHostnames,
+		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+	})
+	httpClient := simplestreams.HttpClient(ds)
+	c.Assert(httpClient, gc.NotNil)
+	tr, ok := httpClient.HTTPClient.(*http.Client).Transport.(*http.Transport)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(tr.DisableCompression, jc.IsFalse)
 }
