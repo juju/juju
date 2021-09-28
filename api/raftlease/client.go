@@ -5,7 +5,6 @@ package raftlease
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -31,6 +30,7 @@ import (
 type Logger interface {
 	Errorf(string, ...interface{})
 	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // Remote defines an interface for managing remote connections for the client.
@@ -136,20 +136,6 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// Wait for at least one server connection.
-	if err := client.initServers(); err != nil {
-		unsubscribe()
-		return nil, errors.Trace(err)
-	}
-
-	// Add all the remote servers to the catacomb.
-	for _, remote := range client.servers {
-		if err := client.catacomb.Add(remote); err != nil {
-			unsubscribe()
-			return nil, errors.Trace(err)
-		}
-	}
-
 	return client, nil
 }
 
@@ -160,8 +146,12 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 
 	remote, err := c.selectRemote()
 	if err != nil {
-		// TODO (stickupkid): If we find no remotes, should we force an attempt
-		// of a connection?
+		// If we can't find a remote server for any reason, then return an
+		// ErrDropped. This will cause the lease manager to correctly retry.
+		if errors.IsNotFound(err) {
+			c.config.Logger.Errorf("Masking %q with lease.ErrDropped to allow for retries", err)
+			return lease.ErrDropped
+		}
 		return errors.Trace(err)
 	}
 
@@ -236,10 +226,34 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 		return nil
 	}
 
-	// If the retry has stopped, then we've been cancelled, so we need to tell
-	// the lease manager that we've timedout.
-	if retry.IsRetryStopped(err) {
+	switch {
+	case lease.IsLeaseError(err):
+		// We want to see this when debugging the raft implementation, but not
+		// in daily running.
+		c.config.Logger.Tracef("Lease Error %q", err)
+
+	case retry.IsRetryStopped(err), retry.IsAttemptsExceeded(err):
+		// If the retry or attempt is exceeded, check to see if the underlying
+		// error is a lease error. If it, then just trace the error and
+		// propergate it up.
+		if underlyingErr := retry.LastError(err); lease.IsLeaseError(underlyingErr) {
+			c.config.Logger.Tracef("Lease Error %q", err)
+
+			// Ensure we expose the real error here.
+			err = underlyingErr
+			break
+		}
+
+		// If the retry has stopped or the number of attempts have been
+		// exceeded, we need to tell the lease manager that we've timedout.
+		c.config.Logger.Errorf("Masking %q with lease.ErrTimeout to allow for retries", err)
 		err = lease.ErrTimeout
+
+	case errors.IsNotFound(err):
+		// If we can't find a remote server for any reason, then return an
+		// ErrDropped. This will cause the lease manager to correctly retry.
+		c.config.Logger.Errorf("Masking %q with lease.ErrDropped to allow for retries", err)
+		err = lease.ErrDropped
 	}
 
 	c.record(command.Operation, "error", start)
@@ -326,46 +340,15 @@ func (c *Client) loop() error {
 		select {
 		case <-c.catacomb.Dying():
 			return c.catacomb.ErrDying()
+
 		case details := <-c.serverDetails:
 			// Get the primary address for each server ID.
 			addresses := c.gatherAddresses(details)
-			if len(addresses) == 0 {
-				// If there are no addresses, then nothing is routable. In this
-				// case, we'll continue to use the current addresses.
-				c.config.Logger.Errorf("no server addresses found, will continue to use old addresses")
-				continue
-			}
-
 			if err := c.ensureServers(addresses); err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
-}
-
-func (c *Client) initServers() error {
-	if len(c.config.APIInfo.Addrs) == 0 {
-		return errors.NotFoundf("api addresses")
-	}
-
-	for k, address := range c.config.APIInfo.Addrs {
-		info := *c.config.APIInfo
-		info.Addrs = []string{address}
-
-		remote := c.config.NewRemote(RemoteConfig{
-			APIInfo: &info,
-			Clock:   c.config.Clock,
-			Logger:  c.config.Logger,
-		})
-
-		// In reality it doesn't matter what these get called, as a later down
-		// the line they'll be replaced via the request from the
-		// apiserver.Details result.
-		key := fmt.Sprintf("%d", k)
-		c.servers[key] = remote
-	}
-
-	return nil
 }
 
 // gatherAddresses turns a series of data addresses into a map of server ids

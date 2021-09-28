@@ -120,6 +120,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusMovedPermanently
 	case params.CodeNotLeader:
 		status = http.StatusTemporaryRedirect
+	case params.CodeLeaseError:
+		status = leaseStatusCode(err1)
 	}
 	return err1, status
 }
@@ -229,6 +231,9 @@ func ServerError(err error) *params.Error {
 		info = rawErr.AsMap()
 	case IsDeadlineExceededError(err):
 		code = params.CodeDeadlineExceeded
+	case lease.IsLeaseError(err):
+		code = params.CodeLeaseError
+		info = leaseErrorInfoMap(err)
 	default:
 		code = params.ErrCode(err)
 	}
@@ -337,6 +342,8 @@ func RestoreError(err error) error {
 		return NewNotLeaderError(serverAddress, serverID)
 	case params.IsCodeDeadlineExceeded(err):
 		return NewDeadlineExceededError(msg)
+	case params.IsLeaseError(err):
+		return rehydrateLeaseError(err)
 	default:
 		return err
 	}

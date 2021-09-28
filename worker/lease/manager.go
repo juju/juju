@@ -279,11 +279,13 @@ func (manager *Manager) retryingClaim(claim claim) {
 		err     error
 		success bool
 	)
+
 	for a := manager.startRetry(); a.Next(); {
 		success, err = manager.handleClaim(claim)
-		if !lease.IsTimeout(err) && !lease.IsInvalid(err) && !lease.IsDropped(err) {
+		if isFatalRetryError(err) {
 			break
 		}
+
 		if a.More() {
 			switch {
 			case lease.IsInvalid(err):
@@ -400,9 +402,10 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 	var err error
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.handleRevoke(revoke)
-		if !lease.IsTimeout(err) && !lease.IsInvalid(err) {
+		if isFatalRetryError(err) {
 			break
 		}
+
 		if a.More() {
 			switch {
 			case lease.IsInvalid(err):
@@ -623,6 +626,18 @@ func (manager *Manager) startRetry() *retry.Attempt {
 		manager.config.Clock,
 		manager.catacomb.Dying(),
 	)
+}
+
+func isFatalRetryError(err error) bool {
+	switch {
+	case lease.IsTimeout(err):
+		return false
+	case lease.IsInvalid(err):
+		return false
+	case lease.IsDropped(err):
+		return false
+	}
+	return true
 }
 
 func (manager *Manager) handlePin(p pin) {
