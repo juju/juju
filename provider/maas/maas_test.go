@@ -146,7 +146,7 @@ var maasEnvAttrs = coretesting.Attrs{
 	},
 }
 
-func (suite *providerSuite) makeEnvironWithURL(url string, getCapabilities MaasCapabilities) (*maasEnviron, error) {
+func (suite *providerSuite) makeEnvironWithURL(url string, getCapabilities Capabilities) (*maasEnviron, error) {
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})

@@ -4,8 +4,6 @@
 package maas
 
 import (
-	"fmt"
-
 	"github.com/juju/gomaasapi/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -782,22 +780,6 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expected)
 }
 
-func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
-	nodeJSON := fmt.Sprintf(`{
-        "system_id": "foo",
-        "interface_set": %s
-    }`, exampleInterfaceSetJSON)
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-	subnetsMap := make(map[string]network.Id)
-	subnetsMap["10.250.19.0/24"] = "3"
-	subnetsMap["192.168.1.0/24"] = "0"
-	subnetsMap["192.168.20.0/24"] = "4"
-
-	infos, err := maasObjectNetworkInterfaces(s.callCtx, &obj, subnetsMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, jc.DeepEquals, exampleParsedInterfaceSetJSON)
-}
-
 func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	vlan0 := fakeVLAN{
 		id:  5001,
@@ -1051,7 +1033,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
 
-	infos, err := maas2NetworkInterfaces(s.callCtx, instance, subnetsMap)
+	infos, err := maasNetworkInterfaces(s.callCtx, instance, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
@@ -1116,7 +1098,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		Origin:           network.OriginProvider,
 	}}
 
-	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
+	infos, err := maasNetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
