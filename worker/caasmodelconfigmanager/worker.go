@@ -171,6 +171,7 @@ func (w *manager) ensureImageRepoSecret(isFirstCall bool) error {
 	if err := w.reg.RefreshAuth(); err != nil {
 		return errors.Annotatef(err, "refreshing registry auth token for %q", w.name)
 	}
+	w.logger.Debugf("auth token for %q has been refreshed, applying to the secret now", w.name)
 	err := w.config.Broker.EnsureImageRepoSecret(w.reg.ImageRepoDetails())
 	return errors.Annotatef(err, "ensuring image repository secret for %q", w.name)
 }

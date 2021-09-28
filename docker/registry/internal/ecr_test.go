@@ -46,7 +46,7 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func(
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	s.mockECRAPI = internalmocks.NewMockECRInterface(ctrl)
-	s.PatchValue(&internal.GetECRClient, func(context.Context, aws.HTTPClient, string, string, string) (internal.ECRInterface, error) {
+	s.PatchValue(&internal.GetECRClient, func(context.Context, string, string, string) (internal.ECRInterface, error) {
 		return s.mockECRAPI, nil
 	})
 

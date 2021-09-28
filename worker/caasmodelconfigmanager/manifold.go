@@ -80,6 +80,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Broker:       broker,
 		Logger:       config.Logger,
 		RegistryFunc: registry.New,
+		Clock:        config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -43,7 +43,7 @@ type ECRInterface interface {
 	GetAuthorizationToken(context.Context, *ecr.GetAuthorizationTokenInput, ...func(*ecr.Options)) (*ecr.GetAuthorizationTokenOutput, error)
 }
 
-func getECRClient(ctx context.Context, httpClient aws.HTTPClient, accessKeyID, secretAccessKey, region string) (ECRInterface, error) {
+func getECRClient(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error) {
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithRetryer(func() aws.Retryer {
@@ -62,7 +62,6 @@ func getECRClient(ctx context.Context, httpClient aws.HTTPClient, accessKeyID, s
 		cfg.ClientLogMode = aws.LogRequest | aws.LogResponse | aws.LogRetries
 		cfg.Logger = logging.NewStandardLogger(&ecrLogger{})
 	}
-	cfg.HTTPClient = httpClient
 	return ecr.NewFromConfig(cfg), nil
 }
 
@@ -95,7 +94,7 @@ func (c *elasticContainerRegistry) DecideBaseURL() error {
 	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
 }
 
-func refreshTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails, httpClient aws.HTTPClient) (err error) {
+func refreshTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) (err error) {
 	if repoDetails.Region == "" {
 		return errors.NewNotValid(nil, "region is required")
 	}
@@ -105,7 +104,7 @@ func refreshTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetail
 		)
 	}
 	ctx := context.Background()
-	c, err := GetECRClient(ctx, httpClient, repoDetails.Username, repoDetails.Password, repoDetails.Region)
+	c, err := GetECRClient(ctx, repoDetails.Username, repoDetails.Password, repoDetails.Region)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -136,7 +135,7 @@ func (c *elasticContainerRegistry) ShouldRefreshAuth() bool {
 
 // RefreshAuth refreshes the repoDetails.
 func (c *elasticContainerRegistry) RefreshAuth() error {
-	return refreshTokenForElasticContainerRegistry(c.repoDetails, c.client)
+	return refreshTokenForElasticContainerRegistry(c.repoDetails)
 }
 
 func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
@@ -148,7 +147,7 @@ func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
 	if repoDetails.BasicAuthConfig.Empty() {
 		return nil, errors.NewNotValid(nil, "empty credential for elastic container registry")
 	}
-	if err := refreshTokenForElasticContainerRegistry(repoDetails, c.client); err != nil {
+	if err := refreshTokenForElasticContainerRegistry(repoDetails); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newBasicTransport(transport, "", "", repoDetails.Auth), nil

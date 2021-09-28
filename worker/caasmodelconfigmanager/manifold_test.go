@@ -105,6 +105,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		mc.AddExpr(`_.Broker`, gc.NotNil)
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.RegistryFunc`, gc.NotNil)
+		mc.AddExpr(`_.Clock`, gc.NotNil)
 		c.Check(config, mc, caasmodelconfigmanager.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		})
