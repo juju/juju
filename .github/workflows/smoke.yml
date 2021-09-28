@@ -125,7 +125,7 @@ jobs:
 
         attempt=0
         while true; do
-          UPDATED=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
+          UPDATED=$(juju machines -m controller --format=json || : | jq -r '.machines | .["0"] | .["juju-status"] | .version')
           if [ "$CURRENT" != "$UPDATED" ]; then
               break
           fi
@@ -176,7 +176,7 @@ jobs:
 
         attempt=0
         while true; do
-          UPDATED=$(juju show-model default --format=json | jq -r '.default | .["agent-version"]')
+          UPDATED=$(juju show-model default --format=json || : | jq -r '.default | .["agent-version"]')
           if [ "$CURRENT" != "$UPDATED" ]; then
               break
           fi
