@@ -26,6 +26,7 @@ type charmhubID struct {
 	os       string
 	series   string
 	arch     string
+	metrics  map[metrics.MetricKey]string
 }
 
 // charmhubResult is the type charmhubLatestCharmInfo returns: information
@@ -55,6 +56,10 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.M
 			Channel:      id.series,
 		}
 		cfg, err := charmhub.RefreshOne(id.id, id.revision, id.channel, base)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg, err = charmhub.AddConfigMetrics(cfg, id.metrics)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

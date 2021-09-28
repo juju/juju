@@ -60,8 +60,8 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 
 	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
-		{"charm-1", 22},
-		{"charm-2", 41},
+		{id: "charm-1", revision: 22},
+		{id: "charm-2", revision: 41},
 	}}
 	client.EXPECT().RefreshWithRequestMetrics(gomock.Any(), matcher, gomock.Any()).Return([]transport.RefreshResponse{
 		{
@@ -94,8 +94,27 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 func (s *updaterSuite) TestCharmhubUpdateWithMetrics(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	s.expectCharmHubModel(c)
-	s.testCharmhubUpdateMetrics(c, ctrl, true)
+	uuid := testing.ModelTag.Id()
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name": "model",
+		"type": "type",
+		"uuid": uuid,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.model.EXPECT().Config().Return(cfg, nil).AnyTimes()
+	s.model.EXPECT().Metrics().Return(state.ModelMetrics{
+		UUID:           uuid,
+		ControllerUUID: "controller-1",
+		CloudName:      "cloud",
+	}, nil).AnyTimes()
+	s.state.EXPECT().AliveRelationKeys().Return([]string{
+		"app-1:end app-2:point",
+	})
+	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
+		{id: "charm-1", revision: 22, relMetric: "postgresql"},
+		{id: "charm-2", revision: 41, relMetric: "mysql"},
+	}}
+	s.testCharmhubUpdateMetrics(c, ctrl, matcher, true)
 }
 
 func (s *updaterSuite) TestCharmhubUpdateWithNoMetrics(c *gc.C) {
@@ -109,15 +128,16 @@ func (s *updaterSuite) TestCharmhubUpdateWithNoMetrics(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil).AnyTimes()
-	s.testCharmhubUpdateMetrics(c, ctrl, false)
+	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
+		{id: "charm-1", revision: 22},
+		{id: "charm-2", revision: 41},
+	}}
+	s.testCharmhubUpdateMetrics(c, ctrl, matcher, false)
 }
 
-func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controller, exist bool) {
+func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controller, matcher gomock.Matcher, exist bool) {
 	client := mocks.NewMockCharmhubRefreshClient(ctrl)
-	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
-		{"charm-1", 22},
-		{"charm-2", 41},
-	}}
+
 	client.EXPECT().RefreshWithRequestMetrics(gomock.Any(), matcher, charmhubMetricsMatcher{c: c, exist: exist}).Return([]transport.RefreshResponse{
 		{
 			Entity: transport.RefreshEntity{Revision: 23},
@@ -159,7 +179,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 
 	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
-		{"charm-3", 1},
+		{id: "charm-3", revision: 1},
 	}}
 	client.EXPECT().RefreshWithRequestMetrics(gomock.Any(), matcher, gomock.Any()).Return([]transport.RefreshResponse{
 		{
@@ -213,7 +233,7 @@ func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
 
 	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
-		{"charm-2", 42},
+		{id: "charm-2", revision: 42},
 	}}
 	client.EXPECT().RefreshWithRequestMetrics(gomock.Any(), matcher, gomock.Any()).Return([]transport.RefreshResponse{
 		{
@@ -348,11 +368,6 @@ func (s *updaterSuite) expectCharmStoreModel(c *gc.C) {
 func (s *updaterSuite) expectCharmHubModel(c *gc.C) {
 	mExp := s.model.EXPECT()
 	uuid := testing.ModelTag.Id()
-	mExp.Metrics().Return(state.ModelMetrics{
-		UUID:           uuid,
-		ControllerUUID: "controller-1",
-		CloudName:      "cloud",
-	}, nil).AnyTimes()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name": "model",
 		"type": "type",
@@ -360,6 +375,12 @@ func (s *updaterSuite) expectCharmHubModel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	mExp.Config().Return(cfg, nil).AnyTimes()
+	mExp.Metrics().Return(state.ModelMetrics{
+		UUID:           uuid,
+		ControllerUUID: "controller-1",
+		CloudName:      "cloud",
+	}, nil).AnyTimes()
+	s.state.EXPECT().AliveRelationKeys().Return(nil)
 }
 
 func (s *updaterSuite) expectResources(c *gc.C, name string, revision, size int, hexFingerprint string) {

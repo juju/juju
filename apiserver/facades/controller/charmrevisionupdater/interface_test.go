@@ -24,12 +24,17 @@ import (
 )
 
 func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID string, revision int) charmrevisionupdater.Application {
-	source := "charm-hub"
-	if schema == "cs" {
+	app := mocks.NewMockApplication(ctrl)
+
+	var source string
+	switch schema {
+	case "ch":
+		source = "charm-hub"
+		app.EXPECT().UnitCount().Return(2).AnyTimes()
+	case "cs":
 		source = "charm-store"
 	}
 
-	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmURL().Return(&charm.URL{
 		Schema:   schema,
 		Name:     charmName,
@@ -78,8 +83,9 @@ type charmhubConfigMatcher struct {
 }
 
 type charmhubConfigExpected struct {
-	id       string
-	revision int
+	id        string
+	revision  int
+	relMetric string
 }
 
 func (m charmhubConfigMatcher) Matches(x interface{}) bool {
@@ -101,8 +107,19 @@ func (m charmhubConfigMatcher) Matches(x interface{}) bool {
 		if context.Revision != m.expected[i].revision {
 			return false
 		}
+		r, ok := context.Metrics[string(charmmetrics.Relations)]
+		if m.expected[i].relMetric != "" && !ok {
+			return false
+		}
+		if m.expected[i].relMetric != "" && ok && r != m.expected[i].relMetric {
+			return false
+		}
 		action := request.Actions[i]
 		if *action.ID != m.expected[i].id {
+			return false
+		}
+		_, ok = context.Metrics[string(charmmetrics.NumUnits)]
+		if m.expected[i].relMetric != "" && !ok {
 			return false
 		}
 	}
