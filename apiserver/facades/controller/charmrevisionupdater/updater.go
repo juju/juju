@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -190,6 +191,11 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				series:   origin.Platform.Series,
 				arch:     origin.Platform.Architecture,
 			}
+			if telemetry {
+				cid.metrics = map[charmmetrics.MetricKey]string{
+					charmmetrics.NumUnits: strconv.Itoa(application.UnitCount()),
+				}
+			}
 			charmhubIDs = append(charmhubIDs, cid)
 			charmhubApps = append(charmhubApps, appInfo{
 				id:       application.ApplicationTag().Id(),
@@ -233,6 +239,12 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 		latest = append(latest, storeLatest...)
 	}
 	if len(charmhubIDs) > 0 {
+		if telemetry {
+			charmhubIDs, err = api.addMetricsToCharmhubInfos(charmhubIDs, charmhubApps)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		hubLatest, err := api.fetchCharmhubInfos(cfg, charmhubIDs, charmhubApps)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -241,6 +253,89 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 	}
 
 	return latest, nil
+}
+
+func (api *CharmRevisionUpdaterAPI) addMetricsToCharmhubInfos(ids []charmhubID, appInfos []appInfo) ([]charmhubID, error) {
+	relationKeys := api.state.AliveRelationKeys()
+	if len(relationKeys) == 0 {
+		return ids, nil
+	}
+	for k, v := range convertRelations(appInfos, relationKeys) {
+		for i, app := range appInfos {
+			if app.id != k {
+				continue
+			}
+			if ids[i].metrics == nil {
+				ids[i].metrics = map[charmmetrics.MetricKey]string{}
+			}
+			ids[i].metrics[charmmetrics.Relations] = strings.Join(v, ",")
+		}
+	}
+	return ids, nil
+}
+
+// convertRelations converts the list of relations by application name to charm name
+// for the metrics response.
+func convertRelations(appInfos []appInfo, relationKeys []string) map[string][]string {
+	// Map application names to its charm name.
+	appToCharm := make(map[string]string)
+	for _, v := range appInfos {
+		if v.charmURL != nil {
+			appToCharm[v.id] = v.charmURL.Name
+		}
+	}
+
+	// relationsByAppName is a map of relation providers, by application name,
+	// to a slice of requirers, by application name.
+	relationsByAppName := make(map[string][]string)
+	for _, key := range relationKeys {
+		one, two, use := relationApplicationNames(key)
+		if !use {
+			continue
+		}
+		values, _ := relationsByAppName[one]
+		values = append(values, two)
+		relationsByAppName[one] = values
+		rValues, _ := relationsByAppName[two]
+		rValues = append(rValues, one)
+		relationsByAppName[two] = rValues
+	}
+
+	// Put them together to create a map of relations, by
+	// application name, to a slice of relations, by charm name.
+	relations := make(map[string][]string)
+	for appName, appNameRels := range relationsByAppName {
+		// It is possible the same charm is deployed more than once with
+		// different names.
+		c := relations[appName]
+		relatedTo := set.NewStrings(c...)
+		// Using a set, also ensures there are no duplicates.
+		for _, v := range appNameRels {
+			relatedTo.Add(appToCharm[v])
+		}
+		relations[appName] = relatedTo.SortedValues()
+	}
+
+	return relations
+}
+
+// relationApplicationNames returns the application names in the relation.
+// Peer relations are filtered out, not needed for metrics.
+// Keys are in the format: "appName:endpoint appName:endpoint"
+func relationApplicationNames(str string) (string, string, bool) {
+	endpoints := strings.Split(str, " ")
+	if len(endpoints) != 2 {
+		return "", "", false
+	}
+	one := strings.Split(endpoints[0], ":")
+	if len(one) != 2 {
+		return "", "", false
+	}
+	two := strings.Split(endpoints[1], ":")
+	if len(two) != 2 {
+		return "", "", false
+	}
+	return one[0], two[0], true
 }
 
 func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(cfg *config.Config, ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {

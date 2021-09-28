@@ -102,6 +102,20 @@ func (mr *MockApplicationMockRecorder) CharmURL() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockApplication)(nil).CharmURL))
 }
 
+// UnitCount mocks base method.
+func (m *MockApplication) UnitCount() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitCount")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// UnitCount indicates an expected call of UnitCount.
+func (mr *MockApplicationMockRecorder) UnitCount() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitCount", reflect.TypeOf((*MockApplication)(nil).UnitCount))
+}
+
 // MockCharmhubRefreshClient is a mock of CharmhubRefreshClient interface.
 type MockCharmhubRefreshClient struct {
 	ctrl     *gomock.Controller
@@ -284,6 +298,20 @@ func (m *MockState) AddCharmPlaceholder(arg0 *charm.URL) error {
 func (mr *MockStateMockRecorder) AddCharmPlaceholder(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmPlaceholder", reflect.TypeOf((*MockState)(nil).AddCharmPlaceholder), arg0)
+}
+
+// AliveRelationKeys mocks base method.
+func (m *MockState) AliveRelationKeys() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AliveRelationKeys")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// AliveRelationKeys indicates an expected call of AliveRelationKeys.
+func (mr *MockStateMockRecorder) AliveRelationKeys() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AliveRelationKeys", reflect.TypeOf((*MockState)(nil).AliveRelationKeys))
 }
 
 // AllApplications mocks base method.
