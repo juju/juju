@@ -83,13 +83,17 @@ jobs:
           set -eux
           git clone https://github.com/juju-solutions/bundle-kubeflow.git
           cd bundle-kubeflow
+
+          # TODO: pin to this sha for now, update if we want to test newer Kubeflow.
+          git reset --hard a96fa2d
+
           git clone git://git.launchpad.net/canonical-osm
           cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
 
           sudo pip3 install -r requirements.txt -r test-requirements.txt
           sudo pip3 install tox
           python3 ./scripts/cli.py microk8s setup --test-mode --config caas-image-repo=$DOCKER_USERNAME --services ''
-          KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --bundle edge --channel stable
+          KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --build --bundle edge
 
           microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
         EOF
