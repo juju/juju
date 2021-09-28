@@ -8,7 +8,7 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
-export CGO_ENABLED=0
+export CGO_ENABLED=1
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
@@ -80,7 +80,7 @@ ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang
 else
 	COMPILE_FLAGS =
 endif
-    LINK_FLAGS = -ldflags "-s -w -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
 define DEPENDENCIES
@@ -89,6 +89,7 @@ define DEPENDENCIES
   distro-info-data
   git
   zip
+  stress
 endef
 
 default: build
@@ -123,9 +124,11 @@ run-tests:
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
-	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+	@echo 'go test -race -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) github.com/juju/juju/provider/ec2 -check.v'
+	@TMPDIR=$(TMP) go test -race -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) github.com/juju/juju/provider/ec2 -check.v
+	@echo 'succeeded... retrying for failure'
 	@rm -r $(TMP)
+	@make run-tests
 
 install: rebuild-schema go-install
 ## install: Install Juju binaries
