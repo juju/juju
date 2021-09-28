@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/dependency"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -108,7 +109,8 @@ func (r *relationer) SetDying() error {
 // die is run when the relationer has no further responsibilities; it leaves
 // relation scope, and removes relation state.
 func (r *relationer) die() error {
-	if err := r.ru.LeaveScope(); err != nil {
+	err := r.ru.LeaveScope()
+	if err != nil && !params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return errors.Annotatef(err, "leaving scope of relation %q", r.ru.Relation())
 	}
 	return r.stateMgr.RemoveRelation(r.relationId, r.unitGetter, map[string]bool{})

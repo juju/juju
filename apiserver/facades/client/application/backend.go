@@ -311,6 +311,7 @@ type RemoteApplication interface {
 	Destroy() error
 	DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation
 	Status() (status.StatusInfo, error)
+	Life() state.Life
 }
 
 func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {

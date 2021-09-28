@@ -254,6 +254,10 @@ type RemoteApplication struct {
 	// from a registration operation by a consuming model.
 	IsConsumerProxy bool `json:"is-consumer-proxy"`
 
+	// ConsumeVersion is incremented each time a new consumer
+	// proxy is created for an offer.
+	ConsumeVersion int `json:"consume-version,omitempty"`
+
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
@@ -510,6 +514,10 @@ type RegisterRemoteRelationArg struct {
 
 	// LocalEndpointName is the name of the endpoint in the local model.
 	LocalEndpointName string `json:"local-endpoint-name"`
+
+	// ConsumeVersion is incremented each time a new consumer
+	// proxy is created for an offer.
+	ConsumeVersion int `json:"consume-version,omitempty"`
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`

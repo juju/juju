@@ -68,6 +68,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -1020,6 +1021,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return true
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
+				RaftOpQueue:      queue.NewBlockingOpQueue(clock.WallClock),
 			})
 			if err != nil {
 				panic(err)

@@ -99,6 +99,8 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := reg.(*internal.GoogleContainerRegistry)
 	c.Assert(ok, jc.IsTrue)
+	err = reg.Ping()
+	c.Assert(err, jc.ErrorIsNil)
 	return reg, ctrl
 }
 

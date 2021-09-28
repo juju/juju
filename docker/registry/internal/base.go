@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/docker"
 )
 
-var logger = loggo.GetLogger("juju.docker.registry")
+var logger = loggo.GetLogger("juju.docker.registry.internal")
 
 const (
 	defaultTimeout = 15 * time.Second
@@ -86,24 +86,49 @@ func (c *baseClient) APIVersion() APIVersion {
 	return APIVersionV1
 }
 
-func (c *baseClient) WrapTransport() error {
-	transport := c.client.Transport
-	if c.repoDetails.IsPrivate() {
-		if !c.repoDetails.BasicAuthConfig.Empty() {
-			transport = newTokenTransport(
-				transport, c.repoDetails.Username, c.repoDetails.Password, c.repoDetails.Auth, "", false,
-			)
-		}
-		if !c.repoDetails.TokenAuthConfig.Empty() {
-			return errors.New(
-				fmt.Sprintf(
-					`only "username" and "password" or "auth" token authorization is supported for registry %q`,
-					c.repoDetails.ServerAddress,
-				),
-			)
+// TransportWrapper wraps RoundTripper.
+type TransportWrapper func(http.RoundTripper, *docker.ImageRepoDetails) (http.RoundTripper, error)
+
+func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
+	if !repoDetails.TokenAuthConfig.Empty() {
+		return nil, errors.New(
+			fmt.Sprintf(
+				`only {"username", "password"} or {"auth"} authorization is supported for registry %q`,
+				repoDetails.ServerAddress,
+			),
+		)
+	}
+	if !repoDetails.BasicAuthConfig.Empty() {
+		return newTokenTransport(
+			transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
+		), nil
+	}
+	return transport, nil
+}
+
+func mergeTransportWrappers(
+	transport http.RoundTripper,
+	repoDetails *docker.ImageRepoDetails,
+	wrappers ...TransportWrapper,
+) (http.RoundTripper, error) {
+	var err error
+	for _, wrap := range wrappers {
+		if transport, err = wrap(transport, repoDetails); err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
-	c.client.Transport = newErrorTransport(transport)
+	return transport, nil
+}
+
+func wrapErrorTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
+	return newErrorTransport(transport), nil
+}
+
+func (c *baseClient) WrapTransport(wrappers ...TransportWrapper) (err error) {
+	wrappers = append(wrappers, transportCommon, wrapErrorTransport)
+	if c.client.Transport, err = mergeTransportWrappers(c.client.Transport, c.repoDetails, wrappers...); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -137,7 +162,7 @@ func (c *baseClient) DecideBaseURL() error {
 	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
 }
 
-func commonURL(version APIVersion, url url.URL, pathTemplate string, args ...interface{}) string {
+func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args ...interface{}) string {
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
 	ver := version.String()
 	if !strings.HasSuffix(strings.TrimRight(url.Path, "/"), ver) {
@@ -151,7 +176,7 @@ func commonURL(version APIVersion, url url.URL, pathTemplate string, args ...int
 }
 
 func (c baseClient) url(pathTemplate string, args ...interface{}) string {
-	return commonURL(c.APIVersion(), *c.baseURL, pathTemplate, args...)
+	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
 }
 
 // Ping pings the baseClient endpoint.

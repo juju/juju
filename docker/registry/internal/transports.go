@@ -14,6 +14,9 @@ import (
 
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry/utils"
 )
 
 type basicTransport struct {
@@ -183,7 +186,7 @@ func (t *tokenTransport) authorizeRequest(req *http.Request) error {
 func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	defer func() {
 		if !t.reuseOAuthToken {
-			// We usually do not re-use the OAuth token because echo API call might have different scope.
+			// We usually do not re-use the OAuth token because each API call might have different scope.
 			// But some of the provider use long life token and there is no need to refresh.
 			t.OAuthToken = ""
 		}
@@ -232,7 +235,7 @@ func newErrorTransport(transport http.RoundTripper) http.RoundTripper {
 func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	resp, err := t.transport.RoundTrip(request)
 	if err != nil {
-		return resp, err
+		return resp, errors.Trace(err)
 	}
 	if resp.StatusCode < 400 {
 		return resp, nil
@@ -263,4 +266,26 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 		errNew = errors.Unauthorizedf
 	}
 	return nil, errNew(errMsg)
+}
+
+type privateOnlyTransport struct {
+	transport   http.RoundTripper
+	repoDetails *docker.ImageRepoDetails
+}
+
+func newPrivateOnlyTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
+	return &privateOnlyTransport{transport: transport, repoDetails: repoDetails}, nil
+}
+
+// RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
+func (t privateOnlyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if t.repoDetails.IsPrivate() {
+		resp, err := t.transport.RoundTrip(request)
+		return resp, errors.Trace(err)
+	}
+	key := t.repoDetails.ServerAddress
+	if key == "" {
+		key = t.repoDetails.Repository
+	}
+	return nil, utils.NewPublicAPINotAvailableError(key)
 }

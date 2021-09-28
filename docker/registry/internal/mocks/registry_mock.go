@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	internal "github.com/juju/juju/docker/registry/internal"
 )
 
 // MockInitializer is a mock of Initializer interface.
@@ -47,30 +48,20 @@ func (mr *MockInitializerMockRecorder) DecideBaseURL() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecideBaseURL", reflect.TypeOf((*MockInitializer)(nil).DecideBaseURL))
 }
 
-// Ping mocks base method.
-func (m *MockInitializer) Ping() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Ping")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Ping indicates an expected call of Ping.
-func (mr *MockInitializerMockRecorder) Ping() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockInitializer)(nil).Ping))
-}
-
 // WrapTransport mocks base method.
-func (m *MockInitializer) WrapTransport() error {
+func (m *MockInitializer) WrapTransport(arg0 ...internal.TransportWrapper) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WrapTransport")
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WrapTransport", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // WrapTransport indicates an expected call of WrapTransport.
-func (mr *MockInitializerMockRecorder) WrapTransport() *gomock.Call {
+func (mr *MockInitializerMockRecorder) WrapTransport(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WrapTransport", reflect.TypeOf((*MockInitializer)(nil).WrapTransport))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WrapTransport", reflect.TypeOf((*MockInitializer)(nil).WrapTransport), arg0...)
 }

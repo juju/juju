@@ -41,20 +41,21 @@ func getUserNameFromAuth(auth string) (string, error) {
 	return parts[0], nil
 }
 
-func (c *azureContainerRegistry) WrapTransport() error {
-	transport := c.client.Transport
-	if c.repoDetails.IsPrivate() && !c.repoDetails.TokenAuthConfig.Empty() {
-		username := c.repoDetails.Username
+func azureContainerRegistryTransport(
+	transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
+) (http.RoundTripper, error) {
+	if repoDetails.IsPrivate() && !repoDetails.TokenAuthConfig.Empty() {
+		username := repoDetails.Username
 		if username == "" {
 			var err error
-			username, err = getUserNameFromAuth(c.repoDetails.Auth)
+			username, err = getUserNameFromAuth(repoDetails.Auth)
 			if err != nil {
-				return errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 		}
-		password := c.repoDetails.Password
+		password := repoDetails.Password
 		if password == "" {
-			password = c.repoDetails.IdentityToken
+			password = repoDetails.IdentityToken
 		}
 		transport = newTokenTransport(
 			transport,
@@ -62,7 +63,15 @@ func (c *azureContainerRegistry) WrapTransport() error {
 			"", "", false,
 		)
 	}
-	c.client.Transport = newErrorTransport(transport)
+	return transport, nil
+}
+
+func (c *azureContainerRegistry) WrapTransport(wrappers ...TransportWrapper) (err error) {
+	if c.client.Transport, err = mergeTransportWrappers(
+		c.client.Transport, c.repoDetails, azureContainerRegistryTransport, wrapErrorTransport,
+	); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -70,6 +79,7 @@ func (c *azureContainerRegistry) WrapTransport() error {
 func (c azureContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
 	apiVersion := c.APIVersion()
 
+	// acr puts the namespace under subdomain.
 	if apiVersion == APIVersionV1 {
 		url := c.url("/repositories/%s/tags", imageName)
 		var response tagsResponseV1

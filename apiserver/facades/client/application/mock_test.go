@@ -315,6 +315,7 @@ func (m *mockApplication) MergeBindings(bindings *state.Bindings, force bool) er
 type mockRemoteApplication struct {
 	jtesting.Stub
 	name           string
+	life           state.Life
 	sourceModelTag names.ModelTag
 	endpoints      []state.Endpoint
 	bindings       map[string]string
@@ -327,6 +328,10 @@ type mockRemoteApplication struct {
 
 func (m *mockRemoteApplication) Name() string {
 	return m.name
+}
+
+func (m *mockRemoteApplication) Life() state.Life {
+	return m.life
 }
 
 func (m *mockRemoteApplication) Status() (status.StatusInfo, error) {

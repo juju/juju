@@ -24,7 +24,8 @@ type (
 )
 
 var (
-	NewErrorTransport = newErrorTransport
-	NewBasicTransport = newBasicTransport
-	NewTokenTransport = newTokenTransport
+	NewErrorTransport       = newErrorTransport
+	NewBasicTransport       = newBasicTransport
+	NewTokenTransport       = newTokenTransport
+	NewPrivateOnlyTransport = newPrivateOnlyTransport
 )

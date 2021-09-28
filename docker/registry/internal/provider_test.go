@@ -27,7 +27,6 @@ func (s *providerSuite) TestInitClient(c *gc.C) {
 	gomock.InOrder(
 		initializer.EXPECT().DecideBaseURL().Return(nil),
 		initializer.EXPECT().WrapTransport().Return(nil),
-		initializer.EXPECT().Ping().Return(nil),
 	)
 	err := internal.InitProvider(initializer)
 	c.Assert(err, jc.ErrorIsNil)

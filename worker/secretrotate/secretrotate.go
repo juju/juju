@@ -135,7 +135,7 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) rotate(now time.Time) {
-	w.config.Logger.Tracef("processing secret rotation for %q at %v", w.config.SecretOwner, now)
+	w.config.Logger.Tracef("processing secret rotation for %q at %s", w.config.SecretOwner, now)
 
 	var toRotate []string
 	for id, info := range w.secrets {
@@ -187,7 +187,7 @@ func (w *Worker) computeNextRotateTime() {
 		return
 	}
 
-	now := w.config.Clock.Now()
+	// Find the minimum (next) rotateTime from all the secrets.
 	var nextTick time.Time
 	for _, info := range w.secrets {
 		if !nextTick.IsZero() && info.rotateTime.After(nextTick) {
@@ -198,19 +198,22 @@ func (w *Worker) computeNextRotateTime() {
 
 	// Account for the worker not running when a secret
 	// should have been rotated.
+	now := w.config.Clock.Now()
 	if !nextTick.After(now) {
 		nextTick = now
 	}
 
-	if !w.nextTimeout.IsZero() && nextTick.After(w.nextTimeout) {
-		w.config.Logger.Tracef("retaining rotate time for next secret for %q: will rotate at %v", w.config.SecretOwner, w.nextTimeout)
+	// If the next secret rotation time is after or equal to the existing
+	// timeout, retain the existing timeout.
+	if !w.nextTimeout.IsZero() && !nextTick.Before(w.nextTimeout) {
+		w.config.Logger.Tracef("retaining rotate time for next secret for %q: will rotate at %s", w.config.SecretOwner, w.nextTimeout)
 		return
 	}
 
 	w.nextTimeout = nextTick
 	// A one minute granularity is acceptable for secret rotation.
 	nextDuration := w.nextTimeout.Sub(now).Round(time.Minute)
-	w.config.Logger.Debugf("next secret for %q will rotate in %v at %v", w.config.SecretOwner, nextDuration, w.nextTimeout)
+	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwner, nextDuration, w.nextTimeout)
 
 	if w.timer == nil {
 		w.timer = w.config.Clock.NewTimer(nextDuration)

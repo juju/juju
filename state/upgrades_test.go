@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -5614,6 +5615,58 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 	s.assertUpgradedData(c, EnsureCharmOriginRisk,
 		upgradedData(appColl, expected),
 	)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedCrossModelProxies(c *gc.C) {
+	ch := AddTestingCharm(c, s.state, "mysql")
+	AddTestingApplication(c, s.state, "test", ch)
+	_, err := s.state.AddUser("fred", "fred", "secret", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	sd := NewApplicationOffers(s.state)
+	offerArgs := crossmodel.AddApplicationOfferArgs{
+		OfferName:       "test",
+		ApplicationName: "test",
+		Endpoints:       map[string]string{"db": "server"},
+		Owner:           "fred",
+	}
+	offer, err := sd.AddOffer(offerArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "good",
+		SourceModel: s.state.modelTag,
+		OfferUUID:   offer.OfferUUID,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "orphaned",
+		SourceModel: s.state.modelTag,
+		OfferUUID:   "missing-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Two rounds to check idempotency.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := RemoveOrphanedCrossModelProxies(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		_, err = s.state.RemoteApplication("orphaned")
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		_, err = s.state.RemoteApplication("good")
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type docById []bson.M

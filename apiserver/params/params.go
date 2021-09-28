@@ -1044,16 +1044,14 @@ type PubSubMessage struct {
 	Data  map[string]interface{} `json:"data"`
 }
 
-// LeaseOperation is used to send raft operational messages between controllers.
-type LeaseOperation struct {
-	UUID    string `json:"uuid"`
-	Command string `json:"command"`
+// LeaseOperations is used to send raft operational messages between controllers.
+type LeaseOperations struct {
+	Operations []LeaseOperation `json:"commands"`
 }
 
-// LeaseOperationResult returns if the lease operation was successful or not.
-type LeaseOperationResult struct {
-	UUID  string `json:"uuid"`
-	Error *Error `json:"error"`
+// LeaseOperation is used to send raft operational messages between controllers.
+type LeaseOperation struct {
+	Command string `json:"command"`
 }
 
 // ExportBundleParams holds parameters for exporting Bundles.

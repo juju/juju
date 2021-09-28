@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
 )
@@ -41,6 +42,7 @@ type workerFixture struct {
 	stub                 testing.Stub
 	metricsCollector     *coreapiserver.Collector
 	multiwatcherFactory  multiwatcher.Factory
+	queue                *queue.BlockingOpQueue
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -65,6 +67,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
+	s.queue = queue.NewBlockingOpQueue(testclock.NewClock(time.Now()))
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -82,6 +85,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		UpgradeComplete:                   func() bool { return true },
 		NewServer:                         s.newServer,
 		MetricsCollector:                  s.metricsCollector,
+		RaftOpQueue:                       s.queue,
 	}
 }
 
@@ -142,6 +146,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.NewServer = nil },
 		"nil NewServer not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.RaftOpQueue = nil },
+		"nil RaftOpQueue not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

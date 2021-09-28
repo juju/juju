@@ -33,7 +33,6 @@ type Matcher interface {
 
 // Initializer provides methods for initializing the registry client.
 type Initializer interface {
-	WrapTransport() error
+	WrapTransport(...TransportWrapper) error
 	DecideBaseURL() error
-	Ping() error
 }

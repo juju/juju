@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
+	registryutils "github.com/juju/juju/docker/registry/utils"
 	"github.com/juju/juju/pki"
 )
 
@@ -861,6 +862,12 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	defer func() { _ = r.Close() }()
+
+	if err = r.Ping(); registryutils.IsPublicAPINotAvailableError(err) {
+		logger.Warningf("docker registry for %q requires authentication: %v", imageDetails.Repository, err)
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
 	return r.ImageRepoDetails().String(), nil
 }
 

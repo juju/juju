@@ -264,7 +264,7 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	var err error
 	err = rh.callbacks.CommitHook(rh.info)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "committing hook %q", rh.name)
 	}
 
 	change := stateChange{
