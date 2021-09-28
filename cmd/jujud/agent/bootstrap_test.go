@@ -301,9 +301,10 @@ func (s *BootstrapSuite) TestDashboardArchiveSuccess(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
-	if runtime.GOOS != "linux" {
+	if coreos.HostOS() != coreos.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
+
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -322,9 +323,10 @@ func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
-	if runtime.GOOS != "linux" {
+	if coreos.HostOS() != coreos.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
+
 	// Remove the local controller charm so we use the store one.
 	controllerCharmPath := filepath.Join(s.dataDir, "charms", "controller.charm")
 	err := os.Remove(controllerCharmPath)
