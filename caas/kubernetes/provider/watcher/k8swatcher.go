@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v2/catacomb"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/core/watcher"
@@ -147,7 +146,6 @@ type kubernetesStringsWatcher struct {
 	out           chan []string
 	name          string
 	informer      cache.SharedIndexInformer
-	k8watcher     watch.Interface
 	initialEvents []string
 	filterFunc    K8sStringsWatcherFilterFunc
 }
