@@ -448,19 +448,6 @@ class TestModelClient(ClientTest):
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0', '--auto-upgrade'), include_e=False)
 
-    def test_bootstrap_no_gui(self):
-        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = ModelClient(env, '2.0-zeta1', None)
-        with patch_juju_call(client) as mock:
-            with observable_temp_file() as config_file:
-                client.bootstrap(no_gui=True)
-        mock.assert_called_with(
-            'bootstrap', (
-                '--constraints', 'mem=2G',
-                'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
-                '--agent-version', '2.0', '--no-dashboard'), include_e=False)
-
     def test_bootstrap_metadata(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = ModelClient(env, '2.0-zeta1', None)

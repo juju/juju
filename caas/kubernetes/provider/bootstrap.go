@@ -5,9 +5,7 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -16,9 +14,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/proxy"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -29,7 +25,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -1361,13 +1356,6 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		featureFlags = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
-		dashboardCmd, err := c.setUpDashboardCommand()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if dashboardCmd != "" {
-			pushCmd(dashboardCmd)
-		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
 			"%s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
@@ -1403,60 +1391,4 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	}
 	statefulset.Spec.Template.Spec.Containers = containers
 	return nil
-}
-
-func (c *controllerStack) setUpDashboardCommand() (string, error) {
-	if c.pcfg.Bootstrap.Dashboard == nil {
-		return "", nil
-	}
-	var dashboardCmds []string
-	u, err := url.Parse(c.pcfg.Bootstrap.Dashboard.URL)
-	if err != nil {
-		return "", errors.Annotate(err, "cannot parse Juju Dashboard URL")
-	}
-	dashboardJson, err := json.Marshal(c.pcfg.Bootstrap.Dashboard)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	dashboardDir := agenttools.SharedDashboardDir(c.pcfg.DataDir)
-	dashboardCmds = append(dashboardCmds,
-		"echo Installing Dashboard...",
-		"export dashboard="+utils.ShQuote(dashboardDir),
-		"mkdir -p $dashboard",
-	)
-	// Download the Dashboard from simplestreams.
-	command := "curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10"
-	if c.pcfg.DisableSSLHostnameVerification {
-		command += " --insecure"
-	}
-
-	curlProxyArgs := formatCurlProxyArguments(u.String(), c.pcfg.ProxySettings)
-	command += curlProxyArgs
-	command += " " + utils.ShQuote(u.String())
-	// A failure in fetching the Juju Dashboard archive should not prevent the
-	// model to be bootstrapped. Better no Dashboard than no Juju at all.
-	command += " || echo Unable to retrieve Juju Dashboard"
-	dashboardCmds = append(dashboardCmds, command)
-	dashboardCmds = append(dashboardCmds,
-		"[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256",
-		fmt.Sprintf(
-			`[ -f $dashboard/jujudashboard.sha256 ] && (grep '%s' $dashboard/jujudashboard.sha256 && printf %%s %s > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)`,
-			c.pcfg.Bootstrap.Dashboard.SHA256, utils.ShQuote(string(dashboardJson))),
-	)
-	return strings.Join(dashboardCmds, "\n"), nil
-}
-
-func formatCurlProxyArguments(dashboardURL string, proxySettings proxy.Settings) (proxyArgs string) {
-	if strings.HasPrefix(dashboardURL, "http://") && proxySettings.Http != "" {
-		proxyUrl := proxySettings.Http
-		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
-	} else if strings.HasPrefix(dashboardURL, "https://") && proxySettings.Https != "" {
-		proxyUrl := proxySettings.Https
-		// curl automatically uses HTTP CONNECT for URLs containing HTTPS
-		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
-	}
-	if proxySettings.NoProxy != "" {
-		proxyArgs += fmt.Sprintf(" --noproxy %s", proxySettings.NoProxy)
-	}
-	return
 }

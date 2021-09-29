@@ -865,7 +865,7 @@ class ModelClient:
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             arch=None, credential=None, auto_upgrade=False,
-            metadata_source=None, no_gui=False, agent_version=None,
+            metadata_source=None, agent_version=None,
             db_snap_path=None, db_snap_asserts_path=None, force=False,
             config_options=None):
         """Return the bootstrap arguments for the substrate."""
@@ -906,8 +906,6 @@ class ModelClient:
             args.append('--auto-upgrade')
         if self.env.bootstrap_to is not None:
             args.extend(['--to', self.env.bootstrap_to])
-        if no_gui:
-            args.append('--no-dashboard')
         if db_snap_path and db_snap_asserts_path:
             args.extend(['--db-snap', db_snap_path,
                          '--db-snap-asserts', db_snap_asserts_path])
@@ -1010,7 +1008,7 @@ class ModelClient:
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None, arch=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
-                  no_gui=False, agent_version=None, db_snap_path=None,
+                  agent_version=None, db_snap_path=None,
                   db_snap_asserts_path=None, mongo_memory_profile=None,
                   caas_image_repo=None, force=False, db_snap_channel=None,
                   config_options=None):
@@ -1027,7 +1025,6 @@ class ModelClient:
                 credential=credential,
                 auto_upgrade=auto_upgrade,
                 metadata_source=metadata_source,
-                no_gui=no_gui,
                 agent_version=agent_version,
                 db_snap_path=db_snap_path,
                 db_snap_asserts_path=db_snap_asserts_path,
@@ -1041,8 +1038,7 @@ class ModelClient:
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
-                        auto_upgrade=False, metadata_source=None,
-                        no_gui=False):
+                        auto_upgrade=False, metadata_source=None):
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
@@ -1052,7 +1048,6 @@ class ModelClient:
                 credential=None,
                 auto_upgrade=auto_upgrade,
                 metadata_source=metadata_source,
-                no_gui=no_gui,
             )
             self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):

@@ -296,7 +296,7 @@ def machine_spaces_for_bundle(bundle):
 
 def bootstrap_and_test(bootstrap_manager, bundle_path, machine):
     shutil.copy(bundle_path, bootstrap_manager.log_dir)
-    with bootstrap_manager.booted_context(False, no_gui=True):
+    with bootstrap_manager.booted_context(False):
         client = bootstrap_manager.client
         log.info("Deploying bundle.")
         client.deploy(bundle_path)

@@ -7,7 +7,6 @@ package cloudconfig_test
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -165,17 +164,6 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	cfg.MachineAgentServiceName = fmt.Sprintf("jujud-%s", names.NewMachineTag(id).String())
 	if cfg.APIInfo != nil {
 		cfg.APIInfo.Tag = names.NewMachineTag(id)
-	}
-	return cfg
-}
-
-// setDashboard populates the configuration with the Juju Dashboard tools.
-func (cfg *testInstanceConfig) setDashboard(url string) *testInstanceConfig {
-	cfg.Bootstrap.Dashboard = &tools.DashboardArchive{
-		URL:     url,
-		Version: version.MustParse("1.2.3"),
-		Size:    42,
-		SHA256:  "1234",
 	}
 	return cfg
 }
@@ -707,52 +695,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		needCloudArchive := testConfig.Series == "precise"
 		checkAptSource(c, configKeyValues, source, pacconf.UbuntuCloudArchiveSigningKey, needCloudArchive)
 	}
-}
-
-func (*cloudinitSuite) TestCloudInitWithLocalDashboard(c *gc.C) {
-	dashboardPath := path.Join(c.MkDir(), "dashboard.tar.bz2")
-	content := []byte("content")
-	err := ioutil.WriteFile(dashboardPath, content, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := makeBootstrapConfig("precise", 0).setDashboard("file://" + filepath.ToSlash(dashboardPath))
-	dashboardJson, err := json.Marshal(cfg.Bootstrap.Dashboard)
-	c.Assert(err, jc.ErrorIsNil)
-	base64Content := base64.StdEncoding.EncodeToString(content)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`dashboard='/var/lib/juju/dashboard'
-mkdir -p $dashboard
-install -D -m 644 /dev/null '/var/lib/juju/dashboard/dashboard.tar.bz2'
-printf %%s %s | base64 -d > '/var/lib/juju/dashboard/dashboard.tar.bz2'
-[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256
-[ -f $dashboard/jujudashboard.sha256 ] && (grep '1234' $dashboard/jujudashboard.sha256 && printf %%s '%s' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
-rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt
-`, base64Content, dashboardJson))
-	checkCloudInitWithContent(c, cfg, expectedScripts, "")
-}
-
-func (*cloudinitSuite) TestCloudInitWithRemoteDashboard(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setDashboard("https://1.2.3.4/dashboard.tar.bz2")
-	dashboardJson, err := json.Marshal(cfg.Bootstrap.Dashboard)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`dashboard='/var/lib/juju/dashboard'
-mkdir -p $dashboard
-curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10 'https://1.2.3.4/dashboard.tar.bz2' || echo Unable to retrieve Juju Dashboard
-[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256
-[ -f $dashboard/jujudashboard.sha256 ] && (grep '1234' $dashboard/jujudashboard.sha256 && printf %%s '%s' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
-rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt
-`, dashboardJson))
-	checkCloudInitWithContent(c, cfg, expectedScripts, "")
-}
-
-func (*cloudinitSuite) TestCloudInitWithDashboardReadError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setDashboard("file:///no/such/dashboard.tar.bz2")
-	expectedError := "cannot set up Juju Dashboard: cannot read Juju Dashboard archive: .*"
-	checkCloudInitWithContent(c, cfg, "", expectedError)
-}
-
-func (*cloudinitSuite) TestCloudInitWithDashboardURLError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setDashboard(":")
-	expectedError := "cannot set up Juju Dashboard: cannot parse Juju Dashboard URL: .*"
-	checkCloudInitWithContent(c, cfg, "", expectedError)
 }
 
 func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {

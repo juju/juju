@@ -38,12 +38,6 @@ func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
 	}}, nil
 }
 
-// DashboardStorage returns a new binarystorage.StorageCloser that stores Dashboard archive
-// metadata in the "juju" database "guimetadata" collection.
-func (st *State) DashboardStorage() (binarystorage.StorageCloser, error) {
-	return newBinaryStorageCloser(st.database, guimetadataC, st.ControllerModelUUID()), nil
-}
-
 func newBinaryStorageCloser(db Database, collectionName, uuid string) binarystorage.StorageCloser {
 	db, closer1 := db.CopyForModel(uuid)
 	metadataCollection, closer2 := db.GetCollection(collectionName)

@@ -24,11 +24,6 @@ var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = maxClientPingInterval
 	NewBackups            = &newBackups
-	BZMimeType            = bzMimeType
-	JSMimeType            = jsMimeType
-	SpritePath            = spritePath
-
-	DashboardURLPathPrefix = dashboardURLPathPrefix
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {

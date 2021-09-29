@@ -94,7 +94,6 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"image-stream":           "released",
 			"agent-stream":           "released",
-			"dashboard-stream":       "released",
 			"container-image-stream": "daily",
 		}),
 	}, {
@@ -363,12 +362,6 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"agent-stream": "proposed",
-		}),
-	}, {
-		about:       "explicit dashboard stream",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"dashboard-stream": "devel",
 		}),
 	}, {
 		about:       "Invalid logging configuration",

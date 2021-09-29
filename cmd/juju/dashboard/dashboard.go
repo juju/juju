@@ -16,17 +16,16 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/version/v2"
 	"github.com/juju/webbrowser"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/proxy"
 )
+
+// TODO(wallyworld) - this command needs to be updated to work with the dashboard charm
 
 // NewDashboardCommand creates and returns a new dashboard command.
 func NewDashboardCommand() cmd.Command {
@@ -39,8 +38,6 @@ type dashboardCommand struct {
 
 	hideCreds bool
 	browser   bool
-
-	getDashboardVersions func(connection api.Connection) ([]params.DashboardArchiveVersion, error)
 }
 
 const dashboardDoc = `
@@ -79,14 +76,6 @@ func (c *dashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju Dashboard URL")
 }
 
-func (c *dashboardCommand) dashboardVersions(conn api.Connection) ([]params.DashboardArchiveVersion, error) {
-	if c.getDashboardVersions == nil {
-		client := controller.NewClient(conn)
-		return client.DashboardArchives()
-	}
-	return c.getDashboardVersions(conn)
-}
-
 // Run implements the cmd.Command interface.
 func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	// Retrieve model details.
@@ -113,21 +102,8 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Get the Dashboard version to print.
-	versions, err := c.dashboardVersions(conn)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var vers *version.Number
-	for _, v := range versions {
-		if v.Current {
-			vers = &v.Version
-			break
-		}
-	}
-
 	// Open the Juju Dashboard in the browser.
-	if err = c.openBrowser(ctx, "Dashboard", dashboardURL, vers); err != nil {
+	if err = c.openBrowser(ctx, "Dashboard", dashboardURL); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -224,21 +200,17 @@ func (c *dashboardCommand) checkAvailable(conn api.Connection, ignoreCertError b
 }
 
 // openBrowser opens the Juju Dashboard at the given URL.
-func (c *dashboardCommand) openBrowser(ctx *cmd.Context, label, rawURL string, vers *version.Number) error {
+func (c *dashboardCommand) openBrowser(ctx *cmd.Context, label, rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return errors.Annotatef(err, "cannot parse Juju %s URL", label)
 	}
 	if !c.browser {
-		versInfo := ""
-		if vers != nil {
-			versInfo = fmt.Sprintf("%v", vers)
-		}
 		controllerName, err := c.ControllerName()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		ctx.Infof("%s %s for controller %q is enabled at:\n  %s", label, versInfo, controllerName, u.String())
+		ctx.Infof("%s for controller %q is enabled at:\n  %s", label, controllerName, u.String())
 		return nil
 	}
 	err = webbrowserOpen(u)

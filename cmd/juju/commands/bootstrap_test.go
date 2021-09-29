@@ -36,17 +36,14 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/sync"
@@ -156,33 +153,10 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
 }
 
-// bootstrapCommandWrapper wraps the bootstrap command. The wrapped command has
-// the ability to disable fetching Dashboard information from simplestreams, so that
-// it is possible to test the bootstrap process without connecting to the
-// network. This ability can be turned on by setting disableDashboard to true.
-type bootstrapCommandWrapper struct {
-	bootstrapCommand
-	disableDashboard bool
-}
-
-func (c *bootstrapCommandWrapper) Run(ctx *cmd.Context) error {
-	if c.disableDashboard {
-		c.bootstrapCommand.noDashboard = true
-	}
-	return c.bootstrapCommand.Run(ctx)
-}
-
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
-	return s.newBootstrapCommandWrapper(true)
-}
-
-func (s *BootstrapSuite) newBootstrapCommandWrapper(disableDashboard bool) cmd.Command {
-	c := &bootstrapCommandWrapper{
-		bootstrapCommand: s.bootstrapCmd,
-		disableDashboard: disableDashboard,
-	}
+	c := s.bootstrapCmd
 	c.SetClientStore(s.store)
-	return modelcmd.Wrap(c)
+	return modelcmd.Wrap(&c)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
@@ -980,49 +954,6 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidStoragePool(c *gc.C) {
 		"--storage-pool", "foo=bar",
 	)
 	c.Assert(err, gc.ErrorMatches, `invalid storage provider config: storage provider "invalid" not found`)
-}
-
-func (s *BootstrapSuite) TestBootstrapWithDashboard(c *gc.C) {
-	s.patchVersionAndSeries(c, "xenial")
-	var bootstrapFuncs fakeBootstrapFuncs
-
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, dashboard.DefaultBaseURL)
-}
-
-func (s *BootstrapSuite) TestBootstrapWithCustomizedDashboard(c *gc.C) {
-	s.patchVersionAndSeries(c, "xenial")
-	s.PatchEnvironment("JUJU_DASHBOARD_SIMPLESTREAMS_URL", "https://1.2.3.4/dashboard/streams")
-
-	var bootstrapFuncs fakeBootstrapFuncs
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, "https://1.2.3.4/dashboard/streams")
-}
-
-func (s *BootstrapSuite) TestBootstrapWithoutDashboard(c *gc.C) {
-	s.patchVersionAndSeries(c, "xenial")
-	var bootstrapFuncs fakeBootstrapFuncs
-
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller", "--no-dashboard")
-	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, "")
-}
-
-type mockBootstrapInstance struct {
-	instances.Instance
-}
-
-func (*mockBootstrapInstance) Addresses() ([]network.SpaceAddress, error) {
-	return []network.SpaceAddress{{MachineAddress: network.MachineAddress{Value: "localhost"}}}, nil
 }
 
 // In the case where we cannot examine the client store, we want the
@@ -2028,10 +1959,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
 	}
 
-	command := &bootstrapCommandWrapper{
-		bootstrapCommand: s.bootstrapCmd,
-		disableDashboard: true,
-	}
+	command := s.bootstrapCmd
 	command.SetClientStore(store)
 
 	var logWriter loggo.TestWriter
@@ -2042,7 +1970,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 		logWriter.Clear()
 	}()
 
-	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(command), "--clouds")
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(&command), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.

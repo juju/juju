@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -544,14 +545,9 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 }
 
 // ControllerAPIURL returns the URL to use to connect to the controller API.
-func ControllerAPIURL(addr string) string {
-	urlStr, _ := url.QueryUnescape(apiURL(addr, "").String())
-	return urlStr
-}
-
-// ModelAPITemplateURL returns a URL template to use to connect to a model API.
-func ModelAPITemplateURL(addr string) string {
-	urlStr, _ := url.QueryUnescape(apiURL(addr, "${modelUUID}").String())
+func ControllerAPIURL(addr string, port int) string {
+	hp := net.JoinHostPort(addr, strconv.Itoa(port))
+	urlStr, _ := url.QueryUnescape(apiURL(hp, "").String())
 	return urlStr
 }
 

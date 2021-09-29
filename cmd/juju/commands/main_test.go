@@ -486,7 +486,6 @@ var commandNames = []string{
 	"update-storage-pool",
 	"upgrade-charm",
 	"upgrade-controller",
-	"upgrade-dashboard",
 	"upgrade-juju",
 	"upgrade-model",
 	"upgrade-series",

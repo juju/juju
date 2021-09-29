@@ -13,7 +13,6 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
@@ -44,7 +43,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -333,12 +331,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
-	s.pcfg.Bootstrap.Dashboard = &tools.DashboardArchive{
-		URL:     "http://dashboard-url",
-		Version: version.MustParse("6.6.6"),
-		SHA256:  "deadbeef",
-		Size:    999,
-	}
 	s.pcfg.Bootstrap.IgnoreProxy = true
 
 	controllerStacker := s.controllerStackerGetter()
@@ -711,12 +703,6 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
-echo Installing Dashboard...
-export dashboard='/var/lib/juju/dashboard'
-mkdir -p $dashboard
-curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10 'http://dashboard-url' || echo Unable to retrieve Juju Dashboard
-[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256
-[ -f $dashboard/jujudashboard.sha256 ] && (grep 'deadbeef' $dashboard/jujudashboard.sha256 && printf %s '{"version":"6.6.6","url":"http://dashboard-url","sha256":"deadbeef","size":999}' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
 test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
 JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
 `[1:],
@@ -1050,12 +1036,6 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
-	s.pcfg.Bootstrap.Dashboard = &tools.DashboardArchive{
-		URL:     "http://gui-url",
-		Version: version.MustParse("6.6.6"),
-		SHA256:  "deadbeef",
-		Size:    999,
-	}
 	s.pcfg.Bootstrap.IgnoreProxy = true
 
 	controllerStacker := s.controllerStackerGetter()

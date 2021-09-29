@@ -262,7 +262,6 @@ func AllFacades() *facade.Registry {
 	reg("MigrationMinion", 1, migrationminion.NewFacade)
 	reg("MigrationTarget", 1, migrationtarget.NewFacade)
 
-	reg("ModelConfig", 1, modelconfig.NewFacadeV1)
 	reg("ModelConfig", 2, modelconfig.NewFacadeV2)
 	reg("ModelGeneration", 1, modelgeneration.NewModelGenerationFacade)
 	reg("ModelGeneration", 2, modelgeneration.NewModelGenerationFacadeV2)

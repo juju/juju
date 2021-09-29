@@ -208,9 +208,6 @@ type ControllerConfig struct {
 type BootstrapConfig struct {
 	StateInitializationParams
 
-	// Dashboard is the Juju Dashboard archive to be installed in the new instance.
-	Dashboard *coretools.DashboardArchive
-
 	// ControllerCharm is a local controller charm to be used.
 	ControllerCharm string
 
@@ -506,11 +503,6 @@ func (cfg *InstanceConfig) SnapDir() string {
 // CharmDir returns the directory where system charms should be uploaded to.
 func (cfg *InstanceConfig) CharmDir() string {
 	return path.Join(cfg.DataDir, "charms")
-}
-
-// DashboardDir returns the directory where the Juju Dashboard release is stored.
-func (cfg *InstanceConfig) DashboardDir() string {
-	return agenttools.SharedDashboardDir(cfg.DataDir)
 }
 
 func (cfg *InstanceConfig) APIHostAddrs() []string {

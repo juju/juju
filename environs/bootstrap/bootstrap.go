@@ -4,9 +4,7 @@
 package bootstrap
 
 import (
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -31,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -141,11 +138,6 @@ type BootstrapParams struct {
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
-
-	// DashboardDataSourceBaseURL holds the simplestreams data source base URL
-	// used to retrieve the Juju Dashboard archive installed in the controller.
-	// If not set, the Juju Dashboard is not installed from simplestreams.
-	DashboardDataSourceBaseURL string
 
 	// AdminSecret contains the administrator password.
 	AdminSecret string
@@ -728,11 +720,6 @@ func finalizeInstanceBootstrapConfig(
 		PrivateKey:   string(key),
 		CAPrivateKey: args.CAPrivateKey,
 	}
-	vers, ok := cfg.AgentVersion()
-	if !ok {
-		return errors.New("controller model configuration has no agent-version")
-	}
-
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
@@ -746,9 +733,6 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	icfg.Bootstrap.StoragePools = args.StoragePools
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
-	icfg.Bootstrap.Dashboard = dashboardArchive(args.DashboardDataSourceBaseURL, cfg.DashboardStream(), vers.Major, vers.Minor, true, func(msg string) {
-		ctx.Infof(msg)
-	})
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
 	icfg.Bootstrap.JujuDbSnapAssertionsPath = args.JujuDbSnapAssertionsPath
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
@@ -815,11 +799,6 @@ func finalizePodBootstrapConfig(
 		pcfg.AgentEnvironment[k] = v
 	}
 
-	vers, ok := cfg.AgentVersion()
-	if !ok {
-		return errors.New("controller model configuration has no agent-version")
-	}
-
 	pcfg.Bootstrap.ControllerModelConfig = cfg
 	pcfg.Bootstrap.ControllerCloud = args.Cloud
 	pcfg.Bootstrap.ControllerCloudRegion = args.CloudRegion
@@ -833,9 +812,6 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
 	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
-	pcfg.Bootstrap.Dashboard = dashboardArchive(args.DashboardDataSourceBaseURL, cfg.DashboardStream(), vers.Major, vers.Minor, false, func(msg string) {
-		ctx.Infof(msg)
-	})
 	return nil
 }
 
@@ -1101,101 +1077,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 	return existingMetadata, nil
 }
 
-// dashboardArchive returns information on the Dashboard archive that will be uploaded
-// to the controller. Possible errors in retrieving the Dashboard archive information
-// do not prevent the model to be bootstrapped. If dataSourceBaseURL is
-// non-empty, remote Dashboard archive info is retrieved from simplestreams using it
-// as the base URL. The given logProgress function is used to inform users
-// about errors or progress in setting up the Juju Dashboard.
-func dashboardArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal bool, logProgress func(string)) *coretools.DashboardArchive {
-	// The environment variable is only used for development purposes.
-	path := os.Getenv("JUJU_DASHBOARD")
-	if path != "" && !allowLocal {
-		// TODO(wallyworld) - support local archive on k8s controllers at bootstrap
-		// It can't be passed the same way as on IAAS as it's too large.
-		logProgress("Dashboard from local archive on bootstrap not supported")
-	} else if path != "" {
-		vers, err := dashboardVersion(path)
-		if err != nil {
-			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))
-			return nil
-		}
-		hash, size, err := hashAndSize(path)
-		if err != nil {
-			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))
-			return nil
-		}
-		logProgress(fmt.Sprintf("Fetching Juju Dashboard %s from local archive", vers))
-		return &coretools.DashboardArchive{
-			Version: vers,
-			URL:     "file://" + filepath.ToSlash(path),
-			SHA256:  hash,
-			Size:    size,
-		}
-	}
-	// Check if the user requested to bootstrap with no Dashboard.
-	if dataSourceBaseURL == "" {
-		logProgress("Juju Dashboard installation has been disabled")
-		return nil
-	}
-	// Fetch Dashboard archives info from simplestreams.
-	source := dashboard.NewDataSource(dataSourceBaseURL)
-	allMeta, err := dashboardFetchMetadata(stream, major, minor, source)
-	if err != nil {
-		logProgress(fmt.Sprintf("Unable to fetch Juju Dashboard info: %s", err))
-		return nil
-	}
-	if len(allMeta) == 0 {
-		logProgress("No available Juju Dashboard archives found")
-		return nil
-	}
-	// Metadata info are returned in descending version order.
-	logProgress(fmt.Sprintf("Fetching Juju Dashboard %s", allMeta[0].Version))
-	return &coretools.DashboardArchive{
-		Version: allMeta[0].Version,
-		URL:     allMeta[0].FullPath,
-		SHA256:  allMeta[0].SHA256,
-		Size:    allMeta[0].Size,
-	}
-}
-
-// dashboardFetchMetadata is defined for testing purposes.
-var dashboardFetchMetadata = dashboard.FetchMetadata
-
-// dashboardVersion retrieves the Dashboard version from the juju-dashboard-* directory included
-// in the bz2 archive at the given path.
-func dashboardVersion(path string) (version.Number, error) {
-	var number version.Number
-	f, err := os.Open(path)
-	if err != nil {
-		return number, errors.Annotate(err, "cannot open Juju Dashboard archive")
-	}
-	defer f.Close()
-	return dashboard.DashboardArchiveVersion(f)
-}
-
-// hashAndSize calculates and returns the SHA256 hash and the size of the file
-// located at the given path.
-func hashAndSize(path string) (hash string, size int64, err error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", 0, errors.Mask(err)
-	}
-	defer f.Close()
-	h := sha256.New()
-	size, err = io.Copy(h, f)
-	if err != nil {
-		return "", 0, errors.Mask(err)
-	}
-	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
-}
-
 // Cancelled returns an error that satisfies IsCancelled.
 func Cancelled() error {
 	return errCancelled
-}
-
-// IsCancelled reports whether err is a "bootstrap cancelled" error.
-func IsCancelled(err error) bool {
-	return errors.Cause(err) == errCancelled
 }
