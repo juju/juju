@@ -2241,6 +2241,25 @@ func (st *State) AllRelations() (relations []*Relation, err error) {
 	return
 }
 
+// AliveRelationKeys returns the relation keys of all live relations in
+// the model.  Used in charmhub metrics collection.
+func (st *State) AliveRelationKeys() []string {
+	relationsCollection, closer := st.db().GetCollection(relationsC)
+	defer closer()
+	var doc struct {
+		Key string `bson:"key"`
+	}
+
+	var keys []string
+	iter := relationsCollection.Find(isAliveDoc).Iter()
+	defer func() { _ = iter.Close() }()
+	for iter.Next(&doc) {
+		key := doc.Key
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
 // what is going on at runtime.
 func (st *State) Report() map[string]interface{} {
