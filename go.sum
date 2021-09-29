@@ -411,8 +411,8 @@ github.com/juju/charm/v9 v9.0.0-20210421060150-6a300db18162/go.mod h1:GR/jjdIQ0V
 github.com/juju/charm/v9 v9.0.0-20210427070932-bc9b40c9b0f4/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
 github.com/juju/charm/v9 v9.0.0-20210922083844-6bd7c961dbc6 h1:uUQ8sqZ2k589pD6DH3cLYVsFoveN6NTQ9GsAG+SObSU=
 github.com/juju/charm/v9 v9.0.0-20210922083844-6bd7c961dbc6/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
-github.com/juju/charmrepo/v7 v7.0.0-20210901102801-513fb9274dae h1:TSnFigLC+7oV40UoyVjadtusvavzImpMl35kvAedFCg=
-github.com/juju/charmrepo/v7 v7.0.0-20210901102801-513fb9274dae/go.mod h1:wvP5voVa8s9ap6FSwenJmxw2g5cf8aSgjE8N8LOEwKc=
+github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf h1:S+O2G9PIha/4mNy18ZASYyyU++pDDlI6c8iTCuoYRII=
+github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf/go.mod h1:wvP5voVa8s9ap6FSwenJmxw2g5cf8aSgjE8N8LOEwKc=
 github.com/juju/clock v0.0.0-20180524022203-d293bb356ca4/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
 github.com/juju/clock v0.0.0-20180808021310-bab88fc67299/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
 github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c h1:3UvYABOQRhJAApj9MdCN+Ydv841ETSoy6xLzdmmr/9A=
@@ -454,7 +454,6 @@ github.com/juju/http v0.0.0-20201019013536-69ae1d429836 h1:F+KhYWcKHSUf/R7Ovoz+s
 github.com/juju/http v0.0.0-20201019013536-69ae1d429836/go.mod h1:lbZ9zbaOw9vMW7XMHGxYTgFadDDfzc4r8Aa7gP8GOYo=
 github.com/juju/http/v2 v2.0.0-20210623153641-418e83b0dab4 h1:rG3LBPCjMbyJS49DmiTG3tn/taVkaDiN898aDf+6fdk=
 github.com/juju/http/v2 v2.0.0-20210623153641-418e83b0dab4/go.mod h1:1cSFAPYQcBMP3uzXzAkTrX756GmMM/Dw0WxcnhNNntc=
-github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 h1:COsaGcfAONDdIDnGS8yFdxOyReP7zKQEr7jFzCHKDkM=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
 github.com/juju/httprequest v1.0.1/go.mod h1:K+CyYVHU/NcfbMpK7YIVobh4U4Fci3EUB2AqIRtl+xs=
 github.com/juju/idmclient v0.0.0-20161107140250-fb1dc7175251 h1:BtpU10VkuUbEbsfttDqkHfaZGboeHTgQ3nqA5CRdwsY=

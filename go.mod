@@ -49,7 +49,7 @@ require (
 	github.com/juju/ansiterm v0.0.0-20210706145210-9283cdf370b5
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/charm/v9 v9.0.0-20210922083844-6bd7c961dbc6
-	github.com/juju/charmrepo/v7 v7.0.0-20210901102801-513fb9274dae
+	github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
@@ -139,7 +139,10 @@ require (
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
-require github.com/aws/aws-sdk-go v1.40.46
+require (
+	github.com/aws/aws-sdk-go v1.40.46
+	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
+)
 
 require (
 	cloud.google.com/go v0.56.0 // indirect
@@ -176,7 +179,6 @@ require (
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
-	github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a // indirect
 	github.com/juju/usso v1.0.1 // indirect
@@ -213,7 +215,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be // indirect
 	gopkg.in/macaroon-bakery.v2 v2.3.0 // indirect
-	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.0.1 // indirect
