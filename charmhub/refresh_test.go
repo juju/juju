@@ -381,8 +381,8 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 			},
 			TrackingChannel: "latest/stable",
 			Metrics: map[string]string{
-				"provider":         "openstack",
-				"num-applications": "4",
+				"provider":     "openstack",
+				"applications": "4",
 			},
 		}},
 		Actions: []transport.RefreshRequestAction{{
