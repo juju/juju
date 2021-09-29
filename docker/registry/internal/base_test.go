@@ -133,7 +133,7 @@ func (s *baseSuite) TestInvalidAuth(c *gc.C) {
 		ServerAddress: "example.com",
 	}
 	s.imageRepoDetails.TokenAuthConfig = docker.TokenAuthConfig{
-		RegistryToken: `xxxxx==`,
+		RegistryToken: &docker.Token{Value: `xxxxx==`},
 	}
 
 	_, err := registry.New(s.imageRepoDetails)

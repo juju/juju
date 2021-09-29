@@ -146,8 +146,8 @@ func (c *Client) OperatorProvisioningInfo(applicationName string) (OperatorProvi
 				Auth:     info.ImageDetails.Auth,
 			},
 			TokenAuthConfig: docker.TokenAuthConfig{
-				IdentityToken: info.ImageDetails.IdentityToken,
-				RegistryToken: info.ImageDetails.RegistryToken,
+				IdentityToken: docker.NewToken(info.ImageDetails.IdentityToken),
+				RegistryToken: docker.NewToken(info.ImageDetails.RegistryToken),
 				Email:         info.ImageDetails.Email,
 			},
 		},

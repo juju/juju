@@ -20,6 +20,28 @@ import (
 
 var logger = loggo.GetLogger("juju.docker")
 
+// Token defines a token value with expiration time.
+type Token struct {
+	// Value is the value of the token.
+	Value string `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// ExpiresAt is the unix time in seconds and milliseconds when the authorization token expires.
+	ExpiresAt *time.Time `json:"expires-at,omitempty" yaml:"expires-at,omitempty"`
+}
+
+// NewToken creates a Token.
+func NewToken(value string) *Token {
+	if value == "" {
+		return nil
+	}
+	return &Token{Value: value}
+}
+
+// Empty checks if the auth information is empty.
+func (t Token) Empty() bool {
+	return t.Value == ""
+}
+
 // TokenAuthConfig contains authorization information for token auth.
 // Juju does not support the docker credential helper because k8s does not support it either.
 // https://kubernetes.io/docs/concepts/containers/images/#configuring-nodes-to-authenticate-to-a-private-registry
@@ -28,15 +50,21 @@ type TokenAuthConfig struct {
 
 	// IdentityToken is used to authenticate the user and get
 	// an access token for the registry.
-	IdentityToken string `json:"identitytoken,omitempty" yaml:"identitytoken,omitempty"`
+	IdentityToken *Token `json:"identitytoken,omitempty" yaml:"identitytoken,omitempty"`
 
 	// RegistryToken is a bearer token to be sent to a registry
-	RegistryToken string `json:"registrytoken,omitempty" yaml:"registrytoken,omitempty"`
+	RegistryToken *Token `json:"registrytoken,omitempty" yaml:"registrytoken,omitempty"`
 }
 
 // Empty checks if the auth information is empty.
 func (ac TokenAuthConfig) Empty() bool {
-	return ac.IdentityToken == "" && ac.RegistryToken == ""
+	if ac.IdentityToken != nil && ac.IdentityToken.Value != "" {
+		return false
+	}
+	if ac.RegistryToken != nil && ac.RegistryToken.Value != "" {
+		return false
+	}
+	return true
 }
 
 // Validate validates the spec.
@@ -93,9 +121,6 @@ type ImageRepoDetails struct {
 
 	// Region is the cloud region.
 	Region string `json:"region,omitempty" yaml:"region,omitempty"`
-
-	// ExpiresAt is the unix time in seconds and milliseconds when the authorization token expires.
-	ExpiresAt *time.Time `json:"expires-at,omitempty" yaml:"expires-at,omitempty"`
 }
 
 // AuthEqual compares if the provided one equals to current repository detail.

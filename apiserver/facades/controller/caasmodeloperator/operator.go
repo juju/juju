@@ -95,13 +95,17 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 
 	imageRepo := controllerConf.CAASImageRepo()
 	imageInfo := params.DockerImageInfo{
-		Username:      imageRepo.Username,
-		Password:      imageRepo.Password,
-		Auth:          imageRepo.Auth,
-		IdentityToken: imageRepo.IdentityToken,
-		RegistryToken: imageRepo.RegistryToken,
-		Email:         imageRepo.Email,
-		Repository:    imageRepo.Repository,
+		Username:   imageRepo.Username,
+		Password:   imageRepo.Password,
+		Auth:       imageRepo.Auth,
+		Email:      imageRepo.Email,
+		Repository: imageRepo.Repository,
+	}
+	if imageRepo.IdentityToken != nil {
+		imageInfo.IdentityToken = imageRepo.IdentityToken.Value
+	}
+	if imageRepo.RegistryToken != nil {
+		imageInfo.RegistryToken = imageRepo.RegistryToken.Value
 	}
 	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(controllerConf,
 		vers.ToPatch(), version.OfficialBuild); err != nil {

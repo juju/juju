@@ -22,6 +22,10 @@ import (
 	"github.com/juju/juju/tools"
 )
 
+// The ECR auth token expires after 12 hours.
+// We refresh the token 5 mins before it's expired.
+const advanceExpiry = 5 * time.Minute
+
 // TODO: implement token refresh feature and integrate it into the caasmodelconfigmanager worker!!
 // Because the token used for image pulling has to be refreshed every 12hrs.
 // https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry_auth.html
@@ -114,10 +118,14 @@ func refreshTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetail
 	}
 	if len(result.AuthorizationData) > 0 {
 		data := result.AuthorizationData[0]
-		repoDetails.Auth = aws.ToString(data.AuthorizationToken)
-		repoDetails.ExpiresAt = data.ExpiresAt
+		if data.AuthorizationToken != nil {
+			repoDetails.IdentityToken = &docker.Token{
+				Value:     aws.ToString(data.AuthorizationToken),
+				ExpiresAt: data.ExpiresAt,
+			}
+		}
 	}
-	if repoDetails.Auth == "" {
+	if repoDetails.IdentityToken == nil || repoDetails.IdentityToken.Empty() {
 		return errors.New(fmt.Sprintf("failed to fetch the authorization token for %q", repoDetails.Repository))
 	}
 	return nil
@@ -125,12 +133,13 @@ func refreshTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetail
 
 // ShouldRefreshAuth checks if the repoDetails should be refreshed.
 func (c *elasticContainerRegistry) ShouldRefreshAuth() bool {
-	if c.repoDetails.Auth == "" {
-		// auth token is missing, refresh is required.
-		return true
+	due := time.Now().Add(advanceExpiry)
+	if c.repoDetails.IdentityToken != nil &&
+		c.repoDetails.IdentityToken.ExpiresAt != nil &&
+		c.repoDetails.IdentityToken.ExpiresAt.After(due) {
+		return false
 	}
-	// check if the token has expired or not.
-	return c.repoDetails.ExpiresAt == nil || c.repoDetails.ExpiresAt.Before(time.Now())
+	return true
 }
 
 // RefreshAuth refreshes the repoDetails.
@@ -141,16 +150,16 @@ func (c *elasticContainerRegistry) RefreshAuth() error {
 func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
 	transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
 ) (http.RoundTripper, error) {
-	if !repoDetails.TokenAuthConfig.Empty() {
-		return nil, errors.New("elastic container registry only supports username and password")
-	}
 	if repoDetails.BasicAuthConfig.Empty() {
 		return nil, errors.NewNotValid(nil, "empty credential for elastic container registry")
 	}
 	if err := refreshTokenForElasticContainerRegistry(repoDetails); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newBasicTransport(transport, "", "", repoDetails.Auth), nil
+	if repoDetails.IdentityToken == nil || repoDetails.IdentityToken.Empty() {
+		return nil, errors.NewNotValid(nil, "empty identity token for elastic container registry")
+	}
+	return newBasicTransport(transport, "", "", repoDetails.IdentityToken.Value), nil
 }
 
 func (c *elasticContainerRegistry) WrapTransport(...TransportWrapper) (err error) {

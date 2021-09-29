@@ -262,13 +262,17 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}
 	imageRepo := cfg.CAASImageRepo()
 	imageInfo := params.DockerImageInfo{
-		Username:      imageRepo.Username,
-		Password:      imageRepo.Password,
-		Auth:          imageRepo.Auth,
-		IdentityToken: imageRepo.IdentityToken,
-		RegistryToken: imageRepo.RegistryToken,
-		Email:         imageRepo.Email,
-		Repository:    imageRepo.Repository,
+		Username:   imageRepo.Username,
+		Password:   imageRepo.Password,
+		Auth:       imageRepo.Auth,
+		Email:      imageRepo.Email,
+		Repository: imageRepo.Repository,
+	}
+	if imageRepo.IdentityToken != nil {
+		imageInfo.IdentityToken = imageRepo.IdentityToken.Value
+	}
+	if imageRepo.RegistryToken != nil {
+		imageInfo.RegistryToken = imageRepo.RegistryToken.Value
 	}
 
 	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()

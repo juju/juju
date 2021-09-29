@@ -153,7 +153,7 @@ func (s *authSuite) TestTokenAuthConfigEmpty(c *gc.C) {
 	c.Assert(cfg.Empty(), jc.DeepEquals, true)
 
 	cfg = docker.TokenAuthConfig{
-		IdentityToken: "xxx",
+		IdentityToken: docker.NewToken("xxx"),
 	}
 	c.Assert(cfg.Empty(), jc.DeepEquals, false)
 }

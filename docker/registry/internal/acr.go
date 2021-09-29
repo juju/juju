@@ -55,7 +55,7 @@ func azureContainerRegistryTransport(
 		}
 		password := repoDetails.Password
 		if password == "" {
-			password = repoDetails.IdentityToken
+			password = repoDetails.IdentityToken.Value
 		}
 		transport = newTokenTransport(
 			transport,
