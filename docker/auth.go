@@ -23,10 +23,26 @@ var logger = loggo.GetLogger("juju.docker")
 // Token defines a token value with expiration time.
 type Token struct {
 	// Value is the value of the token.
-	Value string `json:"value,omitempty" yaml:"value,omitempty"`
+	Value string `json:"value,omitempty"`
 
 	// ExpiresAt is the unix time in seconds and milliseconds when the authorization token expires.
-	ExpiresAt *time.Time `json:"expires-at,omitempty" yaml:"expires-at,omitempty"`
+	ExpiresAt *time.Time `json:"expires-at,omitempty"`
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface.
+func (t *Token) UnmarshalJSON(value []byte) error {
+	logger.Criticalf("UnmarshalJSON %q", string(value))
+	return json.Unmarshal(value, &t.Value)
+}
+
+// String returns the string value, or the Itoa of the int value.
+func (t *Token) String() string {
+	return t.Value
+}
+
+// MarshalJSON implements the json.Marshaller interface.
+func (t Token) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Value)
 }
 
 // NewToken creates a Token.
@@ -218,8 +234,9 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 		}
 	}
 	o = &ImageRepoDetails{}
-	err = yaml.Unmarshal(data, o)
+	err = json.Unmarshal(data, o)
 	if err != nil {
+		logger.Tracef("unmarshalling %q, err %#v", contentOrPath, err)
 		return &ImageRepoDetails{Repository: contentOrPath}, nil
 	}
 
