@@ -24,14 +24,8 @@ import (
 
 // The ECR auth token expires after 12 hours.
 // We refresh the token 5 mins before it's expired.
-const advanceExpiry = 5 * time.Minute
-
-// TODO: implement token refresh feature and integrate it into the caasmodelconfigmanager worker!!
-// Because the token used for image pulling has to be refreshed every 12hrs.
 // https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry_auth.html
-
-// GetECRClient is exported for test to patch.
-var GetECRClient = getECRClient
+const advanceExpiry = 5 * time.Minute
 
 type ecrLogger struct {
 	cfg *config.Config
@@ -71,11 +65,19 @@ func getECRClient(ctx context.Context, accessKeyID, secretAccessKey, region stri
 
 type elasticContainerRegistry struct {
 	*baseClient
+	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error)
 }
 
 func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
+	return newElasticContainerRegistryForTest(repoDetails, transport, getECRClient)
+}
+
+func newElasticContainerRegistryForTest(
+	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
+	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error),
+) RegistryInternal {
 	c := newBase(repoDetails, transport)
-	return &elasticContainerRegistry{c}
+	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ECRClientFunc}
 }
 
 // Match checks if the repository details matches current provider format.
@@ -98,35 +100,35 @@ func (c *elasticContainerRegistry) DecideBaseURL() error {
 	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
 }
 
-func refreshTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) (err error) {
-	if repoDetails.Region == "" {
+func (c *elasticContainerRegistry) refreshTokenForElasticContainerRegistry(imageRepo *docker.ImageRepoDetails) (err error) {
+	if imageRepo.Region == "" {
 		return errors.NewNotValid(nil, "region is required")
 	}
-	if repoDetails.Username == "" || repoDetails.Password == "" {
+	if imageRepo.Username == "" || imageRepo.Password == "" {
 		return errors.NewNotValid(nil,
-			fmt.Sprintf("username and password are required for registry %q", repoDetails.Repository),
+			fmt.Sprintf("username and password are required for registry %q", imageRepo.Repository),
 		)
 	}
 	ctx := context.Background()
-	c, err := GetECRClient(ctx, repoDetails.Username, repoDetails.Password, repoDetails.Region)
+	client, err := c.ECRClientFunc(ctx, imageRepo.Username, imageRepo.Password, imageRepo.Region)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	result, err := c.GetAuthorizationToken(ctx, &ecr.GetAuthorizationTokenInput{})
+	result, err := client.GetAuthorizationToken(ctx, &ecr.GetAuthorizationTokenInput{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.AuthorizationData) > 0 {
 		data := result.AuthorizationData[0]
 		if data.AuthorizationToken != nil {
-			repoDetails.IdentityToken = &docker.Token{
+			imageRepo.IdentityToken = &docker.Token{
 				Value:     aws.ToString(data.AuthorizationToken),
 				ExpiresAt: data.ExpiresAt,
 			}
 		}
 	}
-	if repoDetails.IdentityToken == nil || repoDetails.IdentityToken.Empty() {
-		return errors.New(fmt.Sprintf("failed to fetch the authorization token for %q", repoDetails.Repository))
+	if imageRepo.IdentityToken == nil || imageRepo.IdentityToken.Empty() {
+		return errors.New(fmt.Sprintf("failed to fetch the authorization token for %q", imageRepo.Repository))
 	}
 	return nil
 }
@@ -145,7 +147,7 @@ func (c *elasticContainerRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
 
 // RefreshAuth refreshes the repoDetails.
 func (c *elasticContainerRegistry) RefreshAuth() error {
-	return refreshTokenForElasticContainerRegistry(c.repoDetails)
+	return c.refreshTokenForElasticContainerRegistry(c.repoDetails)
 }
 
 func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
@@ -154,7 +156,7 @@ func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
 	if repoDetails.BasicAuthConfig.Empty() {
 		return nil, errors.NewNotValid(nil, "empty credential for elastic container registry")
 	}
-	if err := refreshTokenForElasticContainerRegistry(repoDetails); err != nil {
+	if err := c.refreshTokenForElasticContainerRegistry(repoDetails); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if repoDetails.IdentityToken == nil || repoDetails.IdentityToken.Empty() {

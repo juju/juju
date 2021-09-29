@@ -479,7 +479,7 @@ func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo 
 	)
 	imageDetails := resources.DockerImageDetails{RegistryPath: "/path/to/image"}
 	if isPrivateImageRepo {
-		imageDetails.TokenAuthConfig.RegistryToken = "xxxxxxxx==="
+		imageDetails.BasicAuthConfig.Auth = "xxxxxxxx==="
 	}
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
 		ImageDetails: imageDetails,

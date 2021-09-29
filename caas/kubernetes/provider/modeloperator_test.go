@@ -50,7 +50,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 		Port:         int32(5497),
 	}
 	if isPrivateImageRepo {
-		config.ImageDetails.TokenAuthConfig.RegistryToken = "xxxxxxxx==="
+		config.ImageDetails.BasicAuthConfig.Auth = "xxxxxxxx==="
 	}
 	bridge := &modelOperatorBrokerBridge{
 		client: m.client,

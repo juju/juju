@@ -73,7 +73,7 @@ func googleContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 		), nil
 	}
 	if !repoDetails.TokenAuthConfig.Empty() {
-		return nil, errors.New("google container registry only supports username and password or auth token")
+		return nil, errors.NewNotValid(nil, "google container registry only supports username and password or auth token")
 	}
 	return transport, nil
 }

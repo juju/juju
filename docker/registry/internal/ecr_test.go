@@ -43,12 +43,7 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func(
 	ctrl := gomock.NewController(c)
 
 	s.mockRoundTripper = mocks.NewMockRoundTripper(ctrl)
-	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
-
 	s.mockECRAPI = internalmocks.NewMockECRInterface(ctrl)
-	s.PatchValue(&internal.GetECRClient, func(context.Context, string, string, string) (internal.ECRInterface, error) {
-		return s.mockECRAPI, nil
-	})
 
 	if s.imageRepoDetails.Empty() {
 		s.imageRepoDetails = docker.ImageRepoDetails{
@@ -77,7 +72,13 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func(
 		}
 	}
 
-	reg, err := registry.New(s.imageRepoDetails)
+	reg := internal.NewElasticContainerRegistryForTest(
+		s.imageRepoDetails, s.mockRoundTripper,
+		func(context.Context, string, string, string) (internal.ECRInterface, error) {
+			return s.mockECRAPI, nil
+		},
+	)
+	err := internal.InitProvider(reg)
 	if !s.imageRepoDetails.IsPrivate() {
 		c.Assert(err, gc.ErrorMatches, `empty credential for elastic container registry`)
 		return nil, ctrl

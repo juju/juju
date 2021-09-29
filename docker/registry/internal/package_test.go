@@ -28,10 +28,11 @@ type (
 )
 
 var (
-	NewErrorTransport       = newErrorTransport
-	NewBasicTransport       = newBasicTransport
-	NewTokenTransport       = newTokenTransport
-	NewPrivateOnlyTransport = newPrivateOnlyTransport
+	NewErrorTransport                  = newErrorTransport
+	NewBasicTransport                  = newBasicTransport
+	NewTokenTransport                  = newTokenTransport
+	NewPrivateOnlyTransport            = newPrivateOnlyTransport
+	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
 )
 
 func (c *BaseClient) SetImageRepoDetails(i docker.ImageRepoDetails) {

@@ -29,7 +29,8 @@ func (c *azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
-func unpackAuthToken(auth string) (string, string, error) {
+// unpackAuthToken returns the unpacked username and password.
+func unpackAuthToken(auth string) (username string, password string, err error) {
 	content, err := base64.StdEncoding.DecodeString(auth)
 	if err != nil {
 		return "", "", errors.Annotate(err, "doing base64 decode on the auth token")

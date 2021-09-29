@@ -55,7 +55,7 @@ func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 		), nil
 	}
 	if !repoDetails.TokenAuthConfig.Empty() {
-		return nil, errors.New("github only supports username and password or auth token")
+		return nil, errors.NewNotValid(nil, "github only supports username and password or auth token")
 	}
 	return transport, nil
 }
