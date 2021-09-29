@@ -87,6 +87,8 @@ type manager struct {
 
 	registryFunc func(docker.ImageRepoDetails) (registry.Registry, error)
 	reg          registry.Registry
+
+	nextTickDuration *time.Duration
 }
 
 // NewFacade returns a facade for caasapplicationprovisioner worker to use.
@@ -156,7 +158,7 @@ func (w *manager) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case <-w.clock.After(3 * time.Second):
+		case <-w.getNextTick():
 			if err := w.ensureImageRepoSecret(false); err != nil {
 				return errors.Trace(err)
 			}
@@ -164,8 +166,16 @@ func (w *manager) loop() (err error) {
 	}
 }
 
+func (w *manager) getNextTick() <-chan time.Time {
+	if w.nextTickDuration != nil {
+		return w.clock.After(*w.nextTickDuration)
+	}
+	return w.clock.After(3 * time.Second)
+}
+
 func (w *manager) ensureImageRepoSecret(isFirstCall bool) error {
-	if !w.reg.ShouldRefreshAuth() && !isFirstCall {
+	var shouldRefresh bool
+	if shouldRefresh, w.nextTickDuration = w.reg.ShouldRefreshAuth(); !shouldRefresh && !isFirstCall {
 		return nil
 	}
 	if err := w.reg.RefreshAuth(); err != nil {

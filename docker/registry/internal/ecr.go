@@ -132,14 +132,15 @@ func refreshTokenForElasticContainerRegistry(repoDetails *docker.ImageRepoDetail
 }
 
 // ShouldRefreshAuth checks if the repoDetails should be refreshed.
-func (c *elasticContainerRegistry) ShouldRefreshAuth() bool {
-	due := time.Now().Add(advanceExpiry)
-	if c.repoDetails.IdentityToken != nil &&
-		c.repoDetails.IdentityToken.ExpiresAt != nil &&
-		c.repoDetails.IdentityToken.ExpiresAt.After(due) {
-		return false
+func (c *elasticContainerRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
+	if c.repoDetails.IdentityToken != nil && c.repoDetails.IdentityToken.ExpiresAt != nil {
+		d := time.Until(*c.repoDetails.IdentityToken.ExpiresAt)
+		if d > advanceExpiry {
+			nextCheckDuration := d - advanceExpiry
+			return false, &nextCheckDuration
+		}
 	}
-	return true
+	return true, nil
 }
 
 // RefreshAuth refreshes the repoDetails.

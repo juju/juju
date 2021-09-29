@@ -74,8 +74,8 @@ func (c *baseClient) prepare() {
 }
 
 // ShouldRefreshAuth checks if the repoDetails should be refreshed.
-func (c *baseClient) ShouldRefreshAuth() bool {
-	return false
+func (c *baseClient) ShouldRefreshAuth() (bool, *time.Duration) {
+	return false, nil
 }
 
 // RefreshAuth refreshes the repoDetails.

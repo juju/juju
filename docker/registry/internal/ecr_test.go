@@ -152,7 +152,8 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshAuthAuthTokenMissing(c 
 		},
 	}
 	setImageRepoDetails(c, reg, repoDetails)
-	c.Assert(reg.ShouldRefreshAuth(), jc.IsTrue)
+	shouldRefreshAuth, _ := reg.ShouldRefreshAuth()
+	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
 func (s *elasticContainerRegistrySuite) TestShouldRefreshNoExpireTime(c *gc.C) {
@@ -169,7 +170,8 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshNoExpireTime(c *gc.C) {
 	}
 	repoDetails.IdentityToken = docker.NewToken(`xxx===`)
 	setImageRepoDetails(c, reg, repoDetails)
-	c.Assert(reg.ShouldRefreshAuth(), jc.IsTrue)
+	shouldRefreshAuth, _ := reg.ShouldRefreshAuth()
+	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
 func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *gc.C) {
@@ -190,11 +192,12 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *gc.C) {
 		ExpiresAt: &expiredTime,
 	}
 	setImageRepoDetails(c, reg, repoDetails)
-	c.Assert(reg.ShouldRefreshAuth(), jc.IsTrue)
+	shouldRefreshAuth, _ := reg.ShouldRefreshAuth()
+	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
 func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenNoNeedRefresh(c *gc.C) {
-	expiredTime := time.Now().Add(1 * time.Second).Add(5 * time.Minute)
+	expiredTime := time.Now().Add(3 * time.Minute).Add(5 * time.Minute)
 	reg, ctrl := s.getRegistry(c, nil)
 	defer ctrl.Finish()
 	repoDetails := docker.ImageRepoDetails{
@@ -211,7 +214,10 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenNoNeedRefresh(c *g
 		ExpiresAt: &expiredTime,
 	}
 	setImageRepoDetails(c, reg, repoDetails)
-	c.Assert(reg.ShouldRefreshAuth(), jc.IsFalse)
+	shouldRefreshAuth, nextCheck := reg.ShouldRefreshAuth()
+	c.Assert(shouldRefreshAuth, jc.IsFalse)
+	c.Assert(nextCheck, gc.NotNil)
+	c.Assert(nextCheck.Round(time.Minute), gc.DeepEquals, 3*time.Minute)
 }
 
 func (s *elasticContainerRegistrySuite) TestPingPublicRepository(c *gc.C) {

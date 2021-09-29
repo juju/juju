@@ -156,7 +156,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 		// 1st round.
 		s.facade.EXPECT().ControllerConfig().Return(s.controllerConfig, nil),
 		s.reg.EXPECT().Ping().Return(nil),
-		s.reg.EXPECT().ShouldRefreshAuth().Return(true),
+		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().Return(s.controllerConfig.CAASImageRepo()),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
@@ -166,7 +166,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 			},
 		),
 		// 2nd round.
-		s.reg.EXPECT().ShouldRefreshAuth().Return(true),
+		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().Return(refreshed),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
@@ -187,7 +187,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestWorkerTokenRefreshNotRequired(c *gc.C) {
+func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 	s.controllerConfig[controller.CAASImageRepo] = `
 {
     "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
@@ -205,7 +205,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequired(c *gc.C) {
 		// 1st round.
 		s.facade.EXPECT().ControllerConfig().Return(s.controllerConfig, nil),
 		s.reg.EXPECT().Ping().Return(nil),
-		s.reg.EXPECT().ShouldRefreshAuth().Return(true),
+		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().Return(s.controllerConfig.CAASImageRepo()),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
@@ -215,13 +215,28 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequired(c *gc.C) {
 			},
 		),
 		// 2nd round.
-		s.reg.EXPECT().ShouldRefreshAuth().DoAndReturn(func() bool {
-			close(done)
-			return false
+		s.reg.EXPECT().ShouldRefreshAuth().DoAndReturn(func() (bool, *time.Duration) {
+			nextTick := 7 * time.Minute
+			return false, &nextTick
 		}),
+		// 3rd round.
+		s.reg.EXPECT().ShouldRefreshAuth().DoAndReturn(func() (bool, *time.Duration) {
+			return true, nil
+		}),
+		s.reg.EXPECT().RefreshAuth().Return(nil),
+		s.reg.EXPECT().ImageRepoDetails().Return(s.controllerConfig.CAASImageRepo()),
+		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
+			func(i docker.ImageRepoDetails) error {
+				c.Assert(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
+				close(done)
+				return nil
+			},
+		),
 	)
 
 	err := s.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.clock.WaitAdvance(7*time.Minute, coretesting.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-done:

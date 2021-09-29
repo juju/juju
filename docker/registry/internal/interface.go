@@ -4,6 +4,8 @@
 package internal
 
 import (
+	"time"
+
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/tools"
 )
@@ -16,7 +18,7 @@ type Registry interface {
 	Close() error
 	Ping() error
 	ImageRepoDetails() docker.ImageRepoDetails
-	ShouldRefreshAuth() bool
+	ShouldRefreshAuth() (bool, *time.Duration)
 	RefreshAuth() error
 }
 
