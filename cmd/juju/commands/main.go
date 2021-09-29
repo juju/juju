@@ -339,7 +339,7 @@ func registerCommands(r commandRegistry) {
 	// NOTE:
 	// When adding a new command here, consider if the command should also
 	// be whitelisted for being enabled as an embedded command accessible to
-	// the Dashboard Dashboard.
+	// the Dashboard.
 	// Update allowedEmbeddedCommands in apiserver.go
 	r.Register(newVersionCommand())
 	// Creation commands.
@@ -560,7 +560,6 @@ func registerCommands(r commandRegistry) {
 
 	// Juju Dashboard commands.
 	r.Register(dashboard.NewDashboardCommand())
-	r.Register(dashboard.NewUpgradeDashboardCommand())
 
 	// Resource commands
 	r.Register(resource.NewUploadCommand(resource.UploadDeps{

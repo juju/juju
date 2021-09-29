@@ -1733,9 +1733,12 @@ func (st *State) maybeUpdateControllerCharm(publicAddr string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return controllerApp.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
-		"controller-url":     api.ControllerAPIURL(publicAddr),
-		"model-url-template": api.ModelAPITemplateURL(publicAddr),
+		"controller-url": api.ControllerAPIURL(publicAddr, controllerCfg.APIPort()),
 	})
 }
 

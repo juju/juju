@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NewFacade is used for API registration.
+// NewFacadeV2 is used for API registration.
 func NewFacadeV2(ctx facade.Context) (*ModelConfigAPIV2, error) {
 	auth := ctx.Auth()
 
@@ -27,17 +27,7 @@ func NewFacadeV2(ctx facade.Context) (*ModelConfigAPIV2, error) {
 	return NewModelConfigAPI(NewStateBackend(model), auth)
 }
 
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(ctx facade.Context) (*ModelConfigAPIV1, error) {
-	api, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ModelConfigAPIV1{api}, nil
-}
-
-// ModelConfigAPI provides the base implementation of the methods
-// for the V2 and V1 api calls.
+// ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
 	backend Backend
 	auth    facade.Authorizer
@@ -47,11 +37,6 @@ type ModelConfigAPI struct {
 // ModelConfigAPIV2 is currently the latest.
 type ModelConfigAPIV2 struct {
 	*ModelConfigAPI
-}
-
-// ModelConfigAPIV1 hides V2 functionality
-type ModelConfigAPIV1 struct {
-	*ModelConfigAPIV2
 }
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
@@ -287,10 +272,3 @@ func (c *ModelConfigAPI) Sequences() (params.ModelSequencesResult, error) {
 	result.Sequences = values
 	return result, nil
 }
-
-// Mask the new methods from the V1 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-
-// Sequences isn't on the V1 API.
-func (a *ModelConfigAPIV1) Sequences(_, _ struct{}) {}

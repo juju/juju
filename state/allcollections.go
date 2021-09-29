@@ -92,13 +92,6 @@ func allCollections() CollectionSchema {
 		// be uploaded to different models without affecting other models.
 		toolsmetadataC: {},
 
-		// This collection holds a convenient representation of the content of
-		// the simplestreams data source pointing to Juju Dashboard archives.
-		guimetadataC: {global: true},
-
-		// This collection holds Juju Dashboard current version and other settings.
-		guisettingsC: {global: true},
-
 		// This collection holds model information; in particular its
 		// Life and its UUID.
 		modelsC: {global: true},
@@ -588,8 +581,6 @@ const (
 	globalClockC               = "globalclock"
 	globalRefcountsC           = "globalRefcounts"
 	globalSettingsC            = "globalSettings"
-	guimetadataC               = "guimetadata"
-	guisettingsC               = "guisettings"
 	instanceDataC              = "instanceData"
 	leaseHoldersC              = "leaseholders"
 	machinesC                  = "machines"

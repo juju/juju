@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -171,47 +170,6 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid agent metadata in directory .*")
 }
 
-func (t *ToolsSuite) TestReadDashboardArchiveErrorNotFound(c *gc.C) {
-	dashboard, err := agenttools.ReadDashboardArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "Dashboard metadata not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(dashboard, gc.IsNil)
-}
-
-func (t *ToolsSuite) TestReadDashboardArchiveErrorNotValid(c *gc.C) {
-	dir := agenttools.SharedDashboardDir(t.dataDir)
-	err := os.MkdirAll(dir, agenttools.DirPerm)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.DashboardArchiveFile), []byte(" \t\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dashboard, err := agenttools.ReadDashboardArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "invalid Dashboard metadata in directory .*")
-	c.Assert(dashboard, gc.IsNil)
-}
-
-func (t *ToolsSuite) TestReadDashboardArchiveSuccess(c *gc.C) {
-	dir := agenttools.SharedDashboardDir(t.dataDir)
-	err := os.MkdirAll(dir, agenttools.DirPerm)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectDashboard := coretest.DashboardArchive{
-		Version: version.MustParse("2.0.42"),
-		URL:     "file:///path/to/dashboard",
-		SHA256:  "hash",
-		Size:    47,
-	}
-	b, err := json.Marshal(expectDashboard)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.DashboardArchiveFile), b, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dshboard, err := agenttools.ReadDashboardArchive(t.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*dshboard, gc.Equals, expectDashboard)
-}
-
 func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	files := []*testing.TarFile{
 		testing.NewTarFile("jujuc", agenttools.DirPerm, "juju executable"),
@@ -260,11 +218,6 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
 	dir := agenttools.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-ubuntu-amd64"))
 	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
-}
-
-func (t *ToolsSuite) TestSharedDashboardDir(c *gc.C) {
-	dir := agenttools.SharedDashboardDir("/var/lib/juju")
-	c.Assert(dir, gc.Equals, "/var/lib/juju/dashboard")
 }
 
 // assertToolsContents asserts that the directory for the tools

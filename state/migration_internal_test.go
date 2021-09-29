@@ -108,11 +108,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Cloud credentials aren't migrated. They must exist in the
 		// target controller already.
 		cloudCredentialsC,
-		// This is controller global, and related to the system state of the
-		// embedded Dashboard.
-		guimetadataC,
-		// This is controller global, not migrated.
-		guisettingsC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,

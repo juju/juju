@@ -16275,6 +16275,15 @@
                     },
                     "description": "SLALevel returns the current sla level for the model."
                 },
+                "Sequences": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ModelSequencesResult"
+                        }
+                    },
+                    "description": "Sequences returns the model's sequence names and next values."
+                },
                 "SetModelAgentVersion": {
                     "type": "object",
                     "properties": {
@@ -17714,6 +17723,23 @@
                     "required": [
                         "level",
                         "owner"
+                    ]
+                },
+                "ModelSequencesResult": {
+                    "type": "object",
+                    "properties": {
+                        "sequences": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "sequences"
                     ]
                 },
                 "ModelSet": {

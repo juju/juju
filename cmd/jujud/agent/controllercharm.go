@@ -245,8 +245,7 @@ func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm
 			addr = pa.Value
 		}
 	}
-	cfg["controller-url"] = api.ControllerAPIURL(addr)
-	cfg["model-url-template"] = api.ModelAPITemplateURL(addr)
+	cfg["controller-url"] = api.ControllerAPIURL(addr, controllerCfg.APIPort())
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:        bootstrap.ControllerApplicationName,
 		Series:      m.Series(),

@@ -10,5 +10,4 @@ var (
 	FindTools                  = &findTools
 	FindBootstrapTools         = findBootstrapTools
 	FindPackagedTools          = findPackagedTools
-	DashboardFetchMetadata     = &dashboardFetchMetadata
 )

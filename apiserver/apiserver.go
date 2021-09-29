@@ -708,8 +708,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 	backupHandler := &backupHandler{ctxt: httpCtxt}
 	registerHandler := &registerUserHandler{ctxt: httpCtxt}
-	dashboardArchiveHandler := &dashboardArchiveHandler{ctxt: httpCtxt}
-	dashboardVersionHandler := &dashboardVersionHandler{ctxt: httpCtxt}
 
 	// HTTP handler for application offer macaroon authentication.
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
@@ -852,18 +850,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		methods:    []string{"POST"},
 		handler:    modelCharmsHTTPHandler,
 		authorizer: modelCharmsUploadAuthorizer,
-	}, {
-		pattern: "/dashboard-archive",
-		methods: []string{"POST"},
-		handler: dashboardArchiveHandler,
-	}, {
-		pattern:         "/dashboard-archive",
-		methods:         []string{"GET"},
-		handler:         dashboardArchiveHandler,
-		unauthenticated: true,
-	}, {
-		pattern: "/dashboard-version",
-		handler: dashboardVersionHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
@@ -879,10 +865,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	for _, handler := range handlers {
 		addHandler(handler)
 	}
-
-	// Finally, register dashboard content endpoints.
-	dashboardEndpoints := dashboardEndpoints(dashboardURLPathPrefix, srv.dataDir, httpCtxt)
-	endpoints = append(endpoints, dashboardEndpoints...)
 
 	return endpoints
 }

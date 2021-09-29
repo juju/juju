@@ -241,7 +241,6 @@ type bootstrapCommand struct {
 	CredentialName      string
 	Cloud               string
 	Region              string
-	noDashboard         bool
 	noSwitch            bool
 	interactive         bool
 
@@ -326,7 +325,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
-	f.BoolVar(&c.noDashboard, "no-dashboard", false, "Do not install the Juju Dashboard in the controller when bootstrapping")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
 	f.BoolVar(&c.noHostedModel, "no-default-model", false, "Do not create a default model")
@@ -953,12 +951,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	bootstrapParams.ModelConstraints = c.Constraints
-
-	// Check whether the Juju Dashboard must be installed in the controller.
-	// Leaving this value empty means no Dashboard will be installed.
-	if !c.noDashboard {
-		bootstrapParams.DashboardDataSourceBaseURL = common.DashboardDataSourceBaseURL()
-	}
 
 	if credentials.name == "" {
 		// credentialName will be empty if the credential was detected.

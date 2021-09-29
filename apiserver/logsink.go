@@ -131,11 +131,11 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// Note that this endpoint is agent-only. Thus the only
 	// callers will necessarily provide their Juju version.
 	//
-	// This would be a problem if non-Juju clients (e.g. the
-	// Dashboard) could use this endpoint since we require that the
-	// *Juju* version be provided as part of the request. Any
-	// attempt to open this endpoint to broader access must
-	// address this caveat appropriately.
+	// This would be a problem if non-Juju clients could use
+	// this endpoint since we require that the *Juju* version
+	// be provided as part of the request. Any attempt to open
+	// this endpoint to broader access must address this caveat
+	// appropriately.
 	ver, err := common.JujuClientVersionFromRequest(req)
 	if err != nil {
 		st.Release()

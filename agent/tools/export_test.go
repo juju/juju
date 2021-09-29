@@ -23,6 +23,5 @@ var (
 )
 
 const (
-	ToolsFile            = toolsFile
-	DashboardArchiveFile = dashboardArchiveFile
+	ToolsFile = toolsFile
 )

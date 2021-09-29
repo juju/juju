@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -460,15 +459,6 @@ func (w *unixConfigure) ConfigureCustomOverrides() error {
 }
 
 func (w *unixConfigure) configureBootstrap() error {
-	// Add the Juju Dashboard to the bootstrap node.
-	cleanup, err := w.setUpDashboard()
-	if err != nil {
-		return errors.Annotate(err, "cannot set up Juju Dashboard")
-	}
-	if cleanup != nil {
-		defer cleanup()
-	}
-
 	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
@@ -633,62 +623,6 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 	)
 
 	return nil
-}
-
-// setUpDashboard fetches the Juju Dashboard archive and save it to the controller.
-// The returned clean up function must be called when the bootstrapping
-// process is completed.
-func (w *unixConfigure) setUpDashboard() (func(), error) {
-	if w.icfg.Bootstrap.Dashboard == nil {
-		// No Dashboard archives were found on simplestreams, and no development
-		// Dashboard path has been passed with the JUJU_DASHBOARD environment variable.
-		return nil, nil
-	}
-	u, err := url.Parse(w.icfg.Bootstrap.Dashboard.URL)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse Juju Dashboard URL")
-	}
-	dashboardJson, err := json.Marshal(w.icfg.Bootstrap.Dashboard)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	dashboardDir := w.icfg.DashboardDir()
-	w.conf.AddScripts(
-		"dashboard="+shquote(dashboardDir),
-		"mkdir -p $dashboard",
-	)
-	if u.Scheme == "file" {
-		// Upload the Dashboard from a local archive file.
-		dashboardData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot read Juju Dashboard archive")
-		}
-		w.conf.AddRunBinaryFile(path.Join(dashboardDir, "dashboard.tar.bz2"), dashboardData, 0644)
-	} else {
-		// Download the Dashboard from simplestreams.
-		command := "curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10"
-		if w.icfg.DisableSSLHostnameVerification {
-			command += " --insecure"
-		}
-		curlProxyArgs := w.formatCurlProxyArguments()
-		command += curlProxyArgs
-		command += " " + shquote(u.String())
-		// A failure in fetching the Juju Dashboard archive should not prevent the
-		// model to be bootstrapped. Better no Dashboard than no Juju at all.
-		command += " || echo Unable to retrieve Juju Dashboard"
-		w.conf.AddRunCmd(command)
-	}
-	w.conf.AddScripts(
-		"[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256",
-		fmt.Sprintf(
-			`[ -f $dashboard/jujudashboard.sha256 ] && (grep '%s' $dashboard/jujudashboard.sha256 && printf %%s %s > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)`,
-			w.icfg.Bootstrap.Dashboard.SHA256, shquote(string(dashboardJson))),
-	)
-	return func() {
-		// Don't remove the Dashboard archive until after bootstrap agent runs,
-		// so it has a chance to add it to its catalogue.
-		w.conf.AddRunCmd("rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt")
-	}, nil
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,

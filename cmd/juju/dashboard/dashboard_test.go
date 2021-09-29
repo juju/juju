@@ -12,13 +12,10 @@ import (
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/dashboard"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
@@ -29,18 +26,7 @@ type baseDashboardSuite struct {
 
 // run executes the dashboard command passing the given args.
 func (s *baseDashboardSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(
-		func(connection api.Connection) ([]params.DashboardArchiveVersion, error) {
-			return []params.DashboardArchiveVersion{
-				{
-					Version: version.MustParse("1.2.3"),
-					Current: false,
-				}, {
-					Version: version.MustParse("4.5.6"),
-					Current: true,
-				},
-			}, nil
-		}), args...)
+	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
@@ -117,7 +103,7 @@ func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *gc.C) {
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-Dashboard 4.5.6 for controller "kontroll" is enabled at:
+Dashboard for controller "kontroll" is enabled at:
   %s`[1:], s.dashboardURL(c)))
 }
 
@@ -181,6 +167,6 @@ func (s *dashboardDNSSuite) TestDashboardSuccess(c *gc.C) {
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, `
-Dashboard 4.5.6 for controller "kontroll" is enabled at:
+Dashboard for controller "kontroll" is enabled at:
   https://example.com/dashboard`[1:])
 }

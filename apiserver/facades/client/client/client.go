@@ -68,9 +68,7 @@ func (api *API) state() *state.State {
 
 // Client serves client-specific API methods.
 type Client struct {
-	// TODO(wallyworld) - we'll retain model config facade methods
-	// on the client facade until Dashboard and Python client library are updated.
-	*modelconfig.ModelConfigAPIV1
+	*modelconfig.ModelConfigAPIV2
 
 	api         *API
 	newEnviron  common.NewEnvironFunc
@@ -198,7 +196,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	return NewClient(
 		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
-		&modelconfig.ModelConfigAPIV1{modelConfigAPI},
+		modelConfigAPI,
 		resources,
 		authorizer,
 		presence,
@@ -216,7 +214,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 func NewClient(
 	backend Backend,
 	pool Pool,
-	modelConfigAPI *modelconfig.ModelConfigAPIV1,
+	modelConfigAPI *modelconfig.ModelConfigAPIV2,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
@@ -232,7 +230,7 @@ func NewClient(
 		return nil, apiservererrors.ErrPerm
 	}
 	client := &Client{
-		ModelConfigAPIV1: modelConfigAPI,
+		ModelConfigAPIV2: modelConfigAPI,
 		api: &API{
 			stateAccessor:       backend,
 			pool:                pool,

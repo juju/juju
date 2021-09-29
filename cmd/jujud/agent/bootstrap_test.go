@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -140,16 +139,6 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 
-	// Create fake dashboard.tar.bz2 and downloaded-dashboard.txt.
-	dashboardDir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
-	err = os.MkdirAll(dashboardDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dashboardDir, "dashboard.tar.bz2"), nil, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	s.writeDownloadedDashboard(c, &tools.DashboardArchive{
-		Version: version.MustParse("2.0.42"),
-	})
-
 	// Create fake local controller charm.
 	controllerCharmPath := filepath.Join(s.dataDir, "charms")
 	err = os.MkdirAll(controllerCharmPath, 0755)
@@ -174,86 +163,6 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BootstrapSuite) writeDownloadedDashboard(c *gc.C, dashboard *tools.DashboardArchive) {
-	dashboardDir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
-	err := os.MkdirAll(dashboardDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := json.Marshal(dashboard)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dashboardDir, "downloaded-dashboard.txt"), data, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *BootstrapSuite) TestDashboardArchiveInfoNotFound(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
-	info := filepath.Join(dir, "downloaded-dashboard.txt")
-	err := os.Remove(info)
-	c.Assert(err, jc.ErrorIsNil)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("bootstrap-test")
-
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`cannot set up Juju Dashboard: cannot fetch Dashboard info: Dashboard metadata not found`,
-	}})
-}
-
-func (s *BootstrapSuite) TestDashboardArchiveInfoError(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		// TODO frankban: skipping for now due to chmod problems with mode 0000
-		// on Windows. We will re-enable this test after further investigation:
-		// "jujud bootstrap" is never run on Windows anyway.
-		c.Skip("needs chmod investigation")
-	}
-	dir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
-	info := filepath.Join(dir, "downloaded-dashboard.txt")
-	err := os.Chmod(info, 0000)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Chmod(info, 0600)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("bootstrap-test")
-
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`cannot set up Juju Dashboard: cannot fetch Dashboard info: cannot read Dashboard metadata in directory .*`,
-	}})
-}
-
-func (s *BootstrapSuite) TestDashboardArchiveError(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
-	archive := filepath.Join(dir, "dashboard.tar.bz2")
-	err := os.Remove(archive)
-	c.Assert(err, jc.ErrorIsNil)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("bootstrap-test")
-
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`cannot set up Juju Dashboard: cannot read Dashboard archive: .*`,
-	}})
-}
-
 func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
@@ -263,41 +172,6 @@ func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return pool.SystemState(), func() { pool.Close() }
-}
-
-func (s *BootstrapSuite) TestDashboardArchiveSuccess(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("bootstrap-test")
-
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.DEBUG,
-		`Juju Dashboard successfully set up`,
-	}})
-
-	// Retrieve the state so that it is possible to access the Dashboard storage.
-	st, closer := s.getSystemState(c)
-	defer closer()
-
-	// The Dashboard archive has been uploaded to the Dashboard storage.
-	storage, err := st.DashboardStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	allMeta, err := storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allMeta, gc.HasLen, 1)
-	c.Assert(allMeta[0].Version, gc.Equals, "2.0.42")
-
-	// The current Dashboard version has been set.
-	vers, err := st.DashboardVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers.String(), gc.Equals, "2.0.42")
 }
 
 func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {

@@ -878,28 +878,6 @@ type SingularClaims struct {
 	Claims []SingularClaim `json:"claims"`
 }
 
-// DashboardArchiveVersion holds information on a specific Dashboard archive version.
-type DashboardArchiveVersion struct {
-	// Version holds the Juju Dashboard version number.
-	Version version.Number `json:"version"`
-	// SHA256 holds the SHA256 hash of the Dashboard tar.bz2 archive.
-	SHA256 string `json:"sha256"`
-	// Current holds whether this specific version is the current one served
-	// by the controller.
-	Current bool `json:"current"`
-}
-
-// DashboardArchiveResponse holds the response to /dashboard-archive GET requests.
-type DashboardArchiveResponse struct {
-	Versions []DashboardArchiveVersion `json:"versions"`
-}
-
-// DashboardVersionRequest holds the body for /dashboard-version PUT requests.
-type DashboardVersionRequest struct {
-	// Version holds the Juju Dashboard version number.
-	Version version.Number `json:"version"`
-}
-
 // LogMessage is a structured logging entry.
 type LogMessage struct {
 	Entity    string    `json:"tag"`
