@@ -157,3 +157,5 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
+
+replace gopkg.in/check.v1 => github.com/benhoyt/check v0.0.0-20210928230612-a82805bc27e8
