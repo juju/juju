@@ -36,6 +36,7 @@ type Logger interface {
 // Remote defines an interface for managing remote connections for the client.
 type Remote interface {
 	worker.Worker
+	ID() string
 	Address() string
 	SetAddress(string)
 	Request(context.Context, *raftlease.Command) error
@@ -397,6 +398,7 @@ func (c *Client) ensureServers(addresses map[string]string) error {
 
 			remote := c.config.NewRemote(RemoteConfig{
 				APIInfo: &info,
+				ID:      id,
 				Clock:   c.config.Clock,
 				Logger:  c.config.Logger,
 			})
@@ -430,11 +432,25 @@ func (c *Client) ensureServers(addresses map[string]string) error {
 		// remote Wait might have failed.
 		delete(c.servers, id)
 	}
+
+	// When we get the data from the APIDetails, sometimes the details may have
+	// no data in them or the lastKnownRemote has been removed from the server
+	// map. In this case we should drop the current lastKnownRemote and retry
+	// from a clean slate.
+	if len(c.servers) == 0 {
+		c.config.Logger.Tracef("resetting last known remote, no servers are available")
+		c.lastKnownRemote = nil
+	} else if c.lastKnownRemote != nil && !witnessed.Contains(c.lastKnownRemote.ID()) {
+		c.config.Logger.Tracef("resetting last known remote, server %q was removed from server list", c.lastKnownRemote.ID())
+		c.lastKnownRemote = nil
+	}
+
 	return nil
 }
 
 // RemoteConfig defines the configuration for creating a NewRemote.
 type RemoteConfig struct {
+	ID      string
 	APIInfo *api.Info
 	Clock   clock.Clock
 	Logger  Logger
@@ -462,6 +478,11 @@ type remote struct {
 
 	api    base.APICallCloser
 	client RaftLeaseApplier
+}
+
+// ID returns the server ID associated with the remote.
+func (r *remote) ID() string {
+	return r.config.ID
 }
 
 // Address returns the current remote server address.
