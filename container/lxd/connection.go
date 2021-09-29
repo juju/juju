@@ -71,6 +71,12 @@ func (s ServerSpec) WithSkipGetServer(b bool) ServerSpec {
 	return s
 }
 
+// WithHTTPClient adds the option of passing the http client to the server spec.
+func (s ServerSpec) WithHTTPClient(client *http.Client) ServerSpec {
+	s.connectionArgs.HTTPClient = client
+	return s
+}
+
 // NewInsecureServerSpec creates a ServerSpec without certificate requirements,
 // which also bypasses the TLS verification.
 // It also ensures the HTTPS for the host implicitly
