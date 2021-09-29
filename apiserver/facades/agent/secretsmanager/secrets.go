@@ -105,7 +105,7 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return md.URL.ShortString(), nil
+	return md.URL.WithRevision(md.Revision).ShortString(), nil
 }
 
 // UpdateSecrets updates the specified secrets.

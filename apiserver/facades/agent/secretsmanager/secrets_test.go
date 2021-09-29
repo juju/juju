@@ -95,8 +95,9 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	s.secretsService.EXPECT().CreateSecret(gomock.Any(), URL, p).DoAndReturn(
 		func(_ context.Context, URL *coresecrets.URL, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
-				URL:  URL,
-				Path: "app/mariadb/password",
+				URL:      URL,
+				Path:     "app/mariadb/password",
+				Revision: 1,
 			}
 			return md, nil
 		},
@@ -123,7 +124,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
-			Result: URL.ShortString(),
+			Result: URL.WithRevision(1).ShortString(),
 		}, {
 			Error: &params.Error{Message: `rotate interval "-1h0m0s" not valid`},
 		}, {
