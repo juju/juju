@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,7 +43,6 @@ import (
 
 const (
 	// The version strings indicating the MAAS API version.
-	apiVersion1 = "1.0"
 	apiVersion2 = "2.0"
 )
 
@@ -59,7 +57,6 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 var (
-	ReleaseNodes         = releaseNodes
 	DeploymentStatusCall = deploymentStatusCall
 	GetMAAS2Controller   = getMAAS2Controller
 )
@@ -69,11 +66,6 @@ func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error)
 		BaseURL: maasServer,
 		APIKey:  apiKey,
 	})
-}
-
-func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
-	_, err := nodes.CallPost("release", ids)
-	return err
 }
 
 type maasEnviron struct {
@@ -261,36 +253,13 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 		return errors.Trace(err)
 	}
 
-	// We need to know the version of the server we're on. We support 1.9
-	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
-	// version.
 	apiVersion := apiVersion2
 	controller, err := GetMAAS2Controller(maasServer, maasOAuth)
-	switch {
-	case gomaasapi.IsUnsupportedVersionError(err):
-		apiVersion = apiVersion1
-		_, _, includesVersion := gomaasapi.SplitVersionedURL(maasServer)
-		versionURL := maasServer
-		if !includesVersion {
-			versionURL = gomaasapi.AddAPIVersionToURL(maasServer, apiVersion1)
-		}
-		authClient, err := gomaasapi.NewAuthenticatedClient(versionURL, maasOAuth)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-		caps, err := env.GetCapabilities(env.maasClientUnlocked, maasServer)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !caps.Contains(capNetworkDeploymentUbuntu) {
-			return errors.NewNotSupported(nil, "MAAS 1.9 or more recent is required")
-		}
-	case err != nil:
+	if err != nil {
 		return errors.Trace(err)
-	default:
-		env.maasController = controller
 	}
+
+	env.maasController = controller
 	env.apiVersion = apiVersion
 	env.storageUnlocked = NewStorage(env)
 
@@ -448,10 +417,6 @@ func (env *maasEnviron) PrecheckInstance(ctx context.ProviderCallContext, args e
 	return err
 }
 
-const (
-	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
-)
-
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
 func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
@@ -460,8 +425,8 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	var err error
 
 	for a := shortAttempt.Start(); a.Next(); {
-		version := client.GetSubObject("version/")
-		result, err = version.CallGet("", nil)
+		ver := client.GetSubObject("version/")
+		result, err = ver.CallGet("", nil)
 		if err == nil {
 			break
 		}
@@ -574,7 +539,7 @@ func (env *maasEnviron) spaceNamesToSpaceInfo(
 }
 
 // networkSpaceRequirements combines the space requirements for the application
-// bindings and the specified constraints and returns back a set of provider
+// bindings and the specified constraints and returns a set of provider
 // space IDs for which a NIC needs to be provisioned in the instance we are
 // about to launch and a second (negative) set of space IDs that must not be
 // present in the launched instance NICs.
@@ -722,35 +687,6 @@ func (env *maasEnviron) acquireNode(
 		return gomaasapi.MAASObject{}, err
 	}
 	return node, nil
-}
-
-// startNode installs and boots a node.
-func (env *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) (*gomaasapi.MAASObject, error) {
-	params := url.Values{
-		"distro_series": {series},
-		"user_data":     {string(userdata)},
-	}
-	// Initialize err to a non-nil value as a sentinel for the following
-	// loop.
-	err := fmt.Errorf("(no error)")
-	var result gomaasapi.JSONObject
-	for a := shortAttempt.Start(); a.Next() && err != nil; {
-		result, err = node.CallPost("start", params)
-		if err == nil {
-			break
-		}
-	}
-
-	if err == nil {
-		var startedNode gomaasapi.MAASObject
-		startedNode, err = result.GetMAASObject()
-		if err != nil {
-			logger.Errorf("cannot process API response after successfully starting node: %v", err)
-			return nil, err
-		}
-		return &startedNode, nil
-	}
-	return nil, err
 }
 
 func (env *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
@@ -1128,59 +1064,6 @@ func (env *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudini
 	return cloudcfg, nil
 }
 
-func (env *maasEnviron) releaseNodes1(ctx context.ProviderCallContext, nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
-	err := ReleaseNodes(nodes, ids)
-	if err == nil {
-		return nil
-	}
-	if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
-		return errors.Annotate(err, "cannot release nodes")
-	}
-	maasErr, ok := gomaasapi.GetServerError(err)
-	if !ok {
-		return errors.Annotate(err, "cannot release nodes")
-	}
-
-	// StatusCode 409 means a node couldn't be released due to
-	// a state conflict. Likely it's already released or disk
-	// erasing. We're assuming an error of 409 *only* means it's
-	// safe to assume the instance is already released.
-	// MaaS also releases (or attempts) all nodes, and raises
-	// a single error on failure. So even with an error 409, all
-	// nodes have been released.
-	if maasErr.StatusCode == 409 {
-		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
-		return nil
-	}
-
-	// a status code of 400, 403 or 404 means one of the nodes
-	// couldn't be found and none have been released. We have
-	// to release all the ones we can individually.
-	if maasErr.StatusCode != 400 && maasErr.StatusCode != 403 && maasErr.StatusCode != 404 {
-		return errors.Annotate(err, "cannot release nodes")
-	}
-	if !recurse {
-		// this node has already been released and we're golden
-		return nil
-	}
-
-	var lastErr error
-	for _, id := range ids["nodes"] {
-		idFilter := url.Values{}
-		idFilter.Add("nodes", id)
-		err := env.releaseNodes1(ctx, nodes, idFilter, false)
-		if err != nil {
-			lastErr = err
-			logger.Errorf("error while releasing node %v (%v)", id, err)
-			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
-				break
-			}
-		}
-	}
-	return errors.Trace(lastErr)
-
-}
-
 func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []instance.Id, recurse bool) error {
 	args := gomaasapi.ReleaseMachinesArgs{
 		SystemIDs: instanceIdsToSystemIDs(ids),
@@ -1275,8 +1158,8 @@ func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 	}
 
 	idMap := make(map[instance.Id]instances.Instance)
-	for _, instance := range acquired {
-		idMap[instance.Id()] = instance
+	for _, inst := range acquired {
+		idMap[inst.Id()] = inst
 	}
 
 	missing := false
@@ -1831,15 +1714,17 @@ func (*maasEnviron) SuperSubnets(ctx context.ProviderCallContext) ([]string, err
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-// Get the domains managed by MAAS. Currently we only need the name of the domain. If more information is needed
-// This function can be updated to parse and return a structure. Client code would need to be updated.
+// Domains gets the domains managed by MAAS. We only need the name of the
+// domain at present. If more information is needed this function can be
+// updated to parse and return a structure. Client code would need to be
+// updated.
 func (env *maasEnviron) Domains(ctx context.ProviderCallContext) ([]string, error) {
 	maasDomains, err := env.maasController.Domains()
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
-	result := []string{}
+	var result []string
 	for _, domain := range maasDomains {
 		result = append(result, domain.Name())
 	}

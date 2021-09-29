@@ -4,7 +4,9 @@
 package maas
 
 import (
+	"encoding/base64"
 	"fmt"
+	"math/rand"
 	"net/http"
 
 	"github.com/juju/collections/set"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -35,6 +38,21 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 )
+
+const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
+
+const maas2DomainsResponse = `
+[
+    {
+        "authoritative": "true",
+        "resource_uri": "/MAAS/api/2.0/domains/0/",
+        "name": "maas",
+        "id": 0,
+        "ttl": null,
+        "resource_record_count": 3
+    }
+]
+`
 
 type maas2EnvironSuite struct {
 	maas2Suite
@@ -2525,4 +2543,21 @@ func newFakeDevice(systemID, macAddress string) *fakeDevice {
 			macAddress: macAddress,
 		},
 	}
+}
+
+// makeRandomBytes returns an array of arbitrary byte values.
+func makeRandomBytes(length int) []byte {
+	data := make([]byte, length)
+	for index := range data {
+		data[index] = byte(rand.Intn(256))
+	}
+	return data
+}
+
+func decodeUserData(userData string) ([]byte, error) {
+	data, err := base64.StdEncoding.DecodeString(userData)
+	if err != nil {
+		return []byte(""), err
+	}
+	return utils.Gunzip(data)
 }

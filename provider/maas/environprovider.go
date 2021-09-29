@@ -85,12 +85,7 @@ func (p MaasEnvironProvider) Ping(ctx context.ProviderCallContext, endpoint stri
 			return nil
 		}
 	} else {
-		// No version info in the endpoint - try both in preference order.
 		err := p.checkMaas(endpoint, apiVersion2)
-		if err == nil {
-			return nil
-		}
-		err = p.checkMaas(endpoint, apiVersion1)
 		if err == nil {
 			return nil
 		}

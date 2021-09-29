@@ -18,6 +18,14 @@ import (
 	"github.com/juju/juju/version"
 )
 
+var maasEnvAttrs = coretesting.Attrs{
+	"name": "test-env",
+	"type": "maas",
+	config.ResourceTagsKey: map[string]string{
+		"claude": "rains",
+	},
+}
+
 type maas2Suite struct {
 	baseProviderSuite
 }
