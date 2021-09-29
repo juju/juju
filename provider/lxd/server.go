@@ -6,6 +6,7 @@ package lxd
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -136,10 +137,11 @@ type serverFactory struct {
 	interfaceAddress    InterfaceAddress
 	clock               clock.Clock
 	mutex               sync.Mutex
+	httpClient          *http.Client
 }
 
 // NewServerFactory creates a new ServerFactory with sane defaults.
-func NewServerFactory() ServerFactory {
+func NewServerFactory(httpClient *http.Client) ServerFactory {
 	return &serverFactory{
 		newLocalServerFunc: func() (Server, error) {
 			return lxd.NewLocalServer()
@@ -148,6 +150,7 @@ func NewServerFactory() ServerFactory {
 			return lxd.NewRemoteServer(spec)
 		},
 		interfaceAddress: interfaceAddress{},
+		httpClient:       httpClient,
 	}
 }
 
@@ -203,11 +206,9 @@ func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, 
 		return nil, errors.NotValidf("credentials")
 	}
 
-	serverSpec := lxd.NewServerSpec(
-		spec.Endpoint,
-		serverCert,
-		clientCert,
-	).WithProxy(proxy.DefaultConfig.GetProxy)
+	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert).
+		WithProxy(proxy.DefaultConfig.GetProxy).
+		WithHTTPClient(s.httpClient)
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
 	if err == nil {
@@ -233,7 +234,9 @@ func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (
 
 	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint).
 		WithClientCertificate(clientCert).
-		WithSkipGetServer(true)
+		WithSkipGetServer(true).
+		WithHTTPClient(s.httpClient)
+
 	svr, err := s.newRemoteServerFunc(serverSpec)
 	return svr, errors.Trace(err)
 }
