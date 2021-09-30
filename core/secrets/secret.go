@@ -18,14 +18,14 @@ import (
 type SecretStatus string
 
 const (
-	StatusPending = SecretStatus("pending")
-	StatusActive  = SecretStatus("active")
+	StatusStaged = SecretStatus("staged")
+	StatusActive = SecretStatus("active")
 )
 
 // IsValid returns true if s is a valid secret status.
 func (s SecretStatus) IsValid() bool {
 	switch s {
-	case StatusActive, StatusPending:
+	case StatusActive, StatusStaged:
 		return true
 	}
 	return false

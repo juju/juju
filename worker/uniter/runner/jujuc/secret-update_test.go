@@ -41,6 +41,9 @@ func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 		}, {
 			args: []string{"password", "foo=bar", "--rotate", "-1h"},
 			err:  `ERROR rotate interval "-1h0m0s" not valid`,
+		}, {
+			args: []string{"password", "--staged", "--active"},
+			err:  `ERROR specifying both --staged and --active not valid`,
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
@@ -63,7 +66,7 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 		"password", "secret", "--rotate", "1h",
 		"--description", "sssshhhh",
 		"--tag", "foo=bar", "--tag", "hello=world",
-		"--pending",
+		"--staged",
 	})
 
 	c.Assert(code, gc.Equals, 0)
@@ -71,7 +74,7 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	args := &jujuc.UpsertArgs{
 		Value:          val,
 		RotateInterval: durationPtr(time.Hour),
-		Status:         statusPtr(coresecrets.StatusPending),
+		Status:         statusPtr(coresecrets.StatusStaged),
 		Description:    stringPtr("sssshhhh"),
 		Tags:           tagPtr(map[string]string{"foo": "bar", "hello": "world"}),
 	}

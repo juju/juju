@@ -22,7 +22,7 @@ type secretCreateCommand struct {
 	id             string
 	asBase64       bool
 	rotateInterval time.Duration
-	pending        bool
+	staged         bool
 	description    string
 	tags           map[string]string
 	data           map[string]string
@@ -64,8 +64,8 @@ Examples:
 func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.asBase64, "base64", false,
 		`specify the supplied values are base64 encoded strings`)
-	f.BoolVar(&c.pending, "pending", false,
-		"specify whether the secret should be pending rather than active")
+	f.BoolVar(&c.staged, "staged", false,
+		"specify whether the secret should be staged rather than active")
 	f.DurationVar(&c.rotateInterval, "rotate", 0, "how often the secret should be rotated")
 	f.StringVar(&c.description, "description", "", "the secret description")
 	f.Var(cmd.StringMap{&c.tags}, "tag", "tag to apply to the secret")
@@ -93,8 +93,8 @@ func (c *secretCreateCommand) Init(args []string) error {
 func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
 	status := secrets.StatusActive
-	if c.pending {
-		status = secrets.StatusPending
+	if c.staged {
+		status = secrets.StatusStaged
 	}
 	id, err := c.ctx.CreateSecret(c.id, &UpsertArgs{
 		Type:           secrets.TypeBlob,
