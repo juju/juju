@@ -174,21 +174,36 @@ func (c refreshOne) String() string {
 }
 
 // RefreshOne creates a request config for requesting only one charm.
-func RefreshOne(id string, revision int, channel string, base RefreshBase) (RefreshConfig, error) {
+func RefreshOne(key, id string, revision int, channel string, base RefreshBase) (RefreshConfig, error) {
+	if key == "" {
+		// This is for compatibility reasons.  With older clients, the
+		// key created in GetCharmURLOrigin will be lost to and from
+		// the client.  Since a key is required, ensure we have one.
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		key = uuid.String()
+	}
 	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return refreshOne{
-		instanceKey: uuid.String(),
+		instanceKey: key,
 		ID:          id,
 		Revision:    revision,
 		Channel:     channel,
 		Base:        base,
 	}, nil
+}
+
+// CreateInstanceKey creates an InstanceKey which can be unique and stable
+// from Refresh action to Refresh action.  Required for KPI collection
+// on the charmhub side, see LP:1944582.  Rather than saving in
+// state, use the model uuid + the app name, which are unique.  Modeled
+// after the applicationDoc DocID and globalKey in state.
+func CreateInstanceKey(uuid, appName string) string {
+	return uuid + ":a#" + appName
 }
 
 // Build a refresh request that can be past to the API.

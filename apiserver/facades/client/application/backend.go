@@ -196,6 +196,7 @@ type Model interface {
 	Owner() names.UserTag
 	Tag() names.Tag
 	Type() state.ModelType
+	UUID() string
 	ModelConfig() (*config.Config, error)
 	AgentVersion() (version.Number, error)
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)

@@ -1489,6 +1489,7 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		return result, nil
 	}
 	result.Origin = makeParamsCharmOrigin(chOrigin)
+	result.Origin.InstanceKey = charmhub.CreateInstanceKey(api.model.UUID(), args.ApplicationName)
 	return result, nil
 }
 

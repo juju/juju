@@ -27,6 +27,12 @@ type charmhubID struct {
 	series   string
 	arch     string
 	metrics  map[metrics.MetricKey]string
+	// Required for charmhub only.  instanceKey is a unique string associated
+	// with the application. To assist with keeping KPI data in charmhub, it
+	// must be the same for every charmhub Refresh action related to an
+	// application. Create with the charmhub.CreateInstanceKey method.
+	// LP: 1944582
+	instanceKey string
 }
 
 // charmhubResult is the type charmhubLatestCharmInfo returns: information
@@ -47,7 +53,7 @@ type CharmhubRefreshClient interface {
 
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID, modelUUID string) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		base := charmhub.RefreshBase{
@@ -55,7 +61,7 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.M
 			Name:         id.os,
 			Channel:      id.series,
 		}
-		cfg, err := charmhub.RefreshOne(id.id, id.revision, id.channel, base)
+		cfg, err := charmhub.RefreshOne(id.instanceKey, id.id, id.revision, id.channel, base)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

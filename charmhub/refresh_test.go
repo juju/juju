@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	path "github.com/juju/juju/charmhub/path"
@@ -37,7 +38,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          id,
 			Revision:    1,
 			Base: transport.Base{
@@ -49,19 +50,17 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 		}},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
 	}
 
-	config, err := RefreshOne(id, 1, "latest/stable", RefreshBase{
+	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	config = DefineInstanceKey(c, config, "foo-bar")
 
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPost(c, restClient, path, id, body)
@@ -148,11 +147,11 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
   "results": [
     {
       "id": "foo",
-      "instance-key": "key-foo"
+      "instance-key": "instance-key-foo"
     },
     {
       "id": "bar",
-      "instance-key": "key-bar"
+      "instance-key": "instance-key-bar"
     }
   ]
 }
@@ -163,21 +162,19 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	restClient := NewHTTPRESTClient(httpTransport, headers)
 	client := NewRefreshClient(path, restClient, &FakeLogger{})
 
-	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config1 = DefineInstanceKey(c, config1, "key-foo")
 
-	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshBase{
+	config2, err := RefreshOne("instance-key-bar", "bar", 2, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "14.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config2 = DefineInstanceKey(c, config2, "key-bar")
 
 	config := RefreshMany(config1, config2)
 
@@ -193,8 +190,8 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
 
 	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
-		{ID: "foo", InstanceKey: "key-foo"},
-		{ID: "bar", InstanceKey: "key-bar"},
+		{ID: "foo", InstanceKey: "instance-key-foo"},
+		{ID: "bar", InstanceKey: "instance-key-bar"},
 	})
 }
 
@@ -225,21 +222,19 @@ func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
 		}},
 	}
 
-	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config1 = DefineInstanceKey(c, config1, "key-foo")
 
-	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshBase{
+	config2, err := RefreshOne("instance-key-var", "bar", 2, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "14.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config2 = DefineInstanceKey(c, config2, "key-bar")
 
 	config := RefreshMany(config1, config2)
 
@@ -264,14 +259,12 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	path := path.MakePath(baseURL)
 	name := "meshuggah"
 
-	config, err := RefreshOne(name, 1, "latest/stable", RefreshBase{
+	config, err := RefreshOne("instance-key", name, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	config = DefineInstanceKey(c, config, "foo-bar")
 
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPostFailure(c, restClient)
@@ -284,7 +277,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, name string, body interface{}) {
 	client.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
 		responses.Results = []transport.RefreshResponse{{
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			Name:        name,
 		}}
 	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
@@ -316,20 +309,18 @@ var _ = gc.Suite(&RefreshConfigSuite{})
 
 func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 	id := "foo"
-	config, err := RefreshOne(id, 1, "latest/stable", RefreshBase{
+	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config = DefineInstanceKey(c, config, "foo-bar")
-
 	req, _, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          "foo",
 			Revision:    1,
 			Base: transport.Base{
@@ -341,22 +332,33 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 		}},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
 	})
 }
 
-func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
+func (s *RefreshConfigSuite) TestRefreshOneBuildInstanceKeyCompatibility(c *gc.C) {
 	id := "foo"
-	config, err := RefreshOne(id, 1, "latest/stable", RefreshBase{
+	config, err := RefreshOne("", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config = DefineInstanceKey(c, config, "foo-bar")
+	key := ExtractConfigInstanceKey(config)
+	c.Assert(utils.IsValidUUIDString(key), jc.IsTrue)
+}
+
+func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
+	id := "foo"
+	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	config, err = AddConfigMetrics(config, map[charmmetrics.MetricKey]string{
 		charmmetrics.Provider:        "openstack",
@@ -368,7 +370,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          "foo",
 			Revision:    1,
 			Base: transport.Base{
@@ -384,24 +386,22 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 		}},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
 	})
 }
 
 func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
-	config, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+	config, err := RefreshOne("instance-key", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config = DefineInstanceKey(c, config, "foo-bar")
-
 	err = config.Ensure([]transport.RefreshResponse{{
-		InstanceKey: "foo-bar",
+		InstanceKey: "instance-key",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -661,22 +661,20 @@ func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	id1 := "foo"
-	config1, err := RefreshOne(id1, 1, "latest/stable", RefreshBase{
+	config1, err := RefreshOne("instance-key", id1, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
 	id2 := "bar"
-	config2, err := RefreshOne(id2, 2, "latest/edge", RefreshBase{
+	config2, err := RefreshOne("instance-key2", id2, 2, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "14.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config2 = DefineInstanceKey(c, config2, "foo-baz")
 
 	channel := "1/stable"
 
@@ -696,7 +694,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          "foo",
 			Revision:    1,
 			Base: transport.Base{
@@ -706,7 +704,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			},
 			TrackingChannel: "latest/stable",
 		}, {
-			InstanceKey: "foo-baz",
+			InstanceKey: "instance-key2",
 			ID:          "bar",
 			Revision:    2,
 			Base: transport.Base{
@@ -718,11 +716,11 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 		}},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key",
 			ID:          &id1,
 		}, {
 			Action:      "refresh",
-			InstanceKey: "foo-baz",
+			InstanceKey: "instance-key2",
 			ID:          &id2,
 		}, {
 			Action:      "install",
@@ -739,28 +737,26 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestRefreshManyEnsure(c *gc.C) {
-	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshBase{
+	config1, err := RefreshOne("instance-key", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
-	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshBase{
+	config2, err := RefreshOne("instance-key2", "bar", 2, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "14.04",
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	config2 = DefineInstanceKey(c, config2, "foo-baz")
 
 	config := RefreshMany(config1, config2)
 
 	err = config.Ensure([]transport.RefreshResponse{{
-		InstanceKey: "foo-bar",
+		InstanceKey: "instance-key",
 	}, {
-		InstanceKey: "foo-baz",
+		InstanceKey: "instance-key2",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 }
