@@ -181,6 +181,14 @@ func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error 
 			MaxBytes: size * humanize.MiByte,
 		})
 		if err != nil {
+			// There is a potential race happening by calling
+			// InitDbLogsForModel twice from libraries creating models. If the
+			// collection already exists, we expect that the first call of this
+			// method has the correct settings. Calling it again should return
+			// nil, as it's already been setup.
+			if mgoAlreadyExistsErr(err) {
+				return nil
+			}
 			return errors.Trace(err)
 		}
 	} else if capped {
@@ -211,7 +219,24 @@ func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error 
 			return errors.Annotatef(err, "cannot create index for logs collection %v", logsColl.Name)
 		}
 	}
+
 	return nil
+}
+
+func mgoAlreadyExistsErr(err error) bool {
+	err = errors.Cause(err)
+	queryError, ok := err.(*mgo.QueryError)
+	if !ok {
+		return false
+	}
+	// Mongo doesn't provide a list of all error codes in their documentation,
+	// but we can review their source code. Weirdly already exists error comes
+	// up as namespace exists.
+	//
+	// See the following links:
+	//  - Error codes document:  https://github.com/mongodb/mongo/blob/2eefd197e50c5d90b3ec0e0ad9ac15a8b14e3331/src/mongo/base/error_codes.yml#L84
+	//  - Mongo returning the NS error: https://github.com/mongodb/mongo/blob/8c9fa5aa62c28280f35494b091f1ae5b810d349b/src/mongo/db/catalog/create_collection.cpp#L245-L246
+	return queryError.Code == 48
 }
 
 // lastSentDoc captures timestamp of the last log record forwarded

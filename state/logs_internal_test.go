@@ -257,3 +257,75 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceBiggerSize(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, jc.GreaterThan, 5000)
 }
+
+type DBLogInitInternalSuite struct {
+	testing.MgoSuite
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&DBLogInitInternalSuite{})
+
+func (s *DBLogInitInternalSuite) SetUpSuite(c *gc.C) {
+	s.DebugMgo = true
+	s.MgoSuite.SetUpSuite(c)
+	s.IsolationSuite.SetUpSuite(c)
+}
+
+func (s *DBLogInitInternalSuite) TearDownSuite(c *gc.C) {
+	s.IsolationSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
+}
+
+func (s *DBLogInitInternalSuite) SetUpTest(c *gc.C) {
+	s.MgoSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
+}
+
+func (s *DBLogInitInternalSuite) TearDownTest(c *gc.C) {
+	err := s.Session.DB("logs").DropDatabase()
+	c.Assert(err, jc.ErrorIsNil)
+	s.IsolationSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *DBLogInitInternalSuite) TestInitDBLogsForModel(c *gc.C) {
+	err := InitDbLogsForModel(s.Session, "foo-bar", 10)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = InitDbLogsForModel(s.Session, "foo-bar", 10)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DBLogInitInternalSuite) TestInitDBLogsForModelConcurrently(c *gc.C) {
+	results := make(chan error)
+	defer close(results)
+
+	for i := 0; i < 2; i++ {
+		go func() {
+			results <- InitDbLogsForModel(s.Session, "foo-bar", 10)
+		}()
+	}
+	var amount int
+LOOP:
+	for {
+		select {
+		case err := <-results:
+			c.Assert(err, jc.ErrorIsNil)
+			amount++
+			if amount == 2 {
+				break LOOP
+			}
+		case <-time.After(testing.LongWait):
+			c.Fatal("error timedout waiting for a result")
+			return
+		}
+	}
+
+	c.Assert(amount, gc.Equals, 2)
+
+	coll := s.Session.DB("logs").C(logCollectionName("foo-bar"))
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Check(maxSize, gc.Equals, 10)
+}
