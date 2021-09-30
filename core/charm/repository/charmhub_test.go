@@ -41,7 +41,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploy(c *gc.C) {
 
 func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	cfg, err := charmhub.RefreshOne("charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
+	cfg, err := charmhub.RefreshOne("instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,6 +65,9 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 			Series:       "focal",
 		},
 		Channel: &channel,
+	}
+	if id != "" {
+		origin.InstanceKey = "instance-key"
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
@@ -674,11 +677,12 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
 	channel := corecharm.MustParseChannel("stable")
 	origin := corecharm.Origin{
-		Type:     transport.CharmType.String(),
-		ID:       id,
-		Platform: platform,
-		Revision: &revision,
-		Channel:  &channel,
+		Type:        transport.CharmType.String(),
+		ID:          id,
+		Platform:    platform,
+		Revision:    &revision,
+		Channel:     &channel,
+		InstanceKey: "instance-key",
 	}
 
 	cfg, err := refreshConfig(curl, origin)

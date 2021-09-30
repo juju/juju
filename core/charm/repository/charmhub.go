@@ -154,13 +154,14 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, re
 	// Only charms being upgraded will have an ID and Hash. Those values should
 	// only ever be updated in DownloadURL.
 	resOrigin := corecharm.Origin{
-		Source:   requestedOrigin.Source,
-		ID:       requestedOrigin.ID,
-		Hash:     requestedOrigin.Hash,
-		Type:     string(res.Entity.Type),
-		Channel:  &channel,
-		Revision: &revision,
-		Platform: chSuggestedOrigin.Platform,
+		Source:      requestedOrigin.Source,
+		ID:          requestedOrigin.ID,
+		Hash:        requestedOrigin.Hash,
+		Type:        string(res.Entity.Type),
+		Channel:     &channel,
+		Revision:    &revision,
+		Platform:    chSuggestedOrigin.Platform,
+		InstanceKey: requestedOrigin.InstanceKey,
 	}
 
 	outputOrigin, err := sanitizeCharmOrigin(resOrigin, requestedOrigin)
@@ -592,7 +593,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 	case MethodID:
 		// This must be a charm upgrade if we have an ID.  Use the refresh
 		// action for metric keeping on the CharmHub side.
-		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, base)
+		cfg, err = charmhub.RefreshOne(origin.InstanceKey, origin.ID, rev, channel, base)
 	default:
 		return nil, errors.NotValidf("origin %v", origin)
 	}
