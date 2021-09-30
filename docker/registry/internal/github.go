@@ -46,7 +46,7 @@ func getBearerTokenForGithub(auth string) (string, error) {
 func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
 ) (http.RoundTripper, error) {
 	if !repoDetails.BasicAuthConfig.Empty() {
-		bearerToken, err := getBearerTokenForGithub(repoDetails.Auth)
+		bearerToken, err := getBearerTokenForGithub(repoDetails.Auth.Value)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

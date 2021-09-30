@@ -15,7 +15,6 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/yaml.v2"
 )
 
 var logger = loggo.GetLogger("juju.docker")
@@ -23,15 +22,14 @@ var logger = loggo.GetLogger("juju.docker")
 // Token defines a token value with expiration time.
 type Token struct {
 	// Value is the value of the token.
-	Value string `json:"value,omitempty"`
+	Value string
 
 	// ExpiresAt is the unix time in seconds and milliseconds when the authorization token expires.
-	ExpiresAt *time.Time `json:"expires-at,omitempty"`
+	ExpiresAt *time.Time
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (t *Token) UnmarshalJSON(value []byte) error {
-	logger.Criticalf("UnmarshalJSON %q", string(value))
 	return json.Unmarshal(value, &t.Value)
 }
 
@@ -54,8 +52,8 @@ func NewToken(value string) *Token {
 }
 
 // Empty checks if the auth information is empty.
-func (t Token) Empty() bool {
-	return t.Value == ""
+func (t *Token) Empty() bool {
+	return t == nil || t.Value == ""
 }
 
 // TokenAuthConfig contains authorization information for token auth.
@@ -74,13 +72,7 @@ type TokenAuthConfig struct {
 
 // Empty checks if the auth information is empty.
 func (ac TokenAuthConfig) Empty() bool {
-	if ac.IdentityToken != nil && ac.IdentityToken.Value != "" {
-		return false
-	}
-	if ac.RegistryToken != nil && ac.RegistryToken.Value != "" {
-		return false
-	}
-	return true
+	return ac.RegistryToken.Empty() && ac.IdentityToken.Empty()
 }
 
 // Validate validates the spec.
@@ -95,7 +87,7 @@ func (ac *TokenAuthConfig) init() error {
 // BasicAuthConfig contains authorization information for basic auth.
 type BasicAuthConfig struct {
 	// Auth is the base64 encoded "username:password" string.
-	Auth string `json:"auth,omitempty" yaml:"auth,omitempty"`
+	Auth *Token `json:"auth,omitempty" yaml:"auth,omitempty"`
 
 	// Username holds the username used to gain access to a non-public image.
 	Username string `json:"username" yaml:"username"`
@@ -106,7 +98,7 @@ type BasicAuthConfig struct {
 
 // Empty checks if the auth information is empty.
 func (ba BasicAuthConfig) Empty() bool {
-	return ba.Auth == "" && ba.Username == "" && ba.Password == ""
+	return ba.Auth.Empty() && ba.Username == "" && ba.Password == ""
 }
 
 // Validate validates the spec.
@@ -118,8 +110,8 @@ func (ba *BasicAuthConfig) init() error {
 	if ba.Empty() {
 		return nil
 	}
-	if ba.Auth == "" {
-		ba.Auth = base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password))
+	if ba.Auth.Empty() {
+		ba.Auth = NewToken(base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password)))
 	}
 	return nil
 }
@@ -171,7 +163,7 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 
 // String returns yaml format.
 func (rid ImageRepoDetails) String() string {
-	d, _ := yaml.Marshal(rid)
+	d, _ := json.Marshal(rid)
 	return string(d)
 }
 

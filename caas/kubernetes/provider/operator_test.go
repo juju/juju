@@ -11,7 +11,6 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -25,6 +24,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/testing"
 )
 
@@ -139,14 +139,14 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 	return spec
 }
 
-func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, withStorage bool) *appsv1.StatefulSet {
-	ss := &appsv1.StatefulSet{
+func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, withStorage bool) *apps.StatefulSet {
+	ss := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "test-operator",
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 			Annotations: operatorAnnotations,
 		},
-		Spec: appsv1.StatefulSetSpec{
+		Spec: apps.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"operator.juju.is/name": "test", "operator.juju.is/target": "application"},
@@ -479,7 +479,7 @@ func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo 
 	)
 	imageDetails := resources.DockerImageDetails{RegistryPath: "/path/to/image"}
 	if isPrivateImageRepo {
-		imageDetails.BasicAuthConfig.Auth = "xxxxxxxx==="
+		imageDetails.BasicAuthConfig.Auth = docker.NewToken("xxxxxxxx===")
 	}
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
 		ImageDetails: imageDetails,
@@ -1214,7 +1214,7 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 		s.mockSecrets.EXPECT().Get(gomock.Any(), "test-app-juju-operator-secret", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "test-app-operator", v1.GetOptions{}).
-			Return(&appsv1.Deployment{}, nil),
+			Return(&apps.Deployment{}, nil),
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")

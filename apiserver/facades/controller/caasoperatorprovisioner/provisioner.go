@@ -181,14 +181,16 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	imageInfo := params.DockerImageInfo{
 		Username:   imageRepo.Username,
 		Password:   imageRepo.Password,
-		Auth:       imageRepo.Auth,
 		Email:      imageRepo.Email,
 		Repository: imageRepo.Repository,
 	}
-	if imageRepo.IdentityToken != nil {
+	if !imageRepo.Auth.Empty() {
+		imageInfo.Auth = imageRepo.Auth.Value
+	}
+	if !imageRepo.IdentityToken.Empty() {
 		imageInfo.IdentityToken = imageRepo.IdentityToken.Value
 	}
-	if imageRepo.RegistryToken != nil {
+	if !imageRepo.RegistryToken.Empty() {
 		imageInfo.RegistryToken = imageRepo.RegistryToken.Value
 	}
 

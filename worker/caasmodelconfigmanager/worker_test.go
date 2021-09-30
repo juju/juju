@@ -4,6 +4,7 @@
 package caasmodelconfigmanager_test
 
 import (
+	"encoding/base64"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -139,14 +140,14 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 	s.controllerConfig[controller.CAASImageRepo] = `
 {
     "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "region": "ap-southeast-2",
     "username": "aws_access_key_id",
+    "repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
     "password": "aws_secret_access_key",
+    "region": "ap-southeast-2"
 }`[1:]
 
 	refreshed := s.controllerConfig.CAASImageRepo()
-	refreshed.Auth = `refreshed===`
+	refreshed.Auth = docker.NewToken(`refreshed===`)
 
 	done := make(chan struct{}, 1)
 	startWorker, ctrl := s.getWorkerStarter(c)
@@ -158,7 +159,22 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 		s.reg.EXPECT().Ping().Return(nil),
 		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
-		s.reg.EXPECT().ImageRepoDetails().Return(s.controllerConfig.CAASImageRepo()),
+		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(
+			func() docker.ImageRepoDetails {
+				o := s.controllerConfig.CAASImageRepo()
+				c.Assert(o, gc.DeepEquals, docker.ImageRepoDetails{
+					ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+					Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+					Region:        "ap-southeast-2",
+					BasicAuthConfig: docker.BasicAuthConfig{
+						Username: "aws_access_key_id",
+						Password: "aws_secret_access_key",
+						Auth:     docker.NewToken(base64.StdEncoding.EncodeToString([]byte("aws_access_key_id:aws_secret_access_key"))),
+					},
+				})
+				return o
+			},
+		),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
 			func(i docker.ImageRepoDetails) error {
 				c.Assert(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
@@ -178,7 +194,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 		),
 	)
 
-	err := s.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 1)
+	err := s.clock.WaitAdvance(30*time.Second, coretesting.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-done:
@@ -191,10 +207,10 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 	s.controllerConfig[controller.CAASImageRepo] = `
 {
     "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "region": "ap-southeast-2",
     "username": "aws_access_key_id",
+    "repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
     "password": "aws_secret_access_key",
+    "region": "ap-southeast-2"
 }`[1:]
 
 	done := make(chan struct{}, 1)
@@ -207,7 +223,22 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 		s.reg.EXPECT().Ping().Return(nil),
 		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
-		s.reg.EXPECT().ImageRepoDetails().Return(s.controllerConfig.CAASImageRepo()),
+		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(
+			func() docker.ImageRepoDetails {
+				o := s.controllerConfig.CAASImageRepo()
+				c.Assert(o, gc.DeepEquals, docker.ImageRepoDetails{
+					ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+					Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+					Region:        "ap-southeast-2",
+					BasicAuthConfig: docker.BasicAuthConfig{
+						Username: "aws_access_key_id",
+						Password: "aws_secret_access_key",
+						Auth:     docker.NewToken(base64.StdEncoding.EncodeToString([]byte("aws_access_key_id:aws_secret_access_key"))),
+					},
+				})
+				return o
+			},
+		),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
 			func(i docker.ImageRepoDetails) error {
 				c.Assert(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
@@ -234,7 +265,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 		),
 	)
 
-	err := s.clock.WaitAdvance(3*time.Second, coretesting.ShortWait, 1)
+	err := s.clock.WaitAdvance(30*time.Second, coretesting.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.clock.WaitAdvance(7*time.Minute, coretesting.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)

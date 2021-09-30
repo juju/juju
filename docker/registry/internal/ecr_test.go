@@ -153,7 +153,8 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshAuthAuthTokenMissing(c 
 		},
 	}
 	setImageRepoDetails(c, reg, repoDetails)
-	shouldRefreshAuth, _ := reg.ShouldRefreshAuth()
+	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
+	c.Assert(tick, gc.IsNil)
 	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
@@ -169,14 +170,14 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshNoExpireTime(c *gc.C) {
 			Password: "aws_secret_access_key",
 		},
 	}
-	repoDetails.IdentityToken = docker.NewToken(`xxx===`)
+	repoDetails.Auth = docker.NewToken(`xxx===`)
 	setImageRepoDetails(c, reg, repoDetails)
-	shouldRefreshAuth, _ := reg.ShouldRefreshAuth()
+	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
+	c.Assert(tick, gc.IsNil)
 	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
 func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *gc.C) {
-	expiredTime := time.Now().Add(-1 * time.Second).Add(5 * time.Minute)
 	reg, ctrl := s.getRegistry(c, nil)
 	defer ctrl.Finish()
 	repoDetails := docker.ImageRepoDetails{
@@ -188,12 +189,26 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *gc.C) {
 			Password: "aws_secret_access_key",
 		},
 	}
-	repoDetails.IdentityToken = &docker.Token{
+	// expires in 5 mins.
+	expiredTime := time.Now().Add(-1 * time.Second).Add(5 * time.Minute)
+	repoDetails.Auth = &docker.Token{
 		Value:     `xxx===`,
 		ExpiresAt: &expiredTime,
 	}
 	setImageRepoDetails(c, reg, repoDetails)
-	shouldRefreshAuth, _ := reg.ShouldRefreshAuth()
+	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
+	c.Assert(tick, gc.IsNil)
+	c.Assert(shouldRefreshAuth, jc.IsTrue)
+
+	// // already expired.
+	expiredTime = time.Now().Add(-1 * time.Second)
+	repoDetails.Auth = &docker.Token{
+		Value:     `xxx===`,
+		ExpiresAt: &expiredTime,
+	}
+	setImageRepoDetails(c, reg, repoDetails)
+	shouldRefreshAuth, tick = reg.ShouldRefreshAuth()
+	c.Assert(tick, gc.IsNil)
 	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
@@ -210,15 +225,15 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenNoNeedRefresh(c *g
 			Password: "aws_secret_access_key",
 		},
 	}
-	repoDetails.IdentityToken = &docker.Token{
+	repoDetails.Auth = &docker.Token{
 		Value:     `xxx===`,
 		ExpiresAt: &expiredTime,
 	}
 	setImageRepoDetails(c, reg, repoDetails)
-	shouldRefreshAuth, nextCheck := reg.ShouldRefreshAuth()
+	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
 	c.Assert(shouldRefreshAuth, jc.IsFalse)
-	c.Assert(nextCheck, gc.NotNil)
-	c.Assert(nextCheck.Round(time.Minute), gc.DeepEquals, 3*time.Minute)
+	c.Assert(tick, gc.NotNil)
+	c.Assert(tick.Round(time.Minute), gc.DeepEquals, 3*time.Minute)
 }
 
 func (s *elasticContainerRegistrySuite) TestPingPublicRepository(c *gc.C) {

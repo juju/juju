@@ -44,7 +44,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 	authToken := s.getAuthToken("username", "pwd")
 	if s.isPrivate {
 		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
-			Auth: authToken,
+			Auth: docker.NewToken(authToken),
 		}
 	}
 

@@ -143,7 +143,7 @@ func (c *Client) OperatorProvisioningInfo(applicationName string) (OperatorProvi
 			BasicAuthConfig: docker.BasicAuthConfig{
 				Username: info.ImageDetails.Username,
 				Password: info.ImageDetails.Password,
-				Auth:     info.ImageDetails.Auth,
+				Auth:     docker.NewToken(info.ImageDetails.Auth),
 			},
 			TokenAuthConfig: docker.TokenAuthConfig{
 				IdentityToken: docker.NewToken(info.ImageDetails.IdentityToken),

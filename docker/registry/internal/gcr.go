@@ -39,12 +39,12 @@ var invalidGoogleContainerRegistryUserNameError = errors.NewNotValid(nil,
 )
 
 func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) (err error) {
-	if auth.Username == "" && auth.Auth == "" {
+	if auth.Username == "" && auth.Auth.Empty() {
 		return errors.NewNotValid(nil, "username or auth token is required")
 	}
 	username := auth.Username
-	if auth.Auth != "" {
-		username, _, err = unpackAuthToken(auth.Auth)
+	if !auth.Auth.Empty() {
+		username, _, err = unpackAuthToken(auth.Auth.Value)
 		if err != nil {
 			return errors.Annotate(err, "getting username from the google container registry auth token")
 		}
@@ -69,7 +69,7 @@ func googleContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 		}
 		return newTokenTransport(
 			transport,
-			repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
+			repoDetails.Username, repoDetails.Password, repoDetails.Auth.Value, "", false,
 		), nil
 	}
 	if !repoDetails.TokenAuthConfig.Empty() {

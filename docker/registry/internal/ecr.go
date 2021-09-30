@@ -120,14 +120,12 @@ func (c *elasticContainerRegistry) refreshTokenForElasticContainerRegistry(image
 	}
 	if len(result.AuthorizationData) > 0 {
 		data := result.AuthorizationData[0]
-		if data.AuthorizationToken != nil {
-			imageRepo.IdentityToken = &docker.Token{
-				Value:     aws.ToString(data.AuthorizationToken),
-				ExpiresAt: data.ExpiresAt,
-			}
+		imageRepo.Auth = docker.NewToken(aws.ToString(data.AuthorizationToken))
+		if !imageRepo.Auth.Empty() {
+			imageRepo.Auth.ExpiresAt = data.ExpiresAt
 		}
 	}
-	if imageRepo.IdentityToken == nil || imageRepo.IdentityToken.Empty() {
+	if imageRepo.Auth.Empty() {
 		return errors.New(fmt.Sprintf("failed to fetch the authorization token for %q", imageRepo.Repository))
 	}
 	return nil
@@ -135,14 +133,15 @@ func (c *elasticContainerRegistry) refreshTokenForElasticContainerRegistry(image
 
 // ShouldRefreshAuth checks if the repoDetails should be refreshed.
 func (c *elasticContainerRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
-	if c.repoDetails.IdentityToken != nil && c.repoDetails.IdentityToken.ExpiresAt != nil {
-		d := time.Until(*c.repoDetails.IdentityToken.ExpiresAt)
-		if d > advanceExpiry {
-			nextCheckDuration := d - advanceExpiry
-			return false, &nextCheckDuration
-		}
+	if c.repoDetails.Auth.Empty() || c.repoDetails.Auth.ExpiresAt == nil {
+		return true, nil
 	}
-	return true, nil
+	d := time.Until(*c.repoDetails.Auth.ExpiresAt)
+	if d <= advanceExpiry {
+		return true, nil
+	}
+	nextCheckDuration := d - advanceExpiry
+	return false, &nextCheckDuration
 }
 
 // RefreshAuth refreshes the repoDetails.
@@ -159,10 +158,10 @@ func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
 	if err := c.refreshTokenForElasticContainerRegistry(repoDetails); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if repoDetails.IdentityToken == nil || repoDetails.IdentityToken.Empty() {
+	if repoDetails.Auth.Empty() {
 		return nil, errors.NewNotValid(nil, "empty identity token for elastic container registry")
 	}
-	return newBasicTransport(transport, "", "", repoDetails.IdentityToken.Value), nil
+	return newBasicTransport(transport, "", "", repoDetails.Auth.Value), nil
 }
 
 func (c *elasticContainerRegistry) WrapTransport(...TransportWrapper) (err error) {

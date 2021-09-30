@@ -89,6 +89,7 @@ type manager struct {
 	reg          registry.Registry
 
 	nextTickDuration *time.Duration
+	ticker           clock.Timer
 }
 
 // NewFacade returns a facade for caasapplicationprovisioner worker to use.
@@ -129,6 +130,14 @@ func (w *manager) Wait() error {
 }
 
 func (w *manager) loop() (err error) {
+	defer func() {
+		if w.ticker != nil && !w.ticker.Stop() {
+			select {
+			case <-w.ticker.Chan():
+			default:
+			}
+		}
+	}()
 	controllerConfig, err := w.config.Facade.ControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
@@ -154,11 +163,12 @@ func (w *manager) loop() (err error) {
 	if err := w.ensureImageRepoSecret(true); err != nil {
 		return errors.Trace(err)
 	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case <-w.getNextTick():
+		case <-w.getTickerChan():
 			if err := w.ensureImageRepoSecret(false); err != nil {
 				return errors.Trace(err)
 			}
@@ -166,11 +176,27 @@ func (w *manager) loop() (err error) {
 	}
 }
 
-func (w *manager) getNextTick() <-chan time.Time {
-	if w.nextTickDuration != nil {
-		return w.clock.After(*w.nextTickDuration)
+func (w *manager) getTickerChan() <-chan time.Time {
+	d := w.getTickerDuration()
+	if w.ticker == nil {
+		w.ticker = w.clock.NewTimer(d)
+	} else {
+		if !w.ticker.Stop() {
+			select {
+			case <-w.ticker.Chan():
+			default:
+			}
+		}
+		w.ticker.Reset(d)
 	}
-	return w.clock.After(3 * time.Second)
+	return w.ticker.Chan()
+}
+
+func (w *manager) getTickerDuration() time.Duration {
+	if w.nextTickDuration != nil {
+		return *w.nextTickDuration
+	}
+	return 30 * time.Second
 }
 
 func (w *manager) ensureImageRepoSecret(isFirstCall bool) error {

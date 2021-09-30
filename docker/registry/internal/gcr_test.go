@@ -44,7 +44,7 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 	s.authToken = base64.StdEncoding.EncodeToString([]byte("_json_key:pwd"))
 	if s.isPrivate {
 		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
-			Auth: s.authToken,
+			Auth: docker.NewToken(s.authToken),
 		}
 	}
 
@@ -109,7 +109,7 @@ func (s *googleContainerRegistrySuite) TestInvalidUserName(c *gc.C) {
 		Repository:    "gcr.io/jujuqa",
 		ServerAddress: "gcr.io",
 		BasicAuthConfig: docker.BasicAuthConfig{
-			Auth: base64.StdEncoding.EncodeToString([]byte("username:pwd")),
+			Auth: docker.NewToken(base64.StdEncoding.EncodeToString([]byte("username:pwd"))),
 		},
 	}
 	_, err := registry.New(imageRepoDetails)

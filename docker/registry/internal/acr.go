@@ -49,7 +49,7 @@ func azureContainerRegistryTransport(
 		username := repoDetails.Username
 		if username == "" {
 			var err error
-			username, _, err = unpackAuthToken(repoDetails.Auth)
+			username, _, err = unpackAuthToken(repoDetails.Auth.Value)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

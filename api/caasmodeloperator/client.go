@@ -50,7 +50,7 @@ func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo,
 			BasicAuthConfig: docker.BasicAuthConfig{
 				Username: d.Username,
 				Password: d.Password,
-				Auth:     d.Auth,
+				Auth:     docker.NewToken(d.Auth),
 			},
 			TokenAuthConfig: docker.TokenAuthConfig{
 				IdentityToken: docker.NewToken(d.IdentityToken),

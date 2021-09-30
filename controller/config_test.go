@@ -183,7 +183,7 @@ var newConfigTests = []struct {
 	{
 		about: "empty CAAS docker image repo",
 		config: controller.Config{
-			controller.CAASImageRepo: "foo: bar",
+			controller.CAASImageRepo: `{"foo": "bar"}`,
 		},
 		expectError: `empty repository not valid`,
 	}, {
@@ -195,7 +195,7 @@ var newConfigTests = []struct {
 	}, {
 		about: "invalid CAAS docker image repo - trailing colon",
 		config: controller.Config{
-			controller.CAASImageRepo: "foo:",
+			controller.CAASImageRepo: `{"foo":""}`,
 		},
 		expectError: `empty repository not valid`,
 	}, {

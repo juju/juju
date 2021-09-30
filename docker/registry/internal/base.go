@@ -110,7 +110,7 @@ func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoD
 	}
 	if !repoDetails.BasicAuthConfig.Empty() {
 		return newTokenTransport(
-			transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
+			transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Value, "", false,
 		), nil
 	}
 	return transport, nil
