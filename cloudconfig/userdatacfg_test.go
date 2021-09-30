@@ -40,6 +40,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/os/v2/series"
 )
 
 type cloudinitSuite struct {
@@ -97,7 +98,7 @@ type testInstanceConfig instancecfg.InstanceConfig
 
 // makeTestConfig returns a minimal instance config for a non state
 // server machine (unless bootstrap is true) for the given series.
-func makeTestConfig(series string, bootstrap bool, build int) *testInstanceConfig {
+func makeTestConfig(series string, bootstrap bool, vers version.Number, build int) *testInstanceConfig {
 	const defaultMachineID = "99"
 
 	cfg := new(testInstanceConfig)
@@ -117,7 +118,7 @@ func makeTestConfig(series string, bootstrap bool, build int) *testInstanceConfi
 		ModelTag: testing.ModelTag,
 	}
 	cfg.setMachineID(defaultMachineID)
-	cfg.setSeries(series, build)
+	cfg.setSeries(series, vers, build)
 	if bootstrap {
 		return cfg.setController()
 	} else {
@@ -144,13 +145,13 @@ func makeTestConfig(series string, bootstrap bool, build int) *testInstanceConfi
 
 // makeBootstrapConfig is a shortcut to call makeTestConfig(series, true).
 func makeBootstrapConfig(series string, build int) *testInstanceConfig {
-	return makeTestConfig(series, true, build)
+	return makeTestConfig(series, true, version.MustParse("1.2.3"), build)
 }
 
 // makeNormalConfig is a shortcut to call makeTestConfig(series,
 // false).
 func makeNormalConfig(series string, build int) *testInstanceConfig {
-	return makeTestConfig(series, false, build)
+	return makeTestConfig(series, false, version.MustParse("1.2.3"), build)
 }
 
 // setMachineID updates MachineId, MachineAgentServiceName,
@@ -196,13 +197,13 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 
 // setSeries sets the series-specific fields (Tools, Release, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
-func (cfg *testInstanceConfig) setSeries(series string, build int) *testInstanceConfig {
+func (cfg *testInstanceConfig) setSeries(series string, vers version.Number, build int) *testInstanceConfig {
 	osType := coreseries.DefaultOSTypeNameFromSeries(series)
 	ver := ""
 	if build > 0 {
-		ver = fmt.Sprintf("1.2.3.%d-%s-amd64", build, osType)
+		ver = fmt.Sprintf("%s.%d-%s-amd64", vers.String(), build, osType)
 	} else {
-		ver = fmt.Sprintf("1.2.3-%s-amd64", osType)
+		ver = fmt.Sprintf("%s-%s-amd64", vers.String(), osType)
 	}
 	err := ((*instancecfg.InstanceConfig)(cfg)).SetTools(tools.List{
 		newSimpleTools(ver),
@@ -588,6 +589,22 @@ install -D -m 644 /dev/null '.*publicsimplestreamskey'
 printf '%s\\n' 'publickey' > '.*publicsimplestreamskey'
 `,
 	},
+
+	// check that for older 2.8 agents the series tools is symlinked.
+	{
+		cfg: makeTestConfig("bionic", false, version.MustParse("2.8.0"), 0).mutate(func(cfg *testInstanceConfig) {
+		}).setMachineID("1"),
+		inexactMatch:      true,
+		upgradedToVersion: "2.8.0",
+		expectScripts: `
+sha256sum \$bin/tools.tar.gz > \$bin/juju2.8.0-ubuntu-amd64.sha256
+grep '1234' \$bin/juju2.8.0-ubuntu-amd64.sha256 .*
+tar zxf \$bin/tools.tar.gz -C \$bin
+ln -s \$bin /var/lib/juju/tools/2.8.0-bionic-amd64
+printf %s '{"version":"2.8.0-ubuntu-amd64".*
+mkdir -p '/var/lib/juju/agents/machine-1'
+`,
+	},
 }
 
 func newSimpleTools(vers string) *tools.Tools {
@@ -641,7 +658,8 @@ func getStateInitializationParams(c *gc.C, scripts []string) instancecfg.StateIn
 
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
-func (*cloudinitSuite) TestCloudInit(c *gc.C) {
+func (s *cloudinitSuite) TestCloudInit(c *gc.C) {
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "bionic", nil })
 	for i, test := range cloudinitTests {
 
 		c.Logf("test %d", i)
