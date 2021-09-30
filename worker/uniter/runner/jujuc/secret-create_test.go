@@ -82,7 +82,7 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 		"password", "secret", "--rotate", "1h",
 		"--description", "sssshhhh",
 		"--tag", "foo=bar", "--tag", "hello=world",
-		"--pending",
+		"--staged",
 	})
 
 	c.Assert(code, gc.Equals, 0)
@@ -91,7 +91,7 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 		Type:           coresecrets.TypeBlob,
 		Value:          val,
 		RotateInterval: durationPtr(time.Hour),
-		Status:         statusPtr(coresecrets.StatusPending),
+		Status:         statusPtr(coresecrets.StatusStaged),
 		Description:    stringPtr("sssshhhh"),
 		Tags:           tagPtr(map[string]string{"foo": "bar", "hello": "world"}),
 	}

@@ -221,7 +221,7 @@ func (s *SecretsSuite) TestUpdateAll(c *gc.C) {
 	newData := map[string]string{"foo": "bar", "hello": "world"}
 	newDescription := "big secret"
 	newTags := map[string]string{"goodbye": "world"}
-	newStatus := secrets.StatusPending
+	newStatus := secrets.StatusStaged
 	s.assertUpdatedSecret(c, md.URL, newData, durationPtr(2*time.Hour), &newDescription, &newStatus, &newTags, 2)
 }
 

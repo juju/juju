@@ -88,7 +88,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		}, {
 			Metadata: coresecrets.SecretMetadata{
 				URL: secretUrl2, ID: 667, Version: 1, Revision: 1, Path: "app/gitlab/apitoken", Provider: "juju",
-				Status: coresecrets.StatusPending,
+				Status: coresecrets.StatusStaged,
 			},
 			Error: "boom",
 		}}, nil)
@@ -117,7 +117,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   URL: secret://app/gitlab/apitoken
   revision: 1
   path: app/gitlab/apitoken
-  status: pending
+  status: staged
   version: 1
   backend: juju
   create-time: 0001-01-01T00:00:00Z
