@@ -48,7 +48,7 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/imdario/mergo v0.3.10 // indirect
-	github.com/juju/ansiterm v0.0.0-20210706145210-9283cdf370b5
+	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/charm/v8 v8.0.0-20210914234543-4da410e3f680
 	github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c
@@ -93,7 +93,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
-	github.com/mattn/go-isatty v0.0.13
+	github.com/mattn/go-isatty v0.0.14
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.4 // indirect
