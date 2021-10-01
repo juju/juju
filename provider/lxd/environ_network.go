@@ -70,8 +70,13 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	for _, networkName := range networkNames {
 		// Query the details for this network and skip non-bridge networks.
 		networkDetails, _, err := srv.GetNetwork(networkName)
+
 		if err != nil {
-			return nil, errors.Annotatef(err, "querying lxd server for details of network %q", networkName)
+			// Networks can be removed as a side effect
+			// between the srv.GetNetworkNames() and the
+			// srv.GetNetwork() calls above
+			logger.Warningf("network %q has dissappeared from the lxd server, err while querying was %v", networkName, err)
+			continue
 		} else if networkDetails.Type != "bridge" {
 			continue
 		}
