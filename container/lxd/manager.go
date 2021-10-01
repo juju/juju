@@ -105,11 +105,11 @@ func (m *containerManager) CreateContainer(
 	cons constraints.Value,
 	series string,
 	networkConfig *container.NetworkConfig,
-	storageConfig *container.StorageConfig,
+	_ *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	_ = callback(status.Provisioning, "Creating container spec", nil)
-	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, storageConfig, callback)
+	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, callback)
 	if err != nil {
 		_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
 		return nil, nil, errors.Trace(err)
@@ -154,7 +154,6 @@ func (m *containerManager) getContainerSpec(
 	cons constraints.Value,
 	series string,
 	networkConfig *container.NetworkConfig,
-	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (ContainerSpec, error) {
 	imageSources, err := m.getImageSources()
