@@ -2919,6 +2919,9 @@
                         "id": {
                             "type": "string"
                         },
+                        "instance-key": {
+                            "type": "string"
+                        },
                         "os": {
                             "type": "string"
                         },
@@ -15387,6 +15390,9 @@
                             "type": "string"
                         },
                         "id": {
+                            "type": "string"
+                        },
+                        "instance-key": {
                             "type": "string"
                         },
                         "os": {
@@ -38750,6 +38756,9 @@
                             "type": "string"
                         },
                         "id": {
+                            "type": "string"
+                        },
+                        "instance-key": {
                             "type": "string"
                         },
                         "os": {

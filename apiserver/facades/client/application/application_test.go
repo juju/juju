@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -715,12 +716,13 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 			Series:       "focal",
 		},
 	}
-	s.AddTestingApplicationWithOrigin(c, "wordpress", ch, &expectedOrigin)
+	app := s.AddTestingApplicationWithOrigin(c, "wordpress", ch, &expectedOrigin)
 	result, err := s.applicationAPI.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.URL, gc.Equals, "local:quantal/wordpress-3")
 	latest := "latest"
+
 	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Risk:         "stable",
@@ -729,6 +731,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",
+		InstanceKey:  charmhub.CreateInstanceKey(s.Model.UUID(), app.Name()),
 	})
 }
 
