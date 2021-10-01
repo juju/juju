@@ -5,6 +5,7 @@ package raftlease
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +28,6 @@ type ClientMetrics interface {
 
 type PubsubClient struct {
 	hub            *pubsub.StructuredHub
-	requestID      uint64
 	requestTopic   string
 	metrics        ClientMetrics
 	forwardTimeout time.Duration
@@ -63,7 +63,9 @@ func (c *PubsubClient) Request(ctx context.Context, command *Command) error {
 
 	start := time.Now()
 
-	responseTopic := utils.MustNewUUID().String()
+	// Ensure that we namespace the response topic so we can easily filter it
+	// out for metric reporting.
+	responseTopic := fmt.Sprintf("lease.request.callback.%s", utils.MustNewUUID().String())
 
 	responseChan := make(chan ForwardResponse)
 	errChan := make(chan error)
