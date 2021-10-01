@@ -98,6 +98,8 @@ var secretCommands = map[string]creator{
 	"secret-create" + cmdSuffix: NewSecretCreateCommand,
 	"secret-update" + cmdSuffix: NewSecretUpdateCommand,
 	"secret-get" + cmdSuffix:    NewSecretGetCommand,
+	"secret-grant" + cmdSuffix:  NewSecretGrantCommand,
+	"secret-revoke" + cmdSuffix: NewSecretRevokeCommand,
 }
 
 var storageCommands = map[string]creator{

@@ -19,7 +19,7 @@ type secretUpdateCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	id             string
+	name           string
 	asBase64       bool
 	rotateInterval time.Duration
 	active         bool
@@ -56,7 +56,7 @@ Examples:
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-update",
-		Args:    "<id> [value|key=value...]",
+		Args:    "<name> [value|key=value...]",
 		Purpose: "update an existing secret",
 		Doc:     doc,
 	})
@@ -78,7 +78,7 @@ func (c *secretUpdateCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements cmd.Command.
 func (c *secretUpdateCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return errors.New("missing secret id")
+		return errors.New("missing secret name")
 	}
 	if c.rotateInterval < -1 {
 		return errors.NotValidf("rotate interval %q", c.rotateInterval)
@@ -86,7 +86,7 @@ func (c *secretUpdateCommand) Init(args []string) error {
 	if c.staged && c.active {
 		return errors.NotValidf("specifying both --staged and --active")
 	}
-	c.id = args[0]
+	c.name = args[0]
 
 	var err error
 	if len(args) > 1 {
@@ -102,7 +102,7 @@ func (c *secretUpdateCommand) Run(ctx *cmd.Context) error {
 	if c.staged {
 		status = secrets.StatusStaged
 	}
-	args := UpsertArgs{
+	args := SecretUpsertArgs{
 		Value:  value,
 		Status: &status,
 		Tags:   &c.tags,
@@ -113,7 +113,7 @@ func (c *secretUpdateCommand) Run(ctx *cmd.Context) error {
 	if c.description != "" {
 		args.Description = &c.description
 	}
-	id, err := c.ctx.UpdateSecret(c.id, &args)
+	id, err := c.ctx.UpdateSecret(c.name, &args)
 	if err != nil {
 		return err
 	}

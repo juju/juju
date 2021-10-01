@@ -74,7 +74,7 @@ func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements cmd.Command.
 func (c *secretCreateCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return errors.New("missing secret id")
+		return errors.New("missing secret name")
 	}
 	if len(args) < 2 {
 		return errors.New("missing secret value")
@@ -96,7 +96,7 @@ func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
 	if c.staged {
 		status = secrets.StatusStaged
 	}
-	id, err := c.ctx.CreateSecret(c.id, &UpsertArgs{
+	id, err := c.ctx.CreateSecret(c.id, &SecretUpsertArgs{
 		Type:           secrets.TypeBlob,
 		Value:          value,
 		RotateInterval: &c.rotateInterval,

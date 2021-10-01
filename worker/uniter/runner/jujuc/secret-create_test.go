@@ -31,7 +31,7 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 	}{
 		{
 			args: []string{},
-			err:  "ERROR missing secret id",
+			err:  "ERROR missing secret name",
 		}, {
 			args: []string{"password"},
 			err:  "ERROR missing secret value",
@@ -87,7 +87,7 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
-	args := &jujuc.UpsertArgs{
+	args := &jujuc.SecretUpsertArgs{
 		Type:           coresecrets.TypeBlob,
 		Value:          val,
 		RotateInterval: durationPtr(time.Hour),
@@ -109,7 +109,7 @@ func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
-	args := &jujuc.UpsertArgs{
+	args := &jujuc.SecretUpsertArgs{
 		Type:           coresecrets.TypeBlob,
 		Value:          val,
 		RotateInterval: durationPtr(0),

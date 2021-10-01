@@ -944,7 +944,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
-	id, err := hookContext.CreateSecret("password", &jujuc.UpsertArgs{
+	id, err := hookContext.CreateSecret("password", &jujuc.SecretUpsertArgs{
 		Type:           secrets.TypeBlob,
 		Value:          value,
 		RotateInterval: durationPtr(time.Hour),
@@ -987,7 +987,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
-	id, err := hookContext.UpdateSecret("password", &jujuc.UpsertArgs{
+	id, err := hookContext.UpdateSecret("password", &jujuc.SecretUpsertArgs{
 		Value:          value,
 		RotateInterval: durationPtr(time.Hour),
 		Status:         statusPtr(secrets.StatusActive),
@@ -996,4 +996,48 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(id, gc.Equals, "secret://app/wordpress/password")
+}
+
+func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "GrantSecrets")
+		c.Fatalf("TODO")
+		return nil
+	})
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	client := secretsmanager.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	app := "mariadb"
+	relationId := 666
+	err := hookContext.GrantSecret("password", &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationId:      &relationId,
+	})
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "RevokeSecrets")
+		c.Fatalf("TODO")
+		return nil
+	})
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	client := secretsmanager.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	app := "mariadb"
+	err := hookContext.GrantSecret("password", &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+	})
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }

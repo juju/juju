@@ -72,7 +72,7 @@ func printPlainOutput(writer io.Writer, val interface{}) error {
 // Init implements cmd.Command.
 func (c *secretGetCommand) Init(args []string) (err error) {
 	if len(args) < 1 {
-		return errors.New("missing secret ID")
+		return errors.New("missing secret name")
 	}
 	c.secretUrl, err = secrets.ParseURL(args[0])
 	if err != nil {
