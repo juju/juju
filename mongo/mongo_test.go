@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -21,7 +22,10 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/snap"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -31,7 +35,8 @@ type MongoSuite struct {
 	clock            clock.Clock
 	mongodConfigPath string
 
-	installedPackages []packaging.Package
+	mongoSnapService   *mongotest.MockMongoSnapService
+	mongoLegacyService *mongotest.MockMongoSnapService
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -58,6 +63,8 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 		DataDir:           dataDir,
 		ConfigDir:         configDir,
 		JujuDBSnapChannel: "latest",
+
+		OplogSize: 1,
 	}
 }
 
@@ -84,11 +91,47 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(mongo.SmallOplogSizeMB, 1)
 
 	s.clock = testclock.NewClock(time.Now())
-	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, series string) error {
-		pkgs, err := dep.PackageList(series)
-		c.Assert(err, jc.ErrorIsNil)
-		s.installedPackages = pkgs
-		return nil
+}
+
+func (s *MongoSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.mongoLegacyService = mongotest.NewMockMongoSnapService(ctrl)
+	s.mongoSnapService = mongotest.NewMockMongoSnapService(ctrl)
+
+	return ctrl
+}
+
+func (s *MongoSuite) expectNoLegacyMongo() {
+	mExp := s.mongoLegacyService.EXPECT()
+	mExp.Installed().Return(false, nil)
+
+	s.PatchValue(mongo.NewService, func(name string, conf common.Conf) (mongo.MongoService, error) {
+		return s.mongoLegacyService, nil
+	})
+}
+
+func (s *MongoSuite) expectMongoSnapInstalled() {
+	mExp := s.mongoSnapService.EXPECT()
+	mExp.Installed().Return(true, nil)
+	mExp.Exists().Return(true, nil)
+	mExp.Running().Return(true, nil)
+
+	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {
+		return s.mongoSnapService, nil
+	})
+}
+
+func (s *MongoSuite) expectInstallMongoSnap() {
+	mExp := s.mongoSnapService.EXPECT()
+	mExp.Installed().Return(false, nil)
+	mExp.Name().Return("not-juju-db")
+	mExp.Install().Return(nil)
+	mExp.ConfigOverride().Return(nil)
+	mExp.Restart().Return(nil)
+
+	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {
+		return s.mongoSnapService, nil
 	})
 }
 
@@ -136,6 +179,10 @@ tlsMode = requireTLS`, dataDir, dataDir, dataDir)
 }
 
 func (s *MongoSuite) TestEnsureServer(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectNoLegacyMongo()
+	s.expectInstallMongoSnap()
+
 	dataDir := s.assertEnsureServerIPv6(c, true)
 
 	s.assertTLSKeyFile(c, dataDir)
@@ -151,7 +198,25 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version: "db version v\d\.\d\.\d`+tail)
 }
 
+func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectNoLegacyMongo()
+	s.expectMongoSnapInstalled()
+
+	_ = s.assertEnsureServerIPv6(c, true)
+
+	// make sure that we log the version of mongodb as we get ready to
+	// start it
+	tlog := c.GetTestLog()
+	any := `(.|\n)*`
+	start := "^" + any
+	tail := any + "$"
+	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version: "db version v\d\.\d\.\d`+tail)
+}
+
 func (s *MongoSuite) TestEnsureServerNoIPv6(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectNoLegacyMongo()
 	dataDir := s.assertEnsureServerIPv6(c, false)
 
 	s.assertTLSKeyFile(c, dataDir)
@@ -160,13 +225,15 @@ func (s *MongoSuite) TestEnsureServerNoIPv6(c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectNoLegacyMongo()
 	dataDir := c.MkDir()
 	dataFilePath := filepath.Join(dataDir, "mongoKernelTweaks")
 	dataFile, err := os.Create(dataFilePath)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = dataFile.WriteString("original value")
 	c.Assert(err, jc.ErrorIsNil)
-	dataFile.Close()
+	_ = dataFile.Close()
 
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
@@ -185,6 +252,8 @@ func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureServerError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectNoLegacyMongo()
 	dataDir := c.MkDir()
 	configDir := c.MkDir()
 
@@ -211,15 +280,6 @@ func (s *MongoSuite) assertEnsureServerIPv6(c *gc.C, ipv6 bool) string {
 	testParams := makeEnsureServerParams(dataDir, configDir)
 	err := mongo.EnsureServer(testParams)
 	c.Assert(err, jc.ErrorIsNil)
-
-	assertInstalled := func() {
-		c.Assert(s.installedPackages, jc.DeepEquals, []packaging.Package{{
-			Name:           "juju-db",
-			PackageManager: "snap",
-			InstallOptions: "--channel latest",
-		}})
-	}
-	assertInstalled()
 	return dataDir
 }
 

@@ -41,12 +41,6 @@ const (
 
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
-
-	// SnapTrack is the track to get the juju-db snap from
-	SnapTrack = "4.0"
-
-	// SnapRisk is which juju-db snap to use i.e. stable or edge.
-	SnapRisk = "stable"
 )
 
 // JujuDbSnapMongodPath is the path that the juju-db snap
@@ -235,8 +229,8 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		return errors.Trace(err)
 	}
 
-	// We may have upgraded from 2.9 using an earlier
-	// version on mongo so we need to keep using that.
+	// We may have upgraded from 2.9 using an earlier, non snap,
+	// version of mongo so we need to keep using that.
 	err = maybeUseLegacyMongo(args, &OSSearchTools{})
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "checking legacy mongo")
@@ -263,15 +257,26 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	}
 
 	// TODO(wallyworld) - set up Numactl if requested in args.SetNUMAControlPolicy
-	svc, err := mongoSnapService(args.DataDir, args.ConfigDir)
+	svc, err := mongoSnapService(args.DataDir, args.ConfigDir, args.JujuDBSnapChannel)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Check to see if the mongo snap is already installed.
+	err = checkInstalled(svc)
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			// An AlreadyExists error is returned if mongo is installed, running
+			// and configured as expected.  Return nil here, nothing else to do.
+			return nil
+		}
 		return errors.Trace(err)
 	}
 
 	// Ensure the snap service is refreshed since operations
 	// like upgrading the snap require a manual restart before
 	// connectivity can be re-established.
-	defer func(svc *snap.Service) {
+	defer func(svc MongoSnapService) {
 		if svc == nil || err != nil {
 			return
 		}
@@ -314,6 +319,42 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 
 	// Update the systemd service configuration.
 	return svc.ConfigOverride()
+}
+
+func checkInstalled(svc MongoSnapService) error {
+	installed, err := svc.Installed()
+	if err != nil {
+		// If not installed, returns error "exit status 1"
+		// When run on the cli and not installed:
+		//    error: snap "juju-db" not found
+		// However juju doesn't get a typed error in return.
+		// Log it and continue.
+		logger.Debugf("installed returned %s", err)
+	}
+	if !installed {
+		return nil
+	}
+	// Exists() does a check against the contents of the service config file.
+	// The return value is true iff the content is the same.
+	exists, err := svc.Exists()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !exists {
+		logger.Debugf("updating mongo service configuration")
+		return nil
+	}
+	logger.Debugf("mongo exists as expected")
+	running, err := svc.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !running {
+		if err = svc.Start(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return errors.AlreadyExistsf("mongo exists and is running")
 }
 
 func setupDataDirectory(args EnsureServerParams) error {
@@ -382,7 +423,7 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
-func mongoSnapService(dataDir, configDir string) (*snap.Service, error) {
+func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService, error) {
 	snapName := JujuDbSnap
 	jujuDbLocalSnapPattern := regexp.MustCompile(`juju-db_[0-9]+\.snap`)
 
@@ -409,16 +450,15 @@ func mongoSnapService(dataDir, configDir string) (*snap.Service, error) {
 		Desc:  ServiceName + " snap",
 		Limit: mongoULimits,
 	}
-	snapChannel := fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
-	svc, err := snap.NewService(
+	svc, err := newSnapService(
 		snapName, ServiceName, conf, snap.Command, configDir, snapChannel, "", backgroundServices, []snap.Installable{})
-	return &svc, errors.Trace(err)
+	return svc, errors.Trace(err)
 }
 
 // Override for testing.
 var installMongo = packaging.InstallDependency
 
-func installMongod(mongoDep packaging.Dependency, hostSeries string, snapSvc *snap.Service) error {
+func installMongod(mongoDep packaging.Dependency, hostSeries string, snapSvc MongoSnapService) error {
 	// Do either a local snap install or a real install from the store.
 	if snapSvc.Name() == ServiceName {
 		// Package.
@@ -432,4 +472,15 @@ func installMongod(mongoDep packaging.Dependency, hostSeries string, snapSvc *sn
 // dbDir returns the dir where mongo storage is.
 func dbDir(dataDir string) string {
 	return filepath.Join(dataDir, "db")
+}
+
+type MongoSnapService interface {
+	MongoService
+	ConfigOverride() error
+	Name() string
+	Restart() error
+}
+
+var newSnapService = func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (MongoSnapService, error) {
+	return snap.NewService(mainSnap, serviceName, conf, snapPath, configDir, channel, confinementPolicy, backgroundServices, prerequisites)
 }

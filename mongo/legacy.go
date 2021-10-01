@@ -236,7 +236,7 @@ func generateLegacyConfig(mongoPath string, oplogSizeMB int, version version, ar
 	return mongoArgs
 }
 
-func (mongoArgs *legacyConfigArgs) asService() (mongoService, error) {
+func (mongoArgs *legacyConfigArgs) asService() (MongoService, error) {
 	return newService(ServiceName, common.Conf{
 		Desc:        "juju state database",
 		Limit:       mongoULimits,
@@ -307,14 +307,14 @@ func (mongoArgs *legacyConfigArgs) extraScript() string {
 	return cmd
 }
 
-// mongoService is a slimmed-down version of the service.Service interface.
-type mongoService interface {
+// MongoService is a slimmed-down version of the service.Service interface.
+type MongoService interface {
 	Exists() (bool, error)
 	Installed() (bool, error)
 	Running() (bool, error)
 	service.ServiceActions
 }
 
-var newService = func(name string, conf common.Conf) (mongoService, error) {
+var newService = func(name string, conf common.Conf) (MongoService, error) {
 	return service.DiscoverService(name, conf)
 }
