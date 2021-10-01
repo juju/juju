@@ -83,7 +83,12 @@ func (m *PubsubMetrics) Unsubscribed() {
 
 var (
 	leaseRequestRegex  = regexp.MustCompile("lease.request.[0-9a-f]+.[0-9]+")
-	callbackTopicRegex = regexp.MustCompile("[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}")
+	callbackTopicRegex = regexp.MustCompile("lease.request.callback.[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}")
+)
+
+const (
+	// Store the leaseCallbackNamespace as a constant.
+	leaseCallbackNamespace = "lease.request.callback"
 )
 
 func (m *PubsubMetrics) Published(topic string) {
@@ -94,7 +99,7 @@ func (m *PubsubMetrics) Published(topic string) {
 			topic = topic[:index]
 		}
 	} else if callbackTopicRegex.MatchString(topic) {
-		topic = "lease.request.callback"
+		topic = leaseCallbackNamespace
 	}
 
 	m.published.With(prometheus.Labels{

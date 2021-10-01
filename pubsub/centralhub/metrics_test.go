@@ -86,5 +86,5 @@ func (s *MetricsSuite) TestPublishedWithUUID(c *gc.C) {
 	metrics := &PubsubMetrics{
 		published: published,
 	}
-	metrics.Published("ffe0e486-ef0a-41bd-8cb2-faa3d2ae6264")
+	metrics.Published("lease.request.callback.ffe0e486-ef0a-41bd-8cb2-faa3d2ae6264")
 }
