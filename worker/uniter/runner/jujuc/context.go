@@ -163,8 +163,8 @@ type ContextUnit interface {
 	CloudSpec() (*params.CloudSpec, error)
 }
 
-// UpsertArgs specifies args used to create or update a secret.
-type UpsertArgs struct {
+// SecretUpsertArgs specifies args used to create or update a secret.
+type SecretUpsertArgs struct {
 	// Type is the secret type (only used for insert).
 	Type secrets.SecretType
 
@@ -184,15 +184,30 @@ type UpsertArgs struct {
 	Tags *map[string]string
 }
 
+// SecretGrantRevokeArgs specify the args used to grant or revoke access to a secret.
+type SecretGrantRevokeArgs struct {
+	ApplicationName *string
+	UnitName        *string
+	RelationId      *int
+	Role            *secrets.SecretRole
+}
+
 // ContextSecrets is the part of a hook context related to secrets.
 type ContextSecrets interface {
 	// GetSecret returns the value of the specified secret.
 	GetSecret(ID string) (secrets.SecretValue, error)
 
 	// CreateSecret creates a secret with the specified data.
-	CreateSecret(name string, args *UpsertArgs) (string, error)
+	CreateSecret(name string, args *SecretUpsertArgs) (string, error)
 
-	UpdateSecret(name string, args *UpsertArgs) (string, error)
+	// UpdateSecret creates a secret with the specified data.
+	UpdateSecret(name string, args *SecretUpsertArgs) (string, error)
+
+	// GrantSecret grants access to the specified secret.
+	GrantSecret(name string, args *SecretGrantRevokeArgs) error
+
+	// RevokeSecret revokes access to the specified secret.
+	RevokeSecret(name string, args *SecretGrantRevokeArgs) error
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.
