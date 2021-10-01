@@ -1793,7 +1793,7 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 		Repository:    "test-account",
 		ServerAddress: "quay.io",
 		BasicAuthConfig: docker.BasicAuthConfig{
-			Auth: "xxxxx==",
+			Auth: docker.NewToken("xxxxx=="),
 		},
 	}
 

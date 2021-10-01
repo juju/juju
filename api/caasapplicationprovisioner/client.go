@@ -150,12 +150,12 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Username: r.ImageRepo.Username,
 			Password: r.ImageRepo.Password,
-			Auth:     r.ImageRepo.Auth,
+			Auth:     docker.NewToken(r.ImageRepo.Auth),
 		},
 		TokenAuthConfig: docker.TokenAuthConfig{
-			IdentityToken: r.ImageRepo.IdentityToken,
-			RegistryToken: r.ImageRepo.RegistryToken,
 			Email:         r.ImageRepo.Email,
+			IdentityToken: docker.NewToken(r.ImageRepo.IdentityToken),
+			RegistryToken: docker.NewToken(r.ImageRepo.RegistryToken),
 		},
 	}
 	info := ProvisioningInfo{

@@ -45,7 +45,7 @@ func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 	s.authToken = base64.StdEncoding.EncodeToString([]byte("username:pwd"))
 	if s.isPrivate {
 		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
-			Auth: s.authToken,
+			Auth: docker.NewToken(s.authToken),
 		}
 	}
 

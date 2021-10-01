@@ -10,14 +10,51 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/yaml.v2"
 )
 
 var logger = loggo.GetLogger("juju.docker")
+
+// Token defines a token value with expiration time.
+type Token struct {
+	// Value is the value of the token.
+	Value string
+
+	// ExpiresAt is the unix time in seconds and milliseconds when the authorization token expires.
+	ExpiresAt *time.Time
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface.
+func (t *Token) UnmarshalJSON(value []byte) error {
+	return json.Unmarshal(value, &t.Value)
+}
+
+// String returns the string value, or the Itoa of the int value.
+func (t *Token) String() string {
+	return t.Value
+}
+
+// MarshalJSON implements the json.Marshaller interface.
+func (t Token) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Value)
+}
+
+// NewToken creates a Token.
+func NewToken(value string) *Token {
+	if value == "" {
+		return nil
+	}
+	return &Token{Value: value}
+}
+
+// Empty checks if the auth information is empty.
+func (t *Token) Empty() bool {
+	return t == nil || t.Value == ""
+}
 
 // TokenAuthConfig contains authorization information for token auth.
 // Juju does not support the docker credential helper because k8s does not support it either.
@@ -27,15 +64,15 @@ type TokenAuthConfig struct {
 
 	// IdentityToken is used to authenticate the user and get
 	// an access token for the registry.
-	IdentityToken string `json:"identitytoken,omitempty" yaml:"identitytoken,omitempty"`
+	IdentityToken *Token `json:"identitytoken,omitempty" yaml:"identitytoken,omitempty"`
 
 	// RegistryToken is a bearer token to be sent to a registry
-	RegistryToken string `json:"registrytoken,omitempty" yaml:"registrytoken,omitempty"`
+	RegistryToken *Token `json:"registrytoken,omitempty" yaml:"registrytoken,omitempty"`
 }
 
 // Empty checks if the auth information is empty.
 func (ac TokenAuthConfig) Empty() bool {
-	return ac.IdentityToken == "" && ac.RegistryToken == ""
+	return ac.RegistryToken.Empty() && ac.IdentityToken.Empty()
 }
 
 // Validate validates the spec.
@@ -50,7 +87,7 @@ func (ac *TokenAuthConfig) init() error {
 // BasicAuthConfig contains authorization information for basic auth.
 type BasicAuthConfig struct {
 	// Auth is the base64 encoded "username:password" string.
-	Auth string `json:"auth,omitempty" yaml:"auth,omitempty"`
+	Auth *Token `json:"auth,omitempty" yaml:"auth,omitempty"`
 
 	// Username holds the username used to gain access to a non-public image.
 	Username string `json:"username" yaml:"username"`
@@ -61,7 +98,7 @@ type BasicAuthConfig struct {
 
 // Empty checks if the auth information is empty.
 func (ba BasicAuthConfig) Empty() bool {
-	return ba.Auth == "" && ba.Username == "" && ba.Password == ""
+	return ba.Auth.Empty() && ba.Username == "" && ba.Password == ""
 }
 
 // Validate validates the spec.
@@ -73,8 +110,8 @@ func (ba *BasicAuthConfig) init() error {
 	if ba.Empty() {
 		return nil
 	}
-	if ba.Auth == "" {
-		ba.Auth = base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password))
+	if ba.Auth.Empty() {
+		ba.Auth = NewToken(base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password)))
 	}
 	return nil
 }
@@ -89,6 +126,9 @@ type ImageRepoDetails struct {
 
 	// ServerAddress is the auth server address.
 	ServerAddress string `json:"serveraddress,omitempty" yaml:"serveraddress,omitempty"`
+
+	// Region is the cloud region.
+	Region string `json:"region,omitempty" yaml:"region,omitempty"`
 }
 
 // AuthEqual compares if the provided one equals to current repository detail.
@@ -123,7 +163,7 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 
 // String returns yaml format.
 func (rid ImageRepoDetails) String() string {
-	d, _ := yaml.Marshal(rid)
+	d, _ := json.Marshal(rid)
 	return string(d)
 }
 
@@ -186,8 +226,9 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 		}
 	}
 	o = &ImageRepoDetails{}
-	err = yaml.Unmarshal(data, o)
+	err = json.Unmarshal(data, o)
 	if err != nil {
+		logger.Tracef("unmarshalling %q, err %#v", contentOrPath, err)
 		return &ImageRepoDetails{Repository: contentOrPath}, nil
 	}
 

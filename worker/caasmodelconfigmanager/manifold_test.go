@@ -4,7 +4,10 @@
 package caasmodelconfigmanager_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -43,6 +46,7 @@ func (s *manifoldSuite) validConfig() caasmodelconfigmanager.ManifoldConfig {
 			return nil, nil
 		},
 		Logger: loggo.GetLogger("test"),
+		Clock:  testclock.NewClock(time.Time{}),
 	}
 }
 
@@ -75,6 +79,11 @@ func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
+func (s *manifoldSuite) TestMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	s.checkNotValid(c, "nil Clock not valid")
+}
+
 func (s *manifoldSuite) checkNotValid(c *gc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
@@ -95,6 +104,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		mc.AddExpr(`_.Facade`, gc.NotNil)
 		mc.AddExpr(`_.Broker`, gc.NotNil)
 		mc.AddExpr(`_.Logger`, gc.NotNil)
+		mc.AddExpr(`_.RegistryFunc`, gc.NotNil)
+		mc.AddExpr(`_.Clock`, gc.NotNil)
 		c.Check(config, mc, caasmodelconfigmanager.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		})
