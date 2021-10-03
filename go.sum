@@ -110,6 +110,8 @@ github.com/aws/smithy-go v1.8.0 h1:AEwwwXQZtUwP5Mz506FeXXrKBe0jA8gVM+1gEcSRooc=
 github.com/aws/smithy-go v1.8.0/go.mod h1:SObp3lf9smib00L/v3U2eAKG8FyQ7iLrJnQiAmR5n+E=
 github.com/benhoyt/check v0.0.0-20210928230612-a82805bc27e8 h1:iPz/0TbFwZqUDKXnfgNzFNkpc/SbRy1/a6FKles4Jv4=
 github.com/benhoyt/check v0.0.0-20210928230612-a82805bc27e8/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
+github.com/benhoyt/pebble v0.0.0-20211003223954-b77a4b4a297d h1:gQ9OJXGGFoTouOdDEbmbz6K398YMiKjGltF6aXbAkhE=
+github.com/benhoyt/pebble v0.0.0-20211003223954-b77a4b4a297d/go.mod h1:+0rQ57rhB9pciKKaE/QlwPL4R8mujv+24D81KGYRlV0=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
@@ -118,8 +120,6 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/blang/semver v3.5.0+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac h1:X5YRFJiteUM3rajABEYJSzw1KWgmp1ulPFKxpfLm0M4=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
-github.com/canonical/pebble v0.0.0-20211001031236-5d67c80d9bf2 h1:JSrNgGH2AsV4W2L97ruBsLkMlMkodn41NPNEsInjTIk=
-github.com/canonical/pebble v0.0.0-20211001031236-5d67c80d9bf2/go.mod h1:+0rQ57rhB9pciKKaE/QlwPL4R8mujv+24D81KGYRlV0=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=

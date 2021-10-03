@@ -159,3 +159,5 @@ replace (
 )
 
 replace gopkg.in/check.v1 => github.com/benhoyt/check v0.0.0-20210928230612-a82805bc27e8
+
+replace github.com/canonical/pebble => github.com/benhoyt/pebble v0.0.0-20211003223954-b77a4b4a297d
