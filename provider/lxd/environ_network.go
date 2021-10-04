@@ -418,7 +418,7 @@ func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 	// Really old lxd versions (e.g. xenial/ppc64) do not even support the
 	// network API extension so the subnet discovery code path will not
 	// work there.
-	return e.hasLXDNetworkAPISupport()
+	return e.server().HasExtension("network"), nil
 }
 
 // AreSpacesRoutable returns whether the communication between the
@@ -449,18 +449,4 @@ func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network
 // SSHAddresses filters the input addresses to those suitable for SSH use.
 func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
-}
-
-// hasLXDNetworkAPISupport makes a request to the networks API endpoint and
-// checks whether the lxd server supports the network API extension or not. Any
-// other error except "missing API extension" will be returned to the caller.
-func (e *environ) hasLXDNetworkAPISupport() (bool, error) {
-	srv := e.server()
-	_, err := srv.GetNetworkNames()
-	if isErrMissingAPIExtension(err, "network") {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Trace(err)
-	}
-	return true, nil
 }

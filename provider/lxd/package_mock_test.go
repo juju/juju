@@ -522,6 +522,20 @@ func (mr *MockServerMockRecorder) GetStoragePools() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePools", reflect.TypeOf((*MockServer)(nil).GetStoragePools))
 }
 
+// HasExtension mocks base method.
+func (m *MockServer) HasExtension(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasExtension", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasExtension indicates an expected call of HasExtension.
+func (mr *MockServerMockRecorder) HasExtension(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasExtension", reflect.TypeOf((*MockServer)(nil).HasExtension), arg0)
+}
+
 // HasProfile mocks base method.
 func (m *MockServer) HasProfile(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()

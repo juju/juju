@@ -79,6 +79,7 @@ type Server interface {
 	UseTargetServer(name string) (*lxd.Server, error)
 	GetClusterMembers() (members []lxdapi.ClusterMember, err error)
 	Name() string
+	HasExtension(extension string) (exists bool)
 	GetNetworkNames() ([]string, error)
 	GetNetwork(name string) (*lxdapi.Network, string, error)
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)

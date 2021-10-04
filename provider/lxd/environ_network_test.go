@@ -43,17 +43,18 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetNetworkNames().Return(nil, errors.New(`server is missing the required "network" API extension`)).AnyTimes()
 
 	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 	ctx := context.NewEmptyCloudCallContext()
 
 	// Space support and by extension, subnet detection is not available.
+	srv.EXPECT().HasExtension("network").Return(false)
 	supportsSpaces, err := env.SupportsSpaces(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supportsSpaces, jc.IsFalse, gc.Commentf("expected SupportsSpaces to return false when the lxd server lacks the 'network' extension"))
 
 	// Try to grab subnet details anyway!
+	srv.EXPECT().GetNetworkNames().Return(nil, errors.New(`server is missing the required "network" API extension`))
 	srv.EXPECT().GetServer().Return(&lxdapi.Server{
 		Environment: lxdapi.ServerEnvironment{
 			ServerName: "locutus",
@@ -213,7 +214,8 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	// Even though ovsbr0 is returned by the LXD API, it is *not* bridged
 	// into the container we will be introspecting and so this subnet will
 	// not be reported back. This is a caveat of the fallback code.
-	srv.EXPECT().GetNetworkNames().Return([]string{"ovsbr0", "lxdbr0"}, nil).AnyTimes()
+	srv.EXPECT().HasExtension("network").Return(true)
+	srv.EXPECT().GetNetworkNames().Return([]string{"ovsbr0", "lxdbr0"}, nil)
 	srv.EXPECT().GetNetwork("ovsbr0").Return(&lxdapi.Network{
 		Type: "bridge",
 	}, "", nil)
