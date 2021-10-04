@@ -47,7 +47,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	}
 	azName := serverInfo.Environment.ServerName
 
-	networkNames, err := srv.GetNetworkNames()
+	networks, err := srv.GetNetworks()
 	if err != nil {
 		if isErrMissingAPIExtension(err, "network") {
 			return nil, errors.NewNotSupported(nil, `subnet discovery requires the "network" extension to be enabled on the lxd server`)
@@ -67,15 +67,12 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 		subnets         []network.SubnetInfo
 		uniqueSubnetIDs = set.NewStrings()
 	)
-	for _, networkName := range networkNames {
-		// Query the details for this network and skip non-bridge networks.
-		networkDetails, _, err := srv.GetNetwork(networkName)
-		if err != nil {
-			return nil, errors.Annotatef(err, "querying lxd server for details of network %q", networkName)
-		} else if networkDetails.Type != "bridge" {
+	for _, networkDetails := range networks {
+		if networkDetails.Type != "bridge" {
 			continue
 		}
 
+		networkName := networkDetails.Name
 		state, err := srv.GetNetworkState(networkName)
 		if err != nil {
 			// Unfortunately, LXD on bionic and earlier does not
