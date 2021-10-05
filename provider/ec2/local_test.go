@@ -6,7 +6,6 @@ package ec2_test
 import (
 	stdcontext "context"
 	"fmt"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -66,45 +65,6 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 
 func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
-}
-
-func registerLocalTests() {
-	gc.Suite(&localServerSuite{})
-	gc.Suite(&localLiveSuite{})
-	gc.Suite(&localNonUSEastSuite{})
-}
-
-// localLiveSuite runs tests from LiveTests using a fake
-// EC2 server that runs within the test process itself.
-type localLiveSuite struct {
-	LiveTests
-	srv localServer
-}
-
-func (t *localLiveSuite) SetUpSuite(c *gc.C) {
-	t.LiveTests.SetUpSuite(c)
-	t.Credential = cloud.NewCredential(
-		cloud.AccessKeyAuthType,
-		map[string]string{
-			"access-key": "x",
-			"secret-key": "x",
-		},
-	)
-
-	// Upload arches that ec2 supports; add to this
-	// as ec2 coverage expands.
-	t.UploadArches = []string{arch.AMD64, arch.I386}
-	t.TestConfig = localConfigAttrs
-	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
-	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	t.srv.createRootDisks = true
-	t.srv.startServer(c)
-}
-
-func (t *localLiveSuite) TearDownSuite(c *gc.C) {
-	t.LiveTests.TearDownSuite(c)
-	t.srv.stopServer(c)
 }
 
 // localServer represents a fake EC2 server running within
@@ -177,10 +137,6 @@ func (srv *localServer) stopServer(c *gc.C) {
 	srv.defaultVPC = nil
 }
 
-type envGetter interface {
-	Env() environs.Environ
-}
-
 func bootstrapContext(c *gc.C, ec2Client ec2.Client) environs.BootstrapContext {
 	clientFunc := func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
 		credentialAttrs := spec.Credential.Attributes()
@@ -195,29 +151,6 @@ func bootstrapContext(c *gc.C, ec2Client ec2.Client) environs.BootstrapContext {
 				"x:x", accessKey+":"+secretKey)
 		}
 		return ec2Client, nil
-	}
-	return bootstrapContextWithClientFunc(c, clientFunc)
-}
-
-func bootstrapLiveContext(c *gc.C, t envGetter) environs.BootstrapContext {
-	var clientFunc ec2.ClientFunc
-	// Use the real ec2 session if we are running with real creds.
-	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
-	if accessKey == "" {
-		clientFunc = func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
-			credentialAttrs := spec.Credential.Attributes()
-			accessKey := credentialAttrs["access-key"]
-			secretKey := credentialAttrs["secret-key"]
-			if spec.Region != "us-east-1" {
-				return nil, fmt.Errorf("expected region %q, got %q",
-					"us-east-1", spec.Region)
-			}
-			if accessKey != "x" || secretKey != "x" {
-				return nil, fmt.Errorf("expected access:secret %q, got %q",
-					"x:x", accessKey+":"+secretKey)
-			}
-			return ec2.EnvironEC2Client(t.Env()), nil
-		}
 	}
 	return bootstrapContextWithClientFunc(c, clientFunc)
 }
@@ -247,6 +180,8 @@ type localServerSuite struct {
 
 	callCtx context.ProviderCallContext
 }
+
+var _ = gc.Suite(&localServerSuite{})
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
@@ -2052,6 +1987,8 @@ type localNonUSEastSuite struct {
 	srv localServer
 	env environs.Environ
 }
+
+var _ = gc.Suite(&localNonUSEastSuite{})
 
 func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
