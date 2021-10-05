@@ -1941,8 +1941,8 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 	if err != nil {
 		return nil, err
 	}
-	var sourceCIDRs []string
 	for _, p := range group.IpPermissions {
+		var sourceCIDRs []string
 		for _, r := range p.IpRanges {
 			sourceCIDRs = append(sourceCIDRs, aws.ToString(r.CidrIp))
 		}
