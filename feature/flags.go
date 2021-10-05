@@ -53,3 +53,7 @@ const ActionsV2 = "actions-v2"
 
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
+
+// RaftBatchFSM will use the batching FSM instead of the singular FSM to attempt
+// to commit logs.
+const RaftBatchFSM = "raft-batch-fsm"

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/worker/common"
@@ -120,6 +121,24 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	st := statePool.SystemState()
+
+	// We require the controller config to get the feature flags.
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot fetch the controller config")
+	}
+
+	fsm := config.FSM
+	if controllerConfig.Features().Contains(feature.RaftBatchFSM) {
+		if raftLeaseFSM, ok := fsm.(*raftlease.FSM); ok {
+			fsm = raftlease.NewBatchFSM(raftLeaseFSM)
+			config.Logger.Infof("Using batching FSM for processing leases")
+		} else {
+			// We shouldn't error out here, we can just report that we're not
+			// using batching.
+			config.Logger.Errorf("Unable to use batching FSM, unknown FSM type %T", fsm)
+		}
+	}
 
 	// TODO(axw) make the directory path configurable, so we can
 	// potentially have multiple Rafts. The dqlite raft should go
