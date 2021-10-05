@@ -1718,8 +1718,10 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Sp
 			"machine %q preferred public address changed from %q to %q",
 			m.Id(), oldPublic, newPublic.networkAddress(),
 		)
-		if err := m.st.maybeUpdateControllerCharm(m.doc.PreferredPublicAddress.Value); err != nil {
-			return errors.Trace(err)
+		if isController(&m.doc) {
+			if err := m.st.maybeUpdateControllerCharm(m.doc.PreferredPublicAddress.Value); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil
