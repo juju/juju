@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -113,8 +114,11 @@ var cloudSchema = &jsonschema.Schema{
 
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
+	httpClient := jujuhttp.NewClient(
+		jujuhttp.WithLogger(logger.Child("http")),
+	)
 	configReader := lxcConfigReader{}
-	factory := NewServerFactory()
+	factory := NewServerFactory(httpClient.Client())
 	credentials := environProviderCredentials{
 		certReadWriter:  certificateReadWriter{},
 		certGenerator:   certificateGenerator{},

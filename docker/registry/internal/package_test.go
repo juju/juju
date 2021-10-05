@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/docker"
 )
 
 func TestPackage(t *testing.T) {
@@ -14,18 +16,25 @@ func TestPackage(t *testing.T) {
 }
 
 type (
-	AzureContainerRegistry  = azureContainerRegistry
-	BaseClient              = baseClient
-	Dockerhub               = dockerhub
-	GoogleContainerRegistry = googleContainerRegistry
-	GithubContainerRegistry = githubContainerRegistry
-	GitlabContainerRegistry = gitlabContainerRegistry
-	QuayContainerRegistry   = quayContainerRegistry
+	AzureContainerRegistry         = azureContainerRegistry
+	BaseClient                     = baseClient
+	Dockerhub                      = dockerhub
+	GoogleContainerRegistry        = googleContainerRegistry
+	GithubContainerRegistry        = githubContainerRegistry
+	GitlabContainerRegistry        = gitlabContainerRegistry
+	QuayContainerRegistry          = quayContainerRegistry
+	ElasticContainerRegistry       = elasticContainerRegistry
+	ElasticContainerRegistryPublic = elasticContainerRegistryPublic
 )
 
 var (
-	NewErrorTransport       = newErrorTransport
-	NewBasicTransport       = newBasicTransport
-	NewTokenTransport       = newTokenTransport
-	NewPrivateOnlyTransport = newPrivateOnlyTransport
+	NewErrorTransport                  = newErrorTransport
+	NewBasicTransport                  = newBasicTransport
+	NewTokenTransport                  = newTokenTransport
+	NewPrivateOnlyTransport            = newPrivateOnlyTransport
+	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
 )
+
+func (c *BaseClient) SetImageRepoDetails(i docker.ImageRepoDetails) {
+	c.repoDetails = &i
+}

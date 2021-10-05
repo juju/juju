@@ -7,7 +7,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/storage"
 )
 
@@ -37,7 +36,7 @@ type StorageAPI interface{}
 
 type storageProvider struct {
 	env *Environ
-	api common.OCIStorageClient
+	api StorageClient
 }
 
 var _ storage.Provider = (*storageProvider)(nil)

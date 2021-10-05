@@ -198,3 +198,23 @@ func (c *Client) SecretRotated(url string, when time.Time) error {
 	}
 	return nil
 }
+
+// SecretRevokeGrantArgs holds the args used to grant or revoke access to a secret.
+// To grant access, specify one of ApplicationName or UnitName, plus optionally RelationId.
+// To revoke access, specify one of ApplicationName or UnitName.
+type SecretRevokeGrantArgs struct {
+	ApplicationName *string
+	UnitName        *string
+	RelationId      *int
+	Role            secrets.SecretRole
+}
+
+// Grant grants access to the specified secret.
+func (c *Client) Grant(url string, args *SecretRevokeGrantArgs) error {
+	return errors.NotImplementedf("Grant")
+}
+
+// Revoke revokes access to the specified secret.
+func (c *Client) Revoke(url string, args *SecretRevokeGrantArgs) error {
+	return errors.NotImplementedf("Revoke")
+}

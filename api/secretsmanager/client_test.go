@@ -128,7 +128,7 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			[]params.StringResult{{
-				Result: "secret://app/foo?revision=2",
+				Result: "secret://app/foo/2",
 			}},
 		}
 		return nil
@@ -142,7 +142,7 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 	cfg.Tags = tagPtr(map[string]string{"foo": "bar"})
 	result, err := client.Update("secret://app/foo", cfg, value)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "secret://app/foo?revision=2")
+	c.Assert(result, gc.Equals, "secret://app/foo/2")
 }
 
 func (s *SecretsSuite) TestUpdateSecretsError(c *gc.C) {

@@ -76,19 +76,16 @@ func (s *SecretURLSuite) TestParseURL(c *gc.C) {
 			str: "secret://a.b#",
 			err: `secret URL "secret://a.b#" not valid`,
 		}, {
-			str: "secret://app/mariadb/password?revision=xxx",
-			err: `secret revision "xxx" not valid`,
-		}, {
 			str:      "secret://app/mariadb/password",
 			shortStr: "secret://app/mariadb/password",
 			expected: &secrets.URL{
 				Path: "app/mariadb/password",
 			},
 		}, {
-			str:      "secret://app/mariadb/password?revision=666",
-			shortStr: "secret://app/mariadb/password?revision=666",
+			str:      "secret://app/mariadb/password2/666",
+			shortStr: "secret://app/mariadb/password2/666",
 			expected: &secrets.URL{
-				Path:     "app/mariadb/password",
+				Path:     "app/mariadb/password2",
 				Revision: 666,
 			},
 		}, {
@@ -99,8 +96,8 @@ func (s *SecretURLSuite) TestParseURL(c *gc.C) {
 				Attribute: "attr",
 			},
 		}, {
-			str:      "secret://app/mariadb/password?revision=666#attr",
-			shortStr: "secret://app/mariadb/password?revision=666#attr",
+			str:      "secret://app/mariadb/password/666#attr",
+			shortStr: "secret://app/mariadb/password/666#attr",
 			expected: &secrets.URL{
 				Path:      "app/mariadb/password",
 				Attribute: "attr",
@@ -168,7 +165,7 @@ func (s *SecretURLSuite) TestStringWithRevision(c *gc.C) {
 	c.Assert(str, gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password#attr")
 	URL.Revision = 1
 	str = URL.String()
-	c.Assert(str, gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password?revision=1#attr")
+	c.Assert(str, gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password/1#attr")
 }
 
 func (s *SecretURLSuite) TestShortString(c *gc.C) {
@@ -205,7 +202,7 @@ func (s *SecretURLSuite) TestWithRevision(c *gc.C) {
 		Attribute:      "attr",
 	}
 	expected = expected.WithRevision(666)
-	c.Assert(expected.String(), gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password?revision=666#attr")
+	c.Assert(expected.String(), gc.Equals, "secret://"+controllerUUID+"/"+modelUUID+"/app/mariadb/password/666#attr")
 }
 
 func (s *SecretURLSuite) TestWithAttribute(c *gc.C) {

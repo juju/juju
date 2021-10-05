@@ -23,6 +23,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/bootstrap"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/os/v2/series"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig")
@@ -613,6 +615,21 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 			tools.SHA256, tools.Version),
 		"tar zxf $bin/tools.tar.gz -C $bin",
 	)
+
+	// When adding a machine to a 2.8 or earlier model on a 2.9 controller,
+	// we need to add a symlink named after the series so that the 2.x agent
+	// can still find the binaries when deploying units.
+	if vers := w.icfg.AgentVersion(); vers.Major == 2 && vers.Minor <= 8 {
+		hostSeries, err := series.HostSeries()
+		if err != nil {
+			return err
+		}
+		legacyVers := w.icfg.AgentVersion()
+		legacyVers.Release = hostSeries
+		w.conf.AddScripts(
+			fmt.Sprintf("ln -s $bin %s", agenttools.SharedToolsDir(w.icfg.DataDir, legacyVers)),
+		)
+	}
 
 	toolsJson, err := json.Marshal(tools)
 	if err != nil {

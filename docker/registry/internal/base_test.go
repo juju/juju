@@ -44,7 +44,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 	authToken := s.getAuthToken("username", "pwd")
 	if s.isPrivate {
 		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
-			Auth: authToken,
+			Auth: docker.NewToken(authToken),
 		}
 	}
 
@@ -133,7 +133,7 @@ func (s *baseSuite) TestInvalidAuth(c *gc.C) {
 		ServerAddress: "example.com",
 	}
 	s.imageRepoDetails.TokenAuthConfig = docker.TokenAuthConfig{
-		RegistryToken: `xxxxx==`,
+		RegistryToken: &docker.Token{Value: `xxxxx==`},
 	}
 
 	_, err := registry.New(s.imageRepoDetails)

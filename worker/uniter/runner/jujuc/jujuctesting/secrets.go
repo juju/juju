@@ -22,13 +22,25 @@ func (c *ContextSecrets) GetSecret(ID string) (secrets.SecretValue, error) {
 }
 
 // CreateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) CreateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
+func (c *ContextSecrets) CreateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
 	c.stub.AddCall("CreateSecret", name, args)
 	return "secret://app." + name, nil
 }
 
 // UpdateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) UpdateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
+func (c *ContextSecrets) UpdateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
 	c.stub.AddCall("UpdateSecret", name, args)
 	return "secret://app." + name, nil
+}
+
+// GrantSecret implements jujuc.ContextSecrets.
+func (c *ContextSecrets) GrantSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
+	c.stub.AddCall("GrantSecret", name, args)
+	return nil
+}
+
+// RevokeSecret implements jujuc.ContextSecrets.
+func (c *ContextSecrets) RevokeSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
+	c.stub.AddCall("RevokeSecret", name, args)
+	return nil
 }

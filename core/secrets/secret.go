@@ -18,14 +18,14 @@ import (
 type SecretStatus string
 
 const (
-	StatusPending = SecretStatus("pending")
-	StatusActive  = SecretStatus("active")
+	StatusStaged = SecretStatus("staged")
+	StatusActive = SecretStatus("active")
 )
 
 // IsValid returns true if s is a valid secret status.
 func (s SecretStatus) IsValid() bool {
 	switch s {
-	case StatusActive, StatusPending:
+	case StatusActive, StatusStaged:
 		return true
 	}
 	return false
@@ -86,7 +86,7 @@ func NewPasswordSecretConfig(length int, specialChars bool, nameParts ...string)
 const (
 	// AppSnippet denotes a secret belonging to an application.
 	AppSnippet  = "app"
-	pathSnippet = AppSnippet + `/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)*`
+	pathSnippet = AppSnippet + `/[a-zA-Z0-9-]+((/[a-zA-Z0-9-]+)*/[a-zA-Z]+[a-zA-Z0-9-]*)*`
 )
 
 var pathRegexp = regexp.MustCompile("^" + pathSnippet + "$")
@@ -112,10 +112,9 @@ type URL struct {
 Example secret URLs:
 	secret://app/gitlab/apitoken
 	secret://app/mariadb/dbpass
-	secret://app/apache/catalog/password
-	secret://app/apache/catalog/password?revision=666
+	secret://app/apache/catalog/password/666
 	secret://app/proxy#key
-	secret://app/proxy#key?revision=666
+	secret://app/proxy/666#key
 	secret://cfed9630-053e-447a-9751-2dc4ed429d51/app/mariadb/password
 	secret://cfed9630-053e-447a-9751-2dc4ed429d51/11111111-053e-447a-6666-2dc4ed429d51/app/mariadb/password
 */
@@ -129,7 +128,7 @@ const (
 
 var secretURLParse = regexp.MustCompile(`^` +
 	fmt.Sprintf(
-		`((?P<controllerUUID>%s)\/)?((?P<modelUUID>%s)\/)?(?P<path>%s)(?P<revision>\?revision=[0-9]+)?(?P<attribute>#[0-9a-zA-Z]+)?`,
+		`((?P<controllerUUID>%s)/)?((?P<modelUUID>%s)/)?(?P<path>%s)(/(?P<revision>[0-9]+))?(?P<attribute>#[0-9a-zA-Z]+)?`,
 		uuidSnippet, uuidSnippet, pathSnippet) +
 	`$`)
 
@@ -149,9 +148,9 @@ func ParseURL(str string) (*URL, error) {
 		return nil, errors.NotValidf("secret URL %q", str)
 	}
 	revision := 0
-	revisionParam := u.Query().Get("revision")
+	revisionParam := matches[9]
 	if revisionParam != "" {
-		revision, err = strconv.Atoi(revisionParam)
+		revision, err = strconv.Atoi(strings.Trim(revisionParam, "/"))
 		if err != nil {
 			return nil, errors.NotValidf("secret revision %q", revisionParam)
 		}
@@ -234,14 +233,14 @@ func (u *URL) String() string {
 		fullPath = append(fullPath, u.ModelUUID)
 	}
 	fullPath = append(fullPath, u.Path)
+	if u.Revision > 0 {
+		fullPath = append(fullPath, strconv.Itoa(u.Revision))
+	}
 	str := strings.Join(fullPath, "/")
 	urlValue := url.URL{
 		Scheme:   SecretScheme,
 		Path:     str,
 		Fragment: u.Attribute,
-	}
-	if u.Revision > 0 {
-		urlValue.RawQuery = fmt.Sprintf("revision=%d", u.Revision)
 	}
 	return urlValue.String()
 }
