@@ -186,9 +186,14 @@ func bootstrapContext(c *gc.C, ec2Client ec2.Client) environs.BootstrapContext {
 		credentialAttrs := spec.Credential.Attributes()
 		accessKey := credentialAttrs["access-key"]
 		secretKey := credentialAttrs["secret-key"]
-		c.Assert(spec.Region, gc.Equals, "test")
-		c.Assert(accessKey, gc.Equals, "x")
-		c.Assert(secretKey, gc.Equals, "x")
+		if spec.Region != "test" {
+			return nil, fmt.Errorf("expected region %q, got %q",
+				"test", spec.Region)
+		}
+		if accessKey != "x" || secretKey != "x" {
+			return nil, fmt.Errorf("expected access:secret %q, got %q",
+				"x:x", accessKey+":"+secretKey)
+		}
 		return ec2Client, nil
 	}
 	return bootstrapContextWithClientFunc(c, clientFunc)
@@ -203,9 +208,14 @@ func bootstrapLiveContext(c *gc.C, t envGetter) environs.BootstrapContext {
 			credentialAttrs := spec.Credential.Attributes()
 			accessKey := credentialAttrs["access-key"]
 			secretKey := credentialAttrs["secret-key"]
-			c.Assert(spec.Region, gc.Equals, "test")
-			c.Assert(accessKey, gc.Equals, "x")
-			c.Assert(secretKey, gc.Equals, "x")
+			if spec.Region != "us-east-1" {
+				return nil, fmt.Errorf("expected region %q, got %q",
+					"us-east-1", spec.Region)
+			}
+			if accessKey != "x" || secretKey != "x" {
+				return nil, fmt.Errorf("expected access:secret %q, got %q",
+					"x:x", accessKey+":"+secretKey)
+			}
 			return ec2.EnvironEC2Client(t.Env()), nil
 		}
 	}
