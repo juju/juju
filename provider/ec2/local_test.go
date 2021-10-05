@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -48,7 +47,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	ec2test "github.com/juju/juju/provider/ec2/internal/testing"
@@ -1976,71 +1974,6 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	checkVolumeTags(origController, controllerVolumes...)
 	checkGroupTags("new-controller", modelGroups...)
 	checkGroupTags(origController, controllerGroups...)
-}
-
-// localNonUSEastSuite is similar to localServerSuite but the S3 mock server
-// behaves as if it is not in the us-east region.
-type localNonUSEastSuite struct {
-	coretesting.BaseSuite
-	sstesting.TestDataSuite
-
-	srv localServer
-	env environs.Environ
-}
-
-var _ = gc.Suite(&localNonUSEastSuite{})
-
-func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
-	t.BaseSuite.SetUpSuite(c)
-	t.TestDataSuite.SetUpSuite(c)
-
-	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-}
-
-func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
-	t.TestDataSuite.TearDownSuite(c)
-	t.BaseSuite.TearDownSuite(c)
-}
-
-func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
-	t.BaseSuite.SetUpTest(c)
-	t.srv.startServer(c)
-
-	credential := cloud.NewCredential(
-		cloud.AccessKeyAuthType,
-		map[string]string{
-			"access-key": "x",
-			"secret-key": "x",
-		},
-	)
-	//restoreEC2Patching := patchEC2ForTesting(c, region)
-	//t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
-
-	env, err := bootstrap.PrepareController(
-		false,
-		envtesting.BootstrapTODOContext(c),
-		jujuclient.NewMemStore(),
-		bootstrap.PrepareParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			ModelConfig:      localConfigAttrs,
-			ControllerName:   localConfigAttrs["name"].(string),
-			Cloud: environscloudspec.CloudSpec{
-				Type:       "ec2",
-				Region:     "test",
-				Endpoint:   "http://foo",
-				Credential: &credential,
-			},
-			AdminSecret: testing.AdminSecret,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	t.env = env.(environs.Environ)
-}
-
-func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
-	t.srv.stopServer(c)
-	t.BaseSuite.TearDownTest(c)
 }
 
 func patchEC2ForTesting(c *gc.C, region types.Region) func() {
