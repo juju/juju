@@ -114,7 +114,7 @@ func jimmFacades(facades []facade.Details) []facade.Details {
 	required := map[string][]int{
 		"Bundle":              {1},
 		"Cloud":               {1, 2, 3, 4, 5},
-		"Controller":          {3, 4, 5, 6, 7, 8, 9},
+		"Controller":          {3, 4, 5, 6, 7, 8, 9, 10, 11},
 		"ModelManager":        {2, 3, 4, 5},
 		"ModelSummaryManager": {1},
 		"Pinger":              {1},
