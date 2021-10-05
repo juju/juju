@@ -5,21 +5,34 @@ package ec2_test
 
 import (
 	stdcontext "context"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v2"
+	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 func (t *localServerSuite) TestInstanceAttributes(c *gc.C) {
@@ -295,9 +308,6 @@ func checkSecurityGroupAllowed(c *gc.C, perms []types.IpPermission, g *types.Sec
 
 func (t *localServerSuite) TestStopInstances(c *gc.C) {
 	t.Prepare(c)
-	// It would be nice if this test was in jujutest, but
-	// there's no way for jujutest to fabricate a valid-looking
-	// instance id.
 	inst0, _ := testing.AssertStartInstance(c, t.Env, t.callCtx, t.ControllerUUID, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 	inst2, _ := testing.AssertStartInstance(c, t.Env, t.callCtx, t.ControllerUUID, "41")
@@ -326,6 +336,711 @@ func (t *localServerSuite) TestStopInstances(c *gc.C) {
 	if !gone {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
+}
+
+func (t *localServerSuite) TestPrechecker(c *gc.C) {
+	// All implementations of InstancePrechecker should
+	// return nil for empty constraints (excluding the
+	// manual provider).
+	t.Prepare(c)
+	err := t.Env.PrecheckInstance(t.ProviderCallContext,
+		environs.PrecheckInstanceParams{
+			Series: "precise",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestStartStop is similar to Tests.TestStartStop except
+// that it does not assume a pristine environment.
+func (t *localServerSuite) TODO_needs_fixing_TestStartStop(c *gc.C) {
+	t.prepareAndBootstrap(c)
+
+	inst, _ := testing.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "0")
+	c.Assert(inst, gc.NotNil)
+	id0 := inst.Id()
+
+	insts, err := t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, id0})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.HasLen, 2)
+	c.Assert(insts[0].Id(), gc.Equals, id0)
+	c.Assert(insts[1].Id(), gc.Equals, id0)
+
+	// Asserting on the return of AllInstances makes the test fragile,
+	// as even comparing the before and after start values can be thrown
+	// off if other instances have been created or destroyed in the same
+	// time frame. Instead, just check the instance we created exists.
+	insts, err = t.Env.AllInstances(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	found := false
+	for _, inst := range insts {
+		if inst.Id() == id0 {
+			c.Assert(found, gc.Equals, false, gc.Commentf("%v", insts))
+			found = true
+		}
+	}
+	c.Assert(found, gc.Equals, true, gc.Commentf("expected %v in %v", inst, insts))
+
+	addresses, err := testing.WaitInstanceAddresses(t.Env, t.ProviderCallContext, inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
+
+	insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, ""})
+	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(insts, gc.HasLen, 2)
+	c.Check(insts[0].Id(), gc.Equals, id0)
+	c.Check(insts[1], gc.IsNil)
+
+	err = t.Env.StopInstances(t.ProviderCallContext, inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The machine may not be marked as shutting down
+	// immediately. Repeat a few times to ensure we get the error.
+	attempt := utils.AttemptStrategy{
+		Total: 15 * time.Second,
+		Delay: 200 * time.Millisecond,
+	}
+	for a := attempt.Start(); a.Next(); {
+		insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0})
+		if err != nil {
+			break
+		}
+	}
+	c.Assert(err, gc.Equals, environs.ErrNoInstances)
+	c.Assert(insts, gc.HasLen, 0)
+}
+
+func (t *localServerSuite) TestPorts(c *gc.C) {
+	t.prepareAndBootstrap(c)
+
+	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
+	c.Assert(inst1, gc.NotNil)
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+
+	inst2, _ := testing.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "2")
+	c.Assert(inst2, gc.NotNil)
+	fwInst2, ok := inst2.(instances.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst2.Id()) }()
+
+	// Open some ports and check they're there.
+	err = fwInst1.OpenPorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+
+	err = fwInst2.OpenPorts(t.ProviderCallContext,
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check there's no crosstalk to another machine
+	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Check that opening the same port again is ok.
+	oldRules, err := fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = fwInst2.OpenPorts(t.ProviderCallContext,
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = fwInst2.OpenPorts(t.ProviderCallContext,
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, jc.DeepEquals, oldRules)
+
+	// Check that opening the same port again and another port is ok.
+	err = fwInst2.OpenPorts(t.ProviderCallContext,
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+	err = fwInst2.ClosePorts(t.ProviderCallContext,
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we can close ports and that there's no crosstalk.
+	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Check that we can close multiple ports.
+	err = fwInst1.ClosePorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+
+	// Check that we can close ports that aren't there.
+	err = fwInst2.ClosePorts(t.ProviderCallContext,
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("600-700/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Check errors when acting on environment.
+	fwEnv, ok := t.Env.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+	err = fwEnv.OpenPorts(t.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
+
+	err = fwEnv.ClosePorts(t.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
+
+	_, err = fwEnv.IngressRules(t.ProviderCallContext)
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
+}
+
+func (t *localServerSuite) TODO_needs_fixing_TestGlobalPorts(c *gc.C) {
+	t.prepareAndBootstrap(c)
+
+	// Change configuration.
+	oldConfig := t.Env.Config()
+	defer func() {
+		err := t.Env.SetConfig(oldConfig)
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	attrs := t.Env.Config().AllAttrs()
+	attrs["firewall-mode"] = config.FwGlobal
+	newConfig, err := t.Env.Config().Apply(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	err = t.Env.SetConfig(newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create instances and check open ports on both instances.
+	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
+
+	fwEnv, ok := t.Env.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwEnv.IngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+
+	inst2, _ := testing.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "2")
+	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst2.Id()) }()
+
+	err = fwEnv.OpenPorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Check closing some ports.
+	err = fwEnv.ClosePorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Check that we can close ports that aren't there.
+	err = fwEnv.ClosePorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("2000-2500/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+	// Check errors when acting on instances.
+	err = fwInst1.OpenPorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
+
+	err = fwInst1.ClosePorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
+
+	_, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
+}
+
+func (t *localServerSuite) TestBootstrapMultiple(c *gc.C) {
+	// bootstrap.Bootstrap no longer raises errors if the environment is
+	// already up, this has been moved into the bootstrap command.
+	t.prepareAndBootstrap(c)
+
+	c.Logf("destroy env")
+	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ProviderCallContext, t.ControllerStore)
+	c.Assert(err, jc.ErrorIsNil)
+	err = t.Env.Destroy(t.ProviderCallContext) // Again, should work fine and do nothing.
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check that we can bootstrap after destroy
+	t.prepareAndBootstrap(c)
+}
+
+/*
+TODO: this should probably be deleted as it only runs on live provider
+func (t *localServerSuite) TestBootstrapAndDeploy(c *gc.C) {
+	if !t.CanOpenState || !t.HasProvisioner {
+		c.Skip(fmt.Sprintf("skipping provisioner test, CanOpenState: %v, HasProvisioner: %v", t.CanOpenState, t.HasProvisioner))
+	}
+	t.prepareAndBootstrap(c)
+
+	// TODO(niemeyer): Stop growing this kitchen sink test and split it into proper parts.
+
+	c.Logf("opening state")
+	st := t.Env.(testing.GetStater).GetStateInAPIServer()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	owner := model.Owner()
+
+	c.Logf("opening API connection")
+	controllerCfg, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	caCert, _ := controllerCfg.CACert()
+	apiInfo, err := environs.APIInfo(t.ProviderCallContext, model.Tag().Id(), model.Tag().Id(), caCert, controllerCfg.APIPort(), t.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = owner
+	apiInfo.Password = "admin-secret"
+	apiState, err := api.Open(apiInfo, api.DefaultDialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiState.Close()
+
+	// Check that the agent version has made it through the
+	// bootstrap process (it's optional in the config.Config)
+	cfg, err := model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	agentVersion, ok := cfg.AgentVersion()
+	c.Check(ok, jc.IsTrue)
+	c.Check(agentVersion, gc.Equals, jujuversion.Current)
+
+	// Check that the constraints have been set in the environment.
+	cons, err := st.ModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons.String(), gc.Equals, "mem=2048M")
+
+	// Wait for machine agent to come up on the bootstrap
+	// machine and find the deployed series from that.
+	m0, err := st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	instId0, err := m0.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the API connection is working.
+	status, err := apiState.Client().Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
+
+	mw0 := newMachineToolWaiter(m0)
+	defer func() { _ = mw0.Stop() }()
+
+	// Controllers always run on Ubuntu.
+	expectedVersion := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "ubuntu",
+	}
+
+	mtools0 := waitAgentTools(c, mw0, expectedVersion)
+
+	// Create a new application and deploy a unit of it.
+	c.Logf("deploying application")
+	ch := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
+	sch, err := testing.PutCharm(st, charm.MustParseURL("local:dummy"), ch)
+	c.Assert(err, jc.ErrorIsNil)
+	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := svc.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for the unit's machine and associated agent to come up
+	// and announce itself.
+	mid1, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	m1, err := st.Machine(mid1)
+	c.Assert(err, jc.ErrorIsNil)
+	mw1 := newMachineToolWaiter(m1)
+	defer func() { _ = mw1.Stop() }()
+	waitAgentTools(c, mw1, mtools0.Version)
+
+	err = m1.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	instId1, err := m1.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	uw := newUnitToolWaiter(unit)
+	defer func() { _ = uw.Stop() }()
+	utools := waitAgentTools(c, uw, expectedVersion)
+
+	// Check that we can upgrade the environment.
+	newVersion := utools.Version
+	newVersion.Patch++
+	t.checkUpgrade(c, st, newVersion, mw0, mw1, uw)
+
+	// BUG(niemeyer): Logic below is very much wrong. Must be:
+	//
+	// 1. EnsureDying on the unit and EnsureDying on the machine
+	// 2. Unit dies by itself
+	// 3. Machine removes dead unit
+	// 4. Machine dies by itself
+	// 5. Provisioner removes dead machine
+	//
+
+	// Now remove the unit and its assigned machine and
+	// check that the PA removes it.
+	c.Logf("removing unit")
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait until unit is dead
+	uwatch := unit.Watch()
+	defer func() { _ = uwatch.Stop() }()
+	for unit.Life() != state.Dead {
+		c.Logf("waiting for unit change")
+		<-uwatch.Changes()
+		err := unit.Refresh()
+		c.Logf("refreshed; err %v", err)
+		if jujuerrors.IsNotFound(err) {
+			c.Logf("unit has been removed")
+			break
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	for {
+		c.Logf("destroying machine")
+		err := m1.Destroy()
+		if err == nil {
+			break
+		}
+		c.Assert(err, jc.Satisfies, stateerrors.IsHasAssignedUnitsError)
+		time.Sleep(5 * time.Second)
+		err = m1.Refresh()
+		if jujuerrors.IsNotFound(err) {
+			break
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	c.Logf("waiting for instance to be removed")
+	t.assertStopInstance(c, instId1)
+}
+*/
+
+// Check that we get a consistent error when asking for an instance without
+// a valid machine config.
+func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
+	machineId := "4"
+	apiInfo := testing.FakeAPIInfo(machineId)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "trusty", apiInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.Prepare(c)
+
+	storageDir := c.MkDir()
+	toolsStorage, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
+		c, toolsStorage, "released", "released", version.MustParseBinary("5.4.5-ubuntu-amd64"),
+	))
+	params := environs.StartInstanceParams{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+		StatusCallback: fakeCallback,
+	}
+	err = testing.SetImageMetadata(
+		t.Env,
+		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
+		[]string{"trusty"},
+		possibleTools.Arches(),
+		&params.ImageMetadata,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	result, err := t.Env.StartInstance(t.ProviderCallContext, params)
+	if result != nil && result.Instance != nil {
+		err := t.Env.StopInstances(t.ProviderCallContext, result.Instance.Id())
+		c.Check(err, jc.ErrorIsNil)
+	}
+	c.Assert(result, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, ".*missing machine nonce")
+}
+
+/*
+TODO: this should probably be deleted; it only runs against the live provider
+func (t *localServerSuite) TestBootstrapWithDefaultSeries(c *gc.C) {
+	if !t.HasProvisioner {
+		c.Skip("HasProvisioner is false; cannot test deployment")
+	}
+
+	current := coretesting.CurrentVersion(c)
+	other := current
+	other.Release = "quantal"
+
+	dummyCfg := dummy.SampleConfig().Merge(coretesting.Attrs{
+		"controller": false,
+		"name":       "dummy storage",
+	})
+	args := t.prepareForBootstrapParams(c)
+	args.ModelConfig = dummyCfg
+	e, err := bootstrap.PrepareController(false, t.BootstrapContext,
+		jujuclient.NewMemStore(),
+		args,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = e.(environs.Environ).Destroy(t.ProviderCallContext) }()
+
+	t.Destroy(c)
+
+	attrs := t.TestConfig.Merge(coretesting.Attrs{
+		"name":           "livetests",
+		"default-series": "quantal",
+	})
+	args.ModelConfig = attrs
+	env, err := bootstrap.PrepareController(false, t.BootstrapContext,
+		t.ControllerStore,
+		args)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore) }()
+
+	err = bootstrap.Bootstrap(t.BootstrapContext, env, t.ProviderCallContext, t.bootstrapParams())
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := t.Env.(testing.GetStater).GetStateInAPIServer()
+	// Wait for machine agent to come up on the bootstrap
+	// machine and ensure it deployed the proper series.
+	m0, err := st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	mw0 := newMachineToolWaiter(m0)
+	defer func() { _ = mw0.Stop() }()
+
+	waitAgentTools(c, mw0, other)
+}
+*/
+
+func (t *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
+	t.prepareAndBootstrap(c)
+
+	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
+	c.Assert(inst1, gc.NotNil)
+	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+
+	// Open ports with different CIDRs. Check that rules with same port range
+	// get merged.
+	err = fwInst1.OpenPorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "10.0.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp")), // open to 0.0.0.0/0
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Open same port with different CIDRs and check that the CIDR gets
+	// appended to the existing rule's CIDR list.
+	err = fwInst1.OpenPorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24", "192.168.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Close port on a subset of the CIDRs and ensure that that CIDR gets
+	// removed from the ingress rules
+	err = fwInst1.ClosePorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Remove all CIDRs from the rule and check that rules without CIDRs
+	// get dropped.
+	err = fwInst1.ClosePorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,
