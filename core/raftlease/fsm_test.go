@@ -23,24 +23,66 @@ import (
 
 var zero time.Time
 
+// FSM is used to swap out the FSM from a singular fsm to a batch one in the
+// base test suite.
+type FSM interface {
+	Apply(log *raft.Log) interface{}
+	Snapshot() (raft.FSMSnapshot, error)
+	Restore(reader io.ReadCloser) error
+
+	Leases(getLocalTime func() time.Time, keys ...lease.Key) map[lease.Key]lease.Info
+	LeaseGroup(getLocalTime func() time.Time, namespace, modelUUID string) map[lease.Key]lease.Info
+	GlobalTime() time.Time
+	Pinned() map[lease.Key][]string
+}
+
 type fsmSuite struct {
 	testing.IsolationSuite
 
-	fsm *raftlease.FSM
+	fsm FSM
+
+	apply func(c *gc.C, command raftlease.Command) raftlease.FSMResponse
 }
 
-var _ = gc.Suite(&fsmSuite{})
+var _ = gc.Suite(&singularFSMSuite{})
 
-func (s *fsmSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.fsm = raftlease.NewFSM()
+type singularFSMSuite struct {
+	fsmSuite
 }
 
-func (s *fsmSuite) apply(c *gc.C, command raftlease.Command) raftlease.FSMResponse {
+func (s *singularFSMSuite) SetUpTest(c *gc.C) {
+	s.fsmSuite.SetUpTest(c)
+	s.fsmSuite.fsm = raftlease.NewFSM()
+	s.fsmSuite.apply = s.apply
+}
+
+func (s *singularFSMSuite) apply(c *gc.C, command raftlease.Command) raftlease.FSMResponse {
 	data, err := command.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
 	result := s.fsm.Apply(&raft.Log{Data: data})
 	response, ok := result.(raftlease.FSMResponse)
+	c.Assert(ok, gc.Equals, true)
+	return response
+}
+
+type batchFSMSuite struct {
+	fsmSuite
+}
+
+var _ = gc.Suite(&batchFSMSuite{})
+
+func (s *batchFSMSuite) SetUpTest(c *gc.C) {
+	s.fsmSuite.SetUpTest(c)
+	s.fsmSuite.fsm = raftlease.NewBatchFSM(raftlease.NewFSM())
+	s.fsmSuite.apply = s.apply
+}
+
+func (s *batchFSMSuite) apply(c *gc.C, command raftlease.Command) raftlease.FSMResponse {
+	data, err := command.Marshal()
+	c.Assert(err, jc.ErrorIsNil)
+	results := s.fsm.(*raftlease.BatchFSM).ApplyBatch([]*raft.Log{{Data: data}})
+	c.Assert(results, gc.HasLen, 1)
+	response, ok := results.([]interface{})[0].(raftlease.FSMResponse)
 	c.Assert(ok, gc.Equals, true)
 	return response
 }
