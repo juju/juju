@@ -11,16 +11,32 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclientsetfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	k8sdynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+	admissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
+	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
+	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
+	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -33,11 +49,11 @@ import (
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 
 	clock               *testclock.Clock
 	broker              *provider.KubernetesClient
@@ -157,14 +173,14 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint:       "some-host",
 		Credential:     &cred,
-		CACertificates: []string{testing.CACert},
+		CACertificates: []string{coretesting.CACert},
 	}
 	var err error
 	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// init config for each test for easier changing config inside test.
-	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
+	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey:                  "test",
 		k8sconstants.OperatorStorageKey: "",
 		k8sconstants.WorkloadStorageKey: "",
@@ -204,7 +220,7 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	return s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
+	return s.setupBroker(c, ctrl, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
 }
 
 func (s *BaseSuite) setupBroker(
@@ -364,7 +380,7 @@ func (s *BaseSuite) setupK8sRestClient(
 			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
 				CertData: []byte("cert-data"),
 				KeyData:  []byte("cert-key"),
-				CAData:   []byte(testing.CACert),
+				CAData:   []byte(coretesting.CACert),
 			})
 			return s.k8sClient, s.mockApiextensionsClient, s.mockDynamicClient, nil
 		}, func(cfg *rest.Config) (rest.Interface, error) {
@@ -391,13 +407,224 @@ func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid types.UID) 
 }
 
 func (s *BaseSuite) ensureJujuNamespaceAnnotations(isController bool, ns *core.Namespace) *core.Namespace {
+	return ensureJujuNamespaceAnnotations(s.cfg.UUID(), isController, ns)
+}
+
+func ensureJujuNamespaceAnnotations(modelUUID string, isController bool, ns *core.Namespace) *core.Namespace {
 	annotations := map[string]string{
-		"controller.juju.is/id": testing.ControllerTag.Id(),
-		"model.juju.is/id":      s.cfg.UUID(),
+		"controller.juju.is/id": coretesting.ControllerTag.Id(),
+		"model.juju.is/id":      modelUUID,
 	}
 	if isController {
 		annotations["controller.juju.is/is-controller"] = "true"
 	}
 	ns.SetAnnotations(annotations)
 	return ns
+}
+
+type fakeClientSuite struct {
+	testing.IsolationSuite
+
+	clock               *testclock.Clock
+	broker              *provider.KubernetesClient
+	cfg                 *config.Config
+	k8sRestConfig       *rest.Config
+	k8sWatcherFn        k8swatcher.NewK8sWatcherFunc
+	k8sStringsWatcherFn k8swatcher.NewK8sStringsWatcherFunc
+
+	namespace string
+
+	clientset *fake.Clientset
+
+	k8sClient                  kubernetes.Interface
+	mockCoreV1                 corev1.CoreV1Interface
+	mockRestClient             rest.Interface
+	mockNamespaces             corev1.NamespaceInterface
+	mockApps                   appsv1.AppsV1Interface
+	mockNetworkingV1beta1      networkingv1beta1.NetworkingV1beta1Interface
+	mockNetworkingV1           networkingv1.NetworkingV1Interface
+	mockSecrets                corev1.SecretInterface
+	mockDeployments            appsv1.DeploymentInterface
+	mockStatefulSets           appsv1.StatefulSetInterface
+	mockDaemonSets             appsv1.DaemonSetInterface
+	mockPods                   corev1.PodInterface
+	mockServices               corev1.ServiceInterface
+	mockConfigMaps             corev1.ConfigMapInterface
+	mockPersistentVolumes      corev1.PersistentVolumeInterface
+	mockPersistentVolumeClaims corev1.PersistentVolumeClaimInterface
+	mockStorage                storagev1.StorageV1Interface
+	mockStorageClass           storagev1.StorageClassInterface
+	mockIngressClasses         networkingv1.IngressClassInterface
+	mockIngressV1Beta1         networkingv1beta1.IngressInterface
+	mockIngressV1              networkingv1.IngressInterface
+	mockNodes                  corev1.NodeInterface
+	mockEvents                 corev1.EventInterface
+
+	mockApiextensionsClient             apiextensionsclientset.Interface
+	mockApiextensionsV1Beta1            apiextensionsv1beta1.ApiextensionsV1beta1Interface
+	mockApiextensionsV1                 apiextensionsv1.ApiextensionsV1Interface
+	mockCustomResourceDefinitionV1Beta1 apiextensionsv1beta1.CustomResourceDefinitionInterface
+	mockCustomResourceDefinitionV1      apiextensionsv1.CustomResourceDefinitionInterface
+
+	mockMutatingWebhookConfigurationV1        admissionregistrationv1.MutatingWebhookConfigurationInterface
+	mockValidatingWebhookConfigurationV1      admissionregistrationv1.ValidatingWebhookConfigurationInterface
+	mockMutatingWebhookConfigurationV1Beta1   admissionregistrationv1beta1.MutatingWebhookConfigurationInterface
+	mockValidatingWebhookConfigurationV1Beta1 admissionregistrationv1beta1.ValidatingWebhookConfigurationInterface
+
+	mockDynamicClient dynamic.Interface
+
+	mockServiceAccounts     corev1.ServiceAccountInterface
+	mockRoles               rbacv1.RoleInterface
+	mockClusterRoles        rbacv1.ClusterRoleInterface
+	mockRoleBindings        rbacv1.RoleBindingInterface
+	mockClusterRoleBindings rbacv1.ClusterRoleBindingInterface
+
+	mockDiscovery discovery.DiscoveryInterface
+
+	watchers []k8swatcher.KubernetesNotifyWatcher
+}
+
+func (s *fakeClientSuite) ensureJujuNamespaceAnnotations(isController bool, ns *core.Namespace) *core.Namespace {
+	return ensureJujuNamespaceAnnotations(s.cfg.UUID(), isController, ns)
+}
+
+func (s *fakeClientSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username":              "fred",
+		"password":              "secret",
+		"ClientCertificateData": "cert-data",
+		"ClientKeyData":         "cert-key",
+	})
+	cloudSpec := environscloudspec.CloudSpec{
+		Endpoint:       "some-host",
+		Credential:     &cred,
+		CACertificates: []string{coretesting.CACert},
+	}
+	var err error
+	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.cfg, err = config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+		config.NameKey:                  "test",
+		k8sconstants.OperatorStorageKey: "",
+		k8sconstants.WorkloadStorageKey: "",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.namespace = s.cfg.Name()
+	s.clock = testclock.NewClock(time.Time{})
+
+	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, s.getNamespace())
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+	s.setupBroker(c, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
+}
+
+func (s *fakeClientSuite) TearDownTest(c *gc.C) {
+	s.watchers = nil
+	s.IsolationSuite.TearDownTest(c)
+}
+
+func (s *fakeClientSuite) getNamespace() string {
+	if s.broker != nil {
+		return s.broker.GetCurrentNamespace()
+	}
+	return s.namespace
+}
+
+func (s *fakeClientSuite) setupBroker(
+	c *gc.C, controllerUUID string,
+	newK8sClientFunc provider.NewK8sClientFunc,
+	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
+	randomPrefixFunc utils.RandomPrefixFunc,
+) {
+	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		if s.k8sWatcherFn == nil {
+			return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
+		}
+
+		w, err := s.k8sWatcherFn(i, n, c)
+		if err == nil {
+			s.watchers = append(s.watchers, w)
+		}
+		return w, err
+	})
+
+	stringsWatcherFn := k8swatcher.NewK8sStringsWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock, e []string,
+		f k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		if s.k8sStringsWatcherFn == nil {
+			return nil, errors.NewNotFound(nil, "undefined k8sStringsWatcherFn for base test")
+		}
+		return s.k8sStringsWatcherFn(i, n, c, e, f)
+	})
+
+	var err error
+	s.broker, err = provider.NewK8sBroker(coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
+		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *fakeClientSuite) setupK8sRestClient(c *gc.C, namespace string) (provider.NewK8sClientFunc, k8sspecs.NewK8sRestClientFunc) {
+	s.clientset = fake.NewSimpleClientset()
+	s.k8sClient = s.clientset
+	s.mockCoreV1 = s.k8sClient.CoreV1()
+	s.mockRestClient = s.mockCoreV1.RESTClient()
+	s.mockNamespaces = s.mockCoreV1.Namespaces()
+	s.mockApps = s.clientset.AppsV1()
+	s.mockNetworkingV1beta1 = s.k8sClient.NetworkingV1beta1()
+	s.mockNetworkingV1 = s.k8sClient.NetworkingV1()
+	s.mockSecrets = s.mockCoreV1.Secrets(namespace)
+	s.mockDeployments = s.mockApps.Deployments(namespace)
+	s.mockStatefulSets = s.mockApps.StatefulSets(namespace)
+	s.mockDaemonSets = s.mockApps.DaemonSets(namespace)
+	s.mockPods = s.mockCoreV1.Pods(namespace)
+	s.mockServices = s.mockCoreV1.Services(namespace)
+	s.mockConfigMaps = s.mockCoreV1.ConfigMaps(namespace)
+	s.mockPersistentVolumes = s.mockCoreV1.PersistentVolumes()
+	s.mockPersistentVolumeClaims = s.mockCoreV1.PersistentVolumeClaims(namespace)
+	s.mockStorage = s.k8sClient.StorageV1()
+	s.mockStorageClass = s.mockStorage.StorageClasses()
+	s.mockIngressClasses = s.mockNetworkingV1.IngressClasses()
+	s.mockIngressV1Beta1 = s.mockNetworkingV1beta1.Ingresses(namespace)
+	s.mockIngressV1 = s.mockNetworkingV1.Ingresses(namespace)
+	s.mockNodes = s.mockCoreV1.Nodes()
+	s.mockEvents = s.mockCoreV1.Events(namespace)
+
+	s.mockApiextensionsClient = apiextensionsclientsetfake.NewSimpleClientset()
+	s.mockApiextensionsV1Beta1 = s.mockApiextensionsClient.ApiextensionsV1beta1()
+	s.mockApiextensionsV1 = s.mockApiextensionsClient.ApiextensionsV1()
+	s.mockCustomResourceDefinitionV1Beta1 = s.mockApiextensionsV1Beta1.CustomResourceDefinitions()
+	s.mockCustomResourceDefinitionV1 = s.mockApiextensionsV1.CustomResourceDefinitions()
+
+	s.mockMutatingWebhookConfigurationV1 = s.k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	s.mockValidatingWebhookConfigurationV1 = s.k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	s.mockMutatingWebhookConfigurationV1Beta1 = s.k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+	s.mockValidatingWebhookConfigurationV1Beta1 = s.k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+
+	s.mockDynamicClient = k8sdynamicfake.NewSimpleDynamicClient(k8sruntime.NewScheme())
+
+	s.mockServiceAccounts = s.mockCoreV1.ServiceAccounts(namespace)
+	s.mockRoles = s.k8sClient.RbacV1().Roles(namespace)
+	s.mockClusterRoles = s.k8sClient.RbacV1().ClusterRoles()
+	s.mockRoleBindings = s.k8sClient.RbacV1().RoleBindings(namespace)
+	s.mockClusterRoleBindings = s.k8sClient.RbacV1().ClusterRoleBindings()
+
+	s.mockDiscovery = s.clientset.Discovery()
+
+	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
+			c.Assert(cfg.Username, gc.Equals, "fred")
+			c.Assert(cfg.Password, gc.Equals, "secret")
+			c.Assert(cfg.Host, gc.Equals, "some-host")
+			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
+				CertData: []byte("cert-data"),
+				KeyData:  []byte("cert-key"),
+				CAData:   []byte(coretesting.CACert),
+			})
+			return s.k8sClient, s.mockApiextensionsClient, s.mockDynamicClient, nil
+		}, func(cfg *rest.Config) (rest.Interface, error) {
+			return s.mockRestClient, nil
+		}
 }

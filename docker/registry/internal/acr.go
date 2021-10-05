@@ -29,16 +29,17 @@ func (c *azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
-func getUserNameFromAuth(auth string) (string, error) {
+// unpackAuthToken returns the unpacked username and password.
+func unpackAuthToken(auth string) (username string, password string, err error) {
 	content, err := base64.StdEncoding.DecodeString(auth)
 	if err != nil {
-		return "", errors.Annotate(err, "doing base64 decode on the auth token")
+		return "", "", errors.Annotate(err, "doing base64 decode on the auth token")
 	}
 	parts := strings.Split(string(content), ":")
-	if len(parts) < 1 {
-		return "", errors.NotValidf("registry auth token")
+	if len(parts) < 2 {
+		return "", "", errors.NotValidf("registry auth token")
 	}
-	return parts[0], nil
+	return parts[0], parts[1], nil
 }
 
 func azureContainerRegistryTransport(
@@ -48,14 +49,14 @@ func azureContainerRegistryTransport(
 		username := repoDetails.Username
 		if username == "" {
 			var err error
-			username, err = getUserNameFromAuth(repoDetails.Auth)
+			username, _, err = unpackAuthToken(repoDetails.Auth.Value)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 		password := repoDetails.Password
 		if password == "" {
-			password = repoDetails.IdentityToken
+			password = repoDetails.IdentityToken.Value
 		}
 		transport = newTokenTransport(
 			transport,

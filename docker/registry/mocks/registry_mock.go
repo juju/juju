@@ -6,6 +6,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	docker "github.com/juju/juju/docker"
@@ -75,6 +76,35 @@ func (m *MockRegistry) Ping() error {
 func (mr *MockRegistryMockRecorder) Ping() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockRegistry)(nil).Ping))
+}
+
+// RefreshAuth mocks base method.
+func (m *MockRegistry) RefreshAuth() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RefreshAuth")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RefreshAuth indicates an expected call of RefreshAuth.
+func (mr *MockRegistryMockRecorder) RefreshAuth() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshAuth", reflect.TypeOf((*MockRegistry)(nil).RefreshAuth))
+}
+
+// ShouldRefreshAuth mocks base method.
+func (m *MockRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldRefreshAuth")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(*time.Duration)
+	return ret0, ret1
+}
+
+// ShouldRefreshAuth indicates an expected call of ShouldRefreshAuth.
+func (mr *MockRegistryMockRecorder) ShouldRefreshAuth() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldRefreshAuth", reflect.TypeOf((*MockRegistry)(nil).ShouldRefreshAuth))
 }
 
 // Tags mocks base method.

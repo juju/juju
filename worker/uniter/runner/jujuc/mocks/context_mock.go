@@ -189,7 +189,7 @@ func (mr *MockContextMockRecorder) ConfigSettings() *gomock.Call {
 }
 
 // CreateSecret mocks base method.
-func (m *MockContext) CreateSecret(arg0 string, arg1 *jujuc.UpsertArgs) (string, error) {
+func (m *MockContext) CreateSecret(arg0 string, arg1 *jujuc.SecretUpsertArgs) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -319,6 +319,20 @@ func (m *MockContext) GoalState() (*application.GoalState, error) {
 func (mr *MockContextMockRecorder) GoalState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GoalState", reflect.TypeOf((*MockContext)(nil).GoalState))
+}
+
+// GrantSecret mocks base method.
+func (m *MockContext) GrantSecret(arg0 string, arg1 *jujuc.SecretGrantRevokeArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GrantSecret indicates an expected call of GrantSecret.
+func (mr *MockContextMockRecorder) GrantSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockContext)(nil).GrantSecret), arg0, arg1)
 }
 
 // HookRelation mocks base method.
@@ -542,6 +556,20 @@ func (mr *MockContextMockRecorder) RequestReboot(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockContext)(nil).RequestReboot), arg0)
 }
 
+// RevokeSecret mocks base method.
+func (m *MockContext) RevokeSecret(arg0 string, arg1 *jujuc.SecretGrantRevokeArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeSecret indicates an expected call of RevokeSecret.
+func (mr *MockContextMockRecorder) RevokeSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockContext)(nil).RevokeSecret), arg0, arg1)
+}
+
 // SetActionFailed mocks base method.
 func (m *MockContext) SetActionFailed() error {
 	m.ctrl.T.Helper()
@@ -743,7 +771,7 @@ func (mr *MockContextMockRecorder) UpdateActionResults(arg0, arg1 interface{}) *
 }
 
 // UpdateSecret mocks base method.
-func (m *MockContext) UpdateSecret(arg0 string, arg1 *jujuc.UpsertArgs) (string, error) {
+func (m *MockContext) UpdateSecret(arg0 string, arg1 *jujuc.SecretUpsertArgs) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
 	ret0, _ := ret[0].(string)

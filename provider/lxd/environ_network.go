@@ -47,7 +47,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	}
 	azName := serverInfo.Environment.ServerName
 
-	networkNames, err := srv.GetNetworkNames()
+	networks, err := srv.GetNetworks()
 	if err != nil {
 		if isErrMissingAPIExtension(err, "network") {
 			return nil, errors.NewNotSupported(nil, `subnet discovery requires the "network" extension to be enabled on the lxd server`)
@@ -67,15 +67,12 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 		subnets         []network.SubnetInfo
 		uniqueSubnetIDs = set.NewStrings()
 	)
-	for _, networkName := range networkNames {
-		// Query the details for this network and skip non-bridge networks.
-		networkDetails, _, err := srv.GetNetwork(networkName)
-		if err != nil {
-			return nil, errors.Annotatef(err, "querying lxd server for details of network %q", networkName)
-		} else if networkDetails.Type != "bridge" {
+	for _, networkDetails := range networks {
+		if networkDetails.Type != "bridge" {
 			continue
 		}
 
+		networkName := networkDetails.Name
 		state, err := srv.GetNetworkState(networkName)
 		if err != nil {
 			// Unfortunately, LXD on bionic and earlier does not
@@ -418,7 +415,7 @@ func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 	// Really old lxd versions (e.g. xenial/ppc64) do not even support the
 	// network API extension so the subnet discovery code path will not
 	// work there.
-	return e.hasLXDNetworkAPISupport()
+	return e.server().HasExtension("network"), nil
 }
 
 // AreSpacesRoutable returns whether the communication between the
@@ -449,18 +446,4 @@ func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network
 // SSHAddresses filters the input addresses to those suitable for SSH use.
 func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
-}
-
-// hasLXDNetworkAPISupport makes a request to the networks API endpoint and
-// checks whether the lxd server supports the network API extension or not. Any
-// other error except "missing API extension" will be returned to the caller.
-func (e *environ) hasLXDNetworkAPISupport() (bool, error) {
-	srv := e.server()
-	_, err := srv.GetNetworkNames()
-	if isErrMissingAPIExtension(err, "network") {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Trace(err)
-	}
-	return true, nil
 }

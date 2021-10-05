@@ -228,11 +228,21 @@ func (ctx *RestrictedContext) GetSecret(ID string) (secrets.SecretValue, error) 
 }
 
 // CreateSecret implements runner.Context.
-func (ctx *RestrictedContext) CreateSecret(name string, args *UpsertArgs) (string, error) {
+func (ctx *RestrictedContext) CreateSecret(name string, args *SecretUpsertArgs) (string, error) {
 	return "", ErrRestrictedContext
 }
 
 // UpdateSecret implements runner.Context.
-func (ctx *RestrictedContext) UpdateSecret(name string, args *UpsertArgs) (string, error) {
+func (ctx *RestrictedContext) UpdateSecret(name string, args *SecretUpsertArgs) (string, error) {
 	return "", ErrRestrictedContext
+}
+
+// GrantSecret implements runner.Context.
+func (c *RestrictedContext) GrantSecret(name string, args *SecretGrantRevokeArgs) error {
+	return nil
+}
+
+// RevokeSecret implements runner.Context.
+func (c *RestrictedContext) RevokeSecret(name string, args *SecretGrantRevokeArgs) error {
+	return nil
 }

@@ -4,15 +4,13 @@
 package common
 
 import (
-	// "context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 
 	"github.com/juju/errors"
-
-	ociCommon "github.com/oracle/oci-go-sdk/common"
+	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
 )
 
 type JujuConfigProvider struct {
@@ -82,6 +80,10 @@ func (j JujuConfigProvider) KeyID() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s/%s/%s", j.Tenancy, j.User, j.Fingerprint), nil
+}
+
+func (j JujuConfigProvider) AuthType() (ociCommon.AuthConfig, error) {
+	return ociCommon.AuthConfig{}, errors.NotImplementedf("AuthType")
 }
 
 func (j JujuConfigProvider) Validate() error {

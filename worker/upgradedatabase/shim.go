@@ -14,11 +14,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package.go github.com/juju/juju/worker/upgradedatabase Logger,Pool,UpgradeInfo
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/lock.go github.com/juju/juju/worker/gate Lock
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/agent.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher.go github.com/juju/juju/state NotifyWatcher
-
 // Logger represents the methods required to emit log messages.
 type Logger interface {
 	Debugf(message string, args ...interface{})
@@ -49,8 +44,8 @@ type UpgradeInfo interface {
 	Refresh() error
 }
 
-// State describes methods required by the upgradeDB worker
-// that use access to a state pool.
+// Pool describes methods required by the upgradeDB worker,
+// supplied by a state pool.
 type Pool interface {
 	// IsPrimary returns true if the Mongo primary is
 	// running on the machine with the input ID.

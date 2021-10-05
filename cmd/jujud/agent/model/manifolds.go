@@ -529,6 +529,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:        loggo.GetLogger("juju.worker.caasmodelconfigmanager"),
 			NewWorker:     caasmodelconfigmanager.NewWorker,
 			NewFacade:     caasmodelconfigmanager.NewFacade,
+			Clock:         config.Clock,
 		})),
 
 		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(

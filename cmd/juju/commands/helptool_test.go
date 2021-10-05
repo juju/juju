@@ -134,6 +134,8 @@ var expectedCommands = []string{
 	"resource-get",
 	"secret-create",
 	"secret-get",
+	"secret-grant",
+	"secret-revoke",
 	"secret-update",
 	"state-delete",
 	"state-get",

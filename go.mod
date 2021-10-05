@@ -13,14 +13,15 @@ require (
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
 	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6
 	github.com/armon/go-metrics v0.3.3
-	github.com/aws/aws-sdk-go-v2 v1.9.0
+	github.com/aws/aws-sdk-go-v2 v1.9.1
 	github.com/aws/aws-sdk-go-v2/config v1.3.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.2.1
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.6.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20210629225259-602ad4b50023
+	github.com/canonical/pebble v0.0.0-20211004014426-2fbdfdef40c7
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -46,7 +47,7 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/imdario/mergo v0.3.10 // indirect
-	github.com/juju/ansiterm v0.0.0-20210706145210-9283cdf370b5
+	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/charm/v9 v9.0.0-20210922083844-6bd7c961dbc6
 	github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf
@@ -91,12 +92,12 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
-	github.com/mattn/go-isatty v0.0.13
+	github.com/mattn/go-isatty v0.0.14
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.4 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/oracle/oci-go-sdk v5.7.0+incompatible
+	github.com/oracle/oci-go-sdk/v47 v47.1.0
 	github.com/packethost/packngo v0.19.0
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
@@ -139,10 +140,7 @@ require (
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
-require (
-	github.com/aws/aws-sdk-go v1.40.46
-	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
-)
+require github.com/aws/aws-sdk-go v1.40.46
 
 require (
 	cloud.google.com/go v0.56.0 // indirect
@@ -194,12 +192,13 @@ require (
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/masterzen/simplexml v0.0.0-20160608183007-4572e39b1ab9 // indirect
 	github.com/masterzen/winrm v0.0.0-20200615185753-c42b5136ff88 // indirect
-	github.com/mattn/go-colorable v0.1.8 // indirect
+	github.com/mattn/go-colorable v0.1.10 // indirect
 	github.com/mattn/go-runewidth v0.0.2 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/pkg/term v1.1.0 // indirect
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.1.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

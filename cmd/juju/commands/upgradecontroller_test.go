@@ -299,7 +299,7 @@ func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {
 	registryAPIFunc := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
 		c.Assert(imageRepo.Repository, gc.DeepEquals, "test-account")
 		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "ghcr.io")
-		c.Assert(imageRepo.Auth, gc.DeepEquals, "xxxxx==")
+		c.Assert(imageRepo.Auth.Value, gc.DeepEquals, "xxxxx==")
 		c.Assert(imageRepo.IsPrivate(), jc.IsTrue)
 		registryAPIFuncCalled = true
 		return registryAPI, nil

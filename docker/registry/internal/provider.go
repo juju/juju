@@ -23,6 +23,7 @@ func Providers() []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInte
 		newQuayContainerRegistry,
 		newGoogleContainerRegistry,
 		newElasticContainerRegistry,
+		newElasticContainerRegistryPublic,
 	}
 }
 

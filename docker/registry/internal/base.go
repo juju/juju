@@ -73,6 +73,16 @@ func (c *baseClient) prepare() {
 	}
 }
 
+// ShouldRefreshAuth checks if the repoDetails should be refreshed.
+func (c *baseClient) ShouldRefreshAuth() (bool, *time.Duration) {
+	return false, nil
+}
+
+// RefreshAuth refreshes the repoDetails.
+func (c *baseClient) RefreshAuth() error {
+	return nil
+}
+
 // Match checks if the repository details matches current provider format.
 func (c *baseClient) Match() bool {
 	return false
@@ -91,7 +101,7 @@ type TransportWrapper func(http.RoundTripper, *docker.ImageRepoDetails) (http.Ro
 
 func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
 	if !repoDetails.TokenAuthConfig.Empty() {
-		return nil, errors.New(
+		return nil, errors.NewNotValid(nil,
 			fmt.Sprintf(
 				`only {"username", "password"} or {"auth"} authorization is supported for registry %q`,
 				repoDetails.ServerAddress,
@@ -100,7 +110,7 @@ func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoD
 	}
 	if !repoDetails.BasicAuthConfig.Empty() {
 		return newTokenTransport(
-			transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth, "", false,
+			transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Value, "", false,
 		), nil
 	}
 	return transport, nil

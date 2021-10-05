@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	ociCore "github.com/oracle/oci-go-sdk/core"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -111,16 +111,12 @@ func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.Status
 }
 
 func (o *ociInstance) getVnics() ([]vnicWithIndex, error) {
-	attachmentRequest := ociCore.ListVnicAttachmentsRequest{
-		CompartmentId: o.raw.CompartmentId,
-		InstanceId:    o.raw.Id,
-	}
-	attachments, err := o.env.Compute.ListVnicAttachments(context.Background(), attachmentRequest)
+	attachments, err := o.env.Compute.ListVnicAttachments(context.Background(), o.raw.CompartmentId, o.raw.Id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	nics := []vnicWithIndex{}
-	for _, val := range attachments.Items {
+	for _, val := range attachments {
 		vnicID := val.VnicId
 		request := ociCore.GetVnicRequest{
 			VnicId: vnicID,

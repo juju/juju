@@ -779,7 +779,7 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 }
 
 // CreateSecret creates a secret with the specified data.
-func (ctx *HookContext) CreateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
+func (ctx *HookContext) CreateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
 	app, _ := names.UnitApplication(ctx.UnitName())
 	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
 	cfg.RotateInterval = args.RotateInterval
@@ -790,7 +790,7 @@ func (ctx *HookContext) CreateSecret(name string, args *jujuc.UpsertArgs) (strin
 }
 
 // UpdateSecret creates a secret with the specified data.
-func (ctx *HookContext) UpdateSecret(name string, args *jujuc.UpsertArgs) (string, error) {
+func (ctx *HookContext) UpdateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
 	app, _ := names.UnitApplication(ctx.UnitName())
 	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
 	cfg.RotateInterval = args.RotateInterval
@@ -799,6 +799,30 @@ func (ctx *HookContext) UpdateSecret(name string, args *jujuc.UpsertArgs) (strin
 	cfg.Tags = args.Tags
 	URL := coresecrets.NewSimpleURL(cfg.Path)
 	return ctx.secretFacade.Update(URL.ID(), cfg, args.Value)
+}
+
+// GrantSecret grants access to a specified secret.
+func (ctx *HookContext) GrantSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
+	URL := coresecrets.NewSimpleURL(cfg.Path)
+	return ctx.secretFacade.Grant(URL.ID(), &secretsmanager.SecretRevokeGrantArgs{
+		ApplicationName: args.ApplicationName,
+		UnitName:        args.UnitName,
+		RelationId:      args.RelationId,
+		Role:            coresecrets.RoleView,
+	})
+}
+
+// RevokeSecret revokes access to a specified secret.
+func (ctx *HookContext) RevokeSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
+	URL := coresecrets.NewSimpleURL(cfg.Path)
+	return ctx.secretFacade.Revoke(URL.ID(), &secretsmanager.SecretRevokeGrantArgs{
+		ApplicationName: args.ApplicationName,
+		UnitName:        args.UnitName,
+	})
 }
 
 // GoalState returns the goal state for the current unit.
