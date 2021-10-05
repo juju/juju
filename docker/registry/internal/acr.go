@@ -4,11 +4,8 @@
 package internal
 
 import (
-	"encoding/base64"
 	"net/http"
 	"strings"
-
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/tools"
@@ -29,51 +26,8 @@ func (c *azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
-// unpackAuthToken returns the unpacked username and password.
-func unpackAuthToken(auth string) (username string, password string, err error) {
-	content, err := base64.StdEncoding.DecodeString(auth)
-	if err != nil {
-		return "", "", errors.Annotate(err, "doing base64 decode on the auth token")
-	}
-	parts := strings.Split(string(content), ":")
-	if len(parts) < 2 {
-		return "", "", errors.NotValidf("registry auth token")
-	}
-	return parts[0], parts[1], nil
-}
-
-func azureContainerRegistryTransport(
-	transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
-) (http.RoundTripper, error) {
-	if repoDetails.IsPrivate() && !repoDetails.TokenAuthConfig.Empty() {
-		username := repoDetails.Username
-		if username == "" {
-			var err error
-			username, _, err = unpackAuthToken(repoDetails.Auth.Value)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		password := repoDetails.Password
-		if password == "" {
-			password = repoDetails.IdentityToken.Value
-		}
-		transport = newTokenTransport(
-			transport,
-			username, password,
-			"", "", false,
-		)
-	}
-	return transport, nil
-}
-
-func (c *azureContainerRegistry) WrapTransport(wrappers ...TransportWrapper) (err error) {
-	if c.client.Transport, err = mergeTransportWrappers(
-		c.client.Transport, c.repoDetails, azureContainerRegistryTransport, wrapErrorTransport,
-	); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+func (c *azureContainerRegistry) WrapTransport(...TransportWrapper) error {
+	return c.baseClient.WrapTransport(newPrivateOnlyTransport)
 }
 
 // Tags fetches tags for an OCI image.

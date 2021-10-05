@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -244,4 +245,17 @@ func getNextLink(resp *http.Response) (string, error) {
 		}
 	}
 	return "", errNoMorePages
+}
+
+// unpackAuthToken returns the unpacked username and password.
+func unpackAuthToken(auth string) (username string, password string, err error) {
+	content, err := base64.StdEncoding.DecodeString(auth)
+	if err != nil {
+		return "", "", errors.Annotate(err, "doing base64 decode on the auth token")
+	}
+	parts := strings.Split(string(content), ":")
+	if len(parts) < 2 {
+		return "", "", errors.NotValidf("registry auth token")
+	}
+	return parts[0], parts[1], nil
 }
