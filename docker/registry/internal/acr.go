@@ -4,8 +4,11 @@
 package internal
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/tools"
@@ -23,11 +26,15 @@ func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport ht
 
 // Match checks if the repository details matches current provider format.
 func (c *azureContainerRegistry) Match() bool {
+	c.repoDetails.ServerAddress = c.repoDetails.Repository
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
 func (c *azureContainerRegistry) WrapTransport(...TransportWrapper) error {
-	return c.baseClient.WrapTransport(newPrivateOnlyTransport)
+	if !c.repoDetails.IsPrivate() {
+		return errors.NewNotValid(nil, fmt.Sprintf(`username and password are required for registry %q`, c.repoDetails.Repository))
+	}
+	return c.baseClient.WrapTransport()
 }
 
 // Tags fetches tags for an OCI image.
