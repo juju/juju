@@ -984,6 +984,12 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 		}
 		return nil, errors.Trace(err)
 	}
+	// For mongo 4.4, if the collection exists,
+	// there will be a "capped" attribute.
+	_, ok := result["capped"]
+	if !ok {
+		return nil, errors.NotFoundf("Collection [%s.%s]", coll.Database.Name, coll.Name)
+	}
 	return result, nil
 }
 
