@@ -453,19 +453,3 @@ func (s *updaterSuite) expectCharmHubModel(c *gc.C) {
 	mExp.ModelTag().Return(testing.ModelTag).AnyTimes()
 	s.state.EXPECT().AliveRelationKeys().Return(nil)
 }
-
-func (s *updaterSuite) expectResources(c *gc.C, name string, revision, size int, hexFingerprint string) {
-	fingerprint, err := resource.ParseFingerprint(hexFingerprint)
-	c.Assert(err, jc.ErrorIsNil)
-	resources := resource.Resource{
-		Meta: resource.Meta{
-			Name: name,
-			Type: resource.TypeFile,
-		},
-		Origin:      resource.OriginStore,
-		Revision:    revision,
-		Fingerprint: fingerprint,
-		Size:        int64(size),
-	}
-	s.state.EXPECT().Resources().Return(resources, nil).AnyTimes()
-}
