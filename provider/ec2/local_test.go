@@ -142,9 +142,8 @@ func (srv *localServer) stopServer(c *gc.C) {
 	srv.defaultVPC = nil
 }
 
-func bootstrapContext(c *gc.C, ec2Client ec2.Client) environs.BootstrapContext {
-	clientFunc := func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
-		// Note: don't use "c" in this closure as its scope is limited to SetUpTest
+func bootstrapClientFunc(ec2Client ec2.Client) ec2.ClientFunc {
+	return func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
 		credentialAttrs := spec.Credential.Attributes()
 		accessKey := credentialAttrs["access-key"]
 		secretKey := credentialAttrs["secret-key"]
@@ -158,7 +157,6 @@ func bootstrapContext(c *gc.C, ec2Client ec2.Client) environs.BootstrapContext {
 		}
 		return ec2Client, nil
 	}
-	return bootstrapContextWithClientFunc(c, clientFunc)
 }
 
 func bootstrapContextWithClientFunc(c *gc.C, clientFunc ec2.ClientFunc) environs.BootstrapContext {
@@ -234,7 +232,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 
-	t.Tests.BootstrapContext = bootstrapContext(c, t.client)
+	t.Tests.BootstrapContext = bootstrapContextWithClientFunc(c, bootstrapClientFunc(t.client))
 	t.Tests.ProviderCallContext = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
 	t.callCtx = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
 }
