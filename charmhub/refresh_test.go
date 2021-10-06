@@ -232,17 +232,17 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
+func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := path.MakePath(baseURL)
+	p := path.MakePath(baseURL)
 	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key-foo",
 			ID:          id,
 			Revision:    1,
 			Base: transport.Base{
@@ -251,22 +251,40 @@ func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
+		}, {
+			InstanceKey: "instance-key-bar",
+			ID:          id,
+			Revision:    2,
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "14.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+			TrackingChannel: "latest/edge",
 		}},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key-foo",
+			ID:          &id,
+		}, {
+			Action:      "refresh",
+			InstanceKey: "instance-key-bar",
 			ID:          &id,
 		}},
+		Metrics: map[string]map[string]string{
+			"controller": {"uuid": "controller-uuid"},
+			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
+		},
 	}
 
-	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
+	config1, err := RefreshOne("instance-key-foo", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config2, err := RefreshOne("instance-key-var", "bar", 2, "latest/edge", RefreshBase{
+	config2, err := RefreshOne("instance-key-bar", id, 2, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "14.04",
 		Architecture: "amd64",
@@ -276,14 +294,31 @@ func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
 	config := RefreshMany(config1, config2)
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPost(c, restClient, path, id, body)
+	restClient.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
+		responses.Results = []transport.RefreshResponse{{
+			InstanceKey: "instance-key-foo",
+			Name:        id,
+		}, {
+			InstanceKey: "instance-key-bar",
+			Name:        id,
+		}}
+	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 
-	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{}
+	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+		charmmetrics.Controller: {
+			charmmetrics.UUID: "controller-uuid",
+		},
+		charmmetrics.Model: {
+			charmmetrics.NumUnits:   "3",
+			charmmetrics.Controller: "controller-uuid",
+			charmmetrics.UUID:       "model-uuid",
+		},
+	}
 
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(p, restClient, &FakeLogger{})
 	responses, err := client.RefreshWithRequestMetrics(context.TODO(), config, metrics)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(responses), gc.Equals, 1)
+	c.Assert(len(responses), gc.Equals, 2)
 	c.Assert(responses[0].Name, gc.Equals, id)
 }
 
