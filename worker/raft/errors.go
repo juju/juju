@@ -58,3 +58,39 @@ func IsNotLeaderError(err error) bool {
 	_, ok := errors.Cause(err).(*NotLeaderError)
 	return ok
 }
+
+// IndexError creates a typed error for when a raft operation is applied,
+// but the raft state shows that it's not the leader. The error will help
+// redirect the consumer of the error to workout where they can try and find
+// the leader.
+type IndexError struct {
+	index int
+	err   error
+}
+
+func (e *IndexError) Index() int {
+	return e.index
+}
+
+func (e *IndexError) RawError() error {
+	return e.err
+}
+
+func (e *IndexError) Error() string {
+	return e.err.Error()
+}
+
+// NewIndexError creates a new IndexError with the server address and/or
+// server ID of the current raft state leader.
+func NewIndexError(index int, err error) error {
+	return &IndexError{
+		index: index,
+		err:   err,
+	}
+}
+
+// IsIndexError returns true if the error is the IndexError.
+func IsIndexError(err error) bool {
+	_, ok := errors.Cause(err).(*IndexError)
+	return ok
+}

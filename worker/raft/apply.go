@@ -112,24 +112,22 @@ func (a *Applier) ApplyOperation(op queue.Operation, applyTimeout time.Duration)
 		return NewNotLeaderError(string(leaderAddress), leaderID)
 	}
 
-	// TODO (stickupkid): Use the raft batch apply. For now we're only ever
-	// going to apply one at a time, so we can change this at a later date.
 	for i, command := range op.Commands {
 		a.logger.Tracef("Applying command %d %v", i, string(command))
 
 		future := a.raft.Apply(command, applyTimeout)
 		if err := future.Error(); err != nil {
-			return errors.Trace(err)
+			return NewIndexError(i, err)
 		}
 
 		response := future.Response()
 		fsmResponse, ok := response.(raftlease.FSMResponse)
 		if !ok {
 			a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
-			return errors.Errorf("invalid FSM response")
+			return NewIndexError(i, errors.Errorf("invalid FSM response"))
 		}
 		if err := fsmResponse.Error(); err != nil {
-			return errors.Trace(err)
+			return NewIndexError(i, err)
 		}
 
 		fsmResponse.Notify(a.notifyTarget)
