@@ -38,8 +38,7 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 	ctrl := gomock.NewController(c)
 
 	s.imageRepoDetails = docker.ImageRepoDetails{
-		Repository:    "gcr.io/jujuqa",
-		ServerAddress: "gcr.io",
+		Repository: "gcr.io/jujuqa",
 	}
 	s.authToken = base64.StdEncoding.EncodeToString([]byte("_json_key:pwd"))
 	if s.isPrivate {
@@ -106,8 +105,7 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 
 func (s *googleContainerRegistrySuite) TestInvalidUserName(c *gc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{
-		Repository:    "gcr.io/jujuqa",
-		ServerAddress: "gcr.io",
+		Repository: "gcr.io/jujuqa",
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Auth: docker.NewToken(base64.StdEncoding.EncodeToString([]byte("username:pwd"))),
 		},

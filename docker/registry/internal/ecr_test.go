@@ -47,9 +47,8 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func(
 
 	if s.imageRepoDetails.Empty() {
 		s.imageRepoDetails = docker.ImageRepoDetails{
-			Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-			ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-			Region:        "ap-southeast-2",
+			Repository: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+			Region:     "ap-southeast-2",
 		}
 		if s.isPrivate {
 			s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{

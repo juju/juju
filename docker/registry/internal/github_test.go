@@ -38,8 +38,7 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 	ctrl := gomock.NewController(c)
 
 	s.imageRepoDetails = docker.ImageRepoDetails{
-		Repository:    "ghcr.io/jujuqa",
-		ServerAddress: "ghcr.io",
+		Repository: "ghcr.io/jujuqa",
 	}
 	if s.isPrivate {
 		authToken := base64.StdEncoding.EncodeToString([]byte("username:pwd"))

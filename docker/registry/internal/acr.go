@@ -19,9 +19,14 @@ type azureContainerRegistry struct {
 }
 
 func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport)
-	c.repoDetails.ServerAddress = c.repoDetails.Repository
+	c := newBase(repoDetails, transport, normalizeRepoDetailsAzure)
 	return &azureContainerRegistry{c}
+}
+
+func normalizeRepoDetailsAzure(repoDetails *docker.ImageRepoDetails) {
+	if repoDetails.ServerAddress == "" {
+		repoDetails.ServerAddress = repoDetails.Repository
+	}
 }
 
 // Match checks if the repository details matches current provider format.
