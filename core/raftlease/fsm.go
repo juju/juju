@@ -406,6 +406,7 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 
 // apply extacts out of the command operation invocations, so that the batching
 // FSM can make use of the same logic.
+// The callee is expected hold the lock before calling apply.
 func (f *FSM) apply(command Command) *response {
 	switch command.Operation {
 	case OperationClaim:
@@ -553,11 +554,6 @@ func NewBatchFSM(fsm *FSM) *BatchFSM {
 	}
 }
 
-type batchValue struct {
-	Command  Command
-	Response *response
-}
-
 // ApplyBatch is invoked once a batch of log entries has been committed and
 // are ready to be applied to the FSM. ApplyBatch will take in an array of
 // log entries. These log entries will be in the order they were committed,
@@ -574,37 +570,42 @@ func (f *BatchFSM) ApplyBatch(logs []*raft.Log) interface{} {
 	// Unmarshal all the logs up front, we can validate them without
 	// stealing the lock. Additionally we can ensure that we get the correct
 	// type of log.
-	values := make([]batchValue, len(logs))
+	commands := make([]Command, len(logs))
+	responses := make([]interface{}, len(logs))
+
+	var numErrs int
 	for i, log := range logs {
 		command, err := unmarshalCommand(log)
 		if err != nil {
-			values[i] = batchValue{
-				Response: &response{err: errors.Trace(err)},
-			}
+			responses[i] = &response{err: errors.Trace(err)}
+			numErrs++
 			continue
 		}
 
-		values[i] = batchValue{
-			Command: command,
-		}
+		commands[i] = command
+	}
+
+	// If the number of errors matches the number of responses, then we can just
+	// return, as there is nothing to process.
+	if numErrs == len(logs) {
+		return responses
 	}
 
 	// Ensure we steal the lock so we serialize all log applications. That way
 	// we never allow another Apply or ApplyBatch to intervene.
 	f.mu.Lock()
-	defer f.mu.Unlock()
 
-	responses := make([]interface{}, len(values))
-	for i, value := range values {
+	for i, resp := range responses {
 		// We already have a response for the batch item. This happens if we
 		// are unable to unmarshal the command from the raft.Log.
-		if value.Response != nil {
-			responses[i] = value.Response
+		if resp != nil {
 			continue
 		}
 
-		responses[i] = f.apply(value.Command)
+		responses[i] = f.apply(commands[i])
 	}
+
+	f.mu.Unlock()
 
 	return responses
 }
