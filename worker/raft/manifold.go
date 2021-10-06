@@ -149,7 +149,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
 
 	w, err := config.NewWorker(Config{
-		FSM:                      config.FSM,
+		FSM:                      fsm,
 		Logger:                   config.Logger,
 		StorageDir:               raftDir,
 		LocalID:                  raft.ServerID(agentConfig.Tag().Id()),
