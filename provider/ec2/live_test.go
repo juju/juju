@@ -5,7 +5,6 @@ package ec2_test
 
 import (
 	stdcontext "context"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -13,7 +12,6 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -333,65 +331,6 @@ func (t *localServerSuite) TestPrechecker(c *gc.C) {
 			Series: "precise",
 		})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// TestStartStop is similar to Tests.TestStartStop except
-// that it does not assume a pristine environment.
-func (t *localServerSuite) TODO_needs_fixing_TestStartStop(c *gc.C) {
-	t.prepareAndBootstrap(c)
-
-	inst, _ := testing.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "0")
-	c.Assert(inst, gc.NotNil)
-	id0 := inst.Id()
-
-	insts, err := t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, id0})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, gc.HasLen, 2)
-	c.Assert(insts[0].Id(), gc.Equals, id0)
-	c.Assert(insts[1].Id(), gc.Equals, id0)
-
-	// Asserting on the return of AllInstances makes the test fragile,
-	// as even comparing the before and after start values can be thrown
-	// off if other instances have been created or destroyed in the same
-	// time frame. Instead, just check the instance we created exists.
-	insts, err = t.Env.AllInstances(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
-	found := false
-	for _, inst := range insts {
-		if inst.Id() == id0 {
-			c.Assert(found, gc.Equals, false, gc.Commentf("%v", insts))
-			found = true
-		}
-	}
-	c.Assert(found, gc.Equals, true, gc.Commentf("expected %v in %v", inst, insts))
-
-	addresses, err := testing.WaitInstanceAddresses(t.Env, t.ProviderCallContext, inst.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.Not(gc.HasLen), 0)
-
-	insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, ""})
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
-	c.Assert(insts, gc.HasLen, 2)
-	c.Check(insts[0].Id(), gc.Equals, id0)
-	c.Check(insts[1], gc.IsNil)
-
-	err = t.Env.StopInstances(t.ProviderCallContext, inst.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The machine may not be marked as shutting down
-	// immediately. Repeat a few times to ensure we get the error.
-	attempt := utils.AttemptStrategy{
-		Total: 15 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
-	for a := attempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0})
-		if err != nil {
-			break
-		}
-	}
-	c.Assert(err, gc.Equals, environs.ErrNoInstances)
-	c.Assert(insts, gc.HasLen, 0)
 }
 
 func (t *localServerSuite) TestPorts(c *gc.C) {
