@@ -144,6 +144,7 @@ func (srv *localServer) stopServer(c *gc.C) {
 
 func bootstrapContext(c *gc.C, ec2Client ec2.Client) environs.BootstrapContext {
 	clientFunc := func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
+		// Note: don't use "c" in this closure as its scope is limited to SetUpTest
 		credentialAttrs := spec.Credential.Attributes()
 		accessKey := credentialAttrs["access-key"]
 		secretKey := credentialAttrs["secret-key"]
