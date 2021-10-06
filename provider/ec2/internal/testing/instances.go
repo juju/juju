@@ -369,8 +369,6 @@ func (inst *Instance) ec2instance() types.Instance {
 		Placement:        &types.Placement{AvailabilityZone: aws.String(inst.availZone)},
 		VpcId:            aws.String(inst.vpcId),
 		SubnetId:         aws.String(inst.subnetId),
-		// XXXX
-		//NetworkInterfaces:   inst.ifaces,
 		BlockDeviceMappings: blockDeviceMappings,
 		SourceDestCheck:     aws.Bool(inst.sourceDestCheck),
 		Tags:                inst.tags,

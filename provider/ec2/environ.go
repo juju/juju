@@ -2219,7 +2219,7 @@ var deleteSecurityGroupInsistently = func(client SecurityGroupCleaner, ctx conte
 			return common.IsCredentialNotValid(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("deleting security group %q, attempt %d", aws.ToString(g.GroupName), attempt)
+			logger.Debugf("deleting security group %q, attempt %d (%v)", aws.ToString(g.GroupName), attempt, err)
 		},
 	})
 	if err != nil {

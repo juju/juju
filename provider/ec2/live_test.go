@@ -11,6 +11,7 @@ import (
 	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -572,7 +574,7 @@ func (t *localServerSuite) TestPorts(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
 }
 
-func (t *localServerSuite) TODO_needs_fixing_TestGlobalPorts(c *gc.C) {
+func (t *localServerSuite) TestGlobalPorts(c *gc.C) {
 	t.prepareAndBootstrap(c)
 
 	// Change configuration.
@@ -581,6 +583,15 @@ func (t *localServerSuite) TODO_needs_fixing_TestGlobalPorts(c *gc.C) {
 		err := t.Env.SetConfig(oldConfig)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
+
+	// So that deleteSecurityGroupInsistently succeeds. It will fail and keep
+	// retrying due to StopInstances deleting the security groups, which are
+	// global when firewall-mode is FwGlobal.
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
+		ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock,
+	) error {
+		return nil
+	})
 
 	attrs := t.Env.Config().AllAttrs()
 	attrs["firewall-mode"] = config.FwGlobal
