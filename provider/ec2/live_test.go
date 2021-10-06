@@ -90,7 +90,7 @@ func (t *localServerSuite) TestControllerInstances(c *gc.C) {
 	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
 
-func (t *localServerSuite) TODO_needs_fixing_TestInstanceGroups(c *gc.C) {
+func (t *localServerSuite) TestInstanceGroups(c *gc.C) {
 	t.prepareAndBootstrap(c)
 	allInsts, err := t.Env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -171,7 +171,7 @@ func (t *localServerSuite) TODO_needs_fixing_TestInstanceGroups(c *gc.C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IpPermissions
-	c.Assert(perms, gc.HasLen, 5)
+	c.Assert(perms, gc.HasLen, 3)
 	checkPortAllowed(c, perms, 22) // SSH
 	checkPortAllowed(c, perms, int32(coretesting.FakeControllerConfig().APIPort()))
 	checkSecurityGroupAllowed(c, perms, groups[0])
@@ -278,32 +278,15 @@ func checkPortAllowed(c *gc.C, perms []types.IpPermission, port int32) {
 }
 
 func checkSecurityGroupAllowed(c *gc.C, perms []types.IpPermission, g *types.SecurityGroupIdentifier) {
-	protos := map[string]struct {
-		fromPort int
-		toPort   int
-	}{
-		"tcp":  {0, 65535},
-		"udp":  {0, 65535},
-		"icmp": {-1, -1},
-	}
 	for _, perm := range perms {
-		if len(perm.UserIdGroupPairs) > 0 {
-			c.Check(perm.UserIdGroupPairs, gc.HasLen, 1)
-			c.Check(aws.ToString(perm.UserIdGroupPairs[0].GroupId), gc.Equals, aws.ToString(g.GroupId))
-			p := aws.ToString(perm.IpProtocol)
-			ports, ok := protos[p]
-			if !ok {
-				c.Errorf("unexpected protocol in security group: %q", p)
-				continue
-			}
-			delete(protos, p)
-			c.Check(aws.ToInt32(perm.FromPort), gc.Equals, ports.fromPort)
-			c.Check(aws.ToInt32(perm.ToPort), gc.Equals, ports.toPort)
+		if len(perm.UserIdGroupPairs) == 0 {
+			continue
+		}
+		if aws.ToString(perm.UserIdGroupPairs[0].GroupId) == aws.ToString(g.GroupId) {
+			return
 		}
 	}
-	if len(protos) > 0 {
-		c.Errorf("%d security group permission not found for %s in %s", len(protos), pretty.Sprint(g), pretty.Sprint(perms))
-	}
+	c.Errorf("security group permission not found for %s in %s", pretty.Sprint(g), pretty.Sprint(perms))
 }
 
 func (t *localServerSuite) TestStopInstances(c *gc.C) {
