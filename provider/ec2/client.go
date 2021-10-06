@@ -11,10 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/cloudspec"
 )
 
@@ -46,6 +48,7 @@ type ClientFunc = func(context.Context, cloudspec.CloudSpec, ...ClientOption) (C
 // Client defines the subset of *ec2.Client methods that we currently use.
 type Client interface {
 	AssociateIamInstanceProfile(context.Context, *ec2.AssociateIamInstanceProfileInput, ...func(*ec2.Options)) (*ec2.AssociateIamInstanceProfileOutput, error)
+	DescribeIamInstanceProfileAssociations(context.Context, *ec2.DescribeIamInstanceProfileAssociationsInput, ...func(*ec2.Options)) (*ec2.DescribeIamInstanceProfileAssociationsOutput, error)
 	DescribeInstances(context.Context, *ec2.DescribeInstancesInput, ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
 	DescribeInstanceTypeOfferings(context.Context, *ec2.DescribeInstanceTypeOfferingsInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypeOfferingsOutput, error)
 	DescribeInstanceTypes(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
@@ -101,17 +104,22 @@ func configFromCloudSpec(
 	spec cloudspec.CloudSpec,
 	clientOptions ...ClientOption,
 ) (aws.Config, error) {
-	credentialAttrs := spec.Credential.Attributes()
-	accessKey := credentialAttrs["access-key"]
-	secretKey := credentialAttrs["secret-key"]
+	var credentialProvider aws.CredentialsProvider = ec2rolecreds.New()
+	if spec.Credential.AuthType() == cloud.AccessKeyAuthType {
+		credentialAttrs := spec.Credential.Attributes()
+		credentialProvider = credentials.NewStaticCredentialsProvider(
+			credentialAttrs["access-key"],
+			credentialAttrs["secret-key"],
+			"",
+		)
+	}
 
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(spec.Region),
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard()
 		}),
-		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
+		config.WithCredentialsProvider(credentialProvider),
 	)
 	if err != nil {
 		return aws.Config{}, errors.Trace(err)

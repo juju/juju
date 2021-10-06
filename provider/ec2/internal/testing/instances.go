@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/juju/errors"
 )
 
 // Recognized AWS instance states.
@@ -198,16 +199,40 @@ func (srv *Server) AssociateIamInstanceProfile(
 
 	inst.iamInstanceProfile = params.IamInstanceProfile
 
-	return &ec2.AssociateIamInstanceProfileOutput{
-		IamInstanceProfileAssociation: &types.IamInstanceProfileAssociation{
-			AssociationId: aws.String("test-association"),
-			IamInstanceProfile: &types.IamInstanceProfile{
-				Arn: params.IamInstanceProfile.Arn,
-				Id:  aws.String("iam-id-1234"),
-			},
-			InstanceId: params.InstanceId,
-			State:      types.IamInstanceProfileAssociationStateAssociated,
+	association := types.IamInstanceProfileAssociation{
+		AssociationId: aws.String(fmt.Sprintf("%s-%s", *params.InstanceId, *params.IamInstanceProfile.Name)),
+		IamInstanceProfile: &types.IamInstanceProfile{
+			Arn: params.IamInstanceProfile.Arn,
+			Id:  aws.String("iam-id-1234"),
 		},
+		InstanceId: params.InstanceId,
+		State:      types.IamInstanceProfileAssociationStateAssociated,
+	}
+	srv.instanceProfileAssociations[*association.AssociationId] = association
+
+	return &ec2.AssociateIamInstanceProfileOutput{
+		IamInstanceProfileAssociation: &association,
+	}, nil
+}
+
+func (srv *Server) DescribeIamInstanceProfileAssociations(
+	ctx context.Context,
+	params *ec2.DescribeIamInstanceProfileAssociationsInput,
+	opts ...func(*ec2.Options),
+) (*ec2.DescribeIamInstanceProfileAssociationsOutput, error) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	associations := []types.IamInstanceProfileAssociation{}
+	for _, id := range params.AssociationIds {
+		association, exists := srv.instanceProfileAssociations[id]
+		if !exists {
+			return nil, errors.NotFoundf("instance profile association %s", id)
+		}
+		associations = append(associations, association)
+	}
+	return &ec2.DescribeIamInstanceProfileAssociationsOutput{
+		IamInstanceProfileAssociations: associations,
 	}, nil
 }
 

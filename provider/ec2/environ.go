@@ -29,6 +29,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/controller"
@@ -180,27 +181,66 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 	return nil
 }
 
+// FinaliseBootstrapCredential is responsible for performing and finalisation
+// steps to a credential being passwed to a newly bootstrapped controller. This
+// was introduced to help with the transformation to instance roles.
+func (e *environ) FinaliseBootstrapCredential(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+	cred *cloud.Credential,
+) (*cloud.Credential, error) {
+	if !args.BootstrapConstraints.HasInstanceRole() {
+		return cred, nil
+	}
+
+	instanceRoleName := *args.BootstrapConstraints.InstanceRole
+	if instanceRoleName == awsInstanceProfileAutoCreateVal {
+		controllerName, ok := args.ControllerConfig[controller.ControllerName].(string)
+		if !ok {
+			return cred, errors.NewNotValid(nil, "cannot find controller name in config")
+		}
+
+		instanceRoleName = controllerInstanceProfileName(controllerName)
+	}
+
+	newCred := cloud.NewCredential(cloud.InstanceRoleAuthType, map[string]string{
+		"instance-profile-name": instanceRoleName,
+	})
+	return &newCred, nil
+}
+
 // Bootstrap is part of the Environ interface.
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// We are going to take a look at the Bootstrap constraints and see if we have to make an instance profile
 	if args.BootstrapConstraints.HasInstanceRole() &&
 		*args.BootstrapConstraints.InstanceRole == awsInstanceProfileAutoCreateVal {
 
-		controllerName, ok := args.ControllerConfig[controller.ControllerName].(string)
-		if !ok {
-			return nil, errors.NewNotValid(nil, "cannot find controller name in config")
-		}
-		controllerUUID := args.ControllerConfig[controller.ControllerUUIDKey].(string)
-		instProfile, err := ensureControllerInstanceProfile(
-			ctx.Context(),
-			e.iamClient,
-			controllerName,
-			controllerUUID)
-		if err != nil {
-			return nil, err
-		}
-		args.BootstrapConstraints.InstanceRole = instProfile.InstanceProfileName
+		// Added by tlm on 07/10/2021 (This will be removed very shortly).
+
+		// If the user has asked us to automatically create the instance
+		// profile for them we will return a not supported for now. This is till
+		// the remainder of the AWS work is complete and we have concrete role
+		// policies to use.
+		return nil, errors.NotSupportedf("instance profile creation with %s", awsInstanceProfileAutoCreateVal)
+
+		// Commenting out the below code till the above error is removed.
+
+		//controllerName, ok := args.ControllerConfig[controller.ControllerName].(string)
+		//if !ok {
+		//	return nil, errors.NewNotValid(nil, "cannot find controller name in config")
+		//}
+		//controllerUUID := args.ControllerConfig[controller.ControllerUUIDKey].(string)
+		//instProfile, err := ensureControllerInstanceProfile(
+		//	ctx.Context(),
+		//	e.iamClient,
+		//	controllerName,
+		//	controllerUUID)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//args.BootstrapConstraints.InstanceRole = instProfile.InstanceProfileName
 	}
+
 	r, err := common.Bootstrap(ctx, e, callCtx, args)
 	return r, maybeConvertCredentialError(err, callCtx)
 }

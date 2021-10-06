@@ -36,7 +36,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	envtesting.AssertProviderAuthTypes(c, s.provider, "access-key")
+	envtesting.AssertProviderAuthTypes(c, s.provider, "access-key", "instance-role")
 }
 
 func (s *credentialsSuite) TestAccessKeyCredentialsValid(c *gc.C) {

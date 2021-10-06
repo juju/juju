@@ -46,6 +46,11 @@ const (
 	// AccessKeyAuthType is an authentication type using a key and secret.
 	AccessKeyAuthType AuthType = "access-key"
 
+	// InstanceRoleAuthType is an authentication type used by sourcing
+	// credentials from within the machine's context in a given cloud provider.
+	// You only get these credentials by running within that machine.
+	InstanceRoleAuthType AuthType = "instance-role"
+
 	// UserPassAuthType is an authentication type using a username and password.
 	UserPassAuthType AuthType = "userpass"
 
