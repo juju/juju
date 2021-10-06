@@ -14,24 +14,23 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// TODO(ycliuhw): test and verify azureContainerRegistry integration further.
 type azureContainerRegistry struct {
 	*baseClient
 }
 
 func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
 	c := newBase(repoDetails, transport)
+	c.repoDetails.ServerAddress = c.repoDetails.Repository
 	return &azureContainerRegistry{c}
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *azureContainerRegistry) Match() bool {
-	c.repoDetails.ServerAddress = c.repoDetails.Repository
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
 func (c *azureContainerRegistry) WrapTransport(...TransportWrapper) error {
-	if !c.repoDetails.IsPrivate() {
+	if c.repoDetails.BasicAuthConfig.Empty() {
 		return errors.NewNotValid(nil, fmt.Sprintf(`username and password are required for registry %q`, c.repoDetails.Repository))
 	}
 	return c.baseClient.WrapTransport()
