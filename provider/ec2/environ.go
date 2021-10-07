@@ -1941,8 +1941,8 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 	if err != nil {
 		return nil, err
 	}
-	var sourceCIDRs []string
 	for _, p := range group.IpPermissions {
+		var sourceCIDRs []string
 		for _, r := range p.IpRanges {
 			sourceCIDRs = append(sourceCIDRs, aws.ToString(r.CidrIp))
 		}
@@ -2219,7 +2219,7 @@ var deleteSecurityGroupInsistently = func(client SecurityGroupCleaner, ctx conte
 			return common.IsCredentialNotValid(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("deleting security group %q, attempt %d", aws.ToString(g.GroupName), attempt)
+			logger.Debugf("deleting security group %q, attempt %d (%v)", aws.ToString(g.GroupName), attempt, err)
 		},
 	})
 	if err != nil {

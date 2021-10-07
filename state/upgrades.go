@@ -3734,6 +3734,10 @@ func RemoveOrphanedCrossModelProxies(pool *StatePool) error {
 
 		var appsToRemove []*RemoteApplication
 		for _, app := range allRemoteApps {
+			// We only want this for the offering side.
+			if !app.IsConsumerProxy() {
+				continue
+			}
 			num, err := col.Find(bson.D{{"offer-uuid", app.OfferUUID()}}).Count()
 			if err != nil {
 				return errors.Trace(err)
