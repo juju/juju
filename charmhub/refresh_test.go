@@ -34,7 +34,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
@@ -63,9 +63,9 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPost(c, restClient, path, id, body)
+	s.expectPost(restClient, baseURLPath, id, body)
 
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	responses, err := client.Refresh(context.TODO(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
@@ -138,7 +138,7 @@ func (t *metadataTransport) Do(req *http.Request) (*http.Response, error) {
 
 func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 
 	httpTransport := &metadataTransport{
 		responseBody: `
@@ -160,7 +160,7 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 
 	headers := http.Header{"User-Agent": []string{"Test Agent 1.0"}}
 	restClient := NewHTTPRESTClient(httpTransport, headers)
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 
 	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -201,7 +201,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 	id := ""
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -213,7 +213,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 	}
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPost(c, restClient, path, id, body)
+	s.expectPost(restClient, baseURLPath, id, body)
 
 	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
 		charmmetrics.Controller: {
@@ -227,7 +227,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 		},
 	}
 
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	err := client.RefreshWithMetricsOnly(context.TODO(), metrics)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -238,7 +238,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	p := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
@@ -294,7 +294,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 	config := RefreshMany(config1, config2)
 
 	restClient := NewMockRESTClient(ctrl)
-	restClient.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
+	restClient.EXPECT().Post(gomock.Any(), baseURLPath, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
 		responses.Results = []transport.RefreshResponse{{
 			InstanceKey: "instance-key-foo",
 			Name:        id,
@@ -315,7 +315,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 		},
 	}
 
-	client := NewRefreshClient(p, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	responses, err := client.RefreshWithRequestMetrics(context.TODO(), config, metrics)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 2)
@@ -328,7 +328,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 	name := "meshuggah"
 
 	config, err := RefreshOne("instance-key", name, 1, "latest/stable", RefreshBase{
@@ -339,14 +339,14 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPostFailure(c, restClient)
+	s.expectPostFailure(restClient)
 
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	_, err = client.Refresh(context.TODO(), config)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
-func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, name string, body interface{}) {
+func (s *RefreshSuite) expectPost(client *MockRESTClient, p path.Path, name string, body interface{}) {
 	client.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
 		responses.Results = []transport.RefreshResponse{{
 			InstanceKey: "instance-key",
@@ -355,7 +355,7 @@ func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, 
 	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 }
 
-func (s *RefreshSuite) expectPostFailure(c *gc.C, client *MockRESTClient) {
+func (s *RefreshSuite) expectPostFailure(client *MockRESTClient) {
 	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
