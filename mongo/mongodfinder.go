@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 )
@@ -42,7 +43,7 @@ func (m *MongodFinder) FindBest() (string, Version, error) {
 	if m.search.Exists(JujuDbSnapMongodPath) {
 		v, err := m.findVersion(JujuDbSnapMongodPath)
 		if err != nil {
-			return "", Version{}, errors.NotFoundf("%s snap not installed correctly. Executable %s", JujuDbSnap, JujuDbSnapMongodPath)
+			return "", Version{}, errors.Errorf("%s snap not installed correctly. Executable %s\nError: %v", JujuDbSnap, JujuDbSnapMongodPath, err)
 		}
 
 		return JujuDbSnapMongodPath, v, nil
@@ -81,7 +82,7 @@ func (m *MongodFinder) FindBest() (string, Version, error) {
 			return JujuMongod24Path, v, nil
 		}
 	}
-	return "", Version{}, errors.NotFoundf("could not find a viable 'mongod'")
+	return "", Version{}, errors.NotFoundf("viable 'mongod'")
 }
 
 // all mongo versions start with "db version v" and then the version is a X.Y.Z-extra
@@ -90,12 +91,20 @@ var mongoVersionRegex = regexp.MustCompile(`^db version v(\d{1,9})\.(\d{1,9}).(\
 
 // ParseMongoVersion parses the output from "mongod --version" and returns a Version struct
 func ParseMongoVersion(versionInfo string) (Version, error) {
-	m := mongoVersionRegex.FindStringSubmatch(versionInfo)
-	if m == nil {
-		return Version{}, errors.Errorf("'mongod --version' reported:\n%s", versionInfo)
+	lines := strings.Split(versionInfo, "\n")
+	var match []string
+	for _, line := range lines {
+		match = mongoVersionRegex.FindStringSubmatch(line)
+		if match == nil {
+			continue
+		}
+		if len(match) < 4 {
+			return Version{}, errors.Errorf("did not find enough version parts in:\n%s", versionInfo)
+		}
+		break
 	}
-	if len(m) < 4 {
-		return Version{}, errors.Errorf("did not find enough version parts in:\n%s", versionInfo)
+	if len(match) == 0 {
+		return Version{}, errors.Errorf("'mongod --version' reported:\n%s", versionInfo)
 	}
 	var v Version
 	var err error
@@ -104,18 +113,18 @@ func ParseMongoVersion(versionInfo string) (Version, error) {
 	// [2] is the Minor
 	// [3] is the Point
 	// [4] is the Patch to the end of the line
-	if v.Major, err = strconv.Atoi(m[1]); err != nil {
+	if v.Major, err = strconv.Atoi(match[1]); err != nil {
 		return Version{}, errors.Annotatef(err, "invalid major version: %q", versionInfo)
 	}
-	if v.Minor, err = strconv.Atoi(m[2]); err != nil {
+	if v.Minor, err = strconv.Atoi(match[2]); err != nil {
 		return Version{}, errors.Annotatef(err, "invalid minor version: %q", versionInfo)
 	}
-	if v.Point, err = strconv.Atoi(m[3]); err != nil {
+	if v.Point, err = strconv.Atoi(match[3]); err != nil {
 		return Version{}, errors.Annotatef(err, "invalid point version: %q", versionInfo)
 	}
-	if len(m) > 4 {
+	if len(match) > 4 {
 		// strip off the beginning '.' or '-', and make sure there is something after it
-		tail := m[4]
+		tail := match[4]
 		if len(tail) > 1 {
 			v.Patch = tail[1:]
 		}
