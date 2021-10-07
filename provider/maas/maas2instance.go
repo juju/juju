@@ -7,14 +7,28 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/juju/core/status"
+
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/storage"
 )
+
+type maasInstance interface {
+	instances.Instance
+	zone() (string, error)
+	displayName() (string, error)
+	hostname() (string, error)
+	hardwareCharacteristics() (*instance.HardwareCharacteristics, error)
+	volumes(names.MachineTag, []names.VolumeTag) ([]storage.Volume, []storage.VolumeAttachment, error)
+}
 
 type maas2Instance struct {
 	machine           gomaasapi.Machine
@@ -71,7 +85,7 @@ func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork
 		return nil, errors.Trace(err)
 	}
 	// Get all the interface details and extract the addresses.
-	interfaces, err := maas2NetworkInterfaces(ctx, mi, subnetsMap)
+	interfaces, err := maasNetworkInterfaces(ctx, mi, subnetsMap)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -96,10 +110,42 @@ func (mi *maas2Instance) Status(ctx context.ProviderCallContext) instance.Status
 	// A fresh status is not obtained here because the interface it is intended
 	// to satisfy gets a new maas2Instance before each call, using a fresh status
 	// would cause us to mask errors since this interface does not contemplate
-	// returing them.
+	// returning them.
 	statusName := mi.machine.StatusName()
 	statusMsg := mi.machine.StatusMessage()
 	return convertInstanceStatus(statusName, statusMsg, mi.Id())
+}
+
+func convertInstanceStatus(statusMsg, substatus string, id instance.Id) instance.Status {
+	maasInstanceStatus := status.Empty
+	switch normalizeStatus(statusMsg) {
+	case "":
+		logger.Debugf("unable to obtain status of instance %s", id)
+		statusMsg = "error in getting status"
+	case "deployed":
+		maasInstanceStatus = status.Running
+	case "deploying":
+		maasInstanceStatus = status.Allocating
+		if substatus != "" {
+			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
+		}
+	case "failed deployment":
+		maasInstanceStatus = status.ProvisioningError
+		if substatus != "" {
+			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
+		}
+	default:
+		maasInstanceStatus = status.Empty
+		statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
+	}
+	return instance.Status{
+		Status:  maasInstanceStatus,
+		Message: statusMsg,
+	}
+}
+
+func normalizeStatus(statusMsg string) string {
+	return strings.ToLower(strings.TrimSpace(statusMsg))
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

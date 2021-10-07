@@ -7,11 +7,6 @@ import (
 	stdcontext "context"
 	"errors"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"net/http/httputil"
-	"net/url"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/gomaasapi/v2"
@@ -29,7 +24,7 @@ import (
 )
 
 type EnvironProviderSuite struct {
-	providerSuite
+	maas2Suite
 }
 
 var _ = gc.Suite(&EnvironProviderSuite{})
@@ -53,22 +48,22 @@ func oauthCredential(token string) cloud.Credential {
 	)
 }
 
-func (suite *EnvironProviderSuite) TestPrepareConfig(c *gc.C) {
+func (s *EnvironProviderSuite) TestPrepareConfig(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
-		Cloud:  suite.cloudSpec(),
+		Cloud:  s.cloudSpec(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (suite *EnvironProviderSuite) TestPrepareConfigInvalidOAuth(c *gc.C) {
+func (s *EnvironProviderSuite) TestPrepareConfigInvalidOAuth(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	spec := suite.cloudSpec()
+	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
 	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
@@ -78,11 +73,11 @@ func (suite *EnvironProviderSuite) TestPrepareConfigInvalidOAuth(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (suite *EnvironProviderSuite) TestPrepareConfigInvalidEndpoint(c *gc.C) {
+func (s *EnvironProviderSuite) TestPrepareConfigInvalidEndpoint(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	spec := suite.cloudSpec()
+	spec := s.cloudSpec()
 	spec.Endpoint = "This should have been a URL or host."
 	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
@@ -93,59 +88,17 @@ func (suite *EnvironProviderSuite) TestPrepareConfigInvalidEndpoint(c *gc.C) {
 	)
 }
 
-func (suite *EnvironProviderSuite) TestPrepareConfigSetsDefaults(c *gc.C) {
+func (s *EnvironProviderSuite) TestPrepareConfigSetsDefaults(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: config,
-		Cloud:  suite.cloudSpec(),
+		Cloud:  s.cloudSpec(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	src, _ := cfg.StorageDefaultBlockSource()
 	c.Assert(src, gc.Equals, "maas")
-}
-
-func (suite *EnvironProviderSuite) TestMAASServerFromEndpointURL(c *gc.C) {
-	suite.testMAASServerFromEndpoint(c, suite.testMAASObject.TestServer.URL)
-}
-
-func (suite *EnvironProviderSuite) TestMAASServerFromEndpointHost(c *gc.C) {
-	targetURL, err := url.Parse(suite.testMAASObject.TestServer.URL)
-	c.Assert(err, jc.ErrorIsNil)
-
-	rp := httputil.NewSingleHostReverseProxy(targetURL)
-	rp.Director = func(req *http.Request) {
-		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/MAAS")
-		req.URL.Scheme = targetURL.Scheme
-		req.URL.Host = targetURL.Host
-	}
-	proxy := httptest.NewServer(rp)
-	defer proxy.Close()
-
-	// The proxy's host:port will be formatted into a URL, with a
-	// fixed root path of "/MAAS".
-	proxyURL, err := url.Parse(proxy.URL)
-	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASServerFromEndpoint(c, proxyURL.Host)
-}
-
-func (suite *EnvironProviderSuite) testMAASServerFromEndpoint(c *gc.C, endpoint string) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
-	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cloudSpec := suite.cloudSpec()
-	cloudSpec.Endpoint = endpoint
-	env, err := providerInstance.Open(stdcontext.TODO(), environs.OpenParams{
-		Config: config,
-		Cloud:  cloudSpec,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	suite.addNode(`{"system_id":"test-allocated"}`)
-	_, err = env.AllRunningInstances(suite.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 // create a temporary file with the given content.  The file will be cleaned
@@ -160,11 +113,11 @@ func createTempFile(c *gc.C, content []byte) string {
 	return filename
 }
 
-func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
+func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	spec := suite.cloudSpec()
+	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
 	env, err := providerInstance.Open(stdcontext.TODO(), environs.OpenParams{
@@ -178,7 +131,7 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (suite *EnvironProviderSuite) TestSchema(c *gc.C) {
+func (s *EnvironProviderSuite) TestSchema(c *gc.C) {
 	y := []byte(`
 auth-types: [oauth1]
 endpoint: http://foo.com/openstack
@@ -221,7 +174,6 @@ func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
 	c.Assert(serverURLs, gc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/2.0/",
-		"https://foo.com/MAAS/api/1.0/",
 	})
 }
 
@@ -273,7 +225,7 @@ func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
 	})
 }
 
-func ping(c *gc.C, callCtx context.ProviderCallContext, endpoint string, getCapabilities MaasCapabilities) error {
+func ping(c *gc.C, callCtx context.ProviderCallContext, endpoint string, getCapabilities Capabilities) error {
 	p, err := environs.Provider("maas")
 	c.Assert(err, jc.ErrorIsNil)
 	m, ok := p.(MaasEnvironProvider)

@@ -18,7 +18,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
 )
 
 var cloudSchema = &jsonschema.Schema{
@@ -48,7 +47,7 @@ type MaasEnvironProvider struct {
 
 	// GetCapabilities is a function that connects to MAAS to return its set of
 	// capabilities.
-	GetCapabilities MaasCapabilities
+	GetCapabilities Capabilities
 }
 
 var _ environs.EnvironProvider = (*MaasEnvironProvider)(nil)
@@ -86,12 +85,7 @@ func (p MaasEnvironProvider) Ping(ctx context.ProviderCallContext, endpoint stri
 			return nil
 		}
 	} else {
-		// No version info in the endpoint - try both in preference order.
 		err := p.checkMaas(endpoint, apiVersion2)
-		if err == nil {
-			return nil
-		}
-		err = p.checkMaas(endpoint, apiVersion1)
 		if err == nil {
 			return nil
 		}
@@ -125,22 +119,6 @@ func (p MaasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*
 		return args.Config, nil
 	}
 	return args.Config.Apply(attrs)
-}
-
-func verifyCredentials(env *maasEnviron, ctx context.ProviderCallContext) error {
-	// Verify we can connect to the server and authenticate.
-	if env.usingMAAS2() {
-		// The maas2 controller verifies credentials at creation time.
-		return nil
-	}
-	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
-		logger.Debugf("authentication failed: %v", err)
-		return errors.New(`authentication failed.
-
-Please ensure the credentials are correct.`)
-	}
-	return nil
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.

@@ -4,8 +4,6 @@
 package maas
 
 import (
-	"fmt"
-
 	"github.com/juju/gomaasapi/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,7 +12,7 @@ import (
 )
 
 type interfacesSuite struct {
-	providerSuite
+	maas2Suite
 }
 
 var _ = gc.Suite(&interfacesSuite{})
@@ -415,158 +413,6 @@ const exampleInterfaceSetJSON = `
         }
 ]`
 
-var exampleParsedInterfaceSetJSON = network.InterfaceInfos{{
-	DeviceIndex:       0,
-	MACAddress:        "52:54:00:70:9b:fe",
-	ProviderId:        "91",
-	ProviderSubnetId:  "3",
-	AvailabilityZones: nil,
-	VLANTag:           0,
-	ProviderVLANId:    "5001",
-	ProviderAddressId: "436",
-	InterfaceName:     "eth0",
-	InterfaceType:     "ethernet",
-	Disabled:          false,
-	NoAutoStart:       false,
-	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-		"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
-	)},
-	DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
-	DNSSearchDomains: nil,
-	MTU:              1500,
-	GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
-	Origin:           network.OriginProvider,
-}, {
-	DeviceIndex:       0,
-	MACAddress:        "52:54:00:70:9b:fe",
-	ProviderId:        "91",
-	ProviderSubnetId:  "3",
-	AvailabilityZones: nil,
-	VLANTag:           0,
-	ProviderVLANId:    "5001",
-	ProviderAddressId: "437",
-	InterfaceName:     "eth0",
-	InterfaceType:     "ethernet",
-	Disabled:          false,
-	NoAutoStart:       false,
-	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-		"default", "10.20.19.104", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
-	)},
-	DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
-	DNSSearchDomains: nil,
-	MTU:              1500,
-	GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
-	Origin:           network.OriginProvider,
-}, {
-	DeviceIndex:         1,
-	MACAddress:          "52:54:00:70:9b:fe",
-	ProviderId:          "150",
-	ProviderSubnetId:    "5",
-	AvailabilityZones:   nil,
-	VLANTag:             50,
-	ProviderVLANId:      "5004",
-	ProviderAddressId:   "517",
-	InterfaceName:       "eth0.50",
-	ParentInterfaceName: "eth0",
-	InterfaceType:       "802.1q",
-	Disabled:            false,
-	NoAutoStart:         false,
-	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-		"admin", "10.50.19.103", network.WithCIDR("10.50.19.0/24"), network.WithConfigType(network.ConfigStatic),
-	)},
-	DNSServers:       nil,
-	DNSSearchDomains: nil,
-	MTU:              1500,
-	GatewayAddress:   network.NewProviderAddressInSpace("admin", "10.50.19.2"),
-	Origin:           network.OriginProvider,
-}, {
-	DeviceIndex:         2,
-	MACAddress:          "52:54:00:70:9b:fe",
-	ProviderId:          "151",
-	ProviderSubnetId:    "6",
-	AvailabilityZones:   nil,
-	VLANTag:             100,
-	ProviderVLANId:      "5005",
-	ProviderAddressId:   "519",
-	InterfaceName:       "eth0.100",
-	ParentInterfaceName: "eth0",
-	InterfaceType:       "802.1q",
-	Disabled:            false,
-	NoAutoStart:         false,
-	Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-		"public", "10.100.19.103", network.WithCIDR("10.100.19.0/24"), network.WithConfigType(network.ConfigStatic),
-	)},
-	DNSServers:       nil,
-	DNSSearchDomains: nil,
-	MTU:              1500,
-	GatewayAddress:   network.NewProviderAddressInSpace("public", "10.100.19.2"),
-	Origin:           network.OriginProvider,
-}, {
-	DeviceIndex:         3,
-	MACAddress:          "52:54:00:70:9b:fe",
-	ProviderId:          "152",
-	ProviderSubnetId:    "8",
-	AvailabilityZones:   nil,
-	VLANTag:             250,
-	ProviderVLANId:      "5008",
-	ProviderAddressId:   "523",
-	ProviderSpaceId:     "3",
-	InterfaceName:       "eth0.250",
-	ParentInterfaceName: "eth0",
-	InterfaceType:       "802.1q",
-	Disabled:            false,
-	NoAutoStart:         false,
-	Addresses: network.ProviderAddresses{newAddressOnSpaceWithId(
-		"storage", "3", "10.250.19.103", network.WithCIDR("10.250.19.0/24"), network.WithConfigType(network.ConfigStatic),
-	)},
-	DNSServers:       nil,
-	DNSSearchDomains: nil,
-	MTU:              1500,
-	GatewayAddress:   newAddressOnSpaceWithId("storage", "3", "10.250.19.2"),
-	Origin:           network.OriginProvider,
-}, {
-	DeviceIndex:         4,
-	MACAddress:          "52:54:00:08:24:2d",
-	ProviderId:          "10",
-	ProviderSubnetId:    "",
-	AvailabilityZones:   nil,
-	VLANTag:             0,
-	ProviderVLANId:      "",
-	ProviderSpaceId:     "",
-	InterfaceName:       "ens3",
-	ParentInterfaceName: "",
-	InterfaceType:       "ethernet",
-	Disabled:            false,
-	NoAutoStart:         false,
-	DNSServers:          nil,
-	DNSSearchDomains:    nil,
-	MTU:                 0,
-	Origin:              network.OriginProvider,
-}, {
-	DeviceIndex:         5,
-	MACAddress:          "52:54:00:08:24:2d",
-	ProviderId:          "30",
-	ProviderSubnetId:    "4",
-	AvailabilityZones:   nil,
-	VLANTag:             0,
-	ProviderVLANId:      "5001",
-	ProviderAddressId:   "1931",
-	ProviderSpaceId:     "4",
-	InterfaceName:       "br-ens3",
-	ParentInterfaceName: "ens3",
-	InterfaceType:       "bridge",
-	Disabled:            false,
-	NoAutoStart:         false,
-	Addresses: network.ProviderAddresses{newAddressOnSpaceWithId(
-		"space-0", "4", "192.168.20.192", network.WithCIDR("192.168.20.0/24"), network.WithConfigType(network.ConfigDHCP),
-	)},
-	DNSServers:       nil,
-	DNSSearchDomains: nil,
-	MTU:              1500,
-	GatewayAddress:   newAddressOnSpaceWithId("space-0", "4", "192.168.20.2"),
-	Origin:           network.OriginProvider,
-}}
-
 func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
 	result, err := parseInterfaces(nil)
 	c.Check(err, gc.ErrorMatches, "parsing interfaces: unexpected end of JSON input")
@@ -780,22 +626,6 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	result, err := parseInterfaces([]byte(exampleInterfaceSetJSON))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, expected)
-}
-
-func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
-	nodeJSON := fmt.Sprintf(`{
-        "system_id": "foo",
-        "interface_set": %s
-    }`, exampleInterfaceSetJSON)
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-	subnetsMap := make(map[string]network.Id)
-	subnetsMap["10.250.19.0/24"] = "3"
-	subnetsMap["192.168.1.0/24"] = "0"
-	subnetsMap["192.168.20.0/24"] = "4"
-
-	infos, err := maasObjectNetworkInterfaces(s.callCtx, &obj, subnetsMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, jc.DeepEquals, exampleParsedInterfaceSetJSON)
 }
 
 func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
@@ -1051,7 +881,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
 
-	infos, err := maas2NetworkInterfaces(s.callCtx, instance, subnetsMap)
+	infos, err := maasNetworkInterfaces(s.callCtx, instance, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
@@ -1116,31 +946,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		Origin:           network.OriginProvider,
 	}}
 
-	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
+	infos, err := maasNetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
-
-const lshwXMLTemplate = `
-<?xml version="1.0" standalone="yes" ?>
-<!-- generated by lshw-B.02.16 -->
-<list>
-<node id="node1" claimed="true" class="system" handle="DMI:0001">
- <description>Computer</description>
- <product>VirtualBox ()</product>
- <width units="bits">64</width>
-  <node id="core" claimed="true" class="bus" handle="DMI:0008">
-   <description>Motherboard</description>
-    <node id="pci" claimed="true" class="bridge" handle="PCIBUS:0000:00">
-     <description>Host bridge</description>{{$list := .}}{{range $mac, $ifi := $list}}
-      <node id="network{{if gt (len $list) 1}}:{{$ifi.DeviceIndex}}{{end}}"{{if $ifi.Disabled}} disabled="true"{{end}} claimed="true" class="network" handle="PCI:0000:00:03.0">
-       <description>Ethernet interface</description>
-       <product>82540EM Gigabit Ethernet Controller</product>
-       <logicalname>{{$ifi.InterfaceName}}</logicalname>
-       <serial>{{$mac}}</serial>
-      </node>{{end}}
-    </node>
-  </node>
-</node>
-</list>
-`

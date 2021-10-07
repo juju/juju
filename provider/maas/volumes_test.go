@@ -6,18 +6,16 @@ package maas
 import (
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v4"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 type volumeSuite struct {
-	providerSuite
+	maas2Suite
 }
 
 var _ = gc.Suite(&volumeSuite{})
@@ -174,175 +172,8 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 	}})
 }
 
-func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
-	obj := s.testMAASObject.TestServer.NewNode(validVolumeJson)
-	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
-		return "unknown", "FAKE"
-	}
-
-	instance := maas1Instance{&obj, nil, statusGetter}
-	mTag := names.NewMachineTag("1")
-	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
-		names.NewVolumeTag("1"),
-		names.NewVolumeTag("2"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// Expect 2 volumes - root volume is ignored.
-	c.Assert(volumes, gc.HasLen, 2)
-	c.Assert(attachments, gc.HasLen, 2)
-	c.Check(volumes, jc.DeepEquals, []storage.Volume{
-		{
-			// This volume has no id_path.
-			names.NewVolumeTag("1"),
-			storage.VolumeInfo{
-				HardwareId: "",
-				VolumeId:   "volume-1",
-				Size:       476893,
-				Persistent: false,
-			},
-		},
-		{
-			names.NewVolumeTag("2"),
-			storage.VolumeInfo{
-				HardwareId: "id_for_sdc",
-				VolumeId:   "volume-2",
-				Size:       238764,
-				Persistent: false,
-			},
-		},
-	})
-	c.Assert(attachments, jc.DeepEquals, []storage.VolumeAttachment{
-		{
-			names.NewVolumeTag("1"),
-			mTag,
-			storage.VolumeAttachmentInfo{
-				DeviceName: "sdb",
-				ReadOnly:   false,
-			},
-		},
-		// Device name not set because there's a hardware id in the volume.
-		{
-			names.NewVolumeTag("2"),
-			mTag,
-			storage.VolumeAttachmentInfo{
-				DeviceName: "",
-				ReadOnly:   false,
-			},
-		},
-	})
-}
-
-func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
-	obj := s.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
-	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
-		// status, substatus or status info.
-		return "provisioning", "substatus"
-	}
-
-	instance := maas1Instance{&obj, nil, statusGetter}
-	volumes, attachments, err := instance.volumes(names.NewMachineTag("1"), []names.VolumeTag{
-		names.NewVolumeTag("1"),
-		names.NewVolumeTag("2"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumes, gc.HasLen, 0)
-	c.Assert(attachments, gc.HasLen, 0)
-}
-
-var validVolumeJson = `
-{
-    "system_id": "node0",
-    "physicalblockdevice_set": [
-        {
-            "name": "sda",
-            "tags": [
-                "ssd",
-                "sata"
-            ],
-            "id": 1,
-            "id_path": "/dev/disk/by-id/id_for_sda",
-            "path": "/dev/sda",
-            "model": "Samsung_SSD_850_EVO_250GB",
-            "block_size": 4096,
-            "serial": "S21NNSAFC38075L",
-            "size": 250059350016
-        },
-        {
-            "name": "sdb",
-            "tags": [
-                "ssd",
-                "sata"
-            ],
-            "id": 2,
-            "path": "/dev/sdb",
-            "model": "Samsung_SSD_850_EVO_500GB",
-            "block_size": 4096,
-            "serial": "S21NNSAFC38076L",
-            "size": 500059350016
-        },
-        {
-            "name": "sdb",
-            "tags": [
-                "ssd",
-                "sata"
-            ],
-            "id": 3,
-            "id_path": "/dev/disk/by-id/id_for_sdc",
-            "path": "/dev/sdc",
-            "model": "Samsung_SSD_850_EVO_250GB",
-            "block_size": 4096,
-            "serial": "S21NNSAFC38999L",
-            "size": 250362438230
-        },
-        {
-            "name": "sdd",
-            "tags": [
-                "ssd",
-                "sata"
-            ],
-            "id": 4,
-            "id_path": "/dev/disk/by-id/id_for_sdd",
-            "path": "/dev/sdd",
-            "model": "Samsung_SSD_850_EVO_250GB",
-            "block_size": 4096,
-            "serial": "S21NNSAFC386666L",
-            "size": 250362438230
-        },
-        {
-            "name": "sde",
-            "tags": [
-                "ssd",
-                "sata"
-            ],
-            "id": 666,
-            "id_path": "/dev/disk/by-id/id_for_sde",
-            "path": "/dev/sde",
-            "model": "Samsung_SSD_850_EVO_250GB",
-            "block_size": 4096,
-            "serial": "S21NNSAFC388888L",
-			"size": 250362438230,
-			"partitions": [
-				{
-					"id": 1,
-					"name": "sde-part1",
-					"path": "/dev/disk/by-dname/sde-part1",
-					"size": 280362438231
-				}
-			]
-		}
-    ],
-    "constraint_map": {
-        "1": "root",
-        "2": "1",
-        "3": "2",
-		"4": "3",
-		"5": "partition:1"
-    }
-}
-`[1:]
-
 type storageProviderSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&storageProviderSuite{})

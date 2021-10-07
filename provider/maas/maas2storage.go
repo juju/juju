@@ -31,6 +31,13 @@ func (stor *maas2Storage) prefixWithPrivateNamespace(name string) string {
 	return prefixWithPrivateNamespace(stor.environ, name)
 }
 
+// All filenames need to be namespaced so they are private to this environment.
+// This prevents different environments from interfering with each other.
+// We're using the agent name UUID here.
+func prefixWithPrivateNamespace(env *maasEnviron, name string) string {
+	return env.uuid + "-" + name
+}
+
 // Get implements storage.StorageReader
 func (stor *maas2Storage) Get(name string) (io.ReadCloser, error) {
 	name = stor.prefixWithPrivateNamespace(name)
