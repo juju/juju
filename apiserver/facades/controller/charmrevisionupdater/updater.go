@@ -4,6 +4,7 @@
 package charmrevisionupdater
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -153,6 +154,14 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 	}
 	telemetry := cfg.Telemetry()
 
+	// If there are no applications, exit now, check telemetry for additional work.
+	if len(applications) == 0 {
+		if telemetry {
+			return nil, api.sendEmptyModelMetrics()
+		}
+		return nil, nil
+	}
+
 	// Partition the charms into charmhub vs charmstore so we can query each
 	// batch separately.
 	var (
@@ -273,6 +282,24 @@ func (api *CharmRevisionUpdaterAPI) addMetricsToCharmhubInfos(ids []charmhubID, 
 		}
 	}
 	return ids, nil
+}
+
+// sendEmptyModelMetrics sends the controller and model metrics
+// for an empty model.  This is highly likely for juju 2.9.  A
+// controller charm was introduced for juju 3.0.  Allows us to get
+// the controller version etc.
+func (api *CharmRevisionUpdaterAPI) sendEmptyModelMetrics() error {
+	requestMetrics, err := charmhubRequestMetadata(api.state)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	client, err := api.newCharmhubClient(api.state)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctx, cancel := context.WithTimeout(context.TODO(), charmhub.RefreshTimeout)
+	defer cancel()
+	return errors.Trace(client.RefreshWithMetricsOnly(ctx, requestMetrics))
 }
 
 // convertRelations converts the list of relations by application name to charm name

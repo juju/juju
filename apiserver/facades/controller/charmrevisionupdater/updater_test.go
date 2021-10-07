@@ -15,10 +15,12 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/cloud"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statemocks "github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type updaterSuite struct {
@@ -166,6 +168,71 @@ func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controlle
 	result, err := updater.UpdateLatestRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *updaterSuite) TestEmptyModelMetrics(c *gc.C) {
+	ctrl := s.setupMocksNoResources(c)
+	defer ctrl.Finish()
+	uuid := testing.ModelTag.Id()
+	s.model.EXPECT().Metrics().Return(state.ModelMetrics{
+		UUID:           uuid,
+		ControllerUUID: "controller-1",
+		CloudName:      "cloud",
+	}, nil)
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name": "model",
+		"type": "type",
+		"uuid": uuid,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.model.EXPECT().Config().Return(cfg, nil)
+	s.state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{}, nil)
+
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
+	send := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+		charmmetrics.Controller: {
+			charmmetrics.JujuVersion: jujuversion.Current.String(),
+			charmmetrics.UUID:        "controller-1",
+		},
+		charmmetrics.Model: {
+			charmmetrics.NumApplications: "",
+			charmmetrics.Cloud:           "cloud",
+			charmmetrics.NumMachines:     "",
+			charmmetrics.Provider:        "",
+			charmmetrics.Region:          "",
+			charmmetrics.NumUnits:        "",
+			charmmetrics.UUID:            uuid,
+		},
+	}
+	client.EXPECT().RefreshWithMetricsOnly(gomock.Any(), gomock.Eq(send)).Return(nil)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, nil, s.newCharmhubClient(client))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *updaterSuite) TestEmptyModelNoMetrics(c *gc.C) {
+	ctrl := s.setupMocksNoResources(c)
+	defer ctrl.Finish()
+
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":                     "model",
+		"type":                     "type",
+		"uuid":                     testing.ModelTag.Id(),
+		config.DisableTelemetryKey: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.model.EXPECT().Config().Return(cfg, nil)
+	s.state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{}, nil)
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, nil, s.newCharmhubClient(client))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
