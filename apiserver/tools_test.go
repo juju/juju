@@ -38,30 +38,28 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-type toolsSuite struct {
+type baseToolsSuite struct {
 	apiserverBaseSuite
 }
 
-var _ = gc.Suite(&toolsSuite{})
-
-func (s *toolsSuite) toolsURL(query string) *url.URL {
+func (s *baseToolsSuite) toolsURL(query string) *url.URL {
 	return s.modelToolsURL(s.Model.UUID(), query)
 }
 
-func (s *toolsSuite) modelToolsURL(model, query string) *url.URL {
+func (s *baseToolsSuite) modelToolsURL(model, query string) *url.URL {
 	u := s.URL(fmt.Sprintf("/model/%s/tools", model), nil)
 	u.RawQuery = query
 	return u
 }
 
-func (s *toolsSuite) toolsURI(query string) string {
+func (s *baseToolsSuite) toolsURI(query string) string {
 	if query != "" && query[0] == '?' {
 		query = query[1:]
 	}
 	return s.toolsURL(query).String()
 }
 
-func (s *toolsSuite) uploadRequest(c *gc.C, url, contentType string, content io.Reader) *http.Response {
+func (s *baseToolsSuite) uploadRequest(c *gc.C, url, contentType string, content io.Reader) *http.Response {
 	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
 		URL:         url,
@@ -70,7 +68,7 @@ func (s *toolsSuite) uploadRequest(c *gc.C, url, contentType string, content io.
 	})
 }
 
-func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
+func (s *baseToolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
 	url := s.toolsURL("")
 	if uuid == "" {
 		url.Path = fmt.Sprintf("/tools/%s", version)
@@ -80,31 +78,84 @@ func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid strin
 	return apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
 }
 
-func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
+func (s *baseToolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
 	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
 	c.Check(toolsResponse.Error, gc.IsNil)
 	c.Check(toolsResponse.ToolsList, jc.DeepEquals, coretools.List{agentTools})
 }
 
-func (s *toolsSuite) assertJSONErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *baseToolsSuite) assertJSONErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
 	toolsResponse := s.assertResponse(c, resp, expCode)
 	c.Check(toolsResponse.ToolsList, gc.IsNil)
 	c.Check(toolsResponse.Error, gc.NotNil)
 	c.Check(toolsResponse.Error.Message, gc.Matches, expError)
 }
 
-func (s *toolsSuite) assertPlainErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *baseToolsSuite) assertPlainErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
 	body := apitesting.AssertResponse(c, resp, expCode, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Matches, expError+"\n")
 }
 
-func (s *toolsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
+func (s *baseToolsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Body: %s", body))
 	return toolsResponse
 }
+
+func (s *baseToolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
+	storage, err := st.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	err = storage.Add(strings.NewReader(content), metadata)
+	c.Assert(err, jc.ErrorIsNil)
+	return &coretools.Tools{
+		Version: version.MustParseBinary(metadata.Version),
+		Size:    metadata.Size,
+		SHA256:  metadata.SHA256,
+	}
+}
+
+func (s *baseToolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers string) (binarystorage.Metadata, []byte) {
+	storage, err := st.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	metadata, r, err := storage.Open(vers)
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadAll(r)
+	r.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	return metadata, data
+}
+
+func (s *baseToolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []binarystorage.Metadata {
+	storage, err := st.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	metadata, err := storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	return metadata
+}
+
+func (s *baseToolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
+	resp := s.downloadRequest(c, tools.Version, uuid)
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.HasLen, int(tools.Size))
+
+	hash := sha256.New()
+	hash.Write(data)
+	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
+	return data
+}
+
+type toolsSuite struct {
+	baseToolsSuite
+}
+
+var _ = gc.Suite(&toolsSuite{})
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 	url := s.toolsURL("")
@@ -505,49 +556,57 @@ func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
 	c.Assert(resolutions, gc.Equals, len(toolsBinaries))
 }
 
-func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
-	storage, err := st.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	err = storage.Add(strings.NewReader(content), metadata)
-	c.Assert(err, jc.ErrorIsNil)
-	return &coretools.Tools{
-		Version: version.MustParseBinary(metadata.Version),
-		Size:    metadata.Size,
-		SHA256:  metadata.SHA256,
+type caasToolsSuite struct {
+	baseToolsSuite
+}
+
+var _ = gc.Suite(&caasToolsSuite{})
+
+func (s *caasToolsSuite) SetUpTest(c *gc.C) {
+	s.ControllerModelType = state.ModelTypeCAAS
+	s.baseToolsSuite.SetUpTest(c)
+}
+
+func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
+	closer, testStorage, _ := envtesting.CreateLocalTestStorage(c)
+	defer closer.Close()
+
+	const n = 8
+	states := []*state.State{}
+	for i := 0; i < n; i++ {
+		testState := s.Factory.MakeModel(c, nil)
+		defer testState.Close()
+		states = append(states, testState)
 	}
-}
 
-func (s *toolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers string) (binarystorage.Metadata, []byte) {
-	storage, err := st.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	metadata, r, err := storage.Open(vers)
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(r)
-	r.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	return metadata, data
-}
+	var mut sync.Mutex
+	resolutions := 0
+	envtools.RegisterToolsDataSourceFunc("local storage", func(environs.Environ) (simplestreams.DataSource, error) {
+		// Add some delay to make sure all goroutines are waiting.
+		time.Sleep(10 * time.Millisecond)
+		mut.Lock()
+		defer mut.Unlock()
+		resolutions++
+		return storage.NewStorageSimpleStreamsDataSource("test datasource", testStorage, "tools", simplestreams.CUSTOM_CLOUD_DATA, false), nil
+	})
+	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-func (s *toolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []binarystorage.Metadata {
-	storage, err := st.ToolsStorage()
+	tool := version.MustParseBinary("2.9.99-ubuntu-amd64")
+	stream := "released"
+	tools, err := envtesting.UploadFakeToolsVersions(testStorage, stream, stream, tool)
 	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	metadata, err := storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	return metadata
-}
+	c.Assert(tools, gc.HasLen, 1)
 
-func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
-	resp := s.downloadRequest(c, tools.Version, uuid)
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, int(tools.Size))
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			s.testDownload(c, tools[0], states[i].ModelUUID())
+		}()
+	}
+	wg.Wait()
 
-	hash := sha256.New()
-	hash.Write(data)
-	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
-	return data
+	c.Assert(resolutions, gc.Equals, n)
 }
