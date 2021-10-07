@@ -77,7 +77,7 @@ require (
 	github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258
 	github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/juju/replicaset v0.0.0-20210302050932-0303c8575745
+	github.com/juju/replicaset/v2 v2.0.1-0.20210310024806-bbbdc5f31eb3
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
 	github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568

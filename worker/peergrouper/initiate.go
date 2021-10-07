@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/agent"

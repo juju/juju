@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
