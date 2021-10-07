@@ -299,7 +299,8 @@ build environment:
 `
 
 // mongodb409Version is the output of 'mongodb --version' from the 4.0/stable snap.
-const mongodb409Version = `db version v4.0.9
+const mongodb409Version = `EXTRA CONTENT
+db version v4.0.9
 git version: fc525e2d9b0e4bceff5c2201457e564362909765
 OpenSSL version: OpenSSL 1.1.0g  2 Nov 2017
 allocator: tcmalloc
