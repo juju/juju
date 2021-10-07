@@ -11,7 +11,10 @@ import (
 	"github.com/juju/juju/docker"
 )
 
-var NewBase = newBase
+// NewBase creates a new base provider.
+func NewBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *baseClient {
+	return newBase(repoDetails, transport, normalizeRepoDetailsCommon)
+}
 
 // Providers returns all the supported registry providers.
 func Providers() []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInternal {

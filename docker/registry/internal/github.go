@@ -18,7 +18,7 @@ type githubContainerRegistry struct {
 }
 
 func newGithubContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport)
+	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
 	return &githubContainerRegistry{c}
 }
 

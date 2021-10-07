@@ -38,8 +38,7 @@ func (s *quayContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, *g
 	ctrl := gomock.NewController(c)
 
 	s.imageRepoDetails = docker.ImageRepoDetails{
-		Repository:    "quay.io/jujuqa",
-		ServerAddress: "quay.io",
+		Repository: "quay.io/jujuqa",
 	}
 	s.authToken = base64.StdEncoding.EncodeToString([]byte("username:pwd"))
 	if s.isPrivate {

@@ -22,7 +22,7 @@ type dockerhub struct {
 }
 
 func newDockerhub(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport)
+	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
 	return &dockerhub{c}
 }
 

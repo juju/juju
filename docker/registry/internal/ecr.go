@@ -76,8 +76,14 @@ func newElasticContainerRegistryForTest(
 	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
 	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error),
 ) RegistryInternal {
-	c := newBase(repoDetails, transport)
+	c := newBase(repoDetails, transport, normalizeRepoDetailsElasticContainerRegistry)
 	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ECRClientFunc}
+}
+
+func normalizeRepoDetailsElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) {
+	if repoDetails.ServerAddress == "" {
+		repoDetails.ServerAddress = repoDetails.Repository
+	}
 }
 
 // Match checks if the repository details matches current provider format.
@@ -193,7 +199,7 @@ type elasticContainerRegistryPublic struct {
 }
 
 func newElasticContainerRegistryPublic(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport)
+	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
 	return &elasticContainerRegistryPublic{c}
 }
 
