@@ -5633,25 +5633,39 @@ func (s *upgradesSuite) TestRemoveOrphanedCrossModelProxies(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "good",
+		Name:            "good",
+		SourceModel:     s.state.modelTag,
+		OfferUUID:       offer.OfferUUID,
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "saas",
 		SourceModel: s.state.modelTag,
 		OfferUUID:   offer.OfferUUID,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
-			Name:      "server",
+			Name:      "database",
 			Role:      charm.RoleRequirer,
 			Scope:     charm.ScopeGlobal,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "orphaned",
-		SourceModel: s.state.modelTag,
-		OfferUUID:   "missing-uuid",
+		Name:            "orphaned",
+		SourceModel:     s.state.modelTag,
+		OfferUUID:       "missing-uuid",
+		IsConsumerProxy: true,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "server",
-			Role:      charm.RoleRequirer,
+			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -5665,6 +5679,8 @@ func (s *upgradesSuite) TestRemoveOrphanedCrossModelProxies(c *gc.C) {
 		_, err = s.state.RemoteApplication("orphaned")
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 		_, err = s.state.RemoteApplication("good")
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.state.RemoteApplication("saas")
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
