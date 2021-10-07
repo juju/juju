@@ -28,22 +28,29 @@ type githubSuite struct {
 	testing.IsolationSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
-	imageRepoDetails docker.ImageRepoDetails
+	imageRepoDetails *docker.ImageRepoDetails
 	isPrivate        bool
 }
 
 var _ = gc.Suite(&githubSuite{})
 
+func (s *githubSuite) TearDownTest(c *gc.C) {
+	s.imageRepoDetails = nil
+	s.IsolationSuite.TearDownTest(c)
+}
+
 func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
-	s.imageRepoDetails = docker.ImageRepoDetails{
-		Repository: "ghcr.io/jujuqa",
-	}
-	if s.isPrivate {
-		authToken := base64.StdEncoding.EncodeToString([]byte("username:pwd"))
-		s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
-			Auth: docker.NewToken(authToken),
+	if s.imageRepoDetails == nil {
+		s.imageRepoDetails = &docker.ImageRepoDetails{
+			Repository: "ghcr.io/jujuqa",
+		}
+		if s.isPrivate {
+			authToken := base64.StdEncoding.EncodeToString([]byte("username:pwd"))
+			s.imageRepoDetails.BasicAuthConfig = docker.BasicAuthConfig{
+				Auth: docker.NewToken(authToken),
+			}
 		}
 	}
 
@@ -64,7 +71,7 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 	}
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
-	reg, err := registry.New(s.imageRepoDetails)
+	reg, err := registry.New(*s.imageRepoDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := reg.(*internal.GithubContainerRegistry)
 	c.Assert(ok, jc.IsTrue)
@@ -88,6 +95,54 @@ func (s *githubSuite) TestPingPrivateRepository(c *gc.C) {
 	s.isPrivate = true
 	_, ctrl := s.getRegistry(c)
 	ctrl.Finish()
+}
+
+func (s *githubSuite) TestPingPrivateRepositoryUserNamePassword(c *gc.C) {
+	s.imageRepoDetails = &docker.ImageRepoDetails{
+		Repository: "ghcr.io/jujuqa",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "username",
+			Password: "pwd",
+		},
+	}
+	s.isPrivate = true
+	_, ctrl := s.getRegistry(c)
+	ctrl.Finish()
+}
+
+func (s *githubSuite) TestPingPrivateRepositoryNoCredential(c *gc.C) {
+	imageRepoDetails := docker.ImageRepoDetails{
+		Repository: "ghcr.io/jujuqa",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "username",
+		},
+	}
+	_, err := registry.New(imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `github container registry requires {"username", "password"} or {"auth"} token`)
+}
+
+func (s *githubSuite) TestPingPrivateRepositoryBadAuthTokenFormat(c *gc.C) {
+	authToken := base64.StdEncoding.EncodeToString([]byte("bad-auth"))
+	imageRepoDetails := docker.ImageRepoDetails{
+		Repository: "ghcr.io/jujuqa",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Auth: docker.NewToken(authToken),
+		},
+	}
+	_, err := registry.New(imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `getting password from the github container registry auth token: registry auth token not valid`)
+}
+
+func (s *githubSuite) TestPingPrivateRepositoryBadAuthTokenNoPasswordIncluded(c *gc.C) {
+	authToken := base64.StdEncoding.EncodeToString([]byte("username:"))
+	imageRepoDetails := docker.ImageRepoDetails{
+		Repository: "ghcr.io/jujuqa",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Auth: docker.NewToken(authToken),
+		},
+	}
+	_, err := registry.New(imageRepoDetails)
+	c.Assert(err, gc.ErrorMatches, `github container registry auth token contains empty password`)
 }
 
 func (s *githubSuite) TestTagsPublic(c *gc.C) {

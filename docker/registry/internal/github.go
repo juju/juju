@@ -27,37 +27,32 @@ func (c *githubContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "ghcr.io")
 }
 
-func getBearerTokenForGithub(auth string) (string, error) {
-	if auth == "" {
-		return "", errors.NotValidf("empty github container registry auth token")
-	}
-	content, err := base64.StdEncoding.DecodeString(auth)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	parts := strings.Split(string(content), ":")
-	if len(parts) < 2 {
-		return "", errors.NotValidf("github container registry auth token %q", auth)
-	}
-	token := parts[1]
-	return base64.StdEncoding.EncodeToString([]byte(token)), nil
-}
-
 func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
 ) (http.RoundTripper, error) {
-	if !repoDetails.BasicAuthConfig.Empty() {
-		bearerToken, err := getBearerTokenForGithub(repoDetails.Auth.Value)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return newTokenTransport(
-			transport, "", "", "", bearerToken, true,
-		), nil
-	}
 	if !repoDetails.TokenAuthConfig.Empty() {
 		return nil, errors.NewNotValid(nil, "github only supports username and password or auth token")
 	}
-	return transport, nil
+	if repoDetails.BasicAuthConfig.Empty() {
+		// We allow github container registry config without auth details but we will raise PublicAPINotAvailableError.
+		// Because github allows image fetching without credential but their registry API always requires a credential.
+		return transport, nil
+	}
+	password := repoDetails.Password
+	if password == "" {
+		if repoDetails.Auth.Empty() {
+			return nil, errors.NewNotValid(nil, `github container registry requires {"username", "password"} or {"auth"} token`)
+		}
+		var err error
+		_, password, err = unpackAuthToken(repoDetails.Auth.Value)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting password from the github container registry auth token")
+		}
+		if password == "" {
+			return nil, errors.NewNotValid(nil, "github container registry auth token contains empty password")
+		}
+	}
+	bearerToken := base64.StdEncoding.EncodeToString([]byte(password))
+	return newTokenTransport(transport, "", "", "", bearerToken, true), nil
 }
 
 func (c *githubContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
