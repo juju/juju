@@ -195,6 +195,43 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	})
 }
 
+func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	path := path.MakePath(baseURL)
+	id := ""
+	body := transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{},
+		Metrics: map[string]map[string]string{
+			"controller": {"uuid": "controller-uuid"},
+			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
+		},
+	}
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectPost(c, restClient, path, id, body)
+
+	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+		charmmetrics.Controller: {
+
+			charmmetrics.UUID: "controller-uuid",
+		},
+		charmmetrics.Model: {
+			charmmetrics.NumUnits:   "3",
+			charmmetrics.Controller: "controller-uuid",
+			charmmetrics.UUID:       "model-uuid",
+		},
+	}
+
+	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	err := client.RefreshWithMetricsOnly(context.TODO(), metrics)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

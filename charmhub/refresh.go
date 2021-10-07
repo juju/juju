@@ -115,6 +115,37 @@ func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config Re
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	m, err := contextMetrics(metrics)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	req.Metrics = m
+	return c.refresh(ctx, config.Ensure, req, headers)
+}
+
+// RefreshWithMetricsOnly is to provide metrics without context or actions. Used
+// as part of the charm revision updater facade.
+func (c *RefreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+	c.logger.Tracef("RefreshWithMetricsOnly(%+v)", metrics)
+	m, err := contextMetrics(metrics)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	req := transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{},
+		Metrics: m,
+	}
+	headers := make(map[string][]string)
+
+	// No need to ensure data which is not expected.
+	ensure := func(responses []transport.RefreshResponse) error { return nil }
+
+	_, err = c.refresh(ctx, ensure, req, headers)
+	return err
+}
+
+func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) (transport.RequestMetrics, error) {
 	m := make(transport.RequestMetrics, 0)
 	for k, v := range metrics {
 		// verify top level "model" and "controller" keys
@@ -127,8 +158,7 @@ func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config Re
 		}
 		m[k.String()] = ctxM
 	}
-	req.Metrics = m
-	return c.refresh(ctx, config.Ensure, req, headers)
+	return m, nil
 }
 
 func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest, headers Headers) ([]transport.RefreshResponse, error) {
