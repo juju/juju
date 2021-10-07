@@ -30,7 +30,7 @@ var skippedDeviceNames = set.NewStrings(
 )
 
 // BridgePolicy defines functionality that helps us create and define bridges
-// for guests inside of a host machine, along with the creation of network
+// for guests inside a host machine, along with the creation of network
 // devices on those bridges for the containers to use.
 type BridgePolicy struct {
 	// spaces is a slice of SpaceInfos.
@@ -466,7 +466,8 @@ func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
 	return false, nil
 }
 
-// The general policy is to:
+// BridgeNameForDevice returns a name to use for a new device that bridges the
+// device with the input name. The policy is to:
 // 1.  Add br- to device name (to keep current behaviour),
 //     if it does not fit in 15 characters then:
 // 2.  Add b- to device name, if it doesn't fit in 15 characters then:
@@ -503,10 +504,6 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 		return nil, errors.Trace(err)
 	}
 	logger.Debugf("for container %q, found host devices spaces: %s", guest.Id(), formatDeviceMap(devicesPerSpace))
-	localBridgeForType := map[instance.ContainerType]string{
-		instance.LXD: network.DefaultLXDBridge,
-		instance.KVM: network.DefaultKVMBridge,
-	}
 	spacesFound := make(corenetwork.SpaceInfos, 0)
 	devicesByName := make(map[string]LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
@@ -514,9 +511,14 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 	for spaceID, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
 			isFan := strings.HasPrefix(hostDevice.Name(), "fan-")
-			wantThisDevice := isFan == (p.containerNetworkingMethod == "fan")
-			deviceType, name := hostDevice.Type(), hostDevice.Name()
-			if wantThisDevice && deviceType == corenetwork.BridgeDevice && !skippedDeviceNames.Contains(name) {
+			if !(isFan == (p.containerNetworkingMethod == "fan")) {
+				// This is not a suitable bridge for
+				// our container networking method.
+				continue
+			}
+
+			name := hostDevice.Name()
+			if hostDevice.Type() == corenetwork.BridgeDevice && !skippedDeviceNames.Contains(name) {
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
 				spaceInfo := p.spaces.GetByID(spaceID)
@@ -531,7 +533,12 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 	if len(missingSpaces) == 1 &&
 		missingSpaces.ContainsID(corenetwork.AlphaSpaceId) &&
 		p.containerNetworkingMethod == "local" {
-		localBridgeName := localBridgeForType[guest.ContainerType()]
+
+		localBridgeName := network.DefaultLXDBridge
+		if guest.ContainerType() == instance.KVM {
+			localBridgeName = network.DefaultKVMBridge
+		}
+
 		for _, hostDevice := range devicesPerSpace[corenetwork.AlphaSpaceId] {
 			name := hostDevice.Name()
 			if hostDevice.Type() == corenetwork.BridgeDevice && name == localBridgeName {
@@ -604,7 +611,7 @@ type ovsBridgeDevice struct {
 	wrappedDev LinkLayerDevice
 }
 
-// The wrapped device's type is always reported as bridge.
+// Type ensures the wrapped device's type is always reported as bridge.
 func (dev ovsBridgeDevice) Type() corenetwork.LinkLayerDeviceType { return corenetwork.BridgeDevice }
 func (dev ovsBridgeDevice) Name() string                          { return dev.wrappedDev.Name() }
 func (dev ovsBridgeDevice) MACAddress() string                    { return dev.wrappedDev.MACAddress() }
