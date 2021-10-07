@@ -122,6 +122,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read(filepath.Join(utils.Home(), ".config", "lxc")).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read("snap/lxd/current/.config/lxc").Return(nil, nil, os.ErrNotExist)
+	deps.certReadWriter.EXPECT().Read("snap/lxd/common/config").Return(nil, nil, os.ErrNotExist)
 	deps.certGenerator.EXPECT().Generate(true, true).Return(nil, nil, errors.Errorf("bad"))
 
 	_, err := deps.provider.DetectCredentials("")
@@ -138,6 +139,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertifica
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read(filepath.Join(utils.Home(), ".config", "lxc")).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read("snap/lxd/current/.config/lxc").Return(nil, nil, os.ErrNotExist)
+	deps.certReadWriter.EXPECT().Read("snap/lxd/common/config").Return(nil, nil, os.ErrNotExist)
 	deps.certGenerator.EXPECT().Generate(true, true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(errors.Errorf("bad"))
 
@@ -171,6 +173,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 			},
 		},
 	}, nil)
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, nil)
 	deps.certReadWriter.EXPECT().Read("snap/lxd/current/.config/lxc").Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 	deps.configReader.EXPECT().ReadCert("snap/lxd/current/.config/lxc/servercerts/nuc1.crt").Return([]byte(coretesting.ServerCert), nil)
 	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
@@ -216,7 +219,8 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *gc.C) {
 
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, nil)
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, nil)
-	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, nil)
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{
 		DefaultRemote: "localhost",
 		Remotes: map[string]lxd.LXCRemoteConfig{
 			"nuc1": {
@@ -227,8 +231,8 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *gc.C) {
 			},
 		},
 	}, nil)
-	deps.certReadWriter.EXPECT().Read("snap/lxd/current/.config/lxc").Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
-	deps.configReader.EXPECT().ReadCert("snap/lxd/current/.config/lxc/servercerts/nuc1.crt").Return(nil, os.ErrNotExist)
+	deps.certReadWriter.EXPECT().Read("snap/lxd/common/config").Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+	deps.configReader.EXPECT().ReadCert("snap/lxd/common/config/servercerts/nuc1.crt").Return(nil, os.ErrNotExist)
 	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
 	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
 
@@ -273,6 +277,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *gc.C)
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, nil)
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, nil)
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, nil)
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, nil)
 
 	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("bad"))
 
@@ -303,6 +308,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 			},
 		},
 	}, nil)
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, nil)
 	deps.certReadWriter.EXPECT().Read(path.Join(utils.Home(), "snap/lxd/current/.config/lxc")).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 	deps.configReader.EXPECT().ReadCert("snap/lxd/current/.config/lxc/servercerts/nuc1.crt").Return(nil, errors.New("bad"))
 	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("bad"))
@@ -324,6 +330,7 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read(filepath.Join(utils.Home(), ".config", "lxc")).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read("snap/lxd/current/.config/lxc").Return(nil, nil, os.ErrNotExist)
+	deps.certReadWriter.EXPECT().Read("snap/lxd/common/config").Return(nil, nil, os.ErrNotExist)
 	deps.certGenerator.EXPECT().Generate(true, true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(nil)
 
@@ -365,6 +372,7 @@ func (s *credentialsSuite) TestRegisterCredentialsWithAlternativeCloudName(c *gc
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read(filepath.Join(utils.Home(), ".config", "lxc")).Return(nil, nil, os.ErrNotExist)
 	deps.certReadWriter.EXPECT().Read("snap/lxd/current/.config/lxc").Return(nil, nil, os.ErrNotExist)
+	deps.certReadWriter.EXPECT().Read("snap/lxd/common/config").Return(nil, nil, os.ErrNotExist)
 	deps.certGenerator.EXPECT().Generate(true, true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(nil)
 	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)

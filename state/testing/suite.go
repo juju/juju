@@ -42,6 +42,7 @@ type StateSuite struct {
 	InitialTime               time.Time
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
+	ControllerModelType       state.ModelType
 	RegionConfig              cloud.RegionConfig
 	Clock                     *testclock.Clock
 	txnSyncNotify             chan struct{}
@@ -93,6 +94,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		InitialConfig:             s.InitialConfig,
 		ControllerConfig:          s.ControllerConfig,
 		ControllerInheritedConfig: s.ControllerInheritedConfig,
+		ControllerModelType:       s.ControllerModelType,
 		RegionConfig:              s.RegionConfig,
 		NewPolicy:                 s.NewPolicy,
 		Clock:                     s.Clock,
