@@ -29,6 +29,10 @@ var skippedDeviceNames = set.NewStrings(
 	network.DefaultKVMBridge,
 )
 
+// namedNICsBySpace is a type alias for a map of link-layer devices
+// keyed by name, keyed in turn by the space they are in.
+type namedNICsBySpace = map[string]map[string]LinkLayerDevice
+
 // BridgePolicy defines functionality that helps us create and define bridges
 // for guests inside a host machine, along with the creation of network
 // devices on those bridges for the containers to use.
@@ -243,7 +247,7 @@ func linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map
 		return nil, errors.Trace(err)
 	}
 	processedDeviceNames := set.NewStrings()
-	spaceToDevices := make(map[string]map[string]LinkLayerDevice, 0)
+	spaceToDevices := make(namedNICsBySpace, 0)
 
 	// First pass, iterate the addresses, lookup the associated spaces, and
 	// gather the devices.
@@ -315,7 +319,7 @@ func linkLayerDevicesByName(host Machine) (map[string]LinkLayerDevice, error) {
 	return deviceByName, nil
 }
 
-func includeDevice(spaceToDevices map[string]map[string]LinkLayerDevice, spaceID string, device LinkLayerDevice) map[string]map[string]LinkLayerDevice {
+func includeDevice(spaceToDevices namedNICsBySpace, spaceID string, device LinkLayerDevice) namedNICsBySpace {
 	spaceInfo, ok := spaceToDevices[spaceID]
 	if !ok {
 		spaceInfo = make(map[string]LinkLayerDevice)
