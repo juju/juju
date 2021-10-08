@@ -19,20 +19,22 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/config"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/state"
-	statemocks "github.com/juju/juju/state/mocks"
-	"github.com/juju/juju/testing"
 )
 
 func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID string, revision int) charmrevisionupdater.Application {
-	source := "charm-hub"
-	if schema == "cs" {
+	app := mocks.NewMockApplication(ctrl)
+
+	var source string
+	switch schema {
+	case "ch":
+		source = "charm-hub"
+		app.EXPECT().UnitCount().Return(2).AnyTimes()
+	case "cs":
 		source = "charm-store"
 	}
 
-	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmURL().Return(&charm.URL{
 		Schema:   schema,
 		Name:     charmName,
@@ -59,38 +61,6 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 	return app
 }
 
-func makeModel(c *gc.C, ctrl *gomock.Controller) charmrevisionupdater.Model {
-	model := mocks.NewMockModel(ctrl)
-	model.EXPECT().CloudName().Return("testcloud").AnyTimes()
-	model.EXPECT().CloudRegion().Return("juju-land").AnyTimes()
-	uuid := testing.ModelTag.Id()
-	cfg, err := config.New(true, map[string]interface{}{
-		"charmhub-url": "https://api.staging.charmhub.io", // not actually used in tests
-		"name":         "model",
-		"type":         "type",
-		"uuid":         uuid,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	model.EXPECT().Config().Return(cfg, nil).AnyTimes()
-	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
-	model.EXPECT().UUID().Return(uuid).AnyTimes()
-	return model
-}
-
-func makeState(c *gc.C, ctrl *gomock.Controller, resources state.Resources) *mocks.MockState {
-	if resources == nil {
-		r := statemocks.NewMockResources(ctrl)
-		r.EXPECT().SetCharmStoreResources(gomock.Any(), gomock.Len(0), gomock.Any()).Return(nil).AnyTimes()
-		resources = r
-	}
-	state := mocks.NewMockState(ctrl)
-	state.EXPECT().Cloud(gomock.Any()).Return(cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
-	state.EXPECT().ControllerUUID().Return("controller-1").AnyTimes()
-	state.EXPECT().Model().Return(makeModel(c, ctrl), nil).AnyTimes()
-	state.EXPECT().Resources().Return(resources, nil).AnyTimes()
-	return state
-}
-
 func makeResource(c *gc.C, name string, revision, size int, hexFingerprint string) resource.Resource {
 	fingerprint, err := resource.ParseFingerprint(hexFingerprint)
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,8 +83,9 @@ type charmhubConfigMatcher struct {
 }
 
 type charmhubConfigExpected struct {
-	id       string
-	revision int
+	id        string
+	revision  int
+	relMetric string
 }
 
 func (m charmhubConfigMatcher) Matches(x interface{}) bool {
@@ -136,8 +107,19 @@ func (m charmhubConfigMatcher) Matches(x interface{}) bool {
 		if context.Revision != m.expected[i].revision {
 			return false
 		}
+		r, ok := context.Metrics[string(charmmetrics.Relations)]
+		if m.expected[i].relMetric != "" && !ok {
+			return false
+		}
+		if m.expected[i].relMetric != "" && ok && r != m.expected[i].relMetric {
+			return false
+		}
 		action := request.Actions[i]
 		if *action.ID != m.expected[i].id {
+			return false
+		}
+		_, ok = context.Metrics[string(charmmetrics.NumUnits)]
+		if m.expected[i].relMetric != "" && !ok {
 			return false
 		}
 	}
@@ -148,13 +130,59 @@ func (charmhubConfigMatcher) String() string {
 	return "matches config"
 }
 
-func newFakeCharmstoreClient(st charmrevisionupdater.State) (charmstore.Client, error) {
-	charms := map[string]charmstoreCharm{
-		"mysql":     {name: "mysql", revision: 23},
-		"wordpress": {name: "wordpress", revision: 26},
+// charmhubMetricsMatcher matches the controller and model parts of the metrics, then
+// a value within each part.
+type charmhubMetricsMatcher struct {
+	c     *gc.C
+	exist bool
+}
+
+func (m charmhubMetricsMatcher) Matches(x interface{}) bool {
+	switch y := x.(type) {
+	case map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string:
+		if len(y) != 2 {
+			if !m.exist {
+				return true
+			}
+			return false
+		}
+		for k := range y {
+			if k != charmmetrics.Controller && k != charmmetrics.Model {
+				return false
+			}
+		}
+		controller := y[charmmetrics.Controller]
+		uuid, ok := controller[charmmetrics.UUID]
+		if !ok {
+			return false
+		}
+		m.c.Assert(uuid, gc.Equals, "controller-1")
+
+		model := y[charmmetrics.Model]
+		cloud, ok := model[charmmetrics.Cloud]
+		if !ok {
+			return false
+		}
+		m.c.Assert(cloud, gc.Equals, "cloud")
+	default:
+		return false
 	}
-	client := &fakeCharmstoreClient{charms: charms}
-	return charmstore.NewCustomClient(client), nil
+	return true
+}
+
+func (charmhubMetricsMatcher) String() string {
+	return "matches metrics"
+}
+
+func newFakeCharmstoreClientFunc(expectMetadata bool) func(st charmrevisionupdater.State) (charmstore.Client, error) {
+	return func(st charmrevisionupdater.State) (charmstore.Client, error) {
+		charms := map[string]charmstoreCharm{
+			"mysql":     {name: "mysql", revision: 23},
+			"wordpress": {name: "wordpress", revision: 26},
+		}
+		client := &fakeCharmstoreClient{charms: charms, expectMetadata: expectMetadata}
+		return charmstore.NewCustomClient(client), nil
+	}
 }
 
 type charmstoreCharm struct {
@@ -163,10 +191,17 @@ type charmstoreCharm struct {
 }
 
 type fakeCharmstoreClient struct {
-	charms map[string]charmstoreCharm
+	charms         map[string]charmstoreCharm
+	expectMetadata bool
 }
 
-func (c *fakeCharmstoreClient) Latest(_ csparams.Channel, ids []*charm.URL, _ map[string][]string) ([]csparams.CharmRevision, error) {
+func (c *fakeCharmstoreClient) Latest(_ csparams.Channel, ids []*charm.URL, metrics map[string][]string) ([]csparams.CharmRevision, error) {
+	if len(metrics) <= 0 && c.expectMetadata {
+		return nil, errors.BadRequestf("Failing test, expected metadata and non provided.")
+	}
+	if len(metrics) > 0 && !c.expectMetadata {
+		return nil, errors.BadRequestf("Failing test, did not expect metadata and some provided.")
+	}
 	revisions := make([]csparams.CharmRevision, len(ids))
 	for i, id := range ids {
 		charm, ok := c.charms[id.Name]

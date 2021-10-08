@@ -48,6 +48,12 @@ type Origin struct {
 	OS string
 	// Series describes the series of the OS intended to be used by the charm.
 	Series string
+
+	// InstanceKey is a unique string associated with the application. To
+	// assist with keeping KPI data in charmhub, it must be the same for every
+	// charmhub Refresh action related to an application. Create with the
+	// charmhub.CreateInstanceKey method. LP: 1944582
+	InstanceKey string
 }
 
 // WithSeries allows to update the series of an origin.
@@ -83,6 +89,7 @@ func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 		Architecture: o.Architecture,
 		OS:           o.OS,
 		Series:       o.Series,
+		InstanceKey:  o.InstanceKey,
 	}
 }
 
@@ -111,6 +118,7 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 			OS:           o.OS,
 			Series:       o.Series,
 		},
+		InstanceKey: o.InstanceKey,
 	}
 }
 
@@ -128,6 +136,7 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 		Architecture: origin.Architecture,
 		OS:           origin.OS,
 		Series:       origin.Series,
+		InstanceKey:  origin.InstanceKey,
 	}
 }
 
@@ -153,5 +162,6 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 		Architecture: origin.Platform.Architecture,
 		OS:           origin.Platform.OS,
 		Series:       origin.Platform.Series,
+		InstanceKey:  origin.InstanceKey,
 	}
 }

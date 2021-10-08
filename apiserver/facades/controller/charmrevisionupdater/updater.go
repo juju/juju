@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -40,7 +43,7 @@ type CharmRevisionUpdaterAPI struct {
 }
 
 type newCharmstoreClientFunc func(st State) (charmstore.Client, error)
-type newCharmhubClientFunc func(st State, metadata map[string]string) (CharmhubRefreshClient, error)
+type newCharmhubClientFunc func(st State) (CharmhubRefreshClient, error)
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 
@@ -56,10 +59,10 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 		}
 		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
 	}
-	newCharmhubClient := func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
+	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
 		// TODO (stickupkid): Get the http transport from the facade context
 		transport := charmhub.DefaultHTTPTransport(logger)
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, transport, logger, metadata)
+		return common.CharmhubClient(charmhubClientStateShim{state: st}, transport, logger)
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
@@ -140,6 +143,15 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	model, err := api.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	telemetry := cfg.Telemetry()
 
 	// Partition the charms into charmhub vs charmstore so we can query each
 	// batch separately.
@@ -172,12 +184,18 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				return nil, errors.Trace(err)
 			}
 			cid := charmhubID{
-				id:       origin.ID,
-				revision: *origin.Revision,
-				channel:  channel.String(),
-				os:       strings.ToLower(origin.Platform.OS), // charmhub API requires lowercase OS name
-				series:   origin.Platform.Series,
-				arch:     origin.Platform.Architecture,
+				id:          origin.ID,
+				revision:    *origin.Revision,
+				channel:     channel.String(),
+				os:          strings.ToLower(origin.Platform.OS), // charmhub API requires lowercase OS key
+				series:      origin.Platform.Series,
+				arch:        origin.Platform.Architecture,
+				instanceKey: charmhub.CreateInstanceKey(application.ApplicationTag(), model.ModelTag()),
+			}
+			if telemetry {
+				cid.metrics = map[charmmetrics.MetricKey]string{
+					charmmetrics.NumUnits: strconv.Itoa(application.UnitCount()),
+				}
 			}
 			charmhubIDs = append(charmhubIDs, cid)
 			charmhubApps = append(charmhubApps, appInfo{
@@ -195,10 +213,12 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 			cid := charmstore.CharmID{
 				URL:     curl,
 				Channel: application.Channel(),
-				Metadata: map[string]string{
+			}
+			if telemetry {
+				cid.Metadata = map[string]string{
 					"series": origin.Platform.Series,
 					"arch":   origin.Platform.Architecture,
-				},
+				}
 			}
 			charmstoreIDs = append(charmstoreIDs, cid)
 			charmstoreApps = append(charmstoreApps, appInfo{
@@ -213,14 +233,20 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 
 	var latest []latestCharmInfo
 	if len(charmstoreIDs) > 0 {
-		storeLatest, err := api.fetchCharmstoreInfos(charmstoreIDs, charmstoreApps)
+		storeLatest, err := api.fetchCharmstoreInfos(cfg, charmstoreIDs, charmstoreApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		latest = append(latest, storeLatest...)
 	}
 	if len(charmhubIDs) > 0 {
-		hubLatest, err := api.fetchCharmhubInfos(charmhubIDs, charmhubApps)
+		if telemetry {
+			charmhubIDs, err = api.addMetricsToCharmhubInfos(charmhubIDs, charmhubApps)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		hubLatest, err := api.fetchCharmhubInfos(cfg, charmhubIDs, charmhubApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -230,20 +256,103 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 	return latest, nil
 }
 
-func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
+func (api *CharmRevisionUpdaterAPI) addMetricsToCharmhubInfos(ids []charmhubID, appInfos []appInfo) ([]charmhubID, error) {
+	relationKeys := api.state.AliveRelationKeys()
+	if len(relationKeys) == 0 {
+		return ids, nil
+	}
+	for k, v := range convertRelations(appInfos, relationKeys) {
+		for i, app := range appInfos {
+			if app.id != k {
+				continue
+			}
+			if ids[i].metrics == nil {
+				ids[i].metrics = map[charmmetrics.MetricKey]string{}
+			}
+			ids[i].metrics[charmmetrics.Relations] = strings.Join(v, ",")
+		}
+	}
+	return ids, nil
+}
+
+// convertRelations converts the list of relations by application name to charm name
+// for the metrics response.
+func convertRelations(appInfos []appInfo, relationKeys []string) map[string][]string {
+	// Map application names to its charm name.
+	appToCharm := make(map[string]string)
+	for _, v := range appInfos {
+		if v.charmURL != nil {
+			appToCharm[v.id] = v.charmURL.Name
+		}
+	}
+
+	// relationsByAppName is a map of relation providers, by application name,
+	// to a slice of requirers, by application name.
+	relationsByAppName := make(map[string][]string)
+	for _, key := range relationKeys {
+		one, two, use := relationApplicationNames(key)
+		if !use {
+			continue
+		}
+		values, _ := relationsByAppName[one]
+		values = append(values, two)
+		relationsByAppName[one] = values
+		rValues, _ := relationsByAppName[two]
+		rValues = append(rValues, one)
+		relationsByAppName[two] = rValues
+	}
+
+	// Put them together to create a map of relations, by
+	// application name, to a slice of relations, by charm name.
+	relations := make(map[string][]string)
+	for appName, appNameRels := range relationsByAppName {
+		// It is possible the same charm is deployed more than once with
+		// different names.
+		c := relations[appName]
+		relatedTo := set.NewStrings(c...)
+		// Using a set, also ensures there are no duplicates.
+		for _, v := range appNameRels {
+			relatedTo.Add(appToCharm[v])
+		}
+		relations[appName] = relatedTo.SortedValues()
+	}
+
+	return relations
+}
+
+// relationApplicationNames returns the application names in the relation.
+// Peer relations are filtered out, not needed for metrics.
+// Keys are in the format: "appName:endpoint appName:endpoint"
+func relationApplicationNames(str string) (string, string, bool) {
+	endpoints := strings.Split(str, " ")
+	if len(endpoints) != 2 {
+		return "", "", false
+	}
+	one := strings.Split(endpoints[0], ":")
+	if len(one) != 2 {
+		return "", "", false
+	}
+	two := strings.Split(endpoints[1], ":")
+	if len(two) != 2 {
+		return "", "", false
+	}
+	return one[0], two[0], true
+}
+
+func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(cfg *config.Config, ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
 	client, err := api.newCharmstoreClient(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata, err := apiMetadata(api.state)
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	var metadata map[string]string
+	if cfg.Telemetry() {
+		metadata, err = charmstoreApiMetadata(api.state)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		metadata["environment_uuid"] = cfg.UUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	}
-	model, err := api.state.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	metadata["environment_uuid"] = model.UUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -272,16 +381,20 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(ids []charmstore.CharmI
 	return latest, nil
 }
 
-func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
-	metadata, err := apiMetadata(api.state)
+func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
+	var requestMetrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string
+	if cfg.Telemetry() {
+		var err error
+		requestMetrics, err = charmhubRequestMetadata(api.state)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	client, err := api.newCharmhubClient(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := api.newCharmhubClient(api.state, metadata)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	results, err := charmhubLatestCharmInfo(client, ids)
+	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,9 +422,9 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ids []charmhubID, appInfo
 	return latest, nil
 }
 
-// apiMetadata returns a map containing metadata key/value pairs to
-// send to the charmhub or charmstore API for tracking metrics.
-func apiMetadata(st State) (map[string]string, error) {
+// charmstoreApiMetadata returns a map containing metadata key/value pairs to
+// send to the charmstore API for tracking metrics.
+func charmstoreApiMetadata(st State) (map[string]string, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -330,5 +443,37 @@ func apiMetadata(st State) (map[string]string, error) {
 	} else {
 		metadata["provider"] = cloud.Type
 	}
+	return metadata, nil
+}
+
+// charmstoreApiMetadata returns a map containing metadata key/value pairs to
+// send to the charmhub for tracking metrics.
+func charmhubRequestMetadata(st State) (map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	metrics, err := model.Metrics()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	metadata := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+		charmmetrics.Controller: {
+			charmmetrics.JujuVersion: version.Current.String(),
+			charmmetrics.UUID:        metrics.ControllerUUID,
+		},
+		charmmetrics.Model: {
+			charmmetrics.Cloud:           metrics.CloudName,
+			charmmetrics.UUID:            metrics.UUID,
+			charmmetrics.NumApplications: metrics.ApplicationCount,
+			charmmetrics.NumMachines:     metrics.MachineCount,
+			charmmetrics.NumUnits:        metrics.UnitCount,
+			charmmetrics.Provider:        metrics.Provider,
+			charmmetrics.Region:          metrics.CloudRegion,
+		},
+	}
+
 	return metadata, nil
 }

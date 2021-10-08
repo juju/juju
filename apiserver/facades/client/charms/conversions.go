@@ -30,6 +30,7 @@ func convertOrigin(origin corecharm.Origin) params.CharmOrigin {
 		Architecture: origin.Platform.Architecture,
 		OS:           origin.Platform.OS,
 		Series:       origin.Platform.Series,
+		InstanceKey:  origin.InstanceKey,
 	}
 }
 
@@ -53,5 +54,6 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 			OS:           origin.OS,
 			Series:       origin.Series,
 		},
+		InstanceKey: origin.InstanceKey,
 	}
 }

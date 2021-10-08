@@ -1516,6 +1516,27 @@ func (s *ConfigSuite) TestLXDSnapChannelConfig(c *gc.C) {
 	c.Assert(config.LXDSnapChannel(), gc.Equals, "latest/candidate")
 }
 
+func (s *ConfigSuite) TestTelemetryConfig(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.Telemetry(), jc.IsTrue)
+}
+
+func (s *ConfigSuite) TestTelemetryConfigTrue(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{config.DisableTelemetryKey: true})
+	c.Assert(cfg.Telemetry(), jc.IsFalse)
+}
+
+func (s *ConfigSuite) TestTelemetryConfigDoesNotExist(c *gc.C) {
+	final := testing.Attrs{
+		"type": "my-type", "name": "my-name",
+		"uuid": testing.ModelTag.Id(),
+	}
+
+	cfg, err := config.New(config.NoDefaults, final)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Telemetry(), jc.IsTrue)
+}
+
 var serverKey2 = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBALgI8m2TSdKefUOXkaluDrqbv1ua9gl2ec2ZrYQPDOQwDUoFXxQp

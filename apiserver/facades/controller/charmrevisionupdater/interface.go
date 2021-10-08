@@ -26,6 +26,7 @@ type State interface {
 	ControllerUUID() string
 	Model() (Model, error)
 	Resources() (state.Resources, error)
+	AliveRelationKeys() []string
 }
 
 // Application is the subset of *state.Application that we need.
@@ -34,6 +35,7 @@ type Application interface {
 	CharmOrigin() *state.CharmOrigin
 	Channel() csparams.Channel
 	ApplicationTag() names.ApplicationTag
+	UnitCount() int
 }
 
 // Model is the subset of *state.Model that we need.
@@ -42,6 +44,8 @@ type Model interface {
 	CloudRegion() string
 	Config() (*config.Config, error)
 	IsControllerModel() bool
+	Metrics() (state.ModelMetrics, error)
+	ModelTag() names.ModelTag
 	UUID() string
 }
 
@@ -66,7 +70,7 @@ func (s StateShim) Model() (Model, error) {
 	return s.State.Model()
 }
 
-// charmhubClientStateShim takes a *state.State and and implements common.ModelGetter.
+// charmhubClientStateShim takes a *state.State and implements common.ModelGetter.
 type charmhubClientStateShim struct {
 	state State
 }

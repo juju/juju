@@ -72,6 +72,7 @@ type Application interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
 	ApplicationConfig() (application.ConfigAttributes, error)
+	ApplicationTag() names.ApplicationTag
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
@@ -196,6 +197,7 @@ type Model interface {
 	Owner() names.UserTag
 	Tag() names.Tag
 	Type() state.ModelType
+	UUID() string
 	ModelConfig() (*config.Config, error)
 	AgentVersion() (version.Number, error)
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
