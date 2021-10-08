@@ -53,7 +53,7 @@ type CharmhubRefreshClient interface {
 
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID, modelUUID string) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		base := charmhub.RefreshBase{

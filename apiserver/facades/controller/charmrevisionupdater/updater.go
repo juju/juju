@@ -394,7 +394,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids [
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids, cfg.UUID())
+	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
