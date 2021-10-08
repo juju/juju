@@ -170,6 +170,7 @@ func New(config Config) (*Worker, error) {
 
 			// For any failures, try again in 15 seconds.
 			RestartDelay: 15 * time.Second,
+			Logger:       config.Logger,
 		})
 	}
 	w := &Worker{
@@ -282,6 +283,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 					w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
 				}
 			}
+
 			delete(w.offerUUIDs, name)
 			if appGone {
 				continue
@@ -289,6 +291,16 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		} else if _, err := w.runner.Worker(name, w.catacomb.Dying()); err == nil {
 			w.logger.Debugf("already running remote application worker for %q", name)
 			continue
+		}
+
+		// We have to wait until the runner actually removes the
+		// killed worker before starting a new one in its place.
+		for err := errors.New(""); err != worker.ErrNotFound; _, err = w.runner.Worker(name, w.catacomb.Dying()) {
+			if err == worker.ErrDead {
+				// If the runner itself has been killed, just jump out.
+				// This will be handled downstream.
+				break
+			}
 		}
 
 		startFunc := func() (worker.Worker, error) {
