@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
