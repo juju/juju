@@ -215,6 +215,9 @@ func newK8sBroker(
 		isLegacyLabels: isLegacy,
 	}
 	if err := client.ensureNamespaceAnnotationForControllerUUID(controllerUUID, isLegacy); err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("namespace %q may already be in use", cfg.Name()))
+		}
 		return nil, errors.Trace(err)
 	}
 	return client, nil

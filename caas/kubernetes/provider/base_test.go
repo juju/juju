@@ -220,7 +220,7 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 		Return(nil, s.k8sNotFoundError())
 
-	return s.setupBroker(c, ctrl, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
+	return s.setupBroker(c, ctrl, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "")
 }
 
 func (s *BaseSuite) setupBroker(
@@ -228,6 +228,7 @@ func (s *BaseSuite) setupBroker(
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
 	randomPrefixFunc utils.RandomPrefixFunc,
+	expectErr string,
 ) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
 
@@ -254,7 +255,11 @@ func (s *BaseSuite) setupBroker(
 	var err error
 	s.broker, err = provider.NewK8sBroker(controllerUUID, s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	if expectErr == "" {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, expectErr)
+	}
 	return ctrl
 }
 

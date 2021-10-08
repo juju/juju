@@ -613,7 +613,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
-) (common.Model, error) {
+) (_ common.Model, err error) {
 	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
@@ -622,6 +622,20 @@ func (m *ModelManagerAPI) newCAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
+
+	defer func() {
+		// Retain the error stack but with a better message.
+		if errors.IsAlreadyExists(err) {
+			err = errors.Wrap(err, errors.NewAlreadyExists(nil,
+				`
+the model cannot be created because a namespace with the proposed
+model name already exists in the k8s cluster.
+Please choose a different model name.
+`[1:],
+			))
+		}
+	}()
+
 	broker, err := m.getBroker(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: controllerConfig.ControllerUUID(),
 		Cloud:          cloudSpec,
@@ -635,16 +649,6 @@ func (m *ModelManagerAPI) newCAASModel(
 		m.callContext,
 		environs.CreateParams{ControllerUUID: controllerConfig.ControllerUUID()},
 	); err != nil {
-		if errors.IsAlreadyExists(err) {
-			// Retain the error stack but with a better message.
-			return nil, errors.Wrap(err, errors.NewAlreadyExists(nil,
-				`
-the model cannot be created because a namespace with the proposed
-model name already exists in the k8s cluster.
-Please choose a different model name.
-`[1:],
-			))
-		}
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
