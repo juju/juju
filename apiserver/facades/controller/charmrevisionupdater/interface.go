@@ -45,6 +45,7 @@ type Model interface {
 	Config() (*config.Config, error)
 	IsControllerModel() bool
 	Metrics() (state.ModelMetrics, error)
+	ModelTag() names.ModelTag
 	UUID() string
 }
 

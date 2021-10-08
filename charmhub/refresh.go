@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/pbkdf2"
@@ -204,8 +205,8 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 // from Refresh action to Refresh action.  Required for KPI collection
 // on the charmhub side, see LP:1944582.  Rather than saving in
 // state, use a hash of the model uuid + the app name, which are unique.
-func CreateInstanceKey(appName, uuid string) string {
-	h := pbkdf2.Key([]byte(appName), []byte(uuid), 8192, 32, sha512.New)
+func CreateInstanceKey(app names.ApplicationTag, model names.ModelTag) string {
+	h := pbkdf2.Key([]byte(app.Id()), []byte(model.Id()), 8192, 32, sha512.New)
 	return base64.RawURLEncoding.EncodeToString(h)
 }
 

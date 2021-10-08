@@ -1001,7 +1001,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",
-		InstanceKey:  charmhub.CreateInstanceKey(s.Model.UUID(), app.Name()),
+		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.Model.ModelTag()),
 	})
 }
 
