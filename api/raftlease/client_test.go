@@ -383,6 +383,53 @@ func (s *RaftLeaseClientSuite) TestGatherAddresses(c *gc.C) {
 	})
 }
 
+func (s *RaftLeaseClientSuite) TestHandleRetryRequestErrorWithLeadershipError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := &Client{
+		config: s.config,
+		servers: map[string]Remote{
+			"0": s.remote,
+		},
+	}
+
+	s.remote.EXPECT().Address().Return("localhost")
+
+	remote, err := client.handleRetryRequestError(nil, s.remote, apiservererrors.NewNotLeaderError("localhost", "0"))
+	c.Assert(remote, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `not the leader, trying again: not currently the leader, try "0"`)
+}
+
+func (s *RaftLeaseClientSuite) TestHandleRetryRequestErrorWithLeadershipErrorWithNoRemote(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := &Client{
+		config:  s.config,
+		servers: map[string]Remote{},
+	}
+
+	s.remote.EXPECT().Address().Return("localhost")
+
+	remote, err := client.handleRetryRequestError(nil, s.remote, apiservererrors.NewNotLeaderError("localhost", "0"))
+	c.Assert(remote, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
+}
+
+func (s *RaftLeaseClientSuite) TestHandleRetryRequestErrorWithEmptyLeadershipError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := &Client{
+		config:  s.config,
+		servers: map[string]Remote{},
+	}
+
+	s.remote.EXPECT().Address().Return("localhost")
+
+	remote, err := client.handleRetryRequestError(nil, s.remote, apiservererrors.NewNotLeaderError("", ""))
+	c.Assert(remote, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
+}
+
 func (s *RaftLeaseClientSuite) TestEnsureServers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

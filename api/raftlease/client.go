@@ -171,43 +171,10 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 			}
 
 			err := remote.Request(ctx, command)
-
-			// If the error is nil, we've done it successfully.
+			remote, err = c.handleRetryRequestError(command, remote, err)
 			if err == nil {
-				// We had a successful connection against that remote, set it to
-				// the lastKnownRemote.
-				c.mutex.Lock()
-				c.lastKnownRemote = remote
-				c.mutex.Unlock()
 				return nil
 			}
-
-			// If the remote is no longer the leader, go and attempt to get it from
-			// the error. If it's not in the error, just select one at random.
-			if apiservererrors.IsNotLeaderError(err) {
-				// Grab the underlying not leader error.
-				notLeaderError := errors.Cause(err).(*apiservererrors.NotLeaderError)
-
-				remote, err = c.selectRemoteFromError(remote.Address(), err)
-				if err == nil && remote != nil {
-					// If we've got an remote, then attempt the request again.
-					return errors.Annotatef(notLeaderError, "not the leader, trying again")
-				}
-				// If we're not the leader and we don't have a remote to select from
-				// just return back.
-				if notLeaderError.ServerAddress() == "" {
-					// The raft instance isn't clustered, we don't have a way
-					// forward, so send back a dropped error.
-					c.config.Logger.Errorf("No leader found and no cluster available, dropping command: %v", command)
-					return lease.ErrDropped
-				}
-			} else if apiservererrors.IsDeadlineExceededError(err) {
-				// Enqueuing into the queue just timed out, we should just
-				// log this error and try again if possible. The lease manager
-				// will know if a retry at that level is possible.
-				c.config.Logger.Errorf("Deadline exceeded enqueuing command.")
-			}
-
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {
@@ -221,7 +188,55 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 		Clock:       c.config.Clock,
 	})
 
-	// Exit out early and report the operation as a success.
+	return c.handleRequestError(command, start, err)
+}
+
+func (c *Client) handleRetryRequestError(command *raftlease.Command, remote Remote, err error) (Remote, error) {
+	// If the error is nil, we've done it successfully.
+	if err == nil {
+		// We had a successful connection against that remote, set it to
+		// the lastKnownRemote.
+		c.mutex.Lock()
+		c.lastKnownRemote = remote
+		c.mutex.Unlock()
+		return remote, nil
+	}
+
+	// If the remote is no longer the leader, go and attempt to get it from
+	// the error. If it's not in the error, just select one at random.
+	if apiservererrors.IsNotLeaderError(err) {
+		// Grab the underlying not leader error.
+		notLeaderError := errors.Cause(err).(*apiservererrors.NotLeaderError)
+
+		remote, err = c.selectRemoteFromError(remote.Address(), err)
+		if err == nil && remote != nil {
+			// If we've got an remote, then attempt the request again.
+			return remote, errors.Annotatef(notLeaderError, "not the leader, trying again")
+		}
+		// If we're not the leader and we don't have a remote to select from
+		// just return back.
+		if notLeaderError.ServerAddress() == "" {
+			// The raft instance isn't clustered, we don't have a way
+			// forward, so send back a dropped error.
+			c.config.Logger.Errorf("No leader found and no cluster available, dropping command: %v", command)
+			return remote, lease.ErrDropped
+		}
+	} else if apiservererrors.IsDeadlineExceededError(err) {
+		// Enqueuing into the queue just timed out, we should just
+		// log this error and try again if possible. The lease manager
+		// will know if a retry at that level is possible.
+		c.config.Logger.Errorf("Deadline exceeded enqueuing command.")
+	}
+
+	// If we can't find a remote, we should just return that the error was
+	// dropped.
+	if remote == nil {
+		return nil, lease.ErrDropped
+	}
+	return remote, errors.Trace(err)
+}
+
+func (c *Client) handleRequestError(command *raftlease.Command, start time.Time, err error) error {
 	if err == nil {
 		c.record(command.Operation, "success", start)
 		return nil
