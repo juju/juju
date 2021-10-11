@@ -2377,3 +2377,27 @@ func (op *UpdateMachineOperation) Build(attempt int) ([]txn.Op, error) {
 func (op *UpdateMachineOperation) Done(err error) error {
 	return errors.Annotatef(err, "updating machine %q", op.m)
 }
+
+func (st *State) GetManualMachineArches() (set.Strings, error) {
+	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
+	defer closer()
+
+	var archDocs []struct {
+		Arch string `bson:"arch"`
+	}
+
+	err := instanceDataCollection.Find(bson.M{
+		"instanceid": bson.M{
+			"$regex": "^" + manualMachinePrefix,
+		},
+	}).Select(bson.M{"arch": 1}).All(&archDocs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get the set of architectures for manual machines: %v", err)
+	}
+
+	archSet := set.NewStrings()
+	for _, archDoc := range archDocs {
+		archSet.Add(archDoc.Arch)
+	}
+	return archSet, nil
+}
