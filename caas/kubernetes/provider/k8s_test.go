@@ -2331,7 +2331,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *gc.C) {
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	s.setupBroker(c, nil, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
+	s.setupBroker(c, nil, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "")
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
