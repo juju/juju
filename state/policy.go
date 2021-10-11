@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
@@ -121,10 +122,19 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 		if err != nil {
 			return nil, errors.Annotate(err, "querying supported architectures")
 		}
-		if len(arches) != 0 {
-			validator.UpdateVocabulary(constraints.Arch, arches)
+
+		// Also include any arches that belong to manually provisioned machines
+		// See LP1946639.
+		manualMachArches, err := st.GetManualMachineArches()
+		if err != nil {
+			return nil, errors.Annotate(err, "querying supported architectures for manual machines")
+		}
+
+		if supportedArches := manualMachArches.Union(set.NewStrings(arches...)); len(supportedArches) != 0 {
+			validator.UpdateVocabulary(constraints.Arch, supportedArches.SortedValues())
 		}
 	}
+
 	return validator, nil
 }
 
