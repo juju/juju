@@ -74,6 +74,7 @@ func (s *BlockingOpQueueSuite) TestEnqueueTimesout(c *gc.C) {
 		Commands: commandsN(1),
 	})
 	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
+	c.Assert(IsDeadlineExceeded(err), jc.IsTrue)
 }
 
 func (s *BlockingOpQueueSuite) TestMultipleEnqueue(c *gc.C) {
@@ -241,4 +242,20 @@ func consumeNUntilErr(c *gc.C, queue *BlockingOpQueue, n int, err error) <-chan 
 	}()
 
 	return results
+}
+
+type QueueErrorSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&QueueErrorSuite{})
+
+func (s *QueueErrorSuite) TestDeadlineExceeded(c *gc.C) {
+	err := ErrDeadlineExceeded
+	c.Assert(IsDeadlineExceeded(err), jc.IsTrue)
+}
+
+func (s *QueueErrorSuite) TestDeadlineExceededOther(c *gc.C) {
+	err := errors.New("bad")
+	c.Assert(IsDeadlineExceeded(err), jc.IsFalse)
 }
