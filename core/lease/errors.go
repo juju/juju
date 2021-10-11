@@ -79,3 +79,13 @@ func IsNotHeld(err error) bool {
 func IsDropped(err error) bool {
 	return errors.Cause(err) == ErrDropped
 }
+
+// IsLeaseError returns whether the specified error is part of the collection
+// of lease errors.
+func IsLeaseError(err error) bool {
+	switch errors.Cause(err) {
+	case ErrInvalid, ErrHeld, ErrTimeout, ErrAborted, ErrNotHeld, ErrDropped:
+		return true
+	}
+	return false
+}

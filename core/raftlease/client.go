@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v2"
@@ -168,4 +169,66 @@ func (c *OperationClientMetrics) Describe(ch chan<- *prometheus.Desc) {
 // Collect is part of prometheus.Collector.
 func (c *OperationClientMetrics) Collect(ch chan<- prometheus.Metric) {
 	c.metrics.Collect(ch)
+}
+
+// ForwardRequest is a message sent over the hub to the raft forwarder
+// (only running on the raft leader node).
+type ForwardRequest struct {
+	Command       string `yaml:"command"`
+	ResponseTopic string `yaml:"response-topic"`
+}
+
+// ForwardResponse is the response sent back from the raft forwarder.
+type ForwardResponse struct {
+	Error *ResponseError `yaml:"error"`
+}
+
+// ResponseError is used for sending error values back to the lease
+// store via the hub.
+type ResponseError struct {
+	Message string `yaml:"message"`
+	Code    string `yaml:"code"`
+}
+
+// AsResponseError returns a *ResponseError that can be sent back over
+// the hub in response to a forwarded FSM command.
+func AsResponseError(err error) *ResponseError {
+	if err == nil {
+		return nil
+	}
+	message := err.Error()
+	var code string
+	switch errors.Cause(err) {
+	case lease.ErrInvalid:
+		code = "invalid"
+	case globalclock.ErrOutOfSyncUpdate:
+		code = "out-of-sync"
+	case lease.ErrHeld:
+		code = "already-held"
+	default:
+		code = "error"
+	}
+	return &ResponseError{
+		Message: message,
+		Code:    code,
+	}
+}
+
+// RecoverError converts a ResponseError back into the specific error
+// it represents, or into a generic error if it wasn't one of the
+// singleton errors handled.
+func RecoverError(resp *ResponseError) error {
+	if resp == nil {
+		return nil
+	}
+	switch resp.Code {
+	case "invalid":
+		return lease.ErrInvalid
+	case "out-of-sync":
+		return globalclock.ErrOutOfSyncUpdate
+	case "already-held":
+		return lease.ErrHeld
+	default:
+		return errors.New(resp.Message)
+	}
 }

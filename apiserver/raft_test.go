@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/worker/raft"
 )
@@ -100,4 +101,30 @@ func (s *raftMediatorSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
 	}
 	err := mediator.ApplyLease(cmd)
 	c.Assert(err, gc.ErrorMatches, `not currently the leader, try "1"`)
+}
+
+func (s *raftMediatorSuite) TestApplyLeaseDeadlineExceededError(c *gc.C) {
+	cmd := []byte("do it")
+
+	deadLineErr := queue.ErrDeadlineExceeded
+	queue := queue.NewBlockingOpQueue(testclock.NewClock(clock.WallClock.Now()))
+
+	results := make(chan [][]byte, 1)
+	go func() {
+		defer close(results)
+
+		for op := range queue.Queue() {
+			results <- op.Commands
+			queue.Error() <- deadLineErr
+			break
+		}
+	}()
+
+	mediator := raftMediator{
+		queue:  queue,
+		logger: logger,
+	}
+	err := mediator.ApplyLease(cmd)
+	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
+	c.Assert(apiservererrors.IsDeadlineExceededError(err), jc.IsTrue)
 }

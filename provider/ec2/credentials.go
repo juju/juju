@@ -20,6 +20,17 @@ import (
 
 type environProviderCredentials struct{}
 
+// AuthTypes returns all of the AuthTypes supported by the ec2 environ
+// credentials provider.
+func (e environProviderCredentials) AuthTypes() cloud.AuthTypes {
+	credSchemas := e.CredentialSchemas()
+	at := make(cloud.AuthTypes, 0, len(credSchemas))
+	for k := range credSchemas {
+		at = append(at, k)
+	}
+	return at
+}
+
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
@@ -34,6 +45,14 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				cloud.CredentialAttr{
 					Description: "The EC2 secret key",
 					Hidden:      true,
+				},
+			},
+		},
+		cloud.InstanceRoleAuthType: {
+			{
+				"instance-profile-name",
+				cloud.CredentialAttr{
+					Description: "The AWS Instance Profile name",
 				},
 			},
 		},

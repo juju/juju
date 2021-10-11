@@ -190,7 +190,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				os:          strings.ToLower(origin.Platform.OS), // charmhub API requires lowercase OS key
 				series:      origin.Platform.Series,
 				arch:        origin.Platform.Architecture,
-				instanceKey: charmhub.CreateInstanceKey(cfg.UUID(), application.ApplicationTag().Name),
+				instanceKey: charmhub.CreateInstanceKey(application.ApplicationTag(), model.ModelTag()),
 			}
 			if telemetry {
 				cid.metrics = map[charmmetrics.MetricKey]string{
@@ -394,7 +394,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids [
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids, cfg.UUID())
+	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

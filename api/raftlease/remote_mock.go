@@ -49,6 +49,20 @@ func (mr *MockRemoteMockRecorder) Address() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockRemote)(nil).Address))
 }
 
+// ID mocks base method.
+func (m *MockRemote) ID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ID indicates an expected call of ID.
+func (mr *MockRemoteMockRecorder) ID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockRemote)(nil).ID))
+}
+
 // Kill mocks base method.
 func (m *MockRemote) Kill() {
 	m.ctrl.T.Helper()

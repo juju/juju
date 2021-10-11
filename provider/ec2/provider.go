@@ -24,6 +24,7 @@ import (
 var logger = loggo.GetLogger("juju.provider.ec2")
 
 type environProvider struct {
+	environProviderCloud
 	environProviderCredentials
 }
 
@@ -85,7 +86,8 @@ func validateCloudSpec(c environscloudspec.CloudSpec) error {
 	if c.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := c.Credential.AuthType(); authType != cloud.AccessKeyAuthType {
+	if authType := c.Credential.AuthType(); authType != cloud.AccessKeyAuthType &&
+		authType != cloud.InstanceRoleAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

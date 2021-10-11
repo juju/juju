@@ -102,6 +102,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithMetrics(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil).AnyTimes()
+	s.model.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
 	s.model.EXPECT().Metrics().Return(state.ModelMetrics{
 		UUID:           uuid,
 		ControllerUUID: "controller-1",
@@ -128,6 +129,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithNoMetrics(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil).AnyTimes()
+	s.model.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
 		{id: "charm-1", revision: 22},
 		{id: "charm-2", revision: 41},
@@ -296,6 +298,7 @@ func (s *updaterSuite) TestCharmstoreUpdateNoMetadata(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil).Times(2)
+	s.model.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
 	s.testCharmstoreUpdate(c, ctrl, false)
 }
 
@@ -380,21 +383,6 @@ func (s *updaterSuite) expectCharmHubModel(c *gc.C) {
 		ControllerUUID: "controller-1",
 		CloudName:      "cloud",
 	}, nil).AnyTimes()
+	mExp.ModelTag().Return(testing.ModelTag).AnyTimes()
 	s.state.EXPECT().AliveRelationKeys().Return(nil)
-}
-
-func (s *updaterSuite) expectResources(c *gc.C, name string, revision, size int, hexFingerprint string) {
-	fingerprint, err := resource.ParseFingerprint(hexFingerprint)
-	c.Assert(err, jc.ErrorIsNil)
-	resources := resource.Resource{
-		Meta: resource.Meta{
-			Name: name,
-			Type: resource.TypeFile,
-		},
-		Origin:      resource.OriginStore,
-		Revision:    revision,
-		Fingerprint: fingerprint,
-		Size:        int64(size),
-	}
-	s.state.EXPECT().Resources().Return(resources, nil).AnyTimes()
 }

@@ -21,8 +21,21 @@ const (
 var (
 	// ErrDeadlineExceeded is a sentinel error for all exceeded deadlines for
 	// operations.
-	ErrDeadlineExceeded = errors.Errorf("enqueueing deadline exceeded")
+	ErrDeadlineExceeded = deadlineExceeded("enqueueing deadline exceeded")
 )
+
+type deadlineExceeded string
+
+func (e deadlineExceeded) Error() string {
+	return string(e)
+}
+
+// IsDeadlineExceeded checks to see if the underlying error is a deadline
+// exceeded error.
+func IsDeadlineExceeded(err error) bool {
+	_, ok := errors.Cause(err).(deadlineExceeded)
+	return ok
+}
 
 // Operation holds the operations that a queue can hold.
 type Operation struct {

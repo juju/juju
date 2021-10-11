@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -124,7 +125,7 @@ func (k *kubernetesClient) createNamespace(name string) error {
 
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
 		if errors.IsNotFound(err) {
-			return errors.Annotatef(err, "namespace may already be in use")
+			return errors.NewAlreadyExists(nil, fmt.Sprintf("namespace %q may already be in use", name))
 		}
 		return errors.Trace(err)
 	}

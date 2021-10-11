@@ -75,6 +75,7 @@ func (s *providerSuite) TestDetectClouds(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, nil)
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 
 	cloudDetector := deps.provider.(environs.CloudDetector)
 
@@ -103,6 +104,7 @@ func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
 			},
 		},
 	}, nil)
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 
 	cloudDetector := deps.provider.(environs.CloudDetector)
 
@@ -145,6 +147,7 @@ func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 
 	cloudDetector := deps.provider.(environs.CloudDetector)
 
@@ -162,9 +165,11 @@ func (s *providerSuite) TestDetectCloud(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	cloudDetector := deps.provider.(environs.CloudDetector)
 
 	cloud, err := cloudDetector.DetectCloud("localhost")
@@ -184,6 +189,7 @@ func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
 
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{
 		DefaultRemote: "localhost",
 		Remotes: map[string]lxd.LXCRemoteConfig{
@@ -223,6 +229,7 @@ func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 
 	_, err := cloudDetector.DetectCloud("nuc1")
 	c.Assert(err, gc.ErrorMatches, `cloud nuc1 not found`)
@@ -236,6 +243,7 @@ func (s *providerSuite) TestDetectCloudError(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(path.Join(osenv.JujuXDGDataHomePath("lxd"), "config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), ".config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/current/.config/lxc/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
+	deps.configReader.EXPECT().ReadConfig(path.Join(utils.Home(), "snap/lxd/common/config/config.yml")).Return(lxd.LXCConfig{}, errors.New("bad"))
 
 	cloudDetector := deps.provider.(environs.CloudDetector)
 

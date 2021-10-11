@@ -26,13 +26,14 @@ import (
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/raft"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	manifold     dependency.Manifold
 	context      dependency.Context
@@ -52,7 +53,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.agent = &mockAgent{
@@ -70,6 +71,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.target = &struct{ raftlease.NotifyTarget }{}
 	s.queue = queue.NewBlockingOpQueue(s.clock)
 	s.stateTracker = &stubStateTracker{
+		pool: s.StatePool,
 		done: make(chan struct{}),
 	}
 	s.apply = func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier {
@@ -231,13 +233,13 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool state.StatePool
+	pool *state.StatePool
 	done chan struct{}
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
+	return s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

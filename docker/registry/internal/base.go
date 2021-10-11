@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -46,7 +47,10 @@ type baseClient struct {
 	repoDetails *docker.ImageRepoDetails
 }
 
-func newBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *baseClient {
+func newBase(
+	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
+	normalizeRepoDetails func(repoDetails *docker.ImageRepoDetails),
+) *baseClient {
 	c := &baseClient{
 		baseURL:     &url.URL{},
 		repoDetails: &repoDetails,
@@ -55,21 +59,21 @@ func newBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *
 			Timeout:   defaultTimeout,
 		},
 	}
-	c.prepare()
+	normalizeRepoDetails(c.repoDetails)
 	return c
 }
 
-// prepare does pre-processing before Match().
-func (c *baseClient) prepare() {
-	if c.repoDetails.ServerAddress != "" {
+// normalizeRepoDetailsCommon pre-processes ImageRepoDetails before Match().
+func normalizeRepoDetailsCommon(repoDetails *docker.ImageRepoDetails) {
+	if repoDetails.ServerAddress != "" {
 		return
 	}
 	// We have validated the repository in top level.
 	// It should not raise errors here.
-	named, _ := reference.ParseNormalizedNamed(c.repoDetails.Repository)
+	named, _ := reference.ParseNormalizedNamed(repoDetails.Repository)
 	domain := reference.Domain(named)
 	if domain != "" {
-		c.repoDetails.ServerAddress = domain
+		repoDetails.ServerAddress = domain
 	}
 }
 
@@ -244,4 +248,17 @@ func getNextLink(resp *http.Response) (string, error) {
 		}
 	}
 	return "", errNoMorePages
+}
+
+// unpackAuthToken returns the unpacked username and password.
+func unpackAuthToken(auth string) (username string, password string, err error) {
+	content, err := base64.StdEncoding.DecodeString(auth)
+	if err != nil {
+		return "", "", errors.Annotate(err, "doing base64 decode on the auth token")
+	}
+	parts := strings.Split(string(content), ":")
+	if len(parts) < 2 {
+		return "", "", errors.NotValidf("registry auth token")
+	}
+	return parts[0], parts[1], nil
 }

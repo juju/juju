@@ -47,16 +47,23 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 	err := m.queue.Enqueue(queue.Operation{
 		Commands: [][]byte{cmd},
 	})
-	if err == nil {
-		return nil
-	}
-	if !raft.IsNotLeaderError(err) {
-		return errors.Trace(err)
-	}
 
-	// Lift the worker NotLeaderError into the apiserver NotLeaderError. Ensure
-	// the correct boundaries.
-	leaderErr := errors.Cause(err).(*raft.NotLeaderError)
-	m.logger.Tracef("Not currently the leader, go to %v %v", leaderErr.ServerAddress(), leaderErr.ServerID())
-	return apiservererrors.NewNotLeaderError(leaderErr.ServerAddress(), leaderErr.ServerID())
+	switch {
+	case err == nil:
+		return nil
+
+	case raft.IsNotLeaderError(err):
+		// Lift the worker NotLeaderError into the apiserver NotLeaderError. Ensure
+		// the correct boundaries.
+		leaderErr := errors.Cause(err).(*raft.NotLeaderError)
+		m.logger.Tracef("Not currently the leader, go to %v %v", leaderErr.ServerAddress(), leaderErr.ServerID())
+		return apiservererrors.NewNotLeaderError(leaderErr.ServerAddress(), leaderErr.ServerID())
+
+	case queue.IsDeadlineExceeded(err):
+		// If the deadline is exceeded, get original callee to handle the
+		// timeout correctly.
+		return apiservererrors.NewDeadlineExceededError(err.Error())
+
+	}
+	return errors.Trace(err)
 }

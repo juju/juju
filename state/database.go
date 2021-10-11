@@ -228,6 +228,9 @@ func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 			return nil
 		}
 	}
+	if mgoAlreadyExistsErr(err) {
+		return nil
+	}
 	return err
 }
 
