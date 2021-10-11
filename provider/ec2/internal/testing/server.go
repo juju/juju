@@ -16,32 +16,33 @@ type Server struct {
 	apiCallErrors    map[string]error
 	apiCallModifiers map[string][]func(interface{})
 
-	attributes           map[string][]types.AccountAttributeValue // attr name -> values
-	instances            map[string]*Instance                     // id -> instance
-	reservations         map[string]*reservation                  // id -> reservation
-	groups               map[string]*securityGroup                // id -> group
-	zones                map[string]availabilityZone              // name -> availabilityZone
-	vpcs                 map[string]*vpc                          // id -> vpc
-	internetGateways     map[string]*internetGateway              // id -> igw
-	routeTables          map[string]*routeTable                   // id -> table
-	subnets              map[string]*subnet                       // id -> subnet
-	ifaces               map[string]*iface                        // id -> iface
-	volumes              map[string]*volume                       // id -> volume
-	volumeAttachments    map[string]*volumeAttachment             // id -> volumeAttachment
-	maxId                counter
-	reqId                counter
-	reservationId        counter
-	groupId              counter
-	vpcId                counter
-	igwId                counter
-	rtbId                counter
-	rtbassocId           counter
-	dhcpOptsId           counter
-	subnetId             counter
-	volumeId             counter
-	ifaceId              counter
-	attachId             counter
-	initialInstanceState types.InstanceState
+	attributes                  map[string][]types.AccountAttributeValue // attr name -> values
+	instances                   map[string]*Instance                     // id -> instance
+	reservations                map[string]*reservation                  // id -> reservation
+	groups                      map[string]*securityGroup                // id -> group
+	zones                       map[string]availabilityZone              // name -> availabilityZone
+	vpcs                        map[string]*vpc                          // id -> vpc
+	internetGateways            map[string]*internetGateway              // id -> igw
+	routeTables                 map[string]*routeTable                   // id -> table
+	subnets                     map[string]*subnet                       // id -> subnet
+	ifaces                      map[string]*iface                        // id -> iface
+	volumes                     map[string]*volume                       // id -> volume
+	volumeAttachments           map[string]*volumeAttachment             // id -> volumeAttachment
+	maxId                       counter
+	reqId                       counter
+	reservationId               counter
+	groupId                     counter
+	vpcId                       counter
+	igwId                       counter
+	rtbId                       counter
+	rtbassocId                  counter
+	dhcpOptsId                  counter
+	subnetId                    counter
+	volumeId                    counter
+	ifaceId                     counter
+	attachId                    counter
+	initialInstanceState        types.InstanceState
+	instanceProfileAssociations map[string]types.IamInstanceProfileAssociation
 }
 
 // NewServer returns a new server.

@@ -18,7 +18,7 @@ type quayContainerRegistry struct {
 }
 
 func newQuayContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport)
+	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
 	return &quayContainerRegistry{c}
 }
 

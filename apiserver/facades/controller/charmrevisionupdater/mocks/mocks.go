@@ -249,6 +249,20 @@ func (mr *MockModelMockRecorder) Metrics() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockModel)(nil).Metrics))
 }
 
+// ModelTag mocks base method.
+func (m *MockModel) ModelTag() names.ModelTag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelTag")
+	ret0, _ := ret[0].(names.ModelTag)
+	return ret0
+}
+
+// ModelTag indicates an expected call of ModelTag.
+func (mr *MockModelMockRecorder) ModelTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockModel)(nil).ModelTag))
+}
+
 // UUID mocks base method.
 func (m *MockModel) UUID() string {
 	m.ctrl.T.Helper()

@@ -69,6 +69,9 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 	if id != "" {
 		origin.InstanceKey = "instance-key"
 	}
+	if id != "" {
+		origin.InstanceKey = "instance-key"
+	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)

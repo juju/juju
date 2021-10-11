@@ -33,6 +33,7 @@ var (
 	NewTokenTransport                  = newTokenTransport
 	NewPrivateOnlyTransport            = newPrivateOnlyTransport
 	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
+	NewAzureContainerRegistry          = newAzureContainerRegistry
 )
 
 func (c *BaseClient) SetImageRepoDetails(i docker.ImageRepoDetails) {

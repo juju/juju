@@ -623,6 +623,20 @@ func bootstrapIAAS(
 	if e, ok := environ.(environs.Environ); ok {
 		environVersion = e.Provider().Version()
 	}
+
+	if finalizer, ok := environ.(environs.BootstrapCredentialsFinalizer); ok {
+		cred, err := finalizer.FinalizeBootstrapCredential(
+			ctx,
+			bootstrapParams,
+			args.CloudCredential)
+
+		if err != nil {
+			return errors.Annotate(err, "finalizing bootstrap credential")
+		}
+
+		args.CloudCredential = cred
+	}
+
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	if err := finalizeInstanceBootstrapConfig(

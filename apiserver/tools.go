@@ -229,7 +229,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		if osTypeName != "" {
 			storageVers.Release = osTypeName
 		}
-		err = h.fetchAndCacheTools(vers, storageVers)
+		err = h.fetchAndCacheTools(vers, storageVers, st, storage)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching agent binaries")
 		} else {
@@ -249,6 +249,8 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 func (h *toolsDownloadHandler) fetchAndCacheTools(
 	v version.Binary,
 	storageVers version.Binary,
+	st *state.State,
+	modelStorage binarystorage.Storage,
 ) error {
 	systemState := h.ctxt.statePool().SystemState()
 
@@ -256,8 +258,33 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	if err != nil {
 		return err
 	}
+
+	var model *state.Model
+	var storage binarystorage.Storage
+	switch controllerModel.Type() {
+	case state.ModelTypeCAAS:
+		// TODO(caas): unify tool fetching
+		// Cache the tools against the model when the controller is CAAS.
+		model, err = st.Model()
+		if err != nil {
+			return err
+		}
+		storage = modelStorage
+	case state.ModelTypeIAAS:
+		// Cache the tools against the controller when the controller is IAAS.
+		model = controllerModel
+		controllerStorage, err := systemState.ToolsStorage()
+		if err != nil {
+			return err
+		}
+		defer controllerStorage.Close()
+		storage = controllerStorage
+	default:
+		return errors.NotValidf("model type %q", controllerModel.Type())
+	}
+
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := newEnviron(controllerModel)
+	env, err := newEnviron(model)
 	if err != nil {
 		return err
 	}
@@ -284,12 +311,6 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		return errors.New(msg)
 	}
 
-	controllerStorage, err := systemState.ToolsStorage()
-	if err != nil {
-		return err
-	}
-	defer controllerStorage.Close()
-
 	data, respSha256, size, err := tmpCacheAndHash(resp.Body)
 	if err != nil {
 		return err
@@ -307,7 +328,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		Size:    exactTools.Size,
 		SHA256:  exactTools.SHA256,
 	}
-	if err := controllerStorage.Add(data, md); err != nil {
+	if err := storage.Add(data, md); err != nil {
 		return errors.Annotate(err, "error caching agent binaries")
 	}
 

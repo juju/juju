@@ -41,6 +41,7 @@ func (s *RaftLeaseClientValidationSuite) SetUpTest(c *gc.C) {
 		Logger:        fakeLogger{},
 		ClientMetrics: fakeClientMetrics{},
 		Random:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		Clock:         clock.WallClock,
 	}
 }
 
@@ -71,6 +72,9 @@ func (s *RaftLeaseClientValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *Config) { cfg.Random = nil },
 		"nil Random not valid",
+	}, {
+		func(cfg *Config) { cfg.Clock = nil },
+		"nil Clock not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -93,17 +97,8 @@ type RaftLeaseClientSuite struct {
 
 var _ = gc.Suite(&RaftLeaseClientSuite{})
 
-func (s *RaftLeaseClientSuite) TestNewClientWithNoAPIAddresses(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := NewClient(s.config)
-	c.Assert(err, gc.ErrorMatches, `api addresses not found`)
-}
-
 func (s *RaftLeaseClientSuite) TestNewClientWithAPIAddresses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.config.APIInfo.Addrs = []string{"localhost", "10.0.0.8"}
 
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,7 +107,7 @@ func (s *RaftLeaseClientSuite) TestNewClientWithAPIAddresses(c *gc.C) {
 		_ = client.Close()
 	}()
 
-	c.Assert(client.servers, gc.HasLen, 2)
+	c.Assert(client.servers, gc.HasLen, 0)
 }
 
 func (s *RaftLeaseClientSuite) TestRequest(c *gc.C) {
@@ -120,12 +115,14 @@ func (s *RaftLeaseClientSuite) TestRequest(c *gc.C) {
 
 	cmd := &raftlease.Command{}
 
-	s.config.APIInfo.Addrs = []string{"localhost"}
-
 	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(nil)
 
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+	}
 
 	defer func() {
 		_ = client.Close()
@@ -143,13 +140,14 @@ func (s *RaftLeaseClientSuite) TestRequestWithNotLeaderError(c *gc.C) {
 
 	cmd := &raftlease.Command{}
 
-	s.config.APIInfo.Addrs = []string{"localhost"}
-
-	s.remote.EXPECT().Address().Return("localhost").AnyTimes()
-	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewNotLeaderError("", ""))
-
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+	}
+	s.remote.EXPECT().Address().Return("localhost").AnyTimes()
+	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewNotLeaderError("", ""))
 
 	defer func() {
 		_ = client.Close()
@@ -165,15 +163,41 @@ func (s *RaftLeaseClientSuite) TestRequestWithNotLeaderErrorWithSuggestion(c *gc
 
 	cmd := &raftlease.Command{}
 
-	s.config.APIInfo.Addrs = []string{"localhost", "10.0.0.8"}
+	client, err := NewClient(s.config)
+	c.Assert(err, jc.ErrorIsNil)
 
+	client.servers = map[string]Remote{
+		"0": s.remote,
+		"1": s.remote,
+	}
 	s.remote.EXPECT().Address().Return("localhost")
 	s.remote.EXPECT().Address().Return("10.0.0.8").AnyTimes()
 	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewNotLeaderError("10.0.0.8", "1"))
 	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(nil)
 
+	defer func() {
+		_ = client.Close()
+	}()
+
+	err = client.Request(context.TODO(), cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(client.lastKnownRemote, gc.NotNil)
+}
+
+func (s *RaftLeaseClientSuite) TestRequestWithDeadlineExceededError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cmd := &raftlease.Command{}
+
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+		"1": s.remote,
+	}
+	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewDeadlineExceededError("deadline exceeded"))
+	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(nil)
 
 	defer func() {
 		_ = client.Close()
@@ -189,10 +213,12 @@ func (s *RaftLeaseClientSuite) TestRequestWithCancelledContext(c *gc.C) {
 
 	cmd := &raftlease.Command{}
 
-	s.config.APIInfo.Addrs = []string{"localhost"}
-
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+	}
 
 	defer func() {
 		_ = client.Close()
@@ -223,19 +249,20 @@ func (s *RaftLeaseClientSuite) TestRequestWithNoRemotes(c *gc.C) {
 	client.servers = make(map[string]Remote)
 
 	err = client.Request(context.TODO(), cmd)
-	c.Assert(err, gc.ErrorMatches, `remote servers not found`)
+	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
 	c.Assert(client.lastKnownRemote, gc.IsNil)
 }
 
 func (s *RaftLeaseClientSuite) TestSelectRemote(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.config.APIInfo.Addrs = []string{"localhost"}
-
-	s.remote.EXPECT().Address().Return("localhost")
-
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+	}
+	s.remote.EXPECT().Address().Return("localhost")
 
 	defer func() {
 		_ = client.Close()
@@ -249,8 +276,6 @@ func (s *RaftLeaseClientSuite) TestSelectRemote(c *gc.C) {
 
 func (s *RaftLeaseClientSuite) TestSelectRemoteWithNoAddrs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.config.APIInfo.Addrs = []string{"localhost"}
 
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,12 +293,13 @@ func (s *RaftLeaseClientSuite) TestSelectRemoteWithNoAddrs(c *gc.C) {
 func (s *RaftLeaseClientSuite) TestSelectRemoteFromError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.config.APIInfo.Addrs = []string{"localhost"}
-
-	s.remote.EXPECT().Address().Return("localhost")
-
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+	}
+	s.remote.EXPECT().Address().Return("localhost")
 
 	defer func() {
 		_ = client.Close()
@@ -288,12 +314,13 @@ func (s *RaftLeaseClientSuite) TestSelectRemoteFromError(c *gc.C) {
 func (s *RaftLeaseClientSuite) TestSelectRemoteFromErrorIDMissmatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.config.APIInfo.Addrs = []string{"localhost"}
-
-	s.remote.EXPECT().Address().Return("localhost")
-
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+	}
+	s.remote.EXPECT().Address().Return("localhost")
 
 	defer func() {
 		_ = client.Close()
@@ -305,10 +332,6 @@ func (s *RaftLeaseClientSuite) TestSelectRemoteFromErrorIDMissmatch(c *gc.C) {
 
 func (s *RaftLeaseClientSuite) TestSelectRemoteFromErrorNoData(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.config.APIInfo.Addrs = []string{"localhost"}
-
-	s.remote.EXPECT().Address().Return("localhost")
 
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -324,18 +347,15 @@ func (s *RaftLeaseClientSuite) TestSelectRemoteFromErrorNoData(c *gc.C) {
 func (s *RaftLeaseClientSuite) TestSelectRemoteFromErrorMatchingAnother(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.config.APIInfo.Addrs = []string{"localhost", "10.0.0.8"}
-
+	client := &Client{
+		config: s.config,
+		servers: map[string]Remote{
+			"0": s.remote,
+			"1": s.remote,
+		},
+	}
 	s.remote.EXPECT().Address().Return("localhost")
 	s.remote.EXPECT().Address().Return("10.0.0.8").Times(2)
-
-	client := &Client{
-		config:  s.config,
-		servers: make(map[string]Remote),
-	}
-
-	err := client.initServers()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Try and locate another remote to use.
 	remote, err := client.selectRemoteFromError("localhost", apiservererrors.NewNotLeaderError("", ""))
@@ -363,6 +383,53 @@ func (s *RaftLeaseClientSuite) TestGatherAddresses(c *gc.C) {
 	})
 }
 
+func (s *RaftLeaseClientSuite) TestHandleRetryRequestErrorWithLeadershipError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := &Client{
+		config: s.config,
+		servers: map[string]Remote{
+			"0": s.remote,
+		},
+	}
+
+	s.remote.EXPECT().Address().Return("localhost")
+
+	remote, err := client.handleRetryRequestError(nil, s.remote, apiservererrors.NewNotLeaderError("localhost", "0"))
+	c.Assert(remote, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `not the leader, trying again: not currently the leader, try "0"`)
+}
+
+func (s *RaftLeaseClientSuite) TestHandleRetryRequestErrorWithLeadershipErrorWithNoRemote(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := &Client{
+		config:  s.config,
+		servers: map[string]Remote{},
+	}
+
+	s.remote.EXPECT().Address().Return("localhost")
+
+	remote, err := client.handleRetryRequestError(nil, s.remote, apiservererrors.NewNotLeaderError("localhost", "0"))
+	c.Assert(remote, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
+}
+
+func (s *RaftLeaseClientSuite) TestHandleRetryRequestErrorWithEmptyLeadershipError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := &Client{
+		config:  s.config,
+		servers: map[string]Remote{},
+	}
+
+	s.remote.EXPECT().Address().Return("localhost")
+
+	remote, err := client.handleRetryRequestError(nil, s.remote, apiservererrors.NewNotLeaderError("", ""))
+	c.Assert(remote, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
+}
+
 func (s *RaftLeaseClientSuite) TestEnsureServers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -378,6 +445,10 @@ func (s *RaftLeaseClientSuite) TestEnsureServers(c *gc.C) {
 
 	client, err := NewClient(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+	}
 
 	defer func() {
 		_ = client.Close()
@@ -397,6 +468,13 @@ func (s *RaftLeaseClientSuite) TestEnsureServers(c *gc.C) {
 func (s *RaftLeaseClientSuite) TestEnsureServersRemovesOld(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	client, err := NewClient(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	client.servers = map[string]Remote{
+		"0": s.remote,
+		"1": s.remote,
+	}
 	s.remote.EXPECT().Address().Return("10.0.0.8")
 	s.remote.EXPECT().Address().Return("10.0.0.7")
 
@@ -405,11 +483,6 @@ func (s *RaftLeaseClientSuite) TestEnsureServersRemovesOld(c *gc.C) {
 	s.remote.EXPECT().SetAddress("10.0.0.7")
 	s.remote.EXPECT().Kill().AnyTimes()
 	s.remote.EXPECT().Wait().AnyTimes()
-
-	s.config.APIInfo.Addrs = []string{"localhost", "10.0.0.6"}
-
-	client, err := NewClient(s.config)
-	c.Assert(err, jc.ErrorIsNil)
 
 	defer func() {
 		_ = client.Close()
@@ -537,6 +610,7 @@ type fakeLogger struct{}
 
 func (fakeLogger) Errorf(string, ...interface{}) {}
 func (fakeLogger) Debugf(string, ...interface{}) {}
+func (fakeLogger) Tracef(string, ...interface{}) {}
 
 type fakeClientMetrics struct{}
 

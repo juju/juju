@@ -826,6 +826,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,
 			NewStore:             leasemanager.NewStore,
+			NewClient:            leasemanager.NewClientFunc,
 		})),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc

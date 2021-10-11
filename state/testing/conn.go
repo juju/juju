@@ -26,6 +26,7 @@ type InitializeArgs struct {
 	InitialConfig             *config.Config
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
+	ControllerModelType       state.ModelType
 	RegionConfig              cloud.RegionConfig
 	NewPolicy                 state.NewPolicyFunc
 	Clock                     clock.Clock
@@ -66,11 +67,17 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 	for k, v := range args.ControllerConfig {
 		controllerCfg[k] = v
 	}
+
+	modelType := state.ModelTypeIAAS
+	if args.ControllerModelType != "" {
+		modelType = args.ControllerModelType
+	}
+
 	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Type:        state.ModelTypeIAAS,
+			Type:        modelType,
 			CloudName:   "dummy",
 			CloudRegion: "dummy-region",
 			Config:      args.InitialConfig,

@@ -10,6 +10,7 @@ package manifold
 // import cycle.
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/juju/clock"
@@ -20,12 +21,22 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apiraftlease "github.com/juju/juju/api/raftlease"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
 	workerstate "github.com/juju/juju/worker/state"
 )
+
+type Logger interface {
+	Errorf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
 
 const (
 	// MaxSleep is the longest the manager will sleep before checking
@@ -60,6 +71,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(lease.ManagerConfig) (worker.Worker, error)
 	NewStore             func(raftlease.StoreConfig) *raftlease.Store
+	NewClient            ClientFunc
 }
 
 // Validate checks that the config has all the required values.
@@ -93,6 +105,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.NewStore == nil {
 		return errors.NotValidf("nil NewStore")
+	}
+	if c.NewClient == nil {
+		return errors.NotValidf("nil NewClient")
 	}
 	return nil
 }
@@ -133,22 +148,46 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 
 	st := statePool.SystemState()
 
+	// We require the controller config to get the
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot fetch the controller config")
+	}
+
+	currentConfig := agent.CurrentConfig()
+	apiInfo, ok := currentConfig.APIInfo()
+	if !ok {
+		return nil, dependency.ErrMissing
+	}
+
+	clientType := PubsubClientType
+	if controllerConfig.Features().Contains(feature.RaftAPILeases) {
+		clientType = APIClientType
+	}
+
 	metrics := raftlease.NewOperationClientMetrics(clock)
+	client, err := s.config.NewClient(
+		clientType,
+		apiInfo,
+		hub,
+		s.config.RequestTopic,
+		clock,
+		metrics,
+		s.config.Logger,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	s.store = s.config.NewStore(raftlease.StoreConfig{
-		FSM:      s.config.FSM,
-		Trapdoor: st.LeaseTrapdoorFunc(),
-		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
-			Hub:            hub,
-			RequestTopic:   s.config.RequestTopic,
-			Clock:          clock,
-			ForwardTimeout: ForwardTimeout,
-			ClientMetrics:  metrics,
-		}),
+		FSM:              s.config.FSM,
+		Trapdoor:         st.LeaseTrapdoorFunc(),
+		Client:           client,
 		Clock:            clock,
 		MetricsCollector: metrics,
 	})
 
-	controllerUUID := agent.CurrentConfig().Controller().Id()
+	controllerUUID := currentConfig.Controller().Id()
 	w, err := s.config.NewWorker(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
 		Store:                s.store,
@@ -206,4 +245,56 @@ func NewWorker(config lease.ManagerConfig) (worker.Worker, error) {
 // NewStore is a shim to make a raftlease.Store for testability.
 func NewStore(config raftlease.StoreConfig) *raftlease.Store {
 	return raftlease.NewStore(config)
+}
+
+// ClientType defines the type of client we want to create.
+type ClientType string
+
+const (
+	// PubsubClientType will request a pubsub client.
+	PubsubClientType ClientType = "pubsub"
+	// APIClientType will request a API client.
+	APIClientType ClientType = "api-client"
+)
+
+// ClientFunc only exists until we can just one of the clients. Until then
+// we have to create this type.
+// TODO (stickupkid): Remove this once API Client type is battle tested and
+// we've deprecated pubsub client.
+type ClientFunc = func(ClientType, *api.Info, *pubsub.StructuredHub, string, clock.Clock, *raftlease.OperationClientMetrics, Logger) (raftlease.Client, error)
+
+// NewClientFunc returns a client depending on the type of feature flag
+// enablement.
+func NewClientFunc(clientType ClientType, apiInfo *api.Info,
+	hub *pubsub.StructuredHub,
+	requestTopic string,
+	clock clock.Clock,
+	metrics *raftlease.OperationClientMetrics,
+	logger Logger) (raftlease.Client, error) {
+
+	logger.Infof("Using lease client type %q for raft lease transport", clientType)
+
+	switch clientType {
+	case PubsubClientType:
+		return raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
+			Hub:            hub,
+			RequestTopic:   requestTopic,
+			Clock:          clock,
+			ForwardTimeout: ForwardTimeout,
+			ClientMetrics:  metrics,
+		}), nil
+	case APIClientType:
+		return apiraftlease.NewClient(apiraftlease.Config{
+			APIInfo:        apiInfo,
+			Hub:            hub,
+			ForwardTimeout: ForwardTimeout,
+			ClientMetrics:  metrics,
+			Logger:         logger,
+			NewRemote:      apiraftlease.NewRemote,
+			Random:         rand.New(rand.NewSource(clock.Now().UnixNano())),
+			Clock:          clock,
+		})
+	default:
+		return nil, errors.Errorf("unknown client type: %v", clientType)
+	}
 }

@@ -6,6 +6,8 @@ package application
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	v9 "github.com/juju/charm/v9"
 	params "github.com/juju/charmrepo/v7/csclient/params"
@@ -15,35 +17,35 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
+	v4 "github.com/juju/names/v4"
 	schema "github.com/juju/schema"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
-	reflect "reflect"
 )
 
-// MockApplication is a mock of Application interface
+// MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationMockRecorder
 }
 
-// MockApplicationMockRecorder is the mock recorder for MockApplication
+// MockApplicationMockRecorder is the mock recorder for MockApplication.
 type MockApplicationMockRecorder struct {
 	mock *MockApplication
 }
 
-// NewMockApplication creates a new mock instance
+// NewMockApplication creates a new mock instance.
 func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 	mock := &MockApplication{ctrl: ctrl}
 	mock.recorder = &MockApplicationMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
-// AddUnit mocks base method
+// AddUnit mocks base method.
 func (m *MockApplication) AddUnit(arg0 state.AddUnitParams) (Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUnit", arg0)
@@ -52,13 +54,13 @@ func (m *MockApplication) AddUnit(arg0 state.AddUnitParams) (Unit, error) {
 	return ret0, ret1
 }
 
-// AddUnit indicates an expected call of AddUnit
+// AddUnit indicates an expected call of AddUnit.
 func (mr *MockApplicationMockRecorder) AddUnit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnit", reflect.TypeOf((*MockApplication)(nil).AddUnit), arg0)
 }
 
-// AgentTools mocks base method
+// AgentTools mocks base method.
 func (m *MockApplication) AgentTools() (*tools.Tools, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentTools")
@@ -67,13 +69,13 @@ func (m *MockApplication) AgentTools() (*tools.Tools, error) {
 	return ret0, ret1
 }
 
-// AgentTools indicates an expected call of AgentTools
+// AgentTools indicates an expected call of AgentTools.
 func (mr *MockApplicationMockRecorder) AgentTools() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentTools", reflect.TypeOf((*MockApplication)(nil).AgentTools))
 }
 
-// AllUnits mocks base method
+// AllUnits mocks base method.
 func (m *MockApplication) AllUnits() ([]Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllUnits")
@@ -82,13 +84,13 @@ func (m *MockApplication) AllUnits() ([]Unit, error) {
 	return ret0, ret1
 }
 
-// AllUnits indicates an expected call of AllUnits
+// AllUnits indicates an expected call of AllUnits.
 func (mr *MockApplicationMockRecorder) AllUnits() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllUnits", reflect.TypeOf((*MockApplication)(nil).AllUnits))
 }
 
-// ApplicationConfig mocks base method
+// ApplicationConfig mocks base method.
 func (m *MockApplication) ApplicationConfig() (application0.ConfigAttributes, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationConfig")
@@ -97,13 +99,27 @@ func (m *MockApplication) ApplicationConfig() (application0.ConfigAttributes, er
 	return ret0, ret1
 }
 
-// ApplicationConfig indicates an expected call of ApplicationConfig
+// ApplicationConfig indicates an expected call of ApplicationConfig.
 func (mr *MockApplicationMockRecorder) ApplicationConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationConfig", reflect.TypeOf((*MockApplication)(nil).ApplicationConfig))
 }
 
-// ChangeScale mocks base method
+// ApplicationTag mocks base method.
+func (m *MockApplication) ApplicationTag() v4.ApplicationTag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationTag")
+	ret0, _ := ret[0].(v4.ApplicationTag)
+	return ret0
+}
+
+// ApplicationTag indicates an expected call of ApplicationTag.
+func (mr *MockApplicationMockRecorder) ApplicationTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTag", reflect.TypeOf((*MockApplication)(nil).ApplicationTag))
+}
+
+// ChangeScale mocks base method.
 func (m *MockApplication) ChangeScale(arg0 int) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeScale", arg0)
@@ -112,13 +128,13 @@ func (m *MockApplication) ChangeScale(arg0 int) (int, error) {
 	return ret0, ret1
 }
 
-// ChangeScale indicates an expected call of ChangeScale
+// ChangeScale indicates an expected call of ChangeScale.
 func (mr *MockApplicationMockRecorder) ChangeScale(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeScale", reflect.TypeOf((*MockApplication)(nil).ChangeScale), arg0)
 }
 
-// Channel mocks base method
+// Channel mocks base method.
 func (m *MockApplication) Channel() params.Channel {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Channel")
@@ -126,13 +142,13 @@ func (m *MockApplication) Channel() params.Channel {
 	return ret0
 }
 
-// Channel indicates an expected call of Channel
+// Channel indicates an expected call of Channel.
 func (mr *MockApplicationMockRecorder) Channel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Channel", reflect.TypeOf((*MockApplication)(nil).Channel))
 }
 
-// Charm mocks base method
+// Charm mocks base method.
 func (m *MockApplication) Charm() (Charm, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm")
@@ -142,7 +158,7 @@ func (m *MockApplication) Charm() (Charm, bool, error) {
 	return ret0, ret1, ret2
 }
 
-// Charm indicates an expected call of Charm
+// Charm indicates an expected call of Charm.
 func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockApplication)(nil).Charm))
@@ -157,13 +173,13 @@ func (m *MockApplication) CharmConfig(arg0 string) (v9.Settings, error) {
 	return ret0, ret1
 }
 
-// CharmConfig indicates an expected call of CharmConfig
+// CharmConfig indicates an expected call of CharmConfig.
 func (mr *MockApplicationMockRecorder) CharmConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfig", reflect.TypeOf((*MockApplication)(nil).CharmConfig), arg0)
 }
 
-// CharmOrigin mocks base method
+// CharmOrigin mocks base method.
 func (m *MockApplication) CharmOrigin() *state.CharmOrigin {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmOrigin")
@@ -171,7 +187,7 @@ func (m *MockApplication) CharmOrigin() *state.CharmOrigin {
 	return ret0
 }
 
-// CharmOrigin indicates an expected call of CharmOrigin
+// CharmOrigin indicates an expected call of CharmOrigin.
 func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmOrigin", reflect.TypeOf((*MockApplication)(nil).CharmOrigin))
@@ -186,13 +202,13 @@ func (m *MockApplication) CharmURL() (*v9.URL, bool) {
 	return ret0, ret1
 }
 
-// CharmURL indicates an expected call of CharmURL
+// CharmURL indicates an expected call of CharmURL.
 func (mr *MockApplicationMockRecorder) CharmURL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockApplication)(nil).CharmURL))
 }
 
-// ClearExposed mocks base method
+// ClearExposed mocks base method.
 func (m *MockApplication) ClearExposed() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClearExposed")
@@ -200,13 +216,13 @@ func (m *MockApplication) ClearExposed() error {
 	return ret0
 }
 
-// ClearExposed indicates an expected call of ClearExposed
+// ClearExposed indicates an expected call of ClearExposed.
 func (mr *MockApplicationMockRecorder) ClearExposed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearExposed", reflect.TypeOf((*MockApplication)(nil).ClearExposed))
 }
 
-// Constraints mocks base method
+// Constraints mocks base method.
 func (m *MockApplication) Constraints() (constraints.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Constraints")
@@ -215,13 +231,13 @@ func (m *MockApplication) Constraints() (constraints.Value, error) {
 	return ret0, ret1
 }
 
-// Constraints indicates an expected call of Constraints
+// Constraints indicates an expected call of Constraints.
 func (mr *MockApplicationMockRecorder) Constraints() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockApplication)(nil).Constraints))
 }
 
-// Destroy mocks base method
+// Destroy mocks base method.
 func (m *MockApplication) Destroy() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy")
@@ -229,13 +245,13 @@ func (m *MockApplication) Destroy() error {
 	return ret0
 }
 
-// Destroy indicates an expected call of Destroy
+// Destroy indicates an expected call of Destroy.
 func (mr *MockApplicationMockRecorder) Destroy() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy))
 }
 
-// DestroyOperation mocks base method
+// DestroyOperation mocks base method.
 func (m *MockApplication) DestroyOperation() *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyOperation")
@@ -243,13 +259,13 @@ func (m *MockApplication) DestroyOperation() *state.DestroyApplicationOperation 
 	return ret0
 }
 
-// DestroyOperation indicates an expected call of DestroyOperation
+// DestroyOperation indicates an expected call of DestroyOperation.
 func (mr *MockApplicationMockRecorder) DestroyOperation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation))
 }
 
-// EndpointBindings mocks base method
+// EndpointBindings mocks base method.
 func (m *MockApplication) EndpointBindings() (Bindings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EndpointBindings")
@@ -258,13 +274,13 @@ func (m *MockApplication) EndpointBindings() (Bindings, error) {
 	return ret0, ret1
 }
 
-// EndpointBindings indicates an expected call of EndpointBindings
+// EndpointBindings indicates an expected call of EndpointBindings.
 func (mr *MockApplicationMockRecorder) EndpointBindings() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings))
 }
 
-// Endpoints mocks base method
+// Endpoints mocks base method.
 func (m *MockApplication) Endpoints() ([]state.Endpoint, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Endpoints")
@@ -273,13 +289,13 @@ func (m *MockApplication) Endpoints() ([]state.Endpoint, error) {
 	return ret0, ret1
 }
 
-// Endpoints indicates an expected call of Endpoints
+// Endpoints indicates an expected call of Endpoints.
 func (mr *MockApplicationMockRecorder) Endpoints() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoints", reflect.TypeOf((*MockApplication)(nil).Endpoints))
 }
 
-// ExposedEndpoints mocks base method
+// ExposedEndpoints mocks base method.
 func (m *MockApplication) ExposedEndpoints() map[string]state.ExposedEndpoint {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExposedEndpoints")
@@ -287,13 +303,13 @@ func (m *MockApplication) ExposedEndpoints() map[string]state.ExposedEndpoint {
 	return ret0
 }
 
-// ExposedEndpoints indicates an expected call of ExposedEndpoints
+// ExposedEndpoints indicates an expected call of ExposedEndpoints.
 func (mr *MockApplicationMockRecorder) ExposedEndpoints() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposedEndpoints", reflect.TypeOf((*MockApplication)(nil).ExposedEndpoints))
 }
 
-// IsExposed mocks base method
+// IsExposed mocks base method.
 func (m *MockApplication) IsExposed() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsExposed")
@@ -301,13 +317,13 @@ func (m *MockApplication) IsExposed() bool {
 	return ret0
 }
 
-// IsExposed indicates an expected call of IsExposed
+// IsExposed indicates an expected call of IsExposed.
 func (mr *MockApplicationMockRecorder) IsExposed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExposed", reflect.TypeOf((*MockApplication)(nil).IsExposed))
 }
 
-// IsPrincipal mocks base method
+// IsPrincipal mocks base method.
 func (m *MockApplication) IsPrincipal() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsPrincipal")
@@ -315,13 +331,13 @@ func (m *MockApplication) IsPrincipal() bool {
 	return ret0
 }
 
-// IsPrincipal indicates an expected call of IsPrincipal
+// IsPrincipal indicates an expected call of IsPrincipal.
 func (mr *MockApplicationMockRecorder) IsPrincipal() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsPrincipal", reflect.TypeOf((*MockApplication)(nil).IsPrincipal))
 }
 
-// IsRemote mocks base method
+// IsRemote mocks base method.
 func (m *MockApplication) IsRemote() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsRemote")
@@ -329,13 +345,13 @@ func (m *MockApplication) IsRemote() bool {
 	return ret0
 }
 
-// IsRemote indicates an expected call of IsRemote
+// IsRemote indicates an expected call of IsRemote.
 func (mr *MockApplicationMockRecorder) IsRemote() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRemote", reflect.TypeOf((*MockApplication)(nil).IsRemote))
 }
 
-// MergeBindings mocks base method
+// MergeBindings mocks base method.
 func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MergeBindings", arg0, arg1)
@@ -343,13 +359,13 @@ func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
 	return ret0
 }
 
-// MergeBindings indicates an expected call of MergeBindings
+// MergeBindings indicates an expected call of MergeBindings.
 func (mr *MockApplicationMockRecorder) MergeBindings(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeBindings", reflect.TypeOf((*MockApplication)(nil).MergeBindings), arg0, arg1)
 }
 
-// MergeExposeSettings mocks base method
+// MergeExposeSettings mocks base method.
 func (m *MockApplication) MergeExposeSettings(arg0 map[string]state.ExposedEndpoint) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MergeExposeSettings", arg0)
@@ -357,13 +373,13 @@ func (m *MockApplication) MergeExposeSettings(arg0 map[string]state.ExposedEndpo
 	return ret0
 }
 
-// MergeExposeSettings indicates an expected call of MergeExposeSettings
+// MergeExposeSettings indicates an expected call of MergeExposeSettings.
 func (mr *MockApplicationMockRecorder) MergeExposeSettings(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeExposeSettings", reflect.TypeOf((*MockApplication)(nil).MergeExposeSettings), arg0)
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockApplication) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -371,13 +387,13 @@ func (m *MockApplication) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockApplicationMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockApplication)(nil).Name))
 }
 
-// Relations mocks base method
+// Relations mocks base method.
 func (m *MockApplication) Relations() ([]Relation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Relations")
@@ -386,13 +402,13 @@ func (m *MockApplication) Relations() ([]Relation, error) {
 	return ret0, ret1
 }
 
-// Relations indicates an expected call of Relations
+// Relations indicates an expected call of Relations.
 func (mr *MockApplicationMockRecorder) Relations() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relations", reflect.TypeOf((*MockApplication)(nil).Relations))
 }
 
-// Series mocks base method
+// Series mocks base method.
 func (m *MockApplication) Series() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Series")
@@ -400,13 +416,13 @@ func (m *MockApplication) Series() string {
 	return ret0
 }
 
-// Series indicates an expected call of Series
+// Series indicates an expected call of Series.
 func (mr *MockApplicationMockRecorder) Series() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockApplication)(nil).Series))
 }
 
-// SetCharm mocks base method
+// SetCharm mocks base method.
 func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetCharm", arg0)
@@ -414,13 +430,13 @@ func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig) error {
 	return ret0
 }
 
-// SetCharm indicates an expected call of SetCharm
+// SetCharm indicates an expected call of SetCharm.
 func (mr *MockApplicationMockRecorder) SetCharm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0)
 }
 
-// SetConstraints mocks base method
+// SetConstraints mocks base method.
 func (m *MockApplication) SetConstraints(arg0 constraints.Value) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetConstraints", arg0)
@@ -428,13 +444,13 @@ func (m *MockApplication) SetConstraints(arg0 constraints.Value) error {
 	return ret0
 }
 
-// SetConstraints indicates an expected call of SetConstraints
+// SetConstraints indicates an expected call of SetConstraints.
 func (mr *MockApplicationMockRecorder) SetConstraints(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockApplication)(nil).SetConstraints), arg0)
 }
 
-// SetMetricCredentials mocks base method
+// SetMetricCredentials mocks base method.
 func (m *MockApplication) SetMetricCredentials(arg0 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMetricCredentials", arg0)
@@ -442,13 +458,13 @@ func (m *MockApplication) SetMetricCredentials(arg0 []byte) error {
 	return ret0
 }
 
-// SetMetricCredentials indicates an expected call of SetMetricCredentials
+// SetMetricCredentials indicates an expected call of SetMetricCredentials.
 func (mr *MockApplicationMockRecorder) SetMetricCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMetricCredentials", reflect.TypeOf((*MockApplication)(nil).SetMetricCredentials), arg0)
 }
 
-// SetMinUnits mocks base method
+// SetMinUnits mocks base method.
 func (m *MockApplication) SetMinUnits(arg0 int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMinUnits", arg0)
@@ -456,13 +472,13 @@ func (m *MockApplication) SetMinUnits(arg0 int) error {
 	return ret0
 }
 
-// SetMinUnits indicates an expected call of SetMinUnits
+// SetMinUnits indicates an expected call of SetMinUnits.
 func (mr *MockApplicationMockRecorder) SetMinUnits(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMinUnits", reflect.TypeOf((*MockApplication)(nil).SetMinUnits), arg0)
 }
 
-// SetScale mocks base method
+// SetScale mocks base method.
 func (m *MockApplication) SetScale(arg0 int, arg1 int64, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetScale", arg0, arg1, arg2)
@@ -470,13 +486,13 @@ func (m *MockApplication) SetScale(arg0 int, arg1 int64, arg2 bool) error {
 	return ret0
 }
 
-// SetScale indicates an expected call of SetScale
+// SetScale indicates an expected call of SetScale.
 func (mr *MockApplicationMockRecorder) SetScale(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetScale", reflect.TypeOf((*MockApplication)(nil).SetScale), arg0, arg1, arg2)
 }
 
-// UnsetExposeSettings mocks base method
+// UnsetExposeSettings mocks base method.
 func (m *MockApplication) UnsetExposeSettings(arg0 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnsetExposeSettings", arg0)
@@ -484,7 +500,7 @@ func (m *MockApplication) UnsetExposeSettings(arg0 []string) error {
 	return ret0
 }
 
-// UnsetExposeSettings indicates an expected call of UnsetExposeSettings
+// UnsetExposeSettings indicates an expected call of UnsetExposeSettings.
 func (mr *MockApplicationMockRecorder) UnsetExposeSettings(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetExposeSettings", reflect.TypeOf((*MockApplication)(nil).UnsetExposeSettings), arg0)
@@ -498,13 +514,13 @@ func (m *MockApplication) UpdateApplicationConfig(arg0 application0.ConfigAttrib
 	return ret0
 }
 
-// UpdateApplicationConfig indicates an expected call of UpdateApplicationConfig
+// UpdateApplicationConfig indicates an expected call of UpdateApplicationConfig.
 func (mr *MockApplicationMockRecorder) UpdateApplicationConfig(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationConfig", reflect.TypeOf((*MockApplication)(nil).UpdateApplicationConfig), arg0, arg1, arg2, arg3)
 }
 
-// UpdateApplicationSeries mocks base method
+// UpdateApplicationSeries mocks base method.
 func (m *MockApplication) UpdateApplicationSeries(arg0 string, arg1 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationSeries", arg0, arg1)
@@ -512,7 +528,7 @@ func (m *MockApplication) UpdateApplicationSeries(arg0 string, arg1 bool) error 
 	return ret0
 }
 
-// UpdateApplicationSeries indicates an expected call of UpdateApplicationSeries
+// UpdateApplicationSeries indicates an expected call of UpdateApplicationSeries.
 func (mr *MockApplicationMockRecorder) UpdateApplicationSeries(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationSeries", reflect.TypeOf((*MockApplication)(nil).UpdateApplicationSeries), arg0, arg1)
@@ -526,31 +542,31 @@ func (m *MockApplication) UpdateCharmConfig(arg0 string, arg1 v9.Settings) error
 	return ret0
 }
 
-// UpdateCharmConfig indicates an expected call of UpdateCharmConfig
+// UpdateCharmConfig indicates an expected call of UpdateCharmConfig.
 func (mr *MockApplicationMockRecorder) UpdateCharmConfig(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCharmConfig", reflect.TypeOf((*MockApplication)(nil).UpdateCharmConfig), arg0, arg1)
 }
 
-// MockCharm is a mock of Charm interface
+// MockCharm is a mock of Charm interface.
 type MockCharm struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmMockRecorder
 }
 
-// MockCharmMockRecorder is the mock recorder for MockCharm
+// MockCharmMockRecorder is the mock recorder for MockCharm.
 type MockCharmMockRecorder struct {
 	mock *MockCharm
 }
 
-// NewMockCharm creates a new mock instance
+// NewMockCharm creates a new mock instance.
 func NewMockCharm(ctrl *gomock.Controller) *MockCharm {
 	mock := &MockCharm{ctrl: ctrl}
 	mock.recorder = &MockCharmMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
 }
@@ -563,7 +579,7 @@ func (m *MockCharm) Actions() *v9.Actions {
 	return ret0
 }
 
-// Actions indicates an expected call of Actions
+// Actions indicates an expected call of Actions.
 func (mr *MockCharmMockRecorder) Actions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockCharm)(nil).Actions))
@@ -577,7 +593,7 @@ func (m *MockCharm) Config() *v9.Config {
 	return ret0
 }
 
-// Config indicates an expected call of Config
+// Config indicates an expected call of Config.
 func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCharm)(nil).Config))
@@ -591,7 +607,7 @@ func (m *MockCharm) Manifest() *v9.Manifest {
 	return ret0
 }
 
-// Manifest indicates an expected call of Manifest
+// Manifest indicates an expected call of Manifest.
 func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Manifest", reflect.TypeOf((*MockCharm)(nil).Manifest))
@@ -605,7 +621,7 @@ func (m *MockCharm) Meta() *v9.Meta {
 	return ret0
 }
 
-// Meta indicates an expected call of Meta
+// Meta indicates an expected call of Meta.
 func (mr *MockCharmMockRecorder) Meta() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharm)(nil).Meta))
@@ -619,13 +635,13 @@ func (m *MockCharm) Metrics() *v9.Metrics {
 	return ret0
 }
 
-// Metrics indicates an expected call of Metrics
+// Metrics indicates an expected call of Metrics.
 func (mr *MockCharmMockRecorder) Metrics() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockCharm)(nil).Metrics))
 }
 
-// Revision mocks base method
+// Revision mocks base method.
 func (m *MockCharm) Revision() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Revision")
@@ -633,13 +649,13 @@ func (m *MockCharm) Revision() int {
 	return ret0
 }
 
-// Revision indicates an expected call of Revision
+// Revision indicates an expected call of Revision.
 func (mr *MockCharmMockRecorder) Revision() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revision", reflect.TypeOf((*MockCharm)(nil).Revision))
 }
 
-// String mocks base method
+// String mocks base method.
 func (m *MockCharm) String() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "String")
@@ -647,7 +663,7 @@ func (m *MockCharm) String() string {
 	return ret0
 }
 
-// String indicates an expected call of String
+// String indicates an expected call of String.
 func (mr *MockCharmMockRecorder) String() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockCharm)(nil).String))
@@ -661,36 +677,36 @@ func (m *MockCharm) URL() *v9.URL {
 	return ret0
 }
 
-// URL indicates an expected call of URL
+// URL indicates an expected call of URL.
 func (mr *MockCharmMockRecorder) URL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockCharm)(nil).URL))
 }
 
-// MockCharmMeta is a mock of CharmMeta interface
+// MockCharmMeta is a mock of CharmMeta interface.
 type MockCharmMeta struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmMetaMockRecorder
 }
 
-// MockCharmMetaMockRecorder is the mock recorder for MockCharmMeta
+// MockCharmMetaMockRecorder is the mock recorder for MockCharmMeta.
 type MockCharmMetaMockRecorder struct {
 	mock *MockCharmMeta
 }
 
-// NewMockCharmMeta creates a new mock instance
+// NewMockCharmMeta creates a new mock instance.
 func NewMockCharmMeta(ctrl *gomock.Controller) *MockCharmMeta {
 	mock := &MockCharmMeta{ctrl: ctrl}
 	mock.recorder = &MockCharmMetaMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmMeta) EXPECT() *MockCharmMetaMockRecorder {
 	return m.recorder
 }
 
-// ComputedSeries mocks base method
+// ComputedSeries mocks base method.
 func (m *MockCharmMeta) ComputedSeries() []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ComputedSeries")
@@ -698,36 +714,36 @@ func (m *MockCharmMeta) ComputedSeries() []string {
 	return ret0
 }
 
-// ComputedSeries indicates an expected call of ComputedSeries
+// ComputedSeries indicates an expected call of ComputedSeries.
 func (mr *MockCharmMetaMockRecorder) ComputedSeries() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComputedSeries", reflect.TypeOf((*MockCharmMeta)(nil).ComputedSeries))
 }
 
-// MockUpdateSeriesState is a mock of UpdateSeriesState interface
+// MockUpdateSeriesState is a mock of UpdateSeriesState interface.
 type MockUpdateSeriesState struct {
 	ctrl     *gomock.Controller
 	recorder *MockUpdateSeriesStateMockRecorder
 }
 
-// MockUpdateSeriesStateMockRecorder is the mock recorder for MockUpdateSeriesState
+// MockUpdateSeriesStateMockRecorder is the mock recorder for MockUpdateSeriesState.
 type MockUpdateSeriesStateMockRecorder struct {
 	mock *MockUpdateSeriesState
 }
 
-// NewMockUpdateSeriesState creates a new mock instance
+// NewMockUpdateSeriesState creates a new mock instance.
 func NewMockUpdateSeriesState(ctrl *gomock.Controller) *MockUpdateSeriesState {
 	mock := &MockUpdateSeriesState{ctrl: ctrl}
 	mock.recorder = &MockUpdateSeriesStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUpdateSeriesState) EXPECT() *MockUpdateSeriesStateMockRecorder {
 	return m.recorder
 }
 
-// Application mocks base method
+// Application mocks base method.
 func (m *MockUpdateSeriesState) Application(arg0 string) (Application, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0)
@@ -736,36 +752,36 @@ func (m *MockUpdateSeriesState) Application(arg0 string) (Application, error) {
 	return ret0, ret1
 }
 
-// Application indicates an expected call of Application
+// Application indicates an expected call of Application.
 func (mr *MockUpdateSeriesStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockUpdateSeriesState)(nil).Application), arg0)
 }
 
-// MockUpdateSeriesValidator is a mock of UpdateSeriesValidator interface
+// MockUpdateSeriesValidator is a mock of UpdateSeriesValidator interface.
 type MockUpdateSeriesValidator struct {
 	ctrl     *gomock.Controller
 	recorder *MockUpdateSeriesValidatorMockRecorder
 }
 
-// MockUpdateSeriesValidatorMockRecorder is the mock recorder for MockUpdateSeriesValidator
+// MockUpdateSeriesValidatorMockRecorder is the mock recorder for MockUpdateSeriesValidator.
 type MockUpdateSeriesValidatorMockRecorder struct {
 	mock *MockUpdateSeriesValidator
 }
 
-// NewMockUpdateSeriesValidator creates a new mock instance
+// NewMockUpdateSeriesValidator creates a new mock instance.
 func NewMockUpdateSeriesValidator(ctrl *gomock.Controller) *MockUpdateSeriesValidator {
 	mock := &MockUpdateSeriesValidator{ctrl: ctrl}
 	mock.recorder = &MockUpdateSeriesValidatorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUpdateSeriesValidator) EXPECT() *MockUpdateSeriesValidatorMockRecorder {
 	return m.recorder
 }
 
-// ValidateApplication mocks base method
+// ValidateApplication mocks base method.
 func (m *MockUpdateSeriesValidator) ValidateApplication(arg0 Application, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateApplication", arg0, arg1, arg2)
@@ -773,36 +789,36 @@ func (m *MockUpdateSeriesValidator) ValidateApplication(arg0 Application, arg1 s
 	return ret0
 }
 
-// ValidateApplication indicates an expected call of ValidateApplication
+// ValidateApplication indicates an expected call of ValidateApplication.
 func (mr *MockUpdateSeriesValidatorMockRecorder) ValidateApplication(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateApplication", reflect.TypeOf((*MockUpdateSeriesValidator)(nil).ValidateApplication), arg0, arg1, arg2)
 }
 
-// MockCharmhubClient is a mock of CharmhubClient interface
+// MockCharmhubClient is a mock of CharmhubClient interface.
 type MockCharmhubClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmhubClientMockRecorder
 }
 
-// MockCharmhubClientMockRecorder is the mock recorder for MockCharmhubClient
+// MockCharmhubClientMockRecorder is the mock recorder for MockCharmhubClient.
 type MockCharmhubClientMockRecorder struct {
 	mock *MockCharmhubClient
 }
 
-// NewMockCharmhubClient creates a new mock instance
+// NewMockCharmhubClient creates a new mock instance.
 func NewMockCharmhubClient(ctrl *gomock.Controller) *MockCharmhubClient {
 	mock := &MockCharmhubClient{ctrl: ctrl}
 	mock.recorder = &MockCharmhubClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmhubClient) EXPECT() *MockCharmhubClientMockRecorder {
 	return m.recorder
 }
 
-// Refresh mocks base method
+// Refresh mocks base method.
 func (m *MockCharmhubClient) Refresh(arg0 context.Context, arg1 charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
@@ -811,7 +827,7 @@ func (m *MockCharmhubClient) Refresh(arg0 context.Context, arg1 charmhub.Refresh
 	return ret0, ret1
 }
 
-// Refresh indicates an expected call of Refresh
+// Refresh indicates an expected call of Refresh.
 func (mr *MockCharmhubClientMockRecorder) Refresh(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockCharmhubClient)(nil).Refresh), arg0, arg1)

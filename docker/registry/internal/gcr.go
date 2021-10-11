@@ -19,7 +19,7 @@ type googleContainerRegistry struct {
 }
 
 func newGoogleContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport)
+	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
 	return &googleContainerRegistry{c}
 }
 
