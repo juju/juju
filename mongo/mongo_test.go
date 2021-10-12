@@ -114,7 +114,6 @@ func (s *MongoSuite) expectNoLegacyMongo() {
 func (s *MongoSuite) expectMongoSnapInstalled() {
 	mExp := s.mongoSnapService.EXPECT()
 	mExp.Installed().Return(true, nil)
-	mExp.Exists().Return(true, nil)
 	mExp.Running().Return(true, nil)
 
 	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {

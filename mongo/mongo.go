@@ -334,17 +334,10 @@ func checkInstalled(svc MongoSnapService) error {
 	if !installed {
 		return nil
 	}
-	// Exists() does a check against the contents of the service config file.
-	// The return value is true iff the content is the same.
-	exists, err := svc.Exists()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !exists {
-		logger.Debugf("updating mongo service configuration")
-		return nil
-	}
-	logger.Debugf("mongo exists as expected")
+	// Do not attempt to svc.Ensure().  It is not implemented
+	// for snap.  Nor is the config between juju-db 4.4.x is
+	// compatible with juju-db 4.0.x, e.g. tlsCertificateKeyFile
+	// etc.
 	running, err := svc.Running()
 	if err != nil {
 		return errors.Trace(err)
