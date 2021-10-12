@@ -5,19 +5,16 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
-	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -93,7 +90,6 @@ func (u *upgradeCAASOperatorBridge) Namespace() string {
 func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBroker) (func() (bool, error), error) {
 	deploymentName := broker.DeploymentName(appName, true)
 
-	var data []byte
 	var selector labels.Set
 	podChecker := func(appName string,
 		labelSet labels.Set,
@@ -139,10 +135,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		if err := ensureJujuInitContainer(&sResource.Spec.Template.Spec, imagePath); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if data, err = json.Marshal(apps.StatefulSet{Spec: sResource.Spec}); err != nil {
-			return nil, errors.Trace(err)
-		}
-		_, err = ssInterface.Patch(context.TODO(), sResource.GetName(), types.StrategicMergePatchType, data, meta.PatchOptions{})
+		_, err = ssInterface.Update(context.TODO(), sResource, meta.UpdateOptions{})
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 
@@ -155,10 +148,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		if err := ensureJujuInitContainer(&deResource.Spec.Template.Spec, imagePath); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if data, err = json.Marshal(apps.Deployment{Spec: deResource.Spec}); err != nil {
-			return nil, errors.Trace(err)
-		}
-		_, err = deInterface.Patch(context.TODO(), deResource.GetName(), types.StrategicMergePatchType, data, meta.PatchOptions{})
+		_, err = deInterface.Update(context.TODO(), deResource, meta.UpdateOptions{})
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 
@@ -171,10 +161,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		if err := ensureJujuInitContainer(&dsResource.Spec.Template.Spec, imagePath); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if data, err = json.Marshal(apps.DaemonSet{Spec: dsResource.Spec}); err != nil {
-			return nil, errors.Trace(err)
-		}
-		_, err = dsInterface.Patch(context.TODO(), dsResource.GetName(), types.StrategicMergePatchType, data, meta.PatchOptions{})
+		_, err = dsInterface.Update(context.TODO(), dsResource, meta.UpdateOptions{})
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 
