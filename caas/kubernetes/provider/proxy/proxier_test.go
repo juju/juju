@@ -35,3 +35,20 @@ func (p *proxySuite) TestProxierMarshalling(c *gc.C) {
 
 	c.Assert(unmarshalledConfig, jc.DeepEquals, config)
 }
+
+func (p *proxySuite) TestSetAPIHost(c *gc.C) {
+	config := proxy.ProxierConfig{
+		APIHost: "https://localhost:1234",
+	}
+
+	proxier := proxy.NewProxier(config)
+	proxier.SetAPIHost("https://localhost:666")
+	yamlConf, err := yaml.Marshal(proxier)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unmarshalledConfig := proxy.ProxierConfig{}
+	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), jc.ErrorIsNil)
+
+	config.APIHost = "https://localhost:666"
+	c.Assert(unmarshalledConfig, jc.DeepEquals, config)
+}

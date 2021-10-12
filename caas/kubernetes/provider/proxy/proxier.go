@@ -4,10 +4,14 @@
 package proxy
 
 import (
+	"net"
+	"net/url"
+
 	"github.com/juju/errors"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
+	proxyerrors "github.com/juju/juju/proxy/errors"
 )
 
 type Proxier struct {
@@ -59,6 +63,12 @@ func NewProxierFromRawConfig(rawConf interface{}) (*Proxier, error) {
 	return NewProxier(*conf), nil
 }
 
+// SetAPIHost updates the proxy info to use a different host address.
+func (p *Proxier) SetAPIHost(host string) {
+	p.restConfig.Host = host
+	p.config.APIHost = host
+}
+
 func (p *Proxier) MarshalYAML() (interface{}, error) {
 	return &p.config, nil
 }
@@ -67,7 +77,7 @@ func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
 }
 
-func (p *Proxier) Start() error {
+func (p *Proxier) Start() (err error) {
 	tunnel, err := kubernetes.NewTunnelForConfig(
 		&p.restConfig,
 		kubernetes.TunnelKindServices,
@@ -81,7 +91,18 @@ func (p *Proxier) Start() error {
 	}
 	p.tunnel = tunnel
 
-	return p.tunnel.ForwardPort()
+	defer func() {
+		err = errors.Annotate(err, "connecting k8s proxy")
+	}()
+	err = p.tunnel.ForwardPort()
+	urlErr, ok := errors.Cause(err).(*url.Error)
+	if !ok {
+		return err
+	}
+	if _, ok = urlErr.Err.(*net.OpError); !ok {
+		return err
+	}
+	return proxyerrors.NewProxyConnectError(err, p.Type())
 }
 
 func (p *Proxier) Stop() {

@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	NewProxierFactory func() (*proxy.Factory, error) = proxy.NewDefaultFactory
+	NewProxierFactory = proxy.NewDefaultFactory
 )
 
 // ProxyConfWrapper is wrapper around proxier interfaces so that they can be
