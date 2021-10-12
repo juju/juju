@@ -358,7 +358,7 @@ def raise_if_shared_machines(unit_machines):
     if not unit_machines:
         raise ValueError('Cannot share 0 machines. Empty list provided.')
     if len(unit_machines) != len(set(unit_machines)):
-        raise JujuAssertionError('Appliction units reside on the same machine')
+        raise JujuAssertionError('Application units reside on the same machine')
 
 
 def ensure_model_logs_are_migrated(source_client, dest_client, timeout=600):
