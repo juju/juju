@@ -139,6 +139,20 @@ func (m *MockCharmhubRefreshClient) EXPECT() *MockCharmhubRefreshClientMockRecor
 	return m.recorder
 }
 
+// RefreshWithMetricsOnly mocks base method.
+func (m *MockCharmhubRefreshClient) RefreshWithMetricsOnly(arg0 context.Context, arg1 map[metrics.MetricKey]map[metrics.MetricKey]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RefreshWithMetricsOnly", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RefreshWithMetricsOnly indicates an expected call of RefreshWithMetricsOnly.
+func (mr *MockCharmhubRefreshClientMockRecorder) RefreshWithMetricsOnly(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshWithMetricsOnly", reflect.TypeOf((*MockCharmhubRefreshClient)(nil).RefreshWithMetricsOnly), arg0, arg1)
+}
+
 // RefreshWithRequestMetrics mocks base method.
 func (m *MockCharmhubRefreshClient) RefreshWithRequestMetrics(arg0 context.Context, arg1 charmhub.RefreshConfig, arg2 map[metrics.MetricKey]map[metrics.MetricKey]string) ([]transport.RefreshResponse, error) {
 	m.ctrl.T.Helper()

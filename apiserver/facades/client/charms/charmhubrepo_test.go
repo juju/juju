@@ -397,10 +397,10 @@ func (m RefreshConfgMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	cb, _, err := m.Config.Build()
+	cb, err := m.Config.Build()
 	m.c.Assert(err, jc.ErrorIsNil)
 
-	rcb, _, err := rc.Build()
+	rcb, err := rc.Build()
 	m.c.Assert(err, jc.ErrorIsNil)
 	m.c.Assert(len(cb.Actions), gc.Equals, len(rcb.Actions))
 
@@ -435,7 +435,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -468,7 +468,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -500,7 +500,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -535,7 +535,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
