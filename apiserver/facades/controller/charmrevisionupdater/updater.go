@@ -156,10 +156,10 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 
 	// If there are no applications, exit now, check telemetry for additional work.
 	if len(applications) == 0 {
-		if telemetry {
-			return nil, api.sendEmptyModelMetrics()
+		if !telemetry {
+			return nil, nil
 		}
-		return nil, nil
+		return nil, errors.Trace(api.sendEmptyModelMetrics())
 	}
 
 	// Partition the charms into charmhub vs charmstore so we can query each
