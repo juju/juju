@@ -1431,6 +1431,7 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.Relat
 	}
 
 	// Start the worker which will watch the remote relation for things like new networks.
+	// We use ReplaceWorker since the relation may have been removed and we are re-adding it.
 	if err := fw.relationWorkerRunner.StartWorker(tag.Id(), func() (worker.Worker, error) {
 		if err := catacomb.Invoke(catacomb.Plan{
 			Site: &data.catacomb,
@@ -1661,7 +1662,7 @@ func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
 	delete(fw.relationIngress, data.tag)
 	// There's not much we can do if there's an error stopping the remote
 	// relation worker, so just log it.
-	if err := fw.relationWorkerRunner.StopWorker(data.tag.Id()); err != nil {
+	if err := fw.relationWorkerRunner.StopAndRemoveWorker(data.tag.Id(), fw.catacomb.Dying()); err != nil {
 		fw.logger.Errorf("error stopping remote relation worker for %s: %v", data.tag, err)
 	}
 	fw.logger.Debugf("stopped watching %q", data.tag)

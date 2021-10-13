@@ -23,7 +23,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.externalcontrollerupdater")
 
-// ExternalControllerWatcherClient defines the interface for watching changes
+// ExternalControllerUpdaterClient defines the interface for watching changes
 // to the local controller's external controller records, and obtaining and
 // updating their values. This will communicate only with the local controller.
 type ExternalControllerUpdaterClient interface {
@@ -141,7 +141,7 @@ func (w *updaterWorker) loop() error {
 				// is added or removed, so treat as a toggle.
 				if watchers.Contains(tag) {
 					logger.Infof("stopping watcher for external controller %q", tag.Id())
-					_ = w.runner.StopWorker(tag.Id())
+					_ = w.runner.StopAndRemoveWorker(tag.Id(), w.catacomb.Dying())
 					watchers.Remove(tag)
 					continue
 				}

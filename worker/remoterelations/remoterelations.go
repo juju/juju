@@ -272,23 +272,14 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		if appGone || offerChanged {
 			// The remote application has been removed, stop its worker.
 			logger.Debugf("saas application %q gone from offering model", name)
-			existingWorker, err := w.runner.Worker(name, w.catacomb.Dying())
-			if err != nil {
-				w.logger.Warningf("error getting existing saas worker for %q", name, err)
-			}
-			if existingWorker != nil {
-				existingWorker.Kill()
-				if err := existingWorker.Wait(); err != nil {
-					w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
-				}
+			err := w.runner.StopAndRemoveWorker(name, w.catacomb.Dying())
+			if err != nil && !errors.IsNotFound(err) {
+				w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
 			}
 			delete(w.offerUUIDs, name)
 			if appGone {
 				continue
 			}
-		} else if _, err := w.runner.Worker(name, w.catacomb.Dying()); err == nil {
-			w.logger.Debugf("already running remote application worker for %q", name)
-			continue
 		}
 
 		startFunc := func() (worker.Worker, error) {
@@ -317,8 +308,13 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 
 		logger.Debugf("starting watcher for remote application %q", name)
 		// Start the application worker to watch for things like new relations.
+		w.offerUUIDs[name] = remoteApp.OfferUUID
 		if err := w.runner.StartWorker(name, startFunc); err != nil {
-			return errors.Annotate(err, "error starting remote application worker")
+			if errors.IsAlreadyExists(err) {
+				w.logger.Debugf("already running remote application worker for %q", name)
+			} else if err != nil {
+				return errors.Annotate(err, "error starting remote application worker")
+			}
 		}
 		w.offerUUIDs[name] = remoteApp.OfferUUID
 	}

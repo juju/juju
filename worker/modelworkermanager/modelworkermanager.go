@@ -226,7 +226,7 @@ func (m *modelWorkerManager) loop() error {
 
 func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 	starter := m.starter(cfg)
-	if err := m.runner.StartWorker(cfg.ModelUUID, starter); err != nil {
+	if err := m.runner.StartWorker(cfg.ModelUUID, starter); !errors.IsAlreadyExists(err) {
 		return errors.Trace(err)
 	}
 	return nil

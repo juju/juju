@@ -150,14 +150,15 @@ func (p *provisioner) loop() error {
 				if errors.IsNotFound(err) {
 					// Ignore.
 				} else if err == worker.ErrDead {
-					existingWorker = nil
+					// Runner is dying so we need to stop processing.
+					break
 				} else if err != nil {
 					return errors.Trace(err)
 				}
 
 				if existingWorker != nil {
-					worker := existingWorker.(appNotifyWorker)
-					worker.Notify()
+					w := existingWorker.(appNotifyWorker)
+					w.Notify()
 					continue
 				}
 

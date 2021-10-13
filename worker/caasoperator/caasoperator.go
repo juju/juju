@@ -551,8 +551,8 @@ func (op *caasOperator) loop() (err error) {
 					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
 					logger.Debugf("stopping uniter for dead unit %q", unitID)
-					if err := op.runner.StopWorker(unitID); err != nil {
-						return errors.Trace(err)
+					if err := op.runner.StopAndRemoveWorker(unitID, op.catacomb.Dying()); err != nil {
+						logger.Warningf("stopping uniter for dead unit %q: %v", unitID, err)
 					}
 					logger.Debugf("removing dead unit %q", unitID)
 					// Remove the unit from state.
