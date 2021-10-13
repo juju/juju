@@ -57,14 +57,6 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	containerMachineID := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for containerMachineID: %s", containerMachineID)
 
-	// TODO: Default to using the host network until we can configure.  Yes,
-	// this is using the LxcBridge value, we should put it in the api call for
-	// container config.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = network.DefaultKVMBridge
-	}
-
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
 		kvmLogger.Errorf("failed to get container config: %v", err)
@@ -87,6 +79,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	// prepareContainerInterfaceInfo should always return a value. The
 	// test suite currently doesn't think so, and I'm hesitant to munge it too
 	// much.
+	bridgeDevice := network.DefaultKVMBridge
 	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
