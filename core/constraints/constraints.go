@@ -555,7 +555,9 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		canonicals[canonical] = key
 		switch canonical {
 		case Arch:
-			v.Arch = &vstr
+			if err := v.setArch(vstr); err != nil {
+				return errors.Trace(err)
+			}
 		case Container:
 			ctype := instance.ContainerType(vstr)
 			v.Container = &ctype
