@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/juju/juju/core/network"
+
 	"github.com/juju/juju/container/kvm/mock"
 
 	"github.com/juju/loggo"
@@ -67,12 +69,18 @@ func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 
 func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 	kvmContainer := s.ContainerFactory.New(name)
-	network := container.BridgeNetworkConfig("testbr0", 0, nil)
+
+	nics := network.InterfaceInfos{{
+		InterfaceName: "eth0",
+		InterfaceType: network.EthernetDevice,
+		ConfigType:    network.ConfigDHCP,
+	}}
+	net := container.BridgeNetworkConfig(0, nics)
 	c.Assert(kvmContainer.Start(kvm.StartParams{
 		Series:       "quantal",
 		Arch:         arch.HostArch(),
 		UserDataFile: "userdata.txt",
-		Network:      network}), gc.IsNil)
+		Network:      net}), gc.IsNil)
 	return kvmContainer
 }
 
