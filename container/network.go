@@ -20,15 +20,6 @@ type NetworkConfig struct {
 	Interfaces network.InterfaceInfos
 }
 
-// FallbackInterfaceInfo returns a single "eth0" interface configured with DHCP.
-func FallbackInterfaceInfo() network.InterfaceInfos {
-	return network.InterfaceInfos{{
-		InterfaceName: "eth0",
-		InterfaceType: network.EthernetDevice,
-		ConfigType:    network.ConfigDHCP,
-	}}
-}
-
 // BridgeNetworkConfig returns a valid NetworkConfig to use the specified device
 // as a network bridge for the container. It also allows passing in specific
 // configuration for the container's network interfaces and default MTU to use.

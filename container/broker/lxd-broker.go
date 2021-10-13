@@ -72,12 +72,6 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, errors.Trace(err)
 	}
 
-	// Something to fallback to if there are no devices given in args.NetworkInfo
-	// TODO(jam): 2017-02-07, this feels like something that should never need
-	// to be invoked, because either StartInstance or
-	// prepareContainerInterfaceInfo should always return a value. The
-	// test suite currently doesn't think so, and I'm hesitant to munge it too
-	// much.
 	interfaces, err := finishNetworkConfig(preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)

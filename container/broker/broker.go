@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
@@ -60,10 +59,6 @@ func prepareContainerInterfaceInfo(
 // container.FallbackInterfaceInfo() is used as fallback.
 func finishNetworkConfig(interfaces corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	haveNameservers, haveSearchDomains := false, false
-	if len(interfaces) == 0 {
-		// Use the fallback network config as a last resort.
-		interfaces = container.FallbackInterfaceInfo()
-	}
 
 	results := make(corenetwork.InterfaceInfos, len(interfaces))
 	for i, info := range interfaces {
