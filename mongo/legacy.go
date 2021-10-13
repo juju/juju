@@ -105,7 +105,7 @@ const (
 	mongodSystemPath = "/usr/bin/mongod"
 )
 
-func findLegacyMongo(search SearchTools) (string, version, error) {
+var findLegacyMongo = func(search SearchTools) (string, Version, error) {
 	// In Bionic and beyond (and early trusty) we just use the system mongo.
 	// We only use the system mongo if it is at least Mongo 3.4
 	if search.Exists(mongodSystemPath) {
@@ -126,60 +126,60 @@ func findLegacyMongo(search SearchTools) (string, version, error) {
 		if err != nil {
 			logger.Warningf("juju-mongodb3.2 %q found, but ignoring error trying to get version: %v",
 				jujuMongod32Path, err)
-			v = version{Major: 3, Minor: 2}
+			v = Version{Major: 3, Minor: 2}
 		}
 		return jujuMongod32Path, v, nil
 	}
 	if search.Exists(jujuMongod24Path) {
-		return jujuMongod24Path, version{Major: 2, Minor: 4}, nil
+		return jujuMongod24Path, Version{Major: 2, Minor: 4}, nil
 	}
-	return "", version{}, errors.NotFoundf("could not find a viable 'mongod'")
+	return "", Version{}, errors.NotFoundf("could not find a viable 'mongod'")
 }
 
-// all mongo versions start with "db version v" and then the version is a X.Y.Z-extra
+// all mongo versions start with "db Version v" and then the version is a X.Y.Z-extra
 // we don't really care about the 'extra' portion of it, so we just track the rest.
-var mongoVersionRegex = regexp.MustCompile(`^db version v(\d{1,9})\.(\d{1,9}).(\d{1,9})([.-].*)?`)
+var mongoVersionRegex = regexp.MustCompile(`^db Version v(\d{1,9})\.(\d{1,9}).(\d{1,9})([.-].*)?`)
 
 // parseMongoVersion parses the output from "mongod --version" and returns a Version struct
-func parseMongoVersion(versionInfo string) (version, error) {
+func parseMongoVersion(versionInfo string) (Version, error) {
 	m := mongoVersionRegex.FindStringSubmatch(versionInfo)
 	if m == nil {
-		return version{}, errors.Errorf("'mongod --version' reported:\n%s", versionInfo)
+		return Version{}, errors.Errorf("'mongod --version' reported:\n%s", versionInfo)
 	}
 	if len(m) < 4 {
-		return version{}, errors.Errorf("did not find enough version parts in:\n%s", versionInfo)
+		return Version{}, errors.Errorf("did not find enough version parts in:\n%s", versionInfo)
 	}
-	var v version
+	var v Version
 	var err error
 	// Index '[0]' is the full matched string,
 	// [1] is the Major
 	// [2] is the Minor
 	// [3] is the Point
 	if v.Major, err = strconv.Atoi(m[1]); err != nil {
-		return version{}, errors.Annotatef(err, "invalid major version: %q", versionInfo)
+		return Version{}, errors.Annotatef(err, "invalid major version: %q", versionInfo)
 	}
 	if v.Minor, err = strconv.Atoi(m[2]); err != nil {
-		return version{}, errors.Annotatef(err, "invalid minor version: %q", versionInfo)
+		return Version{}, errors.Annotatef(err, "invalid minor version: %q", versionInfo)
 	}
 	if v.Point, err = strconv.Atoi(m[3]); err != nil {
-		return version{}, errors.Annotatef(err, "invalid point version: %q", versionInfo)
+		return Version{}, errors.Annotatef(err, "invalid point version: %q", versionInfo)
 	}
 	return v, nil
 }
 
-func findVersion(search SearchTools, path string) (version, error) {
+func findVersion(search SearchTools, path string) (Version, error) {
 	out, err := search.GetCommandOutput(path, "--version")
 	if err != nil {
-		return version{}, errors.Trace(err)
+		return Version{}, errors.Trace(err)
 	}
 	v, err := parseMongoVersion(out)
 	if err != nil {
-		return version{}, errors.Trace(err)
+		return Version{}, errors.Trace(err)
 	}
 	return v, nil
 }
 
-type version struct {
+type Version struct {
 	Major int
 	Minor int
 	Point int
@@ -190,10 +190,10 @@ type legacyConfigArgs struct {
 
 	mongoPath   string
 	wantNUMACtl bool
-	version     version
+	version     Version
 }
 
-func generateLegacyConfig(mongoPath string, oplogSizeMB int, version version, args EnsureServerParams) *legacyConfigArgs {
+func generateLegacyConfig(mongoPath string, oplogSizeMB int, version Version, args EnsureServerParams) *legacyConfigArgs {
 	usingMongo4orAbove := version.Major > 3
 	usingMongo36orAbove := usingMongo4orAbove || (version.Major == 3 && version.Minor >= 6)
 	usingMongo34orAbove := usingMongo36orAbove || (version.Major == 3 && version.Minor >= 4)
@@ -236,7 +236,7 @@ func generateLegacyConfig(mongoPath string, oplogSizeMB int, version version, ar
 	return mongoArgs
 }
 
-func (mongoArgs *legacyConfigArgs) asService() (mongoService, error) {
+func (mongoArgs *legacyConfigArgs) asService() (MongoService, error) {
 	return newService(ServiceName, common.Conf{
 		Desc:        "juju state database",
 		Limit:       mongoULimits,
@@ -307,14 +307,14 @@ func (mongoArgs *legacyConfigArgs) extraScript() string {
 	return cmd
 }
 
-// mongoService is a slimmed-down version of the service.Service interface.
-type mongoService interface {
+// MongoService is a slimmed-down version of the service.Service interface.
+type MongoService interface {
 	Exists() (bool, error)
 	Installed() (bool, error)
 	Running() (bool, error)
 	service.ServiceActions
 }
 
-var newService = func(name string, conf common.Conf) (mongoService, error) {
+var newService = func(name string, conf common.Conf) (MongoService, error) {
 	return service.DiscoverService(name, conf)
 }

@@ -242,7 +242,7 @@ func (s Service) Running() (bool, error) {
 //
 // Exists is part of the service.Service interface.
 func (s Service) Exists() (bool, error) {
-	return s.Installed()
+	return false, errors.NotImplementedf("snap service Exists")
 }
 
 // Install installs the snap and its background services.

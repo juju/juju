@@ -23,10 +23,10 @@ var (
 	FsAvailSpace     = fsAvailSpace
 
 	MaybeUseLegacyMongo = maybeUseLegacyMongo
+	FindLegacyMongo     = &findLegacyMongo
 	NewService          = &newService
+	NewSnapService      = &newSnapService
 )
-
-type MongoService = mongoService
 
 func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
 	return ensureServer(args, sysctlFiles)
