@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 var kvmLogger = loggo.GetLogger("juju.container.broker.kvm")
@@ -79,12 +78,11 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	// prepareContainerInterfaceInfo should always return a value. The
 	// test suite currently doesn't think so, and I'm hesitant to munge it too
 	// much.
-	bridgeDevice := network.DefaultKVMBridge
-	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
+	interfaces, err := finishNetworkConfig(preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
+	net := container.BridgeNetworkConfig(0, interfaces)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -130,8 +128,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 		AllowMount: true,
 	}
 	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints,
-		args.InstanceConfig.Series, network, storageConfig, args.StatusCallback,
+		args.InstanceConfig, args.Constraints, args.InstanceConfig.Series, net, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
@@ -146,7 +143,6 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 
 // StopInstances shuts down the given instances.
 func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	// TODO: potentially parallelise.
 	for _, id := range ids {
 		kvmLogger.Infof("stopping kvm container for instance: %s", id)
 		if err := broker.manager.DestroyContainer(id); err != nil {

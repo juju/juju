@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -79,12 +78,11 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	// prepareContainerInterfaceInfo should always return a value. The
 	// test suite currently doesn't think so, and I'm hesitant to munge it too
 	// much.
-	bridgeDevice := network.DefaultLXDBridge
-	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
+	interfaces, err := finishNetworkConfig(preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	net := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
+	net := container.BridgeNetworkConfig(0, interfaces)
 
 	pNames, err := broker.writeProfiles(containerMachineID)
 	if err != nil {

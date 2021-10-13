@@ -15,7 +15,6 @@ const (
 // NetworkConfig defines how the container network will be configured.
 type NetworkConfig struct {
 	NetworkType string
-	Device      string
 	MTU         int
 
 	Interfaces network.InterfaceInfos
@@ -33,6 +32,6 @@ func FallbackInterfaceInfo() network.InterfaceInfos {
 // BridgeNetworkConfig returns a valid NetworkConfig to use the specified device
 // as a network bridge for the container. It also allows passing in specific
 // configuration for the container's network interfaces and default MTU to use.
-func BridgeNetworkConfig(device string, mtu int, interfaces network.InterfaceInfos) *NetworkConfig {
-	return &NetworkConfig{BridgeNetwork, device, mtu, interfaces}
+func BridgeNetworkConfig(mtu int, interfaces network.InterfaceInfos) *NetworkConfig {
+	return &NetworkConfig{BridgeNetwork, mtu, interfaces}
 }

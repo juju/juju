@@ -53,7 +53,7 @@ func CreateContainerWithMachineConfig(
 	instanceConfig *instancecfg.InstanceConfig,
 ) instances.Instance {
 
-	networkConfig := container.BridgeNetworkConfig("nic42", 0, nil)
+	networkConfig := container.BridgeNetworkConfig(0, nil)
 	storageConfig := &container.StorageConfig{}
 	return CreateContainerWithMachineAndNetworkAndStorageConfig(c, manager, instanceConfig, networkConfig, storageConfig)
 }
