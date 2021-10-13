@@ -23,6 +23,7 @@ var (
 	FsAvailSpace     = fsAvailSpace
 
 	MaybeUseLegacyMongo = maybeUseLegacyMongo
+	FindLegacyMongo     = &findLegacyMongo
 	NewService          = &newService
 	NewSnapService      = &newSnapService
 )

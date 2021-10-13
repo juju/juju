@@ -35,8 +35,7 @@ type MongoSuite struct {
 	clock            clock.Clock
 	mongodConfigPath string
 
-	mongoSnapService   *mongotest.MockMongoSnapService
-	mongoLegacyService *mongotest.MockMongoSnapService
+	mongoSnapService *mongotest.MockMongoSnapService
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -96,18 +95,14 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 func (s *MongoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.mongoLegacyService = mongotest.NewMockMongoSnapService(ctrl)
 	s.mongoSnapService = mongotest.NewMockMongoSnapService(ctrl)
 
 	return ctrl
 }
 
 func (s *MongoSuite) expectNoLegacyMongo() {
-	mExp := s.mongoLegacyService.EXPECT()
-	mExp.Installed().Return(false, nil)
-
-	s.PatchValue(mongo.NewService, func(name string, conf common.Conf) (mongo.MongoService, error) {
-		return s.mongoLegacyService, nil
+	s.PatchValue(mongo.FindLegacyMongo, func(search mongo.SearchTools) (string, mongo.Version, error) {
+		return "", mongo.Version{}, errors.NotFoundf("a version of mongo")
 	})
 }
 
@@ -203,14 +198,6 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	s.expectMongoSnapInstalled()
 
 	_ = s.assertEnsureServerIPv6(c, true)
-
-	// make sure that we log the version of mongodb as we get ready to
-	// start it
-	tlog := c.GetTestLog()
-	any := `(.|\n)*`
-	start := "^" + any
-	tail := any + "$"
-	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version: "db version v\d\.\d\.\d`+tail)
 }
 
 func (s *MongoSuite) TestEnsureServerNoIPv6(c *gc.C) {
