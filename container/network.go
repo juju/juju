@@ -33,11 +33,6 @@ func FallbackInterfaceInfo() network.InterfaceInfos {
 // BridgeNetworkConfig returns a valid NetworkConfig to use the specified device
 // as a network bridge for the container. It also allows passing in specific
 // configuration for the container's network interfaces and default MTU to use.
-// If interfaces is empty, FallbackInterfaceInfo() is used to get the a sane
-// default
 func BridgeNetworkConfig(device string, mtu int, interfaces network.InterfaceInfos) *NetworkConfig {
-	if len(interfaces) == 0 {
-		interfaces = FallbackInterfaceInfo()
-	}
 	return &NetworkConfig{BridgeNetwork, device, mtu, interfaces}
 }
