@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	apimachiner "github.com/juju/juju/api/machiner"

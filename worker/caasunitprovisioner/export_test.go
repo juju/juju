@@ -3,7 +3,7 @@
 
 package caasunitprovisioner
 
-import "github.com/juju/worker/v2"
+import "github.com/juju/worker/v3"
 
 func AppWorker(parent worker.Worker, appName string) (*applicationWorker, bool) {
 	p := parent.(*provisioner)

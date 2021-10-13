@@ -90,7 +90,7 @@ require (
 	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
 	github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
+	github.com/juju/worker/v3 v3.0.0-20211012224929-cf84171b49a9
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d

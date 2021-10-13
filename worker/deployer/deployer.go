@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"

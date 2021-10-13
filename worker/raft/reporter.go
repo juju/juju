@@ -6,7 +6,7 @@ package raft
 import (
 	humanize "github.com/dustin/go-humanize"
 	"github.com/hashicorp/raft"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3/dependency"
 )
 
 // Report is part of the dependency.Reporter interface.

@@ -3,7 +3,7 @@
 
 package rafttransport
 
-import "github.com/juju/worker/v2"
+import "github.com/juju/worker/v3"
 
 // NewWorkerShim calls straight through to NewWorker. This exists
 // only to adapt to the signature of ManifoldConfig.NewWorker.

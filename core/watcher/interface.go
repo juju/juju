@@ -4,7 +4,7 @@
 package watcher
 
 import (
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 )
 
 // CoreWatcher encodes some features of a watcher. The most obvious one:

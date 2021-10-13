@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/crosscontroller"

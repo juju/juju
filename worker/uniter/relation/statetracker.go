@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/uniter"

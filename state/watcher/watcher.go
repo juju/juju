@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 )
 
 // BaseWatcher represents watch methods on the worker

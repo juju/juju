@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"

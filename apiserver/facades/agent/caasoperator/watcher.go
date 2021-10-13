@@ -6,8 +6,8 @@ package caasoperator
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"

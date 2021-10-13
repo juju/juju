@@ -17,8 +17,8 @@ import (
 	"github.com/juju/utils/v2/arch"
 	jujusymlink "github.com/juju/utils/v2/symlink"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/caas"

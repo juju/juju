@@ -542,7 +542,6 @@ github.com/juju/testing v0.0.0-20161031103713-b8689951f6db/go.mod h1:63prj8cnj0t
 github.com/juju/testing v0.0.0-20170608054451-2fe0e88cf232/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180402130637-44801989f0f7/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180517134105-72703b1e95eb/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
-github.com/juju/testing v0.0.0-20180807043854-177f846b8501/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180807044555-c84dd6ba038a/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180820040200-b0b89ba330f2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180920084828-472a3e8b2073/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
@@ -586,8 +585,8 @@ github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgk
 github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=
 github.com/juju/webbrowser v1.0.0/go.mod h1:RwVlbBcF91Q4vS+iwlkJ6bZTE3EwlrjbYlM3WMVD6Bc=
-github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a h1:/vOTtcxKgT/S17/yGSt8UMyWsO7d3F3kJLJax/YJ51M=
-github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a/go.mod h1:ehN69S36TwXxhBqye13vrdv28PN0ERTPh15AuP1s2rw=
+github.com/juju/worker/v3 v3.0.0-20211012224929-cf84171b49a9 h1:okyklcmnyII6FAhYBF24oRd5g95Y7v50RdteE7A5c8g=
+github.com/juju/worker/v3 v3.0.0-20211012224929-cf84171b49a9/go.mod h1:U3VTeYTOHxYfc0xVXRFStYqyH/N5CYjLJTYSCIs1lS0=
 github.com/juju/xml v0.0.0-20150413131121-eb759a627588/go.mod h1:RnnCV6b9HzujjOLGRpqvZc8INbwtBzZlhbCj5R9F1vw=
 github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07 h1:DH1XYlPV0OOzNOOtByWQ38CTT+t3BRzslUHkvQacqaY=
 github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
@@ -1196,7 +1195,6 @@ gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5/go.mod h1:hiOFpYm0ZJb
 gopkg.in/square/go-jose.v2 v2.2.2/go.mod h1:M9dMgbHiYLoDGQrXy7OpJDJWiKiU//h+vD76mk0e1AI=
 gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 h1:uRGJdciOHaEIrze2W8Q3AKkepLTh2hOroT7a+7czfdQ=
 gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7/go.mod h1:dt/ZhP58zS4L8KSrWDmTeBkI65Dw0HsyUHuEVlX15mw=
-gopkg.in/tomb.v2 v2.0.0-20140626144623-14b3d72120e8/go.mod h1:BHsqpu/nsuzkT5BpiH1EMZPLyqSMM8JbIavyFACoFNk=
 gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 h1:yiW+nvdHb9LVqSHQBXfZCieqV4fzYhNBql77zY0ykqs=
 gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637/go.mod h1:BHsqpu/nsuzkT5BpiH1EMZPLyqSMM8JbIavyFACoFNk=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
