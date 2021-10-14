@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/juju/juju/core/network"
+
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
@@ -95,7 +97,13 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	network := container.BridgeNetworkConfig("virbr0", 0, nil)
+
+	nics := network.InterfaceInfos{{
+		InterfaceName: "eth0",
+		InterfaceType: network.EthernetDevice,
+		ConfigType:    network.ConfigDHCP,
+	}}
+	net := container.BridgeNetworkConfig(0, nics)
 
 	err = instanceConfig.SetTools(tools.List{
 		&tools.Tools{
@@ -108,7 +116,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "precise", network, nil, callback)
+	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "precise", net, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cores=1 mem=512M root-disk=8192M", arch.HostArch())

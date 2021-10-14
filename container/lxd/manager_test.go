@@ -113,7 +113,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 }
 
 func prepNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
+	return container.BridgeNetworkConfig(1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
 		InterfaceType:       corenetwork.EthernetDevice,
 		ConfigType:          corenetwork.ConfigDHCP,
@@ -218,7 +218,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 
 	// Supplying config for a single device with default bridge and without a
 	// CIDR will cause the default bridge to be updated with IPv4 config.
-	netConfig := container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
+	netConfig := container.BridgeNetworkConfig(1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
 		InterfaceType:       corenetwork.EthernetDevice,
 		ConfigType:          corenetwork.ConfigDHCP,
@@ -386,39 +386,10 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 
 	s.makeManager(c)
 	result, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
-		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, expected)
-	c.Check(unknown, gc.HasLen, 0)
-}
-
-func (s *managerSuite) TestNetworkDevicesFromConfig(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	expected := map[string]map[string]string{
-		"eth0": {
-			"hwaddr":  "aa:bb:cc:dd:ee:f0",
-			"name":    "eth0",
-			"nictype": "bridged",
-			"parent":  "lxdbr0",
-			"type":    "nic",
-		},
-	}
-
-	s.makeManager(c)
-	result, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
-		Device: "lxdbr0",
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	// Ensure the resulting hw address isn't empty, but because it's random
-	// we have to set it to the expected one, so that our assertion does the
-	// right thing.
-	c.Assert(result["eth0"]["hwaddr"], gc.HasLen, 17)
-	result["eth0"]["hwaddr"] = expected["eth0"]["hwaddr"]
 	c.Check(result, jc.DeepEquals, expected)
 	c.Check(unknown, gc.HasLen, 0)
 }
@@ -435,7 +406,6 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 
 	s.makeManager(c)
 	_, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
-		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
 
