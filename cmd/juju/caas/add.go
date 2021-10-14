@@ -113,7 +113,7 @@ Examples:
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass
 
-    KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
+    KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
     juju add-k8s --gke myk8scloud
