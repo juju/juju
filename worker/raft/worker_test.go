@@ -27,7 +27,7 @@ type workerFixture struct {
 	testing.IsolationSuite
 	fsm        *raft.SimpleFSM
 	config     raft.Config
-	queue      *queue.BlockingOpQueue
+	queue      *queue.OpQueue
 	operations chan queue.Operation
 }
 
@@ -37,7 +37,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	testClock := testclock.NewClock(time.Time{})
 
 	s.fsm = &raft.SimpleFSM{}
-	s.queue = queue.NewBlockingOpQueue(testClock)
+	s.queue = queue.NewOpQueue(testClock)
 	s.operations = make(chan queue.Operation)
 
 	s.config = raft.Config{

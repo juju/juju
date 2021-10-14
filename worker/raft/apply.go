@@ -73,7 +73,50 @@ func NewApplier(raft Raft, target raftlease.NotifyTarget, clock clock.Clock, log
 // the leader, if known." (see 6.2.1).
 // If the leader is the current raft instance, then attempt to apply it to
 // the fsm.
-func (a *Applier) ApplyOperation(op queue.Operation, applyTimeout time.Duration) error {
+func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Duration) {
+	leaderErr := a.currentLeaderState()
+
+	// Operations are iterated through optimistically, so if there is an error,
+	// then continue onwards.
+	for i, op := range ops {
+		// If there is a leader error, finish the operations with the leader
+		// error. We only request the leader state once, as it's not a cheap
+		// operation. We can reasonably assume that during a tight loop of batch
+		// operations, then changing of a leader state should be small. If it
+		// does happen, then the operation will end up back here after another
+		// redirect.
+		if leaderErr != nil {
+			op.Done(leaderErr)
+			continue
+		}
+
+		if a.logger.IsTraceEnabled() {
+			a.logger.Tracef("Applying command %d %v", i, string(op.Command))
+		}
+
+		future := a.raft.Apply(op.Command, applyTimeout)
+		if err := future.Error(); err != nil {
+			op.Done(err)
+			continue
+		}
+
+		response := future.Response()
+		fsmResponse, ok := response.(raftlease.FSMResponse)
+		if !ok {
+			a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
+			op.Done(errors.Errorf("invalid FSM response"))
+			continue
+		}
+		if err := fsmResponse.Error(); err != nil {
+			op.Done(err)
+			continue
+		}
+
+		fsmResponse.Notify(a.notifyTarget)
+	}
+}
+
+func (a *Applier) currentLeaderState() error {
 	if state := a.raft.State(); state != raft.Leader {
 		leaderAddress := a.raft.Leader()
 
@@ -111,29 +154,5 @@ func (a *Applier) ApplyOperation(op queue.Operation, applyTimeout time.Duration)
 
 		return NewNotLeaderError(string(leaderAddress), leaderID)
 	}
-
-	// TODO (stickupkid): Use the raft batch apply. For now we're only ever
-	// going to apply one at a time, so we can change this at a later date.
-	for i, command := range op.Commands {
-		a.logger.Tracef("Applying command %d %v", i, string(command))
-
-		future := a.raft.Apply(command, applyTimeout)
-		if err := future.Error(); err != nil {
-			return errors.Trace(err)
-		}
-
-		response := future.Response()
-		fsmResponse, ok := response.(raftlease.FSMResponse)
-		if !ok {
-			a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
-			return errors.Errorf("invalid FSM response")
-		}
-		if err := fsmResponse.Error(); err != nil {
-			return errors.Trace(err)
-		}
-
-		fsmResponse.Notify(a.notifyTarget)
-	}
-
 	return nil
 }

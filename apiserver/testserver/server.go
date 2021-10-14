@@ -55,7 +55,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 			return state.RestoreNotActive
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
-		RaftOpQueue:      queue.NewBlockingOpQueue(testclock),
+		RaftOpQueue:      queue.NewOpQueue(testclock),
 	}
 }
 

@@ -4,7 +4,7 @@
 package queue
 
 import (
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -15,7 +15,7 @@ const (
 	// EnqueueTimeout is the timeout for enqueueing an operation. If an
 	// operation can't be processed in the time, a ErrDeadlineExceeded is
 	// returned.
-	EnqueueTimeout time.Duration = time.Second
+	EnqueueTimeout time.Duration = time.Second * 3
 )
 
 var (
@@ -39,33 +39,31 @@ func IsDeadlineExceeded(err error) bool {
 
 // Operation holds the operations that a queue can hold.
 type Operation struct {
-	Commands [][]byte
+	Command []byte
+	Done    func(error)
 }
 
-func (o Operation) String() string {
-	var res []string
-	for _, v := range o.Commands {
-		res = append(res, string(v))
-	}
-	return strings.Join(res, ", ")
-}
-
-// BlockingOpQueue holds the operations in a blocking queue. The purpose of this
+// OpQueue holds the operations in a blocking queue. The purpose of this
 // queue is to allow the backing off of operations at the source of enqueueing,
 // and not at the consuming of the queue.
-type BlockingOpQueue struct {
-	queue chan Operation
-	err   chan error
-	clock clock.Clock
+type OpQueue struct {
+	mutex        sync.Mutex
+	queue        chan []Operation
+	ring         []ringOp
+	clock        clock.Clock
+	maxBatchSize int
 }
 
-// NewBlockingOpQueue creates a new BlockingOpQueue.
-func NewBlockingOpQueue(clock clock.Clock) *BlockingOpQueue {
-	return &BlockingOpQueue{
-		queue: make(chan Operation),
-		err:   make(chan error),
-		clock: clock,
+// NewOpQueue creates a new OpQueue.
+func NewOpQueue(clock clock.Clock) *OpQueue {
+	queue := &OpQueue{
+		queue:        make(chan []Operation, 1),
+		ring:         make([]ringOp, 0),
+		clock:        clock,
+		maxBatchSize: 64,
 	}
+
+	return queue
 }
 
 // Enqueue will add an operation to the queue. As this is a blocking queue, any
@@ -73,28 +71,59 @@ func NewBlockingOpQueue(clock clock.Clock) *BlockingOpQueue {
 // to be completed.
 // The design of this is to ensure that people calling this will have to
 // correctly handle backing off from enqueueing.
-func (q *BlockingOpQueue) Enqueue(op Operation) error {
-	// Block adding the operation to the queue, but if the timeout happens
-	// before then, bail out.
+func (q *OpQueue) Enqueue(op Operation) {
 	select {
-	case q.queue <- op:
-	case <-q.clock.After(EnqueueTimeout):
-		return ErrDeadlineExceeded
+	case q.queue <- q.coalesce(op):
+	default:
+		q.mutex.Lock()
+		q.ring = append(q.ring, makeRingOp(op, q.clock.Now()))
+		q.mutex.Unlock()
 	}
-
-	// Block on the resulting error from the queue. We need to ensure that we
-	// wait for the error in a bare channel read otherwise we can deadlock if
-	// queue channel if nobody read the error channel.
-	return errors.Trace(<-q.err)
 }
 
 // Queue returns the queue of operations. Removing an item from the channel
 // will unblock to allow another to take it's place.
-func (q *BlockingOpQueue) Queue() <-chan Operation {
+func (q *OpQueue) Queue() <-chan []Operation {
 	return q.queue
 }
 
-// Error places the resulting error for the enqueue to pick it up.
-func (q *BlockingOpQueue) Error() chan<- error {
-	return q.err
+func (q *OpQueue) coalesce(op Operation) []Operation {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	now := q.clock.Now()
+
+	ops := make([]Operation, 0, q.maxBatchSize)
+	for i, op := range q.ring {
+		// Ensure we don't put operations that have already expired.
+		if op.ExpiredTime.After(now) {
+			// Ensure we tell the operation that it didn't make the cut when
+			// attempting to coalesce.
+			op.Operation.Done(ErrDeadlineExceeded)
+			continue
+		}
+
+		if len(ops) > q.maxBatchSize {
+			q.ring = q.ring[i:]
+			break
+		}
+		ops = append(ops, op.Operation)
+	}
+
+	// When coalesceing operations we can be reasonable confident that the
+	// operation passed as an argument won't have expired. This means that we
+	// always have a non-empty slice.
+	return append(ops, op)
+}
+
+type ringOp struct {
+	Operation   Operation
+	ExpiredTime time.Time
+}
+
+func makeRingOp(op Operation, now time.Time) ringOp {
+	return ringOp{
+		Operation:   op,
+		ExpiredTime: now.Add(EnqueueTimeout),
+	}
 }

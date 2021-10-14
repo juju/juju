@@ -26,7 +26,7 @@ var _ = gc.Suite(&raftMediatorSuite{})
 func (s *raftMediatorSuite) TestApplyLease(c *gc.C) {
 	cmd := []byte("do it")
 
-	queue := queue.NewBlockingOpQueue(testclock.NewClock(clock.WallClock.Now()))
+	queue := queue.NewOpQueue(testclock.NewClock(clock.WallClock.Now()))
 
 	results := make(chan [][]byte, 1)
 	go func() {
@@ -58,7 +58,7 @@ func (s *raftMediatorSuite) TestApplyLease(c *gc.C) {
 func (s *raftMediatorSuite) TestApplyLeaseError(c *gc.C) {
 	cmd := []byte("do it")
 
-	queue := queue.NewBlockingOpQueue(testclock.NewClock(clock.WallClock.Now()))
+	queue := queue.NewOpQueue(testclock.NewClock(clock.WallClock.Now()))
 
 	results := make(chan [][]byte, 1)
 	go func() {
@@ -82,7 +82,7 @@ func (s *raftMediatorSuite) TestApplyLeaseError(c *gc.C) {
 func (s *raftMediatorSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
 	cmd := []byte("do it")
 
-	queue := queue.NewBlockingOpQueue(testclock.NewClock(clock.WallClock.Now()))
+	queue := queue.NewOpQueue(testclock.NewClock(clock.WallClock.Now()))
 
 	results := make(chan [][]byte, 1)
 	go func() {
@@ -107,7 +107,7 @@ func (s *raftMediatorSuite) TestApplyLeaseDeadlineExceededError(c *gc.C) {
 	cmd := []byte("do it")
 
 	deadLineErr := queue.ErrDeadlineExceeded
-	queue := queue.NewBlockingOpQueue(testclock.NewClock(clock.WallClock.Now()))
+	queue := queue.NewOpQueue(testclock.NewClock(clock.WallClock.Now()))
 
 	results := make(chan [][]byte, 1)
 	go func() {

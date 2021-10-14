@@ -88,9 +88,7 @@ type Logger interface {
 type Queue interface {
 	// Queue returns the queue of operations. Removing an item from the channel
 	// will unblock to allow another to take it's place.
-	Queue() <-chan queue.Operation
-	// Error places the resulting error for the enqueue to pick it up.
-	Error() chan<- error
+	Queue() <-chan []queue.Operation
 }
 
 // LeaseApplier applies operations from the queue onto the underlying raft
@@ -106,7 +104,7 @@ type LeaseApplier interface {
 	// the fsm.
 	// The time duration is the applying of a command in an operation, not for
 	// the whole operation.
-	ApplyOperation(queue.Operation, time.Duration) error
+	ApplyOperation([]queue.Operation, time.Duration)
 }
 
 // Config is the configuration required for running a raft worker.
@@ -464,14 +462,14 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 				return ErrNoLeaderTimeout
 			}
 
-		case op := <-w.config.Queue.Queue():
+		case ops := <-w.config.Queue.Queue():
 			if w.config.Logger.IsTraceEnabled() {
-				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log: %v", len(op.Commands), op.String())
+				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log: %v", len(ops), ops)
 			}
 			// Apply any operation on to the current raft implementation.
 			// This ensures that we serialize the applying of operations onto
 			// the raft state.
-			w.config.Queue.Error() <- applier.ApplyOperation(op, applyTimeout)
+			applier.ApplyOperation(ops, applyTimeout)
 			applyTimeout = ApplyTimeout
 
 		case w.raftCh <- r:
@@ -588,6 +586,6 @@ func (BootstrapNotifyTarget) Expired(lease.Key) {}
 
 type BootstrapLeaseApplier struct{}
 
-func (BootstrapLeaseApplier) ApplyOperation(queue.Operation, time.Duration) error {
+func (BootstrapLeaseApplier) ApplyOperation([]queue.Operation, time.Duration) {
 	panic("ApplyOperation should not be called during bootstrap")
 }
