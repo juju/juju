@@ -50,8 +50,8 @@ var _ cmd.Command = (*syncToolsCommand)(nil)
 
 const synctoolsDoc = `
 This copies the Juju agent software from the official agent binaries store 
-(located at https://streams.canonical.com/juju) into a model. 
-It is generally done when the model is without Internet access.
+(located at https://streams.canonical.com/juju) into the controller.
+It is generally done when the controller is without Internet access.
 
 Instead of the above site, a local directory can be specified as source.
 The online store will, of course, need to be contacted at some point to get
@@ -63,14 +63,14 @@ Examples:
     juju sync-agent-binaries --debug --source=/home/ubuntu/sync-agent-binaries
 
 See also:
-    upgrade-model
+    upgrade-controller
 
 `
 
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "sync-agent-binaries",
-		Purpose: "Copy agent binaries from the official agent store into a local model.",
+		Purpose: "Copy agent binaries from the official agent store into a local controller.",
 		Doc:     synctoolsDoc,
 		Aliases: []string{"sync-tools"},
 	})
