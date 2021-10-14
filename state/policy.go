@@ -4,14 +4,12 @@
 package state
 
 import (
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
 )
 
@@ -97,38 +95,14 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 		validator = constraints.NewValidator()
 	}
 
-	// Add supported architectures gleaned from cloud image
-	// metadata to the validator's vocabulary.
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
-	}
-	if region := model.CloudRegion(); region != "" {
-		cfg, err := model.ModelConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		arches, err := st.CloudImageMetadataStorage.SupportedArchitectures(
-			cloudimagemetadata.MetadataFilter{
-				Stream: cfg.AgentStream(),
-				Region: region,
-			},
-		)
-		if err != nil {
-			return nil, errors.Annotate(err, "querying supported architectures")
-		}
-
-		// Also include any arches that belong to manually provisioned machines
-		// See LP1946639.
-		manualMachArches, err := st.GetManualMachineArches()
-		if err != nil {
-			return nil, errors.Annotate(err, "querying supported architectures for manual machines")
-		}
-
-		if supportedArches := manualMachArches.Union(set.NewStrings(arches...)); len(supportedArches) != 0 {
-			validator.UpdateVocabulary(constraints.Arch, supportedArches.SortedValues())
-		}
-	}
+	// NOTE(achilleasa): This section of the code used to enumerate the
+	// known set of arches by inspecting the cloud metadata and the arches
+	// that correspond to manual machines associated with the model.
+	//
+	// However, this was deemed to be more restrictive than needed. For
+	// example, the model may currently only contain amd64 machines but we
+	// should still be able to set a arch=arm64 model constraint since the
+	// underlying substrate might be able to provision such machines.
 
 	return validator, nil
 }
