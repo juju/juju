@@ -16,11 +16,11 @@ var (
 	// feature that is not included in the feature set supported by the
 	// current model.
 	userFriendlyFeatureDescriptions = map[string]string{}
-
-	// A link to a web page with additional information about features,
-	// the Juju versions that support them etc.
-	featureDocsURL = "https://juju.is/docs/olm/supported-features"
 )
+
+// A link to a web page with additional information about features,
+// the Juju versions that support them etc.
+const featureDocsURL = "https://juju.is/docs/olm/supported-features"
 
 // Feature identifies a particular piece of functionality provided by a Juju
 // controller depending on the substrate associated with a particular model.
@@ -32,7 +32,7 @@ type Feature struct {
 	Description string
 
 	// An optional semantic version for this feature. It can be left empty
-	// to signify that a perticular feature is available without explicitly
+	// to signify that a particular feature is available without explicitly
 	// specifying a version
 	Version *version.Number
 }
@@ -64,7 +64,7 @@ func (fs FeatureSet) Get(featName string) (Feature, bool) {
 	return feat, found
 }
 
-// Satisfy checks whether the feature set contents satisfy the provided
+// Satisfies checks whether the feature set contents satisfy the provided
 // "assumes" expression tree and returns an error otherwise.
 func (fs FeatureSet) Satisfies(assumesExprTree *chassumes.ExpressionTree) error {
 	if assumesExprTree == nil || assumesExprTree.Expression == nil {
@@ -76,7 +76,7 @@ func (fs FeatureSet) Satisfies(assumesExprTree *chassumes.ExpressionTree) error 
 
 // satisfyExpr checks whether the feature set contents satisfy the provided
 // "assumes" expression. The function can process either feature or composite
-// expressions
+// expressions.
 func satisfyExpr(fs FeatureSet, expr chassumes.Expression, exprTreeDepth int) error {
 	switch expr := expr.(type) {
 	case chassumes.FeatureExpression:
@@ -95,7 +95,7 @@ func satisfyExpr(fs FeatureSet, expr chassumes.Expression, exprTreeDepth int) er
 // name and any of the following conditions is true:
 // a) The feature set entry OR the assumes expression does not specify a version.
 // 2) Both the feature set entry AND the assumes expression specify versions
-//    AND the required version contraint (>= or <) is satisfied.
+//    AND the required version constraint (>= or <) is satisfied.
 func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 	supported, defined := fs.Get(expr.Name)
 	if !defined {
@@ -147,8 +147,7 @@ func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 // kind of expressions, all sub-expressions must be matched.
 //
 // If the expression cannot be satisfied, the function returns a multi-error
-// explaining
-//
+// value listing any detected conflicts.
 func satisfyCompositeExpr(fs FeatureSet, expr chassumes.CompositeExpression, exprTreeDepth int) error {
 	var errList = make([]error, 0, len(expr.SubExpressions))
 	for _, subExpr := range expr.SubExpressions {
