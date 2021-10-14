@@ -43,7 +43,6 @@ type syncToolsCommand struct {
 	source       string
 	stream       string
 	localDir     string
-	destination  string
 }
 
 var _ cmd.Command = (*syncToolsCommand)(nil)
@@ -86,15 +85,9 @@ func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.source, "source", "", "Local source directory")
 	f.StringVar(&c.stream, "stream", "", "Simplestreams stream for which to sync metadata")
 	f.StringVar(&c.localDir, "local-dir", "", "Local destination directory")
-	f.StringVar(&c.destination, "destination", "", "Local destination directory\n    DEPRECATED: use --local-dir instead")
 }
 
 func (c *syncToolsCommand) Init(args []string) error {
-	if c.destination != "" {
-		// Override localDir with destination as localDir now replaces destination
-		c.localDir = c.destination
-		logger.Infof("Use of the --destination option is deprecated in 1.18. Please use --local-dir instead.")
-	}
 	if c.versionStr != "" {
 		var err error
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {
