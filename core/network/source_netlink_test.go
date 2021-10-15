@@ -64,9 +64,15 @@ func (s *sourceNetlinkSuite) TestNetlinkNICType(c *gc.C) {
 	link := &stubLink{}
 	nic := &netlinkNIC{nic: link}
 
-	// If we have get value, return it.
+	// Known types.
+	link.linkType = "bridge"
+	c.Check(nic.Type(), gc.Equals, BridgeDevice)
+
 	link.linkType = "bond"
 	c.Check(nic.Type(), gc.Equals, BondDevice)
+
+	link.linkType = "vxlan"
+	c.Check(nic.Type(), gc.Equals, VXLANDevice)
 
 	// Infer loopback from flags.
 	link.linkType = ""

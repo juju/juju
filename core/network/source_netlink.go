@@ -62,6 +62,8 @@ func (n netlinkNIC) Type() LinkLayerDeviceType {
 		return VLAN8021QDevice
 	case "bond":
 		return BondDevice
+	case "vxlan":
+		return VXLANDevice
 	}
 
 	if n.nic.Attrs().Flags&net.FlagLoopback > 0 {
