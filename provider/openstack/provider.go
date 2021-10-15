@@ -1418,11 +1418,12 @@ func (e *Environ) networksForInstance(
 		return nil, errors.Trace(err)
 	}
 
-	if !args.Constraints.HasSpaces() {
+	if len(args.SubnetsToZones) == 0 {
 		return networks, nil
 	}
 	if len(networks) == 0 {
-		return nil, errors.New("space constraints were supplied, but no Openstack network is configured")
+		return nil, errors.New(
+			"space constraints and/or bindings were supplied, but no Openstack network is configured")
 	}
 
 	// We know that we are operating in the single configured network.
@@ -1452,7 +1453,7 @@ func (e *Environ) networksForInstance(
 		subnetIDsForZone[i] = network.FilterInFanNetwork(subnetIDs)
 	}
 
-	/// For each list of subnet IDs that satisfy space and zone constraints,
+	// For each list of subnet IDs that satisfy space and zone constraints,
 	// choose a single one at random.
 	subnetIDForZone := make([]network.Id, len(subnetIDsForZone))
 	for i, subnetIDs := range subnetIDsForZone {
