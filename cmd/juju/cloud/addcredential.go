@@ -69,10 +69,6 @@ The format for a credential is cloud-specific. Thus, it's best to use
 adding this new credential locally and / or uploading it to a controller 
 in a correct format for the desired cloud.
 
-The ` + "`--replace`" + ` option is required if credential information 
-for the named cloud already exists locally. All such information will be 
-overwritten. This option is DEPRECATED, use 'juju update-credential' instead.
-
 Examples:
     juju add-credential google
     juju add-credential google --client
@@ -110,9 +106,6 @@ See also:
 type addCredentialCommand struct {
 	modelcmd.OptionalControllerCommand
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
-
-	// Replace, if true, existing credential information is overwritten.
-	Replace bool
 
 	// CloudName is the name of the cloud for which we add credentials.
 	CloudName string
@@ -157,7 +150,6 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Replace, "replace", false, "DEPRECATED: Overwrite existing credential information")
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credentials to add")
 	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credentials to add")
 	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
@@ -175,12 +167,6 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 }
 
 func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
-	if c.Replace {
-		// TODO (anastasiamac 2019-07-10) --replace and everything related to it should be removed.
-		// https://bugs.launchpad.net/juju/+bug/1821279
-		ctxt.Warningf("--replace is DEPRECATED. Use 'juju update-credential' to update credentials.")
-	}
-
 	if err := c.MaybePrompt(ctxt, "add a credential to"); err != nil {
 		return errors.Trace(err)
 	}
