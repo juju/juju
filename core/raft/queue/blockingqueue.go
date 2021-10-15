@@ -4,11 +4,11 @@
 package queue
 
 import (
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"gopkg.in/tomb.v2"
 )
 
 const (
@@ -16,6 +16,10 @@ const (
 	// operation can't be processed in the time, a ErrDeadlineExceeded is
 	// returned.
 	EnqueueTimeout time.Duration = time.Second * 3
+
+	// EnqueueBatchSize dictates how many operations can be processed at any
+	// one time.
+	EnqueueBatchSize = 64
 )
 
 var (
@@ -47,21 +51,23 @@ type Operation struct {
 // queue is to allow the backing off of operations at the source of enqueueing,
 // and not at the consuming of the queue.
 type OpQueue struct {
-	mutex        sync.Mutex
-	queue        chan []Operation
-	ring         []ringOp
+	in           chan ringOp
+	out          chan []Operation
 	clock        clock.Clock
 	maxBatchSize int
+	tomb         *tomb.Tomb
 }
 
 // NewOpQueue creates a new OpQueue.
 func NewOpQueue(clock clock.Clock) *OpQueue {
 	queue := &OpQueue{
-		queue:        make(chan []Operation, 1),
-		ring:         make([]ringOp, 0),
+		in:           make(chan ringOp, EnqueueBatchSize),
+		out:          make(chan []Operation),
 		clock:        clock,
-		maxBatchSize: 64,
+		maxBatchSize: EnqueueBatchSize,
+		tomb:         new(tomb.Tomb),
 	}
+	queue.tomb.Go(queue.loop)
 
 	return queue
 }
@@ -73,47 +79,85 @@ func NewOpQueue(clock clock.Clock) *OpQueue {
 // correctly handle backing off from enqueueing.
 func (q *OpQueue) Enqueue(op Operation) {
 	select {
-	case q.queue <- q.coalesce(op):
-	default:
-		q.mutex.Lock()
-		q.ring = append(q.ring, makeRingOp(op, q.clock.Now()))
-		q.mutex.Unlock()
+	case q.in <- makeRingOp(op, q.clock.Now()):
+	case <-q.clock.After(EnqueueTimeout):
+		op.Done(ErrDeadlineExceeded)
 	}
 }
 
 // Queue returns the queue of operations. Removing an item from the channel
 // will unblock to allow another to take it's place.
 func (q *OpQueue) Queue() <-chan []Operation {
-	return q.queue
+	return q.out
 }
 
-func (q *OpQueue) coalesce(op Operation) []Operation {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
+const (
+	minDelay = time.Millisecond
+	maxDelay = time.Millisecond * 200
+)
 
-	now := q.clock.Now()
+func (q *OpQueue) loop() error {
+	// Start of the loop with the a average delay timeout.
+	delay := maxDelay / 2
 
-	ops := make([]Operation, 0, q.maxBatchSize)
-	for i, op := range q.ring {
-		// Ensure we don't put operations that have already expired.
-		if op.ExpiredTime.After(now) {
-			// Ensure we tell the operation that it didn't make the cut when
-			// attempting to coalesce.
-			op.Operation.Done(ErrDeadlineExceeded)
+	for {
+		ops := q.consume(delay)
+		if len(ops) == 0 {
 			continue
 		}
 
-		if len(ops) > q.maxBatchSize {
-			q.ring = q.ring[i:]
-			break
-		}
-		ops = append(ops, op.Operation)
-	}
+		start := q.clock.Now()
+		// Send the batch operations.
+		q.out <- ops
 
-	// When coalesceing operations we can be reasonable confident that the
-	// operation passed as an argument won't have expired. This means that we
-	// always have a non-empty slice.
-	return append(ops, op)
+		elapsed := q.clock.Now().Sub(start)
+
+		// If the messages are being consumed at a quicker rate, then the
+		// delay should be reduced between timeouts. If the timeout is taking
+		// longer, then allow the timeout to grow.
+		//
+		// If delay is growing, just allow the timeout to just jump to the
+		// difference, giving the consuming side more chance to breathe. For
+		// delays reducing time, slowly compact the delay so we don't force
+		// the consuming side to struggle.
+		// As this is adaptive, we allow the consuming side to dictate a
+		// settling delay.
+		delta := elapsed - delay
+		if delta <= 0 {
+			delay += delta / 2
+		} else {
+			delay += delta
+		}
+		if delay <= minDelay {
+			delay = minDelay
+		} else if delay >= maxDelay {
+			delay = maxDelay
+		}
+	}
+}
+
+func (q *OpQueue) consume(delay time.Duration) []Operation {
+	ops := make([]Operation, 0)
+	timeout := q.clock.After(delay)
+
+	for {
+		select {
+		case op := <-q.in:
+			// Ensure we don't put operations that have already expired.
+			if q.clock.Now().After(op.ExpiredTime) {
+				// 	// Ensure we tell the operation that it didn't make the cut when
+				// 	// attempting to coalesce.
+				op.Operation.Done(ErrDeadlineExceeded)
+				break
+			}
+			ops = append(ops, op.Operation)
+			if len(ops) == q.maxBatchSize {
+				return ops
+			}
+		case <-timeout:
+			return ops
+		}
+	}
 }
 
 type ringOp struct {

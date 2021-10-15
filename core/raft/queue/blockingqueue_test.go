@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/clock/testclock"
+	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,21 +21,19 @@ type OpQueueSuite struct {
 var _ = gc.Suite(&OpQueueSuite{})
 
 func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
-	now := time.Now()
-	queue := NewOpQueue(testclock.NewClock(now))
+	queue := NewOpQueue(clock.WallClock)
 
-	results := consumeN(c, queue, 1)
+	results := consumeN(c, queue, 100)
 
-	done := make(chan error, 1)
-	queue.Enqueue(Operation{
-		Command: command(),
-		Done: func(e error) {
-			fmt.Println("DONE")
-			done <- e
-		},
-	})
-
-	fmt.Println("ENQUEUE")
+	done := make(chan error, 100)
+	for i := 0; i < 100; i++ {
+		queue.Enqueue(Operation{
+			Command: command(),
+			Done: func(e error) {
+				done <- e
+			},
+		})
+	}
 
 	var err error
 	select {
@@ -212,7 +210,7 @@ func opName(i int) []byte {
 }
 
 func command() []byte {
-	return opName(1)
+	return opName(0)
 }
 
 func consumeN(c *gc.C, queue *OpQueue, n int) <-chan []byte {
