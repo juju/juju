@@ -430,9 +430,6 @@ type OptionalControllerCommand struct {
 
 	EnabledFlag string
 
-	// Local stores whether a client side (aka local) copy is requested.
-	Local bool
-
 	// Client stores whether the command will operate on a client copy.
 	Client bool
 
@@ -456,14 +453,11 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.BoolVar(&c.Client, "client", false, "Client operation")
 		f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
 		f.StringVar(&c.ControllerName, "controller", "", "")
-		// TODO (juju3) remove me
-		f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client): Local operation only; controller not affected")
 	}
 }
 
 // Init populates the command with the args from the command line.
-func (c *OptionalControllerCommand) Init(args []string) (err error) {
-	c.Client = c.Client || c.Local
+func (c *OptionalControllerCommand) Init(_ []string) (err error) {
 	return nil
 }
 
