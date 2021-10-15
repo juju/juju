@@ -15,7 +15,7 @@ import (
 // RefreshConfig defines a type for building refresh requests.
 type RefreshConfig interface {
 	// Build a refresh request for sending to the API.
-	Build() (transport.RefreshRequest, Headers, error)
+	Build() (transport.RefreshRequest, error)
 
 	// Ensure that the request back contains the information we requested.
 	Ensure([]transport.RefreshResponse) error
@@ -47,10 +47,10 @@ func (c refreshOne) String() string {
 }
 
 // Build a refresh request that can be past to the API.
-func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
+func (c refreshOne) Build() (transport.RefreshRequest, error) {
 	base, err := constructRefreshBase(c.Base)
 	if err != nil {
-		return transport.RefreshRequest{}, nil, errors.Trace(err)
+		return transport.RefreshRequest{}, errors.Trace(err)
 	}
 
 	return transport.RefreshRequest{
@@ -70,7 +70,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			InstanceKey: c.instanceKey,
 			ID:          &c.ID,
 		}},
-	}, constructMetadataHeaders(c.Base), nil
+	}, nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -101,10 +101,10 @@ func (c executeOne) InstanceKey() string {
 }
 
 // Build a refresh request that can be past to the API.
-func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
+func (c executeOne) Build() (transport.RefreshRequest, error) {
 	base, err := constructRefreshBase(c.Base)
 	if err != nil {
-		return transport.RefreshRequest{}, nil, errors.Trace(err)
+		return transport.RefreshRequest{}, errors.Trace(err)
 	}
 
 	var id *string
@@ -129,7 +129,7 @@ func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
 			Base:        &base,
 		}},
 	}
-	return req, constructMetadataHeaders(c.Base), nil
+	return req, nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -179,7 +179,7 @@ func (c executeOneByRevision) InstanceKey() string {
 }
 
 // Build a refresh request for sending to the API.
-func (c executeOneByRevision) Build() (transport.RefreshRequest, Headers, error) {
+func (c executeOneByRevision) Build() (transport.RefreshRequest, error) {
 	var name, id *string
 	if c.Name != "" {
 		name = &c.Name
@@ -201,7 +201,7 @@ func (c executeOneByRevision) Build() (transport.RefreshRequest, Headers, error)
 		}},
 		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
 	}
-	return req, nil, nil
+	return req, nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -236,11 +236,10 @@ func RefreshMany(configs ...RefreshConfig) RefreshConfig {
 }
 
 // Build a refresh request that can be past to the API.
-func (c refreshMany) Build() (transport.RefreshRequest, Headers, error) {
+func (c refreshMany) Build() (transport.RefreshRequest, error) {
 	if len(c.Configs) == 0 {
-		return transport.RefreshRequest{}, nil, errors.NotFoundf("configs")
+		return transport.RefreshRequest{}, errors.NotFoundf("configs")
 	}
-	var composedHeaders Headers
 	// Not all configs built here have a context, start out with an empty
 	// slice, so we do not call Refresh with a nil context.
 	// See executeOne.Build().
@@ -248,16 +247,15 @@ func (c refreshMany) Build() (transport.RefreshRequest, Headers, error) {
 		Context: []transport.RefreshRequestContext{},
 	}
 	for _, config := range c.Configs {
-		req, headers, err := config.Build()
+		req, err := config.Build()
 		if err != nil {
-			return transport.RefreshRequest{}, nil, errors.Trace(err)
+			return transport.RefreshRequest{}, errors.Trace(err)
 		}
 		result.Context = append(result.Context, req.Context...)
 		result.Actions = append(result.Actions, req.Actions...)
 		result.Fields = append(result.Fields, req.Fields...)
-		composedHeaders = composeMetadataHeaders(composedHeaders, headers)
 	}
-	return result, composedHeaders, nil
+	return result, nil
 }
 
 // Ensure that the request back contains the information we requested.

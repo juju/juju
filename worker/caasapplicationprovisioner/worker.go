@@ -17,8 +17,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	api "github.com/juju/juju/api/caasapplicationprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
@@ -147,17 +147,18 @@ func (p *provisioner) loop() error {
 			}
 			for _, app := range apps {
 				existingWorker, err := p.runner.Worker(app, nil)
-				if err == worker.ErrNotFound {
+				if errors.IsNotFound(err) {
 					// Ignore.
 				} else if err == worker.ErrDead {
-					existingWorker = nil
+					// Runner is dying so we need to stop processing.
+					break
 				} else if err != nil {
 					return errors.Trace(err)
 				}
 
 				if existingWorker != nil {
-					worker := existingWorker.(appNotifyWorker)
-					worker.Notify()
+					w := existingWorker.(appNotifyWorker)
+					w.Notify()
 					continue
 				}
 

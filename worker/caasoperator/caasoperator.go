@@ -18,8 +18,8 @@ import (
 	"github.com/juju/utils/v2/arch"
 	jujusymlink "github.com/juju/utils/v2/symlink"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/caas"
@@ -558,8 +558,8 @@ func (op *caasOperator) loop() (err error) {
 					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
 					logger.Debugf("stopping uniter for dead unit %q", unitID)
-					if err := op.runner.StopWorker(unitID); err != nil {
-						return errors.Trace(err)
+					if err := op.runner.StopAndRemoveWorker(unitID, op.catacomb.Dying()); err != nil {
+						logger.Warningf("stopping uniter for dead unit %q: %v", unitID, err)
 					}
 					logger.Debugf("removing dead unit %q", unitID)
 					// Remove the unit from state.

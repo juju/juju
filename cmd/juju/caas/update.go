@@ -6,6 +6,7 @@ package caas
 import (
 	stdcontext "context"
 	"fmt"
+	"net/url"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -18,6 +19,7 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -212,7 +214,8 @@ func maybeBuiltInCloud(cloudName string) (jujucloud.Cloud, *jujucloud.Credential
 // Run is defined on the Command interface.
 func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 	var newCloud *jujucloud.Cloud
-	haveLocalCloud := false
+	havePersonalCloud := false
+	haveBuiltinCloud := false
 	// First, see if we're updating a built-in cloud.
 	builtinCloud, credential, credentialName, err := c.builtInCloudsFunc(c.caasName)
 	if err != nil && !errors.IsNotFound(err) {
@@ -223,11 +226,8 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 			ctx.Infof("%q is a built-in cloud and does not support specifying a cloud YAML file.", c.caasName)
 			return cmd.ErrSilent
 		}
-		if c.Client {
-			ctx.Infof("%q is a built-in cloud and cannot be updated on the client.", c.caasName)
-			return cmd.ErrSilent
-		}
 		newCloud = &builtinCloud
+		haveBuiltinCloud = true
 	} else if c.CloudFile != "" {
 		r := &cloud.CloudFileReader{
 			CloudMetadataStore: c.cloudMetadataStore,
@@ -247,7 +247,7 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.NotFoundf("cloud %s", c.caasName)
 		} else {
 			newCloud = &localCloud
-			haveLocalCloud = true
+			havePersonalCloud = true
 		}
 	}
 
@@ -284,13 +284,14 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		ctx.Infof(successMsg)
 	}
 	if c.Client {
-		if newCloud == nil || haveLocalCloud {
-			ctx.Infof("To update k8s cloud %q on this client, a cloud definition file is required.", c.caasName)
-			returnErr = cmd.ErrSilent
-		} else {
-			err := updateCloudOnLocal(c.cloudMetadataStore, *newCloud)
-			processErr(err, fmt.Sprintf("k8s cloud %q updated on this client using provided file.", c.caasName))
+		if !haveBuiltinCloud && !havePersonalCloud {
+			if err := updateCloudOnLocal(c.cloudMetadataStore, *newCloud); err != nil {
+				ctx.Infof("%v", err)
+				return cmd.ErrSilent
+			}
 		}
+		err = updateControllerProxyOnLocal(c.Store, *newCloud)
+		processErr(err, fmt.Sprintf("k8s cloud %q updated on this client.", c.caasName))
 	}
 	if c.ControllerName != "" {
 		if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
@@ -331,6 +332,35 @@ func updateCloudOnLocal(cloudMetadataStore CloudMetadataStore, updatedCloud juju
 	}
 	personalClouds[updatedCloud.Name] = updatedCloud
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
+}
+
+// updateControllerProxyOnLocal ensures that any local controller proxy config
+// is updated to have the endpoint connectivity required by the updatedCloud.
+func updateControllerProxyOnLocal(store jujuclient.ControllerStore, updatedCloud jujucloud.Cloud) error {
+	all, err := store.AllControllers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for name, details := range all {
+		if details.Cloud != updatedCloud.Name || details.Proxy == nil {
+			continue
+		}
+		k8sProxier, ok := details.Proxy.Proxier.(*proxy.Proxier)
+		if !ok {
+			continue
+		}
+		host := updatedCloud.Endpoint
+		if apiURL, err := url.Parse(updatedCloud.Endpoint); err == nil {
+			host = apiURL.Host
+		}
+		k8sProxier.SetAPIHost(host)
+		details.Proxy.Proxier = k8sProxier
+		err = store.UpdateController(name, details)
+		if err != nil {
+			return errors.Annotate(err, "saving controller details for updated k8s cluster")
+		}
+	}
+	return nil
 }
 
 func (c *UpdateCAASCommand) updateCredentialOnController(ctx *cmd.Context, apiClient UpdateCloudAPI, newCredential jujucloud.Credential, cloudName, credentialName string) error {

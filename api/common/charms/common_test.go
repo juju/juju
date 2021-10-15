@@ -76,7 +76,6 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 					Type: "filesystem",
 				},
 			},
-			Assumes: []string{"kubernetes"},
 		},
 		Manifest: &params.CharmManifest{
 			Bases: []params.CharmBase{
@@ -141,7 +140,6 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 					Type: "filesystem",
 				},
 			},
-			Assumes: []string{"kubernetes"},
 		},
 		Manifest: &charm.Manifest{
 			Bases: []charm.Base{

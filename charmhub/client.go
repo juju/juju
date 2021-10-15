@@ -282,6 +282,13 @@ func (c *Client) RefreshWithRequestMetrics(ctx context.Context, config RefreshCo
 	return c.refreshClient.RefreshWithRequestMetrics(ctx, config, metrics)
 }
 
+// RefreshWithMetricsOnly defines a client making a refresh API call with no
+// action, whose purpose is to send metrics data for models without current
+// units.  E.G. the controller model.
+func (c *Client) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+	return c.refreshClient.RefreshWithMetricsOnly(ctx, metrics)
+}
+
 // Download defines a client for downloading charms directly.
 func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
 	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)

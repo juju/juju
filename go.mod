@@ -49,7 +49,7 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v9 v9.0.0-20210922083844-6bd7c961dbc6
+	github.com/juju/charm/v9 v9.0.0-20211015035448-a407f299325d
 	github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
@@ -86,9 +86,9 @@ require (
 	github.com/juju/txn/v2 v2.0.0-20210407000251-11166e89894c
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
-	github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057
+	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
+	github.com/juju/worker/v3 v3.0.0-20211015025416-7586be9e222a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d

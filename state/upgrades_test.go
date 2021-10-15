@@ -5685,6 +5685,55 @@ func (s *upgradesSuite) TestRemoveOrphanedCrossModelProxies(c *gc.C) {
 	}
 }
 
+func (s *upgradesSuite) TestDropLegacyAssumesSectionsFromCharmMetadata(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	charmsColl, closer := s.state.db().GetRawCollection(charmsC)
+	defer closer()
+
+	var err error
+	err = charmsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "charm1"),
+		"model-uuid": uuid1,
+		"name":       "charm1",
+		"assumes":    []string{"lorem", "ipsum"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = charmsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "charm2"),
+		"model-uuid": uuid2,
+		"name":       "charm2",
+		"assumes":    []string{"foo", "bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "charm1"),
+			"model-uuid": uuid1,
+			"name":       "charm1",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "charm2"),
+			"model-uuid": uuid2,
+			"name":       "charm2",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, DropLegacyAssumesSectionsFromCharmMetadata,
+		upgradedData(charmsColl, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

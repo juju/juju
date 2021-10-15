@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -89,21 +88,51 @@ func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *Refresh
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
-	req, headers, err := config.Build()
+	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.refresh(ctx, config.Ensure, req, headers)
+	return c.refresh(ctx, config.Ensure, req)
 }
 
 // RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
 // at the same time.  Used as part of the charm revision updater facade.
 func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
 	c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
-	req, headers, err := config.Build()
+	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	m, err := contextMetrics(metrics)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	req.Metrics = m
+	return c.refresh(ctx, config.Ensure, req)
+}
+
+// RefreshWithMetricsOnly is to provide metrics without context or actions. Used
+// as part of the charm revision updater facade.
+func (c *RefreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+	c.logger.Tracef("RefreshWithMetricsOnly(%+v)", metrics)
+	m, err := contextMetrics(metrics)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	req := transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{},
+		Metrics: m,
+	}
+
+	// No need to ensure data which is not expected.
+	ensure := func(responses []transport.RefreshResponse) error { return nil }
+
+	_, err = c.refresh(ctx, ensure, req)
+	return err
+}
+
+func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) (transport.RequestMetrics, error) {
 	m := make(transport.RequestMetrics, 0)
 	for k, v := range metrics {
 		// verify top level "model" and "controller" keys
@@ -116,17 +145,11 @@ func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config Re
 		}
 		m[k.String()] = ctxM
 	}
-	req.Metrics = m
-	return c.refresh(ctx, config.Ensure, req, headers)
+	return m, nil
 }
 
-func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest, headers Headers) ([]transport.RefreshResponse, error) {
+func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest) ([]transport.RefreshResponse, error) {
 	httpHeaders := make(http.Header)
-	for k, values := range headers {
-		for _, value := range values {
-			httpHeaders.Add(MetadataHeader, fmt.Sprintf("%s=%s", k, value))
-		}
-	}
 
 	var resp transport.RefreshResponses
 	restResp, err := c.client.Post(ctx, c.path, httpHeaders, req, &resp)
@@ -376,40 +399,6 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		Name:         name,
 		Channel:      channel,
 	}, nil
-}
-
-// constructHeaders adds X-Juju-Metadata headers for the charms' unique channel
-// and architecture values, for example:
-//
-// X-Juju-Metadata: channel=bionic
-// X-Juju-Metadata: arch=amd64
-// X-Juju-Metadata: channel=focal
-func constructMetadataHeaders(base RefreshBase) map[string][]string {
-	headers := make(map[string][]string)
-	if base.Architecture != "" {
-		headers["arch"] = []string{base.Architecture}
-	}
-	if base.Name != "" {
-		headers["name"] = []string{base.Name}
-	}
-	if base.Channel != "" {
-		headers["channel"] = []string{base.Channel}
-	}
-	return headers
-}
-
-func composeMetadataHeaders(a, b Headers) Headers {
-	result := make(map[string][]string)
-	for k, v := range a {
-		result[k] = append(result[k], v...)
-	}
-	for k, v := range b {
-		result[k] = append(result[k], v...)
-	}
-	for k, v := range result {
-		result[k] = set.NewStrings(v...).SortedValues()
-	}
-	return result
 }
 
 // validateBase ensures that we do not pass "all" as part of base.

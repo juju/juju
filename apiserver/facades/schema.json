@@ -7022,11 +7022,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -7611,6 +7608,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "KubernetesDeviceParams": {
@@ -8517,11 +8527,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -8930,6 +8937,19 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "LifeResult": {
@@ -9377,11 +9397,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -9790,6 +9807,19 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "LifeResult": {
@@ -11470,11 +11500,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -11953,6 +11980,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "HostPort": {
@@ -12957,11 +12997,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -13454,6 +13491,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "IntResult": {
@@ -15183,11 +15233,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -15839,6 +15886,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "IsMeteredResult": {

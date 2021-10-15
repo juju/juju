@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 
 	jworker "github.com/juju/juju/worker"
 )

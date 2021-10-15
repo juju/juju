@@ -6,7 +6,7 @@ package worker
 import (
 	"time"
 
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 )
 
 // RestartDelay holds the length of time that a worker

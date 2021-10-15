@@ -23,7 +23,6 @@ import (
 	"github.com/juju/utils/v2/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -152,19 +151,6 @@ func BootstrapInstance(
 	instanceConfig.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 
 	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, instanceConfig.Jobs)
-	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
-		// If we need to override the default bridge name, do it now. When
-		// args.ContainerBridgeName is empty, the default names for LXC
-		// (lxcbr0) and KVM (virbr0) will be used.
-		if args.ContainerBridgeName != "" {
-			logger.Debugf("using %q as network bridge for all container types", args.ContainerBridgeName)
-			if icfg.AgentEnvironment == nil {
-				icfg.AgentEnvironment = make(map[string]string)
-			}
-			icfg.AgentEnvironment[agent.LxdBridge] = args.ContainerBridgeName
-		}
-	}
-	maybeSetBridge(instanceConfig)
 
 	// We're creating a new instance; inject host keys so that we can then
 	// make an SSH connection with known keys.
@@ -315,7 +301,6 @@ func BootstrapInstance(
 		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
 			return err
 		}
-		maybeSetBridge(icfg)
 		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalizer, nil

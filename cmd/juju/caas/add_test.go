@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
@@ -348,7 +349,12 @@ func NewMockClientStore() *jujuclient.MemStore {
 		User: "foouser",
 	}
 	store.Controllers["foo"] = jujuclient.ControllerDetails{
-		APIEndpoints: []string{"0.1.2.3:1234"},
+		APIEndpoints:   []string{"0.1.2.3:1234"},
+		ControllerUUID: "uuid",
+		Cloud:          "microk8s",
+		Proxy: &jujuclient.ProxyConfWrapper{
+			Proxier: proxy.NewProxier(proxy.ProxierConfig{APIHost: "10.0.0.1"}),
+		},
 	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",

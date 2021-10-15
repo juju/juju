@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/v2/fs"
 	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"

@@ -150,9 +150,6 @@ var (
 const SystemIdentity = "system-identity"
 
 const (
-	// LxcBridge is deprecated, used LxdBridge instead.
-	LxcBridge         = "LXC_BRIDGE"
-	LxdBridge         = "LXD_BRIDGE"
 	ProviderType      = "PROVIDER_TYPE"
 	ContainerType     = "CONTAINER_TYPE"
 	Namespace         = "NAMESPACE"

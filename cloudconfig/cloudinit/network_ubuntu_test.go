@@ -38,13 +38,10 @@ type NetworkUbuntuSuite struct {
 	expectedSampleConfigTemplate    string
 	expectedSampleConfigWriting     string
 	expectedSampleUserData          string
-	expectedFallbackConfig          string
-	expectedBaseConfig              string
 	expectedFullNetplanYaml         string
 	expectedBaseNetplanYaml         string
 	expectedFullNetplan             string
 	expectedBaseNetplan             string
-	expectedFallbackUserData        string
 	tempFolder                      string
 	pythonVersions                  []string
 	originalSystemNetworkInterfaces string
@@ -323,25 +320,6 @@ network:
   ' > '%[1]s'
 `[1:]
 
-	s.expectedFallbackConfig = `- install -D -m 644 /dev/null '%[1]s.templ'
-- |-
-  printf '%%s\n' '
-  auto lo {eth}
-
-  iface lo inet loopback
-
-  iface {eth} inet dhcp
-  ' > '%[1]s.templ'
-`
-
-	s.expectedBaseConfig = `
-auto lo {eth}
-
-iface lo inet loopback
-
-iface {eth} inet dhcp
-`
-
 	s.expectedBaseNetplan = `
 network:
   version: 2
@@ -350,37 +328,6 @@ network:
       match:
         name: eth0
       dhcp4: true
-`[1:]
-
-	s.expectedFallbackUserData = `
-#cloud-config
-bootcmd:
-- install -D -m 644 /dev/null '%[1]s'
-- |-
-  printf '%%s\n' '
-  auto eth0 lo
-
-  iface lo inet loopback
-
-  iface eth0 inet dhcp
-  ' > '%[1]s'
-runcmd:
-- |-
-  if [ -f %[1]s ]; then
-      echo "stopping all interfaces"
-      ifdown -a
-      sleep 1.5
-      if ifup -a --interfaces=%[1]s; then
-          echo "ifup with %[1]s succeeded, renaming to %[2]s"
-          cp %[2]s %[2]s-orig
-          cp %[1]s %[2]s
-      else
-          echo "ifup with %[1]s failed, leaving old %[2]s alone"
-          ifup -a
-      fi
-  else
-      echo "did not find %[1]s, not reconfiguring networking"
-  fi
 `[1:]
 
 	s.originalSystemNetworkInterfaces = `
@@ -408,13 +355,7 @@ func (s *NetworkUbuntuSuite) TestGenerateENIConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
-	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err = cloudinit.GenerateENITemplate(netConfig.Interfaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, gc.Equals, s.expectedBaseConfig)
-
-	// Test with all interface types.
-	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
 	data, err = cloudinit.GenerateENITemplate(netConfig.Interfaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.Equals, s.expectedSampleConfigTemplate)
@@ -425,20 +366,14 @@ func (s *NetworkUbuntuSuite) TestGenerateNetplan(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
-	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, gc.Equals, s.expectedBaseNetplan)
-
-	// Test with all interface types.
-	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
 	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.Equals, s.expectedFullNetplan)
 }
 
 func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
 	cloudConf, err := cloudinit.New("xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
@@ -450,56 +385,6 @@ func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
 	expected += fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
 	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
-}
-
-func (s *NetworkUbuntuSuite) TestAddNetworkConfigFallbackConfig(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	cloudConf, err := cloudinit.New("xenial")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudConf, gc.NotNil)
-	err = cloudConf.AddNetworkConfig(netConfig.Interfaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudConf, gc.NotNil)
-	expected := s.expectedSampleConfigHeader
-	expected += fmt.Sprintf(s.expectedBaseNetplanYaml, s.jujuNetplanFile)
-	expected += fmt.Sprintf(s.expectedFallbackConfig, s.systemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
-	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile)
-	assertUserData(c, cloudConf, expected)
-}
-
-func CloudInitDataExcludingOutputSection(data string) []string {
-	// Extract the "#cloud-config" header and all lines between
-	// from the "bootcmd" section up to (but not including) the
-	// "output" sections to match against expected. But we cannot
-	// possibly handle all the /other/ output that may be added by
-	// CloudInitUserData() in the future, so we also truncate at
-	// the first runcmd which now happens to include the runcmd's
-	// added for raising the network interfaces captured in
-	// expectedFallbackUserData. However, the other tests above do
-	// check for that output.
-
-	var linesToMatch []string
-	seenBootcmd := false
-	for _, line := range strings.Split(data, "\n") {
-		if strings.HasPrefix(line, "#cloud-config") {
-			linesToMatch = append(linesToMatch, line)
-			continue
-		}
-
-		if strings.HasPrefix(line, "bootcmd:") {
-			seenBootcmd = true
-		}
-
-		if strings.HasPrefix(line, "output:") && seenBootcmd {
-			break
-		}
-
-		if seenBootcmd {
-			linesToMatch = append(linesToMatch, line)
-		}
-	}
-
-	return linesToMatch
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
@@ -609,7 +494,7 @@ func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, inpu
 
 func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string {
 	randBytes := make([]byte, 16)
-	rand.Read(randBytes)
+	_, _ = rand.Read(randBytes)
 	baseName := hex.EncodeToString(randBytes)
 	basePath := filepath.Join(s.tempFolder, fmt.Sprintf("%s.%d", baseName, 0))
 	script := fmt.Sprintf("#!/bin/bash\ncat %s\n", basePath)

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
@@ -54,24 +53,15 @@ func prepareContainerInterfaceInfo(
 	return preparedInfo, nil
 }
 
-// finishNetworkConfig populates the ParentInterfaceName, DNSServers, and
-// DNSSearchDomains fields on each element, when they are not set. The given
-// bridgeDevice is used for ParentInterfaceName, while the DNS config is
-// discovered using network.ParseResolvConf(). If interfaces has zero length,
+// finishNetworkConfig populates the DNSServers and DNSSearchDomains fields on
+// each element when they are not set. The given the DNS config is discovered
+// using network.ParseResolvConf(). If interfaces has zero length,
 // container.FallbackInterfaceInfo() is used as fallback.
-func finishNetworkConfig(bridgeDevice string, interfaces corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func finishNetworkConfig(interfaces corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	haveNameservers, haveSearchDomains := false, false
-	if len(interfaces) == 0 {
-		// Use the fallback network config as a last resort.
-		interfaces = container.FallbackInterfaceInfo()
-	}
 
 	results := make(corenetwork.InterfaceInfos, len(interfaces))
 	for i, info := range interfaces {
-		if info.ParentInterfaceName == "" {
-			info.ParentInterfaceName = bridgeDevice
-		}
-
 		if len(info.DNSServers) > 0 {
 			haveNameservers = true
 		}

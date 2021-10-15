@@ -14,8 +14,8 @@ import (
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"

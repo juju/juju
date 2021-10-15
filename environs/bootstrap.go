@@ -63,11 +63,6 @@ type BootstrapParams struct {
 	// may use to decide which architecture/series to instantiate.
 	AvailableTools tools.List
 
-	// ContainerBridgeName, if non-empty, overrides the default
-	// network bridge device to use for LXC and KVM containers. See
-	// also instancecfg.DefaultBridgeName.
-	ContainerBridgeName string
-
 	// ImageMetadata contains simplestreams image metadata for providers
 	// that rely on it for selecting images. This will be empty for
 	// providers that do not implements simplestreams.HasRegion.

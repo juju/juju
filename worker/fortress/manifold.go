@@ -5,8 +5,8 @@ package fortress
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 )
 
 // Manifold returns a dependency.Manifold that runs a fortress.

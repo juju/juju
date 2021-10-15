@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -72,24 +71,12 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Something to fallback to if there are no devices given in args.NetworkInfo
-	// TODO(jam): 2017-02-07, this feels like something that should never need
-	// to be invoked, because either StartInstance or
-	// prepareContainerInterfaceInfo should always return a value. The
-	// test suite currently doesn't think so, and I'm hesitant to munge it too
-	// much.
-	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = broker.agentConfig.Value(agent.LxcBridge)
-	}
-	if bridgeDevice == "" {
-		bridgeDevice = network.DefaultLXDBridge
-	}
-	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
+
+	interfaces, err := finishNetworkConfig(preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	net := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
+	net := container.BridgeNetworkConfig(0, interfaces)
 
 	pNames, err := broker.writeProfiles(containerMachineID)
 	if err != nil {

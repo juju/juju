@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/pki"
+	proxyerrors "github.com/juju/juju/proxy/errors"
 )
 
 var errNoNameSpecified = errors.New("no name specified")
@@ -266,6 +268,12 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	}
 	if juju.IsNoAddressesError(err) {
 		return nil, errors.New("no controller API addresses; is bootstrap still in progress?")
+	}
+	if proxyerrors.IsProxyConnectError(err) {
+		if proxyerrors.ProxyType(err) == k8sproxy.ProxierTypeKey {
+			return nil, errors.New("cannot connect to k8s api server; try running 'juju update-k8s --client <k8s cloud name>'")
+		}
+		return nil, errors.Annotate(err, "cannot connect to api server proxy")
 	}
 	return conn, errors.Trace(err)
 }
