@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
@@ -226,7 +226,7 @@ func (m *modelWorkerManager) loop() error {
 
 func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 	starter := m.starter(cfg)
-	if err := m.runner.StartWorker(cfg.ModelUUID, starter); err != nil {
+	if err := m.runner.StartWorker(cfg.ModelUUID, starter); !errors.IsAlreadyExists(err) {
 		return errors.Trace(err)
 	}
 	return nil

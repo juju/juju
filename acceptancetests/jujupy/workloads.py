@@ -78,6 +78,7 @@ def assert_mediawiki_is_responding(client):
     if '<title>Please set name of wiki</title>' not in resp.content:
         raise AssertionError('Got unexpected mediawiki page content: {}'.format(resp.content))
 
+
 def deploy_keystone_with_db(client):
     client.deploy('cs:percona-cluster')
     client.wait_for_started()
@@ -94,6 +95,7 @@ def deploy_keystone_with_db(client):
     client.juju('expose', 'keystone')
     client.wait_for_workloads()
     client.wait_for_started()
+
 
 def assert_keystone_is_responding(client):
     log.debug('Assert keystone is responding.')
@@ -112,7 +114,7 @@ def assert_keystone_is_responding(client):
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None, series='xenial'):
+        client, model_name, resource_contents=None, series='bionic'):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
@@ -137,7 +139,7 @@ def deploy_simple_server_to_new_model(
 
 
 def deploy_simple_resource_server(
-        client, resource_contents=None, series='xenial'):
+        client, resource_contents=None, series='bionic'):
     application_name = 'simple-resource-http'
     log.info('Deploying charm: {}'.format(application_name))
     charm_path = local_charm_path(
@@ -157,7 +159,7 @@ def deploy_simple_resource_server(
 
     client.wait_for_started()
     client.wait_for_workloads()
-    client.juju('expose', (application_name))
+    client.juju('expose', application_name)
     return application_name
 
 

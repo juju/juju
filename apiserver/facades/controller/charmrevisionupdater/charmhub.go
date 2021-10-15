@@ -49,6 +49,7 @@ type charmhubResult struct {
 // client that we need.
 type CharmhubRefreshClient interface {
 	RefreshWithRequestMetrics(ctx context.Context, config charmhub.RefreshConfig, metrics map[metrics.MetricKey]map[metrics.MetricKey]string) ([]transport.RefreshResponse, error)
+	RefreshWithMetricsOnly(ctx context.Context, metrics map[metrics.MetricKey]map[metrics.MetricKey]string) error
 }
 
 // charmhubLatestCharmInfo fetches the latest information about the given

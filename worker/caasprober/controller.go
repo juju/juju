@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3/catacomb"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )

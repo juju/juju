@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
@@ -361,9 +361,12 @@ func (c *nestedContext) startUnitWorkers(unitName string) error {
 		return nil
 	}
 
-	// StartWorker only ever returns an error when the runner is dead.
-	// In that case, it is fine to return errors back to the deployer worker.
-	return errors.Trace(c.runner.StartWorker(unitName, agent.start))
+	err := c.runner.StartWorker(unitName, agent.start)
+	// Ensure starting a unit worker is idempotent.
+	if err == nil || errors.IsAlreadyExists(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 func (c *nestedContext) stopUnitWorkers(unitName string) error {
@@ -376,7 +379,7 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 		c.logger.Infof("unit workers for %q not running", unitName)
 		return nil
 	}
-	if err := c.runner.StopWorker(unitName); err != nil {
+	if err := c.runner.StopAndRemoveWorker(unitName, nil); err != nil {
 		// StopWorker only ever returns an error when the runner is dead.
 		// In that case, it is fine to return errors back to the deployer worker.
 		return errors.Annotatef(err, "unable to stop workers for %q", unitName)

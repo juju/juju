@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/names/v4"
-	worker "github.com/juju/worker/v2"
+	worker "github.com/juju/worker/v3"
 )
 
 func NewMachineContext(

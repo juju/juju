@@ -2789,3 +2789,36 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	}
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *MachineSuite) TestGetManualMachineArches(c *gc.C) {
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:                  "quantal",
+		Jobs:                    []state.MachineJob{state.JobHostUnits},
+		InstanceId:              "manual:foo",
+		Nonce:                   "manual:foo-nonce",
+		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddOneMachine(state.MachineTemplate{
+		Series:                  "quantal",
+		Jobs:                    []state.MachineJob{state.JobHostUnits},
+		InstanceId:              "manual:bar",
+		Nonce:                   "manual:bar-nonce",
+		HardwareCharacteristics: instance.MustParseHardware("arch=s390x"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddOneMachine(state.MachineTemplate{
+		Series:                  "quantal",
+		Jobs:                    []state.MachineJob{state.JobHostUnits},
+		InstanceId:              "lorem",
+		Nonce:                   "lorem:nonce",
+		HardwareCharacteristics: instance.MustParseHardware("arch=ppc64el"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	manualArchSet, err := s.State.GetManualMachineArches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(manualArchSet.SortedValues(), gc.DeepEquals, []string{"amd64", "s390x"})
+}

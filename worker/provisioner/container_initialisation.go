@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
@@ -143,7 +143,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 			// We only care about the initial container creation.
 			// This worker has done its job so stop it.
 			// We do not expect there will be an error, and there's not much we can do anyway.
-			if err := cs.runner.StopWorker(cs.workerName); err != nil {
+			if err := cs.runner.StopAndRemoveWorker(cs.workerName, nil); err != nil {
 				cs.logger.Warningf("stopping machine agent container watcher: %v", err)
 			}
 		}

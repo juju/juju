@@ -34,7 +34,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
@@ -63,9 +63,9 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPost(c, restClient, path, id, body)
+	s.expectPost(restClient, baseURLPath, id, body)
 
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	responses, err := client.Refresh(context.TODO(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
@@ -138,7 +138,7 @@ func (t *metadataTransport) Do(req *http.Request) (*http.Response, error) {
 
 func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 
 	httpTransport := &metadataTransport{
 		responseBody: `
@@ -160,7 +160,7 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 
 	headers := http.Header{"User-Agent": []string{"Test Agent 1.0"}}
 	restClient := NewHTTPRESTClient(httpTransport, headers)
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 
 	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -181,12 +181,6 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	response, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(httpTransport.requestHeaders[MetadataHeader], jc.SameContents, []string{
-		"arch=amd64",
-		"name=ubuntu",
-		"channel=20.04",
-		"channel=14.04",
-	})
 	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
 
 	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
@@ -195,17 +189,54 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
+func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
+	id := ""
+	body := transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{},
+		Metrics: map[string]map[string]string{
+			"controller": {"uuid": "controller-uuid"},
+			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
+		},
+	}
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectPost(restClient, baseURLPath, id, body)
+
+	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+		charmmetrics.Controller: {
+
+			charmmetrics.UUID: "controller-uuid",
+		},
+		charmmetrics.Model: {
+			charmmetrics.NumUnits:   "3",
+			charmmetrics.Controller: "controller-uuid",
+			charmmetrics.UUID:       "model-uuid",
+		},
+	}
+
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	err := client.RefreshWithMetricsOnly(context.TODO(), metrics)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	baseURLPath := path.MakePath(baseURL)
 	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key-foo",
 			ID:          id,
 			Revision:    1,
 			Base: transport.Base{
@@ -214,22 +245,40 @@ func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
+		}, {
+			InstanceKey: "instance-key-bar",
+			ID:          id,
+			Revision:    2,
+			Base: transport.Base{
+				Name:         "ubuntu",
+				Channel:      "14.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+			TrackingChannel: "latest/edge",
 		}},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
-			InstanceKey: "foo-bar",
+			InstanceKey: "instance-key-foo",
+			ID:          &id,
+		}, {
+			Action:      "refresh",
+			InstanceKey: "instance-key-bar",
 			ID:          &id,
 		}},
+		Metrics: map[string]map[string]string{
+			"controller": {"uuid": "controller-uuid"},
+			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
+		},
 	}
 
-	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
+	config1, err := RefreshOne("instance-key-foo", id, 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config2, err := RefreshOne("instance-key-var", "bar", 2, "latest/edge", RefreshBase{
+	config2, err := RefreshOne("instance-key-bar", id, 2, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "14.04",
 		Architecture: "amd64",
@@ -239,14 +288,31 @@ func (s *RefreshSuite) RefreshWithRequestMetrics(c *gc.C) {
 	config := RefreshMany(config1, config2)
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPost(c, restClient, path, id, body)
+	restClient.EXPECT().Post(gomock.Any(), baseURLPath, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
+		responses.Results = []transport.RefreshResponse{{
+			InstanceKey: "instance-key-foo",
+			Name:        id,
+		}, {
+			InstanceKey: "instance-key-bar",
+			Name:        id,
+		}}
+	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 
-	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{}
+	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+		charmmetrics.Controller: {
+			charmmetrics.UUID: "controller-uuid",
+		},
+		charmmetrics.Model: {
+			charmmetrics.NumUnits:   "3",
+			charmmetrics.Controller: "controller-uuid",
+			charmmetrics.UUID:       "model-uuid",
+		},
+	}
 
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	responses, err := client.RefreshWithRequestMetrics(context.TODO(), config, metrics)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(responses), gc.Equals, 1)
+	c.Assert(len(responses), gc.Equals, 2)
 	c.Assert(responses[0].Name, gc.Equals, id)
 }
 
@@ -256,7 +322,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := path.MakePath(baseURL)
+	baseURLPath := path.MakePath(baseURL)
 	name := "meshuggah"
 
 	config, err := RefreshOne("instance-key", name, 1, "latest/stable", RefreshBase{
@@ -267,14 +333,14 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPostFailure(c, restClient)
+	s.expectPostFailure(restClient)
 
-	client := NewRefreshClient(path, restClient, &FakeLogger{})
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	_, err = client.Refresh(context.TODO(), config)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
-func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, name string, body interface{}) {
+func (s *RefreshSuite) expectPost(client *MockRESTClient, p path.Path, name string, body interface{}) {
 	client.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
 		responses.Results = []transport.RefreshResponse{{
 			InstanceKey: "instance-key",
@@ -283,7 +349,7 @@ func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, 
 	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 }
 
-func (s *RefreshSuite) expectPostFailure(c *gc.C, client *MockRESTClient) {
+func (s *RefreshSuite) expectPostFailure(client *MockRESTClient) {
 	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
@@ -319,7 +385,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
@@ -369,7 +435,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
@@ -427,7 +493,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -458,7 +524,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 	config, ok := AddResource(config, "testme", 3)
 	c.Assert(ok, jc.IsTrue)
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -499,7 +565,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -537,7 +603,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -564,7 +630,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	_, _, err = config.Build()
+	_, err = config.Build()
 	c.Assert(errors.IsNotValid(err), jc.IsTrue)
 }
 
@@ -601,7 +667,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -628,7 +694,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -659,7 +725,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -698,7 +764,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -737,7 +803,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -787,7 +853,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuildContextNotNil(c *gc.C) {
 	config2 = DefineInstanceKey(c, config2, "foo-baz")
 	config := RefreshMany(config1, config2)
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req.Context, gc.NotNil)
 }
@@ -830,7 +896,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 
 	config := RefreshMany(config1, config2, config3, config4)
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{

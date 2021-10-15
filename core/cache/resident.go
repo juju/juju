@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 )
 
 // The cached controller includes a "residentManager", which supplies new

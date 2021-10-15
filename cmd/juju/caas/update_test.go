@@ -15,13 +15,16 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
+	"github.com/juju/juju/jujuclient"
 
 	// To allow a maas cloud type to be parsed in the test data.
 	_ "github.com/juju/juju/provider/maas"
@@ -34,6 +37,7 @@ type updateCAASSuite struct {
 	fakeCloudAPI                  *fakeUpdateCloudAPI
 	fakeK8sClusterMetadataChecker *fakeK8sClusterMetadataChecker
 	cloudMetadataStore            *fakeCloudMetadataStore
+	clientStore                   *jujuclient.MemStore
 	fakeK8SConfigFunc             *clientconfig.ClientConfigFunc
 }
 
@@ -105,6 +109,7 @@ func (s *updateCAASSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 
 	var logger loggo.Logger
+	s.clientStore = NewMockClientStore()
 	s.fakeCloudAPI = &fakeUpdateCloudAPI{
 		CallMocker: jujutesting.NewCallMocker(logger),
 	}
@@ -131,7 +136,7 @@ func (s *updateCAASSuite) SetUpTest(c *gc.C) {
 func (s *updateCAASSuite) makeCommand() cmd.Command {
 	return caas.NewUpdateCAASCommandForTest(
 		s.cloudMetadataStore,
-		NewMockClientStore(),
+		s.clientStore,
 		func() (caas.UpdateCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
@@ -239,17 +244,9 @@ func (s *updateCAASSuite) TestLocalOnly(c *gc.C) {
 		command := s.makeCommand()
 		ctx, err := s.runCommand(c, command, "myk8s", "-f", "mycloud.yaml", "--client")
 		c.Assert(err, jc.ErrorIsNil)
-		expected := `k8s cloud "myk8s" updated on this client using provided file.`
+		expected := `k8s cloud "myk8s" updated on this client.`
 		c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), gc.Equals, expected)
 	}, "myk8s", "gce/us-east1", "", "operator-sc", testData{client: true})
-}
-
-func (s *updateCAASSuite) TestCloudFileRequired(c *gc.C) {
-	command := s.makeCommand()
-	ctx, err := s.runCommand(c, command, "myk8s", "--client")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), gc.Equals,
-		`To update k8s cloud "myk8s" on this client, a cloud definition file is required.`)
 }
 
 func (s *updateCAASSuite) TestInvalidControllerCloud(c *gc.C) {
@@ -275,16 +272,23 @@ func (s *updateCAASSuite) TestControllerAndClient(c *gc.C) {
 		ctx, err := s.runCommand(c, command, "myk8s", "-f", "mycloud.yaml", "-c", "foo", "--client")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), gc.Equals,
-			`k8s cloud "myk8s" updated on this client using provided file.k8s cloud "myk8s" updated on controller "foo".`)
+			`k8s cloud "myk8s" updated on this client.k8s cloud "myk8s" updated on controller "foo".`)
 	}, "myk8s", "gce/us-east1", "", "operator-sc", testData{client: true, controller: true})
 }
 
-func (s *updateCAASSuite) TestBuiltinLocalNotAllowed(c *gc.C) {
+func (s *updateCAASSuite) TestBuiltinLocal(c *gc.C) {
 	command := s.makeCommand()
 	ctx, err := s.runCommand(c, command, "microk8s", "--client")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), gc.Equals,
-		`"microk8s" is a built-in cloud and cannot be updated on the client.`)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := `k8s cloud "microk8s" updated on this client.`
+	c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), gc.Equals, expected)
+	ctrl, ok := s.clientStore.Controllers["foo"]
+	c.Assert(ok, jc.IsTrue)
+	p, ok := ctrl.Proxy.Proxier.(*proxy.Proxier)
+	c.Assert(ok, jc.IsTrue)
+	y, err := yaml.Marshal(p)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.ReplaceAll(string(y), "\n", ""), gc.Matches, ".*api-host: 10.1.0.0:666.*")
 }
 
 func (s *updateCAASSuite) TestBuiltinWithFile(c *gc.C) {
@@ -311,6 +315,7 @@ func (s *updateCAASSuite) TestBuiltinToController(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
 	expectedCloudToUpdate := cloud.Cloud{
 		Name:            "microk8s",
+		Endpoint:        "http://10.1.0.0:666",
 		HostCloudRegion: "",
 		Type:            "kubernetes",
 		Description:     "",

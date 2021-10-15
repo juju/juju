@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/ssh"
 	sshtesting "github.com/juju/utils/v2/ssh/testing"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

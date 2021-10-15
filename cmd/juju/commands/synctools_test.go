@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
@@ -179,39 +178,6 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
-	called := false
-	dir := c.MkDir()
-	syncTools = func(sctx *sync.SyncContext) error {
-		c.Assert(sctx.AllVersions, jc.IsFalse)
-		c.Assert(sctx.DryRun, jc.IsFalse)
-		c.Assert(sctx.Stream, gc.Equals, "released")
-		c.Assert(sctx.Source, gc.Equals, "")
-		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
-		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
-		url, err := uploader.Storage.URL("")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(url, gc.Equals, utils.MakeFileURL(dir))
-		called = true
-		return nil
-	}
-	// Register writer.
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("deprecated-tester", &tw), gc.IsNil)
-	defer loggo.RemoveWriter("deprecated-tester")
-	// Add deprecated message to be checked.
-	messages := []jc.SimpleMessage{
-		{loggo.INFO, "Use of the --destination option is deprecated in 1.18. Please use --local-dir instead."},
-	}
-	// Run sync-agents command with --destination flag.
-	ctx, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(called, jc.IsTrue)
-	// Check deprecated message was logged.
-	c.Check(tw.Log(), jc.LogMatches, messages)
-}
-
 func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 	var called bool
 	result := coretools.List{&coretools.Tools{}}
@@ -281,7 +247,7 @@ func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 		// Block operation
 		return apiservererrors.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
-	_, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
+	_, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--local-dir", c.MkDir(), "--stream", "released")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestAPIAdapterBlockUploadTools.*")
 }
 

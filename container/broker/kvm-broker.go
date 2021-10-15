@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 var kvmLogger = loggo.GetLogger("juju.container.broker.kvm")
@@ -57,14 +56,6 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	containerMachineID := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for containerMachineID: %s", containerMachineID)
 
-	// TODO: Default to using the host network until we can configure.  Yes,
-	// this is using the LxcBridge value, we should put it in the api call for
-	// container config.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = network.DefaultKVMBridge
-	}
-
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
 		kvmLogger.Errorf("failed to get container config: %v", err)
@@ -81,17 +72,11 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, errors.Trace(err)
 	}
 
-	// Something to fallback to if there are no devices given in args.NetworkInfo
-	// TODO(jam): 2017-02-07, this feels like something that should never need
-	// to be invoked, because either StartInstance or
-	// prepareContainerInterfaceInfo should always return a value. The
-	// test suite currently doesn't think so, and I'm hesitant to munge it too
-	// much.
-	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
+	interfaces, err := finishNetworkConfig(preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
+	net := container.BridgeNetworkConfig(0, interfaces)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -137,8 +122,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 		AllowMount: true,
 	}
 	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints,
-		args.InstanceConfig.Series, network, storageConfig, args.StatusCallback,
+		args.InstanceConfig, args.Constraints, args.InstanceConfig.Series, net, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
@@ -153,7 +137,6 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 
 // StopInstances shuts down the given instances.
 func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	// TODO: potentially parallelise.
 	for _, id := range ids {
 		kvmLogger.Infof("stopping kvm container for instance: %s", id)
 		if err := broker.manager.DestroyContainer(id); err != nil {

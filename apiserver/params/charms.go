@@ -3,7 +3,10 @@
 
 package params
 
-import "github.com/juju/charm/v9"
+import (
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/assumes"
+)
 
 // ApplicationCharmResults contains a set of ApplicationCharmResults.
 type ApplicationCharmResults struct {
@@ -128,7 +131,8 @@ type CharmMeta struct {
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
 
 	Containers map[string]CharmContainer `json:"containers,omitempty"`
-	Assumes    []string                  `json:"assumes,omitempty"`
+
+	AssumesExpr *assumes.ExpressionTree `json:"assumes-expr,omitempty"`
 }
 
 // Charm holds all the charm data that the client needs.

@@ -6,7 +6,7 @@ package lifeflag
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api/lifeflag"
 	"github.com/juju/juju/core/life"

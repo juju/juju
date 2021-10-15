@@ -8,9 +8,9 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2/dependency"
-	dt "github.com/juju/worker/v2/dependency/testing"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3/dependency"
+	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/centralhub"

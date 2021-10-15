@@ -3,7 +3,7 @@
 
 package storageprovisioner
 
-import "github.com/juju/worker/v2"
+import "github.com/juju/worker/v3"
 
 var (
 	NewManagedFilesystemSource = &newManagedFilesystemSource

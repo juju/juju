@@ -64,6 +64,7 @@ func NewUpdateCAASCommandForTest(
 			return cloud.Cloud{
 					Name:      cloudName,
 					Type:      "kubernetes",
+					Endpoint:  "http://10.1.0.0:666",
 					AuthTypes: cloud.AuthTypes{"certificate"},
 				},
 				&cloud.Credential{
