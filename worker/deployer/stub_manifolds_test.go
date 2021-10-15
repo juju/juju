@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"

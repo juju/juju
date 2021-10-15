@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/storage"
 	jworker "github.com/juju/juju/worker"

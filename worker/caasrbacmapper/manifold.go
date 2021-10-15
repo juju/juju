@@ -5,8 +5,8 @@ package caasrbacmapper
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 	"k8s.io/client-go/informers"
 )
 

@@ -16,8 +16,8 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/worker/v2/dependency"
-	dt "github.com/juju/worker/v2/dependency/testing"
+	"github.com/juju/worker/v3/dependency"
+	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

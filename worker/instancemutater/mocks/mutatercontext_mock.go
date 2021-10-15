@@ -10,7 +10,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	instancemutater0 "github.com/juju/juju/worker/instancemutater"
 	names "github.com/juju/names/v4"
-	worker "github.com/juju/worker/v2"
+	worker "github.com/juju/worker/v3"
 	reflect "reflect"
 )
 
