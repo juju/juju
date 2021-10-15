@@ -17815,6 +17815,12 @@
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
+                        "supported-features": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SupportedFeature"
+                            }
+                        },
                         "type": {
                             "type": "string"
                         },
@@ -18554,6 +18560,25 @@
                     "additionalProperties": false,
                     "required": [
                         "result"
+                    ]
+                },
+                "SupportedFeature": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description"
                     ]
                 },
                 "Tools": {
@@ -33036,6 +33061,12 @@
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
+                        "supported-features": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SupportedFeature"
+                            }
+                        },
                         "type": {
                             "type": "string"
                         },
@@ -33558,6 +33589,25 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SupportedFeature": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description"
                     ]
                 },
                 "UnsetModelDefaults": {
