@@ -530,7 +530,7 @@ var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 	// This line is critical, the openstack provider will reject the message
 	// if you return 200 like a mere mortal.
 	w.WriteHeader(http.StatusMultipleChoices)
-	fmt.Fprint(w, `
+	_, _ = fmt.Fprint(w, `
 {
   "versions": {
     "values": [
@@ -920,11 +920,6 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	siParams := environs.StartInstanceParams{
 		AvailabilityZone: "eu-west-az",
 		SubnetsToZones:   []map[network.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
-		Constraints: constraints.Value{
-			Spaces: &[]string{
-				"eu-west-az",
-			},
-		},
 	}
 
 	result, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
