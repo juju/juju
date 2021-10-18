@@ -614,6 +614,10 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// if the minUnits document exists, we need to increment the revno so that
 	// it is obvious the min units count is changing.
 	minUnitsOp := minUnitsTriggerOp(op.unit.st, op.unit.ApplicationName())
+	minUnitsExists, err := doesMinUnitsExist(op.unit.st, op.unit.ApplicationName())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	cleanupOp := newCleanupOp(cleanupDyingUnit, op.unit.doc.Name, op.DestroyStorage, op.Force, op.MaxWait)
 
 	// If we're forcing destruction the assertion shouldn't be that
@@ -641,10 +645,6 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
 		}
 		ops := []txn.Op{setDyingOp, cleanupOp}
-		minUnitsExists, err := doesMinUnitsExist(op.unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		if minUnitsExists {
 			ops = append(ops, minUnitsOp)
 		}
@@ -733,7 +733,10 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	} else if op.FatalError(err) {
 		return nil, err
 	}
-	ops := []txn.Op{statusOp, minUnitsOp}
+	ops := []txn.Op{statusOp}
+	if minUnitsExists {
+		ops = append(ops, minUnitsOp)
+	}
 	ops = append(ops, removeOps...)
 	return ops, nil
 }
