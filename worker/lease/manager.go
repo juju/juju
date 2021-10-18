@@ -579,7 +579,7 @@ func (manager *Manager) computeNextTimeout(leases map[lease.Key]lease.Info) {
 	// occur when the global clock updater ticks the clock, so this avoids
 	// too frequently checking with the potential of having no work to do.
 	// The blanket addition of a second is no big deal.
-	nextTick.Add(time.Second)
+	nextTick = nextTick.Add(time.Second)
 
 	nextDuration := nextTick.Sub(now).Round(time.Millisecond)
 	manager.config.Logger.Tracef("[%s] next expire in %v %v", manager.logContext, nextDuration, nextTick)
