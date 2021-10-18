@@ -124,9 +124,6 @@ type Manager struct {
 	// timer tracks when nextTimeout would expire and triggers when it does
 	timer clock.Timer
 
-	// muNextTimeout protects accesses to nextTimeout
-	muNextTimeout sync.Mutex
-
 	// claims is used to deliver lease claim requests to the loop.
 	claims chan claim
 
@@ -588,9 +585,6 @@ func (manager *Manager) computeNextTimeout(leases map[lease.Key]lease.Info) {
 
 func (manager *Manager) setNextTimeout(t time.Time) {
 	now := manager.config.Clock.Now()
-
-	manager.muNextTimeout.Lock()
-	defer manager.muNextTimeout.Unlock()
 
 	// Ensure we never walk the next check back without have performed a
 	// scheduled check *unless* we think our last check was in the past.
