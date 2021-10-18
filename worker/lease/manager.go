@@ -587,17 +587,19 @@ func (manager *Manager) computeNextTimeout(leases map[lease.Key]lease.Info) {
 }
 
 func (manager *Manager) setNextTimeout(t time.Time) {
+	now := manager.config.Clock.Now()
+
 	manager.muNextTimeout.Lock()
 	defer manager.muNextTimeout.Unlock()
 
 	// Ensure we never walk the next check back without have performed a
-	// scheduled check *unless* we're just starting up.
-	if !manager.nextTimeout.IsZero() && !t.Before(manager.nextTimeout) {
+	// scheduled check *unless* we think our last check was in the past.
+	if !manager.nextTimeout.Before(now) && !t.Before(manager.nextTimeout) {
 		return
 	}
 	manager.nextTimeout = t
 
-	d := t.Sub(manager.config.Clock.Now())
+	d := t.Sub(now)
 	if manager.timer == nil {
 		manager.timer = manager.config.Clock.NewTimer(d)
 	} else {
