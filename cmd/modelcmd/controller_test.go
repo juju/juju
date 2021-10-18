@@ -362,11 +362,6 @@ func (c *testOptionalControllerCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func runTestOptionalControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testOptionalControllerCommand, error) {
-	_, command, err := runOptionalControllerCommand(c, store, args...)
-	return command, errors.Trace(err)
-}
-
 func runOptionalControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, *testOptionalControllerCommand, error) {
 	optCommand := modelcmd.OptionalControllerCommand{Store: store}
 	command := &testOptionalControllerCommand{OptionalControllerCommand: optCommand}
