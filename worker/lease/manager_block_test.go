@@ -72,6 +72,43 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	})
 }
 
+func (s *WaitUntilExpiredSuite) TestBlockChecksRescheduled(c *gc.C) {
+	fix := &Fixture{
+		leases: map[corelease.Key]corelease.Info{
+			key("postgresql"): {
+				Holder: "postgresql/0",
+				Expiry: offset(time.Second),
+			},
+			key("mysql"): {
+				Holder: "mysql/0",
+				Expiry: offset(4 * time.Second),
+			},
+			key("redis"): {
+				Holder: "redis/0",
+				Expiry: offset(7 * time.Second),
+			},
+		},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		blockTest := newBlockTest(c, manager, key("redis"))
+		blockTest.assertBlocked(c)
+
+		// Advance past the first expiry.
+		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		blockTest.assertBlocked(c)
+
+		// Advance past the second expiry. We should have had a check scheduled.
+		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		blockTest.assertBlocked(c)
+
+		// Advance past the last expiry. We should have had a check scheduled
+		// that causes the redis lease to be unblocked.
+		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		err := blockTest.assertUnblocked(c)
+		c.Check(err, jc.ErrorIsNil)
+	})
+}
+
 func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
