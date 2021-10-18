@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	pacman "github.com/juju/packaging/v2/manager"
 	jc "github.com/juju/testing/checkers"
@@ -26,8 +27,8 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -53,16 +54,15 @@ func (s *upgradeSuite) SetUpSuite(c *gc.C) {
 	// Speed up the watcher frequency to make the test much faster.
 	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
-	agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 }
 
 func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
+	agenttest.InstallFakeEnsureMongo(s)
 
 	s.oldVersion = coretesting.CurrentVersion(c)
-	s.oldVersion.Major = 2
-	s.oldVersion.Minor = 1
+	s.oldVersion.Major--
 
 	// Don't wait so long in tests.
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutController, time.Millisecond*50)
@@ -114,6 +114,9 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 		return nil
 	}
 	s.PatchValue(&upgradesteps.PerformUpgrade, fakePerformUpgrade)
+	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
+		return true, nil
+	})
 
 	a := s.newAgent(c, machine)
 	ctx := cmdtesting.Context(c)
