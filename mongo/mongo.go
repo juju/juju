@@ -231,8 +231,8 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// Mongo40wt represents 'mongodb' at version 4.0.x with WiredTiger
-	Mongo40wt = Version{Major: 4,
+	// Mongo4xwt represents 'mongodb' at version 4.x with WiredTiger
+	Mongo4xwt = Version{Major: 4,
 		Minor:         0,
 		Patch:         "",
 		StorageEngine: WiredTiger,

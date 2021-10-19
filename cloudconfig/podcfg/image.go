@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/mongo"
 )
 
 const (
@@ -26,6 +27,19 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion, cfg.OfficialBuild)
 }
 
+func (cfg *ControllerPodConfig) mongoVersion() (*mongo.Version, error) {
+	snapChannel := cfg.Controller.Config.JujuDBSnapChannel()
+	vers := strings.Split(snapChannel, "/")[0] + ".0"
+	versionNum, err := version.Parse(vers)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid mongo version %q in %q controller config", versionNum, controller.JujuDBSnapChannel)
+	}
+	mongoVersion := mongo.Mongo4xwt
+	mongoVersion.Major = versionNum.Major
+	mongoVersion.Minor = versionNum.Minor
+	return &mongoVersion, nil
+}
+
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
 	imageRepo := cfg.Controller.Config.CAASImageRepo().Repository
@@ -33,7 +47,11 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
 		imageRepo = JujudOCINamespace
 	}
 	path := fmt.Sprintf("%s/%s", imageRepo, JujudbOCIName)
-	tag := fmt.Sprintf("%d.%d", jujudbVersion.Major, jujudbVersion.Minor)
+	mongoVers, err := cfg.mongoVersion()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	tag := fmt.Sprintf("%d.%d", mongoVers.Major, mongoVers.Minor)
 	return tagImagePath(path, tag)
 }
 
