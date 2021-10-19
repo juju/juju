@@ -1216,6 +1216,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
+		UnitCount:     args.NumUnits,
 
 		// CAAS
 		DesiredScale: scale,
@@ -1321,7 +1322,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
-			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{
+			unitName, unitOps, err := app.addUnitOpsWithCons(applicationAddUnitOpsArgs{
 				cons:          args.Constraints,
 				storageCons:   args.Storage,
 				attachStorage: args.AttachStorage,
