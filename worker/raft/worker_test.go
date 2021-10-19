@@ -34,10 +34,8 @@ type workerFixture struct {
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	testClock := testclock.NewClock(time.Time{})
-
 	s.fsm = &raft.SimpleFSM{}
-	s.queue = queue.NewOpQueue(testClock)
+	s.queue = queue.NewOpQueue(clock.WallClock)
 	s.operations = make(chan []queue.Operation)
 
 	s.config = raft.Config{
@@ -400,36 +398,55 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 
 // TestApplyOperation tests that we get a new operation on the queue, not if
 // the operation was processed. That's up to the apply test suite.
-/*
-func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
-	cmds := [][]byte{[]byte("do it")}
 
-	results := make(chan [][]byte, 1)
+func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
+	cmd := []byte("do it")
+
+	results := make(chan []queue.Operation)
 	go func() {
 		defer close(results)
 
 		// We expect at least one operation to come through.
-		for op := range s.operations {
-			results <- op.Commands
+		for ops := range s.operations {
+			results <- ops
 			break
 		}
 	}()
 
 	s.waitLeader(c)
 
-	err := s.queue.Enqueue(queue.Operation{
-		Commands: cmds,
+	done := make(chan error)
+	s.queue.Enqueue(queue.Operation{
+		Command: cmd,
+		Done: func(err error) {
+			go func() {
+				done <- err
+			}()
+		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	var amount int
-	for result := range results {
-		c.Assert(result, gc.DeepEquals, cmds)
-		amount++
+loop:
+	for {
+		select {
+		case ops := <-results:
+			c.Assert(len(ops), gc.Equals, 1)
+			c.Assert(ops[0].Command, gc.DeepEquals, cmd)
+
+			amount++
+			break loop
+
+		case err := <-done:
+			c.Assert(err, jc.ErrorIsNil)
+			break loop
+
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for operation")
+		}
 	}
+
 	c.Assert(amount, gc.Equals, 1)
 }
-*/
 
 // Connect the provided transport bidirectionally.
 func connectTransports(transports ...coreraft.LoopbackTransport) {

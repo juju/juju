@@ -224,7 +224,7 @@ func assertNilErrorsN(c *gc.C, done chan error, n int) {
 		case err := <-done:
 			results = append(results, err)
 		case <-time.After(testing.LongWait):
-			c.Fatal("timedout waiting for done")
+			c.Fatal("timed out waiting for done")
 		}
 
 		if len(results) == n {
@@ -245,7 +245,7 @@ func assertError(c *gc.C, done chan error, err string) {
 		case err := <-done:
 			results = append(results, err)
 		case <-time.After(testing.LongWait):
-			c.Fatal("timedout waiting for done")
+			c.Fatal("timed out waiting for done")
 		}
 
 		if len(results) == 1 {
