@@ -79,14 +79,6 @@ var syncToolsCommandTests = []struct {
 		},
 	},
 	{
-		description: "synchronize all version including development",
-		args:        []string{"-m", "test-target", "--all", "--dev"},
-		sctx: &sync.SyncContext{
-			AllVersions: true,
-			Stream:      "testing",
-		},
-	},
-	{
 		description: "just make a dry run",
 		args:        []string{"-m", "test-target", "--dry-run"},
 		sctx: &sync.SyncContext{

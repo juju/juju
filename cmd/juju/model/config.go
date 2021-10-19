@@ -174,7 +174,6 @@ type configCommand struct {
 	reset                []string // Holds the keys to be reset until parsed.
 	resetKeys            []string // Holds the keys to be reset once parsed.
 	setOptions           common.ConfigFlag
-	ignoreAgentVersion   bool
 	ignoreReadOnlyFields bool
 }
 
@@ -220,7 +219,6 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys, deletes keys not in the model config")
-	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration (deprecated)")
 	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
 }
 
@@ -410,7 +408,7 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	values := make(configAttrs)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
-			if c.ignoreAgentVersion || c.ignoreReadOnlyFields {
+			if c.ignoreReadOnlyFields {
 				continue
 			}
 			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)

@@ -161,18 +161,6 @@ func (s *OptionalControllerCommandSuite) TearDownTest(c *gc.C) {
 	s.JujuOSEnvSuite.TearDownTest(c)
 }
 
-func (s *OptionalControllerCommandSuite) TestControllerCommandLocal(c *gc.C) {
-	store := jujuclient.NewMemStore()
-	store.Controllers = map[string]jujuclient.ControllerDetails{
-		"fred": {},
-	}
-	store.CurrentControllerName = "fred"
-	command, err := runTestOptionalControllerCommand(c, store, "--local")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(command.ControllerName, gc.Equals, "")
-	c.Assert(command.Client, jc.IsTrue)
-}
-
 func (s *OptionalControllerCommandSuite) TestEmbedded(c *gc.C) {
 	optCommand := modelcmd.OptionalControllerCommand{}
 	optCommand.Embedded = true
@@ -372,11 +360,6 @@ func (c *testOptionalControllerCommand) Info() *cmd.Info {
 
 func (c *testOptionalControllerCommand) Run(ctx *cmd.Context) error {
 	return nil
-}
-
-func runTestOptionalControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testOptionalControllerCommand, error) {
-	_, command, err := runOptionalControllerCommand(c, store, args...)
-	return command, errors.Trace(err)
 }
 
 func runOptionalControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, *testOptionalControllerCommand, error) {

@@ -78,7 +78,6 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -89,12 +88,10 @@ mallards:
     ca-cert: this-is-another-ca-cert
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -112,7 +109,6 @@ func (s *ShowControllerSuite) TestShowK8sController(c *gc.C) {
 	s.expectedOutput = `
 k8s-controller:
   details:
-    uuid: this-is-a-k8s-uuid
     controller-uuid: this-is-a-k8s-uuid
     api-endpoints: [this-is-one-of-many-k8s-api-endpoints]
     cloud: microk8s
@@ -127,10 +123,8 @@ k8s-controller:
       instance-id: id-0
   models:
     controller:
-      uuid: xyz
       model-uuid: xyz
     my-k8s-model:
-      uuid: def
       model-uuid: def
       unit-count: 4
   current-model: admin/my-k8s-model
@@ -157,7 +151,6 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -168,12 +161,10 @@ mallards:
     ca-cert: this-is-another-ca-cert
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -215,7 +206,6 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -227,12 +217,10 @@ mallards:
     ca-cert: this-is-another-ca-cert
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -251,7 +239,6 @@ func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     cloud: aws
@@ -273,7 +260,6 @@ aws-test:
       ha-status: ha-enabled
   models:
     controller:
-      uuid: ghi
       model-uuid: ghi
       machine-count: 2
       core-count: 4
@@ -290,7 +276,6 @@ func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     cloud: aws
@@ -312,7 +297,6 @@ aws-test:
       ha-status: ha-enabled
   models:
     controller:
-      uuid: ghi
       model-uuid: ghi
       machine-count: 2
       core-count: 4
@@ -322,7 +306,6 @@ aws-test:
     access: superuser
 mark-test-prodstack:
   details:
-    uuid: this-is-a-uuid
     controller-uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     cloud: prodstack
@@ -359,7 +342,6 @@ func (s *ShowControllerSuite) TestShowOneControllerWithAPIVersionTooLow(c *gc.C)
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -367,12 +349,10 @@ mallards:
     ca-cert: this-is-another-ca-cert
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -494,7 +474,6 @@ func (s *ShowControllerSuite) TestShowControllerForUserWithLoginAccess(c *gc.C) 
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -556,7 +535,6 @@ func (s *ShowControllerSuite) TestShowControllerWithCAFingerprint(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -582,12 +560,10 @@ mallards:
       -----END CERTIFICATE-----
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -620,7 +596,6 @@ func (s *ShowControllerSuite) TestShowControllerPrimary(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     cloud: aws
@@ -643,7 +618,6 @@ aws-test:
       ha-primary: true
   models:
     controller:
-      uuid: ghi
       model-uuid: ghi
       machine-count: 2
       core-count: 4

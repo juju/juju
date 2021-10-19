@@ -42,16 +42,15 @@ type HistoryAPI interface {
 
 type statusHistoryCommand struct {
 	modelcmd.ModelCommandBase
-	api                  HistoryAPI
-	out                  cmd.Output
-	outputContent        string
-	backlogSize          int
-	backlogSizeDays      int
-	backlogDate          string
-	isoTime              bool
-	entityName           string
-	date                 time.Time
-	includeStatusUpdates bool
+	api             HistoryAPI
+	out             cmd.Output
+	outputContent   string
+	backlogSize     int
+	backlogSizeDays int
+	backlogDate     string
+	isoTime         bool
+	entityName      string
+	date            time.Time
 }
 
 var statusHistoryDoc = fmt.Sprintf(`
@@ -101,9 +100,6 @@ func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")
 	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
-	// TODO (anastasiamac 2018-04-11) Remove at the next major release, say Juju 2.5+ or Juju 3.x.
-	// the functionality is no longer there since a fix for lp#1530840
-	f.BoolVar(&c.includeStatusUpdates, "include-status-updates", false, "Deprecated, has no effect for 2.3+ controllers: Include update status hook messages in the returned logs")
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -170,8 +166,6 @@ type DetailedStatus struct {
 // History holds the status results.
 type History []DetailedStatus
 
-const runningHookMSG = "running update-status hook"
-
 func (c *statusHistoryCommand) getAPI() (HistoryAPI, error) {
 	if c.api != nil {
 		return c.api, nil
@@ -195,9 +189,6 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	filterArgs := status.StatusHistoryFilter{
 		Size:  c.backlogSize,
 		Delta: delta,
-	}
-	if !c.includeStatusUpdates {
-		filterArgs.Exclude = set.NewStrings(runningHookMSG)
 	}
 
 	if !c.date.IsZero() {

@@ -220,22 +220,6 @@ func (s *addSuite) TestAddExisting(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "use `update-cloud homestack --client` to override known definition: local cloud \"homestack\" already exists")
 }
 
-func (s *addSuite) TestAddExistingReplace(c *gc.C) {
-	fake := newFakeCloudMetadataStore()
-
-	clouds, err := jujucloud.ParseCloudMetadata([]byte(homeStackYamlFile))
-	c.Assert(err, jc.ErrorIsNil)
-	fake.Call("ReadCloudData", "mycloud.yaml").Returns(homeStackYamlFile, nil)
-	fake.Call("PersonalCloudMetadata").Returns(clouds, nil)
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
-	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", clouds).Returns(nil)
-
-	_, err = s.runCommand(c, fake, "homestack", "mycloud.yaml", "--replace", "--client")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(numCallsToWrite(), gc.Equals, 1)
-}
-
 func (s *addSuite) TestAddExistingPublic(c *gc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(awsYamlFile))
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,21 +241,6 @@ func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
 
 	_, err := s.runCommand(c, fake, "localhost", "mycloud.yaml", "--client")
 	c.Assert(err, gc.ErrorMatches, "use `update-cloud localhost --client` to override known definition: local cloud \"localhost\" already exists")
-}
-
-func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {
-	clouds, err := jujucloud.ParseCloudMetadata([]byte(awsYamlFile))
-	c.Assert(err, jc.ErrorIsNil)
-
-	fake := newFakeCloudMetadataStore()
-	fake.Call("ReadCloudData", "mycloud.yaml").Returns(awsYamlFile, nil)
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(clouds, false, nil)
-	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
-	writeCall := fake.Call("WritePersonalCloudMetadata", clouds).Returns(nil)
-
-	_, err = s.runCommand(c, fake, "aws", "mycloud.yaml", "--replace", "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(writeCall(), gc.Equals, 1)
 }
 
 func addDefaultRegion(in map[string]jujucloud.Cloud) map[string]jujucloud.Cloud {
