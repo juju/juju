@@ -113,6 +113,8 @@ func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Durati
 		}
 
 		fsmResponse.Notify(a.notifyTarget)
+
+		op.Done(nil)
 	}
 }
 

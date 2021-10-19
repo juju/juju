@@ -464,7 +464,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 
 		case ops := <-w.config.Queue.Queue():
 			if w.config.Logger.IsTraceEnabled() {
-				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log: %v", len(ops), ops)
+				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log", len(ops))
 			}
 			// Apply any operation on to the current raft implementation.
 			// This ensures that we serialize the applying of operations onto

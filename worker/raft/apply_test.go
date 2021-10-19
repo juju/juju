@@ -35,89 +35,94 @@ var _ = gc.Suite(&applyOperationSuite{})
 func (s *applyOperationSuite) TestApplyLease(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(1)
+	cmds, done := commandsN(1)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Leader)
-	s.raft.EXPECT().Apply(cmds[0], timeout).Return(s.applyFuture)
+	s.raft.EXPECT().Apply(cmds[0].Command, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(nil)
 	s.applyFuture.EXPECT().Response().Return(s.response)
 	s.response.EXPECT().Notify(s.target)
 	s.response.EXPECT().Error().Return(nil)
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, jc.ErrorIsNil)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertNilErrorsN(c, done, 1)
 }
 
 func (s *applyOperationSuite) TestApplyLeaseMultipleCommands(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(2)
+	cmds, done := commandsN(2)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Leader)
-	s.raft.EXPECT().Apply(cmds[0], timeout).Return(s.applyFuture)
-	s.raft.EXPECT().Apply(cmds[1], timeout).Return(s.applyFuture)
+	s.raft.EXPECT().Apply(cmds[0].Command, timeout).Return(s.applyFuture)
+	s.raft.EXPECT().Apply(cmds[1].Command, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(nil).Times(2)
 	s.applyFuture.EXPECT().Response().Return(s.response).Times(2)
 	s.response.EXPECT().Notify(s.target).Times(2)
 	s.response.EXPECT().Error().Return(nil).Times(2)
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, jc.ErrorIsNil)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertNilErrorsN(c, done, 2)
 }
 
 func (s *applyOperationSuite) TestApplyLeaseWithProgrammingError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(1)
+	cmds, done := commandsN(1)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Leader)
-	s.raft.EXPECT().Apply(cmds[0], timeout).Return(s.applyFuture)
+	s.raft.EXPECT().Apply(cmds[0].Command, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(nil)
 	s.applyFuture.EXPECT().Response().Return(struct{}{})
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, gc.ErrorMatches, `invalid FSM response`)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertError(c, done, `invalid FSM response`)
 }
 
 func (s *applyOperationSuite) TestApplyLeaseWithError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(1)
+	cmds, done := commandsN(1)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Leader)
-	s.raft.EXPECT().Apply(cmds[0], timeout).Return(s.applyFuture)
+	s.raft.EXPECT().Apply(cmds[0].Command, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(errors.New("boom"))
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertError(c, done, `boom`)
 }
 
 func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithNoLeaderAddress(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(1)
+	cmds, done := commandsN(1)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Follower)
 	s.raft.EXPECT().Leader().Return(raft.ServerAddress(""))
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, gc.ErrorMatches, `not currently the leader.*`)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertError(c, done, `not currently the leader.*`)
 }
 
 func (s *applyOperationSuite) TestApplyLeaseNotLeader(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(1)
+	cmds, done := commandsN(1)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Follower)
@@ -132,14 +137,15 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeader(c *gc.C) {
 	})
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, gc.ErrorMatches, `not currently the leader, try "1"`)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertError(c, done, `not currently the leader, try "1"`)
 }
 
 func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithNoLeaderID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(1)
+	cmds, done := commandsN(1)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Follower)
@@ -154,14 +160,15 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithNoLeaderID(c *gc.C) {
 	})
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, gc.ErrorMatches, `not currently the leader, try ""`)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertError(c, done, `not currently the leader, try ""`)
 }
 
 func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithConfigurationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cmds := commandsN(1)
+	cmds, done := commandsN(1)
 	timeout := time.Second
 
 	s.raft.EXPECT().State().Return(raft.Follower)
@@ -170,8 +177,9 @@ func (s *applyOperationSuite) TestApplyLeaseNotLeaderWithConfigurationError(c *g
 	s.configFuture.EXPECT().Error().Return(errors.New("boom"))
 
 	applier := NewApplier(s.raft, s.target, s.clock, fakeLogger{})
-	err := applier.ApplyOperation(queue.Operation{Commands: cmds}, timeout)
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	applier.ApplyOperation(cmds, timeout)
+
+	assertError(c, done, `boom`)
 }
 
 func (s *applyOperationSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -192,12 +200,62 @@ func opName(i int) []byte {
 	return []byte(fmt.Sprintf("abc-%d", i))
 }
 
-func commandsN(n int) [][]byte {
-	res := make([][]byte, n)
+func commandsN(n int) ([]queue.Operation, chan error) {
+	done := make(chan error)
+	res := make([]queue.Operation, n)
 	for i := 0; i < n; i++ {
-		res[i] = opName(i)
+		res[i] = queue.Operation{
+			Command: opName(i),
+			Done: func(err error) {
+				go func() {
+					done <- err
+				}()
+			},
+		}
 	}
-	return res
+	return res, done
+}
+
+func assertNilErrorsN(c *gc.C, done chan error, n int) {
+	results := make([]error, 0)
+
+	for {
+		select {
+		case err := <-done:
+			results = append(results, err)
+		case <-time.After(testing.LongWait):
+			c.Fatal("timedout waiting for done")
+		}
+
+		if len(results) == n {
+			break
+		}
+	}
+	c.Assert(len(results), gc.Equals, n)
+	for _, k := range results {
+		c.Assert(k, jc.ErrorIsNil)
+	}
+}
+
+func assertError(c *gc.C, done chan error, err string) {
+	results := make([]error, 0)
+
+	for {
+		select {
+		case err := <-done:
+			results = append(results, err)
+		case <-time.After(testing.LongWait):
+			c.Fatal("timedout waiting for done")
+		}
+
+		if len(results) == 1 {
+			break
+		}
+	}
+	c.Assert(len(results), gc.Equals, 1)
+	for _, k := range results {
+		c.Assert(k, gc.ErrorMatches, err)
+	}
 }
 
 type fakeLogger struct{}
