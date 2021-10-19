@@ -57,12 +57,14 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 		m.logger.Tracef("Applying Lease with command %s", string(cmd))
 	}
 
-	done := make(chan error, 1)
+	done := make(chan error)
 	defer close(done)
 
 	m.queue.Enqueue(queue.Operation{
 		Command: cmd,
 		Done: func(err error) {
+			// We can do this, because the caller of done, is in another
+			// goroutine, otherwise this is a sure fire way to deadlock.
 			done <- err
 		},
 	})
