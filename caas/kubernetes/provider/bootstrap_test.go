@@ -77,6 +77,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.cfg = cfg
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
+	s.controllerCfg["juju-db-snap-channel"] = controller.DefaultJujuDBSnapChannel
 	s.controllerCfg[controller.CAASImageRepo] = `
 {
     "serveraddress": "quay.io",

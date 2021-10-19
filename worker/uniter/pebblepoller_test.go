@@ -55,10 +55,10 @@ func (s *pebblePollerSuite) TestStart(c *gc.C) {
 			err: errors.Errorf("not yet workin"),
 		},
 	}
-	newClient := func(cfg *pebbleclient.Config) uniter.PebbleClient {
+	newClient := func(cfg *pebbleclient.Config) (uniter.PebbleClient, error) {
 		c.Assert(cfg.Socket, gc.Matches, pebbleSocketPathRegexpString)
 		res := pebbleSocketPathRegexp.FindAllStringSubmatch(cfg.Socket, 1)
-		return clients[res[0][1]]
+		return clients[res[0][1]], nil
 	}
 	clock := testclock.NewClock(time.Time{})
 	containerNames := []string{

@@ -2200,16 +2200,6 @@ type applicationAddUnitOpsArgs struct {
 	unitName   *string
 }
 
-// addApplicationUnitOps is just like addUnitOps but explicitly takes a
-// constraints value (this is used at application creation time).
-func (a *Application) addApplicationUnitOps(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
-	result, ops, err := a.addUnitOpsWithCons(args)
-	if err == nil {
-		ops = append(ops, a.incUnitCountOp(nil))
-	}
-	return result, ops, err
-}
-
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
 func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
 	if a.doc.Subordinate && args.principalName == "" {
