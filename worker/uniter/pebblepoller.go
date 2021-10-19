@@ -25,7 +25,7 @@ type PebbleClient interface {
 }
 
 // NewPebbleClientFunc is the function type used to create a PebbleClient.
-type NewPebbleClientFunc func(*client.Config) PebbleClient
+type NewPebbleClientFunc func(*client.Config) (PebbleClient, error)
 
 type pebblePoller struct {
 	logger          Logger
@@ -54,7 +54,7 @@ func NewPebblePoller(logger Logger,
 	workloadEvents container.WorkloadEvents,
 	newPebbleClient NewPebbleClientFunc) worker.Worker {
 	if newPebbleClient == nil {
-		newPebbleClient = func(config *client.Config) PebbleClient {
+		newPebbleClient = func(config *client.Config) (PebbleClient, error) {
 			return client.New(config)
 		}
 	}
@@ -106,11 +106,14 @@ func (p *pebblePoller) poll(containerName string) error {
 	config := &client.Config{
 		Socket: path.Join("/charm/containers", containerName, "pebble.socket"),
 	}
-	pc := p.newPebbleClient(config)
+	pc, err := p.newPebbleClient(config)
+	if err != nil {
+		return errors.Annotate(err, "failed to create Pebble client")
+	}
 	defer pc.CloseIdleConnections()
 	info, err := pc.SysInfo()
 	if err != nil {
-		return errors.Annotatef(err, "failed to get pebble info")
+		return errors.Annotate(err, "failed to get pebble info")
 	}
 
 	p.mut.Lock()

@@ -341,8 +341,9 @@ func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
 	var topology params.ProvisioningNetworkTopology
 
-	// If there are no space names, or if there is only one space name and
-	// that's the alpha space.
+	// If there are no space names, or if there is only one space
+	// name and that's the alpha space, we don't bother setting a
+	// topology that constrains provisioning.
 	if len(spaceNames) < 1 || (len(spaceNames) == 1 && spaceNames[0] == network.AlphaSpaceName) {
 		return topology, nil
 	}

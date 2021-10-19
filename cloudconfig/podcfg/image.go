@@ -19,12 +19,17 @@ const (
 	JujudOCINamespace = "jujusolutions"
 	JujudOCIName      = "jujud-operator"
 	JujudbOCIName     = "juju-db"
-	JujudbVersion     = "4.4"
 )
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion, cfg.OfficialBuild)
+}
+
+func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
+	snapChannel := cfg.Controller.Config.JujuDBSnapChannel()
+	vers := strings.Split(snapChannel, "/")[0] + ".0"
+	return version.Parse(vers)
 }
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
@@ -34,7 +39,12 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
 		imageRepo = JujudOCINamespace
 	}
 	path := fmt.Sprintf("%s/%s", imageRepo, JujudbOCIName)
-	return tagImagePath(path, JujudbVersion)
+	mongoVers, err := cfg.dbVersion()
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot parse %q from controller config", controller.JujuDBSnapChannel)
+	}
+	tag := fmt.Sprintf("%d.%d", mongoVers.Major, mongoVers.Minor)
+	return tagImagePath(path, tag)
 }
 
 // IsJujuOCIImage returns true if the image path is for a Juju operator.

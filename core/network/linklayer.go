@@ -29,13 +29,16 @@ const (
 
 	// BridgeDevice is used for OSI layer-2 bridge devices.
 	BridgeDevice LinkLayerDeviceType = "bridge"
+
+	// VXLANDevice is used for Virtual Extensible LAN devices.
+	VXLANDevice LinkLayerDeviceType = "vxlan"
 )
 
 // IsValidLinkLayerDeviceType returns whether the given value is a valid
 // link-layer network device type.
 func IsValidLinkLayerDeviceType(value string) bool {
 	switch LinkLayerDeviceType(value) {
-	case LoopbackDevice, EthernetDevice, VLAN8021QDevice, BondDevice, BridgeDevice:
+	case LoopbackDevice, EthernetDevice, VLAN8021QDevice, BondDevice, BridgeDevice, VXLANDevice:
 		return true
 	}
 	return false

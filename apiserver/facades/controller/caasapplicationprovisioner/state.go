@@ -29,7 +29,7 @@ type CAASApplicationProvisionerState interface {
 	WatchApplications() state.StringsWatcher
 }
 
-// CAASApplicationProvisionerState provides the subset of controller state
+// CAASApplicationControllerState provides the subset of controller state
 // required by the CAAS operator provisioner facade.
 type CAASApplicationControllerState interface {
 	ControllerConfig() (controller.Config, error)
