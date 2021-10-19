@@ -2552,6 +2552,9 @@
                 "ApplicationDeploy": {
                     "type": "object",
                     "properties": {
+                        "Force": {
+                            "type": "boolean"
+                        },
                         "application": {
                             "type": "string"
                         },
@@ -2640,7 +2643,8 @@
                         "channel",
                         "num-units",
                         "config-yaml",
-                        "constraints"
+                        "constraints",
+                        "Force"
                     ]
                 },
                 "ApplicationDestroy": {
