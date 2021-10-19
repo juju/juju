@@ -397,6 +397,7 @@ type mockBackend struct {
 	machines                   map[string]*mockMachine
 	generation                 *mockGeneration
 	spaceInfos                 network.SpaceInfos
+	controllerCfg              *controller.Config
 }
 
 type mockFilesystemAccess struct {
@@ -421,6 +422,9 @@ func (m *mockBackend) GetBlockForType(t state.BlockType) (state.Block, bool, err
 }
 
 func (m *mockBackend) ControllerConfig() (controller.Config, error) {
+	if m.controllerCfg != nil {
+		return *m.controllerCfg, nil
+	}
 	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 

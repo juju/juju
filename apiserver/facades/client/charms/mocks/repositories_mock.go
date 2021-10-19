@@ -6,40 +6,41 @@ package mocks
 
 import (
 	context "context"
+	url "net/url"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	charm0 "github.com/juju/juju/core/charm"
-	url "net/url"
-	reflect "reflect"
 )
 
-// MockCSRepository is a mock of CSRepository interface
+// MockCSRepository is a mock of CSRepository interface.
 type MockCSRepository struct {
 	ctrl     *gomock.Controller
 	recorder *MockCSRepositoryMockRecorder
 }
 
-// MockCSRepositoryMockRecorder is the mock recorder for MockCSRepository
+// MockCSRepositoryMockRecorder is the mock recorder for MockCSRepository.
 type MockCSRepositoryMockRecorder struct {
 	mock *MockCSRepository
 }
 
-// NewMockCSRepository creates a new mock instance
+// NewMockCSRepository creates a new mock instance.
 func NewMockCSRepository(ctrl *gomock.Controller) *MockCSRepository {
 	mock := &MockCSRepository{ctrl: ctrl}
 	mock.recorder = &MockCSRepositoryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCSRepository) EXPECT() *MockCSRepositoryMockRecorder {
 	return m.recorder
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockCSRepository) Get(arg0 *charm.URL, arg1 string) (*charm.CharmArchive, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
@@ -48,13 +49,13 @@ func (m *MockCSRepository) Get(arg0 *charm.URL, arg1 string) (*charm.CharmArchiv
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockCSRepositoryMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCSRepository)(nil).Get), arg0, arg1)
 }
 
-// ResolveWithPreferredChannel mocks base method
+// ResolveWithPreferredChannel mocks base method.
 func (m *MockCSRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 params.Channel) (*charm.URL, params.Channel, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
@@ -65,36 +66,36 @@ func (m *MockCSRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 par
 	return ret0, ret1, ret2, ret3
 }
 
-// ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel
+// ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel.
 func (mr *MockCSRepositoryMockRecorder) ResolveWithPreferredChannel(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockCSRepository)(nil).ResolveWithPreferredChannel), arg0, arg1)
 }
 
-// MockCharmHubClient is a mock of CharmHubClient interface
+// MockCharmHubClient is a mock of CharmHubClient interface.
 type MockCharmHubClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmHubClientMockRecorder
 }
 
-// MockCharmHubClientMockRecorder is the mock recorder for MockCharmHubClient
+// MockCharmHubClientMockRecorder is the mock recorder for MockCharmHubClient.
 type MockCharmHubClientMockRecorder struct {
 	mock *MockCharmHubClient
 }
 
-// NewMockCharmHubClient creates a new mock instance
+// NewMockCharmHubClient creates a new mock instance.
 func NewMockCharmHubClient(ctrl *gomock.Controller) *MockCharmHubClient {
 	mock := &MockCharmHubClient{ctrl: ctrl}
 	mock.recorder = &MockCharmHubClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmHubClient) EXPECT() *MockCharmHubClientMockRecorder {
 	return m.recorder
 }
 
-// DownloadAndRead mocks base method
+// DownloadAndRead mocks base method.
 func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charm.CharmArchive, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
@@ -107,14 +108,14 @@ func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL
 	return ret0, ret1
 }
 
-// DownloadAndRead indicates an expected call of DownloadAndRead
+// DownloadAndRead indicates an expected call of DownloadAndRead.
 func (mr *MockCharmHubClientMockRecorder) DownloadAndRead(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndRead", reflect.TypeOf((*MockCharmHubClient)(nil).DownloadAndRead), varargs...)
 }
 
-// Refresh mocks base method
+// Refresh mocks base method.
 func (m *MockCharmHubClient) Refresh(arg0 context.Context, arg1 charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
@@ -123,36 +124,36 @@ func (m *MockCharmHubClient) Refresh(arg0 context.Context, arg1 charmhub.Refresh
 	return ret0, ret1
 }
 
-// Refresh indicates an expected call of Refresh
+// Refresh indicates an expected call of Refresh.
 func (mr *MockCharmHubClientMockRecorder) Refresh(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockCharmHubClient)(nil).Refresh), arg0, arg1)
 }
 
-// MockStrategy is a mock of Strategy interface
+// MockStrategy is a mock of Strategy interface.
 type MockStrategy struct {
 	ctrl     *gomock.Controller
 	recorder *MockStrategyMockRecorder
 }
 
-// MockStrategyMockRecorder is the mock recorder for MockStrategy
+// MockStrategyMockRecorder is the mock recorder for MockStrategy.
 type MockStrategyMockRecorder struct {
 	mock *MockStrategy
 }
 
-// NewMockStrategy creates a new mock instance
+// NewMockStrategy creates a new mock instance.
 func NewMockStrategy(ctrl *gomock.Controller) *MockStrategy {
 	mock := &MockStrategy{ctrl: ctrl}
 	mock.recorder = &MockStrategyMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStrategy) EXPECT() *MockStrategyMockRecorder {
 	return m.recorder
 }
 
-// CharmURL mocks base method
+// CharmURL mocks base method.
 func (m *MockStrategy) CharmURL() *charm.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
@@ -160,13 +161,13 @@ func (m *MockStrategy) CharmURL() *charm.URL {
 	return ret0
 }
 
-// CharmURL indicates an expected call of CharmURL
+// CharmURL indicates an expected call of CharmURL.
 func (mr *MockStrategyMockRecorder) CharmURL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockStrategy)(nil).CharmURL))
 }
 
-// Finish mocks base method
+// Finish mocks base method.
 func (m *MockStrategy) Finish() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finish")
@@ -174,13 +175,13 @@ func (m *MockStrategy) Finish() error {
 	return ret0
 }
 
-// Finish indicates an expected call of Finish
+// Finish indicates an expected call of Finish.
 func (mr *MockStrategyMockRecorder) Finish() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finish", reflect.TypeOf((*MockStrategy)(nil).Finish))
 }
 
-// Run mocks base method
+// Run mocks base method.
 func (m *MockStrategy) Run(arg0 charm0.State, arg1 charm0.JujuVersionValidator, arg2 charm0.Origin) (charm0.DownloadResult, bool, charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", arg0, arg1, arg2)
@@ -191,13 +192,13 @@ func (m *MockStrategy) Run(arg0 charm0.State, arg1 charm0.JujuVersionValidator, 
 	return ret0, ret1, ret2, ret3
 }
 
-// Run indicates an expected call of Run
+// Run indicates an expected call of Run.
 func (mr *MockStrategyMockRecorder) Run(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockStrategy)(nil).Run), arg0, arg1, arg2)
 }
 
-// Validate mocks base method
+// Validate mocks base method.
 func (m *MockStrategy) Validate() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate")
@@ -205,36 +206,36 @@ func (m *MockStrategy) Validate() error {
 	return ret0
 }
 
-// Validate indicates an expected call of Validate
+// Validate indicates an expected call of Validate.
 func (mr *MockStrategyMockRecorder) Validate() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockStrategy)(nil).Validate))
 }
 
-// MockStoreCharm is a mock of StoreCharm interface
+// MockStoreCharm is a mock of StoreCharm interface.
 type MockStoreCharm struct {
 	ctrl     *gomock.Controller
 	recorder *MockStoreCharmMockRecorder
 }
 
-// MockStoreCharmMockRecorder is the mock recorder for MockStoreCharm
+// MockStoreCharmMockRecorder is the mock recorder for MockStoreCharm.
 type MockStoreCharmMockRecorder struct {
 	mock *MockStoreCharm
 }
 
-// NewMockStoreCharm creates a new mock instance
+// NewMockStoreCharm creates a new mock instance.
 func NewMockStoreCharm(ctrl *gomock.Controller) *MockStoreCharm {
 	mock := &MockStoreCharm{ctrl: ctrl}
 	mock.recorder = &MockStoreCharmMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStoreCharm) EXPECT() *MockStoreCharmMockRecorder {
 	return m.recorder
 }
 
-// Actions mocks base method
+// Actions mocks base method.
 func (m *MockStoreCharm) Actions() *charm.Actions {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Actions")
@@ -242,13 +243,13 @@ func (m *MockStoreCharm) Actions() *charm.Actions {
 	return ret0
 }
 
-// Actions indicates an expected call of Actions
+// Actions indicates an expected call of Actions.
 func (mr *MockStoreCharmMockRecorder) Actions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockStoreCharm)(nil).Actions))
 }
 
-// Config mocks base method
+// Config mocks base method.
 func (m *MockStoreCharm) Config() *charm.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
@@ -256,13 +257,13 @@ func (m *MockStoreCharm) Config() *charm.Config {
 	return ret0
 }
 
-// Config indicates an expected call of Config
+// Config indicates an expected call of Config.
 func (mr *MockStoreCharmMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockStoreCharm)(nil).Config))
 }
 
-// LXDProfile mocks base method
+// LXDProfile mocks base method.
 func (m *MockStoreCharm) LXDProfile() *charm.LXDProfile {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfile")
@@ -270,13 +271,13 @@ func (m *MockStoreCharm) LXDProfile() *charm.LXDProfile {
 	return ret0
 }
 
-// LXDProfile indicates an expected call of LXDProfile
+// LXDProfile indicates an expected call of LXDProfile.
 func (mr *MockStoreCharmMockRecorder) LXDProfile() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfile", reflect.TypeOf((*MockStoreCharm)(nil).LXDProfile))
 }
 
-// Manifest mocks base method
+// Manifest mocks base method.
 func (m *MockStoreCharm) Manifest() *charm.Manifest {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Manifest")
@@ -284,13 +285,13 @@ func (m *MockStoreCharm) Manifest() *charm.Manifest {
 	return ret0
 }
 
-// Manifest indicates an expected call of Manifest
+// Manifest indicates an expected call of Manifest.
 func (mr *MockStoreCharmMockRecorder) Manifest() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Manifest", reflect.TypeOf((*MockStoreCharm)(nil).Manifest))
 }
 
-// Meta mocks base method
+// Meta mocks base method.
 func (m *MockStoreCharm) Meta() *charm.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
@@ -298,13 +299,13 @@ func (m *MockStoreCharm) Meta() *charm.Meta {
 	return ret0
 }
 
-// Meta indicates an expected call of Meta
+// Meta indicates an expected call of Meta.
 func (mr *MockStoreCharmMockRecorder) Meta() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockStoreCharm)(nil).Meta))
 }
 
-// Metrics mocks base method
+// Metrics mocks base method.
 func (m *MockStoreCharm) Metrics() *charm.Metrics {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Metrics")
@@ -312,13 +313,13 @@ func (m *MockStoreCharm) Metrics() *charm.Metrics {
 	return ret0
 }
 
-// Metrics indicates an expected call of Metrics
+// Metrics indicates an expected call of Metrics.
 func (mr *MockStoreCharmMockRecorder) Metrics() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockStoreCharm)(nil).Metrics))
 }
 
-// Revision mocks base method
+// Revision mocks base method.
 func (m *MockStoreCharm) Revision() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Revision")
@@ -326,13 +327,13 @@ func (m *MockStoreCharm) Revision() int {
 	return ret0
 }
 
-// Revision indicates an expected call of Revision
+// Revision indicates an expected call of Revision.
 func (mr *MockStoreCharmMockRecorder) Revision() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revision", reflect.TypeOf((*MockStoreCharm)(nil).Revision))
 }
 
-// Version mocks base method
+// Version mocks base method.
 func (m *MockStoreCharm) Version() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Version")
@@ -340,7 +341,7 @@ func (m *MockStoreCharm) Version() string {
 	return ret0
 }
 
-// Version indicates an expected call of Version
+// Version indicates an expected call of Version.
 func (mr *MockStoreCharmMockRecorder) Version() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockStoreCharm)(nil).Version))

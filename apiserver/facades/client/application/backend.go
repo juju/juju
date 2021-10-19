@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -201,6 +202,14 @@ type Model interface {
 	ModelConfig() (*config.Config, error)
 	AgentVersion() (version.Number, error)
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
+	// The following methods are required for querying the featureset
+	// supported by the model.
+	Config() (*config.Config, error)
+	CloudName() string
+	Cloud() (cloud.Cloud, error)
+	CloudCredential() (state.Credential, bool, error)
+	CloudRegion() string
+	ControllerUUID() string
 }
 
 // Resources defines a subset of the functionality provided by the

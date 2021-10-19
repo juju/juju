@@ -84,7 +84,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
-		func(_ application.ApplicationDeployer, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ application.ApplicationDeployer, _ application.Model, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},

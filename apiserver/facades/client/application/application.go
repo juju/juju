@@ -143,7 +143,7 @@ type APIBase struct {
 	storagePoolManager    poolmanager.PoolManager
 	registry              storage.ProviderRegistry
 	caasBroker            caasBrokerInterface
-	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
+	deployApplicationFunc func(ApplicationDeployer, Model, DeployApplicationParams) (Application, error)
 }
 
 // NewFacadeV4 provides the signature required for facade registration
@@ -330,7 +330,7 @@ func NewAPIBase(
 	model Model,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
-	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
+	deployApplication func(ApplicationDeployer, Model, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
@@ -702,7 +702,7 @@ func deployApplication(
 	model Model,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
-	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
+	deployApplicationFunc func(ApplicationDeployer, Model, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	caasBroker caasBrokerInterface,
@@ -769,7 +769,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = deployApplicationFunc(backend, DeployApplicationParams{
+	_, err = deployApplicationFunc(backend, model, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Series:            args.Series,
 		Charm:             stateCharm(ch),
@@ -785,6 +785,7 @@ func deployApplication(
 		AttachStorage:     attachStorage,
 		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
+		Force:             args.Force,
 	})
 	return errors.Trace(err)
 }

@@ -11,13 +11,22 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
+)
+
+var (
+	// Overridden by tests.
+	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
 
 // DeployApplicationParams contains the arguments required to deploy the referenced
@@ -41,10 +50,15 @@ type DeployApplicationParams struct {
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
 	Resources map[string]string
+
+	// If set to true, any charm-specific requirements ("assumes" section)
+	// will be ignored.
+	Force bool
 }
 
 type ApplicationDeployer interface {
 	AddApplication(state.AddApplicationArgs) (Application, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 type UnitAdder interface {
@@ -52,7 +66,7 @@ type UnitAdder interface {
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
-func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Application, error) {
+func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicationParams) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -65,6 +79,29 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 			return nil, fmt.Errorf("subordinate application must be deployed without constraints")
 		}
 	}
+
+	// Enforce "assumes" requirements if the feature flag is enabled.
+	if assumesExprTree := args.Charm.Meta().Assumes; assumesExprTree != nil {
+		ctrlCfg, err := st.ControllerConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if ctrlCfg.Features().Contains(feature.CharmAssumes) {
+			featureSet, err := supportedFeaturesGetter(model, environs.New)
+			if err != nil {
+				return nil, errors.Annotate(err, "querying feature set supported by the model")
+			}
+			if err = featureSet.Satisfies(assumesExprTree); err != nil {
+				if !args.Force {
+					return nil, errors.NewNotSupported(err, "")
+				}
+
+				logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
+			}
+		}
+	}
+
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
