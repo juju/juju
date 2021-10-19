@@ -91,9 +91,22 @@ func (q *OpQueue) Queue() <-chan []Operation {
 	return q.out
 }
 
+// Kill puts the tomb in a dying state for the given reason,
+// closes the Dying channel, and sets Alive to false.
+func (q *OpQueue) Kill(reason error) {
+	q.tomb.Kill(reason)
+}
+
+// Wait blocks until all goroutines have finished running, and
+// then returns the reason for their death.
+func (q *OpQueue) Wait() error {
+	return q.tomb.Wait()
+}
+
 const (
-	minDelay = time.Millisecond
-	maxDelay = time.Millisecond * 200
+	minDelay   = time.Millisecond * 2
+	maxDelay   = time.Millisecond * 200
+	deltaDelay = maxDelay - minDelay
 )
 
 func (q *OpQueue) loop() error {
@@ -101,39 +114,40 @@ func (q *OpQueue) loop() error {
 	delay := maxDelay / 2
 
 	for {
+		select {
+		case <-q.tomb.Dying():
+			return q.tomb.Err()
+		default:
+		}
+
 		ops := q.consume(delay)
 		if len(ops) == 0 {
 			continue
 		}
 
-		start := q.clock.Now()
 		// Send the batch operations.
 		q.out <- ops
 
-		elapsed := q.clock.Now().Sub(start)
-
-		// If the messages are being consumed at a quicker rate, then the
-		// delay should be reduced between timeouts. If the timeout is taking
-		// longer, then allow the timeout to grow.
-		//
-		// If delay is growing, just allow the timeout to just jump to the
-		// difference, giving the consuming side more chance to breathe. For
-		// delays reducing time, slowly compact the delay so we don't force
-		// the consuming side to struggle.
-		// As this is adaptive, we allow the consuming side to dictate a
-		// settling delay.
-		delta := elapsed - delay
-		if delta <= 0 {
-			delay += delta / 2
-		} else {
-			delay += delta
-		}
-		if delay <= minDelay {
-			delay = minDelay
-		} else if delay >= maxDelay {
-			delay = maxDelay
-		}
+		delay = q.calculateDelay(delay, len(ops))
 	}
+}
+
+func (q *OpQueue) calculateDelay(delay time.Duration, n int) time.Duration {
+	// If the number of operations are being consumed at a quicker rate
+	// (larger slice), then the delay should be reduced between timeouts, so
+	// we could process more messages during a stampeding herd.
+	// During calmer times, the delay will slowly move to the maxDelay to
+	// prevent the loop running too tightly.
+	percentage := float64(n) / float64(q.maxBatchSize)
+	fixed := deltaDelay - time.Duration(float64(deltaDelay)*percentage)
+	delay += (fixed - delay) / 2
+	if delay <= minDelay {
+		delay = minDelay
+	} else if delay >= maxDelay {
+		delay = maxDelay
+	}
+
+	return delay.Round(time.Millisecond)
 }
 
 func (q *OpQueue) consume(delay time.Duration) []Operation {
