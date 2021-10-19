@@ -421,7 +421,7 @@ func translateControllerError(store jujuclient.ClientStore, err error) error {
 }
 
 // OptionalControllerCommand is used as a base for commands which can
-// act locally or on a controller. It is primarily intended to be used
+// act on a client or a controller. It is primarily intended to be used
 // by cloud and credential related commands which can either update a
 // local client cache, or a running controller.
 type OptionalControllerCommand struct {
