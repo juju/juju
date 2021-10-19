@@ -720,6 +720,8 @@ func (a *appWorker) alive(app caas.Application) error {
 		CharmBaseImagePath:   charmBaseImage,
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
+		Trust:                provisionInfo.Trust,
+		InitialScale:         provisionInfo.Scale,
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig

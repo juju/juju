@@ -7019,6 +7019,9 @@
                         "image-repo": {
                             "$ref": "#/definitions/DockerImageInfo"
                         },
+                        "scale": {
+                            "type": "integer"
+                        },
                         "series": {
                             "type": "string"
                         },
@@ -7029,6 +7032,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "trust": {
+                            "type": "boolean"
                         },
                         "version": {
                             "$ref": "#/definitions/Number"

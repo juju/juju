@@ -56,6 +56,8 @@ type CAASApplicationProvisioningInfo struct {
 	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
 	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
 	CharmURL             string                       `json:"charm-url,omitempty"`
+	Trust                bool                         `json:"trust,omitempty"`
+	Scale                int                          `json:"scale,omitempty"`
 	Error                *Error                       `json:"error,omitempty"`
 }
 

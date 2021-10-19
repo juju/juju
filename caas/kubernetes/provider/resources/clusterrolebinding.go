@@ -44,8 +44,8 @@ func (rb *ClusterRoleBinding) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *ClusterRoleBinding) ID() ID {
-	return ID{"ClusterRoleBinding", r.Name, r.Namespace}
+func (rb *ClusterRoleBinding) ID() ID {
+	return ID{"ClusterRoleBinding", rb.Name, rb.Namespace}
 }
 
 // Apply patches the resource change.
@@ -62,6 +62,9 @@ func (rb *ClusterRoleBinding) Apply(ctx context.Context, client kubernetes.Inter
 		res, err = api.Create(ctx, &rb.ClusterRoleBinding, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "cluster role binding %q", rb.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

@@ -61,6 +61,9 @@ func (r *ClusterRole) Apply(ctx context.Context, client kubernetes.Interface) er
 			FieldManager: JujuFieldManager,
 		})
 	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "cluster role %q", r.Name)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
