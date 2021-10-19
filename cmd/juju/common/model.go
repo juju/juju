@@ -41,6 +41,18 @@ type ModelInfo struct {
 	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
 	AgentVersion   string                      `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Credential     *ModelCredential            `json:"credential,omitempty" yaml:"credential,omitempty"`
+
+	SupportedFeatures []SupportedFeature `json:"supported-features,omitempty" yaml:"supported-features,omitempty"`
+}
+
+// SupportedFeature describes a feature that is supported by a particular model.
+type SupportedFeature struct {
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description" yaml:"description"`
+
+	// Version is optional; some features might simply be booleans with
+	// no particular version attached.
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // ModelMachineInfo contains information about a machine in a model.
@@ -165,6 +177,16 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 			Cloud:    credTag.Cloud().Id(),
 			Validity: HumanReadableBoolPointer(info.CloudCredentialValidity, "valid", "invalid"),
 		}
+	}
+
+	for _, feat := range info.SupportedFeatures {
+		modelInfo.SupportedFeatures = append(modelInfo.SupportedFeatures,
+			SupportedFeature{
+				Name:        feat.Name,
+				Description: feat.Description,
+				Version:     feat.Version,
+			},
+		)
 	}
 
 	return modelInfo, nil
