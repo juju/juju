@@ -74,6 +74,9 @@ type RelationStateTracker interface {
 	// LocalUnitAndApplicationLife returns the life values for the local
 	// unit and application.
 	LocalUnitAndApplicationLife() (life.Value, life.Value, error)
+
+	// Report provides information for the engine report.
+	Report() map[string]interface{}
 }
 
 // SubordinateDestroyer destroys all subordinates of a unit.

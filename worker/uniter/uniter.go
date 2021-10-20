@@ -983,3 +983,13 @@ func (u *Uniter) Terminate() error {
 	}
 	return nil
 }
+
+// Report provides information for the engine report.
+func (u *Uniter) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+
+	result["unit"] = u.unit.Name()
+	result["relations"] = u.relationStateTracker.Report()
+
+	return result
+}
