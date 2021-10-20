@@ -47,7 +47,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Clock:        testclock.NewClock(time.Time{}),
 		Queue:        s.queue,
 		NotifyTarget: &struct{ raftlease.NotifyTarget }{},
-		NewApplier: func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier {
+		NewApplier: func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier {
 			return testLeaseApplier{operations: s.operations}
 		},
 	}
