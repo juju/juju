@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/resources/mocks"
@@ -51,12 +52,16 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 	defer ctrl.Finish()
 
 	r1 := mocks.NewMockResource(ctrl)
+	r1Meta := &metav1.ObjectMeta{}
+	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
 	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
 	applier.Apply(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
+	existingR1Meta := &metav1.ObjectMeta{}
+	existingR1.EXPECT().GetObjectMeta().AnyTimes().Return(existingR1Meta)
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
@@ -72,17 +77,49 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
 }
 
-func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C) {
+func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	r1 := mocks.NewMockResource(ctrl)
+	r1Meta := &metav1.ObjectMeta{
+		ResourceVersion: "1",
+	}
+	r1.EXPECT().ID().AnyTimes().Return(resources.ID{"A", "r1", "namespace"})
+	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
 	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
 	applier.Apply(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
+	existingR1Meta := &metav1.ObjectMeta{
+		ResourceVersion: "2",
+	}
+	existingR1.EXPECT().GetObjectMeta().AnyTimes().Return(existingR1Meta)
+
+	gomock.InOrder(
+		r1.EXPECT().Clone().Return(existingR1),
+		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
+	)
+	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `A r1: resource version conflict`)
+}
+
+func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	r1 := mocks.NewMockResource(ctrl)
+	r1Meta := &metav1.ObjectMeta{}
+	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
+
+	applier := resources.NewApplierForTest()
+	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	applier.Apply(r1)
+
+	existingR1 := mocks.NewMockResource(ctrl)
+	existingR1Meta := &metav1.ObjectMeta{}
+	existingR1.EXPECT().GetObjectMeta().AnyTimes().Return(existingR1Meta)
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
@@ -103,12 +140,16 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 	defer ctrl.Finish()
 
 	r1 := mocks.NewMockResource(ctrl)
+	r1Meta := &metav1.ObjectMeta{}
+	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
 	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
 	applier.Delete(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
+	existingR1Meta := &metav1.ObjectMeta{}
+	existingR1.EXPECT().GetObjectMeta().AnyTimes().Return(existingR1Meta)
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
@@ -130,15 +171,23 @@ func (s *applierSuite) TestApplySet(c *gc.C) {
 
 	r1 := mocks.NewMockResource(ctrl)
 	r1.EXPECT().ID().AnyTimes().Return(resources.ID{"A", "r1", "namespace"})
+	r1Meta := &metav1.ObjectMeta{}
+	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 	r1.EXPECT().Clone().AnyTimes().Return(r1)
 	r2 := mocks.NewMockResource(ctrl)
 	r2.EXPECT().ID().AnyTimes().Return(resources.ID{"B", "r2", "namespace"})
+	r2Meta := &metav1.ObjectMeta{}
+	r2.EXPECT().GetObjectMeta().AnyTimes().Return(r2Meta)
 	r2.EXPECT().Clone().AnyTimes().Return(r2)
 	r2Copy := mocks.NewMockResource(ctrl)
 	r2Copy.EXPECT().ID().AnyTimes().Return(resources.ID{"B", "r2", "namespace"})
+	r2CopyMeta := &metav1.ObjectMeta{}
+	r2Copy.EXPECT().GetObjectMeta().AnyTimes().Return(r2CopyMeta)
 	r2Copy.EXPECT().Clone().AnyTimes().Return(r2)
 	r3 := mocks.NewMockResource(ctrl)
 	r3.EXPECT().ID().AnyTimes().Return(resources.ID{"A", "r3", "namespace"})
+	r3Meta := &metav1.ObjectMeta{}
+	r3.EXPECT().GetObjectMeta().AnyTimes().Return(r3Meta)
 	r3.EXPECT().Clone().AnyTimes().Return(r3)
 
 	applier := resources.NewApplierForTest()

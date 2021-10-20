@@ -43,8 +43,8 @@ func (ss *StatefulSet) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *StatefulSet) ID() ID {
-	return ID{"StatefulSet", r.Name, r.Namespace}
+func (ss *StatefulSet) ID() ID {
+	return ID{"StatefulSet", ss.Name, ss.Namespace}
 }
 
 // Apply patches the resource change.
@@ -61,6 +61,9 @@ func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) e
 		res, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "stateful set %q", ss.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

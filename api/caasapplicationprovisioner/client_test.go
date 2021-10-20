@@ -155,6 +155,8 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 				ImageRepo:            params.DockerImageInfo{Repository: "jujuqa"},
 				CharmModifiedVersion: 1,
 				CharmURL:             "cs:~test/charm-1",
+				Trust:                true,
+				Scale:                3,
 			}}}
 		return nil
 	})
@@ -169,6 +171,8 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		ImageRepo:            docker.ImageRepoDetails{Repository: "jujuqa"},
 		CharmModifiedVersion: 1,
 		CharmURL:             &charm.URL{Schema: "cs", User: "test", Name: "charm", Revision: 1},
+		Trust:                true,
+		Scale:                3,
 	})
 }
 

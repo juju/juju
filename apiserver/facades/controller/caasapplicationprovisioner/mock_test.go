@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
@@ -191,6 +192,8 @@ type mockApplication struct {
 	storageConstraints   map[string]state.StorageConstraints
 	deviceConstraints    map[string]state.DeviceConstraints
 	charmModifiedVersion int
+	config               application.ConfigAttributes
+	scale                int
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -289,6 +292,16 @@ func (a *mockApplication) CharmModifiedVersion() int {
 func (a *mockApplication) CharmURL() (curl *charm.URL, force bool) {
 	a.MethodCall(a, "CharmURL")
 	return a.charm.URL(), false
+}
+
+func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
+	a.MethodCall(a, "ApplicationConfig")
+	return a.config, a.NextErr()
+}
+
+func (a *mockApplication) GetScale() int {
+	a.MethodCall(a, "GetScale")
+	return a.scale
 }
 
 type mockCharm struct {

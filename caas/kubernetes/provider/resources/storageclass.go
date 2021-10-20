@@ -62,8 +62,8 @@ func (sc *StorageClass) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *StorageClass) ID() ID {
-	return ID{"StorageClass", r.Name, r.Namespace}
+func (sc *StorageClass) ID() ID {
+	return ID{"StorageClass", sc.Name, sc.Namespace}
 }
 
 // Apply patches the resource change.
@@ -80,6 +80,9 @@ func (sc *StorageClass) Apply(ctx context.Context, client kubernetes.Interface) 
 		res, err = api.Create(ctx, &sc.StorageClass, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "storage class %q", sc.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

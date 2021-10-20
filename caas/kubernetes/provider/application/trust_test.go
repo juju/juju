@@ -80,13 +80,7 @@ func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	role, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), s.appName, metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{"*"},
-			Resources: []string{"*"},
-			Verbs:     []string{"*"},
-		},
-	})
+	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule(nil))
 	_, err = s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 }
