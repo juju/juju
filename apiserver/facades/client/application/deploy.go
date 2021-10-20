@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/assumes"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -81,25 +82,12 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if assumesExprTree := args.Charm.Meta().Assumes; assumesExprTree != nil {
-		ctrlCfg, err := st.ControllerConfig()
-		if err != nil {
+	if err := assertCharmAssumptions(args.Charm.Meta().Assumes, model, st.ControllerConfig); err != nil {
+		if !errors.IsNotSupported(err) || !args.Force {
 			return nil, errors.Trace(err)
 		}
 
-		if ctrlCfg.Features().Contains(feature.CharmAssumes) {
-			featureSet, err := supportedFeaturesGetter(model, environs.New)
-			if err != nil {
-				return nil, errors.Annotate(err, "querying feature set supported by the model")
-			}
-			if err = featureSet.Satisfies(assumesExprTree); err != nil {
-				if !args.Force {
-					return nil, errors.NewNotSupported(err, "")
-				}
-
-				logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
-			}
-		}
+		logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
@@ -216,4 +204,30 @@ func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 		},
 	}
 	return stateOrigin
+}
+
+func assertCharmAssumptions(assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {
+	if assumesExprTree == nil {
+		return nil
+	}
+
+	ctrlCfg, err := ctrlCfgGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if !ctrlCfg.Features().Contains(feature.CharmAssumes) {
+		return nil
+	}
+
+	featureSet, err := supportedFeaturesGetter(model, environs.New)
+	if err != nil {
+		return errors.Annotate(err, "querying feature set supported by the model")
+	}
+
+	if err = featureSet.Satisfies(assumesExprTree); err != nil {
+		return errors.NewNotSupported(err, "")
+	}
+
+	return nil
 }
