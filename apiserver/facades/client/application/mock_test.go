@@ -384,6 +384,7 @@ type mockBackend struct {
 	jtesting.Stub
 	application.Backend
 
+	model                      *mockModel
 	charm                      *mockCharm
 	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
@@ -403,6 +404,10 @@ type mockBackend struct {
 type mockFilesystemAccess struct {
 	storagecommon.FilesystemAccess
 	*mockBackend
+}
+
+func (m *mockBackend) Model() (application.Model, error) {
+	return m.model, nil
 }
 
 func (m *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
