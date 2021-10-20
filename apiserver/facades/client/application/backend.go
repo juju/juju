@@ -44,6 +44,7 @@ type Backend interface {
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
+	Model() (Model, error)
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
@@ -362,6 +363,14 @@ func (s stateShim) EndpointsRelation(eps ...state.Endpoint) (Relation, error) {
 		return nil, err
 	}
 	return stateRelationShim{r, s.State}, nil
+}
+
+func (s stateShim) Model() (Model, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+	return modelShim{m}, nil
 }
 
 func (s stateShim) Relation(id int) (Relation, error) {

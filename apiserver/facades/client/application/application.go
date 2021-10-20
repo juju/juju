@@ -1318,6 +1318,20 @@ func (api *APIBase) applicationSetCharm(
 		}
 	}
 
+	// Enforce "assumes" requirements if the feature flag is enabled.
+	model, err := api.backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
+
+	if err := assertCharmAssumptions(newCharm.Meta().Assumes, model, api.backend.ControllerConfig); err != nil {
+		if !errors.IsNotSupported(err) || !params.Force.Force {
+			return errors.Trace(err)
+		}
+
+		logger.Warningf("proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
+	}
+
 	force := params.Force
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(newCharm),
