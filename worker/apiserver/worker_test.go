@@ -42,7 +42,7 @@ type workerFixture struct {
 	stub                 testing.Stub
 	metricsCollector     *coreapiserver.Collector
 	multiwatcherFactory  multiwatcher.Factory
-	queue                *queue.BlockingOpQueue
+	queue                *queue.OpQueue
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -67,7 +67,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
-	s.queue = queue.NewBlockingOpQueue(testclock.NewClock(time.Now()))
+	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{

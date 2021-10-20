@@ -56,7 +56,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	state                stubStateTracker
 	upgradeGate          stubGateWaiter
-	queue                *queue.BlockingOpQueue
+	queue                *queue.OpQueue
 
 	stub testing.Stub
 }
@@ -81,7 +81,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.auditConfig = stubAuditConfig{}
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
-	s.queue = queue.NewBlockingOpQueue(testclock.NewClock(time.Now()))
+	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)

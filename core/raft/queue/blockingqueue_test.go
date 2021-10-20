@@ -6,165 +6,214 @@ package queue
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/tomb.v2"
 )
 
-type BlockingOpQueueSuite struct {
+type OpQueueSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&BlockingOpQueueSuite{})
+var _ = gc.Suite(&OpQueueSuite{})
 
-func (s *BlockingOpQueueSuite) TestEnqueue(c *gc.C) {
-	now := time.Now()
-	queue := NewBlockingOpQueue(testclock.NewClock(now))
+func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
 
 	results := consumeN(c, queue, 1)
 
-	err := queue.Enqueue(Operation{
-		Commands: commandsN(1),
+	done := make(chan error)
+	go queue.Enqueue(Operation{
+		Command: command(),
+		Done: func(err error) {
+			done <- err
+		},
 	})
+
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("testing took too long")
+	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	var count int
 	for result := range results {
-		c.Assert(len(result), gc.Equals, 1)
-		c.Assert(result[0], gc.DeepEquals, opName(count))
+		c.Assert(result, gc.DeepEquals, opName(count))
 		count++
 	}
 	c.Assert(count, gc.Equals, 1)
 }
 
-func (s *BlockingOpQueueSuite) TestEnqueueWithError(c *gc.C) {
-	now := time.Now()
-	queue := NewBlockingOpQueue(testclock.NewClock(now))
+func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
 
 	results := consumeNUntilErr(c, queue, 1, errors.New("boom"))
 
-	err := queue.Enqueue(Operation{
-		Commands: commandsN(1),
+	done := make(chan error)
+	go queue.Enqueue(Operation{
+		Command: command(),
+		Done: func(err error) {
+			done <- err
+		},
 	})
+
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("testing took too long")
+	}
 	c.Assert(err, gc.ErrorMatches, `boom`)
 
 	var count int
 	for result := range results {
-		c.Assert(len(result), gc.Equals, 1)
-		c.Assert(result[0], gc.DeepEquals, opName(count))
+		c.Assert(result, gc.DeepEquals, opName(count))
 		count++
 	}
 	c.Assert(count, gc.Equals, 1)
 }
 
-func (s *BlockingOpQueueSuite) TestEnqueueTimesout(c *gc.C) {
+func (s *OpQueueSuite) TestEnqueueTimesout(c *gc.C) {
 	now := time.Now()
 	clock := testclock.NewClock(now)
-	queue := NewBlockingOpQueue(clock)
+
+	// Create a queue, but don't start the tomb, so we can wait for the timeout.
+	queue := &OpQueue{
+		in:           make(chan ringOp),
+		out:          make(chan []Operation),
+		clock:        clock,
+		maxBatchSize: EnqueueBatchSize,
+		tomb:         new(tomb.Tomb),
+	}
 
 	go func() {
-		c.Assert(clock.WaitAdvance(time.Second*2, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(EnqueueTimeout*2, testing.ShortWait, 1), jc.ErrorIsNil)
 	}()
 
-	err := queue.Enqueue(Operation{
-		Commands: commandsN(1),
+	done := make(chan error)
+	go queue.Enqueue(Operation{
+		Command: command(),
+		Done: func(err error) {
+			done <- err
+		},
 	})
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("testing took too long")
+	}
+
 	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
 	c.Assert(IsDeadlineExceeded(err), jc.IsTrue)
 }
 
-func (s *BlockingOpQueueSuite) TestMultipleEnqueue(c *gc.C) {
-	now := time.Now()
-	queue := NewBlockingOpQueue(testclock.NewClock(now))
+func (s *OpQueueSuite) TestMultipleEnqueue(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
 
 	results := consumeN(c, queue, 2)
 
+	done := make(chan error)
 	for i := 0; i < 2; i++ {
-		err := queue.Enqueue(Operation{
-			Commands: [][]byte{opName(i)},
+		queue.Enqueue(Operation{
+			Command: opName(i),
+			Done: func(err error) {
+				go func() {
+					done <- err
+				}()
+			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("testing took too long")
+	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	var count int
 	for result := range results {
-		c.Assert(len(result), gc.Equals, 1)
-		c.Assert(result[0], gc.DeepEquals, opName(count))
+		c.Assert(result, gc.DeepEquals, opName(count))
 		count++
 	}
 	c.Assert(count, gc.Equals, 2)
 }
 
-func (s *BlockingOpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
-	now := time.Now()
-	clock := testclock.NewClock(now)
-	queue := NewBlockingOpQueue(clock)
+func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
 
-	results := make(chan [][]byte, 3)
+	results := make(chan []byte, 3)
 	go func() {
 		defer close(results)
 
 		var count int
-		for op := range queue.Queue() {
-			results <- op.Commands
-			queue.Error() <- nil
+		for ops := range queue.Queue() {
+			for _, op := range ops {
+				select {
+				case results <- op.Command:
+				case <-time.After(testing.LongWait):
+					c.Fatal("timed out setting results")
+				}
+				if count == 1 {
+					op.Done(errors.New(`boom`))
+				} else {
+					op.Done(nil)
+				}
 
-			count++
-			switch count {
-			case 1:
-				time.Sleep(EnqueueTimeout * 3)
 				count++
-			case 3:
-				return
 			}
 		}
 	}()
 
-	err := queue.Enqueue(Operation{
-		Commands: [][]byte{opName(0)},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	consume := func(i int) error {
+		done := make(chan error)
+		defer close(done)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+		go queue.Enqueue(Operation{
+			Command: opName(i),
+			Done: func(err error) {
+				done <- err
+			},
+		})
 
-		c.Assert(clock.WaitAdvance(time.Second*2, testing.ShortWait, 2), jc.ErrorIsNil)
-	}()
+		var err error
+		select {
+		case err = <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("testing took too long")
+		}
 
-	// Fail this one
-	err = queue.Enqueue(Operation{
-		Commands: [][]byte{opName(1)},
-	})
-	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
-
-	err = queue.Enqueue(Operation{
-		Commands: [][]byte{opName(2)},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	var received []string
-	for result := range results {
-		c.Assert(len(result), gc.Equals, 1)
-		received = append(received, string(result[0]))
+		return err
 	}
-	c.Assert(len(received), gc.Equals, 2)
-	c.Assert(received, gc.DeepEquals, []string{
-		"abc-0", "abc-2",
-	})
 
-	// Ensure that we actually did advance correctly.
-	wg.Wait()
+	consumeNilErr := func(i int) {
+		err := consume(i)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	consumeErr := func(i int, e string) {
+		err := consume(i)
+		c.Assert(err, gc.ErrorMatches, e)
+	}
+
+	consumeNilErr(0)
+	consumeErr(1, `boom`)
+	consumeNilErr(2)
 }
 
-func (s *BlockingOpQueueSuite) TestMultipleEnqueues(c *gc.C) {
-	now := time.Now()
-	queue := NewBlockingOpQueue(testclock.NewClock(now))
+func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
 
 	results := consumeN(c, queue, 10)
 
@@ -174,9 +223,22 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 		go func(i int) {
 			defer wg.Done()
 
-			err := queue.Enqueue(Operation{
-				Commands: [][]byte{opName(i)},
+			done := make(chan error)
+			queue.Enqueue(Operation{
+				Command: opName(i),
+				Done: func(err error) {
+					go func() {
+						done <- err
+					}()
+				},
 			})
+
+			var err error
+			select {
+			case err = <-done:
+			case <-time.After(testing.LongWait):
+				c.Fatal("testing took too long")
+			}
 			c.Assert(err, jc.ErrorIsNil)
 		}(i)
 	}
@@ -184,8 +246,7 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 
 	var received []string
 	for result := range results {
-		c.Assert(len(result), gc.Equals, 1)
-		received = append(received, string(result[0]))
+		received = append(received, string(result))
 	}
 	c.Assert(len(received), gc.Equals, 10)
 	c.Assert(received, jc.SameContents, []string{
@@ -194,49 +255,103 @@ func (s *BlockingOpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 	})
 }
 
+func (s *OpQueueSuite) TestCalculateByGoesDown(c *gc.C) {
+	queue := &OpQueue{
+		maxBatchSize: EnqueueBatchSize,
+	}
+
+	// Reducing the number of operations should be less than the previous one.
+	delay := maxDelay
+	for i := 0; i < 20; i++ {
+		newDelay := queue.calculateDelay(delay, queue.maxBatchSize)
+		c.Assert(newDelay <= delay, jc.IsTrue)
+		delay = newDelay
+	}
+	c.Assert(delay < minDelay, jc.IsFalse)
+}
+
+func (s *OpQueueSuite) TestCalculateByGoesUp(c *gc.C) {
+	queue := &OpQueue{
+		maxBatchSize: EnqueueBatchSize,
+	}
+
+	// Increasing the number of operations should be more than the previous one.
+	delay := minDelay
+	for i := 0; i < 20; i++ {
+		newDelay := queue.calculateDelay(delay, 0)
+		c.Assert(newDelay >= delay, jc.IsTrue)
+		delay = newDelay
+	}
+	c.Assert(delay > maxDelay, jc.IsFalse)
+}
+
+func (s *OpQueueSuite) TestCalculateByBrownian(c *gc.C) {
+	queue := &OpQueue{
+		maxBatchSize: EnqueueBatchSize,
+	}
+
+	delay := maxDelay / 2
+	num := queue.maxBatchSize / 2
+	for i := 0; i < 10; i++ {
+		n := num - 2
+		if rand.Intn(2) == 0 {
+			n += 2
+		}
+		if n >= queue.maxBatchSize {
+			n = queue.maxBatchSize
+		} else if n <= 0 {
+			n = 0
+		}
+
+		newDelay := queue.calculateDelay(delay, n)
+		if n > num {
+			c.Assert(newDelay < delay, jc.IsTrue)
+		} else if n < num {
+			c.Assert(newDelay > delay, jc.IsTrue)
+		}
+		delay = newDelay
+
+		num = n
+	}
+}
+
 func opName(i int) []byte {
 	return []byte(fmt.Sprintf("abc-%d", i))
 }
 
-func commandsN(n int) [][]byte {
-	res := make([][]byte, n)
-	for i := 0; i < n; i++ {
-		res[i] = opName(i)
-	}
-	return res
+func command() []byte {
+	return opName(0)
 }
 
-func consumeN(c *gc.C, queue *BlockingOpQueue, n int) <-chan [][]byte {
+func consumeN(c *gc.C, queue *OpQueue, n int) <-chan []byte {
 	return consumeNUntilErr(c, queue, n, nil)
 }
 
-func consumeNUntilErr(c *gc.C, queue *BlockingOpQueue, n int, err error) <-chan [][]byte {
-	results := make(chan [][]byte, n)
+func consumeNUntilErr(c *gc.C, queue *OpQueue, n int, err error) <-chan []byte {
+	results := make(chan []byte, n)
 
 	go func() {
 		defer close(results)
 
 		var count int
-		for op := range queue.Queue() {
-			select {
-			case results <- op.Commands:
-			case <-time.After(testing.LongWait):
-				c.Fatal("timed out setting results")
-			}
+		for ops := range queue.Queue() {
+			for _, op := range ops {
+				select {
+				case results <- op.Command:
+				case <-time.After(testing.LongWait):
+					c.Fatal("timed out setting results")
+				}
 
-			count++
-			var e error
-			if count == n {
-				e = err
-			}
-			select {
-			case queue.Error() <- e:
-			case <-time.After(testing.LongWait):
-				c.Fatal("timed out setting error")
-			}
+				count++
+				var e error
+				if count == n {
+					e = err
+				}
+				op.Done(e)
 
-			if count == n {
-				break
+				if count == n {
+					return
+				}
 			}
 		}
 	}()

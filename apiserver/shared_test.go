@@ -79,7 +79,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},
 		controllerConfig:    controllerConfig,
-		raftOpQueue:         queue.NewBlockingOpQueue(clock.WallClock),
+		raftOpQueue:         queue.NewOpQueue(clock.WallClock),
 		logger:              loggo.GetLogger("test"),
 	}
 }

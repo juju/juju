@@ -620,7 +620,7 @@ func (a *MachineAgent) makeEngineCreator(
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			LeaseFSM:                          raftlease.NewFSM(),
 			LeaseLog:                          makeRaftLeaseLog(raftLeaseLogPath),
-			RaftOpQueue:                       queue.NewBlockingOpQueue(clock.WallClock),
+			RaftOpQueue:                       queue.NewOpQueue(clock.WallClock),
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {

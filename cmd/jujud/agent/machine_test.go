@@ -122,7 +122,7 @@ func bootstrapRaft(c *gc.C, dataDir string) {
 		StorageDir: filepath.Join(dataDir, "raft"),
 		LocalID:    "0",
 		Logger:     loggo.GetLogger("machine_test.raft"),
-		Queue:      queue.NewBlockingOpQueue(clock.WallClock),
+		Queue:      queue.NewOpQueue(clock.WallClock),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

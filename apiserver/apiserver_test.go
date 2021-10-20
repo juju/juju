@@ -182,7 +182,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
-		RaftOpQueue: queue.NewBlockingOpQueue(testclock.NewClock(time.Now())),
+		RaftOpQueue: queue.NewOpQueue(testclock.NewClock(time.Now())),
 	}
 }
 

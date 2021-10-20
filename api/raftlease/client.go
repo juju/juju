@@ -178,7 +178,9 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {
-			return lease.IsDropped(err)
+			// We only want to retry if the leader has changed, all other errors
+			// can be handled via the lease manager.
+			return !apiservererrors.IsNotLeaderError(err)
 		},
 		Attempts:    3,
 		Delay:       time.Millisecond * 100,
@@ -219,13 +221,18 @@ func (c *Client) handleRetryRequestError(command *raftlease.Command, remote Remo
 			// The raft instance isn't clustered, we don't have a way
 			// forward, so send back a dropped error.
 			c.config.Logger.Errorf("No leader found and no cluster available, dropping command: %v", command)
-			return remote, lease.ErrDropped
 		}
+
+		// If it is a not leader error and we haven't got a remote, just
+		// return dropped.
+		return remote, lease.ErrDropped
+
 	} else if apiservererrors.IsDeadlineExceededError(err) {
 		// Enqueuing into the queue just timed out, we should just
 		// log this error and try again if possible. The lease manager
 		// will know if a retry at that level is possible.
 		c.config.Logger.Errorf("Deadline exceeded enqueuing command.")
+		return remote, lease.ErrDropped
 	}
 
 	// If we can't find a remote, we should just return that the error was
