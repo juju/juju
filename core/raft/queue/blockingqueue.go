@@ -82,6 +82,10 @@ func (q *OpQueue) Enqueue(op Operation) {
 	case q.in <- makeRingOp(op, q.clock.Now()):
 	case <-q.clock.After(EnqueueTimeout):
 		op.Done(ErrDeadlineExceeded)
+	case <-q.tomb.Dying():
+		op.Done(tomb.ErrDying)
+	case <-q.tomb.Dead():
+		op.Done(q.tomb.Err())
 	}
 }
 
@@ -116,6 +120,8 @@ func (q *OpQueue) loop() error {
 	for {
 		select {
 		case <-q.tomb.Dying():
+			return tomb.ErrDying
+		case <-q.tomb.Dead():
 			return q.tomb.Err()
 		default:
 		}
