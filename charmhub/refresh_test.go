@@ -520,7 +520,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 	config, ok := AddResource(config, "testme", 3)
 	c.Assert(ok, jc.IsTrue)
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -543,7 +543,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestAddResourceFail(c *gc.C) {
-	config, err := RefreshOne("testingID", 7, "latest/edge", RefreshBase{
+	config, err := RefreshOne("instance-key", "testingID", 7, "latest/edge", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
