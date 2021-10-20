@@ -132,7 +132,11 @@ func (q *OpQueue) loop() error {
 		}
 
 		// Send the batch operations.
-		q.out <- ops
+		select {
+		case q.out <- ops:
+		case <-q.tomb.Dead():
+			return q.tomb.Err()
+		}
 
 		delay = q.calculateDelay(delay, len(ops))
 	}
@@ -147,13 +151,16 @@ func (q *OpQueue) calculateDelay(delay time.Duration, n int) time.Duration {
 	percentage := float64(n) / float64(q.maxBatchSize)
 	fixed := deltaDelay - time.Duration(float64(deltaDelay)*percentage)
 	delay += (fixed - delay) / 2
+
+	// Round the delay, before doing the min and max checks.
+	delay = delay.Round(time.Millisecond)
 	if delay <= minDelay {
 		delay = minDelay
 	} else if delay >= maxDelay {
 		delay = maxDelay
 	}
 
-	return delay.Round(time.Millisecond)
+	return delay
 }
 
 func (q *OpQueue) consume(delay time.Duration) []Operation {
@@ -165,8 +172,6 @@ func (q *OpQueue) consume(delay time.Duration) []Operation {
 		case op := <-q.in:
 			// Ensure we don't put operations that have already expired.
 			if q.clock.Now().After(op.ExpiredTime) {
-				// 	// Ensure we tell the operation that it didn't make the cut when
-				// 	// attempting to coalesce.
 				op.Operation.Done(ErrDeadlineExceeded)
 				break
 			}
