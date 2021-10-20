@@ -7,6 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -18,6 +19,11 @@ import (
 type BackendModel interface {
 	Config() (*config.Config, error)
 	ModelTag() names.ModelTag
+	Cloud() (cloud.Cloud, error)
+	CloudCredential() (state.Credential, bool, error)
+	CloudRegion() string
+	ControllerUUID() string
+	Type() state.ModelType
 }
 
 // CharmState represents directives for accessing charm methods

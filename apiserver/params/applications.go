@@ -65,6 +65,7 @@ type ApplicationDeploy struct {
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`
+	Force            bool
 }
 
 // ApplicationsDeployV12 holds the parameters for deploying one or more
