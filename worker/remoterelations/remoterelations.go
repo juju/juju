@@ -4,7 +4,9 @@
 package remoterelations
 
 import (
+	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -193,6 +195,7 @@ type Worker struct {
 	logger   loggo.Logger
 
 	runner *worker.Runner
+	mu     sync.Mutex
 
 	// offerUUIDs records the offer UUID used for each saas name.
 	offerUUIDs map[string]string
@@ -237,6 +240,9 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) handleApplicationChanges(applicationIds []string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	// TODO(wallyworld) - watcher should not give empty events
 	if len(applicationIds) == 0 {
 		return nil
@@ -319,4 +325,23 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		w.offerUUIDs[name] = remoteApp.OfferUUID
 	}
 	return nil
+}
+
+// Report provides information for the engine report.
+func (w *Worker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	saasWorkers := make(map[string]interface{})
+	for name := range w.offerUUIDs {
+		appWorker, err := w.runner.Worker(name, w.catacomb.Dying())
+		if err != nil {
+			saasWorkers[name] = fmt.Sprintf("ERROR: %v", err)
+			continue
+		}
+		saasWorkers[name] = appWorker.(worker.Reporter).Report()
+	}
+	result["workers"] = saasWorkers
+	return result
 }
