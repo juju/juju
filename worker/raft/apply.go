@@ -82,7 +82,7 @@ func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Durati
 		// If there is a leader error, finish the operations with the leader
 		// error. We only request the leader state once, as it's not a cheap
 		// operation. We can reasonably assume that during a tight loop of batch
-		// operations, then changing of a leader state should be small. If it
+		// operations, the changing of a leader state should be small. If it
 		// does happen, then the operation will end up back here after another
 		// redirect.
 		if leaderErr != nil {

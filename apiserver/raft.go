@@ -60,6 +60,8 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 	done := make(chan error, 1)
 	defer close(done)
 
+	start := m.clock.Now()
+
 	m.queue.Enqueue(queue.Operation{
 		Command: cmd,
 		Done: func(err error) {
@@ -72,8 +74,15 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 	var err error
 	select {
 	case err = <-done:
+		if m.logger.IsTraceEnabled() {
+			elapsed := m.clock.Now().Sub(start)
+			m.logger.Tracef("Applied Lease with command %s in time: %v", string(cmd), elapsed)
+		}
+
 	case <-m.clock.After(ApplyLeaseTimeout):
-		m.logger.Errorf("Applying Lease timed out.")
+		elapsed := m.clock.Now().Sub(start)
+
+		m.logger.Errorf("Applying Lease timed out, waiting for enqueue: %v", elapsed)
 		return apiservererrors.NewDeadlineExceededError("Apply lease upper bound timeout")
 	}
 
