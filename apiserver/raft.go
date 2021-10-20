@@ -57,7 +57,7 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 		m.logger.Tracef("Applying Lease with command %s", string(cmd))
 	}
 
-	done := make(chan error)
+	done := make(chan error, 1)
 	defer close(done)
 
 	m.queue.Enqueue(queue.Operation{
