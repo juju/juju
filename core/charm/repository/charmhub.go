@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
@@ -481,11 +481,11 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		// If there is a revision, install it using that. If there is no origin
 		// ID, we haven't downloaded this charm before.
 		// No channel, try with revision.
-		cfg, err = charmhub.InstallOneFromRevision(charmURL.Name, rev)
+		cfg, err = charmhub.InstallOneFromRevision(charmURL.Name, rev, base)
 	case MethodID:
 		// This must be a charm upgrade if we have an ID.  Use the refresh
 		// action for metric keeping on the CharmHub side.
-		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, base)
+		cfg, err = charmhub.RefreshOne(origin.InstanceKey, origin.ID, rev, channel, base)
 	default:
 		return nil, errors.NotValidf("origin %v", origin)
 	}

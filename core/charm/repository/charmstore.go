@@ -7,11 +7,11 @@ import (
 	"net/url"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
-	"github.com/juju/charmrepo/v7"
-	"github.com/juju/charmrepo/v7/csclient"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6"
+	"github.com/juju/charmrepo/v6/csclient"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
