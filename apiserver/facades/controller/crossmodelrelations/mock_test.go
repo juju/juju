@@ -368,6 +368,7 @@ type mockRelation struct {
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
 		id:          id,
+		key:         "db2:db django:db",
 		units:       make(map[string]commoncrossmodel.RelationUnit),
 		watchers:    make(map[string]*mockUnitsWatcher),
 		appSettings: make(map[string]map[string]interface{}),

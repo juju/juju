@@ -39,33 +39,8 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		return errors.Trace(err)
 	}
 
-	// Update the relation suspended status.
-	currentStatus := rel.Suspended()
-	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
-		var (
-			newStatus status.Status
-			message   string
-		)
-		if *change.Suspended {
-			newStatus = status.Suspending
-			message = change.SuspendedReason
-			if message == "" {
-				message = "suspending after update from remote model"
-			}
-		}
-		if err := rel.SetSuspended(*change.Suspended, message); err != nil {
-			return errors.Trace(err)
-		}
-		if !*change.Suspended {
-			newStatus = status.Joining
-			message = ""
-		}
-		if err := rel.SetStatus(status.StatusInfo{
-			Status:  newStatus,
-			Message: message,
-		}); err != nil && !errors.IsNotValid(err) {
-			return errors.Trace(err)
-		}
+	if err := handleSuspendedRelation(change, rel, dyingOrDead); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Look up the application on the remote side of this relation
@@ -125,9 +100,49 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		}
 	}
 
+	if err := handleDepartedUnits(change, applicationTag, rel); err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(handleChangedUnits(change, applicationTag, rel))
+}
+
+func handleSuspendedRelation(change params.RemoteRelationChangeEvent, rel Relation, dyingOrDead bool) error {
+	// Update the relation suspended status.
+	currentStatus := rel.Suspended()
+	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
+		var (
+			newStatus status.Status
+			message   string
+		)
+		if *change.Suspended {
+			newStatus = status.Suspending
+			message = change.SuspendedReason
+			if message == "" {
+				message = "suspending after update from remote model"
+			}
+		}
+		if err := rel.SetSuspended(*change.Suspended, message); err != nil {
+			return errors.Trace(err)
+		}
+		if !*change.Suspended {
+			newStatus = status.Joining
+			message = ""
+		}
+		if err := rel.SetStatus(status.StatusInfo{
+			Status:  newStatus,
+			Message: message,
+		}); err != nil && !errors.IsNotValid(err) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
-		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), relationTag.Id())
+		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), rel.Tag().Id())
 		ru, err := rel.RemoteUnit(unitTag.Id())
 		if err != nil {
 			return errors.Trace(err)
@@ -137,7 +152,10 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 			return errors.Trace(err)
 		}
 	}
+	return nil
+}
 
+func handleChangedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
 	for _, change := range change.ChangedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), change.UnitId))
 		logger.Debugf("changed unit tag for unit id %v is %v", change.UnitId, unitTag)

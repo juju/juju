@@ -184,6 +184,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 				{"Suspended", []interface{}{}},
 				{"SetSuspended", []interface{}{}},
 				{"SetStatus", []interface{}{}},
+				{"Tag", []interface{}{}},
 				{"RemoteUnit", []interface{}{"db2/2"}},
 				{"RemoteUnit", []interface{}{"db2/1"}},
 			})
@@ -191,6 +192,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 			rel.CheckCalls(c, []testing.StubCall{
 				{"Suspended", []interface{}{}},
 				{"Destroy", []interface{}{}},
+				{"Tag", []interface{}{}},
 				{"RemoteUnit", []interface{}{"db2/2"}},
 				{"RemoteUnit", []interface{}{"db2/1"}},
 			})
@@ -697,7 +699,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
-	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "RemoteUnit", "RemoteUnit")
+	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "Tag", "RemoteUnit", "RemoteUnit")
 	rel.CheckCall(c, 1, "ReplaceApplicationSettings", "db2", map[string]interface{}{
 		"slaughterhouse": "the-tongue",
 	})
