@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
-	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
@@ -1096,9 +1095,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	model, err := st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 
