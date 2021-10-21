@@ -39,7 +39,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploy(c *gc.C) {
 
 func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	cfg, err := charmhub.RefreshOne("charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
+	cfg, err := charmhub.RefreshOne("instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -494,10 +494,10 @@ func (m RefreshConfgMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	cb, _, err := m.Config.Build()
+	cb, err := m.Config.Build()
 	m.c.Assert(err, jc.ErrorIsNil)
 
-	rcb, _, err := rc.Build()
+	rcb, err := rc.Build()
 	m.c.Assert(err, jc.ErrorIsNil)
 	m.c.Assert(len(cb.Actions), gc.Equals, len(rcb.Actions))
 
@@ -532,7 +532,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -565,7 +565,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -597,7 +597,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -605,8 +605,8 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 			InstanceKey: instanceKey,
 			Name:        &curl.Name,
 			Revision:    &revision,
+			Base:        &transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
 		}},
-		Fields:  []string{"bases", "download", "id", "revision", "version", "resources"},
 		Context: []transport.RefreshRequestContext{},
 	})
 }
@@ -627,7 +627,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, _, err := cfg.Build()
+	build, err := cfg.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
