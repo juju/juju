@@ -163,20 +163,40 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	} else {
 		c.Assert(rel.status, gc.Equals, status.Status(""))
 		c.Assert(rel.message, gc.Equals, "")
-		expected = append(expected, testing.StubCall{
-			"RemoteApplication", []interface{}{"db2"},
-		})
 	}
 	s.st.CheckCalls(c, expected)
 	if forceCleanup {
 		ru1.CheckCalls(c, []testing.StubCall{
 			{"LeaveScope", []interface{}{}},
 		})
+		rel.CheckCalls(c, []testing.StubCall{
+			{"Suspended", []interface{}{}},
+			{"AllRemoteUnits", []interface{}{"db2"}},
+			{"DestroyWithForce", []interface{}{true}},
+		})
 	} else {
 		ru1.CheckCalls(c, []testing.StubCall{
 			{"InScope", []interface{}{}},
 			{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
 		})
+		if lifeValue == life.Alive {
+			rel.CheckCalls(c, []testing.StubCall{
+				{"Suspended", []interface{}{}},
+				{"SetSuspended", []interface{}{}},
+				{"SetStatus", []interface{}{}},
+				{"Tag", []interface{}{}},
+				{"RemoteUnit", []interface{}{"db2/2"}},
+				{"RemoteUnit", []interface{}{"db2/1"}},
+			})
+		} else {
+			rel.CheckCalls(c, []testing.StubCall{
+				{"Suspended", []interface{}{}},
+				{"Destroy", []interface{}{}},
+				{"Tag", []interface{}{}},
+				{"RemoteUnit", []interface{}{"db2/2"}},
+				{"RemoteUnit", []interface{}{"db2/1"}},
+			})
+		}
 	}
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
@@ -679,7 +699,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
-	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "RemoteUnit", "RemoteUnit")
+	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "Tag", "RemoteUnit", "RemoteUnit")
 	rel.CheckCall(c, 1, "ReplaceApplicationSettings", "db2", map[string]interface{}{
 		"slaughterhouse": "the-tongue",
 	})

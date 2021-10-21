@@ -109,6 +109,11 @@ type Relation interface {
 	// no units are currently in scope, it will be removed immediately.
 	Destroy() error
 
+	// DestroyWithForce may force the destruction of the relation.
+	// In addition, this function also returns all non-fatal operational errors
+	// encountered.
+	DestroyWithForce(force bool, maxWait time.Duration) ([]error, error)
+
 	// Id returns the integer internal relation key.
 	Id() int
 
