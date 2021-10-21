@@ -71,7 +71,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	// Look up the application on the remote side of this relation
 	// ie from the model which published this change.
 	applicationTag, err := backend.GetRemoteEntity(change.ApplicationToken)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 	logger.Debugf("application tag for token %+v is %v in model %v", change.ApplicationToken, applicationTag, backend.ModelUUID())
@@ -80,7 +80,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	forceCleanUp := change.ForceCleanup != nil && *change.ForceCleanup
 	if dyingOrDead {
 		logger.Debugf("remote consuming side of %v died", relationTag)
-		if forceCleanUp {
+		if forceCleanUp && applicationTag != nil {
 			logger.Debugf("forcing cleanup of units for %v", applicationTag.Id())
 			remoteUnits, err := rel.AllRemoteUnits(applicationTag.Id())
 			if err != nil {
@@ -94,29 +94,16 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 			}
 		}
 
+		if forceCleanUp {
+			oppErrs, err := rel.DestroyWithForce(true, 0)
+			if len(oppErrs) > 0 {
+				logger.Warningf("errors forcing cleanup of %v: %v", rel.Tag().Id(), oppErrs)
+			}
+			// If we are forcing cleanup, we can exit early here.
+			return errors.Trace(err)
+		}
 		if err := rel.Destroy(); err != nil {
 			return errors.Trace(err)
-		}
-		// See if we need to remove the remote application proxy - we do this
-		// on the offering side as there is 1:1 between proxy and consuming app.
-		remoteApp, err := backend.RemoteApplication(applicationTag.Id())
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-		if err == nil && remoteApp.IsConsumerProxy() {
-			logger.Debugf("destroy consuming app proxy for %v", applicationTag.Id())
-			opErrs, err := remoteApp.DestroyWithForce(true, 0)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if len(opErrs) > 0 {
-				logger.Warningf("errors removing consuming app proxy for %v: %v", applicationTag.Id(), opErrs)
-			}
-		}
-
-		// If we are forcing cleanup, we can exit early here.
-		if forceCleanUp {
-			return nil
 		}
 	}
 

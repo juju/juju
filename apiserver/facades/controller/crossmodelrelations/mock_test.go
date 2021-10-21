@@ -389,6 +389,11 @@ func (r *mockRelation) Destroy() error {
 	return r.NextErr()
 }
 
+func (r *mockRelation) DestroyWithForce(force bool, maxWait time.Duration) ([]error, error) {
+	r.MethodCall(r, "DestroyWithForce", force)
+	return nil, r.NextErr()
+}
+
 func (r *mockRelation) Life() state.Life {
 	return state.Alive
 }
