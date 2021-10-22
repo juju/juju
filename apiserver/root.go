@@ -598,6 +598,7 @@ func (ctx *facadeContext) Raft() facade.RaftContext {
 	return &raftMediator{
 		queue:  ctx.r.shared.raftOpQueue,
 		logger: ctx.r.shared.logger,
+		clock:  ctx.r.clock,
 	}
 }
 

@@ -123,6 +123,8 @@ type ProvisioningInfo struct {
 	ImageRepo            docker.ImageRepoDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
+	Trust                bool
+	Scale                int
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
@@ -168,6 +170,8 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		Series:               r.Series,
 		ImageRepo:            imageRepo,
 		CharmModifiedVersion: r.CharmModifiedVersion,
+		Trust:                r.Trust,
+		Scale:                r.Scale,
 	}
 
 	for _, fs := range r.Filesystems {

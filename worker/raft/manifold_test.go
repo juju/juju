@@ -45,7 +45,7 @@ type ManifoldSuite struct {
 	worker       *mockRaftWorker
 	stateTracker *stubStateTracker
 	target       raftlease.NotifyTarget
-	queue        *queue.BlockingOpQueue
+	queue        *queue.OpQueue
 	apply        func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier
 	stub         testing.Stub
 }
@@ -69,7 +69,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ls: &mockLogStore{},
 	}
 	s.target = &struct{ raftlease.NotifyTarget }{}
-	s.queue = queue.NewBlockingOpQueue(s.clock)
+	s.queue = queue.NewOpQueue(s.clock)
 	s.stateTracker = &stubStateTracker{
 		pool: s.StatePool,
 		done: make(chan struct{}),

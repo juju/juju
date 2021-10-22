@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/core/status"
@@ -22,6 +23,7 @@ const (
 
 // Resource defines methods for manipulating a k8s resource.
 type Resource interface {
+	metav1.ObjectMetaAccessor
 	// Clone returns a copy of the resource.
 	Clone() Resource
 	// Apply patches the resource change.

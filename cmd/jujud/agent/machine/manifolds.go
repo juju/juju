@@ -281,7 +281,7 @@ type ManifoldsConfig struct {
 	// If the queue becomes stalled there is now way to bounce this without
 	// restarting the agent itself. The same architecture is also applied to
 	// pubsub. Monitoring might be useful to detect this in the future.
-	RaftOpQueue *queue.BlockingOpQueue
+	RaftOpQueue *queue.OpQueue
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the

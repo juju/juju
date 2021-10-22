@@ -11,6 +11,7 @@ import (
 	charm "github.com/juju/charm/v9"
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
+	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	charm0 "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
@@ -245,6 +246,51 @@ func (m *MockBackendModel) EXPECT() *MockBackendModelMockRecorder {
 	return m.recorder
 }
 
+// Cloud mocks base method.
+func (m *MockBackendModel) Cloud() (cloud.Cloud, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cloud")
+	ret0, _ := ret[0].(cloud.Cloud)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Cloud indicates an expected call of Cloud.
+func (mr *MockBackendModelMockRecorder) Cloud() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockBackendModel)(nil).Cloud))
+}
+
+// CloudCredential mocks base method.
+func (m *MockBackendModel) CloudCredential() (state.Credential, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudCredential")
+	ret0, _ := ret[0].(state.Credential)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// CloudCredential indicates an expected call of CloudCredential.
+func (mr *MockBackendModelMockRecorder) CloudCredential() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockBackendModel)(nil).CloudCredential))
+}
+
+// CloudRegion mocks base method.
+func (m *MockBackendModel) CloudRegion() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudRegion")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CloudRegion indicates an expected call of CloudRegion.
+func (mr *MockBackendModelMockRecorder) CloudRegion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudRegion", reflect.TypeOf((*MockBackendModel)(nil).CloudRegion))
+}
+
 // Config mocks base method.
 func (m *MockBackendModel) Config() (*config.Config, error) {
 	m.ctrl.T.Helper()
@@ -260,6 +306,20 @@ func (mr *MockBackendModelMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockBackendModel)(nil).Config))
 }
 
+// ControllerUUID mocks base method.
+func (m *MockBackendModel) ControllerUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ControllerUUID indicates an expected call of ControllerUUID.
+func (mr *MockBackendModelMockRecorder) ControllerUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockBackendModel)(nil).ControllerUUID))
+}
+
 // ModelTag mocks base method.
 func (m *MockBackendModel) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
@@ -272,6 +332,20 @@ func (m *MockBackendModel) ModelTag() names.ModelTag {
 func (mr *MockBackendModelMockRecorder) ModelTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBackendModel)(nil).ModelTag))
+}
+
+// Type mocks base method.
+func (m *MockBackendModel) Type() state.ModelType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Type")
+	ret0, _ := ret[0].(state.ModelType)
+	return ret0
+}
+
+// Type indicates an expected call of Type.
+func (mr *MockBackendModelMockRecorder) Type() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockBackendModel)(nil).Type))
 }
 
 // MockApplication is a mock of Application interface.

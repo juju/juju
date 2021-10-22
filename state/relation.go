@@ -387,15 +387,31 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 	remoteApp, isCrossModel, err := op.r.RemoteApplication()
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
-	} else {
+	} else if isCrossModel {
 		// If the status of the consumed app is terminated, we will never
 		// get an orderly exit of units from scope so force the issue.
-		if isCrossModel {
-			destroyOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, op.r, true)
+		// TODO(wallyworld) - this should be in a force cleanup job after giving things a change to complete normally.
+		destroyOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, op.r, !op.Force)
+		if err != nil && err != jujutxn.ErrNoOperations {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, destroyOps...)
+		// On the offering side, if this is the last relation to the consumer proxy, we may need to remove it also,
+		// but only if the unit count is already 0. This is just a backstop to allow force to fully clean up; normally
+		// unit count is not 0 so this doesn't get run.
+		if remoteApp.IsConsumerProxy() && remoteApp.doc.RelationCount <= 1 && (op.Force || rel.doc.UnitCount == 0) {
+			logger.Debugf("removing cross model consumer proxy and last relation %d: %v", op.r.doc.Id, op.r.doc.Key)
+			removeRelOps, err := rel.removeOps("", "", &op.ForcedOperation)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
-			ops = append(ops, destroyOps...)
+			ops = append(ops, removeRelOps...)
+			var hasLastRefs bson.D
+			if !op.Force {
+				hasLastRefs = bson.D{{"life", remoteApp.doc.Life}, {"relationcount", remoteApp.doc.RelationCount}}
+			}
+			removeAppOps := remoteApp.removeOps(hasLastRefs)
+			return append(ops, removeAppOps...), nil
 		}
 	}
 
@@ -602,13 +618,20 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		// applications are Alive.
 		asserts = append(hasRelation, isAliveDoc...)
 	} else {
-		// The remote application may require immediate removal.
+		// The remote application may require immediate removal if all relations are being
+		// removed and it's either dying or on the offering side as a consumer proxy.
 		applications, closer := r.st.db().GetCollection(remoteApplicationsC)
 		defer closer()
 
 		app := &RemoteApplication{st: r.st}
-		hasLastRef := bson.D{{"life", bson.D{{"$ne", Alive}}}, {"relationcount", 1}}
+		hasLastRef := bson.D{{"relationcount", 1}}
+		shouldRemove := bson.D{{"$or", []bson.D{
+			{{"life", bson.D{{"$ne", Alive}}}},
+			{{"is-consumer-proxy", true}},
+		}}}
+
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
+		removable = append(removable, shouldRemove...)
 		if err := applications.Find(removable).One(&app.doc); err == nil {
 			removeOps := app.removeOps(hasLastRef)
 			return removeOps, nil
@@ -619,6 +642,7 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		// transaction is applied.
 		asserts = bson.D{{"$or", []bson.D{
 			{{"life", Alive}},
+			{{"is-consumer-proxy", false}},
 			{{"relationcount", bson.D{{"$gt", 1}}}},
 		}}}
 	}

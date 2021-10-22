@@ -32,7 +32,7 @@ type Queue interface {
 	// to be completed.
 	// The design of this is to ensure that people calling this will have to
 	// correctly handle backing off from enqueueing.
-	Enqueue(queue.Operation) error
+	Enqueue(queue.Operation)
 }
 
 // Config is the configuration required for running an API server worker.

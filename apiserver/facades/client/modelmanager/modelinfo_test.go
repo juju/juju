@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -31,6 +32,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -101,10 +103,19 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 	s.st.controllerModel = controllerModel
 
+	// TODO(achilleasa): as the supported features reporting is behind a
+	// flag we need to set it here so we can test the actual code. This
+	// should be removed once the feature goes live.
+	ctrlCfg := coretesting.FakeControllerConfig()
+	ctrlCfg[controller.Features] = []interface{}{
+		feature.CharmAssumes,
+	}
 	s.ctlrSt = &mockState{
 		model:           controllerModel,
 		controllerModel: controllerModel,
+		controllerCfg:   &ctrlCfg,
 	}
+	s.st.controllerCfg = &ctrlCfg
 
 	s.st.model = &mockModel{
 		owner:          names.NewUserTag("bob@local"),
@@ -173,6 +184,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, &s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
+
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{Name: "example"})
+	modelmanager.MockSupportedFeatures(fs)
+}
+
+func (s *modelInfoSuite) TearDownTest(c *gc.C) {
+	modelmanager.ResetSupportedFeaturesGetter()
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
@@ -210,6 +229,7 @@ func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 		{"ControllerNodes", nil},
 		{"HAPrimaryMachine", nil},
 		{"LatestMigration", nil},
+		{"ControllerConfig", nil},
 	})
 }
 
@@ -267,6 +287,9 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 			Owner: "user",
 		},
 		AgentVersion: &expectedAgentVersion,
+		SupportedFeatures: []params.SupportedFeature{
+			{Name: "example"},
+		},
 	}
 	info.CloudCredentialValidity = credentialValidity
 	return info
@@ -287,6 +310,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ControllerNodes", nil},
 		{"HAPrimaryMachine", nil},
 		{"LatestMigration", nil},
+		{"ControllerConfig", nil},
 		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
 }
@@ -637,6 +661,7 @@ type mockState struct {
 	metricSender
 	unitRetriever
 
+	controllerCfg   *controller.Config
 	controllerUUID  string
 	cloud           cloud.Cloud
 	clouds          map[names.CloudTag]cloud.Cloud
@@ -797,6 +822,10 @@ func (st *mockState) IsController() bool {
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
+	if st.controllerCfg != nil {
+		return *st.controllerCfg, st.NextErr()
+	}
+
 	return controller.Config{
 		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 	}, st.NextErr()

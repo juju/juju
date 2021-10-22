@@ -9,8 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var defaultApplicationNamespaceRules = []rbacv1.PolicyRule{
@@ -53,51 +51,59 @@ var fullAccessApplicationClusterRules = []rbacv1.PolicyRule{
 // Trust updates application roles to give full access to the cluster
 // by patching the role used for the application pod service account.
 func (a *app) Trust(trust bool) error {
-	logger.Debugf("application %q, trust %v", a.name, trust)
-	if err := a.applyRoles(trust); err != nil {
+	applier := resources.NewApplier()
+	err := a.applyTrust(applier, trust)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	return a.applyClusterRoles(trust)
+	err = applier.Run(context.Background(), a.client, false)
+	return errors.Annotatef(err, "configuring trust for %q", a.name)
 }
 
-func (a *app) applyRoles(trust bool) error {
+func (a *app) applyTrust(applier resources.Applier, trust bool) error {
+	logger.Debugf("application %q, trust %v", a.name, trust)
+	if err := a.applyRoles(applier, trust); err != nil {
+		return errors.Trace(err)
+	}
+	return a.applyClusterRoles(applier, trust)
+}
+
+func (a *app) roleRules(trust bool) []rbacv1.PolicyRule {
 	rules := defaultApplicationNamespaceRules
 	if trust {
 		rules = fullAccessApplicationNamespaceRules
 	}
+	return rules
+}
 
-	api := a.client.RbacV1().Roles(a.namespace)
-	role, err := api.Get(context.Background(), a.serviceAccountName(), metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("role %q", a.serviceAccountName())
-	}
+func (a *app) applyRoles(applier resources.Applier, trust bool) error {
+	role := resources.NewRole(a.serviceAccountName(), a.namespace, nil)
+	err := role.Get(context.Background(), a.client)
 	if err != nil {
 		return errors.Annotatef(err, "getting service account role %q", a.serviceAccountName())
 	}
-	role.Rules = rules
 
-	roleResource := resources.NewRole(role.Name, role.Namespace, role)
-	err = roleResource.Apply(context.Background(), a.client)
-	return errors.Annotatef(err, "setting rules to %v for namespace role %q", rules, a.serviceAccountName())
+	role.Rules = a.roleRules(trust)
+	applier.Apply(role)
+	return nil
 }
 
-func (a *app) applyClusterRoles(trust bool) error {
+func (a *app) clusterRoleRules(trust bool) []rbacv1.PolicyRule {
 	rules := defaultApplicationClusterRules
 	if trust {
 		rules = fullAccessApplicationClusterRules
 	}
+	return rules
+}
 
-	api := a.client.RbacV1().ClusterRoles()
-	role, err := api.Get(context.Background(), a.qualifiedClusterName(), metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("cluster role %q", a.qualifiedClusterName())
-	}
+func (a *app) applyClusterRoles(applier resources.Applier, trust bool) error {
+	role := resources.NewClusterRole(a.qualifiedClusterName(), nil)
+	err := role.Get(context.Background(), a.client)
 	if err != nil {
-		return errors.Annotatef(err, "getting service account role %q", a.qualifiedClusterName())
+		return errors.Annotatef(err, "getting service account cluster role %q", a.qualifiedClusterName())
 	}
-	role.Rules = rules
 
-	roleResource := resources.NewClusterRole(role.Name, role)
-	err = roleResource.Apply(context.Background(), a.client)
-	return errors.Annotatef(err, "setting rules to %v for cluster role %q", rules, a.qualifiedClusterName())
+	role.Rules = a.clusterRoleRules(trust)
+	applier.Apply(role)
+	return nil
 }

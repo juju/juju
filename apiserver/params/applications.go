@@ -65,6 +65,7 @@ type ApplicationDeploy struct {
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`
+	Force            bool
 }
 
 // ApplicationUpdate holds the parameters for making the application Update call.

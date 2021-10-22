@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
@@ -96,6 +97,10 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			},
 		},
 		charmModifiedVersion: 10,
+		scale:                3,
+		config: application.ConfigAttributes{
+			"trust": true,
+		},
 	}
 	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,6 +118,8 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			},
 			CharmURL:             "cs:gitlab",
 			CharmModifiedVersion: 10,
+			Scale:                3,
+			Trust:                true,
 		}},
 	})
 }

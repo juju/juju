@@ -36,12 +36,18 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.modelmanager")
+var (
+	logger = loggo.GetLogger("juju.apiserver.modelmanager")
+
+	// Overridden by tests.
+	supportedFeaturesGetter = stateenvirons.SupportedFeatures
+)
 
 // ModelManagerV9 defines the methods on the version 9 facade for the
 // modelmanager API endpoint.
@@ -1291,6 +1297,32 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 			Status: migration.StatusMessage(),
 			Start:  &startTime,
 			End:    endTime,
+		}
+	}
+
+	// TODO(achilleasa): remove this check when we are ready to roll out
+	// support for "assumes" expressions.
+	ctrlConf, err := st.ControllerConfig()
+	if err != nil {
+		return params.ModelInfo{}, err
+	}
+
+	if ctrlConf.Features().Contains(feature.CharmAssumes) {
+		fs, err := supportedFeaturesGetter(model, environs.New)
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
+		for _, feat := range fs.AsList() {
+			mappedFeat := params.SupportedFeature{
+				Name:        feat.Name,
+				Description: feat.Description,
+			}
+
+			if feat.Version != nil {
+				mappedFeat.Version = feat.Version.String()
+			}
+
+			info.SupportedFeatures = append(info.SupportedFeatures, mappedFeat)
 		}
 	}
 	return info, nil
