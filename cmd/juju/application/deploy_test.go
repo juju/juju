@@ -1285,16 +1285,6 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	s.assertForceMachine(c, machine.Id())
 }
 
-func (s *DeploySuite) TestInvalidSeriesForModel(c *gc.C) {
-	charmDir := testcharms.RepoWithSeries("kubernetes").ClonedDir(c.MkDir(), "mariadb")
-	curl := charm.MustParseURL("local:kubernetes/mariadb-1")
-	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "kubernetes", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
-
-	err := s.runDeployForState(c, charmDir.Path, "portlandia", "--series", "kubernetes")
-	c.Assert(err, gc.ErrorMatches, `cannot add application "portlandia": container-based charm for non container-based model type not valid`)
-}
-
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
 	curl := charm.MustParseURL("local:bionic/dummy-1")

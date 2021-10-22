@@ -177,7 +177,7 @@ type Config struct {
 
 	// NewApplier is used to apply the raft operations on to the raft
 	// instance, before notifying a target of the changes.
-	NewApplier func(Raft, raftlease.NotifyTarget, clock.Clock, Logger) LeaseApplier
+	NewApplier func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier
 }
 
 // Validate validates the raft worker configuration.
@@ -242,7 +242,7 @@ func Bootstrap(config Config) error {
 	// During bootstrap, we do not require an FSM.
 	config.FSM = BootstrapFSM{}
 	config.NotifyTarget = BootstrapNotifyTarget{}
-	config.NewApplier = func(r Raft, nt raftlease.NotifyTarget, c clock.Clock, l Logger) LeaseApplier {
+	config.NewApplier = func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier {
 		return BootstrapLeaseApplier{}
 	}
 
@@ -358,8 +358,8 @@ func (w *Worker) Wait() error {
 
 func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	// Register the metrics.
-	if w.config.PrometheusRegisterer != nil {
-		registerMetrics(w.config.PrometheusRegisterer, w.config.Logger)
+	if registry := w.config.PrometheusRegisterer; registry != nil {
+		registerRaftMetrics(registry, w.config.Logger)
 	}
 
 	syncMode := SyncAfterWrite
@@ -412,7 +412,11 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		}
 	}()
 
-	applier := w.config.NewApplier(r, w.config.NotifyTarget, w.config.Clock, w.config.Logger)
+	applierMetrics := newApplierMetrics(w.config.Clock)
+	applier := w.config.NewApplier(r, w.config.NotifyTarget, applierMetrics, w.config.Clock, w.config.Logger)
+	if registry := w.config.PrometheusRegisterer; registry != nil {
+		registerApplierMetrics(registry, applierMetrics, w.config.Logger)
+	}
 
 	// applyTimeout represents the amount of time we allow for raft to apply
 	// a command. As raft is bootstrapping, we allow an initial timeout and once
