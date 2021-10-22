@@ -60,14 +60,16 @@ func (s *updaterSuite) TestAdvanceErrorThenSucceeds(c *gc.C) {
 
 	s.expectGlobalClock(c, now)
 
-	// The first one will timeout.
-	s.expectTimeout(c)
-	s.expectRaftApply(c, now, enqueueErr)
-	s.clock.EXPECT().GlobalTime().Return(now)
+	inOrder(
+		// The first one will timeout.
+		s.expectTimeout(c),
+		s.expectRaftApply(c, now, enqueueErr),
+		s.clock.EXPECT().GlobalTime().Return(now.Add(time.Second)),
 
-	// The second one will succeed.
-	s.expectTimeout(c)
-	s.expectRaftApply(c, now, nil)
+		// The second one will succeed.
+		s.expectTimeout(c),
+		s.expectRaftApply(c, now.Add(time.Second), nil),
+	)
 
 	done := make(chan struct{}, 1)
 
@@ -75,13 +77,13 @@ func (s *updaterSuite) TestAdvanceErrorThenSucceeds(c *gc.C) {
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, globalclock.ErrTimeout.Error())
 
-	c.Assert(updater.prevTime, gc.Equals, now)
+	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
 
 	err = updater.Advance(time.Second, done)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the previous time is updated after an advance.
-	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
+	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second*2))
 }
 
 func (s *updaterSuite) TestAdvanceErrEnqueueTimeout(c *gc.C) {
@@ -216,12 +218,12 @@ func (s *updaterSuite) expectGlobalClock(c *gc.C, now time.Time) {
 	s.clock.EXPECT().GlobalTime().Return(now)
 }
 
-func (s *updaterSuite) expectTimeout(c *gc.C) {
+func (s *updaterSuite) expectTimeout(c *gc.C) *gomock.Call {
 	ch := make(chan time.Time)
-	s.timer.EXPECT().After(leaderTimeout).Return(ch)
+	return s.timer.EXPECT().After(leaderTimeout).Return(ch)
 }
 
-func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) {
+func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) *gomock.Call {
 	cmd, cmdErr := (&raftlease.Command{
 		Version:   raftlease.CommandVersion,
 		Operation: raftlease.OperationSetTime,
@@ -230,20 +232,43 @@ func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) {
 	}).Marshal()
 	c.Assert(cmdErr, jc.ErrorIsNil)
 
-	s.raftApplier.EXPECT().Apply(cmd, applyTimeout).Return(s.raftFuture)
-
-	s.raftFuture.EXPECT().Error().Return(err)
+	call := inOrder(
+		s.raftApplier.EXPECT().Apply(cmd, applyTimeout).Return(s.raftFuture),
+		s.raftFuture.EXPECT().Error().Return(err),
+	)
 
 	if err != nil {
-		s.logger.EXPECT().Warningf(err.Error())
+		call = inOrder(
+			call,
+			s.logger.EXPECT().Warningf(err.Error()),
+		)
 	} else {
-		s.raftFuture.EXPECT().Response().Return(s.fsmResponse)
-		s.fsmResponse.EXPECT().Error().Return(nil)
-		s.fsmResponse.EXPECT().Notify(s.notifyTarget)
+		call = inOrder(
+			call,
+			s.raftFuture.EXPECT().Response().Return(s.fsmResponse),
+			s.fsmResponse.EXPECT().Error().Return(nil),
+			s.fsmResponse.EXPECT().Notify(s.notifyTarget),
+		)
 	}
+	return call
 }
 
 func (s *updaterSuite) expectRaftState(c *gc.C) {
 	s.raftApplier.EXPECT().State().Return(raft.Follower)
 	s.logger.EXPECT().Warningf("clock update still pending; local Raft state is %q", raft.Follower)
+}
+
+// This is the PR to gomock, that should hopefully land in the future. For now
+// we can copy it here.
+// See: https://github.com/golang/mock/pull/199
+func inOrder(calls ...*gomock.Call) (last *gomock.Call) {
+	if len(calls) == 1 {
+		return calls[0]
+	}
+
+	for i := 1; i < len(calls); i++ {
+		calls[i].After(calls[i-1])
+		last = calls[i]
+	}
+	return
 }
