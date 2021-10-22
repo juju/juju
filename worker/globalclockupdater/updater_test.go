@@ -205,6 +205,7 @@ func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) {
 		s.logger.EXPECT().Warningf(err.Error())
 	} else {
 		s.raftFuture.EXPECT().Response().Return(s.fsmResponse)
+		s.fsmResponse.EXPECT().Error().Return(nil)
 		s.fsmResponse.EXPECT().Notify(s.notifyTarget)
 	}
 }
