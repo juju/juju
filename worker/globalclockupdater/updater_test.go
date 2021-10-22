@@ -63,11 +63,11 @@ func (s *updaterSuite) TestAdvanceErrorThenSucceeds(c *gc.C) {
 	// The first one will timeout.
 	s.expectTimeout(c)
 	s.expectRaftApply(c, now, enqueueErr)
-	s.clock.EXPECT().GlobalTime().Return(now)
+	s.clock.EXPECT().GlobalTime().Return(now.Add(time.Second))
 
 	// The second one will succeed.
 	s.expectTimeout(c)
-	s.expectRaftApply(c, now, nil)
+	s.expectRaftApply(c, now.Add(time.Second), nil)
 
 	done := make(chan struct{}, 1)
 
@@ -75,13 +75,13 @@ func (s *updaterSuite) TestAdvanceErrorThenSucceeds(c *gc.C) {
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, globalclock.ErrTimeout.Error())
 
-	c.Assert(updater.prevTime, gc.Equals, now)
+	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
 
 	err = updater.Advance(time.Second, done)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the previous time is updated after an advance.
-	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
+	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second*2))
 }
 
 func (s *updaterSuite) TestAdvanceErrEnqueueTimeout(c *gc.C) {
