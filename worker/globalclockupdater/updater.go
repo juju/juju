@@ -100,9 +100,13 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 				return errors.Errorf("expected FSMResponse, got %T: %#v", raw, raw)
 			}
 
-			response.Notify(u.expiryNotifyTarget)
-			u.prevTime = newTime
-			break
+			// Ensure we also check the FSMResponse error.
+			if err = response.Error(); err == nil {
+				response.Notify(u.expiryNotifyTarget)
+				u.prevTime = newTime
+
+				break
+			}
 		}
 
 		u.logger.Warningf(err.Error())

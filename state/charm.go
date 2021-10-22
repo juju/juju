@@ -18,8 +18,6 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/macaroon.v2"
 
-	corecharm "github.com/juju/juju/core/charm"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -719,13 +717,6 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 
 	minVer := info.Charm.Meta().MinJujuVersion
 	if err := jujuversion.CheckJujuMinVersion(minVer, jujuversion.Current); err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), info.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -340,21 +340,6 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAASWithIAAS(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil).AnyTimes()
-
-	f := &factory{
-		model: s.modelCommand,
-	}
-
-	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
-		Series: []string{series.Focal.String()},
-	})
-	c.Assert(err, gc.ErrorMatches, `expected container-based charm metadata, unexpected series or base`)
-}
-
 func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectModelGet(c)
@@ -362,7 +347,6 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C)
 	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal"}}).AnyTimes()
-	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil)
 
 	f := &factory{
 		clock:           clock.WallClock,
@@ -373,7 +357,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C)
 	}
 
 	_, err := f.maybeReadLocalCharm(s.modelConfigGetter)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container-based model type not valid`)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc.C) {
@@ -383,7 +367,6 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "meshuggah", Series: []string{"focal"}}).AnyTimes()
-	s.modelCommand.EXPECT().ModelType().Return(model.CAAS, nil)
 
 	f := &factory{
 		clock:         clock.WallClock,
@@ -393,7 +376,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 	}
 
 	_, err := f.maybeReadLocalCharm(s.modelConfigGetter)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "meshuggah": non container-based charm for container-based model type not valid`)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
