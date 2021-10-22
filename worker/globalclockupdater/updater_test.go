@@ -51,6 +51,39 @@ func (s *updaterSuite) TestAdvance(c *gc.C) {
 	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
 }
 
+func (s *updaterSuite) TestAdvanceErrorThenSucceeds(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	enqueueErr := raft.ErrEnqueueTimeout
+
+	s.expectGlobalClock(c, now)
+
+	// The first one will timeout.
+	s.expectTimeout(c)
+	s.expectRaftApply(c, now, enqueueErr)
+	s.clock.EXPECT().GlobalTime().Return(now)
+
+	// The second one will succeed.
+	s.expectTimeout(c)
+	s.expectRaftApply(c, now, nil)
+
+	done := make(chan struct{}, 1)
+
+	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
+	err := updater.Advance(time.Second, done)
+	c.Assert(err, gc.ErrorMatches, globalclock.ErrTimeout.Error())
+
+	c.Assert(updater.prevTime, gc.Equals, now)
+
+	err = updater.Advance(time.Second, done)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the previous time is updated after an advance.
+	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
+}
+
 func (s *updaterSuite) TestAdvanceErrEnqueueTimeout(c *gc.C) {
 	// Ensure we get an error that allows us to retry.
 	defer s.setupMocks(c).Finish()
@@ -205,6 +238,7 @@ func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) {
 		s.logger.EXPECT().Warningf(err.Error())
 	} else {
 		s.raftFuture.EXPECT().Response().Return(s.fsmResponse)
+		s.fsmResponse.EXPECT().Error().Return(nil)
 		s.fsmResponse.EXPECT().Notify(s.notifyTarget)
 	}
 }
