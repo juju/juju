@@ -46,7 +46,7 @@ type ManifoldSuite struct {
 	stateTracker *stubStateTracker
 	target       raftlease.NotifyTarget
 	queue        *queue.OpQueue
-	apply        func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier
+	apply        func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier
 	stub         testing.Stub
 }
 
@@ -74,7 +74,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		pool: s.StatePool,
 		done: make(chan struct{}),
 	}
-	s.apply = func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier {
+	s.apply = func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier {
 		return nil
 	}
 	s.stub.ResetCalls()
