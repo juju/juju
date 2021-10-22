@@ -18,6 +18,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/macaroon.v2"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -78,6 +79,35 @@ type CharmOrigin struct {
 	Revision *int      `bson:"revision,omitempty"`
 	Channel  *Channel  `bson:"channel,omitempty"`
 	Platform *Platform `bson:"platform,omitempty"`
+}
+
+// AsCoreCharmOrigin converts a state Origin type into a core/charm.Origin.
+func (o CharmOrigin) AsCoreCharmOrigin() corecharm.Origin {
+	origin := corecharm.Origin{
+		Source:   corecharm.Source(o.Source),
+		Type:     o.Type,
+		ID:       o.ID,
+		Hash:     o.Hash,
+		Revision: o.Revision,
+	}
+
+	if o.Channel != nil {
+		origin.Channel = &charm.Channel{
+			Track:  o.Channel.Track,
+			Risk:   charm.Risk(o.Channel.Risk),
+			Branch: o.Channel.Branch,
+		}
+	}
+
+	if o.Platform != nil {
+		origin.Platform = corecharm.Platform{
+			Architecture: o.Platform.Architecture,
+			OS:           o.Platform.OS,
+			Series:       o.Platform.Series,
+		}
+	}
+
+	return origin
 }
 
 // charmDoc represents the internal state of a charm in MongoDB.

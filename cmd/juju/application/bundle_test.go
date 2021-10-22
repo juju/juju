@@ -502,6 +502,8 @@ func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
+	c.Skip("this is a badly written e2e test that is invoking external APIs which we cannot mock0")
+
 	s.stub = &testing.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: s.stub}
 	s.server = httptest.NewServer(handler)

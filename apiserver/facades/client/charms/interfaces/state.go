@@ -7,9 +7,9 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
@@ -26,19 +26,14 @@ type BackendModel interface {
 	Type() state.ModelType
 }
 
-// CharmState represents directives for accessing charm methods
-type CharmState interface {
-	UpdateUploadedCharm(info state.CharmInfo) (*state.Charm, error)
-	PrepareCharmUpload(curl *charm.URL) (corecharm.StateCharm, error)
-}
-
 type BackendState interface {
 	AllCharms() ([]*state.Charm, error)
 	Application(string) (Application, error)
 	Charm(curl *charm.URL) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)
 	ControllerTag() names.ControllerTag
-	CharmState
+	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
+	PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error)
 	Machine(string) (Machine, error)
 	state.MongoSessioner
 	ModelUUID() string
