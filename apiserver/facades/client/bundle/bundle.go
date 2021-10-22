@@ -219,7 +219,8 @@ type validators struct {
 func getBundleChanges(args params.BundleChangesParams,
 	vs validators,
 ) ([]bundlechanges.Change, []error, error) {
-	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
+	dataSource, _ := charm.StreamBundleDataSource(strings.NewReader(args.BundleDataYAML), args.BundleURL)
+	data, err := charm.ReadAndMergeBundleData(dataSource)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot read bundle YAML")
 	}

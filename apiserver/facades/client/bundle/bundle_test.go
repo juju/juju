@@ -58,7 +58,7 @@ func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
 
@@ -209,6 +209,56 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 		Method:   "addRelation",
 		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
 		Requires: []string{"deploy-1", "deploy-3"},
+	}})
+	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *bundleSuite) TestGetChangesSuccessV2WithOverlays(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:trusty/haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+--- # overlay
+description: remove haproxy
+applications:
+    haproxy:
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
 	}})
 	c.Assert(r.Errors, gc.IsNil)
 }
@@ -403,7 +453,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesMapArgsResults{})
 }
 
