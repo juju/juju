@@ -185,17 +185,13 @@ func (*ImportSuite) TestImports(c *gc.C) {
 
 	// This package only brings in other core packages.
 	c.Assert(found, jc.SameContents, []string{
-		"core/arch",
-		"core/charm",
 		"core/constraints",
 		"core/instance",
 		"core/life",
 		"core/lxdprofile",
 		"core/model",
 		"core/network",
-		"core/os",
 		"core/permission",
-		"core/series",
 		"core/settings",
 		"core/status",
 	})
