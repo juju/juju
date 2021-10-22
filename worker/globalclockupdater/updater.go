@@ -102,7 +102,6 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 
 			// Ensure we also check the FSMResponse error.
 			if err = response.Error(); err == nil {
-
 				response.Notify(u.expiryNotifyTarget)
 				u.prevTime = newTime
 
