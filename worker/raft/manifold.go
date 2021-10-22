@@ -36,7 +36,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(Config) (worker.Worker, error)
 	NewTarget            func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
-	NewApplier           func(Raft, raftlease.NotifyTarget, clock.Clock, Logger) LeaseApplier
+	NewApplier           func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier
 
 	Queue    Queue
 	LeaseLog io.Writer
