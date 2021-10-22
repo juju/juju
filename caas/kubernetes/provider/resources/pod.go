@@ -62,8 +62,8 @@ func (p *Pod) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *Pod) ID() ID {
-	return ID{"Pod", r.Name, r.Namespace}
+func (p *Pod) ID() ID {
+	return ID{"Pod", p.Name, p.Namespace}
 }
 
 // Apply patches the resource change.
@@ -80,6 +80,9 @@ func (p *Pod) Apply(ctx context.Context, client kubernetes.Interface) error {
 		res, err = api.Create(ctx, &p.Pod, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "pod %q", p.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

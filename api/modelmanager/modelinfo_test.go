@@ -82,6 +82,22 @@ func (s *modelInfoSuite) TestModelInfoWithAgentVersion(c *gc.C) {
 	s.assertExpectedModelInfo(c, results)
 }
 
+func (s *modelInfoSuite) TestModelInfoWithSupportedFeatures(c *gc.C) {
+	results := params.ModelInfoResults{
+		Results: []params.ModelInfoResult{{
+			Result: &params.ModelInfo{
+				Name: "name",
+				UUID: "etc.",
+				Type: "foo",
+				SupportedFeatures: []params.SupportedFeature{
+					{Name: "foo", Description: "bar", Version: "2.9.17"},
+				},
+			},
+		}},
+	}
+	s.assertExpectedModelInfo(c, results)
+}
+
 func (s *modelInfoSuite) TestInvalidResultCount(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, result interface{}) error {

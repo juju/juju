@@ -2330,6 +2330,9 @@
                 "ApplicationDeploy": {
                     "type": "object",
                     "properties": {
+                        "Force": {
+                            "type": "boolean"
+                        },
                         "application": {
                             "type": "string"
                         },
@@ -2418,7 +2421,8 @@
                         "channel",
                         "num-units",
                         "config-yaml",
-                        "constraints"
+                        "constraints",
+                        "Force"
                     ]
                 },
                 "ApplicationDestroy": {
@@ -6721,6 +6725,9 @@
                         "image-repo": {
                             "$ref": "#/definitions/DockerImageInfo"
                         },
+                        "scale": {
+                            "type": "integer"
+                        },
                         "series": {
                             "type": "string"
                         },
@@ -6731,6 +6738,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "trust": {
+                            "type": "boolean"
                         },
                         "version": {
                             "$ref": "#/definitions/Number"
@@ -17662,6 +17672,12 @@
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
+                        "supported-features": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SupportedFeature"
+                            }
+                        },
                         "type": {
                             "type": "string"
                         },
@@ -18418,6 +18434,25 @@
                     "additionalProperties": false,
                     "required": [
                         "result"
+                    ]
+                },
+                "SupportedFeature": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description"
                     ]
                 },
                 "Tools": {
@@ -32882,6 +32917,12 @@
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
+                        "supported-features": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SupportedFeature"
+                            }
+                        },
                         "type": {
                             "type": "string"
                         },
@@ -33404,6 +33445,25 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SupportedFeature": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description"
                     ]
                 },
                 "UnsetModelDefaults": {

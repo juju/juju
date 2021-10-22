@@ -13,6 +13,10 @@ import (
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.resources")
 
+var (
+	errConflict = errors.New("resource version conflict")
+)
+
 type applier struct {
 	ops []operation
 }
@@ -39,25 +43,32 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 	// TODO: consider to `list` using label selectors instead of `get` by `name`.
 	// Because it's not good for non namespaced resources.
 	err := existingRes.Get(ctx, api)
-	notfound := false
+	found := true
 	if errors.IsNotFound(err) {
-		notfound = true
+		found = false
 	} else if err != nil {
 		return errors.Annotatef(err, "checking if resource %q exists or not", existingRes)
+	}
+	if found {
+		ver := op.resource.GetObjectMeta().GetResourceVersion()
+		if ver != "" && ver != existingRes.GetObjectMeta().GetResourceVersion() {
+			id := op.resource.ID()
+			return errors.Annotatef(errConflict, "%s %s", id.Type, id.Name)
+		}
 	}
 	switch op.opType {
 	case opApply:
 		err = op.resource.Apply(ctx, api)
-		if notfound {
-			// delete the new resource just created.
-			rollback.Delete(op.resource)
-		} else {
+		if found {
 			// apply the previously existing resource.
 			rollback.Apply(existingRes)
+		} else {
+			// delete the new resource just created.
+			rollback.Delete(op.resource)
 		}
 	case opDelete:
 		err = op.resource.Delete(ctx, api)
-		if !notfound {
+		if found {
 			rollback.Apply(existingRes)
 		}
 	}

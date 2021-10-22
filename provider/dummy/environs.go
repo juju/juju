@@ -1021,7 +1021,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return true
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
-				RaftOpQueue:      queue.NewBlockingOpQueue(clock.WallClock),
+				RaftOpQueue:      queue.NewOpQueue(clock.WallClock),
 			})
 			if err != nil {
 				panic(err)

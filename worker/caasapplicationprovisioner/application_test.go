@@ -112,6 +112,8 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 			Name:     "test",
 			Revision: -1,
 		},
+		Trust: true,
+		Scale: 3,
 	}
 	s.ociResources = map[string]resources.DockerImageDetails{
 		"test-oci": {
@@ -171,6 +173,8 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 							},
 						},
 					},
+					Trust:        true,
+					InitialScale: 3,
 				})
 				return nil
 			}),

@@ -9,7 +9,10 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -49,7 +52,10 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 	ch := s.AddTestingCharm(c, "juju-controller")
-	_, err := application.DeployApplication(stateDeployer{s.State},
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "my-controller",
 			Charm:           ch,
@@ -58,7 +64,10 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -74,7 +83,11 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 	var f fakeDeployer
 
-	_, err := application.DeployApplication(&f,
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = application.DeployApplication(&f,
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -90,7 +103,11 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
@@ -147,7 +164,11 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -183,7 +204,11 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 	internalSpace, err := s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -218,7 +243,11 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -237,7 +266,11 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	var f fakeDeployer
 
-	_, err := application.DeployApplication(&f,
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = application.DeployApplication(&f,
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -254,7 +287,11 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -271,7 +308,11 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
-	_, err := application.DeployApplication(stateDeployer{s.State},
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -300,7 +341,12 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		"skill-level": 1,
 	}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
 			Charm:             s.charm,
@@ -317,7 +363,12 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
 	applicationCons := constraints.MustParse("cores=2")
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	app, err := application.DeployApplication(stateDeployer{s.State},
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -330,8 +381,12 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	var f fakeDeployer
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	applicationCons := constraints.MustParse("cores=2")
-	_, err := application.DeployApplication(&f,
+	_, err = application.DeployApplication(&f,
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -349,8 +404,12 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	var f fakeDeployer
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	applicationCons := constraints.MustParse("cores=2")
-	_, err := application.DeployApplication(&f,
+	_, err = application.DeployApplication(&f,
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -371,8 +430,12 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	var f fakeDeployer
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	applicationCons := constraints.MustParse("cores=2")
-	_, err := application.DeployApplication(&f,
+	_, err = application.DeployApplication(&f,
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -392,6 +455,9 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	var f fakeDeployer
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{
 		{Scope: s.State.ModelUUID(), Directive: "valid"},
@@ -399,7 +465,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		{Scope: "lxd", Directive: "1"},
 		{Scope: "lxd", Directive: ""},
 	}
-	_, err := application.DeployApplication(&f,
+	_, err = application.DeployApplication(&f,
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -416,11 +483,69 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }
 
+func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
+	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
+	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
+	charm, err := testing.PutCharm(s.State, curl, ch)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Enable controller flag so we can enforce "assumes" blocks
+	ctrlCfg := coretesting.FakeControllerConfig()
+	ctrlCfg[controller.Features] = []interface{}{
+		feature.CharmAssumes,
+	}
+	var f = fakeDeployer{controllerCfg: &ctrlCfg}
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = application.DeployApplication(&f,
+		model,
+		application.DeployApplicationParams{
+			ApplicationName: "assume-metal",
+			Charm:           charm,
+			NumUnits:        1,
+		})
+	c.Assert(err, gc.ErrorMatches, "(?m).*Charm feature requirements cannot be met.*")
+}
+
+func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
+	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
+	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
+	charm, err := testing.PutCharm(s.State, curl, ch)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Enable controller flag so we can enforce "assumes" blocks
+	ctrlCfg := coretesting.FakeControllerConfig()
+	ctrlCfg[controller.Features] = []interface{}{
+		feature.CharmAssumes,
+	}
+	var f = fakeDeployer{controllerCfg: &ctrlCfg}
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = application.DeployApplication(&f,
+		model,
+		application.DeployApplicationParams{
+			ApplicationName: "assume-metal",
+			Charm:           charm,
+			NumUnits:        1,
+			Force:           true, // bypass assumes checks
+		})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	var f fakeDeployer
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
-	_, err := application.DeployApplication(&f,
+	_, err = application.DeployApplication(&f,
+		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -512,7 +637,15 @@ func (d stateDeployer) AddApplication(args state.AddApplicationArgs) (applicatio
 }
 
 type fakeDeployer struct {
-	args state.AddApplicationArgs
+	args          state.AddApplicationArgs
+	controllerCfg *controller.Config
+}
+
+func (f *fakeDeployer) ControllerConfig() (controller.Config, error) {
+	if f.controllerCfg != nil {
+		return *f.controllerCfg, nil
+	}
+	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 
 func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs) (application.Application, error) {

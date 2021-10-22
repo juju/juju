@@ -196,8 +196,8 @@ func (s *RaftLeaseClientSuite) TestRequestWithDeadlineExceededError(c *gc.C) {
 		"0": s.remote,
 		"1": s.remote,
 	}
-	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewDeadlineExceededError("deadline exceeded"))
 	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(nil)
+	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewDeadlineExceededError("deadline exceeded"))
 
 	defer func() {
 		_ = client.Close()
@@ -205,6 +205,13 @@ func (s *RaftLeaseClientSuite) TestRequestWithDeadlineExceededError(c *gc.C) {
 
 	err = client.Request(context.TODO(), cmd)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(client.lastKnownRemote, gc.NotNil)
+
+	err = client.Request(context.TODO(), cmd)
+	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
+
+	// Ensure that a lease operation that has the deadline exceeded does not
+	// drop the lastKnownRemote.
 	c.Assert(client.lastKnownRemote, gc.NotNil)
 }
 
@@ -533,10 +540,11 @@ func (s *RaftLeaseClientSuite) setupMocks(c *gc.C) *gomock.Controller {
 		NewRemote: func(config RemoteConfig) Remote {
 			return s.remote
 		},
-		Logger:        fakeLogger{},
-		ClientMetrics: fakeClientMetrics{},
-		Clock:         clock.WallClock,
-		Random:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		Logger:         fakeLogger{},
+		ClientMetrics:  fakeClientMetrics{},
+		Clock:          clock.WallClock,
+		Random:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		ForwardTimeout: time.Second,
 	}
 
 	return ctrl

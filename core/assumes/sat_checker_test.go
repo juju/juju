@@ -142,7 +142,7 @@ assumes:
 
 func genFeatureSet(c *gc.C) FeatureSet {
 	var fs FeatureSet
-	fs.Append(
+	fs.Add(
 		Feature{
 			Name:        "k8s-api",
 			Description: "access to the kubernetes API",

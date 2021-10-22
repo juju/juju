@@ -119,6 +119,10 @@ type DeployArgs struct {
 	// value being the unique ID of a pre-uploaded resources in
 	// storage.
 	Resources map[string]string
+
+	// Force can be set to true to bypass any checks for charm-specific
+	// requirements ("assumes" sections in charm metadata)
+	Force bool
 }
 
 // Deploy obtains the charm, either locally or from the charm store, and deploys
@@ -155,6 +159,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			AttachStorage:    attachStorage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,
+			Force:            args.Force,
 		}},
 	}
 	var results params.ErrorResults

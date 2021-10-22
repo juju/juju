@@ -52,7 +52,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{Enabled: false} },
 		UpgradeComplete:     func() bool { return true },
 		MetricsCollector:    apiserver.NewMetricsCollector(),
-		RaftOpQueue:         queue.NewBlockingOpQueue(testclock),
+		RaftOpQueue:         queue.NewOpQueue(testclock),
 	}
 }
 

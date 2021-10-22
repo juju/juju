@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network/firewall"
@@ -630,4 +631,10 @@ type HardwareCharacteristicsDetector interface {
 	// DetectHardware returns the hardware characteristics for the
 	// controller instance.
 	DetectHardware() (*instance.HardwareCharacteristics, error)
+}
+
+// SupportedFeatureEnumerator is implemented by environments that can report
+// the set of features that are available to charms deployed to them.
+type SupportedFeatureEnumerator interface {
+	SupportedFeatures() (assumes.FeatureSet, error)
 }

@@ -249,6 +249,7 @@ func (d *deployCharm) deploy(
 		AttachStorage:    d.attachStorage,
 		Resources:        ids,
 		EndpointBindings: d.bindings,
+		Force:            d.force,
 	}
 
 	err = deployAPI.Deploy(args)

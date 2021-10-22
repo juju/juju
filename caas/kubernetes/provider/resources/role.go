@@ -62,6 +62,9 @@ func (r *Role) Apply(ctx context.Context, client kubernetes.Interface) error {
 			FieldManager: JujuFieldManager,
 		})
 	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "role %q", r.Name)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/assumes"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -28,7 +29,9 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -36,6 +39,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -56,6 +60,7 @@ type ApplicationSuite struct {
 	storagePoolManager *mockStoragePoolManager
 	registry           *mockStorageRegistry
 	updateSeries       *mockUpdateSeries
+	supportedFeatures  coreassumes.FeatureSet
 
 	caasBroker   *mockCaasBroker
 	env          environs.Environ
@@ -83,7 +88,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
-		func(_ application.ApplicationDeployer, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ application.ApplicationDeployer, _ application.Model, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -132,6 +137,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.model = newMockModel()
 	s.backend = mockBackend{
 		controllers: make(map[string]crossmodel.ControllerInfo),
+		model:       &s.model,
 		applications: map[string]*mockApplication{
 			"postgresql": {
 				name:        "postgresql",
@@ -326,9 +332,12 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.blockChecker = mockBlockChecker{}
 	s.setAPIUser(c, names.NewUserTag("admin"))
+
+	application.MockSupportedFeatures(s.supportedFeatures)
 }
 
 func (s *ApplicationSuite) TearDownTest(c *gc.C) {
+	application.ResetSupportedFeaturesGetter()
 	s.JujuOSEnvSuite.TearDownTest(c)
 	s.IsolationSuite.TearDownTest(c)
 }
@@ -456,7 +465,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	s.backend.charm.CheckCallNames(c, "Config")
+	s.backend.charm.CheckCallNames(c, "Config", "Meta")
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
 	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
@@ -528,7 +537,7 @@ postgresql:
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	s.backend.charm.CheckCallNames(c, "Config")
+	s.backend.charm.CheckCallNames(c, "Config", "Meta")
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
 	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
@@ -549,7 +558,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	s.backend.charm.CheckCallNames(c, "Config")
+	s.backend.charm.CheckCallNames(c, "Config", "Meta")
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
 	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
@@ -591,7 +600,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	s.backend.charm.CheckCallNames(c, "Config")
+	s.backend.charm.CheckCallNames(c, "Config", "Meta")
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "Charm", "Series", "SetCharm")
 	app.CheckCall(c, 4, "SetCharm", state.SetCharmConfig{
@@ -2221,4 +2230,59 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 		Code:    "not found",
 		Message: `unit "mysql/0" not found`,
 	})
+}
+
+func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
+	// Define an assumes expression that cannot be satisfied
+	s.backend.charm.meta.Assumes = &assumes.ExpressionTree{
+		Expression: assumes.CompositeExpression{
+			ExprType: assumes.AllOfExpression,
+			SubExpressions: []assumes.Expression{
+				assumes.FeatureExpression{Name: "popcorn"},
+			},
+		},
+	}
+
+	// Enable controller flag so we can enforce "assumes" blocks
+	ctrlCfg := coretesting.FakeControllerConfig()
+	ctrlCfg[controller.Features] = []interface{}{
+		feature.CharmAssumes,
+	}
+	s.backend.controllerCfg = &ctrlCfg
+
+	// Try to upgrade the charm
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+	})
+	c.Assert(err, gc.ErrorMatches, `(?m).*Charm feature requirements cannot be met.*`)
+}
+
+func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
+	// Define an assumes expression that cannot be satisfied
+	s.backend.charm.meta.Assumes = &assumes.ExpressionTree{
+		Expression: assumes.CompositeExpression{
+			ExprType: assumes.AllOfExpression,
+			SubExpressions: []assumes.Expression{
+				assumes.FeatureExpression{Name: "popcorn"},
+			},
+		},
+	}
+
+	// Enable controller flag so we can enforce "assumes" blocks
+	ctrlCfg := coretesting.FakeControllerConfig()
+	ctrlCfg[controller.Features] = []interface{}{
+		feature.CharmAssumes,
+	}
+	s.backend.controllerCfg = &ctrlCfg
+
+	// Try to upgrade the charm
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+		Force:           true,
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to succeed when --force is set"))
 }

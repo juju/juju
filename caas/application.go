@@ -118,6 +118,13 @@ type ApplicationConfig struct {
 
 	// Devices is a set of parameters for Devices that is required.
 	Devices []devices.KubernetesDeviceParams
+
+	// Trust is set to true to give the application cloud access.
+	Trust bool
+
+	// InitialScale is used to provide the initial desired scale of the application.
+	// After the application is created, InitialScale has no effect.
+	InitialScale int
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.

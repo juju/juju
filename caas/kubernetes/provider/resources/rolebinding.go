@@ -43,8 +43,8 @@ func (rb *RoleBinding) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *RoleBinding) ID() ID {
-	return ID{"RoleBinding", r.Name, r.Namespace}
+func (rb *RoleBinding) ID() ID {
+	return ID{"RoleBinding", rb.Name, rb.Namespace}
 }
 
 // Apply patches the resource change.
@@ -61,6 +61,9 @@ func (rb *RoleBinding) Apply(ctx context.Context, client kubernetes.Interface) e
 		res, err = api.Create(ctx, &rb.RoleBinding, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "role binding %q", rb.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)
