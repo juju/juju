@@ -4002,7 +4002,7 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		`set constraints for django-1 to "arch=amd64 cpu-cores=4 cpu-power=42"`,
+		"deploy application django-1 from charm-store using django",
 		"upload charm django from charm-store with architecture=s390x",
 		"deploy application django-2 from charm-store using django",
 	}
@@ -4041,7 +4041,7 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 	}
 	expectedChanges := []string{
 		"upload charm django from charm-store with architecture=amd64",
-		`set constraints for django-1 to "arch=amd64 cpu-cores=4 cpu-power=42"`,
+		"deploy application django-1 from charm-store using django",
 		"upload charm django from charm-store with architecture=s390x",
 		"deploy application django-2 from charm-store using django",
 	}
