@@ -63,8 +63,16 @@ type APIv4 struct {
 // identical to V4 with the exception that the V5 adds an arg to export
 // bundle to control what is exported..
 type APIv5 struct {
+	*APIv6
+}
+
+// APIv6 provides the Bundle API facade for version 6. It is otherwise
+// identical to V5 with the exception that the V6 adds the support for
+// multi-part yaml handling to GetChanges and GetChangesMapArgs.
+type APIv6 struct {
 	*BundleAPI
 }
+
 
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
@@ -118,11 +126,21 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 // NewFacadeV5 provides the signature required for facade registration
 // for version 5.
 func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
-	api, err := newFacade(ctx)
+	api, err := NewFacadeV6(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv5{api}, nil
+}
+
+// NewFacadeV6 provides the signature required for facade registration
+// for version 6.
+func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
+	api, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv6{api}, nil
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -166,7 +184,7 @@ func NewBundleAPIv1(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv1{&APIv2{&APIv3{&APIv4{&APIv5{api}}}}}, nil
+	return &APIv1{&APIv2{&APIv3{&APIv4{&APIv5{&APIv6{api}}}}}}, nil
 }
 
 func (b *BundleAPI) checkCanRead() error {
