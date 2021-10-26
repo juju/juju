@@ -462,7 +462,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestRefreshOneFail(c *gc.C) {
-	_, err := RefreshOne("", 1, "latest/stable", RefreshBase{
+	_, err := RefreshOne("instance-key", "", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
@@ -667,7 +667,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -694,7 +694,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -764,7 +764,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, _, err := config.Build()
+	req, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
