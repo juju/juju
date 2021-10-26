@@ -73,7 +73,6 @@ type APIv6 struct {
 	*BundleAPI
 }
 
-
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
