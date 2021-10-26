@@ -58,7 +58,6 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 	}
 
 	done := make(chan error, 1)
-	defer close(done)
 
 	start := m.clock.Now()
 

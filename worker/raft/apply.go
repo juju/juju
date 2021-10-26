@@ -88,18 +88,13 @@ func NewApplier(raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics
 // the fsm.
 func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Duration) {
 	start := a.clock.Now()
-	leaderErr := a.currentLeaderState()
 
 	// Operations are iterated through optimistically, so if there is an error,
 	// then continue onwards.
 	for i, op := range ops {
 		// If there is a leader error, finish the operations with the leader
-		// error. We only request the leader state once, as it's not a cheap
-		// operation. We can reasonably assume that during a tight loop of batch
-		// operations, the changing of a leader state should be small. If it
-		// does happen, then the operation will end up back here after another
-		// redirect.
-		if leaderErr != nil {
+		// error.
+		if leaderErr := a.currentLeaderState(); leaderErr != nil {
 			a.metrics.RecordLeaderError(start)
 			op.Done(leaderErr)
 			continue

@@ -16,7 +16,7 @@ for i in `seq -f%02g 0 99`; do
 
 
     ./leadershipclaimer --quiet --hosts=$CONTROLLERS --uuid=$UUID \
-	    --claimtime=5s --renewtime=4.5s \
+	    --claimtime=1m --renewtime=30s \
 	    --unit $UNIT --password $PASSWORD \
         $x >> claims.log &
 done

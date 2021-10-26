@@ -336,7 +336,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 			// process a claim in the future.
 			manager.config.Logger.Warningf("[%s] dropped while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
-			claim.respond(lease.ErrDropped)
+			claim.respond(lease.ErrClaimDenied)
 
 		default:
 			// Stop the main loop because we got an abnormal error
