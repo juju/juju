@@ -213,7 +213,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	c.Assert(r.Errors, gc.IsNil)
 }
 
-func (s *bundleSuite) TestGetChangesSuccessV2WithOverlays(c *gc.C) {
+func (s *bundleSuite) TestGetChangesSuccessWithOverlays(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
