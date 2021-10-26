@@ -213,7 +213,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	c.Assert(r.Errors, gc.IsNil)
 }
 
-func (s *bundleSuite) TestGetChangesSuccessWithOverlays(c *gc.C) {
+func (s *bundleSuite) TestGetChangesWithOverlaysV6(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -236,9 +236,8 @@ applications:
     haproxy:
         `,
 	}
-	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+
+	expectedChanges_V6 := []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
@@ -259,11 +258,15 @@ applications:
 			"",
 		},
 		Requires: []string{"addCharm-0"},
-	}})
-	c.Assert(r.Errors, gc.IsNil)
+	}}
+
+	apiv6 := s.makeAPI(c)
+	r_v6, err_v6 := apiv6.GetChanges(args)
+	c.Assert(err_v6, jc.ErrorIsNil)
+	c.Assert(r_v6.Changes, jc.DeepEquals, expectedChanges_V6)
 }
 
-func (s *bundleSuite) TestGetChangesFailV5WithOverlays(c *gc.C) {
+func (s *bundleSuite) TestGetChangesWithOverlaysV1_5(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -286,12 +289,57 @@ applications:
     haproxy:
         `,
 	}
-	api := s.makeAPI(c)
-	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{api}}}}}
-	r, err := apiv1.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	// This is the inverted test of TestGetChangesSuccessV2WithOverlays
-	c.Assert(r.Changes, gc.Not(jc.DeepEquals), []*params.BundleChange{{
+	// Before V6, GetChanges ignores the extra parts in a
+	// multi-yaml data, therefore we expect to see 'haproxy' still
+	// exists in the changes
+	expectedChanges_V1 := []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"trusty",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}}
+
+	expectedChanges_V2_5 := []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
@@ -312,8 +360,58 @@ applications:
 			"",
 		},
 		Requires: []string{"addCharm-0"},
-	}})
-	c.Assert(r.Errors, gc.IsNil)
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"trusty",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}}
+
+	apiv6 := s.makeAPI(c)
+	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{apiv6}}}}}
+	apiv2 := &bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{apiv6}}}}
+	apiv3 := &bundle.APIv3{&bundle.APIv4{&bundle.APIv5{apiv6}}}
+	apiv4 := &bundle.APIv4{&bundle.APIv5{apiv6}}
+	apiv5 := &bundle.APIv5{apiv6}
+
+	r1, err1 := apiv1.GetChanges(args)
+	r2, err2 := apiv2.GetChanges(args)
+	r3, err3 := apiv3.GetChanges(args)
+	r4, err4 := apiv4.GetChanges(args)
+	r5, err5 := apiv5.GetChanges(args)
+
+	c.Assert(err1, jc.ErrorIsNil)
+	c.Assert(err2, jc.ErrorIsNil)
+	c.Assert(err3, jc.ErrorIsNil)
+	c.Assert(err4, jc.ErrorIsNil)
+	c.Assert(err5, jc.ErrorIsNil)
+
+	c.Assert(r1.Changes, jc.DeepEquals, expectedChanges_V1)
+	c.Assert(r2.Changes, jc.DeepEquals, expectedChanges_V2_5)
+	c.Assert(r3.Changes, jc.DeepEquals, expectedChanges_V2_5)
+	c.Assert(r4.Changes, jc.DeepEquals, expectedChanges_V2_5)
+	c.Assert(r5.Changes, jc.DeepEquals, expectedChanges_V2_5)
 }
 
 func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
