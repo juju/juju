@@ -252,7 +252,7 @@ func (m charmhubConfigMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	h, _, err := config.Build()
+	h, err := config.Build()
 	if err != nil {
 		return false
 	}
