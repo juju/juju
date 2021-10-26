@@ -25,7 +25,7 @@ import (
 type bundleSuite struct {
 	coretesting.BaseSuite
 	auth     *apiservertesting.FakeAuthorizer
-	facade   *bundle.APIv5
+	facade   *bundle.APIv6
 	st       *mockState
 	modelTag names.ModelTag
 }
@@ -43,14 +43,14 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.facade = s.makeAPI(c)
 }
 
-func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv5 {
+func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv6 {
 	api, err := bundle.NewBundleAPI(
 		s.st,
 		s.auth,
 		s.modelTag,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &bundle.APIv5{api}
+	return &bundle.APIv6{api}
 }
 
 func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
@@ -263,6 +263,59 @@ applications:
 	c.Assert(r.Errors, gc.IsNil)
 }
 
+func (s *bundleSuite) TestGetChangesFailV5WithOverlays(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:trusty/haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+--- # overlay
+description: remove haproxy
+applications:
+    haproxy:
+        `,
+	}
+	api := s.makeAPI(c)
+	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{api}}}}}
+	r, err := apiv1.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// This is the inverted test of TestGetChangesSuccessV2WithOverlays
+	c.Assert(r.Changes, gc.Not(jc.DeepEquals), []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}})
+	c.Assert(r.Errors, gc.IsNil)
+}
+
 func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
@@ -357,7 +410,7 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
         `,
 	}
 	api := s.makeAPI(c)
-	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{api}}}}
+	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{api}}}}}
 
 	r, err := apiv1.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)

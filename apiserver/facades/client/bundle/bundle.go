@@ -214,7 +214,7 @@ func (b *APIv1) GetChanges(args params.BundleChangesParams) (params.BundleChange
 		},
 		verifyDevices: nil,
 	}
-	return getChanges(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
+	return b.getChanges(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
 		results.Changes = make([]*params.BundleChange, len(changes))
 		for i, c := range changes {
 			results.Changes[i] = &params.BundleChange{
@@ -234,7 +234,39 @@ type validators struct {
 	verifyDevices     func(string) error
 }
 
-func getBundleChanges(args params.BundleChangesParams,
+// getBundleChanges (<= V5 API) ignores the extra parts in a
+// multi-part yaml
+func (b *APIv5) getBundleChanges(args params.BundleChangesParams,
+	vs validators,
+) ([]bundlechanges.Change, []error, error) {
+	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "cannot read bundle YAML")
+	}
+	if err := data.Verify(vs.verifyConstraints, vs.verifyStorage, vs.verifyDevices); err != nil {
+		if verificationError, ok := err.(*charm.VerificationError); ok {
+			validationErrors := make([]error, len(verificationError.Errors))
+			for i, e := range verificationError.Errors {
+				validationErrors[i] = e
+			}
+			return nil, validationErrors, nil
+		}
+		// This should never happen as Verify only returns verification errors.
+		return nil, nil, errors.Annotate(err, "cannot verify bundle")
+	}
+	changes, err := bundlechanges.FromData(
+		bundlechanges.ChangesConfig{
+			Bundle:    data,
+			BundleURL: args.BundleURL,
+			Logger:    loggo.GetLogger("juju.apiserver.bundlechanges"),
+		})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return changes, nil, nil
+}
+
+func (b *BundleAPI) getBundleChanges(args params.BundleChangesParams,
 	vs validators,
 ) ([]bundlechanges.Change, []error, error) {
 	dataSource, _ := charm.StreamBundleDataSource(strings.NewReader(args.BundleDataYAML), args.BundleURL)
@@ -265,13 +297,13 @@ func getBundleChanges(args params.BundleChangesParams,
 	return changes, nil, nil
 }
 
-func getChanges(
+func (b *BundleAPI) getChanges(
 	args params.BundleChangesParams,
 	vs validators,
 	postProcess func([]bundlechanges.Change, *params.BundleChangesResults) error,
 ) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
-	changes, validationErrors, err := getBundleChanges(args, vs)
+	changes, validationErrors, err := b.getBundleChanges(args, vs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -307,7 +339,7 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 			return err
 		},
 	}
-	return getChanges(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
+	return b.getChanges(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
 		results.Changes = make([]*params.BundleChange, len(changes))
 		for i, c := range changes {
 			var guiArgs []interface{}
@@ -351,7 +383,7 @@ func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.B
 			return err
 		},
 	}
-	return getChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
+	return b.getChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
 		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
 		for i, c := range changes {
 			args, err := c.Args()
@@ -370,13 +402,13 @@ func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.B
 	})
 }
 
-func getChangesMapArgs(
+func (b *BundleAPI) getChangesMapArgs(
 	args params.BundleChangesParams,
 	vs validators,
 	postProcess func([]bundlechanges.Change, *params.BundleChangesMapArgsResults) error,
 ) (params.BundleChangesMapArgsResults, error) {
 	var results params.BundleChangesMapArgsResults
-	changes, validationErrors, err := getBundleChanges(args, vs)
+	changes, validationErrors, err := b.getBundleChanges(args, vs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
