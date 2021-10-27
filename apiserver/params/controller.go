@@ -131,3 +131,11 @@ type ControllerVersionResults struct {
 	Version   string `json:"version"`
 	GitCommit string `json:"git-commit"`
 }
+
+// DashboardInfo holds the results from an api call
+// to get address info for the juju dashboard.
+type DashboardInfo struct {
+	Addresses []string `json:"addresses"`
+	UseTunnel bool     `json:"use-tunnel"`
+	Error     *Error   `json:"error,omitempty"`
+}
