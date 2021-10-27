@@ -170,7 +170,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 
 	mysqlCurl, err := charm.ParseURL("cs:mysql-42")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil, 3)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: mysqlCurl.Revision,
@@ -182,7 +182,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
 	// For wordpress
-	s.expectResolveCharm(nil, 1)
+	s.expectResolveCharm(nil, 2)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleInvalidSeries))
 	c.Assert(err, jc.ErrorIsNil)
@@ -414,8 +414,11 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	s.setupMetadataV2CharmUnits(chUnits)
 	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
 
-	s.runDeploy(c, kubernetesCharmhubGitlabRevisionBundle)
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundle))
+	c.Assert(err, jc.ErrorIsNil)
 
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
 	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
@@ -423,7 +426,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	str := s.output.String()
 	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), jc.IsTrue)
 	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), jc.IsTrue)
-	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 8 with architecture=amd64\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub from channel old/stable with architecture=amd64\n"), jc.IsTrue)
 }
 
 const kubernetesCharmhubGitlabRevisionBundle = `
@@ -829,6 +832,7 @@ func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 	}
 	s.setupCharmUnits(chUnits)
 	s.expectAddRelation([]string{"wordpress:db", "mysql:db"})
+	s.expectResolveCharm(nil, 2)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleWithStorage))
 	c.Assert(err, jc.ErrorIsNil)
@@ -879,7 +883,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil, 3)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -916,7 +920,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil, 3)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -1233,9 +1237,9 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 		case "cs", "ch":
 			resolveSeries := chUnit.resolveSeries
 			if len(resolveSeries) == 0 {
-				resolveSeries = []string{"bionix", "focal", "xenial"}
+				resolveSeries = []string{"bionic", "focal", "xenial"}
 			}
-			s.expectResolveCharmWithSeries(resolveSeries, nil, 2)
+			s.expectResolveCharmWithSeries(resolveSeries, nil, 3)
 			s.expectAddCharm(chUnit.force)
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
@@ -1258,7 +1262,7 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 
 func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
-		s.expectResolveCharm(nil, 2)
+		s.expectResolveCharm(nil, 3)
 		s.expectAddCharm(chUnit.force)
 		charmInfo := &apicharms.CharmInfo{
 			Revision: chUnit.curl.Revision,
