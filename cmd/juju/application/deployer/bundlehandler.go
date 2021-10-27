@@ -287,9 +287,9 @@ func (h *bundleHandler) makeModel(
 // fully qualified, meaning they have a source and revision id.
 // Effectively the logic this method follows is:
 //   * if the bundle specifies a local charm, and the application
-//     exists already, then override the charm URL in the bundle
-//     spec to match the charm name from the model. We don't
-//     upgrade local charms as part of a bundle deploy.
+//     exists already, then remove the charm in the bundle spec
+//     (i.e. ignore it). We don't upgrade local charms as part of a
+//     bundle deploy.
 //   * the charm URL is resolved and the bundle spec is replaced
 //     with the fully resolved charm URL - i.e.: with rev id.
 //   * check all endpoints, and if any of them have implicit endpoints,
@@ -304,9 +304,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		var cons constraints.Value
 		if app != nil {
 			if h.isLocalCharm(spec.Charm) {
-				logger.Debugf("%s exists in model uses a local charm, replacing with %q", name, app.Charm)
-				// Replace with charm from model
-				spec.Charm = app.Charm
+				logger.Debugf("%s exists in model uses a local charm, ignoring", name, app.Charm)
+				delete(h.data.Applications, name)
 				continue
 			}
 			// If the charm matches, don't bother resolving.

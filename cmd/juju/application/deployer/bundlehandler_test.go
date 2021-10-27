@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -1635,4 +1636,35 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
+}
+
+func (s *BundleHandlerResolverSuite) TestAvoidRedeployAlreadyDeployedLocalCharm(c *gc.C) {
+
+	bundle_data_to_be_deployed := &charm.BundleData{
+		Applications: map[string]*charm.ApplicationSpec{
+			"test-app": {
+				Charm: "./some-local.charm",
+			},
+		},
+	}
+	existing_model_already_has_the_app := &bundlechanges.Model{
+		Applications: map[string]*bundlechanges.Application{
+			"test-app": {},
+		},
+	}
+
+	handler := &bundleHandler{
+		data:  bundle_data_to_be_deployed,
+		model: existing_model_already_has_the_app,
+		applications: map[string]bool{
+			"test-app": true,
+		},
+	}
+
+	err := handler.resolveCharmsAndEndpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(handler.data, gc.DeepEquals, &charm.BundleData{
+		Applications: map[string]*charm.ApplicationSpec{},
+	})
+
 }
