@@ -429,23 +429,6 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub from channel old/stable with architecture=amd64\n"), jc.IsTrue)
 }
 
-const kubernetesCharmhubGitlabRevisionBundle = `
-bundle: kubernetes
-applications:
-  mariadb:
-    charm: mariadb-k8s
-    scale: 2
-    revision: 8
-    channel: old/stable
-  gitlab:
-    charm: gitlab-k8s
-    scale: 1
-    channel: new/edge
-relations:
-  - - gitlab:mysql
-    - mariadb:server
-`
-
 func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
