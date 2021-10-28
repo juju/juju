@@ -83,6 +83,7 @@ const dashboardNotAvailableMessage = `The Juju dashboard is not yet deployed.
 To deploy the Juju dashboard follow these steps:
   juju switch controller
   juju deploy juju-dashboard
+  juju expose juju-dashboard
   juju relate juju-dashboard controller
 `
 
@@ -147,6 +148,7 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 		//	return errors.Trace(err)
 		//}
 		//dashboardURL = fmt.Sprintf("http://%s", addr)
+		return errors.NotSupportedf("k8s dashboard")
 	}
 
 	// Open the Juju Dashboard in the browser.
@@ -196,6 +198,7 @@ func (c *dashboardCommand) openTunnel(dashboardAddress string) (<-chan error, er
 	}
 	errCh := make(chan error)
 	go func() {
+		// TODO(wallyworld) - extract the core ssh machinery and use directly.
 		ctx, _ := cmd.DefaultContext()
 		errCh <- c.embeddedSSHCmd.Run(ctx)
 	}()

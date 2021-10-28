@@ -144,6 +144,7 @@ The Juju dashboard is not yet deployed.
 To deploy the Juju dashboard follow these steps:
   juju switch controller
   juju deploy juju-dashboard
+  juju expose juju-dashboard
   juju relate juju-dashboard controller
 `[1:])
 	c.Assert(out, gc.Equals, "")
