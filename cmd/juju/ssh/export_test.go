@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -9,7 +9,6 @@ import (
 )
 
 type (
-	SSHContainer   = sshContainer
 	ResolvedTarget = resolvedTarget
 )
 

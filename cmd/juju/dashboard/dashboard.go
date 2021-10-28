@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -20,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api/controller"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -35,6 +34,7 @@ func NewDashboardCommand() cmd.Command {
 	d.newAPIFunc = func() (ControllerAPI, bool, error) {
 		return d.newControllerAPI()
 	}
+	d.embeddedSSHCmd = ssh.NewSSHCommand(nil, nil)
 	return modelcmd.Wrap(d)
 }
 
@@ -46,6 +46,9 @@ type dashboardCommand struct {
 	browser   bool
 
 	newAPIFunc func() (ControllerAPI, bool, error)
+
+	port           int
+	embeddedSSHCmd cmd.Command
 }
 
 func (c *dashboardCommand) newControllerAPI() (ControllerAPI, bool, error) {
@@ -95,6 +98,7 @@ func (c *dashboardCommand) Info() *cmd.Info {
 // SetFlags implements the cmd.Command interface.
 func (c *dashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.IntVar(&c.port, "port", 31666, "Local port used to serve the dashboard")
 	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju Dashboard")
 	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju Dashboard URL")
 }
@@ -128,16 +132,13 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	dashboardAddress := actualDashboardAddresses[i]
 	dashboardURL := fmt.Sprintf("https://%s", dashboardAddress)
 
+	var errCh <-chan error
 	if useTunnel {
-		localAddress, err := c.openTunnel(dashboardAddress)
+		errCh, err = c.openTunnel(dashboardAddress)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, port, err := net.SplitHostPort(localAddress)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		dashboardURL = fmt.Sprintf("http://localhost:%s", port)
+		dashboardURL = fmt.Sprintf("http://localhost:%d", c.port)
 	}
 	// TODO(wallyworld) - support k8s dashboard charm properly
 	if isProxied {
@@ -170,40 +171,36 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 
 	signalCh := make(chan os.Signal)
 	signal.Notify(signalCh, os.Interrupt, os.Kill)
-	waitSig := <-signalCh
-
-	ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
+	select {
+	case waitSig := <-signalCh:
+		ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
+	case err := <-errCh:
+		return errors.Annotate(err, "error opening ssh tunnel")
+	}
 	return nil
 }
 
 // openTunnel creates a tunnel from localhost to the dashboard.
-func (c *dashboardCommand) openTunnel(dashboardAddress string) (string, error) {
-	// TODO(wallyworld) - use SSH tunnel instead of a http connection
-	errCh := make(chan error, 1)
-	addrCh := make(chan string, 1)
+func (c *dashboardCommand) openTunnel(dashboardAddress string) (<-chan error, error) {
+	host, _, err := net.SplitHostPort(dashboardAddress)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := c.embeddedSSHCmd.Init([]string{
+		"ubuntu@" + host,
+		"-N",
+		"-L",
+		fmt.Sprintf("%d:%s", c.port, dashboardAddress),
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	errCh := make(chan error)
 	go func() {
-		listener, err := net.Listen("tcp", "localhost:0")
-		if err != nil {
-			errCh <- err
-			return
-		}
-		p := &dashboardProxy{
-			dashboardURL: dashboardAddress,
-		}
-		http.HandleFunc("/", p.transparentHttpProxy())
-		addrCh <- listener.Addr().String()
-		errCh <- http.Serve(listener, nil)
+		ctx, _ := cmd.DefaultContext()
+		errCh <- c.embeddedSSHCmd.Run(ctx)
 	}()
 
-	var localhostDashboardAddr string
-	select {
-	case localhostDashboardAddr = <-addrCh:
-	case err := <-errCh:
-		return "", errors.Annotate(err, "starting dashboard proxy")
-	case <-time.After(30 * time.Second):
-		return "", errors.Errorf("timeout waiting for dashboard proxy to start")
-	}
-	return localhostDashboardAddr, nil
+	return errCh, nil
 }
 
 // openBrowser opens the Juju Dashboard at the given URL.

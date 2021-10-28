@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
@@ -373,12 +374,12 @@ func registerCommands(r commandRegistry) {
 
 	// Error resolution and debugging commands.
 	r.Register(action.NewExecCommand(nil))
-	r.Register(newSCPCommand(nil))
-	r.Register(newSSHCommand(nil, nil))
+	r.Register(ssh.NewSCPCommand(nil))
+	r.Register(ssh.NewSSHCommand(nil, nil))
 	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand(nil))
-	r.Register(newDebugHooksCommand(nil))
-	r.Register(newDebugCodeCommand(nil))
+	r.Register(ssh.NewDebugHooksCommand(nil))
+	r.Register(ssh.NewDebugCodeCommand(nil))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())

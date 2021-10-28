@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	"encoding/base64"
@@ -26,7 +26,8 @@ import (
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
+// NewDebugHooksCommand creates a juju debug-hooks command.
+func NewDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugHooksCommand)
 	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)

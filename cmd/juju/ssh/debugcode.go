@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	"github.com/juju/cmd/v3"
@@ -12,7 +12,8 @@ import (
 	"github.com/juju/juju/network/ssh"
 )
 
-func newDebugCodeCommand(hostChecker ssh.ReachableChecker) cmd.Command {
+// NewDebugCodeCommand creates a juju debug-code command.
+func NewDebugCodeCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugCodeCommand)
 	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)

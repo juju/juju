@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	"github.com/juju/cmd/v3"
@@ -108,7 +108,8 @@ See also:
 	ssh
 `
 
-func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
+// NewSCPCommand creates a juju scp command.
+func NewSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 	c := new(scpCommand)
 	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)

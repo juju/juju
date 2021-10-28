@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands_test
+package ssh_test
 
 import (
 	"bytes"
@@ -25,8 +25,8 @@ import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	k8smocks "github.com/juju/juju/caas/kubernetes/provider/mocks"
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/juju/commands/mocks"
+	"github.com/juju/juju/cmd/juju/ssh"
+	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/testing"
 )
 
@@ -43,7 +43,7 @@ type sshContainerSuite struct {
 	mockPods           *k8smocks.MockPodInterface
 	mockNamespaces     *k8smocks.MockNamespaceInterface
 
-	sshC commands.SSHContainerInterfaceForTest
+	sshC ssh.SSHContainerInterfaceForTest
 }
 
 var _ = gc.Suite(&sshContainerSuite{})
@@ -86,7 +86,7 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 	mockCoreV1.EXPECT().Pods(gomock.Any()).AnyTimes().Return(s.mockPods)
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
-	s.sshC = commands.NewSSHContainer(
+	s.sshC = ssh.NewSSHContainer(
 		s.modelUUID,
 		s.modelName,
 		s.cloudCredentialAPI,
@@ -486,7 +486,7 @@ func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
 		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
 	)
 
-	target := &commands.ResolvedTarget{}
+	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
 	c.Assert(err, jc.ErrorIsNil)
@@ -519,7 +519,7 @@ func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
 		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
 	)
 
-	target := &commands.ResolvedTarget{}
+	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
 	c.Assert(err, jc.ErrorIsNil)
@@ -564,7 +564,7 @@ func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
 		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
 	)
 
-	target := &commands.ResolvedTarget{}
+	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
 	c.Assert(err, gc.ErrorMatches, `cancelled`)
@@ -582,7 +582,7 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *gc.C) {
 			},
 		),
 	)
-	cancel, _ := commands.GetInterruptAbortChan(ctx)
+	cancel, _ := ssh.GetInterruptAbortChan(ctx)
 
 	select {
 	case _, ok := <-cancel:
@@ -601,7 +601,7 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *gc.C) {
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
 		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
 	)
-	cancel, stop := commands.GetInterruptAbortChan(ctx)
+	cancel, stop := ssh.GetInterruptAbortChan(ctx)
 	stop()
 	select {
 	case _, ok := <-cancel:

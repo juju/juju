@@ -1,16 +1,18 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/mattn/go-isatty"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -20,8 +22,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	jujussh "github.com/juju/juju/network/ssh"
 )
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statusapi_mock.go github.com/juju/juju/cmd/juju/commands StatusAPI
 
 var usageSSHSummary = `
 Initiates an SSH session or executes a command on a Juju machine or container.`[1:]
@@ -120,7 +120,8 @@ For k8s controller:
 See also: 
     scp`
 
-func newSSHCommand(
+// NewSSHCommand creates a juju ssh command.
+func NewSSHCommand(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
 ) cmd.Command {
@@ -319,4 +320,12 @@ func maybeResolveLeaderUnit(statusAPIGetter func() (StatusAPI, error), target st
 	}
 
 	return "", errors.Errorf("unable to resolve leader unit for application %q", app)
+}
+
+func isTerminal(f interface{}) bool {
+	f_, ok := f.(*os.File)
+	if !ok {
+		return false
+	}
+	return isatty.IsTerminal(f_.Fd())
 }
