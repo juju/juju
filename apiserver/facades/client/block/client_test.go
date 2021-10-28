@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/block"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )

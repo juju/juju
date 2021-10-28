@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
-	"github.com/juju/juju/apiserver/params"
 	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/params"
 )
 
 type leadershipSuite struct {

@@ -13,11 +13,11 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -267,7 +267,7 @@ var entitiesArgs = params.Entities{
 }
 
 // MakeResultsWithErrors constructs a new instance of the results type
-// (from apiserver/params), matching the given resultsRef, finds its
+// (from core/params), matching the given resultsRef, finds its
 // first field (expected to be a slice, usually "Results") and adds
 // howMany elements to it, setting the Error field of each element to
 // err.

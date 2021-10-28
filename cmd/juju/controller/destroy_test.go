@@ -17,12 +17,12 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"

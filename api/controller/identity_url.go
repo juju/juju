@@ -5,7 +5,7 @@ package controller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 // IdentityProviderURL returns the URL of the configured external identity

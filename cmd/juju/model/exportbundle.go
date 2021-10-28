@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/bundle"
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/environs/manual"
 )
 

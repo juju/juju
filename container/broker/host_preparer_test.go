@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/broker"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )

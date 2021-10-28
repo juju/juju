@@ -14,7 +14,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
 	apisecrets "github.com/juju/juju/apiserver/facades/client/secrets"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets"

@@ -21,8 +21,8 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
-	"github.com/juju/juju/apiserver/params"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"

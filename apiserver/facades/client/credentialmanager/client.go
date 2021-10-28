@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 // CredentialManager defines the methods on credentialmanager API endpoint.

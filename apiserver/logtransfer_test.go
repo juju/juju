@@ -18,8 +18,8 @@ import (
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"

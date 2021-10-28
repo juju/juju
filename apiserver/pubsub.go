@@ -12,8 +12,8 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/feature"
 )
 

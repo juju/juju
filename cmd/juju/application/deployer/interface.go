@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
-	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	apiparams "github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
 )

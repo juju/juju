@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	coretesting "github.com/juju/juju/testing"
 	resumer "github.com/juju/juju/worker/resumer"
 )

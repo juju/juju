@@ -12,7 +12,7 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 )

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 // DebugLogParams holds parameters for WatchDebugLog that control the

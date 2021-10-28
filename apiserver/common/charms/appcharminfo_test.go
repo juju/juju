@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/common/charms/mocks"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )

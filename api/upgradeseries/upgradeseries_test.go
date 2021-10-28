@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/upgradeseries"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 )
 
 type upgradeSeriesSuite struct {

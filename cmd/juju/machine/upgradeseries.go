@@ -20,10 +20,10 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machinemanager"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 )

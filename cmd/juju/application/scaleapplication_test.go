@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 type ScaleApplicationSuite struct {

@@ -23,8 +23,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/gui"
+	"github.com/juju/juju/core/params"
 	envgui "github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/simplestreams"
 	jujutesting "github.com/juju/juju/juju/testing"

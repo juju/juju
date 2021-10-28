@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apicloud "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/rackspace"

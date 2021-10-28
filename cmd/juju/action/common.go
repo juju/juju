@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
 	coreactions "github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/watcher"
 )
 

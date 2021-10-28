@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiserverstorage "github.com/juju/juju/apiserver/facades/client/storage"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )

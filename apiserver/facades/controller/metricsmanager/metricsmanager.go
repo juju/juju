@@ -19,9 +19,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 )

@@ -15,7 +15,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 // RelationUnitChangeEvent encapsulates a remote relation event,

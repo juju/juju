@@ -16,9 +16,9 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )

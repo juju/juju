@@ -11,10 +11,10 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/params"
 )
 
 // NewScaleApplicationCommand returns a command which scales an application's units.

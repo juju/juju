@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/logstream"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/logfwd"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"

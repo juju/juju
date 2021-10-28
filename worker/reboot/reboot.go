@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"
 )

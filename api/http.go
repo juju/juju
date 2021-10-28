@@ -19,7 +19,7 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	jujuversion "github.com/juju/juju/version"
 )
 

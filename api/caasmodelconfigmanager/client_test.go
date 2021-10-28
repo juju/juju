@@ -10,8 +10,8 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasmodelconfigmanager"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/params"
 )
 
 type caasmodelconfigmanagerSuite struct {

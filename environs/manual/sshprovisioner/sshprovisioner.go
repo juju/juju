@@ -17,13 +17,13 @@ import (
 	"github.com/juju/utils/v2/shell"
 	"github.com/juju/utils/v2/ssh"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/service"
 )

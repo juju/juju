@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/rpc"
 )
 

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/testing/httptesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	jujuversion "github.com/juju/juju/version"
 )
 

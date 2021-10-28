@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/api/instancemutater/mocks"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/testing"
 )

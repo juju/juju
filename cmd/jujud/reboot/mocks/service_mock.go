@@ -6,10 +6,10 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
 	reboot "github.com/juju/juju/cmd/jujud/reboot"
 	container "github.com/juju/juju/container"
 	instance "github.com/juju/juju/core/instance"
+	params "github.com/juju/juju/core/params"
 	instances "github.com/juju/juju/environs/instances"
 	common "github.com/juju/juju/service/common"
 	reflect "reflect"

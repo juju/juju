@@ -15,10 +15,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/ec2" // needed when getting valid local credentials
 	"github.com/juju/juju/testing"

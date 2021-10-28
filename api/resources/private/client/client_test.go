@@ -16,7 +16,7 @@ import (
 
 	api "github.com/juju/juju/api/resources"
 	"github.com/juju/juju/api/resources/private/client"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 )

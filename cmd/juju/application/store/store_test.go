@@ -14,12 +14,12 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/params"
 )
 
 type storeSuite struct {

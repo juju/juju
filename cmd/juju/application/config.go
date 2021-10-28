@@ -15,13 +15,13 @@ import (
 	"github.com/juju/utils/v2/keyvalues"
 
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )

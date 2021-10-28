@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/permission"
 )
 

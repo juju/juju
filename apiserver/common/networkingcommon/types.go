@@ -9,9 +9,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )

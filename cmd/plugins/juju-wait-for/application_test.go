@@ -4,9 +4,9 @@
 package main
 
 import (
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

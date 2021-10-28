@@ -18,8 +18,8 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"

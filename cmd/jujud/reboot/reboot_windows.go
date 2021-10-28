@@ -7,7 +7,7 @@ package reboot
 import (
 	"fmt"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 // scheduleAction will do a reboot or shutdown after given number of seconds

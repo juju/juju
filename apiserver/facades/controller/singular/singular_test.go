@@ -16,8 +16,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

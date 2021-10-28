@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/core/params"
 )
 
 // Logger represents the methods used by the worker to log information.

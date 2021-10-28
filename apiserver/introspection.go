@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/names/v4"
 )

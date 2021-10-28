@@ -6,7 +6,7 @@ package backups
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 // Create sends a request to create a backup of juju's state.  It

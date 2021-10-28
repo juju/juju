@@ -16,9 +16,9 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/service/common"
 )

@@ -7,8 +7,8 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/juju/jujuclient"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/params"
 )
 
 // NewDisableCommandForTest returns a new disable command with the

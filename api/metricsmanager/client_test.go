@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/api/metricsmanager"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 

@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"

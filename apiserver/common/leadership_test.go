@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/leadership/mocks"
+	"github.com/juju/juju/core/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

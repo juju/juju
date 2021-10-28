@@ -7,8 +7,8 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/api/provisioner"
-	params "github.com/juju/juju/apiserver/params"
 	network "github.com/juju/juju/core/network"
+	params "github.com/juju/juju/core/params"
 	network0 "github.com/juju/juju/network"
 	names "github.com/juju/names/v4"
 	reflect "reflect"

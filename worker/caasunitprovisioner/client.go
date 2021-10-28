@@ -6,10 +6,10 @@ package caasunitprovisioner
 import (
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )

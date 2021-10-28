@@ -10,7 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	uniter "github.com/juju/juju/api/uniter"
-	params "github.com/juju/juju/apiserver/params"
+	params "github.com/juju/juju/core/params"
 	status "github.com/juju/juju/core/status"
 	names "github.com/juju/names/v4"
 )

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

@@ -3,7 +3,7 @@
 
 package provisioner
 
-import "github.com/juju/juju/apiserver/params"
+import "github.com/juju/juju/core/params"
 
 // TODO (manadart 2019-09-26): This file should be deleted via these steps:
 // - Rename provisioner_test.go to provisioner_integration_test.go

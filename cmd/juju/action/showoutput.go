@@ -16,10 +16,10 @@ import (
 	"github.com/juju/names/v4"
 
 	actionapi "github.com/juju/juju/api/action"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/watcher"
 )
 

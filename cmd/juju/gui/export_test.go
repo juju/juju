@@ -7,8 +7,8 @@ import (
 	"github.com/juju/cmd/v3"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/params"
 )
 
 var (

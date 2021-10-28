@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/params"
 )
 
 // Client provides access to the high availability service, used to manage controllers.

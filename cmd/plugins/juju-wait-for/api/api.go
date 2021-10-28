@@ -4,7 +4,7 @@
 // Package api exists because we can't generate mocks in the main namespace.
 package api
 
-import "github.com/juju/juju/apiserver/params"
+import "github.com/juju/juju/core/params"
 
 // AllWatcher represents methods used on the AllWatcher
 // Primarily to facilitate mock tests.

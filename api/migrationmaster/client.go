@@ -20,8 +20,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/resource"
 )

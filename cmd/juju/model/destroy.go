@@ -23,13 +23,13 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/storage"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	corestatus "github.com/juju/juju/core/status"
 )
 

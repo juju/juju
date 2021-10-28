@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
+	params "github.com/juju/juju/core/params"
 	names "github.com/juju/names/v4"
 	reflect "reflect"
 )

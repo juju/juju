@@ -14,9 +14,9 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"

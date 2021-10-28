@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/upgrader"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

@@ -17,10 +17,10 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/params"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"

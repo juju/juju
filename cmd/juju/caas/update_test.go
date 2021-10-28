@@ -17,13 +17,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucaas "github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/jujuclient"
 
 	// To allow a maas cloud type to be parsed in the test data.

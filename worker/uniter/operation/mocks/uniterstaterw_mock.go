@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
+	params "github.com/juju/juju/core/params"
 )
 
 // MockUnitStateReadWriter is a mock of UnitStateReadWriter interface.

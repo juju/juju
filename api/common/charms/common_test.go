@@ -12,7 +12,7 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

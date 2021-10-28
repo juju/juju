@@ -16,8 +16,8 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps/mocks"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )

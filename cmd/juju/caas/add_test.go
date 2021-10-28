@@ -25,7 +25,6 @@ import (
 	"gopkg.in/yaml.v2"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucaas "github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/jujuclient"
 )
 

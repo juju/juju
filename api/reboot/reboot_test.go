@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"

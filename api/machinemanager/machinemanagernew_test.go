@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/machinemanager"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	jujutesting "github.com/juju/juju/testing"
 )
 

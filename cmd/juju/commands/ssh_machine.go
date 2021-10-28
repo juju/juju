@@ -22,8 +22,8 @@ import (
 	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/api/sshclient"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/params"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 

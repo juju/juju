@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/testing"
 )
 

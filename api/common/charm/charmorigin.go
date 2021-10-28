@@ -6,8 +6,8 @@ package charm
 import (
 	"github.com/juju/charm/v8"
 
-	"github.com/juju/juju/apiserver/params"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/params"
 )
 
 // OriginSource represents the source of the charm.

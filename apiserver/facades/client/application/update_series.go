@@ -12,10 +12,10 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/params"
 )
 
 // CharmhubClient represents a way for querying the charmhub api for information

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/params"
 )
 
 // NewAPI returns a new API client for the Singular facade. It exposes methods

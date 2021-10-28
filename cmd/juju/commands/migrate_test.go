@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/api/controller"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )

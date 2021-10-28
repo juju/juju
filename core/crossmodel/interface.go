@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 // ApplicationOffer holds the details of an application offered

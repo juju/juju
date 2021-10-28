@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 )
 
 type downloadParams struct {

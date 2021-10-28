@@ -13,9 +13,9 @@ import (
 
 	netmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	"github.com/juju/juju/apiserver/facades/client/spaces"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/params"
 )
 
 // moveSubsetOpSuite tests the model operation used to

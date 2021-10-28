@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )

@@ -7,9 +7,9 @@ package mocks
 import (
 	httpbakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
 	modelcmd "github.com/juju/juju/cmd/modelcmd"
 	model "github.com/juju/juju/core/model"
+	params "github.com/juju/juju/core/params"
 	jujuclient "github.com/juju/juju/jujuclient"
 	reflect "reflect"
 )

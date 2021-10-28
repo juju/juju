@@ -10,9 +10,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	params "github.com/juju/juju/apiserver/params"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
+	params "github.com/juju/juju/core/params"
 	secrets "github.com/juju/juju/core/secrets"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"

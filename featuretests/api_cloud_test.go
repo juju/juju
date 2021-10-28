@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apicloud "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/params"
 	"github.com/juju/juju/juju/testing"
 )
 

@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	backups "github.com/juju/juju/api/backups"
-	params "github.com/juju/juju/apiserver/params"
+	params "github.com/juju/juju/core/params"
 )
 
 // MockArchiveReader is a mock of ArchiveReader interface
