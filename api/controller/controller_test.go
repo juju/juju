@@ -439,3 +439,23 @@ func (s *Suite) TestWatchAllModelSummaries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "some error")
 	c.Assert(watcher, gc.IsNil)
 }
+
+func (s *Suite) TestDashboardAddresses(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Controller")
+			c.Assert(request, gc.Equals, "DashboardAddressInfo")
+			c.Assert(args, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.DashboardInfo{})
+			*(result.(*params.DashboardInfo)) = params.DashboardInfo{
+				Addresses: []string{"10.1.1.1:666"},
+				UseTunnel: true,
+			}
+			return nil
+		})
+	client := controller.NewClient(apiCaller)
+	addresses, useTunnel, err := client.DashboardAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, jc.DeepEquals, []string{"10.1.1.1:666"})
+	c.Assert(useTunnel, jc.IsTrue)
+}

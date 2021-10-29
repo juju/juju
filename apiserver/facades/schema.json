@@ -19830,6 +19830,15 @@
                     },
                     "description": "ControllerVersion returns the version information associated with this\ncontroller binary.\n\nNOTE: the implementation intentionally does not check for SuperuserAccess\nas the Version is known even to users with login access."
                 },
+                "DashboardAddressInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/DashboardInfo"
+                        }
+                    },
+                    "description": "DashboardAddressInfo returns the address info needed to connect to the juju dashboard."
+                },
                 "DestroyController": {
                     "type": "object",
                     "properties": {
@@ -20203,6 +20212,28 @@
                     "required": [
                         "version",
                         "git-commit"
+                    ]
+                },
+                "DashboardInfo": {
+                    "type": "object",
+                    "properties": {
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "use-tunnel": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "addresses",
+                        "use-tunnel"
                     ]
                 },
                 "DestroyControllerArgs": {

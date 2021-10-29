@@ -5,13 +5,13 @@
 //go:build !windows
 // +build !windows
 
-package commands
+package ssh
 
 import (
 	"fmt"
 	"reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/commands/mocks"
+	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -200,7 +200,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		isTerminal := func(stdin interface{}) bool {
 			return t.isTerminal
 		}
-		cmd := newSSHCommand(t.hostChecker, isTerminal)
+		cmd := NewSSHCommand(t.hostChecker, isTerminal)
 
 		ctx, err := cmdtesting.RunCommand(c, cmd, t.args...)
 		if t.expectedErr != "" {
@@ -223,7 +223,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 
 	s.setForceAPIv1(true)
 
-	ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), "0")
+	ctx, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs := argsSpec{
@@ -235,7 +235,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
 	s.setForceAPIv1(false)
-	ctx, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), "0")
+	ctx, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
@@ -309,7 +309,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// Ensure that the ssh command waits for a public (private with proxy=true)
 	// address, or the attempt strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	_, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), args...)
+	_, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), args...)
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
 	c.Assert(called, gc.Equals, 2)
 
@@ -328,7 +328,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		return true
 	}
 
-	_, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), args...)
+	_, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 2)
 }

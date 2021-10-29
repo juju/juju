@@ -100,7 +100,7 @@ type HostedConfig struct {
 	Error     error
 }
 
-// HostedModelsConfig returns all model settings for the
+// HostedModelConfigs returns all model settings for the
 // controller model.
 func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
 	result := params.HostedModelConfigsResults{}
@@ -401,4 +401,24 @@ func (c *Client) ControllerVersion() (ControllerVersion, error) {
 		GitCommit: result.GitCommit,
 	}
 	return out, err
+}
+
+// DashboardAddresses returns the address info needed to connect to the dashboard.
+func (c *Client) DashboardAddresses() ([]string, bool, error) {
+	result := params.DashboardInfo{}
+	err := c.facade.FacadeCall("DashboardAddressInfo", nil, &result)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	if result.Error != nil {
+		var apiErr error = result.Error
+		if params.IsCodeNotFound(apiErr) {
+			apiErr = errors.NotFoundf("dashboard")
+		}
+		return nil, false, errors.Trace(apiErr)
+	}
+	if len(result.Addresses) < 1 {
+		return nil, false, errors.NotFoundf("dashboard")
+	}
+	return result.Addresses, result.UseTunnel, nil
 }

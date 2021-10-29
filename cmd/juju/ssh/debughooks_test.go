@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	"encoding/base64"
@@ -145,7 +145,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 		s.setHostChecker(t.hostChecker)
 		s.setForceAPIv1(t.forceAPIv1)
 
-		ctx, err := cmdtesting.RunCommand(c, newDebugHooksCommand(s.hostChecker), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.error))
 		} else {
@@ -163,7 +163,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 	}
 	s.setupModel(c)
 	s.setHostChecker(validAddresses("0.public"))
-	ctx, err := cmdtesting.RunCommand(c, newDebugHooksCommand(s.hostChecker),
+	ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker),
 		"mysql/0", "install", "start")
 	c.Check(err, jc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")

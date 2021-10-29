@@ -18,3 +18,7 @@ func SetPrecheckResult(p patcher, err error) {
 		return err
 	})
 }
+
+func NewControllerAPIForTest(backend Backend) *ControllerAPI {
+	return &ControllerAPI{state: backend}
+}

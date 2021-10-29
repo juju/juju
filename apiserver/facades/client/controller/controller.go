@@ -7,6 +7,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -29,8 +30,10 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
@@ -45,7 +48,7 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state      *state.State
+	state      Backend
 	statePool  *state.StatePool
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -255,7 +258,7 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:               st,
+		state:               stateShim{st},
 		statePool:           pool,
 		authorizer:          authorizer,
 		apiUser:             apiUser,
@@ -349,6 +352,68 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 	}
 	result.Result = version
 	return result, nil
+}
+
+// DashboardAddressInfo returns the address info needed to connect to the juju dashboard.
+func (c *ControllerAPI) DashboardAddressInfo() (params.DashboardInfo, error) {
+	getDashboardInfo := func() ([]string, bool, error) {
+		controllerApp, err := c.state.Application(bootstrap.ControllerApplicationName)
+		if err != nil {
+			return nil, false, errors.Trace(err)
+		}
+		rels, err := controllerApp.Relations()
+		if err != nil {
+			return nil, false, errors.Trace(err)
+		}
+		for _, rel := range rels {
+			ep, err := rel.Endpoint(controllerApp.Name())
+			if err != nil {
+				return nil, false, errors.Trace(err)
+			}
+			if ep.Name != "dashboard" {
+				continue
+			}
+			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
+			if err != nil {
+				return nil, false, errors.Trace(err)
+			}
+			// There is only one related endpoint.
+			related := relatedEps[0]
+
+			// Lookup the dashboard IP address from application relation data.
+			appSettings, err := rel.ApplicationSettings(related.ApplicationName)
+			if err != nil {
+				return nil, false, errors.Trace(err)
+			}
+			addr, ok := appSettings["dashboard-ingress"]
+			if !ok {
+				return nil, false, errors.NotFoundf("dashboard address in relation data")
+			}
+
+			// Lookup the port number from the dashboard charm config.
+			dashboardApp, err := c.state.Application(related.ApplicationName)
+			if err != nil {
+				return nil, false, errors.Trace(err)
+			}
+			cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+			if err != nil {
+				return nil, false, errors.Trace(err)
+			}
+			port, ok := cfg["port"]
+			if !ok {
+				return nil, false, errors.NotFoundf("dashboard port in charm config")
+			}
+			hostPort := fmt.Sprintf("%v:%v", addr, port)
+			return []string{hostPort}, true, nil
+		}
+		return nil, false, errors.NotFoundf("dashboard")
+	}
+	addr, useTunnel, err := getDashboardInfo()
+	return params.DashboardInfo{
+		Addresses: addr,
+		UseTunnel: useTunnel,
+		Error:     apiservererrors.ServerError(err),
+	}, nil
 }
 
 // AllModels allows controller administrators to get the list of all the
@@ -977,7 +1042,7 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 
 // grantControllerCloudAccess exists for backwards compatibility since older clients
 // still set add-model on the controller rather than the controller cloud.
-func grantControllerCloudAccess(accessor *state.State, targetUserTag names.UserTag, access permission.Access) error {
+func grantControllerCloudAccess(accessor ControllerAccess, targetUserTag names.UserTag, access permission.Access) error {
 	controllerInfo, err := accessor.ControllerInfo()
 	if err != nil {
 		return errors.Trace(err)
@@ -1010,7 +1075,7 @@ func grantControllerCloudAccess(accessor *state.State, targetUserTag names.UserT
 	return nil
 }
 
-func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	// TODO(wallyworld) - remove in Juju 3.0
 	// Older clients still use the controller facade to manage add-model access.
 	if access == permission.AddModelAccess {
@@ -1045,7 +1110,7 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 	return nil
 }
 
-func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+func revokeControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	// TODO(wallyworld) - remove in Juju 3.0
 	// Older clients still use the controller facade to manage add-model access.
 	if access == permission.AddModelAccess {
@@ -1078,7 +1143,7 @@ func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.
 
 // ChangeControllerAccess performs the requested access grant or revoke action for the
 // specified user on the controller.
-func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
+func ChangeControllerAccess(accessor ControllerAccess, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
 	switch action {
 	case params.GrantControllerAccess:
 		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)

@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	"bufio"
@@ -17,6 +17,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/ssh"
@@ -26,6 +27,8 @@ import (
 	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.ssh")
 
 // sshMachine implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand.

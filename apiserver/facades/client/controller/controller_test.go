@@ -9,11 +9,14 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v3/workertest"
@@ -25,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
+	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -1183,4 +1187,49 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+type controllerUnitSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&controllerUnitSuite{})
+
+func (s *controllerUnitSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	return ctrl
+}
+
+func (s *controllerUnitSuite) TestDashboardAddressInfo(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	backend := mocks.NewMockBackend(ctrl)
+	controllerApp := mocks.NewMockApplication(ctrl)
+	dashboardApp := mocks.NewMockApplication(ctrl)
+	relation := mocks.NewMockRelation(ctrl)
+
+	backend.EXPECT().Application("controller").Return(controllerApp, nil)
+	controllerApp.EXPECT().Name().Return("controller").AnyTimes()
+	controllerApp.EXPECT().Relations().Return([]controller.Relation{relation}, nil)
+	relation.EXPECT().Endpoint("controller").Return(state.Endpoint{
+		Relation: charm.Relation{Name: "dashboard"},
+	}, nil)
+	relation.EXPECT().RelatedEndpoints("controller").Return([]state.Endpoint{{
+		ApplicationName: "juju-dashboard",
+	}}, nil)
+	relation.EXPECT().ApplicationSettings("juju-dashboard").Return(map[string]interface{}{
+		"dashboard-ingress": "10.6.6.6",
+	}, nil)
+
+	backend.EXPECT().Application("juju-dashboard").Return(dashboardApp, nil)
+	dashboardApp.EXPECT().CharmConfig("master").Return(charm.Settings{"port": 666}, nil)
+
+	api := controller.NewControllerAPIForTest(backend)
+	info, err := api.DashboardAddressInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, params.DashboardInfo{
+		Addresses: []string{"10.6.6.6:666"},
+		UseTunnel: true,
+	})
 }

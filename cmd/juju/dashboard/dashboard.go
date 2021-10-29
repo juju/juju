@@ -4,32 +4,38 @@
 package dashboard
 
 import (
-	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/url"
 	"os"
 	"os/signal"
-	"reflect"
-	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/webbrowser"
-	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/proxy"
 )
 
-// TODO(wallyworld) - this command needs to be updated to work with the dashboard charm
+// ControllerAPI is used to get dashboard info from the controller.
+type ControllerAPI interface {
+	DashboardAddresses() ([]string, bool, error)
+	Close() error
+}
 
 // NewDashboardCommand creates and returns a new dashboard command.
 func NewDashboardCommand() cmd.Command {
-	return modelcmd.Wrap(&dashboardCommand{})
+	d := &dashboardCommand{}
+	d.newAPIFunc = func() (ControllerAPI, bool, error) {
+		return d.newControllerAPI()
+	}
+	d.embeddedSSHCmd = ssh.NewSSHCommand(nil, nil)
+	return modelcmd.Wrap(d)
 }
 
 // dashboardCommand opens the Juju Dashboard in the default browser.
@@ -38,6 +44,19 @@ type dashboardCommand struct {
 
 	hideCreds bool
 	browser   bool
+
+	newAPIFunc func() (ControllerAPI, bool, error)
+
+	port           int
+	embeddedSSHCmd cmd.Command
+}
+
+func (c *dashboardCommand) newControllerAPI() (ControllerAPI, bool, error) {
+	root, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	return controller.NewClient(root), root.IsProxied(), nil
 }
 
 const dashboardDoc = `
@@ -57,7 +76,15 @@ Open the Juju Dashboard in the default browser without printing the login creden
 
 	juju dashboard --hide-credential --browser
 
-An error is returned if the Juju Dashboard is not available in the controller.
+An error is returned if the Juju Dashboard is not running.
+`
+
+const dashboardNotAvailableMessage = `The Juju dashboard is not yet deployed.
+To deploy the Juju dashboard follow these steps:
+  juju switch controller
+  juju deploy juju-dashboard
+  juju expose juju-dashboard
+  juju relate juju-dashboard controller
 `
 
 // Info implements the cmd.Command interface.
@@ -72,34 +99,56 @@ func (c *dashboardCommand) Info() *cmd.Info {
 // SetFlags implements the cmd.Command interface.
 func (c *dashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.IntVar(&c.port, "port", 31666, "Local port used to serve the dashboard")
 	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju Dashboard")
 	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju Dashboard URL")
 }
 
 // Run implements the cmd.Command interface.
 func (c *dashboardCommand) Run(ctx *cmd.Context) error {
-	// Retrieve model details.
-	conn, err := c.NewControllerAPIRoot()
+	api, isProxied, err := c.newAPIFunc()
 	if err != nil {
-		return errors.Annotate(err, "cannot establish API connection")
+		return errors.Trace(err)
 	}
-	defer conn.Close()
+	defer func() { _ = api.Close() }()
 
 	// Check that the Juju Dashboard is available.
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	addr, ignoreCertError, err := dashboardAddr(conn)
+	actualDashboardAddresses, useTunnel, err := api.DashboardAddresses()
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return errors.New(dashboardNotAvailableMessage)
+		}
 		return errors.Annotatef(err,
 			"getting dashboard address for controller %q",
 			controllerName,
 		)
 	}
-	dashboardURL := fmt.Sprintf("https://%s/dashboard", addr)
-	if err = c.checkAvailable(conn, ignoreCertError, dashboardURL); err != nil {
-		return errors.Trace(err)
+
+	// Pick a random dashboard address.
+	i := rand.Intn(len(actualDashboardAddresses))
+	dashboardAddress := actualDashboardAddresses[i]
+	dashboardURL := fmt.Sprintf("https://%s", dashboardAddress)
+
+	var errCh <-chan error
+	if useTunnel {
+		errCh, err = c.openTunnel(dashboardAddress)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		dashboardURL = fmt.Sprintf("http://localhost:%d", c.port)
+	}
+	// TODO(wallyworld) - support k8s dashboard charm properly
+	if isProxied {
+		//addr, err := proxierAddr(conn.Proxy())
+		//if err != nil {
+		//	return errors.Trace(err)
+		//}
+		//dashboardURL = fmt.Sprintf("http://%s", addr)
+		return errors.NotSupportedf("k8s dashboard")
 	}
 
 	// Open the Juju Dashboard in the browser.
@@ -112,7 +161,7 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if !conn.IsProxied() {
+	if !useTunnel && !isProxied {
 		return nil
 	}
 
@@ -124,79 +173,37 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 
 	signalCh := make(chan os.Signal)
 	signal.Notify(signalCh, os.Interrupt, os.Kill)
-	waitSig := <-signalCh
-
-	ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
+	select {
+	case waitSig := <-signalCh:
+		ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
+	case err := <-errCh:
+		return errors.Annotate(err, "error opening ssh tunnel")
+	}
 	return nil
 }
 
-// dashboardAddr returns an address where the Dashboard is available.
-func dashboardAddr(conn api.Connection) (string, bool, error) {
-	if dnsName := conn.PublicDNSName(); dnsName != "" {
-		return dnsName, false, nil
-	}
-	// The CLI k8s clouds connect via a proxy running on localhost.
-	// The dashboard still needs to go via the controller IP.
-	// TODO - this is a temporary workaround which will not work
-	// on k8s clouds like minikube, kind etc.
-	isLocal := func(host string) bool {
-		return host == "localhost" || host == "127.0.0.1" || host == "::1"
-	}
-	addr := conn.Addr()
-	if conn.IsProxied() {
-		var err error
-		addr, err = proxierAddr(conn.Proxy())
-		if err != nil {
-			return "", false, err
-		}
-		return addr, false, nil
-	}
-
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil || !isLocal(host) {
-		return addr, false, nil
-	}
-	for _, hps := range conn.APIHostPorts() {
-		for _, hp := range hps {
-			if host := hp.Host(); !isLocal(host) {
-				return hp.String(), true, nil
-			}
-		}
-	}
-	return addr, false, nil
-}
-
-func proxierAddr(proxier proxy.Proxier) (string, error) {
-	switch p := proxier.(type) {
-	case proxy.TunnelProxier:
-		return fmt.Sprintf("%s:%s", p.Host(), p.Port()), nil
-	default:
-		return "", errors.NotImplementedf(
-			"cannot extract proxy address for proxy type %s",
-			reflect.TypeOf(proxier))
-	}
-}
-
-// checkAvailable ensures the Juju Dashboard is available on the controller at
-// the given URL.
-func (c *dashboardCommand) checkAvailable(conn api.Connection, ignoreCertError bool, URL string) error {
-	client, err := conn.HTTPClient()
+// openTunnel creates a tunnel from localhost to the dashboard.
+func (c *dashboardCommand) openTunnel(dashboardAddress string) (<-chan error, error) {
+	host, _, err := net.SplitHostPort(dashboardAddress)
 	if err != nil {
-		return errors.Annotate(err, "cannot retrieve HTTP client")
+		return nil, errors.Trace(err)
 	}
-	err = clientGet(c.StdContext, client, URL)
-	// We don't have access to the http error code, but make a best effort to
-	// handle a missing dashboard as opposed to a connection error
-	if err != nil {
-		if strings.Contains(err.Error(), "404 ") {
-			return errors.New("Juju Dashboard is not available")
-		}
-		// TODO - fix this workaround for k8s clouds
-		if ignoreCertError && strings.Contains(err.Error(), "x509: ") {
-			return nil
-		}
+	if err := c.embeddedSSHCmd.Init([]string{
+		"ubuntu@" + host,
+		"-N",
+		"-L",
+		fmt.Sprintf("%d:%s", c.port, dashboardAddress),
+	}); err != nil {
+		return nil, errors.Trace(err)
 	}
-	return errors.Annotate(err, "Juju Dashboard is not available")
+	errCh := make(chan error)
+	go func() {
+		// TODO(wallyworld) - extract the core ssh machinery and use directly.
+		ctx, _ := cmd.DefaultContext()
+		errCh <- c.embeddedSSHCmd.Run(ctx)
+	}()
+
+	return errCh, nil
 }
 
 // openBrowser opens the Juju Dashboard at the given URL.
@@ -243,11 +250,6 @@ func (c *dashboardCommand) showCredentials(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Your login credential is:\n  username: %s\n  password: %s", accountDetails.User, password)
 	return nil
-}
-
-// clientGet is defined for testing purposes.
-var clientGet = func(ctx context.Context, client *httprequest.Client, rawURL string) error {
-	return client.Get(ctx, rawURL, nil)
 }
 
 // webbrowserOpen is defined for testing purposes.

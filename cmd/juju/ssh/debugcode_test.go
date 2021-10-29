@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package ssh
 
 import (
 	"encoding/base64"
@@ -27,7 +27,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	}
 	s.setupModel(c)
 	s.setHostChecker(validAddresses("0.public"))
-	ctx, err := cmdtesting.RunCommand(c, newDebugCodeCommand(s.hostChecker),
+	ctx, err := cmdtesting.RunCommand(c, NewDebugCodeCommand(s.hostChecker),
 		"--at=foo,bar", "mysql/0", "install", "start")
 	c.Assert(err, jc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
