@@ -30,8 +30,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -82,7 +80,6 @@ See also:
 
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
-	command.registryAPIFunc = registry.New
 	return modelcmd.Wrap(command)
 }
 
@@ -90,9 +87,8 @@ func newUpgradeJujuCommandForTest(
 	store jujuclient.ClientStore,
 	jujuClientAPI jujuClientAPI,
 	modelConfigAPI modelConfigAPI,
-	modelManagerAPI modelManagerAPI,
+	modelManagerAPI ModelManagerAPI,
 	controllerAPI ControllerAPI,
-	registryAPIFunc registryAPINewer,
 	options ...modelcmd.WrapOption,
 ) cmd.Command {
 	command := &upgradeJujuCommand{
@@ -100,7 +96,6 @@ func newUpgradeJujuCommandForTest(
 			modelConfigAPI:  modelConfigAPI,
 			modelManagerAPI: modelManagerAPI,
 			controllerAPI:   controllerAPI,
-			registryAPIFunc: registryAPIFunc,
 		},
 		jujuClientAPI: jujuClientAPI,
 	}
@@ -128,9 +123,8 @@ type baseUpgradeCommand struct {
 	upgradeMessage string
 
 	modelConfigAPI  modelConfigAPI
-	modelManagerAPI modelManagerAPI
+	modelManagerAPI ModelManagerAPI
 	controllerAPI   ControllerAPI
-	registryAPIFunc registryAPINewer
 }
 
 func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -320,8 +314,10 @@ type modelConfigAPI interface {
 	Close() error
 }
 
-type modelManagerAPI interface {
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelmanager_mock.go github.com/juju/juju/cmd/juju/commands ModelManagerAPI
+type ModelManagerAPI interface {
 	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error
+	ToolVersions(names.ModelTag) (coretools.List, error)
 	Close() error
 }
 
@@ -333,8 +329,6 @@ type ControllerAPI interface {
 	Close() error
 }
 
-type registryAPINewer func(docker.ImageRepoDetails) (registry.Registry, error)
-
 func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
 	if c.jujuClientAPI != nil {
 		return c.jujuClientAPI, nil
@@ -343,12 +337,14 @@ func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
 	return c.NewAPIClient()
 }
 
-func (c *upgradeJujuCommand) getModelManagerAPI() (modelManagerAPI, error) {
-	if c.modelManagerAPI != nil {
-		return c.modelManagerAPI, nil
+func (c *upgradeJujuCommand) getModelManagerAPI() (ModelManagerAPI, error) {
+	if c.modelManagerAPI == nil {
+		var err error
+		if c.modelManagerAPI, err = c.NewModelManagerAPIClient(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-
-	return c.NewModelManagerAPIClient()
+	return c.modelManagerAPI, nil
 }
 
 func (c *upgradeJujuCommand) getModelConfigAPI() (modelConfigAPI, error) {
@@ -382,7 +378,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	// The default available agents come directly from streams metadata.
-	availableAgents := func(controllerCfg controller.Config, majorVersion int, streamsVersions coretools.List) (coretools.Versions, error) {
+	availableAgents := func(_ names.ModelTag, majorVersion int, streamsVersions coretools.List) (coretools.Versions, error) {
 		agents := make(coretools.Versions, len(streamsVersions))
 		for i, t := range streamsVersions {
 			agents[i] = t
@@ -457,10 +453,6 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 			return errors.Errorf("--build-agent can only be used with the controller model")
 		}
 	}
-	controllerCfg, err := controllerClient.ControllerConfig()
-	if err != nil {
-		return err
-	}
 
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
@@ -473,7 +465,15 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		return err
 	}
 
-	upgradeCtx, versionsErr := c.initVersions(client, controllerCfg, cfg, agentVersion, warnCompat, fetchTimeout, availableAgents)
+	_, details, err := c.ModelCommandBase.ModelDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	upgradeCtx, versionsErr := c.initVersions(
+		client, names.NewModelTag(details.ModelUUID),
+		cfg, agentVersion, warnCompat, fetchTimeout, availableAgents,
+	)
 	if versionsErr != nil {
 		return versionsErr
 	}
@@ -595,6 +595,7 @@ func (c *upgradeJujuCommand) validateModelUpgrade() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer client.Close()
 
 	// TODO (stickupkid): Define force for validation of model upgrade.
 	// If the model to upgrade does not implement the minimum facade version
@@ -792,14 +793,14 @@ func (c *baseUpgradeCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 
 // availableAgentsFunc defines a function that returns the
 // available agent versions for the given simple streams agent metadata.
-type availableAgentsFunc func(controllerCfg controller.Config, majorVersion int, streamVersions coretools.List) (coretools.Versions, error)
+type availableAgentsFunc func(modelTag names.ModelTag, majorVersion int, streamVersions coretools.List) (coretools.Versions, error)
 
 // initVersions collects state relevant to an upgrade decision. The returned
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
 func (c *baseUpgradeCommand) initVersions(
-	client toolsAPI, controllerCfg controller.Config, cfg *config.Config,
+	client toolsAPI, modelTag names.ModelTag, cfg *config.Config,
 	agentVersion version.Number, filterOnPrior bool, timeout time.Duration,
 	availableAgents availableAgentsFunc,
 ) (*upgradeContext, error) {
@@ -820,7 +821,7 @@ func (c *baseUpgradeCommand) initVersions(
 	if err != nil && !params.IsCodeNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	agents, err := availableAgents(controllerCfg, filterVersion.Major, streamVersions)
+	agents, err := availableAgents(modelTag, filterVersion.Major, streamVersions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

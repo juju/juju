@@ -17,14 +17,10 @@ import (
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -63,7 +59,6 @@ See also:
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
 	command := &upgradeControllerCommand{}
-	command.registryAPIFunc = registry.New
 	return modelcmd.WrapController(command, options...)
 }
 
@@ -121,7 +116,21 @@ func (c *upgradeControllerCommand) getControllerAPI() (ControllerAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
+func (c *upgradeControllerCommand) getModelManagerAPI() (ModelManagerAPI, error) {
+	if c.modelManagerAPI == nil {
+		var err error
+		if c.modelManagerAPI, err = c.NewModelManagerAPIClient(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return c.modelManagerAPI, nil
+}
+
 func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
+	if c.baseUpgradeCommand.modelManagerAPI, err = c.getModelManagerAPI(); err != nil {
+		return errors.Trace(err)
+	}
+
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
@@ -238,12 +247,18 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 		return err
 	}
 
-	controllerCfg, err := controllerAPI.ControllerConfig()
+	modelUUIDs, err := c.ControllerCommandBase.ModelUUIDs([]string{bootstrap.ControllerModelName})
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	if len(modelUUIDs) == 0 {
+		return errors.NotFoundf("controller model")
 	}
 
-	context, versionsErr := c.initVersions(client, controllerCfg, cfg, currentAgentVersion, warnCompat, caasStreamsTimeout, c.initCAASVersions)
+	context, versionsErr := c.initVersions(
+		client, names.NewModelTag(modelUUIDs[0]),
+		cfg, currentAgentVersion, warnCompat, caasStreamsTimeout, c.initCAASVersions,
+	)
 	if versionsErr != nil && !params.IsCodeNotFound(versionsErr) {
 		return versionsErr
 	}
@@ -269,32 +284,15 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 	return c.notifyControllerUpgrade(ctx, client, context)
 }
 
-func (c *baseUpgradeCommand) listOperatorImages(controllerCfg controller.Config) (tools.Versions, error) {
-	imageRepoDetails := controllerCfg.CAASImageRepo()
-	if imageRepoDetails.Empty() {
-		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		imageRepoDetails = *repoDetails
-	}
-	reg, err := c.registryAPIFunc(imageRepoDetails)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer func() { _ = reg.Close() }()
-	return reg.Tags(podcfg.JujudOCIName)
-}
-
 // initCAASVersions collects state relevant to an upgrade decision. The returned
 // agent and client versions, and the list of currently available operator images, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
 func (c *baseUpgradeCommand) initCAASVersions(
-	controllerCfg controller.Config, majorVersion int, streamsAgents tools.List,
+	modelTag names.ModelTag, majorVersion int, streamsAgents tools.List,
 ) (tools.Versions, error) {
 	logger.Debugf("searching for agent images with major: %d", majorVersion)
-	availableTags, err := c.listOperatorImages(controllerCfg)
+	availableTags, err := c.modelManagerAPI.ToolVersions(modelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -302,7 +300,7 @@ func (c *baseUpgradeCommand) initCAASVersions(
 	for _, a := range streamsAgents {
 		streamsVersions.Add(a.Version.Number.String())
 	}
-	logger.Debugf("found available tags: %q", availableTags)
+	logger.Debugf("found available tags for %q: %q", modelTag, availableTags)
 	var matchingTags tools.Versions
 	for _, t := range availableTags {
 		vers := t.AgentVersion()

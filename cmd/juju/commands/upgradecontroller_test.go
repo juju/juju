@@ -19,13 +19,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/docker/registry/image"
-	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -273,11 +269,11 @@ var upgradeCAASControllerTests = []upgradeTest{{
 }}
 
 func (s *UpgradeCAASControllerSuite) upgradeControllerCommand(
-	controllerAPI ControllerAPI, registryAPIFunc registryAPINewer,
+	controllerAPI ControllerAPI, modelManagerAPI ModelManagerAPI,
 ) cmd.Command {
 	cmd := &upgradeControllerCommand{}
 	cmd.controllerAPI = controllerAPI
-	cmd.registryAPIFunc = registryAPIFunc
+	cmd.modelManagerAPI = modelManagerAPI
 	cmd.SetClientStore(s.ControllerStore)
 	return modelcmd.WrapController(cmd)
 }
@@ -286,44 +282,36 @@ func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	controllerCfg := s.ControllerConfig
-	controllerCfg[controller.CAASImageRepo] = `
-{
-    "serveraddress": "ghcr.io",
-    "auth": "xxxxx==",
-    "repository": "test-account"
-}`[1:]
-	registryAPIFuncCalled := false
 	controllerAPI := mocks.NewMockControllerAPI(ctrl)
-	registryAPI := registrymocks.NewMockRegistry(ctrl)
-	registryAPIFunc := func(imageRepo docker.ImageRepoDetails) (registry.Registry, error) {
-		c.Assert(imageRepo.Repository, gc.DeepEquals, "test-account")
-		c.Assert(imageRepo.ServerAddress, gc.DeepEquals, "ghcr.io")
-		c.Assert(imageRepo.Auth.Value, gc.DeepEquals, "xxxxx==")
-		c.Assert(imageRepo.IsPrivate(), jc.IsTrue)
-		registryAPIFuncCalled = true
-		return registryAPI, nil
-	}
+	modelManagerAPI := mocks.NewMockModelManagerAPI(ctrl)
 
 	assertAndMocks := func(tagsInfo []tagInfo) {
-		var tags coretools.Versions
-		for _, t := range tagsInfo {
-			v, err := version.Parse(t.Tag)
-			c.Check(err, jc.ErrorIsNil)
-			tags = append(tags, image.NewImageInfo(v))
-		}
 		gomock.InOrder(
-			controllerAPI.EXPECT().ControllerConfig().Return(controllerCfg, nil),
-			registryAPI.EXPECT().Tags("jujud-operator").Return(tags, nil),
-			registryAPI.EXPECT().Close().Return(nil),
+			modelManagerAPI.EXPECT().ToolVersions(gomock.Any()).DoAndReturn(
+				func(modelTag names.ModelTag) (coretools.List, error) {
+					c.Assert(modelTag, gc.DeepEquals, s.BackingState.ControllerModelTag())
+					var tags coretools.List
+					for _, t := range tagsInfo {
+						v, err := version.Parse(t.Tag)
+						c.Check(err, jc.ErrorIsNil)
+						tags = append(tags, &coretools.Tools{
+							Version: version.Binary{
+								Number:  v,
+								Release: coreos.HostOSTypeName(),
+								Arch:    "amd64",
+							},
+						})
+					}
+					return tags, nil
+				},
+			),
 			controllerAPI.EXPECT().Close().Return(nil),
 		)
 	}
 
 	s.assertUpgradeTests(c, upgradeCAASControllerTests, assertAndMocks, func() cmd.Command {
-		return s.upgradeControllerCommand(controllerAPI, registryAPIFunc)
+		return s.upgradeControllerCommand(controllerAPI, modelManagerAPI)
 	})
-	c.Assert(registryAPIFuncCalled, jc.IsTrue)
 }
 
 func (s *UpgradeCAASControllerSuite) assertUpgradeTests(
