@@ -4,6 +4,7 @@
 package raftlease
 
 import (
+	"context"
 	"errors"
 
 	"github.com/golang/mock/gomock"
@@ -28,12 +29,12 @@ func (s *RaftLeaseSuite) TestApplyLease(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.auth.EXPECT().AuthController().Return(true)
-	s.raft.EXPECT().ApplyLease([]byte("do it")).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it")).Return(nil)
 
 	facade, err := NewFacade(s.auth, s.raft)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ApplyLease(params.LeaseOperations{
+	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
 			Command: "do it",
 		}},
@@ -48,13 +49,13 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.auth.EXPECT().AuthController().Return(true)
-	s.raft.EXPECT().ApplyLease([]byte("do it 0")).Return(nil)
-	s.raft.EXPECT().ApplyLease([]byte("do it 1")).Return(apiservererrors.NewNotLeaderError("10.0.0.8", "1"))
+	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 0")).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 1")).Return(apiservererrors.NewNotLeaderError("10.0.0.8", "1"))
 
 	facade, err := NewFacade(s.auth, s.raft)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ApplyLease(params.LeaseOperations{
+	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
 			Command: "do it 0",
 		}, {
@@ -87,14 +88,14 @@ func (s *RaftLeaseSuite) TestApplyLeaseError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.auth.EXPECT().AuthController().Return(true)
-	s.raft.EXPECT().ApplyLease([]byte("do it 0")).Return(nil)
-	s.raft.EXPECT().ApplyLease([]byte("do it 1")).Return(errors.New("boom"))
-	s.raft.EXPECT().ApplyLease([]byte("do it 2")).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 0")).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 1")).Return(errors.New("boom"))
+	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 2")).Return(nil)
 
 	facade, err := NewFacade(s.auth, s.raft)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ApplyLease(params.LeaseOperations{
+	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
 			Command: "do it 0",
 		}, {

@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -52,7 +54,7 @@ type raftMediator struct {
 // already processing a application, then back pressure is applied to the
 // caller and a ErrEnqueueDeadlineExceeded will be sent. It's up to the caller
 // to retry or drop depending on how the retry algorithm is implemented.
-func (m *raftMediator) ApplyLease(cmd []byte) error {
+func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
 	if m.logger.IsTraceEnabled() {
 		m.logger.Tracef("Applying Lease with command %s", string(cmd))
 	}
@@ -66,7 +68,10 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 		Done: func(err error) {
 			// We can do this, because the caller of done, is in another
 			// goroutine, otherwise this is a sure fire way to deadlock.
-			done <- err
+			if err != nil {
+				done <- err
+			}
+			close(done)
 		},
 	})
 
@@ -78,10 +83,13 @@ func (m *raftMediator) ApplyLease(cmd []byte) error {
 			m.logger.Tracef("Applied Lease with command %s in time: %v", string(cmd), elapsed)
 		}
 
-	case <-m.clock.After(ApplyLeaseTimeout):
-		elapsed := m.clock.Now().Sub(start)
+	case <-ctx.Done():
+		m.logger.Errorf("Context was marked as done whilst waiting for enqueue: %v", m.clock.Now().Sub(start))
+		msg := fmt.Sprintf("Apply lease context deadline exceeded: %s", ctx.Err())
+		return apiservererrors.NewDeadlineExceededError(msg)
 
-		m.logger.Errorf("Applying Lease timed out, waiting for enqueue: %v", elapsed)
+	case <-m.clock.After(ApplyLeaseTimeout):
+		m.logger.Errorf("Applying Lease timed out, waiting for enqueue: %v", m.clock.Now().Sub(start))
 		return apiservererrors.NewDeadlineExceededError("Apply lease upper bound timeout")
 	}
 
