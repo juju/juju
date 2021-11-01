@@ -32298,7 +32298,7 @@
     {
         "Name": "ModelManager",
         "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.",
-        "Version": 9,
+        "Version": 10,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -32452,6 +32452,17 @@
                     },
                     "description": "SetModelDefaults writes new values for the specified default model settings."
                 },
+                "ToolVersions": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ToolVersionsResult"
+                        }
+                    }
+                },
                 "UnsetModelDefaults": {
                     "type": "object",
                     "properties": {
@@ -32478,6 +32489,46 @@
                 }
             },
             "definitions": {
+                "Binary": {
+                    "type": "object",
+                    "properties": {
+                        "Arch": {
+                            "type": "string"
+                        },
+                        "Build": {
+                            "type": "integer"
+                        },
+                        "Major": {
+                            "type": "integer"
+                        },
+                        "Minor": {
+                            "type": "integer"
+                        },
+                        "Number": {
+                            "$ref": "#/definitions/Number"
+                        },
+                        "Patch": {
+                            "type": "integer"
+                        },
+                        "Release": {
+                            "type": "string"
+                        },
+                        "Tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Major",
+                        "Minor",
+                        "Tag",
+                        "Patch",
+                        "Build",
+                        "Number",
+                        "Release",
+                        "Arch"
+                    ]
+                },
                 "ChangeModelCredentialParams": {
                     "type": "object",
                     "properties": {
@@ -33492,6 +33543,47 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ToolVersionsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "tool-versions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Tools"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tool-versions"
+                    ]
+                },
+                "Tools": {
+                    "type": "object",
+                    "properties": {
+                        "sha256": {
+                            "type": "string"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "$ref": "#/definitions/Binary"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "version",
+                        "url",
+                        "size"
                     ]
                 },
                 "UnsetModelDefaults": {

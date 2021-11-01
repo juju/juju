@@ -179,19 +179,13 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 
 	imageRepo := cfg.CAASImageRepo()
 	imageInfo := params.DockerImageInfo{
-		Username:   imageRepo.Username,
-		Password:   imageRepo.Password,
-		Email:      imageRepo.Email,
-		Repository: imageRepo.Repository,
-	}
-	if !imageRepo.Auth.Empty() {
-		imageInfo.Auth = imageRepo.Auth.Value
-	}
-	if !imageRepo.IdentityToken.Empty() {
-		imageInfo.IdentityToken = imageRepo.IdentityToken.Value
-	}
-	if !imageRepo.RegistryToken.Empty() {
-		imageInfo.RegistryToken = imageRepo.RegistryToken.Value
+		Username:      imageRepo.Username,
+		Password:      imageRepo.Password,
+		Email:         imageRepo.Email,
+		Repository:    imageRepo.Repository,
+		Auth:          imageRepo.Auth.String(),
+		IdentityToken: imageRepo.IdentityToken.String(),
+		RegistryToken: imageRepo.RegistryToken.String(),
 	}
 
 	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(

@@ -171,21 +171,23 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, &s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, &s.authorizer, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, s.authorizer, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV7{
 		&modelmanager.ModelManagerAPIV8{
-			s.modelmanager,
+			&modelmanager.ModelManagerAPIV9{
+				s.modelmanager,
+			},
 		},
 	}
 
@@ -654,6 +656,7 @@ type mockState struct {
 	modelConfig     *config.Config
 
 	modelDetailsForUser func() ([]state.ModelSummary, error)
+	CAASImageRepo       string
 }
 
 type fakeModelDescription struct {
@@ -797,9 +800,11 @@ func (st *mockState) IsController() bool {
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
-	return controller.Config{
+	cfg := controller.Config{
 		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-	}, st.NextErr()
+		controller.CAASImageRepo:     st.CAASImageRepo,
+	}
+	return cfg, st.NextErr()
 }
 
 func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
@@ -1074,15 +1079,16 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 
 type mockModel struct {
 	gitjujutesting.Stub
-	owner               names.UserTag
-	life                state.Life
-	tag                 names.ModelTag
-	status              status.StatusInfo
-	cfg                 *config.Config
-	users               []*mockModelUser
-	migrationStatus     state.MigrationMode
-	controllerUUID      string
-	isController        bool
+	owner           names.UserTag
+	life            state.Life
+	tag             names.ModelTag
+	status          status.StatusInfo
+	cfg             *config.Config
+	users           []*mockModelUser
+	migrationStatus state.MigrationMode
+	controllerUUID  string
+	isController    bool
+	// isCAAS              *bool
 	cloud               cloud.Cloud
 	cred                state.Credential
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
@@ -1105,6 +1111,9 @@ func (m *mockModel) ModelTag() names.ModelTag {
 
 func (m *mockModel) Type() state.ModelType {
 	m.MethodCall(m, "Type")
+	// if m.isCAAS != nil && *m.isCAAS {
+	// 	return state.ModelTypeCAAS
+	// }
 	return state.ModelTypeIAAS
 }
 

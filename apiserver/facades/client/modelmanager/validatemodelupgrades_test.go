@@ -5,7 +5,6 @@ package modelmanager_test
 
 import (
 	"github.com/golang/mock/gomock"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,9 +18,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/dummy"
+	jujuversion "github.com/juju/juju/version"
 )
 
-type ValidateModelUpgradesSuite struct {
+type modelManagerNewSuite struct {
 	jujutesting.IsolationSuite
 
 	st          *mockState
@@ -30,9 +30,9 @@ type ValidateModelUpgradesSuite struct {
 	callContext context.ProviderCallContext
 }
 
-var _ = gc.Suite(&ValidateModelUpgradesSuite{})
+var _ = gc.Suite(&modelManagerNewSuite{})
 
-func (s *ValidateModelUpgradesSuite) SetUpTest(c *gc.C) {
+func (s *modelManagerNewSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	adminUser := "admin"
@@ -40,6 +40,13 @@ func (s *ValidateModelUpgradesSuite) SetUpTest(c *gc.C) {
 
 	s.st = &mockState{
 		model: s.createModel(c, s.adminUser),
+		CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
 	}
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.adminUser,
@@ -48,15 +55,29 @@ func (s *ValidateModelUpgradesSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
+func (s *modelManagerNewSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
+	attrs := dummy.SampleConfig()
+	attrs["agent-version"] = jujuversion.Current.String()
+	cfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return &mockModel{
+		tag:   names.NewModelTag(utils.MustNewUUID().String()),
+		owner: user,
+		cfg:   cfg,
+		// isCAAS:              s.isCAAS,
+		setCloudCredentialF: func(tag names.CloudCredentialTag) (bool, error) { return false, nil },
+	}
+}
+
 // TestValidateModelUpgradesWithNoModelTags tests that we don't fail if we don't
 // pass any model tags.
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithNoModelTags(c *gc.C) {
+func (s *modelManagerNewSuite) TestValidateModelUpgradesWithNoModelTags(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	statePool := mocks.NewMockStatePool(ctrl)
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{})
@@ -64,13 +85,13 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithNoModelTags(c 
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithInvalidModelTag(c *gc.C) {
+func (s *modelManagerNewSuite) TestValidateModelUpgradesWithInvalidModelTag(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	statePool := mocks.NewMockStatePool(ctrl)
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
@@ -83,7 +104,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithInvalidModelTa
 	c.Assert(results.OneError(), gc.ErrorMatches, `"!!!" is not a valid tag`)
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithModelWithNoPermission(c *gc.C) {
+func (s *modelManagerNewSuite) TestValidateModelUpgradesWithModelWithNoPermission(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -92,7 +113,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithModelWithNoPer
 		Tag: names.NewUserTag("user"),
 	}
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
@@ -105,7 +126,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithModelWithNoPer
 	c.Assert(results.OneError(), gc.ErrorMatches, `permission denied`)
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModels(c *gc.C) {
+func (s *modelManagerNewSuite) TestValidateModelUpgradesForControllerModels(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -119,7 +140,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
@@ -132,7 +153,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	c.Assert(results.OneError(), jc.ErrorIsNil)
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerModels(c *gc.C) {
+func (s *modelManagerNewSuite) TestValidateModelUpgradesForNonControllerModels(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -147,7 +168,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
@@ -160,7 +181,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	c.Assert(results.OneError(), jc.ErrorIsNil)
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachines(c *gc.C) {
+func (s *modelManagerNewSuite) TestValidateModelUpgradesForUpgradingMachines(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -175,7 +196,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
@@ -188,7 +209,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	c.Assert(results.OneError(), gc.ErrorMatches, `unexpected upgrade series lock found`)
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachinesWithForce(c *gc.C) {
+func (s *modelManagerNewSuite) TestValidateModelUpgradesForUpgradingMachinesWithForce(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -203,7 +224,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
@@ -215,17 +236,4 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.OneError(), jc.ErrorIsNil)
-}
-
-func (s *ValidateModelUpgradesSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
-	attrs := dummy.SampleConfig()
-	attrs["agent-version"] = jujuversion.Current.String()
-	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	return &mockModel{
-		tag:                 names.NewModelTag(utils.MustNewUUID().String()),
-		owner:               user,
-		cfg:                 cfg,
-		setCloudCredentialF: func(tag names.CloudCredentialTag) (bool, error) { return false, nil },
-	}
 }

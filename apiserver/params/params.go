@@ -1012,6 +1012,12 @@ type FindToolsResult struct {
 	Error *Error     `json:"error,omitempty"`
 }
 
+// ToolVersionsResult holds a list of tool versions and any error.
+type ToolVersionsResult struct {
+	ToolVersions tools.List `json:"tool-versions"`
+	Error        *Error     `json:"error,omitempty"`
+}
+
 // ImageFilterParams holds the parameters used to specify images to delete.
 type ImageFilterParams struct {
 	Images []ImageSpec `json:"images"`

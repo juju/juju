@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.api.modelmanager")
@@ -624,4 +625,20 @@ func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
 		return errors.Errorf("expected one result, got %d", num)
 	}
 	return results.OneError()
+}
+
+func (c *Client) ToolVersions(model names.ModelTag) (tools.List, error) {
+	bestVer := c.facade.BestAPIVersion()
+	if bestVer < 10 {
+		return nil, errors.NotImplementedf("ToolVersions in version %v", bestVer)
+	}
+	var apiResults params.ToolVersionsResult
+	entity := params.Entity{Tag: model.String()}
+	if err := c.facade.FacadeCall("ToolVersions", entity, &apiResults); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := apiResults.Error; err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiResults.ToolVersions, nil
 }

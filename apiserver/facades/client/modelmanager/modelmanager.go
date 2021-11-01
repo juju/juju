@@ -28,9 +28,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -39,9 +43,17 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
+
+// ModelManagerV10 defines the methods on the version 10 facade for the
+// modelmanager API endpoint.
+type ModelManagerV10 interface {
+	ModelManagerV9
+	ToolVersions(model params.Entity) (params.ToolVersionsResult, error)
+}
 
 // ModelManagerV9 defines the methods on the version 9 facade for the
 // modelmanager API endpoint.
@@ -139,29 +151,37 @@ type State interface {
 // Model defines a point of use interface for the model from state.
 type Model interface {
 	IsControllerModel() bool
+	Type() state.ModelType
 }
 
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	state       common.ModelManagerBackend
-	statePool   StatePool
-	ctlrState   common.ModelManagerBackend
-	check       *common.BlockChecker
-	authorizer  facade.Authorizer
-	toolsFinder *common.ToolsFinder
-	apiUser     names.UserTag
-	isAdmin     bool
-	model       common.Model
-	getBroker   newCaasBrokerFunc
-	callContext context.ProviderCallContext
+	state           common.ModelManagerBackend
+	statePool       StatePool
+	ctlrState       common.ModelManagerBackend
+	check           *common.BlockChecker
+	authorizer      facade.Authorizer
+	toolsFinder     *common.ToolsFinder
+	apiUser         names.UserTag
+	isAdmin         bool
+	model           common.Model
+	getBroker       newCaasBrokerFunc
+	callContext     context.ProviderCallContext
+	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+}
+
+// ModelManagerAPIV9 provides a way to wrap the different calls between
+// version 9 and version 9 of the model manager API
+type ModelManagerAPIV9 struct {
+	*ModelManagerAPI
 }
 
 // ModelManagerAPIV8 provides a way to wrap the different calls between
 // version 8 and version 8 of the model manager API
 type ModelManagerAPIV8 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV9
 }
 
 // ModelManagerAPIV7 provides a way to wrap the different calls between
@@ -201,18 +221,19 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
-	_ ModelManagerV8 = (*ModelManagerAPIV8)(nil)
-	_ ModelManagerV7 = (*ModelManagerAPIV7)(nil)
-	_ ModelManagerV6 = (*ModelManagerAPIV6)(nil)
-	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
-	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
-	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
-	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
+	_ ModelManagerV10 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV9  = (*ModelManagerAPIV9)(nil)
+	_ ModelManagerV8  = (*ModelManagerAPIV8)(nil)
+	_ ModelManagerV7  = (*ModelManagerAPIV7)(nil)
+	_ ModelManagerV6  = (*ModelManagerAPIV6)(nil)
+	_ ModelManagerV5  = (*ModelManagerAPIV5)(nil)
+	_ ModelManagerV4  = (*ModelManagerAPIV4)(nil)
+	_ ModelManagerV3  = (*ModelManagerAPIV3)(nil)
+	_ ModelManagerV2  = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacadeV9 is used for API registration.
-func NewFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV10 is used for API registration.
+func NewFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
@@ -249,7 +270,17 @@ func NewFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 		auth,
 		model,
 		context.CallContext(st),
+		registry.New,
 	)
+}
+
+// NewFacadeV9 is used for API registration.
+func NewFacadeV9(ctx facade.Context) (*ModelManagerAPIV9, error) {
+	v10, err := NewFacadeV10(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV9{v10}, nil
 }
 
 // NewFacadeV8 is used for API registration.
@@ -326,6 +357,7 @@ func NewModelManagerAPI(
 	authorizer facade.Authorizer,
 	m common.Model,
 	callCtx context.ProviderCallContext,
+	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -348,18 +380,19 @@ func NewModelManagerAPI(
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
 
 	return &ModelManagerAPI{
-		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
-		state:          st,
-		ctlrState:      ctlrSt,
-		statePool:      stPool,
-		getBroker:      getBroker,
-		check:          common.NewBlockChecker(st),
-		authorizer:     authorizer,
-		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
-		apiUser:        apiUser,
-		isAdmin:        isAdmin,
-		model:          m,
-		callContext:    callCtx,
+		ModelStatusAPI:  common.NewModelStatusAPI(st, authorizer, apiUser),
+		state:           st,
+		ctlrState:       ctlrSt,
+		statePool:       stPool,
+		getBroker:       getBroker,
+		check:           common.NewBlockChecker(st),
+		authorizer:      authorizer,
+		toolsFinder:     common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
+		apiUser:         apiUser,
+		isAdmin:         isAdmin,
+		model:           m,
+		callContext:     callCtx,
+		registryAPIFunc: registryAPIFunc,
 	}, nil
 }
 
@@ -1751,6 +1784,82 @@ func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
 	return nil
 }
 
+func (m *ModelManagerAPI) ToolVersions(entity params.Entity) (params.ToolVersionsResult, error) {
+	var err error
+	result := params.ToolVersionsResult{}
+
+	modelTag, err := names.ParseModelTag(entity.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	isModelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isModelAdmin && !m.isAdmin {
+		return result, apiservererrors.ErrPerm
+	}
+
+	st, err := m.statePool.Get(modelTag.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	defer st.Release()
+
+	model, err := st.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !model.IsControllerModel() {
+		return result, errors.Forbiddenf("model %q is not controller model", modelTag.Id())
+	}
+	if model.Type() != state.ModelTypeCAAS {
+		return result, errors.NotImplementedf("ToolVersions is for CAAS model only")
+	}
+
+	controllerCfg, err := m.state.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	imageRepoDetails := controllerCfg.CAASImageRepo()
+	if imageRepoDetails.Empty() {
+		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		imageRepoDetails = *repoDetails
+	}
+	reg, err := m.registryAPIFunc(imageRepoDetails)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	defer func() { _ = reg.Close() }()
+	imageName := podcfg.JujudOCIName
+	tags, err := reg.Tags(imageName)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for _, tag := range tags {
+		number := tag.AgentVersion()
+		if number.Compare(jujuversion.Current) <= 0 {
+			continue
+		}
+		arch, err := reg.GetArchitecture(imageName, number.String())
+		if err != nil {
+			return result, errors.Annotatef(err, "getting architecture for %q:%q", imageName, number.String())
+		}
+		tools := tools.Tools{
+			Version: version.Binary{
+				Number:  number,
+				Release: coreos.HostOSTypeName(),
+				Arch:    arch,
+			},
+		}
+		result.ToolVersions = append(result.ToolVersions, &tools)
+	}
+	return result, nil
+}
+
 // Mask out new methods from the old API versions. The API reflection
 // code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
 // so this removes the method as far as the RPC machinery is concerned.
@@ -1763,3 +1872,6 @@ func (*ModelManagerAPIV5) ModelDefaultsForClouds(_, _ struct{}) {}
 
 // ValidateModelUpgrade did not exist prior to v9.
 func (*ModelManagerAPIV8) ValidateModelUpgrade(_, _ struct{}) {}
+
+// ToolVersions did not exist prior to v10.
+func (*ModelManagerAPIV9) ToolVersions(_, _ struct{}) {}
