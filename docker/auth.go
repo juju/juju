@@ -35,6 +35,9 @@ func (t *Token) UnmarshalJSON(value []byte) error {
 
 // String returns the string value, or the Itoa of the int value.
 func (t *Token) String() string {
+	if t == nil {
+		return ""
+	}
 	return t.Value
 }
 
@@ -54,6 +57,13 @@ func NewToken(value string) *Token {
 // Empty checks if the auth information is empty.
 func (t *Token) Empty() bool {
 	return t == nil || t.Value == ""
+}
+
+// Mask hides the token value.
+func (t *Token) Mask() {
+	if t != nil && t.Value != "" {
+		t.Value = "***"
+	}
 }
 
 // TokenAuthConfig contains authorization information for token auth.
@@ -165,6 +175,17 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 func (rid ImageRepoDetails) String() string {
 	d, _ := json.Marshal(rid)
 	return string(d)
+}
+
+// Print returns a string for logging purpose.
+func (rid ImageRepoDetails) Print() string {
+	o := ImageRepoDetails{}
+	_ = json.Unmarshal([]byte(rid.String()), &o)
+	o.BasicAuthConfig.Password = ""
+	o.BasicAuthConfig.Auth.Mask()
+	o.TokenAuthConfig.IdentityToken.Mask()
+	o.TokenAuthConfig.RegistryToken.Mask()
+	return o.String()
 }
 
 // Validate validates the spec.
