@@ -53,7 +53,7 @@ func (s *quayContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, *g
 			// registry.Ping() 1st try failed - bearer token was missing.
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+					c.Assert(req.Header, jc.DeepEquals, http.Header{})
 					c.Assert(req.Method, gc.Equals, `GET`)
 					c.Assert(req.URL.String(), gc.Equals, `https://quay.io/v2`)
 					return &http.Response{
@@ -152,7 +152,7 @@ func (s *quayContainerRegistrySuite) TestTagsPrivate(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{})
 			c.Assert(req.Method, gc.Equals, `GET`)
 			c.Assert(req.URL.String(), gc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
@@ -211,7 +211,7 @@ func (s *quayContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{})
 			c.Assert(req.Method, gc.Equals, `GET`)
 			c.Assert(req.URL.String(), gc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{

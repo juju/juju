@@ -43,19 +43,22 @@ func (c *azureContainerRegistry) WrapTransport(...TransportWrapper) error {
 
 // Tags fetches tags for an OCI image.
 func (c azureContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
-	apiVersion := c.APIVersion()
-
 	// acr puts the namespace under subdomain.
-	if apiVersion == APIVersionV1 {
-		url := c.url("/repositories/%s/tags", imageName)
-		var response tagsResponseV1
-		return c.fetchTags(url, &response)
-	}
-	if apiVersion == APIVersionV2 {
-		url := c.url("/%s/tags/list", imageName)
-		var response tagsResponseV2
-		return c.fetchTags(url, &response)
-	}
-	// This should never happen.
-	return nil, nil
+	url := c.url("/%s/tags/list", imageName)
+	var response tagsResponseV2
+	return c.fetchTags(url, &response)
+}
+
+func (c azureContainerRegistry) GetArchitecture(imageName, tag string) (string, error) {
+	return getArchitecture(imageName, tag, c)
+}
+
+func (c azureContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+	url := c.url("/%s/manifests/%s", imageName, tag)
+	return c.GetManifestsCommon(url)
+}
+
+func (c azureContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+	url := c.url("/%s/blobs/%s", imageName, digest)
+	return c.GetBlobsCommon(url)
 }

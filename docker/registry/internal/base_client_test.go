@@ -34,7 +34,7 @@ func (s *baseSuite) getAuthToken(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 }
 
-func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
+func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.imageRepoDetails = docker.ImageRepoDetails{
@@ -54,7 +54,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 			// registry.Ping() 1st try failed - bearer token was missing.
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+					c.Assert(req.Header, jc.DeepEquals, http.Header{})
 					c.Assert(req.Method, gc.Equals, `GET`)
 					c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2`)
 					return &http.Response{
@@ -92,27 +92,16 @@ func (s *baseSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller)
 				},
 			),
 		)
-	} else {
-		gomock.InOrder(
-			// registry.Ping()
-			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://example.com/v1`)
-					return &http.Response{Request: req, StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
-				},
-			),
-		)
 	}
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	reg, err := registry.New(s.imageRepoDetails)
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := reg.(*internal.BaseClient)
+	client, ok := reg.(*internal.BaseClient)
 	c.Assert(ok, jc.IsTrue)
 	err = reg.Ping()
 	c.Assert(err, jc.ErrorIsNil)
-	return reg, ctrl
+	return client, ctrl
 }
 
 func (s *baseSuite) TestPingPublicRepository(c *gc.C) {

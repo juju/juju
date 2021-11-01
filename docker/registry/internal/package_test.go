@@ -31,11 +31,35 @@ var (
 	NewErrorTransport                  = newErrorTransport
 	NewBasicTransport                  = newBasicTransport
 	NewTokenTransport                  = newTokenTransport
-	NewPrivateOnlyTransport            = newPrivateOnlyTransport
 	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
 	NewAzureContainerRegistry          = newAzureContainerRegistry
+	GetArchitecture                    = getArchitecture
 )
 
 func (c *BaseClient) SetImageRepoDetails(i docker.ImageRepoDetails) {
 	c.repoDetails = &i
 }
+
+// func (c baseClient) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+// 	return c.GetBlobs(imageName, digest)
+// }
+
+// func (c baseClient) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+// 	return c.GetManifests(imageName, tag)
+// }
+
+// func (c azureContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+// 	return c.GetBlobs(imageName, digest)
+// }
+
+// func (c azureContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+// 	return c.GetManifests(imageName, tag)
+// }
+
+// func (c ElasticContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+// 	return c.GetBlobs(imageName, digest)
+// }
+
+// func (c ElasticContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+// 	return c.GetManifests(imageName, tag)
+// }
