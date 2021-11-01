@@ -14,9 +14,6 @@ import (
 
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry/utils"
 )
 
 type basicTransport struct {
@@ -48,9 +45,8 @@ func (t basicTransport) authorizeRequest(req *http.Request) error {
 	}
 	if t.username != "" || t.password != "" {
 		req.SetBasicAuth(t.username, t.password)
-		return nil
 	}
-	return errors.NotValidf("no basic auth credentials")
+	return nil
 }
 
 // RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
@@ -59,7 +55,7 @@ func (t basicTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errors.Trace(err)
 	}
 	resp, err := t.transport.RoundTrip(req)
-	logger.Tracef("basicTransport %q req.Header => %#v, resp.Header => %#v, %q", req.URL, req.Header, resp.Header, resp.Status)
+	logger.Tracef("basicTransport %q, resp.Header => %#v, %q", req.URL, resp.Header, resp.Status)
 	return resp, errors.Trace(err)
 }
 
@@ -178,7 +174,9 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 }
 
 func (t *tokenTransport) authorizeRequest(req *http.Request) error {
-	req.Header.Set("Authorization", fmt.Sprintf("%s %s", t.scheme(), t.OAuthToken))
+	if t.OAuthToken != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("%s %s", t.scheme(), t.OAuthToken))
+	}
 	return nil
 }
 
@@ -199,7 +197,7 @@ func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if resp != nil && resp.StatusCode == http.StatusUnauthorized {
+	if isUnauthorizedResponse(resp) {
 		// refresh token and retry.
 		return t.retry(req, resp)
 	}
@@ -208,9 +206,8 @@ func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func (t *tokenTransport) retry(req *http.Request, prevResp *http.Response) (*http.Response, error) {
 	logger.Tracef(
-		"retrying req => %q, header %#v, previous response => header %#v, status %v",
-		req.URL, req.Header,
-		prevResp.Header, prevResp.Status,
+		"retrying req URL %q, previous response header %#v, status %v",
+		req.URL, prevResp.Header, prevResp.Status,
 	)
 
 	if err := t.refreshOAuthToken(prevResp); err != nil {
@@ -220,7 +217,16 @@ func (t *tokenTransport) retry(req *http.Request, prevResp *http.Response) (*htt
 		return nil, errors.Trace(err)
 	}
 	resp, err := t.transport.RoundTrip(req)
+	if isUnauthorizedResponse(resp) {
+		if t.password == "" && t.authToken == "" {
+			return nil, errors.NewUnauthorized(err, "authorization is required for a private registry")
+		}
+	}
 	return resp, errors.Trace(err)
+}
+
+func isUnauthorizedResponse(resp *http.Response) bool {
+	return resp != nil && resp.StatusCode == http.StatusUnauthorized
 }
 
 type errorTransport struct {
@@ -240,10 +246,7 @@ func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error)
 	if resp.StatusCode < 400 {
 		return resp, nil
 	}
-	logger.Tracef(
-		"errorTransport %q, request.Header -> %#v, err -> %v",
-		request.URL, request.Header, err,
-	)
+	logger.Tracef("errorTransport %q, err -> %v", request.URL, err)
 	return handleErrorResponse(resp)
 }
 
@@ -266,26 +269,4 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 		errNew = errors.Unauthorizedf
 	}
 	return nil, errNew(errMsg)
-}
-
-type privateOnlyTransport struct {
-	transport   http.RoundTripper
-	repoDetails *docker.ImageRepoDetails
-}
-
-func newPrivateOnlyTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails) (http.RoundTripper, error) {
-	return &privateOnlyTransport{transport: transport, repoDetails: repoDetails}, nil
-}
-
-// RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
-func (t privateOnlyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if t.repoDetails.IsPrivate() {
-		resp, err := t.transport.RoundTrip(request)
-		return resp, errors.Trace(err)
-	}
-	key := t.repoDetails.ServerAddress
-	if key == "" {
-		key = t.repoDetails.Repository
-	}
-	return nil, utils.NewPublicAPINotAvailableError(key)
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/tools"
 )
 
 type quayContainerRegistry struct {
@@ -25,27 +24,6 @@ func newQuayContainerRegistry(repoDetails docker.ImageRepoDetails, transport htt
 // Match checks if the repository details matches current provider format.
 func (c *quayContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "quay.io")
-}
-
-// APIVersion returns the registry API version to use.
-func (c *quayContainerRegistry) APIVersion() APIVersion {
-	// quay container registry always uses v2.
-	return APIVersionV2
-}
-
-func (c quayContainerRegistry) url(pathTemplate string, args ...interface{}) string {
-	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
-}
-
-// DecideBaseURL decides the API url to use.
-func (c *quayContainerRegistry) DecideBaseURL() error {
-	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
-}
-
-// Tags fetches tags for an OCI image.
-func (c quayContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
-	// google container registry always uses v2.
-	return fetchTagsV2(c, imageName)
 }
 
 // Ping pings the quay endpoint.

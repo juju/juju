@@ -25,5 +25,5 @@ func (c *gitlabContainerRegistry) Match() bool {
 }
 
 func (c *gitlabContainerRegistry) WrapTransport(...TransportWrapper) error {
-	return c.baseClient.WrapTransport(newPrivateOnlyTransport)
+	return c.baseClient.WrapTransport()
 }

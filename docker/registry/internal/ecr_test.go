@@ -39,7 +39,7 @@ type elasticContainerRegistrySuite struct {
 
 var _ = gc.Suite(&elasticContainerRegistrySuite{})
 
-func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func()) (registry.Registry, *gomock.Controller) {
+func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func()) (*internal.ElasticContainerRegistry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.mockRoundTripper = mocks.NewMockRoundTripper(ctrl)
@@ -83,11 +83,11 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func(
 		return nil, ctrl
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := reg.(*internal.ElasticContainerRegistry)
+	client, ok := reg.(*internal.ElasticContainerRegistry)
 	c.Assert(ok, jc.IsTrue)
 	err = reg.Ping()
 	c.Assert(err, jc.ErrorIsNil)
-	return reg, ctrl
+	return client, ctrl
 }
 
 func (s *elasticContainerRegistrySuite) TestInvalidImageRepoDetails(c *gc.C) {
@@ -303,4 +303,87 @@ func (s *elasticContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 	)
 	_, err := reg.Tags("jujud-operator")
 	c.Assert(err, gc.ErrorMatches, `Get "https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/tags/list": non-successful response status=403`)
+}
+
+func (s *elasticContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, contentType string, result *internal.ManifestsResult) {
+	// Use v2 for private repository.
+	s.isPrivate = true
+	reg, ctrl := s.getRegistry(c, nil)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
+			c.Assert(req.Method, gc.Equals, `GET`)
+			c.Assert(req.URL.String(), gc.Equals, `https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/manifests/2.9.10`)
+			resps := &http.Response{
+				Header: http.Header{
+					http.CanonicalHeaderKey("Content-Type"): []string{contentType},
+				},
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader(responseData)),
+			}
+			return resps, nil
+		}),
+	)
+	manifests, err := reg.GetManifests("jujud-operator", "2.9.10")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(manifests, jc.DeepEquals, result)
+}
+
+func (s *elasticContainerRegistrySuite) TestGetManifestsSchemaVersion1(c *gc.C) {
+	s.assertGetManifestsSchemaVersion1(c,
+		`
+{ "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "amd64"}
+`[1:],
+		`application/vnd.docker.distribution.manifest.v1+prettyjws`,
+		&internal.ManifestsResult{Architecture: "amd64"},
+	)
+}
+
+func (s *elasticContainerRegistrySuite) TestGetManifestsSchemaVersion2(c *gc.C) {
+	s.assertGetManifestsSchemaVersion1(c,
+		`
+{
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "config": {
+        "mediaType": "application/vnd.docker.container.image.v1+json",
+        "size": 4596,
+        "digest": "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"
+    }
+}
+`[1:],
+		`application/vnd.docker.distribution.manifest.v2+prettyjws`,
+		&internal.ManifestsResult{Digest: "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"},
+	)
+}
+
+func (s *elasticContainerRegistrySuite) TestGetBlobs(c *gc.C) {
+	// Use v2 for private repository.
+	s.isPrivate = true
+	reg, ctrl := s.getRegistry(c, nil)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
+			c.Assert(req.Method, gc.Equals, `GET`)
+			c.Assert(req.URL.String(), gc.Equals,
+				`https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/blobs/sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1`,
+			)
+			resps := &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body: ioutil.NopCloser(strings.NewReader(`
+{"architecture":"amd64"}
+`[1:])),
+			}
+			return resps, nil
+		}),
+	)
+	manifests, err := reg.GetBlobs("jujud-operator", "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(manifests, jc.DeepEquals, &internal.BlobsResponse{Architecture: "amd64"})
 }

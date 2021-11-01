@@ -14,20 +14,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-type tagsResponseLayerV1 struct {
-	Name string `json:"name"`
-}
-
-type tagsResponseV1 []tagsResponseLayerV1
-
-func (r tagsResponseV1) GetTags() []string {
-	var tags []string
-	for _, v := range r {
-		tags = append(tags, v.Name)
-	}
-	return tags
-}
-
 type tagsResponseV2 struct {
 	Tags []string `json:"tags"`
 }
@@ -54,13 +40,6 @@ type tagFetcher interface {
 	ImageRepoDetails() docker.ImageRepoDetails
 }
 
-func fetchTagsV1(c tagFetcher, imageName string) (tools.Versions, error) {
-	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
-	url := c.url("/repositories/%s/%s/tags", repo, imageName)
-	var response tagsResponseV1
-	return c.fetchTags(url, &response)
-}
-
 func fetchTagsV2(c tagFetcher, imageName string) (tools.Versions, error) {
 	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
 	url := c.url("/%s/%s/tags/list", repo, imageName)
@@ -71,15 +50,11 @@ func fetchTagsV2(c tagFetcher, imageName string) (tools.Versions, error) {
 // Tags fetches tags for an OCI image.
 func (c baseClient) Tags(imageName string) (tools.Versions, error) {
 	switch c.APIVersion() {
-	case APIVersionV1:
-		return fetchTagsV1(c, imageName)
 	case APIVersionV2:
 		return fetchTagsV2(c, imageName)
 	default:
-		// This should never happen.
-		return nil, nil
+		return nil, errors.NotSupportedf("registry API %q", c.APIVersion())
 	}
-
 }
 
 func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
