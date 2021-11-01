@@ -86,8 +86,7 @@ type Mongo interface {
 }
 
 type Logger interface {
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
+	Debugf(string, ...interface{})
 }
 
 // NewNotifyTarget returns something that can be used to report lease
@@ -167,24 +166,25 @@ func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, h
 }
 
 // Claimed is part of raftlease.NotifyTarget.
-func (t *notifyTarget) Claimed(key lease.Key, holder string) {
+func (t *notifyTarget) Claimed(key lease.Key, holder string) error {
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Infof("claimed %q for %q", docId, holder)
+	t.logger.Debugf("claimed %q for %q", docId, holder)
 
 	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
-		t.logger.Errorf("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
-	} else {
-		t.logger.Infof("successfully claimed lease %q for %q", docId, holder)
+		return errors.Annotatef(err, "%q for %q in db: %s", docId, holder, err.Error())
 	}
+	return nil
 }
 
 // Expired is part of raftlease.NotifyTarget.
-func (t *notifyTarget) Expired(key lease.Key) {
+func (t *notifyTarget) Expired(key lease.Key) error {
 	coll, closer := t.mongo.GetCollection(t.collection)
 	defer closer()
+
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Infof("expired %q", docId)
+	t.logger.Debugf("expired %q", docId)
+
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		existingDoc, err := getRecord(coll, docId)
 		if err == mgo.ErrNotFound {
@@ -202,12 +202,10 @@ func (t *notifyTarget) Expired(key lease.Key) {
 			Remove: true,
 		}}, nil
 	})
-
 	if err != nil {
-		t.logger.Errorf("couldn't expire lease %q in db: %s", docId, err.Error())
-	} else {
-		t.logger.Infof("successfully expired lease %q", docId)
+		return errors.Annotatef(err, "%q in db: %s", docId, err.Error())
 	}
+	return nil
 }
 
 // MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified

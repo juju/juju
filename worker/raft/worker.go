@@ -582,11 +582,15 @@ type BootstrapNotifyTarget struct{}
 // allowed to return an error because this is purely advisory -
 // the lease claim has still occurred, whether or not the callback
 // succeeds.
-func (BootstrapNotifyTarget) Claimed(lease.Key, string) {}
+func (BootstrapNotifyTarget) Claimed(lease.Key, string) error {
+	return nil
+}
 
 // Expired will be called when an existing lease has expired. Not
 // allowed to return an error because this is purely advisory.
-func (BootstrapNotifyTarget) Expired(lease.Key) {}
+func (BootstrapNotifyTarget) Expired(lease.Key) error {
+	return nil
+}
 
 type BootstrapLeaseApplier struct{}
 

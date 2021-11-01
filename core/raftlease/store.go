@@ -41,11 +41,11 @@ type NotifyTarget interface {
 	// allowed to return an error because this is purely advisory -
 	// the lease claim has still occurred, whether or not the callback
 	// succeeds.
-	Claimed(lease.Key, string)
+	Claimed(lease.Key, string) error
 
 	// Expired will be called when an existing lease has expired. Not
 	// allowed to return an error because this is purely advisory.
-	Expired(lease.Key)
+	Expired(lease.Key) error
 }
 
 // TrapdoorFunc returns a trapdoor to be attached to lease details for

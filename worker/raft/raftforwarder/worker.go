@@ -158,7 +158,9 @@ func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, e
 	if !ok {
 		return empty, errors.Errorf("expected an FSMResponse, got %T: %#v", respValue, respValue)
 	}
-	response.Notify(w.config.Target)
+	if err := response.Notify(w.config.Target); err != nil {
+		w.config.Logger.Errorf("failed to notify: %v", err)
+	}
 	return responseFromError(response.Error()), nil
 }
 
