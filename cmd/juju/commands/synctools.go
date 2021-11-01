@@ -43,15 +43,14 @@ type syncToolsCommand struct {
 	source       string
 	stream       string
 	localDir     string
-	destination  string
 }
 
 var _ cmd.Command = (*syncToolsCommand)(nil)
 
 const synctoolsDoc = `
 This copies the Juju agent software from the official agent binaries store 
-(located at https://streams.canonical.com/juju) into a model. 
-It is generally done when the model is without Internet access.
+(located at https://streams.canonical.com/juju) into the controller.
+It is generally done when the controller is without Internet access.
 
 Instead of the above site, a local directory can be specified as source.
 The online store will, of course, need to be contacted at some point to get
@@ -63,14 +62,14 @@ Examples:
     juju sync-agent-binaries --debug --source=/home/ubuntu/sync-agent-binaries
 
 See also:
-    upgrade-model
+    upgrade-controller
 
 `
 
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "sync-agent-binaries",
-		Purpose: "Copy agent binaries from the official agent store into a local model.",
+		Purpose: "Copy agent binaries from the official agent store into a local controller.",
 		Doc:     synctoolsDoc,
 		Aliases: []string{"sync-tools"},
 	})
@@ -86,15 +85,9 @@ func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.source, "source", "", "Local source directory")
 	f.StringVar(&c.stream, "stream", "", "Simplestreams stream for which to sync metadata")
 	f.StringVar(&c.localDir, "local-dir", "", "Local destination directory")
-	f.StringVar(&c.destination, "destination", "", "Local destination directory\n    DEPRECATED: use --local-dir instead")
 }
 
 func (c *syncToolsCommand) Init(args []string) error {
-	if c.destination != "" {
-		// Override localDir with destination as localDir now replaces destination
-		c.localDir = c.destination
-		logger.Infof("Use of the --destination option is deprecated in 1.18. Please use --local-dir instead.")
-	}
 	if c.versionStr != "" {
 		var err error
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {

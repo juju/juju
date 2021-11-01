@@ -4,9 +4,11 @@
 package manifold_test
 
 import (
+	"context"
 	"io"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -15,17 +17,19 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
-	dt "github.com/juju/worker/v2/dependency/testing"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
+	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
@@ -33,7 +37,7 @@ import (
 )
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	context  dependency.Context
 	manifold dependency.Manifold
@@ -49,6 +53,7 @@ type manifoldSuite struct {
 
 	worker worker.Worker
 	store  *raftlease.Store
+	client raftlease.Client
 
 	stub testing.Stub
 }
@@ -56,17 +61,19 @@ type manifoldSuite struct {
 var _ = gc.Suite(&manifoldSuite{})
 
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.stub.ResetCalls()
 
 	s.agent = &mockAgent{conf: mockAgentConfig{
-		uuid: "controller-uuid",
+		uuid:    "controller-uuid",
+		apiInfo: &api.Info{},
 	}}
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.stateTracker = &stubStateTracker{
 		done: make(chan struct{}),
+		pool: s.StatePool,
 	}
 
 	s.fsm = raftlease.NewFSM()
@@ -76,6 +83,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.worker = &mockWorker{}
 	s.store = &raftlease.Store{}
+	s.client = &mockClient{}
 
 	s.context = s.newContext(nil)
 	s.manifold = leasemanager.Manifold(leasemanager.ManifoldConfig{
@@ -89,6 +97,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 		PrometheusRegisterer: s.metrics,
 		NewWorker:            s.newWorker,
 		NewStore:             s.newStore,
+		NewClient:            s.newClient,
 	})
 }
 
@@ -118,6 +127,11 @@ func (s *manifoldSuite) newStore(config raftlease.StoreConfig) *raftlease.Store 
 	return s.store
 }
 
+func (s *manifoldSuite) newClient(clientType leasemanager.ClientType, apiInfo *api.Info, hub *pubsub.StructuredHub, topic string, clock clock.Clock, metrics *raftlease.OperationClientMetrics, logger leasemanager.Logger) (raftlease.Client, error) {
+	s.stub.MethodCall(s, "NewClient", clientType, apiInfo, hub, topic, clock, metrics, logger)
+	return s.client, nil
+}
+
 var expectedInputs = []string{
 	"agent", "clock", "hub", "state",
 }
@@ -143,9 +157,13 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(underlying.Worker, gc.Equals, s.worker)
 
-	s.stub.CheckCallNames(c, "NewStore", "NewWorker")
+	s.stub.CheckCallNames(c, "NewClient", "NewStore", "NewWorker")
 
 	args := s.stub.Calls()[0].Args
+	c.Assert(args, gc.HasLen, 7)
+	c.Assert(args[0], gc.Equals, leasemanager.PubsubClientType)
+
+	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, raftlease.StoreConfig{})
 	storeConfig := args[0].(raftlease.StoreConfig)
@@ -160,7 +178,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		Clock: s.clock,
 	})
 
-	args = s.stub.Calls()[1].Args
+	args = s.stub.Calls()[2].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, lease.ManagerConfig{})
 	config := args[0].(lease.ManagerConfig)
@@ -240,29 +258,40 @@ func (ma *mockAgent) CurrentConfig() agent.Config {
 
 type mockAgentConfig struct {
 	agent.Config
-	uuid string
+	uuid    string
+	apiInfo *api.Info
 }
 
 func (c *mockAgentConfig) Controller() names.ControllerTag {
 	return names.NewControllerTag(c.uuid)
 }
 
+func (c *mockAgentConfig) APIInfo() (*api.Info, bool) {
+	return c.apiInfo, true
+}
+
 type mockWorker struct{}
 
-func (w *mockWorker) Kill() {}
-func (w *mockWorker) Wait() error {
+func (*mockWorker) Kill() {}
+func (*mockWorker) Wait() error {
+	return nil
+}
+
+type mockClient struct{}
+
+func (*mockClient) Request(context.Context, *raftlease.Command) error {
 	return nil
 }
 
 type stubStateTracker struct {
 	testing.Stub
-	pool state.StatePool
+	pool *state.StatePool
 	done chan struct{}
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
+	return s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

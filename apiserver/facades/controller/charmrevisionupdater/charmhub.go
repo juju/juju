@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/charm/metrics"
 )
 
 // charmhubID holds identifying information for several charms for a
@@ -25,6 +26,13 @@ type charmhubID struct {
 	os       string
 	series   string
 	arch     string
+	metrics  map[metrics.MetricKey]string
+	// Required for charmhub only.  instanceKey is a unique string associated
+	// with the application. To assist with keeping KPI data in charmhub, it
+	// must be the same for every charmhub Refresh action related to an
+	// application. Create with the charmhub.CreateInstanceKey method.
+	// LP: 1944582
+	instanceKey string
 }
 
 // charmhubResult is the type charmhubLatestCharmInfo returns: information
@@ -40,12 +48,13 @@ type charmhubResult struct {
 // CharmhubRefreshClient is an interface for the methods of the charmhub
 // client that we need.
 type CharmhubRefreshClient interface {
-	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+	RefreshWithRequestMetrics(ctx context.Context, config charmhub.RefreshConfig, metrics map[metrics.MetricKey]map[metrics.MetricKey]string) ([]transport.RefreshResponse, error)
+	RefreshWithMetricsOnly(ctx context.Context, metrics map[metrics.MetricKey]map[metrics.MetricKey]string) error
 }
 
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		base := charmhub.RefreshBase{
@@ -53,7 +62,11 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]
 			Name:         id.os,
 			Channel:      id.series,
 		}
-		cfg, err := charmhub.RefreshOne(id.id, id.revision, id.channel, base)
+		cfg, err := charmhub.RefreshOne(id.instanceKey, id.id, id.revision, id.channel, base)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg, err = charmhub.AddConfigMetrics(cfg, id.metrics)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -63,7 +76,7 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]
 
 	ctx, cancel := context.WithTimeout(context.TODO(), charmhub.RefreshTimeout)
 	defer cancel()
-	responses, err := client.Refresh(ctx, config)
+	responses, err := client.RefreshWithRequestMetrics(ctx, config, metrics)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

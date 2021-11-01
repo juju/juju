@@ -97,9 +97,9 @@ func main() {
 			start := time.Now()
 			conn, err = connect(info)
 			sinceStart := time.Since(agentStart).Round(time.Millisecond).Seconds()
-			fmt.Fprintf(os.Stdout, "%9.3fs connected [%6d] %4d %s in %s\n",
-				sinceStart, os.Getpid(), htCount, holderTag.Id(), time.Since(start).Round(time.Millisecond))
 			if err == nil {
+				fmt.Fprintf(os.Stdout, "%9.3fs connected [%6d] %4d %s in %s\n",
+					sinceStart, os.Getpid(), htCount, holderTag.Id(), time.Since(start).Round(time.Millisecond))
 				break
 			} else {
 				if strings.Contains(strings.ToLower(err.Error()), "try again") {

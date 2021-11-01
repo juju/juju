@@ -6,6 +6,8 @@ package mocks
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
@@ -14,36 +16,36 @@ import (
 	transport "github.com/juju/juju/charmhub/transport"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
+	metrics "github.com/juju/juju/core/charm/metrics"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
 )
 
-// MockApplication is a mock of Application interface
+// MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationMockRecorder
 }
 
-// MockApplicationMockRecorder is the mock recorder for MockApplication
+// MockApplicationMockRecorder is the mock recorder for MockApplication.
 type MockApplicationMockRecorder struct {
 	mock *MockApplication
 }
 
-// NewMockApplication creates a new mock instance
+// NewMockApplication creates a new mock instance.
 func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 	mock := &MockApplication{ctrl: ctrl}
 	mock.recorder = &MockApplicationMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
-// ApplicationTag mocks base method
+// ApplicationTag mocks base method.
 func (m *MockApplication) ApplicationTag() names.ApplicationTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationTag")
@@ -51,13 +53,13 @@ func (m *MockApplication) ApplicationTag() names.ApplicationTag {
 	return ret0
 }
 
-// ApplicationTag indicates an expected call of ApplicationTag
+// ApplicationTag indicates an expected call of ApplicationTag.
 func (mr *MockApplicationMockRecorder) ApplicationTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTag", reflect.TypeOf((*MockApplication)(nil).ApplicationTag))
 }
 
-// Channel mocks base method
+// Channel mocks base method.
 func (m *MockApplication) Channel() params.Channel {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Channel")
@@ -65,13 +67,13 @@ func (m *MockApplication) Channel() params.Channel {
 	return ret0
 }
 
-// Channel indicates an expected call of Channel
+// Channel indicates an expected call of Channel.
 func (mr *MockApplicationMockRecorder) Channel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Channel", reflect.TypeOf((*MockApplication)(nil).Channel))
 }
 
-// CharmOrigin mocks base method
+// CharmOrigin mocks base method.
 func (m *MockApplication) CharmOrigin() *state.CharmOrigin {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmOrigin")
@@ -79,13 +81,13 @@ func (m *MockApplication) CharmOrigin() *state.CharmOrigin {
 	return ret0
 }
 
-// CharmOrigin indicates an expected call of CharmOrigin
+// CharmOrigin indicates an expected call of CharmOrigin.
 func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmOrigin", reflect.TypeOf((*MockApplication)(nil).CharmOrigin))
 }
 
-// CharmURL mocks base method
+// CharmURL mocks base method.
 func (m *MockApplication) CharmURL() (*charm.URL, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
@@ -94,74 +96,102 @@ func (m *MockApplication) CharmURL() (*charm.URL, bool) {
 	return ret0, ret1
 }
 
-// CharmURL indicates an expected call of CharmURL
+// CharmURL indicates an expected call of CharmURL.
 func (mr *MockApplicationMockRecorder) CharmURL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockApplication)(nil).CharmURL))
 }
 
-// MockCharmhubRefreshClient is a mock of CharmhubRefreshClient interface
+// UnitCount mocks base method.
+func (m *MockApplication) UnitCount() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitCount")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// UnitCount indicates an expected call of UnitCount.
+func (mr *MockApplicationMockRecorder) UnitCount() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitCount", reflect.TypeOf((*MockApplication)(nil).UnitCount))
+}
+
+// MockCharmhubRefreshClient is a mock of CharmhubRefreshClient interface.
 type MockCharmhubRefreshClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmhubRefreshClientMockRecorder
 }
 
-// MockCharmhubRefreshClientMockRecorder is the mock recorder for MockCharmhubRefreshClient
+// MockCharmhubRefreshClientMockRecorder is the mock recorder for MockCharmhubRefreshClient.
 type MockCharmhubRefreshClientMockRecorder struct {
 	mock *MockCharmhubRefreshClient
 }
 
-// NewMockCharmhubRefreshClient creates a new mock instance
+// NewMockCharmhubRefreshClient creates a new mock instance.
 func NewMockCharmhubRefreshClient(ctrl *gomock.Controller) *MockCharmhubRefreshClient {
 	mock := &MockCharmhubRefreshClient{ctrl: ctrl}
 	mock.recorder = &MockCharmhubRefreshClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmhubRefreshClient) EXPECT() *MockCharmhubRefreshClientMockRecorder {
 	return m.recorder
 }
 
-// Refresh mocks base method
-func (m *MockCharmhubRefreshClient) Refresh(arg0 context.Context, arg1 charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+// RefreshWithMetricsOnly mocks base method.
+func (m *MockCharmhubRefreshClient) RefreshWithMetricsOnly(arg0 context.Context, arg1 map[metrics.MetricKey]map[metrics.MetricKey]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
+	ret := m.ctrl.Call(m, "RefreshWithMetricsOnly", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RefreshWithMetricsOnly indicates an expected call of RefreshWithMetricsOnly.
+func (mr *MockCharmhubRefreshClientMockRecorder) RefreshWithMetricsOnly(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshWithMetricsOnly", reflect.TypeOf((*MockCharmhubRefreshClient)(nil).RefreshWithMetricsOnly), arg0, arg1)
+}
+
+// RefreshWithRequestMetrics mocks base method.
+func (m *MockCharmhubRefreshClient) RefreshWithRequestMetrics(arg0 context.Context, arg1 charmhub.RefreshConfig, arg2 map[metrics.MetricKey]map[metrics.MetricKey]string) ([]transport.RefreshResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RefreshWithRequestMetrics", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]transport.RefreshResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Refresh indicates an expected call of Refresh
-func (mr *MockCharmhubRefreshClientMockRecorder) Refresh(arg0, arg1 interface{}) *gomock.Call {
+// RefreshWithRequestMetrics indicates an expected call of RefreshWithRequestMetrics.
+func (mr *MockCharmhubRefreshClientMockRecorder) RefreshWithRequestMetrics(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockCharmhubRefreshClient)(nil).Refresh), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshWithRequestMetrics", reflect.TypeOf((*MockCharmhubRefreshClient)(nil).RefreshWithRequestMetrics), arg0, arg1, arg2)
 }
 
-// MockModel is a mock of Model interface
+// MockModel is a mock of Model interface.
 type MockModel struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelMockRecorder
 }
 
-// MockModelMockRecorder is the mock recorder for MockModel
+// MockModelMockRecorder is the mock recorder for MockModel.
 type MockModelMockRecorder struct {
 	mock *MockModel
 }
 
-// NewMockModel creates a new mock instance
+// NewMockModel creates a new mock instance.
 func NewMockModel(ctrl *gomock.Controller) *MockModel {
 	mock := &MockModel{ctrl: ctrl}
 	mock.recorder = &MockModelMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
-// CloudName mocks base method
+// CloudName mocks base method.
 func (m *MockModel) CloudName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudName")
@@ -169,13 +199,13 @@ func (m *MockModel) CloudName() string {
 	return ret0
 }
 
-// CloudName indicates an expected call of CloudName
+// CloudName indicates an expected call of CloudName.
 func (mr *MockModelMockRecorder) CloudName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudName", reflect.TypeOf((*MockModel)(nil).CloudName))
 }
 
-// CloudRegion mocks base method
+// CloudRegion mocks base method.
 func (m *MockModel) CloudRegion() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudRegion")
@@ -183,13 +213,13 @@ func (m *MockModel) CloudRegion() string {
 	return ret0
 }
 
-// CloudRegion indicates an expected call of CloudRegion
+// CloudRegion indicates an expected call of CloudRegion.
 func (mr *MockModelMockRecorder) CloudRegion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudRegion", reflect.TypeOf((*MockModel)(nil).CloudRegion))
 }
 
-// Config mocks base method
+// Config mocks base method.
 func (m *MockModel) Config() (*config.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
@@ -198,13 +228,13 @@ func (m *MockModel) Config() (*config.Config, error) {
 	return ret0, ret1
 }
 
-// Config indicates an expected call of Config
+// Config indicates an expected call of Config.
 func (mr *MockModelMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockModel)(nil).Config))
 }
 
-// IsControllerModel mocks base method
+// IsControllerModel mocks base method.
 func (m *MockModel) IsControllerModel() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsControllerModel")
@@ -212,13 +242,42 @@ func (m *MockModel) IsControllerModel() bool {
 	return ret0
 }
 
-// IsControllerModel indicates an expected call of IsControllerModel
+// IsControllerModel indicates an expected call of IsControllerModel.
 func (mr *MockModelMockRecorder) IsControllerModel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModel)(nil).IsControllerModel))
 }
 
-// UUID mocks base method
+// Metrics mocks base method.
+func (m *MockModel) Metrics() (state.ModelMetrics, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Metrics")
+	ret0, _ := ret[0].(state.ModelMetrics)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Metrics indicates an expected call of Metrics.
+func (mr *MockModelMockRecorder) Metrics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockModel)(nil).Metrics))
+}
+
+// ModelTag mocks base method.
+func (m *MockModel) ModelTag() names.ModelTag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelTag")
+	ret0, _ := ret[0].(names.ModelTag)
+	return ret0
+}
+
+// ModelTag indicates an expected call of ModelTag.
+func (mr *MockModelMockRecorder) ModelTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockModel)(nil).ModelTag))
+}
+
+// UUID mocks base method.
 func (m *MockModel) UUID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UUID")
@@ -226,36 +285,36 @@ func (m *MockModel) UUID() string {
 	return ret0
 }
 
-// UUID indicates an expected call of UUID
+// UUID indicates an expected call of UUID.
 func (mr *MockModelMockRecorder) UUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UUID", reflect.TypeOf((*MockModel)(nil).UUID))
 }
 
-// MockState is a mock of State interface
+// MockState is a mock of State interface.
 type MockState struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateMockRecorder
 }
 
-// MockStateMockRecorder is the mock recorder for MockState
+// MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
 	mock *MockState
 }
 
-// NewMockState creates a new mock instance
+// NewMockState creates a new mock instance.
 func NewMockState(ctrl *gomock.Controller) *MockState {
 	mock := &MockState{ctrl: ctrl}
 	mock.recorder = &MockStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// AddCharmPlaceholder mocks base method
+// AddCharmPlaceholder mocks base method.
 func (m *MockState) AddCharmPlaceholder(arg0 *charm.URL) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCharmPlaceholder", arg0)
@@ -263,13 +322,27 @@ func (m *MockState) AddCharmPlaceholder(arg0 *charm.URL) error {
 	return ret0
 }
 
-// AddCharmPlaceholder indicates an expected call of AddCharmPlaceholder
+// AddCharmPlaceholder indicates an expected call of AddCharmPlaceholder.
 func (mr *MockStateMockRecorder) AddCharmPlaceholder(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmPlaceholder", reflect.TypeOf((*MockState)(nil).AddCharmPlaceholder), arg0)
 }
 
-// AllApplications mocks base method
+// AliveRelationKeys mocks base method.
+func (m *MockState) AliveRelationKeys() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AliveRelationKeys")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// AliveRelationKeys indicates an expected call of AliveRelationKeys.
+func (mr *MockStateMockRecorder) AliveRelationKeys() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AliveRelationKeys", reflect.TypeOf((*MockState)(nil).AliveRelationKeys))
+}
+
+// AllApplications mocks base method.
 func (m *MockState) AllApplications() ([]charmrevisionupdater.Application, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllApplications")
@@ -278,13 +351,13 @@ func (m *MockState) AllApplications() ([]charmrevisionupdater.Application, error
 	return ret0, ret1
 }
 
-// AllApplications indicates an expected call of AllApplications
+// AllApplications indicates an expected call of AllApplications.
 func (mr *MockStateMockRecorder) AllApplications() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllApplications", reflect.TypeOf((*MockState)(nil).AllApplications))
 }
 
-// Charm mocks base method
+// Charm mocks base method.
 func (m *MockState) Charm(arg0 *charm.URL) (*state.Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
@@ -293,13 +366,13 @@ func (m *MockState) Charm(arg0 *charm.URL) (*state.Charm, error) {
 	return ret0, ret1
 }
 
-// Charm indicates an expected call of Charm
+// Charm indicates an expected call of Charm.
 func (mr *MockStateMockRecorder) Charm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockState)(nil).Charm), arg0)
 }
 
-// Cloud mocks base method
+// Cloud mocks base method.
 func (m *MockState) Cloud(arg0 string) (cloud.Cloud, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Cloud", arg0)
@@ -308,13 +381,13 @@ func (m *MockState) Cloud(arg0 string) (cloud.Cloud, error) {
 	return ret0, ret1
 }
 
-// Cloud indicates an expected call of Cloud
+// Cloud indicates an expected call of Cloud.
 func (mr *MockStateMockRecorder) Cloud(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockState)(nil).Cloud), arg0)
 }
 
-// ControllerConfig mocks base method
+// ControllerConfig mocks base method.
 func (m *MockState) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
@@ -323,13 +396,13 @@ func (m *MockState) ControllerConfig() (controller.Config, error) {
 	return ret0, ret1
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig
+// ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockStateMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockState)(nil).ControllerConfig))
 }
 
-// ControllerUUID mocks base method
+// ControllerUUID mocks base method.
 func (m *MockState) ControllerUUID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerUUID")
@@ -337,13 +410,13 @@ func (m *MockState) ControllerUUID() string {
 	return ret0
 }
 
-// ControllerUUID indicates an expected call of ControllerUUID
+// ControllerUUID indicates an expected call of ControllerUUID.
 func (mr *MockStateMockRecorder) ControllerUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockState)(nil).ControllerUUID))
 }
 
-// Model mocks base method
+// Model mocks base method.
 func (m *MockState) Model() (charmrevisionupdater.Model, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
@@ -352,13 +425,13 @@ func (m *MockState) Model() (charmrevisionupdater.Model, error) {
 	return ret0, ret1
 }
 
-// Model indicates an expected call of Model
+// Model indicates an expected call of Model.
 func (mr *MockStateMockRecorder) Model() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockState)(nil).Model))
 }
 
-// Resources mocks base method
+// Resources mocks base method.
 func (m *MockState) Resources() (state.Resources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Resources")
@@ -367,7 +440,7 @@ func (m *MockState) Resources() (state.Resources, error) {
 	return ret0, ret1
 }
 
-// Resources indicates an expected call of Resources
+// Resources indicates an expected call of Resources.
 func (mr *MockStateMockRecorder) Resources() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockState)(nil).Resources))

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/raft/queue"
@@ -27,18 +27,16 @@ type workerFixture struct {
 	testing.IsolationSuite
 	fsm        *raft.SimpleFSM
 	config     raft.Config
-	queue      *queue.BlockingOpQueue
-	operations chan queue.Operation
+	queue      *queue.OpQueue
+	operations chan []queue.Operation
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	testClock := testclock.NewClock(time.Time{})
-
 	s.fsm = &raft.SimpleFSM{}
-	s.queue = queue.NewBlockingOpQueue(testClock)
-	s.operations = make(chan queue.Operation)
+	s.queue = queue.NewOpQueue(clock.WallClock)
+	s.operations = make(chan []queue.Operation)
 
 	s.config = raft.Config{
 		FSM:          s.fsm,
@@ -49,19 +47,18 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Clock:        testclock.NewClock(time.Time{}),
 		Queue:        s.queue,
 		NotifyTarget: &struct{ raftlease.NotifyTarget }{},
-		NewApplier: func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier {
+		NewApplier: func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier {
 			return testLeaseApplier{operations: s.operations}
 		},
 	}
 }
 
 type testLeaseApplier struct {
-	operations chan queue.Operation
+	operations chan []queue.Operation
 }
 
-func (a testLeaseApplier) ApplyOperation(op queue.Operation, _ time.Duration) error {
-	a.operations <- op
-	return nil
+func (a testLeaseApplier) ApplyOperation(ops []queue.Operation, _ time.Duration) {
+	a.operations <- ops
 }
 
 func (s *workerFixture) TearDownTest(c *gc.C) {
@@ -401,32 +398,53 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 
 // TestApplyOperation tests that we get a new operation on the queue, not if
 // the operation was processed. That's up to the apply test suite.
-func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
-	cmds := [][]byte{[]byte("do it")}
 
-	results := make(chan [][]byte, 1)
+func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
+	cmd := []byte("do it")
+
+	results := make(chan []queue.Operation)
 	go func() {
 		defer close(results)
 
 		// We expect at least one operation to come through.
-		for op := range s.operations {
-			results <- op.Commands
+		for ops := range s.operations {
+			results <- ops
 			break
 		}
 	}()
 
 	s.waitLeader(c)
 
-	err := s.queue.Enqueue(queue.Operation{
-		Commands: cmds,
+	done := make(chan error)
+	s.queue.Enqueue(queue.Operation{
+		Command: cmd,
+		Done: func(err error) {
+			go func() {
+				done <- err
+			}()
+		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	var amount int
-	for result := range results {
-		c.Assert(result, gc.DeepEquals, cmds)
-		amount++
+loop:
+	for {
+		select {
+		case ops := <-results:
+			c.Assert(len(ops), gc.Equals, 1)
+			c.Assert(ops[0].Command, gc.DeepEquals, cmd)
+
+			amount++
+			break loop
+
+		case err := <-done:
+			c.Assert(err, jc.ErrorIsNil)
+			break loop
+
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for operation")
+		}
 	}
+
 	c.Assert(amount, gc.Equals, 1)
 }
 

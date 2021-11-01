@@ -9,10 +9,7 @@ requires:
 categories:
   - misc
 series:
-  - trusty
   - xenial
-  - artful
   - bionic
-  - eoan
   - focal
 

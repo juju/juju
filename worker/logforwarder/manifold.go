@@ -5,8 +5,8 @@ package logforwarder
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"

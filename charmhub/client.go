@@ -32,6 +32,7 @@ import (
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/version"
 )
@@ -269,10 +270,23 @@ func (c *Client) Find(ctx context.Context, name string, options ...FindOption) (
 	return c.findClient.Find(ctx, name, options...)
 }
 
-// Refresh defines a client for making refresh API calls, that allow for
-// updating a series of charms to the latest version.
+// Refresh defines a client for making refresh API calls with different actions.
 func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	return c.refreshClient.Refresh(ctx, config)
+}
+
+// RefreshWithRequestMetrics defines a client for making refresh API calls.
+// Specifically to use the refresh action and provide metrics.  Intended for
+// use in the charm revision updater facade only.  Otherwise use Refresh.
+func (c *Client) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
+	return c.refreshClient.RefreshWithRequestMetrics(ctx, config, metrics)
+}
+
+// RefreshWithMetricsOnly defines a client making a refresh API call with no
+// action, whose purpose is to send metrics data for models without current
+// units.  E.G. the controller model.
+func (c *Client) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+	return c.refreshClient.RefreshWithMetricsOnly(ctx, metrics)
 }
 
 // Download defines a client for downloading charms directly.

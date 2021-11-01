@@ -10,8 +10,8 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lxdprofile"

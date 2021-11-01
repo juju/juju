@@ -18,7 +18,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/kr/pretty"
 	core "k8s.io/api/core/v1"
 
@@ -3735,6 +3735,38 @@ func RemoveOrphanedCrossModelProxies(pool *StatePool) error {
 				return errors.Trace(err)
 			}
 		}
+		return nil
+	}))
+}
+
+// DropLegacyAssumesSectionsFromCharmMetadata drops any existing "assumes"
+// fields in the charms collection. This is because earlier Juju versions
+// prematurely introduced an assumes field (a []string) before the assumes spec
+// was finalized and while no charms out there use assumes expressions.
+//
+// This decision, coupled with the fact that the metadata structs from the
+// charm package are directly serialized to BSON instead of being mapped
+// to a struct maintained within the state package necessitates this upgrade
+// step.
+func DropLegacyAssumesSectionsFromCharmMetadata(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(charmsC)
+		defer closer()
+
+		err := col.Writeable().Update(
+			bson.M{
+				"assumes": bson.M{"$exists": true},
+			},
+			bson.M{
+				"$unset": bson.M{"assumes": ""},
+			},
+		)
+
+		// Ignore errors about empty charms collections
+		if err != nil && err != mgo.ErrNotFound {
+			return errors.Trace(err)
+		}
+
 		return nil
 	}))
 }

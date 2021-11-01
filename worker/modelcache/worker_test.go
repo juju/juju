@@ -15,8 +15,8 @@ import (
 	"github.com/juju/pubsub/v2"
 	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 

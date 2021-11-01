@@ -7,8 +7,8 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run a worker for

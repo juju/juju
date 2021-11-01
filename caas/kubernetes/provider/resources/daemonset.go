@@ -43,8 +43,8 @@ func (ds *DaemonSet) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *DaemonSet) ID() ID {
-	return ID{"DaemonSet", r.Name, r.Namespace}
+func (ds *DaemonSet) ID() ID {
+	return ID{"DaemonSet", ds.Name, ds.Namespace}
 }
 
 // Apply patches the resource change.
@@ -61,6 +61,9 @@ func (ds *DaemonSet) Apply(ctx context.Context, client kubernetes.Interface) err
 		res, err = api.Create(ctx, &ds.DaemonSet, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "daemon set %q", ds.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

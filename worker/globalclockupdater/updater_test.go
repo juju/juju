@@ -37,8 +37,8 @@ func (s *updaterSuite) TestAdvance(c *gc.C) {
 
 	now := time.Now()
 
-	s.expectGlobalClock(c, now)
-	s.expectTimeout(c)
+	s.clock.EXPECT().GlobalTime().Return(now)
+	s.expectTimeout()
 	s.expectRaftApply(c, now, nil)
 
 	done := make(chan struct{}, 1)
@@ -46,33 +46,24 @@ func (s *updaterSuite) TestAdvance(c *gc.C) {
 	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the previous time is updated after an advance.
-	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
 }
 
 func (s *updaterSuite) TestAdvanceErrEnqueueTimeout(c *gc.C) {
-	// Ensure we get an error that allows us to retry.
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
 
 	enqueueErr := raft.ErrEnqueueTimeout
 
-	s.expectGlobalClock(c, now)
-	s.expectTimeout(c)
+	s.clock.EXPECT().GlobalTime().Return(now)
+	s.expectTimeout()
 	s.expectRaftApply(c, now, enqueueErr)
-
-	// Ensure that we set the prevTime to a new global time. This ensures that
-	// we have an up to date time when retrying.
-	s.clock.EXPECT().GlobalTime().Return(now.Add(time.Minute))
 
 	done := make(chan struct{}, 1)
 
 	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, globalclock.ErrTimeout.Error())
-	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Minute))
 }
 
 func (s *updaterSuite) TestAdvanceWithUnknownError(c *gc.C) {
@@ -80,8 +71,8 @@ func (s *updaterSuite) TestAdvanceWithUnknownError(c *gc.C) {
 
 	now := time.Now()
 
-	s.expectGlobalClock(c, now)
-	s.expectTimeout(c)
+	s.clock.EXPECT().GlobalTime().Return(now)
+	s.expectTimeout()
 	s.expectRaftApply(c, now, errors.New("boom"))
 
 	done := make(chan struct{}, 1)
@@ -89,9 +80,6 @@ func (s *updaterSuite) TestAdvanceWithUnknownError(c *gc.C) {
 	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, "boom")
-
-	// The prevTime should be the same time as the initial time.
-	c.Assert(updater.prevTime, gc.Equals, now)
 }
 
 func (s *updaterSuite) TestAdvanceLeadershipAborted(c *gc.C) {
@@ -99,10 +87,10 @@ func (s *updaterSuite) TestAdvanceLeadershipAborted(c *gc.C) {
 
 	now := time.Now()
 
-	s.expectGlobalClock(c, now)
-	s.expectTimeout(c)
+	s.clock.EXPECT().GlobalTime().Return(now)
+	s.expectTimeout()
 	s.expectRaftApply(c, now, raft.ErrLeadershipLost)
-	s.expectRaftState(c)
+	s.expectRaftState()
 
 	done := make(chan struct{}, 1)
 	close(done)
@@ -110,19 +98,16 @@ func (s *updaterSuite) TestAdvanceLeadershipAborted(c *gc.C) {
 	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, "setTime: lease operation aborted")
-
-	// The prevTime should be the same time as the initial time.
-	c.Assert(updater.prevTime, gc.Equals, now)
 }
 
-func (s *updaterSuite) TestAdvanceLeadershipTimedout(c *gc.C) {
+func (s *updaterSuite) TestAdvanceLeadershipTimeout(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
 
-	s.expectGlobalClock(c, now)
+	s.clock.EXPECT().GlobalTime().Return(now)
 	s.expectRaftApply(c, now, raft.ErrLeadershipLost)
-	s.expectRaftState(c)
+	s.expectRaftState()
 
 	ch := make(chan time.Time)
 	close(ch)
@@ -134,9 +119,6 @@ func (s *updaterSuite) TestAdvanceLeadershipTimedout(c *gc.C) {
 	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, `timed out waiting for local Raft state to be "Leader"`)
-
-	// The prevTime should be the same time as the initial time.
-	c.Assert(updater.prevTime, gc.Equals, now)
 }
 
 func (s *updaterSuite) TestAdvanceWithLeadershipLostErrorAndRetries(c *gc.C) {
@@ -144,10 +126,10 @@ func (s *updaterSuite) TestAdvanceWithLeadershipLostErrorAndRetries(c *gc.C) {
 
 	now := time.Now()
 
-	s.expectGlobalClock(c, now)
-	s.expectTimeout(c)
+	s.clock.EXPECT().GlobalTime().Return(now).Times(2)
+	s.expectTimeout()
 	s.expectRaftApply(c, now, raft.ErrLeadershipLost)
-	s.expectRaftState(c)
+	s.expectRaftState()
 
 	// After the sleep, we should retry the raft apply again. Notice that we
 	// should update the prevTime.
@@ -159,9 +141,6 @@ func (s *updaterSuite) TestAdvanceWithLeadershipLostErrorAndRetries(c *gc.C) {
 	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the previous time is updated after an advance.
-	c.Assert(updater.prevTime, gc.Equals, now.Add(time.Second))
 }
 
 func (s *updaterSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -179,16 +158,12 @@ func (s *updaterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *updaterSuite) expectGlobalClock(c *gc.C, now time.Time) {
-	s.clock.EXPECT().GlobalTime().Return(now)
-}
-
-func (s *updaterSuite) expectTimeout(c *gc.C) {
+func (s *updaterSuite) expectTimeout() *gomock.Call {
 	ch := make(chan time.Time)
-	s.timer.EXPECT().After(leaderTimeout).Return(ch)
+	return s.timer.EXPECT().After(leaderTimeout).Return(ch)
 }
 
-func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) {
+func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) *gomock.Call {
 	cmd, cmdErr := (&raftlease.Command{
 		Version:   raftlease.CommandVersion,
 		Operation: raftlease.OperationSetTime,
@@ -197,19 +172,43 @@ func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) {
 	}).Marshal()
 	c.Assert(cmdErr, jc.ErrorIsNil)
 
-	s.raftApplier.EXPECT().Apply(cmd, applyTimeout).Return(s.raftFuture)
-
-	s.raftFuture.EXPECT().Error().Return(err)
+	call := inOrder(
+		s.raftApplier.EXPECT().Apply(cmd, applyTimeout).Return(s.raftFuture),
+		s.raftFuture.EXPECT().Error().Return(err),
+	)
 
 	if err != nil {
-		s.logger.EXPECT().Warningf(err.Error())
+		call = inOrder(
+			call,
+			s.logger.EXPECT().Warningf(err.Error()),
+		)
 	} else {
-		s.raftFuture.EXPECT().Response().Return(s.fsmResponse)
-		s.fsmResponse.EXPECT().Notify(s.notifyTarget)
+		call = inOrder(
+			call,
+			s.raftFuture.EXPECT().Response().Return(s.fsmResponse),
+			s.fsmResponse.EXPECT().Error().Return(nil),
+			s.fsmResponse.EXPECT().Notify(s.notifyTarget),
+		)
 	}
+	return call
 }
 
-func (s *updaterSuite) expectRaftState(c *gc.C) {
+func (s *updaterSuite) expectRaftState() {
 	s.raftApplier.EXPECT().State().Return(raft.Follower)
 	s.logger.EXPECT().Warningf("clock update still pending; local Raft state is %q", raft.Follower)
+}
+
+// This is the PR to gomock, that should hopefully land in the future. For now
+// we can copy it here.
+// See: https://github.com/golang/mock/pull/199
+func inOrder(calls ...*gomock.Call) (last *gomock.Call) {
+	if len(calls) == 1 {
+		return calls[0]
+	}
+
+	for i := 1; i < len(calls); i++ {
+		calls[i].After(calls[i-1])
+		last = calls[i]
+	}
+	return
 }

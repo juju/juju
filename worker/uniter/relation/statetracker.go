@@ -5,13 +5,14 @@ package relation
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/uniter"
@@ -490,4 +491,23 @@ func (r *relationStateTracker) LocalUnitAndApplicationLife() (life.Value, life.V
 	}
 
 	return r.unit.Life(), app.Life(), nil
+}
+
+// Report provides information for the engine report.
+func (r *relationStateTracker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for id, st := range r.stateMgr.(*stateManager).relationState {
+		relationer := r.relationers[id]
+		result[strconv.Itoa(id)] = map[string]interface{}{
+			"application-members": st.ApplicationMembers,
+			"members":             st.Members,
+			"is-peer":             r.isPeerRelation[id],
+			"dying":               relationer.IsDying(),
+			"endpoint":            relationer.RelationUnit().Endpoint().Name,
+			"relation":            relationer.RelationUnit().Relation().String(),
+		}
+	}
+
+	return result
 }

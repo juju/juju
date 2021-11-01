@@ -174,7 +174,7 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Terms:          meta.Terms,
 		MinJujuVersion: meta.MinJujuVersion.String(),
 		Containers:     convertCharmContainers(meta.Containers),
-		Assumes:        meta.Assumes,
+		AssumesExpr:    meta.Assumes,
 	}
 }
 

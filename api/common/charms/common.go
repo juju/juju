@@ -132,7 +132,7 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		Terms:          meta.Terms,
 		MinJujuVersion: minVersion,
 		Containers:     containers,
-		Assumes:        meta.Assumes,
+		Assumes:        meta.AssumesExpr,
 	}
 	return result, nil
 }

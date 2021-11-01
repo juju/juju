@@ -3,7 +3,7 @@
 
 package raft
 
-import "github.com/juju/worker/v2"
+import "github.com/juju/worker/v3"
 
 // NewWorkerShim is suitable for use in ManifoldConfig.NewWorker,
 // and simply calls through to NewWorker.

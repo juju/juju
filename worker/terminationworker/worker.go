@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
 	jworker "github.com/juju/juju/worker"

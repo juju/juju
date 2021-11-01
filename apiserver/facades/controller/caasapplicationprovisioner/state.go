@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -29,7 +30,7 @@ type CAASApplicationProvisionerState interface {
 	WatchApplications() state.StringsWatcher
 }
 
-// CAASApplicationProvisionerState provides the subset of controller state
+// CAASApplicationControllerState provides the subset of controller state
 // required by the CAAS operator provisioner facade.
 type CAASApplicationControllerState interface {
 	ControllerConfig() (controller.Config, error)
@@ -59,6 +60,8 @@ type Application interface {
 	SetStatus(statusInfo status.StatusInfo) error
 	CharmModifiedVersion() int
 	CharmURL() (curl *charm.URL, force bool)
+	ApplicationConfig() (application.ConfigAttributes, error)
+	GetScale() int
 }
 
 type Charm interface {

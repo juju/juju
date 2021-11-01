@@ -24,6 +24,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *gc.C) {
 		VLAN8021QDevice,
 		BondDevice,
 		BridgeDevice,
+		VXLANDevice,
 	}
 
 	for _, value := range validTypes {

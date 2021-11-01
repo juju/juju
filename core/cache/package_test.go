@@ -12,7 +12,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -185,17 +185,13 @@ func (*ImportSuite) TestImports(c *gc.C) {
 
 	// This package only brings in other core packages.
 	c.Assert(found, jc.SameContents, []string{
-		"core/arch",
-		"core/charm",
 		"core/constraints",
 		"core/instance",
 		"core/life",
 		"core/lxdprofile",
 		"core/model",
 		"core/network",
-		"core/os",
 		"core/permission",
-		"core/series",
 		"core/settings",
 		"core/status",
 	})

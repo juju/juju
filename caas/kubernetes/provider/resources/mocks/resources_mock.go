@@ -13,6 +13,7 @@ import (
 	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
 	status "github.com/juju/juju/core/status"
 	v1 "k8s.io/api/core/v1"
+	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubernetes "k8s.io/client-go/kubernetes"
 )
 
@@ -125,6 +126,20 @@ func (m *MockResource) Get(arg0 context.Context, arg1 kubernetes.Interface) erro
 func (mr *MockResourceMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockResource)(nil).Get), arg0, arg1)
+}
+
+// GetObjectMeta mocks base method.
+func (m *MockResource) GetObjectMeta() v10.Object {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetObjectMeta")
+	ret0, _ := ret[0].(v10.Object)
+	return ret0
+}
+
+// GetObjectMeta indicates an expected call of GetObjectMeta.
+func (mr *MockResourceMockRecorder) GetObjectMeta() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObjectMeta", reflect.TypeOf((*MockResource)(nil).GetObjectMeta))
 }
 
 // ID mocks base method.

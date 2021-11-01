@@ -13,10 +13,10 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
-	dt "github.com/juju/worker/v2/dependency/testing"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
+	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -56,7 +56,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	state                stubStateTracker
 	upgradeGate          stubGateWaiter
-	queue                *queue.BlockingOpQueue
+	queue                *queue.OpQueue
 
 	stub testing.Stub
 }
@@ -81,7 +81,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.auditConfig = stubAuditConfig{}
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
-	s.queue = queue.NewBlockingOpQueue(testclock.NewClock(time.Now()))
+	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)

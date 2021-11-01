@@ -387,20 +387,27 @@ func (r *response) Notify(target NotifyTarget) {
 	}
 }
 
+// Apply log is invoked once a log entry is committed.
+// It returns a value which will be made available in the
+// ApplyFuture returned by Raft.Apply method if that
+// method was called on the same Raft node as the FSM.
 // Apply is part of raft.FSM.
 func (f *FSM) Apply(log *raft.Log) interface{} {
-	var command Command
-	err := yaml.Unmarshal(log.Data, &command)
+	command, err := unmarshalCommand(log)
 	if err != nil {
-		return &response{err: errors.Trace(err)}
-	}
-	if err := command.Validate(); err != nil {
 		return &response{err: errors.Trace(err)}
 	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	return f.apply(command)
+}
+
+// apply extacts out of the command operation invocations, so that the batching
+// FSM can make use of the same logic.
+// The caller is expected hold the lock before calling apply.
+func (f *FSM) apply(command Command) *response {
 	switch command.Operation {
 	case OperationClaim:
 		return f.claim(command.LeaseKey(), command.Holder, command.Duration)
@@ -417,6 +424,18 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 	default:
 		return &response{err: errors.NotValidf("operation %q", command.Operation)}
 	}
+}
+
+func unmarshalCommand(log *raft.Log) (Command, error) {
+	var command Command
+	err := yaml.Unmarshal(log.Data, &command)
+	if err != nil {
+		return command, errors.Trace(err)
+	}
+	if err := command.Validate(); err != nil {
+		return command, errors.Trace(err)
+	}
+	return command, nil
 }
 
 // Snapshot is part of raft.FSM.
@@ -516,6 +535,79 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 	f.pinned = newPinned
 
 	return nil
+}
+
+// BatchFSM creates a FSM that allows for batching operations. Raft takes
+// care of applying the batches in chunked sizes, which allows for restoring
+// and snapshotting a the library level. Those should be transparent to the
+// the FSM.
+type BatchFSM struct {
+	*FSM
+}
+
+// NewBatchFSM creates a BatchFSM from an existing FSM. By lifting the FSM
+// into a BatchFSM allows for better performance when applying logs, it does
+// this by only stealing a lock only when required.
+func NewBatchFSM(fsm *FSM) *BatchFSM {
+	return &BatchFSM{
+		FSM: fsm,
+	}
+}
+
+// ApplyBatch is invoked once a batch of log entries has been committed and
+// are ready to be applied to the FSM. ApplyBatch will take in an array of
+// log entries. These log entries will be in the order they were committed,
+// will not have gaps, and could be of a few log types. Clients should check
+// the log type prior to attempting to decode the data attached. Presently
+// the LogCommand and LogConfiguration types will be sent.
+//
+// The returned slice must be the same length as the input and each response
+// should correlate to the log at the same index of the input. The returned
+// values will be made available in the ApplyFuture returned by Raft.Apply
+// method if that method was called on the same Raft node as the FSM.
+// ApplyBatch is part of raft.BatchingFSM.
+func (f *BatchFSM) ApplyBatch(logs []*raft.Log) interface{} {
+	// Unmarshal all the logs up front, we can validate them without
+	// stealing the lock. Additionally we can ensure that we get the correct
+	// type of log.
+	commands := make([]Command, len(logs))
+	responses := make([]interface{}, len(logs))
+
+	var numErrs int
+	for i, log := range logs {
+		command, err := unmarshalCommand(log)
+		if err != nil {
+			responses[i] = &response{err: errors.Trace(err)}
+			numErrs++
+			continue
+		}
+
+		commands[i] = command
+	}
+
+	// If the number of errors matches the number of responses, then we can just
+	// return, as there is nothing to process.
+	if numErrs == len(logs) {
+		return responses
+	}
+
+	// Ensure we steal the lock so we serialize all log applications. That way
+	// we never allow another Apply or ApplyBatch to intervene.
+	f.mu.Lock()
+
+	for i, resp := range responses {
+		// We already have a response for the batch item. This happens if we
+		// are unable to unmarshal the command from the raft.Log.
+		if resp != nil {
+			continue
+		}
+
+		responses[i] = f.apply(commands[i])
+	}
+
+	f.mu.Unlock()
+
+	return responses
 }
 
 // Snapshot defines the format of the FSM snapshot.

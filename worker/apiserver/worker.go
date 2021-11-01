@@ -9,7 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
@@ -32,7 +32,7 @@ type Queue interface {
 	// to be completed.
 	// The design of this is to ensure that people calling this will have to
 	// correctly handle backing off from enqueueing.
-	Enqueue(queue.Operation) error
+	Enqueue(queue.Operation)
 }
 
 // Config is the configuration required for running an API server worker.

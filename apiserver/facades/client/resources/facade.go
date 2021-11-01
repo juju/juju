@@ -312,5 +312,6 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 			OS:           origin.OS,
 			Series:       origin.Series,
 		},
+		InstanceKey: origin.InstanceKey,
 	}
 }

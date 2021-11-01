@@ -21,13 +21,13 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -620,7 +620,7 @@ func (a *MachineAgent) makeEngineCreator(
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			LeaseFSM:                          raftlease.NewFSM(),
 			LeaseLog:                          makeRaftLeaseLog(raftLeaseLogPath),
-			RaftOpQueue:                       queue.NewBlockingOpQueue(clock.WallClock),
+			RaftOpQueue:                       queue.NewOpQueue(clock.WallClock),
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {

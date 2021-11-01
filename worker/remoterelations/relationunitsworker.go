@@ -4,11 +4,14 @@
 package remoterelations
 
 import (
+	"sync"
+	"time"
+
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/watcher"
@@ -27,7 +30,14 @@ type RelationUnitChangeEvent struct {
 // Local changes are exported to the remote model.
 // Remote changes are consumed by the local model.
 type relationUnitsWorker struct {
-	catacomb    catacomb.Catacomb
+	catacomb catacomb.Catacomb
+
+	mu sync.Mutex
+
+	// mostRecentChange is stored here for the engine report.
+	mostRecentChange RelationUnitChangeEvent
+	changeSince      time.Time
+
 	relationTag names.RelationTag
 	rrw         watcher.RemoteRelationWatcher
 	changes     chan<- RelationUnitChangeEvent
@@ -101,10 +111,14 @@ func (w *relationUnitsWorker) loop() error {
 			change.Macaroons = macaroon.Slice{w.macaroon}
 			change.BakeryVersion = bakery.LatestVersion
 
-			event := RelationUnitChangeEvent{
+			w.mu.Lock()
+			w.mostRecentChange = RelationUnitChangeEvent{
 				Tag:                       w.relationTag,
 				RemoteRelationChangeEvent: change,
 			}
+			w.changeSince = time.Now()
+			event := w.mostRecentChange
+			w.mu.Unlock()
 			// Send in lockstep so we don't drop events (otherwise
 			// we'd need to merge them - not too hard in this
 			// case but probably not needed).
@@ -119,4 +133,23 @@ func (w *relationUnitsWorker) loop() error {
 
 func isEmpty(change params.RemoteRelationChangeEvent) bool {
 	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.ApplicationSettings == nil
+}
+
+// Report provides information for the engine report.
+func (w *relationUnitsWorker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.mostRecentChange.Tag.Id() != "" {
+		var changed []int
+		for _, c := range w.mostRecentChange.ChangedUnits {
+			changed = append(changed, c.UnitId)
+		}
+		result["departed"] = w.mostRecentChange.DepartedUnits
+		result["changed"] = changed
+		result["since"] = w.changeSince.Format(time.RFC1123Z)
+	}
+
+	return result
 }

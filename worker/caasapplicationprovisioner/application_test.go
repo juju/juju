@@ -15,8 +15,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	api "github.com/juju/juju/api/caasapplicationprovisioner"
@@ -112,6 +112,8 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 			Name:     "test",
 			Revision: -1,
 		},
+		Trust: true,
+		Scale: 3,
 	}
 	s.ociResources = map[string]resources.DockerImageDetails{
 		"test-oci": {
@@ -171,6 +173,8 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 							},
 						},
 					},
+					Trust:        true,
+					InitialScale: 3,
 				})
 				return nil
 			}),

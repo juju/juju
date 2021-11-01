@@ -62,8 +62,8 @@ func (s *Secret) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *Secret) ID() ID {
-	return ID{"Secret", r.Name, r.Namespace}
+func (s *Secret) ID() ID {
+	return ID{"Secret", s.Name, s.Namespace}
 }
 
 // Apply patches the resource change.
@@ -80,6 +80,9 @@ func (s *Secret) Apply(ctx context.Context, client kubernetes.Interface) error {
 		res, err = api.Create(ctx, &s.Secret, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "secret %q", s.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

@@ -404,7 +404,7 @@ func initRaft(agentConfig agent.Config) error {
 		StorageDir: raftDir,
 		Logger:     logger,
 		LocalID:    coreraft.ServerID(agentConfig.Tag().Id()),
-		Queue:      queue.NewBlockingOpQueue(clock.WallClock),
+		Queue:      queue.NewOpQueue(clock.WallClock),
 	})
 }
 

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -288,15 +287,6 @@ func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 func (m *containerManager) networkDevicesFromConfig(netConfig *container.NetworkConfig) (map[string]device, []string, error) {
 	if len(netConfig.Interfaces) > 0 {
 		return DevicesFromInterfaceInfo(netConfig.Interfaces)
-	} else if netConfig.Device != "" {
-		return map[string]device{
-			"eth0": newNICDevice(
-				"eth0",
-				netConfig.Device,
-				corenetwork.GenerateVirtualMACAddress(),
-				netConfig.MTU,
-			),
-		}, nil, nil
 	}
 
 	// NOTE(achilleasa): the lxd default profile can be edited by the
@@ -306,11 +296,10 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 	return nics, nil, errors.Trace(err)
 }
 
-// TODO: HML 2-apr-2019
-// When provisioner_task processProfileChanges() is
-// removed, maybe change to take an lxdprofile.ProfilePost as
-// an arg.
 // MaybeWriteLXDProfile implements container.LXDProfileManager.
+// TODO: HML 2-apr-2019
+// When provisioner_task processProfileChanges() is removed,
+// maybe change to take an lxdprofile.ProfilePost as an arg.
 func (m *containerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
 	m.profileMutex.Lock()
 	defer m.profileMutex.Unlock()

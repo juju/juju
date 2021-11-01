@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -258,7 +259,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}
 	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
 	imageRepo := cfg.CAASImageRepo()
 	imageInfo := params.DockerImageInfo{
@@ -286,6 +287,10 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}
 	caCert, _ := cfg.CACert()
 	charmURL, _ := app.CharmURL()
+	appConfig, err := app.ApplicationConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting application config")
+	}
 	return &params.CAASApplicationProvisioningInfo{
 		ImagePath:            imagePath,
 		Version:              vers,
@@ -299,6 +304,8 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		ImageRepo:            imageInfo,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             charmURL.String(),
+		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
+		Scale:                app.GetScale(),
 	}, nil
 }
 

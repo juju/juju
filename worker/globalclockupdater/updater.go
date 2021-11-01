@@ -55,7 +55,6 @@ type Timer interface {
 type updater struct {
 	raft               RaftApplier
 	clock              raftlease.ReadOnlyClock
-	prevTime           time.Time
 	logger             Logger
 	sleeper            Sleeper
 	timer              Timer
@@ -74,7 +73,6 @@ func newUpdater(
 		raft:               r,
 		expiryNotifyTarget: notifyTarget,
 		clock:              clock,
-		prevTime:           clock.GlobalTime(),
 		sleeper:            sleeper,
 		timer:              timer,
 		logger:             logger,
@@ -86,8 +84,8 @@ func newUpdater(
 func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 	becomingLeaderTimeout := u.timer.After(leaderTimeout)
 	for {
-		newTime := u.prevTime.Add(duration)
-		cmd, err := u.createCommand(newTime)
+		oldTime := u.clock.GlobalTime()
+		cmd, err := u.createCommand(oldTime, oldTime.Add(duration))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -100,9 +98,11 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 				return errors.Errorf("expected FSMResponse, got %T: %#v", raw, raw)
 			}
 
-			response.Notify(u.expiryNotifyTarget)
-			u.prevTime = newTime
-			break
+			// Ensure we also check the FSMResponse error.
+			if err = response.Error(); err == nil {
+				response.Notify(u.expiryNotifyTarget)
+				break
+			}
 		}
 
 		u.logger.Warningf(err.Error())
@@ -117,9 +117,7 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 			u.logger.Warningf("clock update still pending; local Raft state is %q", u.raft.State())
 
 		case raft.ErrEnqueueTimeout:
-			// Reset our last known global time from the FSM and convert
-			// the error to one retryable by the updater worker.
-			u.prevTime = u.clock.GlobalTime()
+			// Convert the error to one retryable by the updater worker.
 			return globalclock.ErrTimeout
 
 		default:
@@ -139,11 +137,11 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 	return nil
 }
 
-func (u *updater) createCommand(newTime time.Time) ([]byte, error) {
+func (u *updater) createCommand(oldTime, newTime time.Time) ([]byte, error) {
 	cmd, err := (&raftlease.Command{
 		Version:   raftlease.CommandVersion,
 		Operation: raftlease.OperationSetTime,
-		OldTime:   u.prevTime,
+		OldTime:   oldTime,
 		NewTime:   newTime,
 	}).Marshal()
 

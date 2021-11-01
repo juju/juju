@@ -15,13 +15,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/replicaset"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 
@@ -30,7 +30,7 @@ var (
 )
 
 const (
-	maxPoolSize = replicaset.MaxPeers
+	maxPoolSize = controller.MaxPeers
 )
 
 // Config is the configuration required for running an apiserver-based

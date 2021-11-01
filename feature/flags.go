@@ -53,3 +53,16 @@ const ActionsV2 = "actions-v2"
 
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
+
+// RaftBatchFSM will use the batching FSM instead of the singular FSM to attempt
+// to commit logs.
+const RaftBatchFSM = "raft-batch-fsm"
+
+// RaftAPILeases will switch all lease store management transport, currently
+// handled by Pubsub to facade API interaction.
+const RaftAPILeases = "raft-api-leases"
+
+// CharmAssumes instructs Juju to process assumes expressions from charm
+// metadata when attempting to deploy charms. In addition, it enables reporting
+// of supported features as part of the 'juju show-model' output.
+const CharmAssumes = "charm-assumes"

@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
-	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
@@ -1098,9 +1097,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := coremodel.ValidateModelTarget(coremodel.ModelType(model.Type()), args.Charm); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	// CAAS charms don't support volume/block storage yet.
 	if model.Type() == ModelTypeCAAS {
@@ -1216,6 +1212,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
+		UnitCount:     args.NumUnits,
 
 		// CAAS
 		DesiredScale: scale,
@@ -1321,7 +1318,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
-			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{
+			unitName, unitOps, err := app.addUnitOpsWithCons(applicationAddUnitOpsArgs{
 				cons:          args.Constraints,
 				storageCons:   args.Storage,
 				attachStorage: args.AttachStorage,
@@ -2268,6 +2265,25 @@ func (st *State) AllRelations() (relations []*Relation, err error) {
 		relations = append(relations, newRelation(st, &v))
 	}
 	return
+}
+
+// AliveRelationKeys returns the relation keys of all live relations in
+// the model.  Used in charmhub metrics collection.
+func (st *State) AliveRelationKeys() []string {
+	relationsCollection, closer := st.db().GetCollection(relationsC)
+	defer closer()
+	var doc struct {
+		Key string `bson:"key"`
+	}
+
+	var keys []string
+	iter := relationsCollection.Find(isAliveDoc).Iter()
+	defer func() { _ = iter.Close() }()
+	for iter.Next(&doc) {
+		key := doc.Key
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect

@@ -368,6 +368,7 @@ type mockRelation struct {
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
 		id:          id,
+		key:         "db2:db django:db",
 		units:       make(map[string]commoncrossmodel.RelationUnit),
 		watchers:    make(map[string]*mockUnitsWatcher),
 		appSettings: make(map[string]map[string]interface{}),
@@ -387,6 +388,11 @@ func (r *mockRelation) Tag() names.Tag {
 func (r *mockRelation) Destroy() error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()
+}
+
+func (r *mockRelation) DestroyWithForce(force bool, maxWait time.Duration) ([]error, error) {
+	r.MethodCall(r, "DestroyWithForce", force)
+	return nil, r.NextErr()
 }
 
 func (r *mockRelation) Life() state.Life {

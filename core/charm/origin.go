@@ -47,6 +47,12 @@ type Origin struct {
 	Revision *int
 	Channel  *charm.Channel
 	Platform Platform
+
+	// InstanceKey is a unique string associated with the application. To
+	// assist with keeping KPI data in charmhub, it must be the same for every
+	// charmhub Refresh action related to an application. Create with the
+	// charmhub.CreateInstanceKey method. LP: 1944582
+	InstanceKey string
 }
 
 // Platform describes the platform used to install the charm with.

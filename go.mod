@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20211004014426-2fbdfdef40c7
+	github.com/canonical/pebble v0.0.0-20211020232555-f1cb2d5a71b7
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -51,7 +51,7 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v8 v8.0.0-20210914234543-4da410e3f680
+	github.com/juju/charm/v8 v8.0.0-20211008081544-8919a7a4a14d
 	github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
@@ -77,7 +77,7 @@ require (
 	github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258
 	github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/juju/replicaset v0.0.0-20210302050932-0303c8575745
+	github.com/juju/replicaset/v2 v2.0.1-0.20210310024806-bbbdc5f31eb3
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
 	github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
@@ -88,9 +88,9 @@ require (
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
-	github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057
+	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
+	github.com/juju/worker/v3 v3.0.0-20211015025416-7586be9e222a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d

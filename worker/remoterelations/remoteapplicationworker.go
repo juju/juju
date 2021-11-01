@@ -4,11 +4,13 @@
 package remoterelations
 
 import (
+	"sync"
+
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -28,6 +30,8 @@ import (
 type remoteApplicationWorker struct {
 	catacomb catacomb.Catacomb
 
+	mu sync.Mutex
+
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
 	offerUUID             string
@@ -38,6 +42,9 @@ type remoteApplicationWorker struct {
 	consumeVersion        int
 	localRelationChanges  chan RelationUnitChangeEvent
 	remoteRelationChanges chan RelationUnitChangeEvent
+
+	// relations is stored here for the engine report.
+	relations map[string]*relation
 
 	// offerMacaroon is used to confirm that permission has been granted to consume
 	// the remote application to which this worker pertains.
@@ -163,7 +170,9 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		offerStatusChanges = offerStatusWatcher.Changes()
 	}
 
-	relations := make(map[string]*relation)
+	w.mu.Lock()
+	w.relations = make(map[string]*relation)
+	w.mu.Unlock()
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -180,7 +189,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 			for i, result := range results {
 				key := change[i]
-				if err := w.relationChanged(key, result, relations); err != nil {
+				if err := w.relationChanged(key, result); err != nil {
 					if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
 						// Relation has been deleted, cleanup will occur
 						// via additional events arriving.
@@ -201,7 +210,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 				}
 				return errors.Annotatef(err, "publishing relation change %+v to remote model %v", change, w.remoteModelUUID)
 			}
-			if err := w.localRelationChanged(change.Tag.Id(), change.UnitCount, relations); err != nil {
+			if err := w.localRelationChanged(change.Tag.Id(), change.UnitCount); err != nil {
 				return errors.Annotatef(err, "processing local relation change for %v", change.Tag.Id())
 			}
 		case change := <-w.remoteRelationChanges:
@@ -361,11 +370,12 @@ func (w *remoteApplicationWorker) processLocalRelationRemoved(key string, relati
 // localRelationChanged processes changes to the relation
 // as recorded in the local model; the primary function
 // is to shut down workers when the relation is dead.
-func (w *remoteApplicationWorker) localRelationChanged(
-	key string, unitCount *int, relations map[string]*relation,
-) error {
+func (w *remoteApplicationWorker) localRelationChanged(key string, unitCount *int) error {
 	w.logger.Debugf("local relation %v changed", key)
-	relation, ok := relations[key]
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	relation, ok := w.relations[key]
 	if !ok {
 		return nil
 	}
@@ -376,7 +386,7 @@ func (w *remoteApplicationWorker) localRelationChanged(
 		w.logger.Debugf("relation dead but still has %d units in scope", *unitCount)
 		return nil
 	}
-	delete(relations, key)
+	delete(w.relations, key)
 	w.logger.Debugf("local relation %v is dead", key)
 
 	// For the unit watchers, check to see if these are nil before stopping.
@@ -400,20 +410,21 @@ func (w *remoteApplicationWorker) localRelationChanged(
 
 // relationChanged processes changes to the relation as recorded in the
 // local model when a change event arrives from the remote model.
-func (w *remoteApplicationWorker) relationChanged(
-	key string, localRelation params.RemoteRelationResult, relations map[string]*relation,
-) (err error) {
+func (w *remoteApplicationWorker) relationChanged(key string, localRelation params.RemoteRelationResult) (err error) {
 	w.logger.Debugf("relation %q changed in local model: %#v", key, localRelation)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	defer func() {
 		if err == nil || !params.IsCodeNotFound(err) {
 			return
 		}
-		if err2 := w.processLocalRelationRemoved(key, relations); err2 != nil {
+		if err2 := w.processLocalRelationRemoved(key, w.relations); err2 != nil {
 			err = errors.Annotate(err2, "processing local relation removed")
 		}
-		if r := relations[key]; r != nil {
+		if r := w.relations[key]; r != nil {
 			r.localDead = true
-			relations[key] = r
+			w.relations[key] = r
 		}
 	}()
 	if localRelation.Error != nil {
@@ -423,12 +434,12 @@ func (w *remoteApplicationWorker) relationChanged(
 
 	// If we have previously started the watcher and the
 	// relation is now suspended, stop the watcher.
-	if r := relations[key]; r != nil {
+	if r := w.relations[key]; r != nil {
 		wasSuspended := r.suspended
 		r.suspended = localRelationInfo.Suspended
-		relations[key] = r
+		w.relations[key] = r
 		if localRelationInfo.Suspended {
-			return w.processRelationSuspended(key, localRelationInfo.Life, relations)
+			return w.processRelationSuspended(key, localRelationInfo.Life, w.relations)
 		}
 		if !wasSuspended && localRelationInfo.Life == life.Alive {
 			// Nothing to do, we have previously started the watcher.
@@ -440,7 +451,7 @@ func (w *remoteApplicationWorker) relationChanged(
 		// Nothing else to do on the offering side.
 		return nil
 	}
-	return w.processConsumingRelation(key, relations, localRelationInfo)
+	return w.processConsumingRelation(key, localRelationInfo)
 }
 
 // startUnitsWorkers starts 2 workers to watch for unit settings or departed changes;
@@ -506,7 +517,6 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 // after being suspended.
 func (w *remoteApplicationWorker) processConsumingRelation(
 	key string,
-	relations map[string]*relation,
 	remoteRelation *params.RemoteRelation,
 ) error {
 
@@ -524,7 +534,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	}
 
 	// Have we seen the relation before.
-	r, relationKnown := relations[key]
+	r, relationKnown := w.relations[key]
 	if !relationKnown {
 		// Totally new so start the lifecycle watcher.
 		remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationSuspendedStatus(params.RemoteEntityArg{
@@ -561,7 +571,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 			applicationToken:   applicationToken,
 			relationToken:      relationToken,
 		}
-		relations[key] = r
+		w.relations[key] = r
 	}
 
 	if r.localRuw == nil && !remoteRelation.Suspended {
@@ -649,4 +659,40 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 			err, "importing remote application %v to local model", w.applicationName))
 	}
 	return applicationToken, offeringAppToken, relationToken, registerResult.Macaroon, nil
+}
+
+// Report provides information for the engine report.
+func (w *remoteApplicationWorker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	relationsInfo := make(map[string]interface{})
+	for rel, info := range w.relations {
+		relationsInfo[rel] = map[string]interface{}{
+			"relation-id":        info.relationId,
+			"local-dead":         info.localDead,
+			"suspended":          info.suspended,
+			"application-token":  info.applicationToken,
+			"relation-token":     info.relationToken,
+			"local-endpoint":     info.localEndpoint.Name,
+			"remote-endpoint":    info.remoteEndpointName,
+			"last-status-event":  info.remoteRrw.Report(),
+			"last-local-change":  info.localRuw.Report(),
+			"last-remote-change": info.remoteRuw.Report(),
+		}
+	}
+	if len(relationsInfo) > 0 {
+		result["relations"] = relationsInfo
+	}
+	result["remote-model-uuid"] = w.remoteModelUUID
+	if w.isConsumerProxy {
+		result["consumer-proxy"] = true
+		result["consume-version"] = w.consumeVersion
+	} else {
+		result["saas-application"] = true
+		result["offer-uuid"] = w.offerUUID
+	}
+
+	return result
 }

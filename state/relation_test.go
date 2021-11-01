@@ -454,6 +454,58 @@ func (s *RelationSuite) TestDestroyCrossModelRelationAppTerminated(c *gc.C) {
 	s.assertDestroyCrossModelRelation(c, &st)
 }
 
+func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+		IsConsumerProxy: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, mysqlru, true)
+
+	wpru, err := rel.RemoteUnit("remote-wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpru, true)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	errs, err := rel.DestroyWithForce(true, 0)
+	c.Assert(errs, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	s.assertInScope(c, wpru, false)
+	s.assertInScope(c, mysqlru, true)
+}
+
 func (s *RelationSuite) TestIsCrossModelYup(c *gc.C) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
@@ -1137,8 +1189,39 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 	err = remoteRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRelationCleanedUp(c, rel,
-		[]*state.RelationUnit{localRelUnit, remoteRelUnit})
+	opErrs, err := rel.DestroyWithForce(true, time.Minute)
+	c.Assert(opErrs, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	// Schedules a cleanup to remove the unit scope if needed.
+	s.assertNeedsCleanup(c)
+
+	// But running cleanup immediately doesn't do it all.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+
+	// Remote units forced out of scope.
+	assertInScope(c, localRelUnit)
+	assertNotInScope(c, remoteRelUnit)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	s.Clock.Advance(time.Minute)
+
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertNotInScope(c, localRelUnit)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {

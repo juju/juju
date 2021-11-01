@@ -6,7 +6,7 @@ package upgrades
 import (
 	"time"
 
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -98,6 +98,7 @@ type StateBackend interface {
 	TransformEmptyManifestsToNil() error
 	EnsureCharmOriginRisk() error
 	RemoveOrphanedCrossModelProxies() error
+	DropLegacyAssumesSectionsFromCharmMetadata() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -422,4 +423,8 @@ func (s stateBackend) EnsureCharmOriginRisk() error {
 
 func (s stateBackend) RemoveOrphanedCrossModelProxies() error {
 	return state.RemoveOrphanedCrossModelProxies(s.pool)
+}
+
+func (s stateBackend) DropLegacyAssumesSectionsFromCharmMetadata() error {
+	return state.DropLegacyAssumesSectionsFromCharmMetadata(s.pool)
 }

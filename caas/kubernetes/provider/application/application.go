@@ -192,7 +192,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Labels:      a.labels(),
 				Annotations: a.annotations(config),
 			},
-			Rules: defaultApplicationNamespaceRules,
+			Rules: a.roleRules(config.Trust),
 		},
 	}
 	applier.Apply(&role)
@@ -227,7 +227,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Labels:      a.labels(),
 				Annotations: a.annotations(config),
 			},
-			Rules: defaultApplicationClusterRules,
+			Rules: a.clusterRoleRules(config.Trust),
 		},
 	}
 	applier.Apply(&clusterRole)
@@ -348,7 +348,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = pointer.Int32Ptr(1)
+			numPods = pointer.Int32Ptr(int32(config.InitialScale))
 		}
 		statefulset := resources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
@@ -410,7 +410,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = pointer.Int32Ptr(1)
+			numPods = pointer.Int32Ptr(int32(config.InitialScale))
 		}
 		// Config storage to update the podspec with storage info.
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {

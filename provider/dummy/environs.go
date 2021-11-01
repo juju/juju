@@ -43,7 +43,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -1024,7 +1024,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return state.RestoreNotActive
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
-				RaftOpQueue:      queue.NewBlockingOpQueue(clock.WallClock),
+				RaftOpQueue:      queue.NewOpQueue(clock.WallClock),
 			})
 			if err != nil {
 				panic(err)

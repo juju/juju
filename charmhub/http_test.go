@@ -228,21 +228,18 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
 
 func (s *RESTSuite) TestComposeHeaders(c *gc.C) {
 	clientHeaders := http.Header{
-		"User-Agent":      []string{"Juju/3.14.159"},
-		"X-Juju-Metadata": []string{"cloud=cloud-9", "cloud_region=juju-land"},
+		"User-Agent": []string{"Juju/3.14.159"},
 	}
 	requestHeaders := http.Header{
-		"X-Juju-Metadata": []string{"arch=amd64", "os=ubuntu", "series=focal"},
-		"Something-Else":  []string{"foo"},
+		"Something-Else": []string{"foo"},
 	}
 
 	client := NewHTTPRESTClient(nil, clientHeaders)
 	got := client.composeHeaders(requestHeaders)
 
 	c.Assert(got, gc.DeepEquals, http.Header{
-		"User-Agent":      []string{"Juju/3.14.159"},
-		"X-Juju-Metadata": []string{"arch=amd64", "os=ubuntu", "series=focal", "cloud=cloud-9", "cloud_region=juju-land"},
-		"Something-Else":  []string{"foo"},
+		"User-Agent":     []string{"Juju/3.14.159"},
+		"Something-Else": []string{"foo"},
 	})
 }
 

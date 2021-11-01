@@ -22,7 +22,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/core/network"
@@ -231,8 +231,8 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// Mongo40wt represents 'mongodb' at version 4.0.x with WiredTiger
-	Mongo40wt = Version{Major: 4,
+	// Mongo4xwt represents 'mongodb' at version 4.x with WiredTiger
+	Mongo4xwt = Version{Major: 4,
 		Minor:         0,
 		Patch:         "",
 		StorageEngine: WiredTiger,
@@ -254,7 +254,9 @@ type WithAddresses interface {
 
 // IsMaster returns a boolean that represents whether the given
 // machine's peer address is the primary mongo host for the replicaset
-func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
+var IsMaster = isMaster
+
+func isMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	addrs := obj.Addresses()
 
 	masterHostPort, err := replicaset.MasterHostPort(session)

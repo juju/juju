@@ -11,8 +11,8 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -42,7 +42,7 @@ type workerFixture struct {
 	stub                 testing.Stub
 	metricsCollector     *coreapiserver.Collector
 	multiwatcherFactory  multiwatcher.Factory
-	queue                *queue.BlockingOpQueue
+	queue                *queue.OpQueue
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -67,7 +67,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
-	s.queue = queue.NewBlockingOpQueue(testclock.NewClock(time.Now()))
+	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{

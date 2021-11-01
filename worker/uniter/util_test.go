@@ -30,7 +30,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/v2"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -561,16 +561,16 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		RebootQuerier:  s.rebootQuerier,
 		Logger:         loggo.GetLogger("test"),
 		ContainerNames: ctx.containerNames,
-		NewPebbleClient: func(cfg *pebbleclient.Config) uniter.PebbleClient {
+		NewPebbleClient: func(cfg *pebbleclient.Config) (uniter.PebbleClient, error) {
 			res := pebbleSocketPathRegexp.FindAllStringSubmatch(cfg.Socket, 1)
 			if res == nil {
-				return &fakePebbleClient{err: errors.NotFoundf("container not found")}
+				return nil, errors.NotFoundf("container")
 			}
 			client, ok := ctx.pebbleClients[res[0][1]]
 			if !ok {
-				return &fakePebbleClient{err: errors.NotFoundf("container not found")}
+				return nil, errors.NotFoundf("container")
 			}
-			return client
+			return client, nil
 		},
 		SecretRotateWatcherFunc: func(u names.UnitTag, secretsChanged chan []string) (worker.Worker, error) {
 			c.Assert(u.String(), gc.Equals, s.unitTag)

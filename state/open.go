@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/feature"

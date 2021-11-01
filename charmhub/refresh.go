@@ -5,18 +5,22 @@ package charmhub
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
+	"golang.org/x/crypto/pbkdf2"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	coreseries "github.com/juju/juju/core/series"
 )
 
@@ -83,7 +87,7 @@ func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *Refresh
 // RefreshConfig defines a type for building refresh requests.
 type RefreshConfig interface {
 	// Build a refresh request for sending to the API.
-	Build() (transport.RefreshRequest, Headers, error)
+	Build() (transport.RefreshRequest, error)
 
 	// Ensure that the request back contains the information we requested.
 	Ensure([]transport.RefreshResponse) error
@@ -95,17 +99,68 @@ type RefreshConfig interface {
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
-	req, headers, err := config.Build()
+	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return c.refresh(ctx, config.Ensure, req)
+}
 
-	httpHeaders := make(http.Header)
-	for k, values := range headers {
-		for _, value := range values {
-			httpHeaders.Add(MetadataHeader, fmt.Sprintf("%s=%s", k, value))
-		}
+// RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
+// at the same time.  Used as part of the charm revision updater facade.
+func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
+	c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	req, err := config.Build()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	m, err := contextMetrics(metrics)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	req.Metrics = m
+	return c.refresh(ctx, config.Ensure, req)
+}
+
+// RefreshWithMetricsOnly is to provide metrics without context or actions. Used
+// as part of the charm revision updater facade.
+func (c *RefreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+	c.logger.Tracef("RefreshWithMetricsOnly(%+v)", metrics)
+	m, err := contextMetrics(metrics)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	req := transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{},
+		Metrics: m,
+	}
+
+	// No need to ensure data which is not expected.
+	ensure := func(responses []transport.RefreshResponse) error { return nil }
+
+	_, err = c.refresh(ctx, ensure, req)
+	return err
+}
+
+func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) (transport.RequestMetrics, error) {
+	m := make(transport.RequestMetrics, 0)
+	for k, v := range metrics {
+		// verify top level "model" and "controller" keys
+		if k != charmmetrics.Controller && k != charmmetrics.Model {
+			return nil, errors.Trace(errors.NotValidf("highlevel metrics label %q", k))
+		}
+		ctxM := make(map[string]string, len(v))
+		for k2, v2 := range v {
+			ctxM[k2.String()] = v2
+		}
+		m[k.String()] = ctxM
+	}
+	return m, nil
+}
+
+func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest) ([]transport.RefreshResponse, error) {
+	httpHeaders := make(http.Header)
 
 	var resp transport.RefreshResponses
 	restResp, err := c.client.Post(ctx, c.path, httpHeaders, req, &resp)
@@ -120,7 +175,7 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 	}
 
 	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
-	return resp.Results, config.Ensure(resp.Results)
+	return resp.Results, ensure(resp.Results)
 }
 
 // refreshOne holds the config for making refresh calls to the CharmHub API.
@@ -132,6 +187,7 @@ type refreshOne struct {
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
+	metrics     transport.ContextMetrics
 }
 
 // InstanceKey returns the underlying instance key.
@@ -145,16 +201,22 @@ func (c refreshOne) String() string {
 }
 
 // RefreshOne creates a request config for requesting only one charm.
-func RefreshOne(id string, revision int, channel string, base RefreshBase) (RefreshConfig, error) {
+func RefreshOne(key, id string, revision int, channel string, base RefreshBase) (RefreshConfig, error) {
+	if key == "" {
+		// This is for compatibility reasons.  With older clients, the
+		// key created in GetCharmURLOrigin will be lost to and from
+		// the client.  Since a key is required, ensure we have one.
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		key = uuid.String()
+	}
 	if err := validateBase(base); err != nil {
 		return nil, errors.Trace(err)
 	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return refreshOne{
-		instanceKey: uuid.String(),
+		instanceKey: key,
 		ID:          id,
 		Revision:    revision,
 		Channel:     channel,
@@ -162,11 +224,20 @@ func RefreshOne(id string, revision int, channel string, base RefreshBase) (Refr
 	}, nil
 }
 
+// CreateInstanceKey creates an InstanceKey which can be unique and stable
+// from Refresh action to Refresh action.  Required for KPI collection
+// on the charmhub side, see LP:1944582.  Rather than saving in
+// state, use a hash of the model uuid + the app name, which are unique.
+func CreateInstanceKey(app names.ApplicationTag, model names.ModelTag) string {
+	h := pbkdf2.Key([]byte(app.Id()), []byte(model.Id()), 8192, 32, sha512.New)
+	return base64.RawURLEncoding.EncodeToString(h)
+}
+
 // Build a refresh request that can be past to the API.
-func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
+func (c refreshOne) Build() (transport.RefreshRequest, error) {
 	base, err := constructRefreshBase(c.Base)
 	if err != nil {
-		return transport.RefreshRequest{}, nil, errors.Trace(err)
+		return transport.RefreshRequest{}, errors.Trace(err)
 	}
 
 	return transport.RefreshRequest{
@@ -176,6 +247,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			Revision:        c.Revision,
 			Base:            base,
 			TrackingChannel: c.Channel,
+			Metrics:         c.metrics,
 			// TODO (stickupkid): We need to model the refreshed date. It's
 			// currently optional, but will be required at some point. This
 			// is the installed date of the charm on the system.
@@ -185,7 +257,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 			InstanceKey: c.instanceKey,
 			ID:          &c.ID,
 		}},
-	}, constructMetadataHeaders(c.Base), nil
+	}, nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -232,6 +304,23 @@ func InstallOneFromRevision(name string, revision int, base RefreshBase) (Refres
 		Revision:    &revision,
 		Base:        base,
 	}, nil
+}
+
+// AddConfigMetrics adds metrics to a refreshOne config.  All values are
+// applied at once, subsequent calls, replace all values.
+func AddConfigMetrics(config RefreshConfig, metrics map[charmmetrics.MetricKey]string) (RefreshConfig, error) {
+	c, ok := config.(refreshOne)
+	if !ok {
+		return config, nil // error?
+	}
+	if len(metrics) < 1 {
+		return c, nil
+	}
+	c.metrics = make(transport.ContextMetrics, 0)
+	for k, v := range metrics {
+		c.metrics[k.String()] = v
+	}
+	return c, nil
 }
 
 // InstallOneFromChannel creates a request config using the channel and not the
@@ -311,10 +400,10 @@ func DownloadOneFromChannel(id string, channel string, base RefreshBase) (Refres
 }
 
 // Build a refresh request that can be past to the API.
-func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
+func (c executeOne) Build() (transport.RefreshRequest, error) {
 	base, err := constructRefreshBase(c.Base)
 	if err != nil {
-		return transport.RefreshRequest{}, nil, errors.Trace(err)
+		return transport.RefreshRequest{}, errors.Trace(err)
 	}
 
 	var id *string
@@ -338,7 +427,7 @@ func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
 			Channel:     c.Channel,
 			Base:        &base,
 		}},
-	}, constructMetadataHeaders(c.Base), nil
+	}, nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -382,8 +471,11 @@ func RefreshMany(configs ...RefreshConfig) RefreshConfig {
 }
 
 // Build a refresh request that can be past to the API.
-func (c refreshMany) Build() (transport.RefreshRequest, Headers, error) {
-	var composedHeaders Headers
+func (c refreshMany) Build() (transport.RefreshRequest, error) {
+	if len(c.Configs) == 0 {
+		return transport.RefreshRequest{}, errors.NotFoundf("configs")
+	}
+
 	// Not all configs built here have a context, start out with an empty
 	// slice, so we do not call Refresh with a nil context.
 	// See executeOne.Build().
@@ -391,15 +483,15 @@ func (c refreshMany) Build() (transport.RefreshRequest, Headers, error) {
 		Context: []transport.RefreshRequestContext{},
 	}
 	for _, config := range c.Configs {
-		req, headers, err := config.Build()
+		req, err := config.Build()
 		if err != nil {
-			return transport.RefreshRequest{}, nil, errors.Trace(err)
+			return transport.RefreshRequest{}, errors.Trace(err)
 		}
 		result.Context = append(result.Context, req.Context...)
 		result.Actions = append(result.Actions, req.Actions...)
-		composedHeaders = composeMetadataHeaders(composedHeaders, headers)
+
 	}
-	return result, composedHeaders, nil
+	return result, nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -461,40 +553,6 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		Name:         name,
 		Channel:      channel,
 	}, nil
-}
-
-// constructHeaders adds X-Juju-Metadata headers for the charms' unique channel
-// and architecture values, for example:
-//
-// X-Juju-Metadata: channel=bionic
-// X-Juju-Metadata: arch=amd64
-// X-Juju-Metadata: channel=focal
-func constructMetadataHeaders(base RefreshBase) map[string][]string {
-	headers := make(map[string][]string)
-	if base.Architecture != "" {
-		headers["arch"] = []string{base.Architecture}
-	}
-	if base.Name != "" {
-		headers["name"] = []string{base.Name}
-	}
-	if base.Channel != "" {
-		headers["channel"] = []string{base.Channel}
-	}
-	return headers
-}
-
-func composeMetadataHeaders(a, b Headers) Headers {
-	result := make(map[string][]string)
-	for k, v := range a {
-		result[k] = append(result[k], v...)
-	}
-	for k, v := range b {
-		result[k] = append(result[k], v...)
-	}
-	for k, v := range result {
-		result[k] = set.NewStrings(v...).SortedValues()
-	}
-	return result
 }
 
 // validateBase ensures that we do not pass "all" as part of base.

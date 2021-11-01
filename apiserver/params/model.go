@@ -180,6 +180,22 @@ type ModelInfo struct {
 
 	// AgentVersion is the agent version for this model.
 	AgentVersion *version.Number `json:"agent-version"`
+
+	// SupportedFeatures provides information about the set of features
+	// supported by this model. The feature set contains both Juju-specific
+	// entries (e.g. juju version) and other features that depend on the
+	// substrate the model is deployed to.
+	SupportedFeatures []SupportedFeature `json:"supported-features,omitempty"`
+}
+
+// SupportedFeature describes a feature that is supported by a particular model.
+type SupportedFeature struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+
+	// Version is optional; some features might simply be booleans with
+	// no particular version attached.
+	Version string `json:"version,omitempty"`
 }
 
 // ModelSummary holds summary about a Juju model.

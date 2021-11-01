@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/lxdprofile"
@@ -108,7 +107,7 @@ type DownloadRepo interface {
 }
 
 // DownloadFromCharmStore will creates a procedure to install a charm from the
-// charm store.
+// charm store.  Deprecated in juju 2.9, removed in 3.0
 func DownloadFromCharmStore(logger loggo.Logger, repository DownloadRepo, url string, force bool) (*Strategy, error) {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
@@ -120,25 +119,6 @@ func DownloadFromCharmStore(logger loggo.Logger, repository DownloadRepo, url st
 		store: StoreCharmStore{
 			repository: repository,
 			logger:     log.Child("charmstore"),
-		},
-		force:  force,
-		logger: log,
-	}, nil
-}
-
-// DownloadFromCharmHub will creates a procedure to install a charm from the
-// charm hub.
-func DownloadFromCharmHub(logger loggo.Logger, repository DownloadRepo, curl string, force bool) (*Strategy, error) {
-	churl, err := charm.ParseURL(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	log := &loggerShim{logger}
-	return &Strategy{
-		charmURL: churl,
-		store: StoreCharmHub{
-			repository: repository,
-			logger:     log.Child("charmhub"),
 		},
 		force:  force,
 		logger: log,
@@ -358,43 +338,6 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (
 // DownloadOrigin returns the same origin provided.  This operation is required for CharmHub.
 func (s StoreCharmStore) DownloadOrigin(_ *charm.URL, origin Origin) (Origin, error) {
 	return origin, nil
-}
-
-// StoreCharmHub defines a type for interacting with the charm hub.
-type StoreCharmHub struct {
-	repository DownloadRepo
-	platform   Platform
-	logger     Logger
-}
-
-// Validate checks to ensure that the schema is valid for the store.
-func (StoreCharmHub) Validate(curl *charm.URL) error {
-	if charm.CharmHub != charm.Schema(curl.Schema) {
-		return errors.Errorf("only charm hub charm URLs are supported")
-	}
-	return nil
-}
-
-// Download the charm from the charm hub.
-func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
-	s.logger.Tracef("Download(%s) %s", curl, pretty.Sprint(origin))
-	repositoryURL, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin)
-	if err != nil {
-		return nil, nil, downloadOrigin, errors.Trace(err)
-	}
-	archive, err := s.repository.DownloadCharm(repositoryURL.String(), file)
-	if err != nil {
-		return nil, nil, downloadOrigin, errors.Trace(err)
-	}
-	return newStoreCharmShim(archive), MatchChecksum(downloadOrigin.Hash), downloadOrigin, nil
-}
-
-// DownloadOrigin returns an origin with the id and hash, without
-// downloading the charm.
-func (s StoreCharmHub) DownloadOrigin(curl *charm.URL, origin Origin) (Origin, error) {
-	s.logger.Tracef("DownloadOrigin(%s) %s", curl, pretty.Sprint(origin))
-	_, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin)
-	return downloadOrigin, errors.Trace(err)
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler

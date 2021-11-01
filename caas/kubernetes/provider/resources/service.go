@@ -42,8 +42,8 @@ func (s *Service) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *Service) ID() ID {
-	return ID{"Service", r.Name, r.Namespace}
+func (s *Service) ID() ID {
+	return ID{"Service", s.Name, s.Namespace}
 }
 
 // Apply patches the resource change.
@@ -60,6 +60,9 @@ func (s *Service) Apply(ctx context.Context, client kubernetes.Interface) error 
 		res, err = api.Create(ctx, &s.Service, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "service %q", s.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

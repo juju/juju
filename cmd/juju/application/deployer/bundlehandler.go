@@ -857,6 +857,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		Devices:          deviceConstraints,
 		Resources:        resNames2IDs,
 		EndpointBindings: p.EndpointBindings,
+		Force:            h.force,
 	}); err != nil {
 		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}

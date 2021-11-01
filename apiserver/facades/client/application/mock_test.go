@@ -384,6 +384,7 @@ type mockBackend struct {
 	jtesting.Stub
 	application.Backend
 
+	model                      *mockModel
 	charm                      *mockCharm
 	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
@@ -397,11 +398,16 @@ type mockBackend struct {
 	machines                   map[string]*mockMachine
 	generation                 *mockGeneration
 	spaceInfos                 network.SpaceInfos
+	controllerCfg              *controller.Config
 }
 
 type mockFilesystemAccess struct {
 	storagecommon.FilesystemAccess
 	*mockBackend
+}
+
+func (m *mockBackend) Model() (application.Model, error) {
+	return m.model, nil
 }
 
 func (m *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
@@ -421,6 +427,9 @@ func (m *mockBackend) GetBlockForType(t state.BlockType) (state.Block, bool, err
 }
 
 func (m *mockBackend) ControllerConfig() (controller.Config, error) {
+	if m.controllerCfg != nil {
+		return *m.controllerCfg, nil
+	}
 	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/remoterelations"

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -362,20 +360,6 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		// Prevent deploying a charm that isn't valid for the model target (CAAS or
-		// IAAS models)
-		modelType, err := d.model.ModelType()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if err := model.ValidateModelTarget(modelType, ch); err != nil {
-			appName := d.applicationName
-			if appName == "" {
-				appName = ch.Meta().Name
-			}
-			return nil, errors.Annotatef(err, "cannot add application %q", appName)
-		}
 	}
 
 	// Charm may have been supplied via a path reference.
@@ -615,14 +599,6 @@ func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) e
 	// for a given deploy.
 	if modelType == model.IAAS {
 		return nil
-	}
-
-	// It is expected that everything onwards is a CAAS model and so we should
-	// also check that the metadata is also kubernetes as well. If not then
-	// something is wrong and we're deploying a machine (IAAS) charm on a CAAS
-	// model.
-	if !set.NewStrings(charmMeta.Series...).Contains(series.Kubernetes.String()) && len(charmMeta.Containers) == 0 {
-		return errors.Errorf("expected container-based charm metadata, unexpected series or base")
 	}
 
 	var missingImages []string

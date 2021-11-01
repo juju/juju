@@ -16,8 +16,8 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
@@ -286,7 +286,7 @@ type ManifoldsConfig struct {
 	// If the queue becomes stalled there is now way to bounce this without
 	// restarting the agent itself. The same architecture is also applied to
 	// pubsub. Monitoring might be useful to detect this in the future.
-	RaftOpQueue *queue.BlockingOpQueue
+	RaftOpQueue *queue.OpQueue
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -837,6 +837,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,
 			NewStore:             leasemanager.NewStore,
+			NewClient:            leasemanager.NewClientFunc,
 		})),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc

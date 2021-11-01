@@ -1452,6 +1452,39 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAliveRelationKeys(c *gc.C) {
+	const numRelations = 12
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	_, err = mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	for i := 0; i < numRelations; i++ {
+		applicationname := fmt.Sprintf("wordpress%d", i)
+		wordpress := s.AddTestingApplication(c, applicationname, wordpressCharm)
+		_, err = wordpress.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		eps, err := s.State.InferEndpoints(applicationname, "mysql")
+		c.Assert(err, jc.ErrorIsNil)
+		r, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		// Destroy half the relations, to check we only get the ones Alive
+		if i%2 == 0 {
+			_ = r.Destroy()
+		}
+	}
+
+	relationKeys := s.State.AliveRelationKeys()
+
+	c.Assert(len(relationKeys), gc.Equals, numRelations/2)
+	num := 1
+	for _, relation := range relationKeys {
+		c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:.+ mysql:.+", num))
+		num += 2
+	}
+}
+
 func (s *StateSuite) TestSaveCloudService(c *gc.C) {
 	svc, err := s.State.SaveCloudService(
 		state.SaveCloudServiceArgs{

@@ -15,9 +15,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/replicaset"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/replicaset/v2"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
 

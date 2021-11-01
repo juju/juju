@@ -40,13 +40,19 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.modelmanager")
+var (
+	logger = loggo.GetLogger("juju.apiserver.modelmanager")
+
+	// Overridden by tests.
+	supportedFeaturesGetter = stateenvirons.SupportedFeatures
+)
 
 // ModelManagerV10 defines the methods on the version 10 facade for the
 // modelmanager API endpoint.
@@ -646,7 +652,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
-) (common.Model, error) {
+) (_ common.Model, err error) {
 	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
@@ -655,6 +661,20 @@ func (m *ModelManagerAPI) newCAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
+
+	defer func() {
+		// Retain the error stack but with a better message.
+		if errors.IsAlreadyExists(err) {
+			err = errors.Wrap(err, errors.NewAlreadyExists(nil,
+				`
+the model cannot be created because a namespace with the proposed
+model name already exists in the k8s cluster.
+Please choose a different model name.
+`[1:],
+			))
+		}
+	}()
+
 	broker, err := m.getBroker(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: controllerConfig.ControllerUUID(),
 		Cloud:          cloudSpec,
@@ -668,16 +688,6 @@ func (m *ModelManagerAPI) newCAASModel(
 		m.callContext,
 		environs.CreateParams{ControllerUUID: controllerConfig.ControllerUUID()},
 	); err != nil {
-		if errors.IsAlreadyExists(err) {
-			// Retain the error stack but with a better message.
-			return nil, errors.Wrap(err, errors.NewAlreadyExists(nil,
-				`
-the model cannot be created because a namespace with the proposed
-model name already exists in the k8s cluster.
-Please choose a different model name.
-`[1:],
-			))
-		}
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
@@ -1320,6 +1330,32 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 			Status: migration.StatusMessage(),
 			Start:  &startTime,
 			End:    endTime,
+		}
+	}
+
+	// TODO(achilleasa): remove this check when we are ready to roll out
+	// support for "assumes" expressions.
+	ctrlConf, err := st.ControllerConfig()
+	if err != nil {
+		return params.ModelInfo{}, err
+	}
+
+	if ctrlConf.Features().Contains(feature.CharmAssumes) {
+		fs, err := supportedFeaturesGetter(model, environs.New)
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
+		for _, feat := range fs.AsList() {
+			mappedFeat := params.SupportedFeature{
+				Name:        feat.Name,
+				Description: feat.Description,
+			}
+
+			if feat.Version != nil {
+				mappedFeat.Version = feat.Version.String()
+			}
+
+			info.SupportedFeatures = append(info.SupportedFeatures, mappedFeat)
 		}
 	}
 	return info, nil

@@ -553,6 +553,51 @@ func (s *ModelSuite) TestAllUnits(c *gc.C) {
 	})
 }
 
+func (s *ModelSuite) TestMetrics(c *gc.C) {
+	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "wordpress",
+	})
+	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "mysql",
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	// Add a machine/unit/application and destroy it, to
+	// ensure we're only counting entities that are alive.
+	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	err := m.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	one := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "one",
+	})
+	u := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+	err = one.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained, err := model.Metrics()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := state.ModelMetrics{
+		ApplicationCount: "2",
+		MachineCount:     "3",
+		UnitCount:        "3",
+		CloudName:        "dummy",
+		CloudRegion:      "dummy-region",
+		Provider:         "dummy",
+		UUID:             s.Model.UUID(),
+		ControllerUUID:   s.Model.ControllerUUID(),
+	}
+
+	c.Assert(obtained, jc.DeepEquals, expected)
+}
+
 func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})

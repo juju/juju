@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -110,7 +111,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	), ctrl
 }
 
-func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivateImageRepo bool, cons constraints.Value, checkMainResource func()) {
+func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivateImageRepo bool, cons constraints.Value, trust bool, checkMainResource func()) {
 	appSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gitlab-application-config",
@@ -162,6 +163,111 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 		Type: corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			corev1.DockerConfigJsonKey: pullSecretConfig,
+		},
+	}
+	appSA := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+		AutomountServiceAccountToken: pointer.BoolPtr(false),
+	}
+	appRole := rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+	}
+	if trust {
+		appRole.Rules = []rbacv1.PolicyRule{{
+			Verbs:     []string{"*"},
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+		}}
+	} else {
+		appRole.Rules = []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods", "services"},
+				Verbs: []string{
+					"get",
+					"list",
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods/exec"},
+				Verbs: []string{
+					"create",
+				},
+			},
+		}
+	}
+	appRoleBinding := rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "gitlab",
+			Namespace: "test",
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "Role",
+			Name: "gitlab",
+		},
+	}
+	appClusterRole := rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gitlab",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+	}
+	if trust {
+		appClusterRole.Rules = []rbacv1.PolicyRule{{
+			Verbs:     []string{"*"},
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+		}}
+	}
+	appClusterRoleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gitlab",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "1.1.1"},
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "gitlab",
+			Namespace: "test",
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: "test-gitlab",
 		},
 	}
 
@@ -220,7 +326,9 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 					},
 				},
 			},
-			Constraints: cons,
+			Constraints:  cons,
+			InitialScale: 3,
+			Trust:        trust,
 		},
 	), jc.ErrorIsNil)
 
@@ -235,6 +343,26 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc, gc.DeepEquals, &appSvc)
+
+	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa, gc.DeepEquals, &appSA)
+
+	r, err := s.client.RbacV1().Roles(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.DeepEquals, &appRole)
+
+	cr, err := s.client.RbacV1().ClusterRoles().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cr, gc.DeepEquals, &appClusterRole)
+
+	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rb, gc.DeepEquals, &appRoleBinding)
+
+	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(crb, gc.DeepEquals, &appClusterRoleBinding)
 
 	checkMainResource()
 }
@@ -510,7 +638,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, func() {
+		c, app, false, constraints.Value{}, true, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -550,7 +678,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: pointer.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(3),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -595,6 +723,22 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	s.assertDelete(c, app)
 }
 
+func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, func() {},
+	)
+	s.assertDelete(c, app)
+}
+
+func (s *applicationSuite) TestEnsureUntrusted(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, false, func() {},
+	)
+	s.assertDelete(c, app)
+}
+
 func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
@@ -606,7 +750,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 		podSpec.ImagePullSecrets...,
 	)
 	s.assertEnsure(
-		c, app, true, constraints.Value{}, func() {
+		c, app, true, constraints.Value{}, true, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -646,7 +790,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: pointer.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(3),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -694,7 +838,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, func() {
+		c, app, false, constraints.Value{}, true, func() {
 			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -746,7 +890,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: pointer.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(3),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 					},
@@ -767,7 +911,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, func() {
+		c, app, false, constraints.Value{}, true, func() {
 			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -963,7 +1107,7 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 	// Not mock applier and ensure the resources created in the s.client.
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, true, func() {})
 
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
@@ -1202,6 +1346,7 @@ func (s *applicationSuite) assertState(c *gc.C, deploymentType caas.DeploymentTy
 		Replicas:        []string{"pod1", "pod2"},
 	})
 }
+
 func (s *applicationSuite) TestStateStateful(c *gc.C) {
 	s.assertState(c, caas.DeploymentStateful, func() int {
 		desiredReplicas := 10
@@ -2053,7 +2198,7 @@ func (s *applicationSuite) TestService(c *gc.C) {
 func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), func() {
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -2102,7 +2247,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: pointer.Int32Ptr(1),
+					Replicas: pointer.Int32Ptr(3),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -2189,7 +2334,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 		metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnsure(c, app, false, constraints.Value{}, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, true, func() {})
 
 	_, err = s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
 	c.Assert(err, gc.ErrorMatches, `secrets "gitlab-oldcontainer-secret" not found`)

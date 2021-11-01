@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -43,6 +44,7 @@ type Backend interface {
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
+	Model() (Model, error)
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
@@ -72,6 +74,7 @@ type Application interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
 	ApplicationConfig() (application.ConfigAttributes, error)
+	ApplicationTag() names.ApplicationTag
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
@@ -196,9 +199,18 @@ type Model interface {
 	Owner() names.UserTag
 	Tag() names.Tag
 	Type() state.ModelType
+	UUID() string
 	ModelConfig() (*config.Config, error)
 	AgentVersion() (version.Number, error)
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
+	// The following methods are required for querying the featureset
+	// supported by the model.
+	Config() (*config.Config, error)
+	CloudName() string
+	Cloud() (cloud.Cloud, error)
+	CloudCredential() (state.Credential, bool, error)
+	CloudRegion() string
+	ControllerUUID() string
 }
 
 // Resources defines a subset of the functionality provided by the
@@ -351,6 +363,14 @@ func (s stateShim) EndpointsRelation(eps ...state.Endpoint) (Relation, error) {
 		return nil, err
 	}
 	return stateRelationShim{r, s.State}, nil
+}
+
+func (s stateShim) Model() (Model, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+	return modelShim{m}, nil
 }
 
 func (s stateShim) Relation(id int) (Relation, error) {

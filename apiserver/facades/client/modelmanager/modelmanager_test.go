@@ -23,6 +23,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -218,6 +219,14 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
+
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{Name: "example"})
+	modelmanager.MockSupportedFeatures(fs)
+}
+
+func (s *modelManagerSuite) TearDownTest(c *gc.C) {
+	modelmanager.ResetSupportedFeaturesGetter()
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
@@ -278,6 +287,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerNodes",
 		"HAPrimaryMachine",
 		"LatestMigration",
+		"ControllerConfig",
 	)
 
 	// Check that Model.LastModelConnection is called three times
@@ -450,6 +460,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerNodes",
 		"HAPrimaryMachine",
 		"LatestMigration",
+		"ControllerConfig",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
 

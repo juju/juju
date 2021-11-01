@@ -2552,6 +2552,9 @@
                 "ApplicationDeploy": {
                     "type": "object",
                     "properties": {
+                        "Force": {
+                            "type": "boolean"
+                        },
                         "application": {
                             "type": "string"
                         },
@@ -2640,7 +2643,8 @@
                         "channel",
                         "num-units",
                         "config-yaml",
-                        "constraints"
+                        "constraints",
+                        "Force"
                     ]
                 },
                 "ApplicationDestroy": {
@@ -3164,6 +3168,9 @@
                             "type": "string"
                         },
                         "id": {
+                            "type": "string"
+                        },
+                        "instance-key": {
                             "type": "string"
                         },
                         "os": {
@@ -7016,6 +7023,9 @@
                         "image-repo": {
                             "$ref": "#/definitions/DockerImageInfo"
                         },
+                        "scale": {
+                            "type": "integer"
+                        },
                         "series": {
                             "type": "string"
                         },
@@ -7026,6 +7036,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "trust": {
+                            "type": "boolean"
                         },
                         "version": {
                             "$ref": "#/definitions/Number"
@@ -7317,11 +7330,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -7906,6 +7916,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "KubernetesDeviceParams": {
@@ -8812,11 +8835,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -9225,6 +9245,19 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "LifeResult": {
@@ -9672,11 +9705,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -10085,6 +10115,19 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "LifeResult": {
@@ -11765,11 +11808,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -12248,6 +12288,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "HostPort": {
@@ -13252,11 +13305,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -13749,6 +13799,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "IntResult": {
@@ -15342,11 +15405,8 @@
                 "CharmMeta": {
                     "type": "object",
                     "properties": {
-                        "assumes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "assumes-expr": {
+                            "$ref": "#/definitions/ExpressionTree"
                         },
                         "categories": {
                             "type": "array",
@@ -15549,6 +15609,9 @@
                             "type": "string"
                         },
                         "id": {
+                            "type": "string"
+                        },
+                        "instance-key": {
                             "type": "string"
                         },
                         "os": {
@@ -15995,6 +16058,19 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExpressionTree": {
+                    "type": "object",
+                    "properties": {
+                        "Expression": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Expression"
                     ]
                 },
                 "IsMeteredResult": {
@@ -17749,6 +17825,12 @@
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
+                        "supported-features": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SupportedFeature"
+                            }
+                        },
                         "type": {
                             "type": "string"
                         },
@@ -18488,6 +18570,25 @@
                     "additionalProperties": false,
                     "required": [
                         "result"
+                    ]
+                },
+                "SupportedFeature": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description"
                     ]
                 },
                 "Tools": {
@@ -33021,6 +33122,12 @@
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
+                        "supported-features": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SupportedFeature"
+                            }
+                        },
                         "type": {
                             "type": "string"
                         },
@@ -33543,6 +33650,25 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SupportedFeature": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "description"
                     ]
                 },
                 "ToolVersionsResult": {
@@ -39088,6 +39214,9 @@
                             "type": "string"
                         },
                         "id": {
+                            "type": "string"
+                        },
+                        "instance-key": {
                             "type": "string"
                         },
                         "os": {

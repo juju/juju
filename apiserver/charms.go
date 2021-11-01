@@ -25,8 +25,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/charm/downloader"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 )
@@ -307,8 +308,6 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	// Now we need to repackage it with the reserved URL, upload it to
-	// provider storage and update the state.
 	err = h.repackageAndUploadCharm(st, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -449,17 +448,38 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	}
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 
-	info := application.CharmArchive{
-		ID:           curl,
+	// Now we need to repackage it with the reserved URL, upload it to
+	// provider storage and update the state.
+	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
+		Logger:       logger,
+		StateBackend: storageStateShim{st},
+		StorageFactory: func(modelUUID string) services.Storage {
+			return storage.NewStorage(modelUUID, st.MongoSession())
+		},
+	})
+
+	return charmStorage.Store(curl, downloader.DownloadedCharm{
 		Charm:        archive,
-		Data:         &repackagedArchive,
+		CharmData:    &repackagedArchive,
+		CharmVersion: version,
 		Size:         int64(repackagedArchive.Len()),
 		SHA256:       bundleSHA256,
-		CharmVersion: version,
-	}
-	// Store the charm archive in environment storage.
-	shim := application.NewStateShim(st)
-	return application.StoreCharmArchive(shim, info)
+		LXDProfile:   charmDir.LXDProfile(),
+	})
+}
+
+type storageStateShim struct {
+	*state.State
+}
+
+func (s storageStateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
+	ch, err := s.State.UpdateUploadedCharm(info)
+	return ch, err
+}
+
+func (s storageStateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error) {
+	ch, err := s.State.PrepareCharmUpload(curl)
+	return ch, err
 }
 
 // processGet handles a charm file GET request after authentication.

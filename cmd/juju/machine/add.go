@@ -111,7 +111,7 @@ Examples:
 	juju add-machine --constraints mem=8G
 
 	# Start a new machine within the "us-east-1a" availability zone.
-	juju add-machine --constraints zone=us-east-1a
+	juju add-machine --constraints zones=us-east-1a
 
 	# Start a new machine with at least 4 CPU cores and 16GB RAM, and request
 	# three storage volumes to be attached to it. Two are large capacity (1TB)

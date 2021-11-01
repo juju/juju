@@ -47,19 +47,32 @@ type Raft interface {
 	Apply([]byte, time.Duration) raft.ApplyFuture
 }
 
+// ApplierMetrics defines an interface for recording the application of a log.
+type ApplierMetrics interface {
+	// Record times how long a apply operation took, along with if it failed or
+	// not. This can be used to understand if we're hitting issues with the
+	// underlying raft instance.
+	Record(start time.Time, result string)
+	// RecordLeaderError calls out that there was a leader error, so didn't
+	// follow the usual flow.
+	RecordLeaderError(start time.Time)
+}
+
 // Applier applies a new operation against a raft instance.
 type Applier struct {
 	raft         Raft
 	notifyTarget raftlease.NotifyTarget
+	metrics      ApplierMetrics
 	clock        clock.Clock
 	logger       Logger
 }
 
 // NewApplier creates a new Applier.
-func NewApplier(raft Raft, target raftlease.NotifyTarget, clock clock.Clock, logger Logger) LeaseApplier {
+func NewApplier(raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics, clock clock.Clock, logger Logger) LeaseApplier {
 	return &Applier{
 		raft:         raft,
 		notifyTarget: target,
+		metrics:      metrics,
 		clock:        clock,
 		logger:       logger,
 	}
@@ -73,7 +86,71 @@ func NewApplier(raft Raft, target raftlease.NotifyTarget, clock clock.Clock, log
 // the leader, if known." (see 6.2.1).
 // If the leader is the current raft instance, then attempt to apply it to
 // the fsm.
-func (a *Applier) ApplyOperation(op queue.Operation, applyTimeout time.Duration) error {
+func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Duration) {
+	start := a.clock.Now()
+	leaderErr := a.currentLeaderState()
+
+	// Operations are iterated through optimistically, so if there is an error,
+	// then continue onwards.
+	for i, op := range ops {
+		// If there is a leader error, finish the operations with the leader
+		// error. We only request the leader state once, as it's not a cheap
+		// operation. We can reasonably assume that during a tight loop of batch
+		// operations, the changing of a leader state should be small. If it
+		// does happen, then the operation will end up back here after another
+		// redirect.
+		if leaderErr != nil {
+			a.metrics.RecordLeaderError(start)
+			op.Done(leaderErr)
+			continue
+		}
+
+		a.applyOperation(i, op, applyTimeout)
+	}
+}
+
+func (a *Applier) applyOperation(i int, op queue.Operation, applyTimeout time.Duration) {
+	// We use the error to signal if the apply was a failure or not.
+	var err error
+
+	start := a.clock.Now()
+	defer func() {
+		result := "success"
+		if err != nil {
+			result = "failure"
+		}
+		a.metrics.Record(start, result)
+	}()
+
+	if a.logger.IsTraceEnabled() {
+		a.logger.Tracef("Applying command %d %v", i, string(op.Command))
+	}
+
+	future := a.raft.Apply(op.Command, applyTimeout)
+	if err = future.Error(); err != nil {
+		op.Done(err)
+		return
+	}
+
+	response := future.Response()
+	fsmResponse, ok := response.(raftlease.FSMResponse)
+	if !ok {
+		a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
+		err = errors.Errorf("invalid FSM response")
+		op.Done(err)
+		return
+	}
+	if err = fsmResponse.Error(); err != nil {
+		op.Done(err)
+		return
+	}
+
+	fsmResponse.Notify(a.notifyTarget)
+
+	op.Done(nil)
+}
+
+func (a *Applier) currentLeaderState() error {
 	if state := a.raft.State(); state != raft.Leader {
 		leaderAddress := a.raft.Leader()
 
@@ -111,29 +188,5 @@ func (a *Applier) ApplyOperation(op queue.Operation, applyTimeout time.Duration)
 
 		return NewNotLeaderError(string(leaderAddress), leaderID)
 	}
-
-	// TODO (stickupkid): Use the raft batch apply. For now we're only ever
-	// going to apply one at a time, so we can change this at a later date.
-	for i, command := range op.Commands {
-		a.logger.Tracef("Applying command %d %v", i, string(command))
-
-		future := a.raft.Apply(command, applyTimeout)
-		if err := future.Error(); err != nil {
-			return errors.Trace(err)
-		}
-
-		response := future.Response()
-		fsmResponse, ok := response.(raftlease.FSMResponse)
-		if !ok {
-			a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
-			return errors.Errorf("invalid FSM response")
-		}
-		if err := fsmResponse.Error(); err != nil {
-			return errors.Trace(err)
-		}
-
-		fsmResponse.Notify(a.notifyTarget)
-	}
-
 	return nil
 }

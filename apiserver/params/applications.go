@@ -38,6 +38,12 @@ type CharmOrigin struct {
 	Architecture string `json:"architecture,omitempty"`
 	OS           string `json:"os,omitempty"`
 	Series       string `json:"series,omitempty"`
+
+	// InstanceKey is a unique string associated with the application. To
+	// assist with keeping KPI data in charmhub, it must be the same for every
+	// charmhub Refresh action related to an application. Create with the
+	// charmhub.CreateInstanceKey method. LP: 1944582
+	InstanceKey string `json:"instance-key,omitempty"`
 }
 
 // ApplicationDeploy holds the parameters for making the application Deploy
@@ -59,6 +65,7 @@ type ApplicationDeploy struct {
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`
+	Force            bool
 }
 
 // ApplicationsDeployV12 holds the parameters for deploying one or more

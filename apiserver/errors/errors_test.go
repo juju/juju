@@ -236,10 +236,53 @@ var errorTransformTests = []struct {
 	code:   params.CodeNotLeader,
 	status: http.StatusTemporaryRedirect,
 }, {
+	err:    apiservererrors.NewDeadlineExceededError("enqueueing deadline exceeded"),
+	code:   params.CodeDeadlineExceeded,
+	status: http.StatusInternalServerError,
+}, {
+	err:        lease.ErrHeld,
+	code:       params.CodeLeaseError,
+	status:     http.StatusBadRequest,
+	helperFunc: leaseErrHelperFunc(lease.ErrHeld),
+}, {
+	err:        lease.ErrInvalid,
+	code:       params.CodeLeaseError,
+	status:     http.StatusBadRequest,
+	helperFunc: leaseErrHelperFunc(lease.ErrInvalid),
+}, {
+	err:        lease.ErrTimeout,
+	code:       params.CodeLeaseError,
+	status:     http.StatusInternalServerError,
+	helperFunc: leaseErrHelperFunc(lease.ErrTimeout),
+}, {
+	err:        lease.ErrNotHeld,
+	code:       params.CodeLeaseError,
+	status:     http.StatusBadRequest,
+	helperFunc: leaseErrHelperFunc(lease.ErrNotHeld),
+}, {
+	err:        lease.ErrDropped,
+	code:       params.CodeLeaseError,
+	status:     http.StatusInternalServerError,
+	helperFunc: leaseErrHelperFunc(lease.ErrDropped),
+}, {
 	err:    nil,
 	code:   "",
 	status: http.StatusOK,
 }}
+
+func leaseErrHelperFunc(leaseErr error) func(error) bool {
+	return func(err error) bool {
+		err1, ok := err.(*params.Error)
+		if !ok {
+			return false
+		}
+		m := apiservererrors.LeaseErrorInfoMap(leaseErr)
+		if err1.Info == nil || !reflect.DeepEqual(err1.Info, m) {
+			return false
+		}
+		return true
+	}
+}
 
 var sampleMacaroon = func() *macaroon.Macaroon {
 	m, err := macaroon.New([]byte("key"), []byte("id"), "loc", macaroon.LatestVersion)

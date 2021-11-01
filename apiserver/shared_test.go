@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -79,7 +79,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},
 		controllerConfig:    controllerConfig,
-		raftOpQueue:         queue.NewBlockingOpQueue(clock.WallClock),
+		raftOpQueue:         queue.NewOpQueue(clock.WallClock),
 		logger:              loggo.GetLogger("test"),
 	}
 }

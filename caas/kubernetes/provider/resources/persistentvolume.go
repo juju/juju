@@ -41,8 +41,8 @@ func (pv *PersistentVolume) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *PersistentVolume) ID() ID {
-	return ID{"PersistentVolume", r.Name, r.Namespace}
+func (pv *PersistentVolume) ID() ID {
+	return ID{"PersistentVolume", pv.Name, pv.Namespace}
 }
 
 // Apply patches the resource change.
@@ -59,6 +59,9 @@ func (pv *PersistentVolume) Apply(ctx context.Context, client kubernetes.Interfa
 		res, err = api.Create(ctx, &pv.PersistentVolume, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "persistent volume %q", pv.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

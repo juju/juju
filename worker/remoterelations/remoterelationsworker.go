@@ -4,8 +4,11 @@
 package remoterelations
 
 import (
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"sync"
+	"time"
+
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
@@ -16,6 +19,12 @@ import (
 // life and status of a relation in the offering model.
 type remoteRelationsWorker struct {
 	catacomb catacomb.Catacomb
+
+	mu sync.Mutex
+
+	// mostRecentEvent is stored here for the engine report.
+	mostRecentEvent RelationUnitChangeEvent
+	changeSince     time.Time
 
 	relationTag         names.RelationTag
 	remoteRelationToken string
@@ -86,7 +95,8 @@ func (w *remoteRelationsWorker) loop() error {
 			change := relChanges[len(relChanges)-1]
 			w.logger.Debugf("relation status changed for %v: %v", w.relationTag, change)
 			suspended := change.Suspended
-			event = RelationUnitChangeEvent{
+			w.mu.Lock()
+			w.mostRecentEvent = RelationUnitChangeEvent{
 				Tag: w.relationTag,
 				RemoteRelationChangeEvent: params.RemoteRelationChangeEvent{
 					RelationToken:    w.remoteRelationToken,
@@ -96,10 +106,28 @@ func (w *remoteRelationsWorker) loop() error {
 					SuspendedReason:  change.SuspendedReason,
 				},
 			}
+			w.changeSince = time.Now()
+			event = w.mostRecentEvent
+			w.mu.Unlock()
 			changes = w.changes
 
 		case changes <- event:
 			changes = nil
 		}
 	}
+}
+
+// Report provides information for the engine report.
+func (w *remoteRelationsWorker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.mostRecentEvent.Tag.Id() != "" {
+		result["life"] = w.mostRecentEvent.Life
+		result["suspended"] = w.mostRecentEvent.Suspended
+		result["since"] = w.changeSince.Format(time.RFC1123Z)
+	}
+
+	return result
 }

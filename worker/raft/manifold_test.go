@@ -16,23 +16,24 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/dependency"
-	dt "github.com/juju/worker/v2/dependency/testing"
-	"github.com/juju/worker/v2/workertest"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
+	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/raft"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	manifold     dependency.Manifold
 	context      dependency.Context
@@ -44,15 +45,15 @@ type ManifoldSuite struct {
 	worker       *mockRaftWorker
 	stateTracker *stubStateTracker
 	target       raftlease.NotifyTarget
-	queue        *queue.BlockingOpQueue
-	apply        func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier
+	queue        *queue.OpQueue
+	apply        func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier
 	stub         testing.Stub
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.agent = &mockAgent{
@@ -68,11 +69,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ls: &mockLogStore{},
 	}
 	s.target = &struct{ raftlease.NotifyTarget }{}
-	s.queue = queue.NewBlockingOpQueue(s.clock)
+	s.queue = queue.NewOpQueue(s.clock)
 	s.stateTracker = &stubStateTracker{
+		pool: s.StatePool,
 		done: make(chan struct{}),
 	}
-	s.apply = func(raft.Raft, raftlease.NotifyTarget, clock.Clock, raft.Logger) raft.LeaseApplier {
+	s.apply = func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier {
 		return nil
 	}
 	s.stub.ResetCalls()
@@ -231,13 +233,13 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool state.StatePool
+	pool *state.StatePool
 	done chan struct{}
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
+	return s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

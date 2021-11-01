@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/replicaset"
+	"github.com/juju/replicaset/v2"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"

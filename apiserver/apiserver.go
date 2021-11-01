@@ -24,7 +24,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
-	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/tomb.v2"
 
@@ -364,8 +364,12 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeCAAS {
-		// CAAS controller writes log to stdOut.
-		srv.logSinkWriter = os.Stdout
+		// CAAS controller writes log to stdout. We should ensure that we don't
+		// close the logSinkWriter when we stopping the tomb, otherwise we get
+		// no output to stdout anymore.
+		srv.logSinkWriter = nonCloseableWriter{
+			WriteCloser: os.Stdout,
+		}
 	} else {
 		srv.logSinkWriter, err = logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
 		if err != nil {
@@ -399,6 +403,18 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	return srv, nil
+}
+
+// nonCloseableWriter ensures that we never close the underlying writer. If the
+// underlying writer is os.stdout and we close that, then nothing will be
+// written until a new instance of the program is launched.
+type nonCloseableWriter struct {
+	io.WriteCloser
+}
+
+// Close does not do anything in this instance.
+func (nonCloseableWriter) Close() error {
+	return nil
 }
 
 // Report is shown in the juju_engine_report.

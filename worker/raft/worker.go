@@ -15,8 +15,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/lease"
@@ -88,9 +88,7 @@ type Logger interface {
 type Queue interface {
 	// Queue returns the queue of operations. Removing an item from the channel
 	// will unblock to allow another to take it's place.
-	Queue() <-chan queue.Operation
-	// Error places the resulting error for the enqueue to pick it up.
-	Error() chan<- error
+	Queue() <-chan []queue.Operation
 }
 
 // LeaseApplier applies operations from the queue onto the underlying raft
@@ -106,7 +104,7 @@ type LeaseApplier interface {
 	// the fsm.
 	// The time duration is the applying of a command in an operation, not for
 	// the whole operation.
-	ApplyOperation(queue.Operation, time.Duration) error
+	ApplyOperation([]queue.Operation, time.Duration)
 }
 
 // Config is the configuration required for running a raft worker.
@@ -179,7 +177,7 @@ type Config struct {
 
 	// NewApplier is used to apply the raft operations on to the raft
 	// instance, before notifying a target of the changes.
-	NewApplier func(Raft, raftlease.NotifyTarget, clock.Clock, Logger) LeaseApplier
+	NewApplier func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier
 }
 
 // Validate validates the raft worker configuration.
@@ -244,7 +242,7 @@ func Bootstrap(config Config) error {
 	// During bootstrap, we do not require an FSM.
 	config.FSM = BootstrapFSM{}
 	config.NotifyTarget = BootstrapNotifyTarget{}
-	config.NewApplier = func(r Raft, nt raftlease.NotifyTarget, c clock.Clock, l Logger) LeaseApplier {
+	config.NewApplier = func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier {
 		return BootstrapLeaseApplier{}
 	}
 
@@ -360,8 +358,8 @@ func (w *Worker) Wait() error {
 
 func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	// Register the metrics.
-	if w.config.PrometheusRegisterer != nil {
-		registerMetrics(w.config.PrometheusRegisterer, w.config.Logger)
+	if registry := w.config.PrometheusRegisterer; registry != nil {
+		registerRaftMetrics(registry, w.config.Logger)
 	}
 
 	syncMode := SyncAfterWrite
@@ -414,7 +412,11 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		}
 	}()
 
-	applier := w.config.NewApplier(r, w.config.NotifyTarget, w.config.Clock, w.config.Logger)
+	applierMetrics := newApplierMetrics(w.config.Clock)
+	applier := w.config.NewApplier(r, w.config.NotifyTarget, applierMetrics, w.config.Clock, w.config.Logger)
+	if registry := w.config.PrometheusRegisterer; registry != nil {
+		registerApplierMetrics(registry, applierMetrics, w.config.Logger)
+	}
 
 	// applyTimeout represents the amount of time we allow for raft to apply
 	// a command. As raft is bootstrapping, we allow an initial timeout and once
@@ -464,14 +466,14 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 				return ErrNoLeaderTimeout
 			}
 
-		case op := <-w.config.Queue.Queue():
+		case ops := <-w.config.Queue.Queue():
 			if w.config.Logger.IsTraceEnabled() {
-				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log: %v", len(op.Commands), op.String())
+				w.config.Logger.Tracef("Dequeued %d commands to be applied on the raft log", len(ops))
 			}
 			// Apply any operation on to the current raft implementation.
 			// This ensures that we serialize the applying of operations onto
 			// the raft state.
-			w.config.Queue.Error() <- applier.ApplyOperation(op, applyTimeout)
+			applier.ApplyOperation(ops, applyTimeout)
 			applyTimeout = ApplyTimeout
 
 		case w.raftCh <- r:
@@ -588,6 +590,6 @@ func (BootstrapNotifyTarget) Expired(lease.Key) {}
 
 type BootstrapLeaseApplier struct{}
 
-func (BootstrapLeaseApplier) ApplyOperation(queue.Operation, time.Duration) error {
+func (BootstrapLeaseApplier) ApplyOperation([]queue.Operation, time.Duration) {
 	panic("ApplyOperation should not be called during bootstrap")
 }

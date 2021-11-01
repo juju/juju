@@ -62,8 +62,8 @@ func (pvc *PersistentVolumeClaim) Clone() Resource {
 }
 
 // ID returns a comparable ID for the Resource
-func (r *PersistentVolumeClaim) ID() ID {
-	return ID{"PersistentVolumeClaim", r.Name, r.Namespace}
+func (pvc *PersistentVolumeClaim) ID() ID {
+	return ID{"PersistentVolumeClaim", pvc.Name, pvc.Namespace}
 }
 
 // Apply patches the resource change.
@@ -80,6 +80,9 @@ func (pvc *PersistentVolumeClaim) Apply(ctx context.Context, client kubernetes.I
 		res, err = api.Create(ctx, &pvc.PersistentVolumeClaim, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
+	}
+	if k8serrors.IsConflict(err) {
+		return errors.Annotatef(errConflict, "persistent volume claim %q", pvc.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)

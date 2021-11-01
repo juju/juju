@@ -4,15 +4,17 @@
 package remoterelations
 
 import (
+	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -193,6 +195,7 @@ type Worker struct {
 	logger   loggo.Logger
 
 	runner *worker.Runner
+	mu     sync.Mutex
 
 	// offerUUIDs records the offer UUID used for each saas name.
 	offerUUIDs map[string]string
@@ -237,6 +240,9 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) handleApplicationChanges(applicationIds []string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	// TODO(wallyworld) - watcher should not give empty events
 	if len(applicationIds) == 0 {
 		return nil
@@ -272,23 +278,14 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		if appGone || offerChanged {
 			// The remote application has been removed, stop its worker.
 			logger.Debugf("saas application %q gone from offering model", name)
-			existingWorker, err := w.runner.Worker(name, w.catacomb.Dying())
-			if err != nil {
-				w.logger.Warningf("error getting existing saas worker for %q", name, err)
-			}
-			if existingWorker != nil {
-				existingWorker.Kill()
-				if err := existingWorker.Wait(); err != nil {
-					w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
-				}
+			err := w.runner.StopAndRemoveWorker(name, w.catacomb.Dying())
+			if err != nil && !errors.IsNotFound(err) {
+				w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
 			}
 			delete(w.offerUUIDs, name)
 			if appGone {
 				continue
 			}
-		} else if _, err := w.runner.Worker(name, w.catacomb.Dying()); err == nil {
-			w.logger.Debugf("already running remote application worker for %q", name)
-			continue
 		}
 
 		startFunc := func() (worker.Worker, error) {
@@ -317,10 +314,34 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 
 		logger.Debugf("starting watcher for remote application %q", name)
 		// Start the application worker to watch for things like new relations.
+		w.offerUUIDs[name] = remoteApp.OfferUUID
 		if err := w.runner.StartWorker(name, startFunc); err != nil {
-			return errors.Annotate(err, "error starting remote application worker")
+			if errors.IsAlreadyExists(err) {
+				w.logger.Debugf("already running remote application worker for %q", name)
+			} else if err != nil {
+				return errors.Annotate(err, "error starting remote application worker")
+			}
 		}
 		w.offerUUIDs[name] = remoteApp.OfferUUID
 	}
 	return nil
+}
+
+// Report provides information for the engine report.
+func (w *Worker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	saasWorkers := make(map[string]interface{})
+	for name := range w.offerUUIDs {
+		appWorker, err := w.runner.Worker(name, w.catacomb.Dying())
+		if err != nil {
+			saasWorkers[name] = fmt.Sprintf("ERROR: %v", err)
+			continue
+		}
+		saasWorkers[name] = appWorker.(worker.Reporter).Report()
+	}
+	result["workers"] = saasWorkers
+	return result
 }

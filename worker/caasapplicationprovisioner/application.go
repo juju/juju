@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
-	"github.com/juju/worker/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -720,6 +720,8 @@ func (a *appWorker) alive(app caas.Application) error {
 		CharmBaseImagePath:   charmBaseImage,
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
+		Trust:                provisionInfo.Trust,
+		InitialScale:         provisionInfo.Scale,
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig

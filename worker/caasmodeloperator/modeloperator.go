@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/caasmodeloperator"
