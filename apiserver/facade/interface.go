@@ -4,6 +4,7 @@
 package facade
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"time"
@@ -65,7 +66,7 @@ type RaftContext interface {
 	// applied to the caller and a ErrEnqueueDeadlineExceeded will be sent.
 	// It's up to the caller to retry or drop depending on how the retry
 	// algorithm is implemented.
-	ApplyLease([]byte) error
+	ApplyLease(context.Context, []byte) error
 }
 
 // Context exposes useful capabilities to a Facade.

@@ -4,6 +4,8 @@
 package raftlease
 
 import (
+	"context"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -48,11 +50,11 @@ func NewFacade(auth facade.Authorizer, raft facade.RaftContext) (*Facade, error)
 // If no information is supplied, it is expected that the client performs their
 // own algorithm to locate the leader (roundrobin or listen to the apidetails
 // topic).
-func (facade *Facade) ApplyLease(args params.LeaseOperations) (params.ErrorResults, error) {
+func (facade *Facade) ApplyLease(ctx context.Context, args params.LeaseOperations) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Operations))
 
 	for k, op := range args.Operations {
-		err := facade.raft.ApplyLease([]byte(op.Command))
+		err := facade.raft.ApplyLease(ctx, []byte(op.Command))
 		if err == nil {
 			continue
 		}

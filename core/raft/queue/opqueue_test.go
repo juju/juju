@@ -11,11 +11,9 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/tomb.v2"
 )
 
 type OpQueueSuite struct {
@@ -80,41 +78,6 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 		count++
 	}
 	c.Assert(count, gc.Equals, 1)
-}
-
-func (s *OpQueueSuite) TestEnqueueTimesout(c *gc.C) {
-	now := time.Now()
-	clock := testclock.NewClock(now)
-
-	// Create a queue, but don't start the tomb, so we can wait for the timeout.
-	queue := &OpQueue{
-		in:           make(chan ringOp),
-		out:          make(chan []Operation),
-		clock:        clock,
-		maxBatchSize: EnqueueBatchSize,
-		tomb:         new(tomb.Tomb),
-	}
-
-	go func() {
-		c.Assert(clock.WaitAdvance(EnqueueTimeout*2, testing.ShortWait, 1), jc.ErrorIsNil)
-	}()
-
-	done := make(chan error)
-	go queue.Enqueue(Operation{
-		Command: command(),
-		Done: func(err error) {
-			done <- err
-		},
-	})
-	var err error
-	select {
-	case err = <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatal("testing took too long")
-	}
-
-	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
-	c.Assert(IsDeadlineExceeded(err), jc.IsTrue)
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueue(c *gc.C) {
