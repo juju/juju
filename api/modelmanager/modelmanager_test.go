@@ -954,21 +954,21 @@ func (s *toolVersionsSuite) TestToolVersionsWithWongAPIVersion(c *gc.C) {
 	}
 
 	client := modelmanager.NewClient(apiCaller)
-	result, err := client.ToolVersions(coretesting.ModelTag)
+	result, err := client.ToolVersions()
 	c.Assert(err, gc.ErrorMatches, `ToolVersions in version 9 not implemented`)
 	c.Assert(called, jc.IsFalse)
 	c.Assert(result, gc.IsNil)
 }
 
 func (s *toolVersionsSuite) TestToolVersionsWithErrors(c *gc.C) {
-	results := params.ToolVersionsResult{
+	results := params.FindToolsResult{
 		Error: &params.Error{Message: "fake error"},
 	}
 
 	apiCaller := basetesting.BestVersionCaller{
 		BestVersion: 10,
 		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
-			res, ok := result.(*params.ToolVersionsResult)
+			res, ok := result.(*params.FindToolsResult)
 			c.Assert(ok, jc.IsTrue)
 			*res = results
 			return nil
@@ -976,14 +976,14 @@ func (s *toolVersionsSuite) TestToolVersionsWithErrors(c *gc.C) {
 	}
 
 	client := modelmanager.NewClient(apiCaller)
-	result, err := client.ToolVersions(coretesting.ModelTag)
+	result, err := client.ToolVersions()
 	c.Assert(err, gc.ErrorMatches, "fake error")
 	c.Assert(result, gc.IsNil)
 }
 
 func (s *toolVersionsSuite) TestToolVersions(c *gc.C) {
-	results := params.ToolVersionsResult{
-		ToolVersions: tools.List{
+	results := params.FindToolsResult{
+		List: tools.List{
 			&tools.Tools{
 				Version: version.MustParseBinary("2.9.16-ubuntu-amd64"),
 			},
@@ -995,13 +995,8 @@ func (s *toolVersionsSuite) TestToolVersions(c *gc.C) {
 		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
 			c.Check(objType, gc.Equals, "ModelManager")
 			c.Check(request, gc.Equals, "ToolVersions")
-			in, ok := args.(params.Entity)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(in, gc.DeepEquals, params.Entity{
-				Tag: coretesting.ModelTag.String(),
-			})
-
-			res, ok := result.(*params.ToolVersionsResult)
+			c.Assert(args, gc.IsNil)
+			res, ok := result.(*params.FindToolsResult)
 			c.Assert(ok, jc.IsTrue)
 			*res = results
 			return nil
@@ -1009,7 +1004,7 @@ func (s *toolVersionsSuite) TestToolVersions(c *gc.C) {
 	}
 
 	client := modelmanager.NewClient(apiCaller)
-	result, err := client.ToolVersions(coretesting.ModelTag)
+	result, err := client.ToolVersions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, results.ToolVersions)
+	c.Assert(result, jc.DeepEquals, results.List)
 }

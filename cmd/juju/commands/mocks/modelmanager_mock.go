@@ -50,18 +50,18 @@ func (mr *MockModelManagerAPIMockRecorder) Close() *gomock.Call {
 }
 
 // ToolVersions mocks base method.
-func (m *MockModelManagerAPI) ToolVersions(arg0 names.ModelTag) (tools.List, error) {
+func (m *MockModelManagerAPI) ToolVersions() (tools.List, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToolVersions", arg0)
+	ret := m.ctrl.Call(m, "ToolVersions")
 	ret0, _ := ret[0].(tools.List)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToolVersions indicates an expected call of ToolVersions.
-func (mr *MockModelManagerAPIMockRecorder) ToolVersions(arg0 interface{}) *gomock.Call {
+func (mr *MockModelManagerAPIMockRecorder) ToolVersions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolVersions", reflect.TypeOf((*MockModelManagerAPI)(nil).ToolVersions), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolVersions", reflect.TypeOf((*MockModelManagerAPI)(nil).ToolVersions))
 }
 
 // ValidateModelUpgrade mocks base method.

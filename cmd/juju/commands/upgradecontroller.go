@@ -292,7 +292,7 @@ func (c *baseUpgradeCommand) initCAASVersions(
 	modelTag names.ModelTag, majorVersion int, streamsAgents tools.List,
 ) (tools.Versions, error) {
 	logger.Debugf("searching for agent images with major: %d", majorVersion)
-	availableTags, err := c.modelManagerAPI.ToolVersions(modelTag)
+	availableTags, err := c.modelManagerAPI.ToolVersions()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

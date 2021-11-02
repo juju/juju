@@ -32556,13 +32556,11 @@
                 "ToolVersions": {
                     "type": "object",
                     "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entity"
-                        },
                         "Result": {
-                            "$ref": "#/definitions/ToolVersionsResult"
+                            "$ref": "#/definitions/FindToolsResult"
                         }
-                    }
+                    },
+                    "description": "ToolVersions returns available agent versions."
                 },
                 "UnsetModelDefaults": {
                     "type": "object",
@@ -32823,6 +32821,24 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "FindToolsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "list": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Tools"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "list"
                     ]
                 },
                 "MachineHardware": {
@@ -33669,24 +33685,6 @@
                     "required": [
                         "name",
                         "description"
-                    ]
-                },
-                "ToolVersionsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "tool-versions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Tools"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tool-versions"
                     ]
                 },
                 "Tools": {

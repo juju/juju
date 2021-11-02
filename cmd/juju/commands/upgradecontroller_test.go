@@ -287,9 +287,8 @@ func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {
 
 	assertAndMocks := func(tagsInfo []tagInfo) {
 		gomock.InOrder(
-			modelManagerAPI.EXPECT().ToolVersions(gomock.Any()).DoAndReturn(
-				func(modelTag names.ModelTag) (coretools.List, error) {
-					c.Assert(modelTag, gc.DeepEquals, s.BackingState.ControllerModelTag())
+			modelManagerAPI.EXPECT().ToolVersions().DoAndReturn(
+				func() (coretools.List, error) {
 					var tags coretools.List
 					for _, t := range tagsInfo {
 						v, err := version.Parse(t.Tag)

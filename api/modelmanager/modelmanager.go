@@ -627,18 +627,18 @@ func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
 	return results.OneError()
 }
 
-func (c *Client) ToolVersions(model names.ModelTag) (tools.List, error) {
+// ToolVersions returns available agent versions.
+func (c *Client) ToolVersions() (tools.List, error) {
 	bestVer := c.facade.BestAPIVersion()
 	if bestVer < 10 {
 		return nil, errors.NotImplementedf("ToolVersions in version %v", bestVer)
 	}
-	var apiResults params.ToolVersionsResult
-	entity := params.Entity{Tag: model.String()}
-	if err := c.facade.FacadeCall("ToolVersions", entity, &apiResults); err != nil {
+	var apiResults params.FindToolsResult
+	if err := c.facade.FacadeCall("ToolVersions", nil, &apiResults); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := apiResults.Error; err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiResults.ToolVersions, nil
+	return apiResults.List, nil
 }

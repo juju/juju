@@ -49,15 +49,18 @@ func (c azureContainerRegistry) Tags(imageName string) (versions tools.Versions,
 	return c.fetchTags(url, &response)
 }
 
+// GetArchitecture returns the archtecture of the image for the specified tag.
 func (c azureContainerRegistry) GetArchitecture(imageName, tag string) (string, error) {
 	return getArchitecture(imageName, tag, c)
 }
 
+// GetManifests returns the manifests of the image for the specified tag.
 func (c azureContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
 	url := c.url("/%s/manifests/%s", imageName, tag)
 	return c.GetManifestsCommon(url)
 }
 
+// GetBlobs gets the archtecture of the image for the specified tag via blobs API.
 func (c azureContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
 	url := c.url("/%s/blobs/%s", imageName, digest)
 	return c.GetBlobsCommon(url)

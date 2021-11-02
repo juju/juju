@@ -1138,7 +1138,7 @@ func (a *fakeUpgradeJujuAPI) ValidateModelUpgrade(tag names.ModelTag, force bool
 	return a.setUpgradeErr
 }
 
-func (a *fakeUpgradeJujuAPI) ToolVersions(names.ModelTag) (coretools.List, error) {
+func (a *fakeUpgradeJujuAPI) ToolVersions() (coretools.List, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1209,7 +1209,7 @@ func (a *fakeUpgradeJujuAPINoState) ValidateModelUpgrade(tag names.ModelTag, for
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) ToolVersions(names.ModelTag) (coretools.List, error) {
+func (a *fakeUpgradeJujuAPINoState) ToolVersions() (coretools.List, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1290,9 +1290,8 @@ func (s *UpgradeCAASModelSuite) TestUpgradeWithRegistry(c *gc.C) {
 			modelManagerAPI.EXPECT().ValidateModelUpgrade(names.NewModelTag(s.BackingState.ModelUUID()), false).Return(nil),
 			modelManagerAPI.EXPECT().Close().Return(nil),
 			controllerAPI.EXPECT().ModelConfig().Return(modelCfg.AllAttrs(), nil),
-			modelManagerAPI.EXPECT().ToolVersions(gomock.Any()).DoAndReturn(
-				func(modelTag names.ModelTag) (coretools.List, error) {
-					c.Assert(modelTag, gc.DeepEquals, s.BackingState.ControllerModelTag())
+			modelManagerAPI.EXPECT().ToolVersions().DoAndReturn(
+				func() (coretools.List, error) {
 					var tags coretools.List
 					for _, t := range tagsInfo {
 						v, err := version.Parse(t.Tag)

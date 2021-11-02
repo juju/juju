@@ -317,7 +317,7 @@ type modelConfigAPI interface {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelmanager_mock.go github.com/juju/juju/cmd/juju/commands ModelManagerAPI
 type ModelManagerAPI interface {
 	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error
-	ToolVersions(names.ModelTag) (coretools.List, error)
+	ToolVersions() (coretools.List, error)
 	Close() error
 }
 

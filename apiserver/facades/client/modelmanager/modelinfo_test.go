@@ -828,12 +828,10 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	if st.controllerCfg != nil {
 		return *st.controllerCfg, st.NextErr()
 	}
-
 	return controller.Config{
 		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		controller.CAASImageRepo:     st.CAASImageRepo,
-	}
-	return cfg, st.NextErr()
+	}, st.NextErr()
 }
 
 func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
@@ -1108,16 +1106,15 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 
 type mockModel struct {
 	gitjujutesting.Stub
-	owner           names.UserTag
-	life            state.Life
-	tag             names.ModelTag
-	status          status.StatusInfo
-	cfg             *config.Config
-	users           []*mockModelUser
-	migrationStatus state.MigrationMode
-	controllerUUID  string
-	isController    bool
-	// isCAAS              *bool
+	owner               names.UserTag
+	life                state.Life
+	tag                 names.ModelTag
+	status              status.StatusInfo
+	cfg                 *config.Config
+	users               []*mockModelUser
+	migrationStatus     state.MigrationMode
+	controllerUUID      string
+	isController        bool
 	cloud               cloud.Cloud
 	cred                state.Credential
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
@@ -1140,9 +1137,6 @@ func (m *mockModel) ModelTag() names.ModelTag {
 
 func (m *mockModel) Type() state.ModelType {
 	m.MethodCall(m, "Type")
-	// if m.isCAAS != nil && *m.isCAAS {
-	// 	return state.ModelTypeCAAS
-	// }
 	return state.ModelTypeIAAS
 }
 

@@ -58,7 +58,7 @@ var (
 // modelmanager API endpoint.
 type ModelManagerV10 interface {
 	ModelManagerV9
-	ToolVersions(model params.Entity) (params.ToolVersionsResult, error)
+	ToolVersions() (params.FindToolsResult, error)
 }
 
 // ModelManagerV9 defines the methods on the version 9 facade for the
@@ -1820,34 +1820,21 @@ func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
 	return nil
 }
 
-func (m *ModelManagerAPI) ToolVersions(entity params.Entity) (params.ToolVersionsResult, error) {
+// ToolVersions returns available agent versions.
+func (m *ModelManagerAPI) ToolVersions() (params.FindToolsResult, error) {
 	var err error
-	result := params.ToolVersionsResult{}
+	result := params.FindToolsResult{}
 
-	modelTag, err := names.ParseModelTag(entity.Tag)
+	isControllerAdmin, err := m.ctlrState.IsControllerAdmin(m.apiUser)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	isModelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !m.isAdmin {
+	if !isControllerAdmin {
 		return result, apiservererrors.ErrPerm
 	}
-
-	st, err := m.statePool.Get(modelTag.Id())
+	model, err := m.ctlrState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
-	}
-	defer st.Release()
-
-	model, err := st.Model()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !model.IsControllerModel() {
-		return result, errors.Forbiddenf("model %q is not controller model", modelTag.Id())
 	}
 	if model.Type() != state.ModelTypeCAAS {
 		return result, errors.NotImplementedf("ToolVersions is for CAAS model only")
@@ -1891,7 +1878,7 @@ func (m *ModelManagerAPI) ToolVersions(entity params.Entity) (params.ToolVersion
 				Arch:    arch,
 			},
 		}
-		result.ToolVersions = append(result.ToolVersions, &tools)
+		result.List = append(result.List, &tools)
 	}
 	return result, nil
 }

@@ -45,6 +45,7 @@ type ArchitectureGetter interface {
 	GetBlobs(imageName, digest string) (*BlobsResponse, error)
 }
 
+// GetArchitecture returns the archtecture of the image for the specified tag.
 func (c baseClient) GetArchitecture(imageName, tag string) (string, error) {
 	return getArchitecture(imageName, tag, c)
 }
@@ -67,12 +68,14 @@ func getArchitecture(imageName, tag string, client ArchitectureGetter) (string, 
 	return blobs.Architecture, nil
 }
 
+// GetManifests returns the manifests of the image for the specified tag.
 func (c baseClient) GetManifests(imageName, tag string) (*ManifestsResult, error) {
 	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
 	url := c.url("/%s/%s/manifests/%s", repo, imageName, tag)
 	return c.GetManifestsCommon(url)
 }
 
+// GetManifestsCommon returns manifests result for the provided url.
 func (c baseClient) GetManifestsCommon(url string) (*ManifestsResult, error) {
 	resp, err := c.client.Get(url)
 	logger.Tracef("getting manifests for %q, err %v", url, err)
@@ -117,12 +120,14 @@ func processManifestsResponse(resp *http.Response) (*ManifestsResult, error) {
 	}
 }
 
+// GetBlobs gets the archtecture of the image for the specified tag via blobs API.
 func (c baseClient) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
 	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
 	url := c.url("/%s/%s/blobs/%s", repo, imageName, digest)
 	return c.GetBlobsCommon(url)
 }
 
+// GetBlobsCommon returns blobs result for the provided url.
 func (c baseClient) GetBlobsCommon(url string) (*BlobsResponse, error) {
 	resp, err := c.client.Get(url)
 	logger.Tracef("getting blobs for %q, err %v", url, err)

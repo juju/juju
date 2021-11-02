@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/model_mocks.go github.com/juju/juju/apiserver/common Model
+
 // ModelManagerBackend defines methods provided by a state
 // instance used by the model manager apiserver implementation.
 // All the interface methods are defined directly on state.State
