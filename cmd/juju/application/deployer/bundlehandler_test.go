@@ -1643,7 +1643,7 @@ func (s *BundleHandlerResolverSuite) TestAvoidRedeployAlreadyDeployedLocalCharm(
 	bundle_data_to_be_deployed := &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
 			"test-app": {
-				Charm: "./some-local.charm",
+				Charm: "/home/user/go/some-folder/some-local.charm",
 			},
 		},
 	}
@@ -1664,7 +1664,11 @@ func (s *BundleHandlerResolverSuite) TestAvoidRedeployAlreadyDeployedLocalCharm(
 	err := handler.resolveCharmsAndEndpoints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler.data, gc.DeepEquals, &charm.BundleData{
-		Applications: map[string]*charm.ApplicationSpec{},
+		Applications: map[string]*charm.ApplicationSpec{
+			"test-app": {
+				Charm: "./some-local.charm",
+			},
+		},
 	})
 
 }

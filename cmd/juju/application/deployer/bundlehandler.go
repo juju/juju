@@ -286,10 +286,8 @@ func (h *bundleHandler) makeModel(
 // resolve the charm URLs. From the model the charm names are
 // fully qualified, meaning they have a source and revision id.
 // Effectively the logic this method follows is:
-//   * if the bundle specifies a local charm, and the application
-//     exists already, then remove the charm in the bundle spec
-//     (i.e. ignore it). We don't upgrade local charms as part of a
-//     bundle deploy.
+//   * if the bundle specifies a local charm, we treat it like a
+//   refresh
 //   * the charm URL is resolved and the bundle spec is replaced
 //     with the fully resolved charm URL - i.e.: with rev id.
 //   * check all endpoints, and if any of them have implicit endpoints,
@@ -302,12 +300,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		app := h.model.GetApplication(name)
 
 		var cons constraints.Value
+
 		if app != nil {
-			if h.isLocalCharm(spec.Charm) {
-				logger.Debugf("%s exists in model uses a local charm, ignoring", name, app.Charm)
-				delete(h.data.Applications, name)
-				continue
-			}
 			// If the charm matches, don't bother resolving.
 			if spec.Charm == app.Charm {
 				continue
@@ -321,6 +315,13 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 
 		if h.isLocalCharm(spec.Charm) {
+			// Charm's path is relative to the bundle path
+			spec.Charm = "./" + filepath.Base(spec.Charm)
+
+			// TODO: (cderici) - check if 'app != nil' and
+			// it really needs a refresh (i.e. charm has
+			// changed), if not, then no need to
+			// upload/refresh, so remove app from the spec
 			continue
 		}
 
