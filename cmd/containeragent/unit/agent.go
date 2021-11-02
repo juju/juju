@@ -171,6 +171,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
+		Logger:        logger,
 	})
 
 	dataDir := c.DataDir()
@@ -289,19 +290,19 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 	}
 	manifolds := Manifolds(cfg)
 
-	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
+	eng, err := dependency.NewEngine(engine.DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}
-	if err := dependency.Install(engine, manifolds); err != nil {
-		if err := worker.Stop(engine); err != nil {
+	if err := dependency.Install(eng, manifolds); err != nil {
+		if err := worker.Stop(eng); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
 	}
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		Agent:              c,
-		Engine:             engine,
+		Engine:             eng,
 		MachineLock:        c.machineLock,
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: c.prometheusRegistry,
@@ -310,10 +311,10 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world
 		// as the only issue is connecting to the abstract domain socket
-		// and the agent is controlled by by the OS to only have one.
+		// and the agent is controlled by the OS to only have one.
 		logger.Errorf("failed to start introspection worker: %v", err)
 	}
-	return engine, nil
+	return eng, nil
 }
 
 func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
@@ -339,7 +340,9 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 		ctx.Warningf("developer feature flags enabled: %s", flags)
 	}
 
-	_ = c.runner.StartWorker("unit", c.workers)
+	if err := c.runner.StartWorker("unit", c.workers); err != nil {
+		return errors.Annotate(err, "starting worker")
+	}
 	return AgentDone(logger, c.runner.Wait())
 }
 
@@ -378,11 +381,12 @@ func AgentDone(logger loggo.Logger, err error) error {
 		// These errors are swallowed here because we want to exit
 		// the agent process without error, to avoid the init system
 		// restarting us.
+		logger.Infof("agent terminating")
 		err = nil
 	}
 	if err == jworker.ErrRestartAgent {
-		// This does not seems to happen for k8s units.
-		logger.Warningf("agent restarting")
+		// This does not seem to happen for k8s units.
+		logger.Infof("agent restarting")
 	}
 	return err
 }
