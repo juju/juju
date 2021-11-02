@@ -80,7 +80,7 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
 	case err = <-done:
 		if m.logger.IsTraceEnabled() {
 			elapsed := m.clock.Now().Sub(start)
-			m.logger.Tracef("Applied Lease with command %s in time: %v", string(cmd), elapsed)
+			m.logger.Tracef("Applying lease %s took: %v with error: %s", string(cmd), elapsed, err)
 		}
 
 	case <-ctx.Done():
