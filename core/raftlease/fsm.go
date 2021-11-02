@@ -61,7 +61,7 @@ type FSMResponse interface {
 
 	// Notify tells the target what changes occurred because of the
 	// applied command.
-	// On encountering an error, notify will continue till all resulting
+	// On encountering an error, notify will continue until all resulting
 	// claims and expiries are exhausted, before returning the error messages.
 	Notify(NotifyTarget) error
 }
@@ -385,12 +385,12 @@ func (r *response) Notify(target NotifyTarget) error {
 	var errs []error
 	if r.claimer != "" {
 		if err := target.Claimed(r.claimed, r.claimer); err != nil {
-			errs = append(errs, errors.Annotatef(err, "unable to claim lease"))
+			errs = append(errs, errors.Annotatef(err, "claim lease"))
 		}
 	}
 	for _, expiredKey := range r.expired {
 		if err := target.Expired(expiredKey); err != nil {
-			errs = append(errs, errors.Annotatef(err, "unable to expire lease"))
+			errs = append(errs, errors.Annotatef(err, "expire lease"))
 		}
 	}
 	if errs == nil {

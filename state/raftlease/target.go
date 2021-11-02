@@ -172,7 +172,7 @@ func (t *notifyTarget) Claimed(key lease.Key, holder string) error {
 
 	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
-		return errors.Annotatef(err, "%q for %q in db: %s", docId, holder, err.Error())
+		return errors.Annotatef(err, "%q for %q in db", docId, holder)
 	}
 	return nil
 }
