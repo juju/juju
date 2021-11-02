@@ -4,7 +4,6 @@
 package machine
 
 import (
-	"io"
 	"net/http"
 	"runtime"
 	"time"
@@ -273,10 +272,6 @@ type ManifoldsConfig struct {
 	// LeaseFSM represents the internal finite state machine for lease
 	// management.
 	LeaseFSM *raftlease.FSM
-
-	// LeaseLog represents the internal lease raft log, used to output lease
-	// changes.
-	LeaseLog io.Writer
 
 	// RaftOpQueue represents a way to apply operations on to the raft
 	// instance from the API. The RaftQueue exists outside of the dependency
@@ -571,7 +566,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:      stateName,
 			Clock:          config.Clock,
 			FSM:            config.LeaseFSM,
-			LeaseLog:       config.LeaseLog,
 			NewWorker:      globalclockupdater.NewWorker,
 			NewTarget:      globalclockupdater.NewTarget,
 			UpdateInterval: globalClockUpdaterUpdateInterval,
@@ -783,7 +777,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            raft.NewWorker,
 			NewTarget:            raft.NewTarget,
 			Queue:                config.RaftOpQueue,
-			LeaseLog:             config.LeaseLog,
 			NewApplier:           raft.NewApplier,
 		})),
 
@@ -818,7 +811,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
-			LeaseLog:             config.LeaseLog,
 			NewWorker:            raftforwarder.NewWorker,
 			NewTarget:            raftforwarder.NewTarget,
 		})),

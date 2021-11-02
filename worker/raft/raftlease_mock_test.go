@@ -36,9 +36,11 @@ func (m *MockNotifyTarget) EXPECT() *MockNotifyTargetMockRecorder {
 }
 
 // Claimed mocks base method.
-func (m *MockNotifyTarget) Claimed(arg0 lease.Key, arg1 string) {
+func (m *MockNotifyTarget) Claimed(arg0 lease.Key, arg1 string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Claimed", arg0, arg1)
+	ret := m.ctrl.Call(m, "Claimed", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Claimed indicates an expected call of Claimed.
@@ -48,9 +50,11 @@ func (mr *MockNotifyTargetMockRecorder) Claimed(arg0, arg1 interface{}) *gomock.
 }
 
 // Expired mocks base method.
-func (m *MockNotifyTarget) Expired(arg0 lease.Key) {
+func (m *MockNotifyTarget) Expired(arg0 lease.Key) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Expired", arg0)
+	ret := m.ctrl.Call(m, "Expired", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Expired indicates an expected call of Expired.
@@ -97,9 +101,11 @@ func (mr *MockFSMResponseMockRecorder) Error() *gomock.Call {
 }
 
 // Notify mocks base method.
-func (m *MockFSMResponse) Notify(arg0 raftlease.NotifyTarget) {
+func (m *MockFSMResponse) Notify(arg0 raftlease.NotifyTarget) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Notify", arg0)
+	ret := m.ctrl.Call(m, "Notify", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Notify indicates an expected call of Notify.

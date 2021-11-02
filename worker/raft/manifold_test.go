@@ -4,7 +4,6 @@
 package raft_test
 
 import (
-	"io"
 	"path/filepath"
 	"time"
 
@@ -97,7 +96,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Logger:        s.logger,
 		NewWorker:     s.newWorker,
 		NewTarget:     s.newTarget,
-		LeaseLog:      &noopLeaseLog{},
 		Queue:         s.queue,
 		NewApplier:    s.apply,
 	})
@@ -259,12 +257,4 @@ func (s *stubStateTracker) waitDone(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for state to be released")
 	}
-}
-
-type noopLeaseLog struct {
-	io.Writer
-}
-
-func (noopLeaseLog) Write(p []byte) (n int, err error) {
-	return len(p), nil
 }
