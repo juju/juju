@@ -51,6 +51,31 @@ func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
 	c.Assert(count, gc.Equals, 1)
 }
 
+func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
+
+	canceled := make(chan struct{}, 1)
+	close(canceled)
+
+	done := make(chan error)
+	go queue.Enqueue(Operation{
+		Command: command(),
+		Stop:    canceled,
+		Done: func(err error) {
+			done <- err
+		},
+	})
+
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("testing took too long")
+	}
+	c.Assert(err, gc.ErrorMatches, `enqueueing canceled`)
+
+}
+
 func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
@@ -173,6 +198,92 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 	consumeNilErr(0)
 	consumeErr(1, `boom`)
 	consumeNilErr(2)
+
+	queue.Kill(nil)
+	err := queue.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var count int
+	for result := range results {
+		c.Assert(result, gc.DeepEquals, opName(count))
+		count++
+	}
+	c.Assert(count, gc.Equals, 3)
+}
+
+func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
+
+	results := make(chan []byte, 2)
+	go func() {
+		defer close(results)
+
+		var count int
+		for ops := range queue.Queue() {
+			for _, op := range ops {
+				select {
+				case results <- op.Command:
+				case <-time.After(testing.LongWait):
+					c.Fatal("timed out setting results")
+				}
+
+				op.Done(nil)
+
+				count++
+			}
+		}
+	}()
+
+	consume := func(i int, canceled <-chan struct{}) error {
+		done := make(chan error)
+		defer close(done)
+
+		go queue.Enqueue(Operation{
+			Command: opName(i),
+			Stop:    canceled,
+			Done: func(err error) {
+				done <- err
+			},
+		})
+
+		var err error
+		select {
+		case err = <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("testing took too long")
+		}
+
+		return err
+	}
+
+	consumeNilErr := func(i int) {
+		err := consume(i, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	consumeErr := func(i int, e string) {
+		canceled := make(chan struct{})
+		close(canceled)
+
+		err := consume(i, canceled)
+		c.Assert(err, gc.ErrorMatches, e)
+	}
+
+	consumeNilErr(0)
+	consumeErr(1, `enqueueing canceled`)
+	consumeNilErr(2)
+
+	queue.Kill(nil)
+	err := queue.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var count, index int
+	for result := range results {
+		c.Assert(result, gc.DeepEquals, opName(index))
+		count++
+		index += 2
+	}
+	c.Assert(count, gc.Equals, 2)
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
