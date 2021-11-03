@@ -232,7 +232,6 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 }
 
 func (b *BundleAPI) doGetChanges(args params.BundleChangesParams, version int) (params.BundleChangesResults, error) {
-	// Start with the version 1
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -242,56 +241,22 @@ func (b *BundleAPI) doGetChanges(args params.BundleChangesParams, version int) (
 			_, err := storage.ParseConstraints(s)
 			return err
 		},
-		verifyDevices: nil,
-	}
-
-	postProcess := func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
-		results.Changes = make([]*params.BundleChange, len(changes))
-		for i, c := range changes {
-			results.Changes[i] = &params.BundleChange{
-				Id:       c.Id(),
-				Method:   c.Method(),
-				Args:     c.GUIArgs(),
-				Requires: c.Requires(),
-			}
-		}
-		return nil
-	}
-
-	expandOverlays := false
-
-	if version > 1 {
-		// Add a verifaction for devices
-		vs.verifyDevices = func(s string) error {
+		verifyDevices: func(s string) error {
 			_, err := devices.ParseConstraints(s)
 			return err
-		}
-		// Change the post process function
-		postProcess = func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
-			results.Changes = make([]*params.BundleChange, len(changes))
-			for i, c := range changes {
-				var guiArgs []interface{}
-				switch c := c.(type) {
-				case *bundlechanges.AddApplicationChange:
-					guiArgs = c.GUIArgsWithDevices()
-				default:
-					guiArgs = c.GUIArgs()
-				}
-				results.Changes[i] = &params.BundleChange{
-					Id:       c.Id(),
-					Method:   c.Method(),
-					Args:     guiArgs,
-					Requires: c.Requires(),
-				}
-			}
-			return nil
-		}
-		if version > 5 {
-			// Expand the overlays
-			expandOverlays = true
-		}
+		},
 	}
-	return b.getBundleChanges(args, vs, expandOverlays, postProcess)
+
+	expandOverlays := version > 5
+
+	mapFn := mapBundleChanges
+
+	if version == 1 {
+		mapFn = mapBundleChangesV1
+		vs.verifyDevices = nil // device verification is not supported for V1 facades
+	}
+
+	return b.getBundleChanges(args, vs, expandOverlays, mapFn)
 }
 
 func (b *BundleAPI) getBundleChanges(
@@ -315,6 +280,39 @@ func (b *BundleAPI) getBundleChanges(
 	err = postProcess(changes, &results)
 	return results, errors.Trace(err)
 
+}
+
+func mapBundleChangesV1(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
+	results.Changes = make([]*params.BundleChange, len(changes))
+	for i, c := range changes {
+		results.Changes[i] = &params.BundleChange{
+			Id:       c.Id(),
+			Method:   c.Method(),
+			Args:     c.GUIArgs(),
+			Requires: c.Requires(),
+		}
+	}
+	return nil
+}
+
+func mapBundleChanges(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
+	results.Changes = make([]*params.BundleChange, len(changes))
+	for i, c := range changes {
+		var guiArgs []interface{}
+		switch c := c.(type) {
+		case *bundlechanges.AddApplicationChange:
+			guiArgs = c.GUIArgsWithDevices()
+		default:
+			guiArgs = c.GUIArgs()
+		}
+		results.Changes[i] = &params.BundleChange{
+			Id:       c.Id(),
+			Method:   c.Method(),
+			Args:     guiArgs,
+			Requires: c.Requires(),
+		}
+	}
+	return nil
 }
 
 func (b *BundleAPI) doGetBundleChanges(
