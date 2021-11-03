@@ -480,7 +480,13 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			Image:           "ubuntu:20.04",
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/charm/bin/containeragent"},
-			Args:            []string{"unit", "--data-dir", jujuDataDir, "--charm-modified-version", "9001", "--append-env", "PATH=$PATH:/charm/bin"},
+			Args: []string{
+				"unit",
+				"--data-dir", jujuDataDir,
+				"--charm-modified-version", "9001",
+				"--append-env", "PATH=$PATH:/charm/bin",
+				"--show-log",
+			},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",

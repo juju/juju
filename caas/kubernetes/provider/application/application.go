@@ -1246,6 +1246,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			"--data-dir", jujuDataDir,
 			"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
 			"--append-env", "PATH=$PATH:/charm/bin",
+			"--show-log",
 		},
 		Env: env,
 		SecurityContext: &corev1.SecurityContext{
