@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -403,7 +404,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		var empty params.RemoteRelationChangeEvent
 		tag, err := api.st.GetRemoteEntity(arg.Token)
 		if err != nil {
-			return nil, empty, errors.Trace(err)
+			return nil, empty, errors.Annotatef(err, "getting relation for token %q", arg.Token)
 		}
 		if err := api.checkMacaroonsForRelation(tag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			return nil, empty, errors.Trace(err)
@@ -414,11 +415,11 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		}
 		relationToken, appToken, err := commoncrossmodel.GetOfferingRelationTokens(api.st, relationTag)
 		if err != nil {
-			return nil, empty, errors.Trace(err)
+			return nil, empty, errors.Annotatef(err, "getting offering relation tokens")
 		}
 		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag)
 		if err != nil {
-			return nil, empty, errors.Trace(err)
+			return nil, empty, errors.Annotate(err, "watching relation units")
 		}
 		change, ok := <-w.Changes()
 		if !ok {
@@ -427,7 +428,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationToken, appToken, change)
 		if err != nil {
 			w.Kill()
-			return nil, empty, errors.Trace(err)
+			return nil, empty, errors.Annotatef(err, "expanding relation unit change %# v", pretty.Formatter(change))
 		}
 		wrapped := &commoncrossmodel.WrappedUnitsWatcher{
 			RelationUnitsWatcher: w,
@@ -440,7 +441,11 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 	for i, arg := range remoteRelationArgs.Args {
 		w, changes, err := watchOne(arg)
 		if err != nil {
-			logger.Tracef("not found watching relation %s: %s", arg.Token, errors.ErrorStack(err))
+			if logger.IsTraceEnabled() {
+				logger.Tracef("error watching relation for token %s: %s", arg.Token, errors.ErrorStack(err))
+			} else {
+				logger.Debugf("error watching relation for token %s: %v", err)
+			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

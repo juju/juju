@@ -193,6 +193,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 					if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
 						// Relation has been deleted, cleanup will occur
 						// via additional events arriving.
+						w.logger.Debugf("relation %q changed but has been removed: %v", key, err)
 						continue
 					}
 					return errors.Annotatef(err, "handling change for relation %q", key)
@@ -532,6 +533,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 		w.checkOfferPermissionDenied(err, "", "")
 		return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
 	}
+	w.logger.Debugf("remote relation registered for %q: app token=%q, rel token=%q, remote app token=%q", key, applicationToken, relationToken, remoteAppToken)
 
 	// Have we seen the relation before.
 	r, relationKnown := w.relations[key]
