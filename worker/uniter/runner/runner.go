@@ -688,6 +688,10 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 // check for the given hookName.  Based on what is discovered, return the
 // HookHandlerType and the actual script to be run.
 func (runner *runner) discoverHookHandler(hookName, charmDir, charmLocation string) (HookHandlerType, string, error) {
+	err := checkCharmExists(charmDir)
+	if err != nil {
+		return InvalidHookHandler, "", errors.Trace(err)
+	}
 	hook, err := discoverHookScript(charmDir, hookDispatcherScript)
 	if err == nil {
 		return DispatchingHookHandler, hook, nil
