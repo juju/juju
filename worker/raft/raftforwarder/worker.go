@@ -30,7 +30,7 @@ type RaftApplier interface {
 type Logger interface {
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
-	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 

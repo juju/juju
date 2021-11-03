@@ -86,7 +86,7 @@ type Mongo interface {
 }
 
 type Logger interface {
-	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
 }
 
 // NewNotifyTarget returns something that can be used to report lease
@@ -168,7 +168,7 @@ func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, h
 // Claimed is part of raftlease.NotifyTarget.
 func (t *notifyTarget) Claimed(key lease.Key, holder string) error {
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Debugf("claiming lease %q for %q", docId, holder)
+	t.logger.Infof("claiming lease %q for %q", docId, holder)
 
 	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	return errors.Annotatef(err, "%q for %q in db", docId, holder)
@@ -180,7 +180,7 @@ func (t *notifyTarget) Expired(key lease.Key) error {
 	defer closer()
 
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Debugf("expiring lease %q", docId)
+	t.logger.Infof("expiring lease %q", docId)
 
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		existingDoc, err := getRecord(coll, docId)
@@ -199,6 +199,7 @@ func (t *notifyTarget) Expired(key lease.Key) error {
 			Remove: true,
 		}}, nil
 	})
+
 	return errors.Annotatef(err, "%q in db", docId)
 }
 
