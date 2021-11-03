@@ -23,7 +23,6 @@ import (
 
 const (
 	collection = "testleaseholders"
-	logPrefix  = `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{1,6} `
 )
 
 type targetSuite struct {
