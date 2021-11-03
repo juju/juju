@@ -152,7 +152,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	}, {
 		Error: &params.Error{
 			Code:    params.CodeNotFound,
-			Message: `relation "hadoop:db db2:db" not found`,
+			Message: `getting relation for "hadoop:db db2:db": relation "hadoop:db db2:db" not found`,
 		},
 	}, {
 		Error: &params.Error{
@@ -230,7 +230,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	}, {
 		Error: &params.Error{
 			Code:    params.CodeNotFound,
-			Message: `relation "hadoop:db db2:db" not found`,
+			Message: `getting relation for "hadoop:db db2:db": relation "hadoop:db db2:db" not found`,
 		},
 	}, {
 		Error: &params.Error{
