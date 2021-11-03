@@ -17,6 +17,7 @@ test_model() {
 	test_model_config
 	test_model_migration
 	test_model_multi
+	test_model_metrics
 
 	destroy_controller "test-models"
 }

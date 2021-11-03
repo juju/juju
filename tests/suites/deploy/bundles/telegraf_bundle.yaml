@@ -1,18 +1,21 @@
 series: bionic
 applications:
   influxdb:
-    charm: cs:influxdb-22
+    charm: cs:influxdb
     channel: stable
+    revision: 22
     num_units: 1
     to:
     - "0"
     constraints: arch=amd64
   telegraf:
-    charm: cs:telegraf-29
+    charm: cs:telegraf
     channel: stable
+    revision: 29
   ubuntu:
-    charm: cs:ubuntu-12
+    charm: cs:ubuntu
     channel: stable
+    revision: 12
     num_units: 1
     to:
     - "1"

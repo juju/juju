@@ -639,6 +639,7 @@ func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
 	c.Check(child.ParentInterfaceName, gc.Equals, "br0")
 	c.Check(child.PrimaryAddress().CIDR, gc.Equals, "10.0.0.0/24")
 	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id("ps-01"))
+	c.Check(child.MTU, gc.Equals, int(dev.MTU()))
 
 	child, err = dev.EthernetDeviceForBridge("eth0", false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,6 +650,50 @@ func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
 	dev = s.addNamedDevice(c, "bond0")
 	_, err = dev.EthernetDeviceForBridge("eth0", false)
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridgeFanMTU(c *gc.C) {
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{
+		CIDR:       "10.0.0.0/24",
+		ProviderId: "ps-01",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
+		CIDR: "250.0.0.0/8",
+		FanInfo: &corenetwork.FanCIDRs{
+			FanOverlay:       "240.0.0.0/4",
+			FanLocalUnderlay: "10.0.0.0/24",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	fanBridgeName := "fan-250"
+
+	// Both of these devices are created with MTU=1450.
+	s.createNICWithIP(c, s.machine, "enp5s0", "10.0.0.6/24")
+	s.createBridgeWithIP(c, s.machine, fanBridgeName, "250.0.0.9/8")
+
+	// Create the VXLAN device used by the Fan.
+	err = s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "ftun0",
+			Type:       corenetwork.VXLANDevice,
+			ParentName: fanBridgeName,
+			IsUp:       true,
+			MTU:        1400,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dev, err := s.machine.LinkLayerDevice("fan-250")
+	c.Assert(err, jc.ErrorIsNil)
+
+	child, err := dev.EthernetDeviceForBridge("eth0", true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A child device of the fan should get an MTU equal to the VXLAN.
+	c.Assert(child.MTU, gc.Equals, 1400)
 }
 
 func (s *linkLayerDevicesStateSuite) TestAddAddressOps(c *gc.C) {
@@ -729,6 +774,7 @@ func (s *linkLayerDevicesStateSuite) createNICWithIP(c *gc.C, machine *state.Mac
 			Type:       corenetwork.EthernetDevice,
 			ParentName: "",
 			IsUp:       true,
+			MTU:        1450,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -769,6 +815,7 @@ func (s *linkLayerDevicesStateSuite) createBridgeWithIP(c *gc.C, machine *state.
 			Type:       corenetwork.BridgeDevice,
 			ParentName: "",
 			IsUp:       true,
+			MTU:        1450,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

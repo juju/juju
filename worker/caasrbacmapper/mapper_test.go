@@ -6,7 +6,6 @@ package caasrbacmapper_test
 import (
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	coretesting "github.com/juju/juju/testing"
-	jujutest "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasrbacmapper"
 )
 
@@ -93,10 +91,16 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 	mapper.Kill()
 	mapper.Wait()
 
-	time.Sleep(jujutest.ShortWait)
-	rAppName, err := mapper.AppNameForServiceAccount(uid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAppName, gc.Equals, appName)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		rAppName, err := mapper.AppNameForServiceAccount(uid)
+		if err == nil {
+			c.Assert(rAppName, gc.Equals, appName)
+			break
+		}
+		if !a.HasNext() {
+			c.Fatal("timed out waiting for service account app")
+		}
+	}
 }
 
 func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
@@ -139,9 +143,16 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	eventHandlers.OnAdd(sa)
 	waitGroup.Wait()
 
-	rAppName, err := mapper.AppNameForServiceAccount(uid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAppName, gc.Equals, appName)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		rAppName, err := mapper.AppNameForServiceAccount(uid)
+		if err == nil {
+			c.Assert(rAppName, gc.Equals, appName)
+			break
+		}
+		if !a.HasNext() {
+			c.Fatal("timed out waiting for service account app")
+		}
+	}
 
 	// Update SA with a new app name to check propagation
 	appName = "test-2"
@@ -161,10 +172,16 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	mapper.Kill()
 	mapper.Wait()
 
-	time.Sleep(jujutest.ShortWait)
-	rAppName, err = mapper.AppNameForServiceAccount(uid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAppName, gc.Equals, appName)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		rAppName, err := mapper.AppNameForServiceAccount(uid)
+		if err == nil {
+			c.Assert(rAppName, gc.Equals, appName)
+			break
+		}
+		if !a.HasNext() {
+			c.Fatal("timed out waiting for service account app")
+		}
+	}
 }
 
 func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
@@ -240,6 +257,6 @@ func (m *MapperSuite) TestRBACMapperNotFound(c *gc.C) {
 	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = mapper.AppNameForServiceAccount(types.UID("testing"))
+	_, err = mapper.AppNameForServiceAccount("testing")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }

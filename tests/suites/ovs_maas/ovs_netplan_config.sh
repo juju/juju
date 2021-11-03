@@ -16,7 +16,7 @@ run_ovs_netplan_config() {
 	# LXD container retained the `openvswitch: {}` section. See LP1942328.
 	echo "[+] ensuring that the merged netplan configuration (99-juju.yaml) retained the empty openvswitch block injected by MAAS"
 	got=$(juju ssh 0 'sudo cat /etc/netplan/99-juju.yaml | grep openvswitch || echo "FAIL"')
-	if [[ "$got" =~ "FAIL" ]]; then
+	if [[ $got =~ "FAIL" ]]; then
 		# shellcheck disable=SC2046
 		echo $(red "The merged netplan configuration did not retain the openvswitch block as an indicator that the bridge is managed by OVS instead of brctl")
 		exit 1

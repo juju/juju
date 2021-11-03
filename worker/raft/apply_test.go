@@ -62,7 +62,7 @@ func (s *applyOperationSuite) TestApplyLeaseMultipleCommands(c *gc.C) {
 	cmds, done := commandsN(2)
 	timeout := time.Second
 
-	s.raft.EXPECT().State().Return(raft.Leader)
+	s.raft.EXPECT().State().Return(raft.Leader).Times(2)
 	s.raft.EXPECT().Apply(cmds[0].Command, timeout).Return(s.applyFuture)
 	s.raft.EXPECT().Apply(cmds[1].Command, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(nil).Times(2)

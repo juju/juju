@@ -327,7 +327,6 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 			Source: "charm-store",
 			Risk:   "stable",
 		},
-		Force: false,
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -446,7 +445,6 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 			Source: "charm-store",
 			Risk:   "edge",
 		},
-		Force: false,
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -488,7 +486,8 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 			Source: "charm-store",
 			Risk:   "edge",
 		},
-		Force: false,
+		Force:              false,
+		CharmStoreMacaroon: mac,
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
