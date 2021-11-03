@@ -1,5 +1,7 @@
 [![Juju logo](doc/juju-logo.png?raw=true)](https://juju.is/)
 
+------>
+
 [Juju is a model-driven **Operator Lifecycle Manager**
 (OLM)](https://juju.is/about). Juju greatly improves the experience of
 running Kubernetes operators, especially in projects that integrate many
