@@ -4,12 +4,6 @@
 package raftlease_test
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"log"
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
@@ -38,7 +32,6 @@ type targetSuite struct {
 	db       *mgo.Database
 	mongo    *Mongo
 	errorLog loggo.Logger
-	leaseLog *bytes.Buffer
 }
 
 var _ = gc.Suite(&targetSuite{})
@@ -59,7 +52,6 @@ func (s *targetSuite) SetUpTest(c *gc.C) {
 	s.db = s.Session.DB("juju")
 	s.mongo = NewMongo(s.db)
 	s.errorLog = loggo.GetLogger("raftlease_test")
-	s.leaseLog = bytes.NewBuffer(nil)
 }
 
 func (s *targetSuite) TearDownTest(c *gc.C) {
@@ -68,7 +60,7 @@ func (s *targetSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *targetSuite) newTarget() coreraftlease.NotifyTarget {
-	return raftlease.NewNotifyTarget(s.mongo, collection, newTestLogger(s.leaseLog, s.errorLog))
+	return raftlease.NewNotifyTarget(s.mongo, collection, s.errorLog)
 }
 
 func (s *targetSuite) getRows(c *gc.C) []bson.M {
@@ -85,7 +77,8 @@ func (s *targetSuite) getRows(c *gc.C) []bson.M {
 
 func (s *targetSuite) TestClaimedNoRecord(c *gc.C) {
 	target := s.newTarget()
-	target.Claimed(lease.Key{"ns", "model", "ankles"}, "tailpipe")
+	err := target.Claimed(lease.Key{"ns", "model", "ankles"}, "tailpipe")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
 		"_id":        "model:ns#ankles#",
 		"namespace":  "ns",
@@ -93,10 +86,6 @@ func (s *targetSuite) TestClaimedNoRecord(c *gc.C) {
 		"lease":      "ankles",
 		"holder":     "tailpipe",
 	}})
-	s.assertLogMatches(c,
-		`claimed "model:ns#ankles#" for "tailpipe"`,
-		`successfully claimed lease "model:ns#ankles#" for "tailpipe"`,
-	)
 }
 
 func (s *targetSuite) TestClaimedAlreadyHolder(c *gc.C) {
@@ -110,10 +99,12 @@ func (s *targetSuite) TestClaimedAlreadyHolder(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.newTarget().Claimed(
+
+	err = s.newTarget().Claimed(
 		lease.Key{"leadership", "model", "twin"},
 		"voiid",
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
 		"_id":        "model:leadership#twin#",
 		"namespace":  "leadership",
@@ -121,10 +112,6 @@ func (s *targetSuite) TestClaimedAlreadyHolder(c *gc.C) {
 		"lease":      "twin",
 		"holder":     "voiid",
 	}})
-	s.assertLogMatches(c,
-		`claimed "model:leadership#twin#" for "voiid"`,
-		`successfully claimed lease "model:leadership#twin#" for "voiid"`,
-	)
 }
 
 func (s *targetSuite) TestClaimedDifferentHolder(c *gc.C) {
@@ -138,10 +125,12 @@ func (s *targetSuite) TestClaimedDifferentHolder(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.newTarget().Claimed(
+
+	err = s.newTarget().Claimed(
 		lease.Key{"leadership", "model", "twin"},
 		"voiid",
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
 		"_id":        "model:leadership#twin#",
 		"namespace":  "leadership",
@@ -149,10 +138,6 @@ func (s *targetSuite) TestClaimedDifferentHolder(c *gc.C) {
 		"lease":      "twin",
 		"holder":     "voiid",
 	}})
-	s.assertLogMatches(c,
-		`claimed "model:leadership#twin#" for "voiid"`,
-		`successfully claimed lease "model:leadership#twin#" for "voiid"`,
-	)
 }
 
 func (s *targetSuite) TestClaimedRecordsChangeBetweenAttempts(c *gc.C) {
@@ -168,10 +153,12 @@ func (s *targetSuite) TestClaimedRecordsChangeBetweenAttempts(c *gc.C) {
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	s.newTarget().Claimed(
+
+	err := s.newTarget().Claimed(
 		lease.Key{"leadership", "model", "twin"},
 		"voiid",
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
 		"_id":        "model:leadership#twin#",
 		"namespace":  "leadership",
@@ -179,25 +166,20 @@ func (s *targetSuite) TestClaimedRecordsChangeBetweenAttempts(c *gc.C) {
 		"lease":      "twin",
 		"holder":     "voiid",
 	}})
-	s.assertLogMatches(c,
-		`claimed "model:leadership#twin#" for "voiid"`,
-		`successfully claimed lease "model:leadership#twin#" for "voiid"`,
-	)
 }
 
 func (s *targetSuite) TestClaimedError(c *gc.C) {
 	var logWriter loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("raftlease-target-tests", &logWriter), jc.ErrorIsNil)
+
 	s.mongo.txnErr = errors.Errorf("oh no!")
-	s.newTarget().Claimed(lease.Key{"ns", "model", "lease"}, "me")
+
+	err := s.newTarget().Claimed(lease.Key{"ns", "model", "lease"}, "me")
+	c.Assert(err, gc.ErrorMatches, `"model:ns#lease#" for "me" in db: oh no!`)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 	c.Assert(logWriter.Log(), jc.LogMatches, []string{
-		`couldn't claim lease "model:ns#lease#" for "me" in db: oh no!`,
+		`claiming lease "model:ns#lease#" for "me"`,
 	})
-	s.assertLogMatches(c,
-		`claimed "model:ns#lease#" for "me"`,
-		`couldn't claim lease "model:ns#lease#" for "me" in db: oh no!`,
-	)
 }
 
 func (s *targetSuite) TestExpired(c *gc.C) {
@@ -211,21 +193,16 @@ func (s *targetSuite) TestExpired(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+
+	err = s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
-	s.assertLogMatches(c,
-		`expired "model:leadership#twin#"`,
-		`successfully expired lease "model:leadership#twin#"`,
-	)
 }
 
 func (s *targetSuite) TestExpiredNoRecord(c *gc.C) {
-	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+	err := s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
-	s.assertLogMatches(c,
-		`expired "model:leadership#twin#"`,
-		`successfully expired lease "model:leadership#twin#"`,
-	)
 }
 
 func (s *targetSuite) TestExpiredRemovedWhileRunning(c *gc.C) {
@@ -240,20 +217,20 @@ func (s *targetSuite) TestExpiredRemovedWhileRunning(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	defer txntesting.SetBeforeHooks(c, s.mongo.runner, func() {
 		c.Assert(coll.Remove(nil), jc.ErrorIsNil)
 	}).Check()
-	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+
+	err = s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
-	s.assertLogMatches(c,
-		`expired "model:leadership#twin#"`,
-		`successfully expired lease "model:leadership#twin#"`,
-	)
 }
 
 func (s *targetSuite) TestExpiredError(c *gc.C) {
 	var logWriter loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("raftlease-target-tests", &logWriter), jc.ErrorIsNil)
+
 	err := s.db.C(collection).Insert(
 		bson.M{
 			"_id":        "model:leadership#twin#",
@@ -264,15 +241,14 @@ func (s *targetSuite) TestExpiredError(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.mongo.txnErr = errors.Errorf("oops!")
-	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+
+	err = s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
+	c.Assert(err, gc.ErrorMatches, `"model:leadership#twin#" in db: oops!`)
 	c.Assert(logWriter.Log(), jc.LogMatches, []string{
-		`couldn't expire lease "model:leadership#twin#" in db: oops!`,
+		`expiring lease "model:leadership#twin#"`,
 	})
-	s.assertLogMatches(c,
-		`expired "model:leadership#twin#"`,
-		`couldn't expire lease "model:leadership#twin#" in db: oops!`,
-	)
 }
 
 func (s *targetSuite) TestTrapdoorAttempt0(c *gc.C) {
@@ -407,15 +383,6 @@ func (s *targetSuite) TestLeaseHolders(c *gc.C) {
 	})
 }
 
-func (s *targetSuite) assertLogMatches(c *gc.C, expectLines ...string) {
-	lines := strings.Split(s.leaseLog.String(), "\n")
-	c.Assert(lines, gc.HasLen, len(expectLines)+1)
-	for i, expected := range expectLines {
-		c.Assert(lines[i], gc.Matches, logPrefix+expected, gc.Commentf("line %d", i))
-	}
-	c.Assert(lines[len(expectLines)], gc.Equals, "")
-}
-
 // Mongo exposes database operations. It uses a real database -- we can't mock
 // mongo out, we need to check it really actually works -- but it's good to
 // have the runner accessible for adversarial transaction tests.
@@ -446,25 +413,4 @@ func (m *Mongo) RunTransaction(getTxn jujutxn.TransactionSource) error {
 		return m.txnErr
 	}
 	return m.runner.Run(getTxn)
-}
-
-type testLogger struct {
-	leaseLogger *log.Logger
-	errorLogger raftlease.Logger
-}
-
-func newTestLogger(leaseLogger io.Writer, errorLogger raftlease.Logger) raftlease.Logger {
-	return &testLogger{
-		leaseLogger: log.New(leaseLogger, "", log.LstdFlags|log.Lmicroseconds|log.LUTC),
-		errorLogger: errorLogger,
-	}
-}
-
-func (l *testLogger) Infof(message string, args ...interface{}) {
-	l.leaseLogger.Output(2, fmt.Sprintf(message, args...))
-}
-
-func (l *testLogger) Errorf(message string, args ...interface{}) {
-	l.Infof(message, args...)
-	l.errorLogger.Errorf(message, args...)
 }

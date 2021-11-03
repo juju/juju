@@ -168,13 +168,10 @@ func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, h
 // Claimed is part of raftlease.NotifyTarget.
 func (t *notifyTarget) Claimed(key lease.Key, holder string) error {
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Debugf("claimed %q for %q", docId, holder)
+	t.logger.Debugf("claiming lease %q for %q", docId, holder)
 
 	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
-	if err != nil {
-		return errors.Annotatef(err, "%q for %q in db", docId, holder)
-	}
-	return nil
+	return errors.Annotatef(err, "%q for %q in db", docId, holder)
 }
 
 // Expired is part of raftlease.NotifyTarget.
@@ -183,7 +180,7 @@ func (t *notifyTarget) Expired(key lease.Key) error {
 	defer closer()
 
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Debugf("expired %q", docId)
+	t.logger.Debugf("expiring lease %q", docId)
 
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		existingDoc, err := getRecord(coll, docId)
@@ -202,10 +199,7 @@ func (t *notifyTarget) Expired(key lease.Key) error {
 			Remove: true,
 		}}, nil
 	})
-	if err != nil {
-		return errors.Annotatef(err, "%q in db: %s", docId, err.Error())
-	}
-	return nil
+	return errors.Annotatef(err, "%q in db", docId)
 }
 
 // MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified
