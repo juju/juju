@@ -5,9 +5,9 @@ run_deploy_bundle() {
 
 	ensure "test-bundles-deploy" "${file}"
 
-	juju deploy cs:~juju-qa/bundle/basic-0
-	wait_for "ubuntu" ".applications | keys[0]"
-	wait_for "ubuntu-lite" ".applications | keys[1]"
+	juju deploy juju-qa-bundle-test
+	wait_for "juju-qa-test" ".applications | keys[0]"
+	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test")"
 
 	destroy_model "test-bundles-deploy"
 }

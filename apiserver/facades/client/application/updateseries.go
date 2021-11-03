@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // CharmhubClient represents a way for querying the charmhub api for information
@@ -122,6 +123,8 @@ func (s updateSeriesValidator) ValidateApplication(app Application, series strin
 
 // stateSeriesValidator validates an application using the state (database)
 // version of the charm.
+// NOTE: stateSeriesValidator also exists in apiserver/facades/client/machinemanager/upgrade_series.go,
+// When making changes here, review the copy for required changes as well.
 type stateSeriesValidator struct{}
 
 // ValidateApplications attempts to validate a series of applications for
@@ -147,6 +150,8 @@ func (s stateSeriesValidator) ValidateApplication(application Application, serie
 	return nil
 }
 
+// NOTE: charmhubSeriesValidator also exists in apiserver/facades/client/machinemanager/upgrade_series.go,
+// When making changes here, review the copy for required changes as well.
 type charmhubSeriesValidator struct {
 	client CharmhubClient
 }
@@ -162,12 +167,7 @@ func (s charmhubSeriesValidator) ValidateApplication(application Application, se
 		return errors.Errorf("no revision found for application %q", application.Name())
 	}
 
-	base := charmhub.RefreshBase{
-		Architecture: origin.Platform.Architecture,
-		Name:         origin.Platform.OS,
-		Channel:      series,
-	}
-	cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, base)
+	cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -182,6 +182,24 @@ func (s charmhubSeriesValidator) ValidateApplication(application Application, se
 	for _, resp := range refreshResp {
 		if err := resp.Error; err != nil && !force {
 			return errors.Annotatef(err, "unable to locate application with series %s", series)
+		}
+	}
+	// DownloadOneFromRevision does not take a base, however the response contains the bases
+	// supported by the given revision.  Validate against provided series.
+	channelToValidate, err := coreseries.SeriesVersion(series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, resp := range refreshResp {
+		var found bool
+		for _, base := range resp.Entity.Bases {
+			if channelToValidate == base.Channel || force {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.Errorf("charm %q does not support %s, force not used", resp.Name, series)
 		}
 	}
 	return nil

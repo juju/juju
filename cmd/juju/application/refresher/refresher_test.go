@@ -587,6 +587,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 		Source:       commoncharm.OriginCharmHub,
 		Risk:         "beta",
 		Architecture: "amd64",
+		Revision:     &curl.Revision,
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)

@@ -328,9 +328,38 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
-		ch, err := resolveAndValidateCharmURL(spec.Charm, h.defaultCharmSchema)
+		ch, err := resolveCharmURL(spec.Charm, h.defaultCharmSchema)
 		if err != nil {
 			return errors.Trace(err)
+		}
+
+		// To deploy by revision, the revision number must be in the origin for a
+		// charmhub charm and in the url for a charmstore charm.
+		if charm.CharmHub.Matches(ch.Schema) {
+			if ch.Revision != -1 {
+				return errors.Errorf("cannot specify revision in %q, please use revision", ch)
+			}
+			var channel charm.Channel
+			if spec.Channel != "" {
+				channel, err = charm.ParseChannelNormalize(spec.Channel)
+				if err != nil {
+					return errors.Annotatef(err, "for application %q", spec.Charm)
+				}
+			}
+			if spec.Revision != nil && *spec.Revision != -1 && channel.Empty() {
+				return errors.Errorf("application %q with a revision requires a channel for future upgrades, please use channel", name)
+			}
+		} else if charm.CharmStore.Matches(ch.Schema) {
+			if ch.Revision != -1 && spec.Revision != nil && *spec.Revision != -1 && ch.Revision != *spec.Revision {
+				return errors.Errorf("two different revisions to deploy %q: specified %d and %d, please choose one.", name, ch.Revision, *spec.Revision)
+			}
+			if ch.Revision == -1 && spec.Revision != nil && *spec.Revision != -1 {
+				ch = ch.WithRevision(*spec.Revision)
+			}
+		}
+		urlForOrigin := ch
+		if spec.Revision != nil && *spec.Revision != -1 {
+			urlForOrigin = urlForOrigin.WithRevision(*spec.Revision)
 		}
 
 		channel, origin, err := h.constructChannelAndOrigin(ch, spec.Series, spec.Channel, cons)
@@ -375,7 +404,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	return nil
 }
 
-func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, charmChannel, arch string) (string, int, error) {
+func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, charmChannel, arch string, revision int) (string, int, error) {
 	if h.isLocalCharm(charmURL) {
 		return charmChannel, -1, nil
 	}
@@ -392,7 +421,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 	}
 
 	// Resolve and validate a charm URL based on passed in charm.
-	ch, err := resolveAndValidateCharmURL(charmURL, h.defaultCharmSchema)
+	ch, err := resolveCharmURL(charmURL, h.defaultCharmSchema)
 	if err != nil {
 		return "", -1, errors.Trace(err)
 	}
@@ -402,11 +431,16 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 		cons = constraints.Value{Arch: &arch}
 	}
 
+	// Charmhub charms require the revision in the origin, but not the charm url used.
+	// Add it here temporarily to construct the origin.
+	if revision != -1 {
+		ch = ch.WithRevision(revision)
+	}
+
 	_, origin, err := h.constructChannelAndOrigin(ch, charmSeries, charmChannel, cons)
 	if err != nil {
 		return "", -1, errors.Trace(err)
 	}
-
 	_, origin, _, err = h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
 	if err != nil {
 		return "", -1, errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
@@ -617,9 +651,19 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// Not a local charm, so grab from the store.
-	ch, err := resolveAndValidateCharmURL(chParams.Charm, h.defaultCharmSchema)
+	ch, err := resolveCharmURL(chParams.Charm, h.defaultCharmSchema)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Verification of the revision piece was done when the bundle was
+	// read in.  Ensure that the validated charm has correct revision.
+	if charm.CharmStore.Matches(ch.Schema) && change.Params.Revision != nil && *change.Params.Revision >= 0 {
+		ch = ch.WithRevision(*change.Params.Revision)
+	}
+	urlForOrigin := ch
+	if change.Params.Revision != nil && *change.Params.Revision >= 0 {
+		urlForOrigin = urlForOrigin.WithRevision(*change.Params.Revision)
 	}
 
 	// Ensure that we use the architecture from the add charm change params.
@@ -648,7 +692,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		channel = corecharm.MakeRiskOnlyChannel(chParams.Channel)
 	}
 
-	origin, err := utils.DeduceOrigin(ch, channel, platform)
+	origin, err := utils.DeduceOrigin(urlForOrigin, channel, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}

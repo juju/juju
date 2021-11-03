@@ -65,11 +65,11 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // When charmstore goes, we could potentially rework how the client requests
 // the store.
 func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
-	c.logger.Tracef("Resolving CharmHub charm %q with origin %v", charmURL, requestedOrigin)
-
 	if charmURL.Revision != -1 {
 		return nil, corecharm.Origin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
 	}
+
+	c.logger.Tracef("Resolving CharmHub charm %q with origin %v", charmURL, requestedOrigin)
 
 	// First attempt to find the charm based on the only input provided.
 	res, err := c.refreshOne(charmURL, requestedOrigin, macaroons)
@@ -83,12 +83,16 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, re
 	// match their requirements. This can happen in the client if the series
 	// selection also wants to consider model-config default-series after the
 	// call.
-	var resolvableBases []corecharm.Platform
-	var chSuggestedOrigin = requestedOrigin
-	if res.Error != nil {
+	var (
+		effectiveChannel  string
+		resolvableBases   []corecharm.Platform
+		chSuggestedOrigin = requestedOrigin
+	)
+	switch {
+	case res.Error != nil:
 		retryResult, err := c.retryResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons, res.Error)
 		if err != nil {
-			return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "resolving with preferred channel")
+			return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "retry resolving with preferred channel")
 		}
 
 		res = retryResult.refreshResponse
@@ -101,13 +105,41 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, re
 		// validation logic in retry method.
 		requestedOrigin.Platform.OS = resolvableBases[0].OS
 		requestedOrigin.Platform.Series = resolvableBases[0].Series
+
+		effectiveChannel = res.EffectiveChannel
+	case requestedOrigin.Revision != nil && *requestedOrigin.Revision != -1:
+		if len(res.Entity.Bases) > 0 {
+			for _, v := range res.Entity.Bases {
+				series, err := coreseries.VersionSeries(v.Channel)
+				if err != nil {
+					return nil, corecharm.Origin{}, nil, errors.Trace(err)
+				}
+				resolvableBases = append(resolvableBases, corecharm.Platform{
+					Architecture: v.Architecture,
+					OS:           v.Name,
+					Series:       series,
+				})
+			}
+		}
+		// Entities installed by revision do not have an effective channel in the data.
+		// A charm with revision X can be in multiple different channels.  The user
+		// specified channel for future refresh calls, is located in the origin.
+		if res.Entity.Type == transport.CharmType && requestedOrigin.Channel != nil {
+			effectiveChannel = requestedOrigin.Channel.String()
+		} else if res.Entity.Type == transport.BundleType {
+			// This is a hack. A bundle does not require a channel moving forward as refresh
+			// by bundle is not implemented, however the following code expects a channel.
+			effectiveChannel = "stable"
+		}
+	default:
+		effectiveChannel = res.EffectiveChannel
 	}
 
 	// Use the channel that was actually picked by the API. This should
 	// account for the closed tracks in a given channel.
-	channel, err := charm.ParseChannelNormalize(res.EffectiveChannel)
+	channel, err := charm.ParseChannelNormalize(effectiveChannel)
 	if err != nil {
-		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "invalid channel")
+		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "invalid channel for %q", charmURL)
 	}
 
 	// Ensure we send the updated charmURL back, with all the correct segments.
@@ -406,26 +438,35 @@ func isErrSelection(err error) bool {
 type Method string
 
 const (
-	// MethodRevision utilizes requesting by the revision only.
+	// MethodRevision utilizes an install action by the revision only. A
+	// channel must be in the origin, however it's not used in this request,
+	// but saved in the origin for future use.
 	MethodRevision Method = "revision"
-	// MethodChannel utilizes requesting by the channel only.
+	// MethodChannel utilizes an install action by the channel only.
 	MethodChannel Method = "channel"
-	// MethodID utilizes requesting by the id and channel (falls back to
-	// latest/stable if channel is found).
+	// MethodID utilizes an refresh action by the id, revision and
+	// channel (falls back to latest/stable if channel is not found).
 	MethodID Method = "id"
 )
 
 // refreshConfig creates a RefreshConfig for the given input.
 // If the origin.ID is not set, a install refresh config is returned. For
 //   install. Channel and Revision are mutually exclusive in the api, only
-//   one will be used.  Channel first, Revision is a fallback.
+//   one will be used.
 // If the origin.ID is set, a refresh config is returned.
+//
+// NOTE: There is one idiosyncrasy of this method.  The charm URL and and
+// origin have a revision number in them when called by FindDownloadURL
+// to install a charm. Potentially causing an unexpected install by revision.
+// This is okay as all of the data is ready and correct in the origin.
 func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
 	// Work out the correct install method.
-	var rev int
+	rev := -1
 	var method Method
 	if origin.Revision != nil && *origin.Revision >= 0 {
 		rev = *origin.Revision
+	}
+	if origin.ID == "" && rev != -1 {
 		method = MethodRevision
 	}
 
@@ -443,11 +484,12 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		channel = corecharm.DefaultChannel.Normalize().String()
 	}
 
-	if origin.ID == "" && channel != "" {
+	if method != MethodRevision && channel != "" {
 		method = MethodChannel
 	}
+
 	// Bundles can not use method IDs, which in turn forces a refresh.
-	if method == MethodRevision && !transport.BundleType.Matches(origin.Type) && origin.ID != "" {
+	if !transport.BundleType.Matches(origin.Type) && origin.ID != "" {
 		method = MethodID
 	}
 
@@ -480,8 +522,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 	case MethodRevision:
 		// If there is a revision, install it using that. If there is no origin
 		// ID, we haven't downloaded this charm before.
-		// No channel, try with revision.
-		cfg, err = charmhub.InstallOneFromRevision(charmURL.Name, rev, base)
+		cfg, err = charmhub.InstallOneFromRevision(charmURL.Name, rev)
 	case MethodID:
 		// This must be a charm upgrade if we have an ID.  Use the refresh
 		// action for metric keeping on the CharmHub side.

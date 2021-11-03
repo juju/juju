@@ -260,6 +260,9 @@ type DeployCommand struct {
 
 	channelStr string
 
+	// Revision is the revision of the charm to deploy.
+	Revision int
+
 	// Series is the series of the charm to deploy.
 	Series string
 
@@ -349,28 +352,27 @@ type DeployCommand struct {
 	unknownModel bool
 }
 
-// TODO (stickupkid): Update/re-write the following doc for charmhub related
-// charm urls.
 const deployDoc = `
-A charm or bundle can be referred to by its simple name and a series or channel
-can optionally be specified:
+A charm or bundle can be referred to by its simple name and a series, revision,
+or channel can optionally be specified:
 
-  juju deploy cs:postgresql
-  juju deploy cs:bionic/postgresql
-  juju deploy cs:postgresql --series bionic
-  juju deploy cs:postgresql --channel edge
+  juju deploy postgresql
+  juju deploy ch:postgresql --series bionic
+  juju deploy ch:postgresql --channel edge
+  juju deploy ch:ubuntu --revision 17 --channel edge
 
-All the above deployments use remote charms found in the Charm Store (denoted
-by 'cs' prefix) and therefore also make use of "charm URLs".
+All the above deployments use remote charms found in Charm Hub, denoted by the
+'ch:' prefix.  Remote charms with no prefix will be deployed from Charm Hub.
 
 If a channel is specified, it will be used as the source for looking up the
-charm or bundle from the Charm Store. When used in a bundle deployment context,
+charm or bundle from Charm Hub. When used in a bundle deployment context,
 the specified channel is only used for retrieving the bundle and is ignored when
 looking up the charms referenced by the bundle. However, each charm within a
 bundle is allowed to explicitly specify the channel used to look it up.
 
-A versioned charm URL will be expanded as expected. For example, 'mysql-56'
-becomes 'cs:bionic/mysql-56'.
+If a revision is specified, a channel must also be specified for Charm Hub charms
+and bundles.  The charm will be deployed with revision.  The channel will be used
+when refreshing the application in the future.
 
 A local charm may be deployed by giving the path to its directory:
 
@@ -381,18 +383,18 @@ You will need to be explicit if there is an ambiguity between a local and a
 remote charm:
 
   juju deploy ./pig
-  juju deploy cs:pig
+  juju deploy ch:pig
 
 An error is emitted if the determined series is not supported by the charm. Use
 the '--force' option to override this check:
 
   juju deploy charm --series bionic --force
 
-A bundle can be expressed similarly to a charm, but not by series:
+A bundle can be expressed similarly to a charm:
 
   juju deploy mediawiki-single
-  juju deploy bundle/mediawiki-single
-  juju deploy cs:bundle/mediawiki-single
+  juju deploy mediawiki-single --series focal
+  juju deploy ch:mediawiki-single
 
 A local bundle may be deployed by specifying the path to its YAML file:
 
@@ -590,6 +592,7 @@ See also:
     config
     expose
     get-constraints
+    refresh
     set-constraints
     spaces
 `
@@ -618,6 +621,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
+	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
@@ -880,6 +884,7 @@ func (c *DeployCommand) getDeployerFactory(defaultCharmSchema charm.Schema) (dep
 		PlacementSpec:      c.PlacementSpec,
 		Placement:          c.Placement,
 		Resources:          c.Resources,
+		Revision:           c.Revision,
 		Series:             c.Series,
 		Storage:            c.Storage,
 		Trust:              c.Trust,

@@ -170,7 +170,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 
 	mysqlCurl, err := charm.ParseURL("cs:mysql-42")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil, 3)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: mysqlCurl.Revision,
@@ -182,7 +182,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
 	// For wordpress
-	s.expectResolveCharm(nil, 1)
+	s.expectResolveCharm(nil, 2)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleInvalidSeries))
 	c.Assert(err, jc.ErrorIsNil)
@@ -393,6 +393,41 @@ relations:
   - - gitlab:mysql
     - mariadb:server
 `
+
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevisionCharmhub(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	mariadbCurl := charm.MustParseURL("mariadb-k8s")
+	gitlabCurl := charm.MustParseURL("gitlab-k8s")
+	chUnits := []charmUnit{
+		{
+			curl:          mariadbCurl,
+			machineSeries: "kubernetes",
+		},
+		{
+			curl:          gitlabCurl,
+			machineSeries: "kubernetes",
+		},
+	}
+	s.setupMetadataV2CharmUnits(chUnits)
+	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundle))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
+
+	str := s.output.String()
+	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub from channel old/stable with architecture=amd64\n"), jc.IsTrue)
+}
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -780,6 +815,7 @@ func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 	}
 	s.setupCharmUnits(chUnits)
 	s.expectAddRelation([]string{"wordpress:db", "mysql:db"})
+	s.expectResolveCharm(nil, 2)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleWithStorage))
 	c.Assert(err, jc.ErrorIsNil)
@@ -830,7 +866,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil, 3)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -867,7 +903,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil, 3)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -1184,9 +1220,9 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 		case "cs", "ch":
 			resolveSeries := chUnit.resolveSeries
 			if len(resolveSeries) == 0 {
-				resolveSeries = []string{"bionix", "focal", "xenial"}
+				resolveSeries = []string{"bionic", "focal", "xenial"}
 			}
-			s.expectResolveCharmWithSeries(resolveSeries, nil, 2)
+			s.expectResolveCharmWithSeries(resolveSeries, nil, 3)
 			s.expectAddCharm(chUnit.force)
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
@@ -1209,7 +1245,7 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 
 func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
-		s.expectResolveCharm(nil, 2)
+		s.expectResolveCharm(nil, 3)
 		s.expectAddCharm(chUnit.force)
 		charmInfo := &apicharms.CharmInfo{
 			Revision: chUnit.curl.Revision,
@@ -1582,7 +1618,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, rev)
@@ -1614,7 +1650,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
@@ -1631,7 +1667,7 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 	charmChannel := "stable"
 	arch := "amd64"
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)

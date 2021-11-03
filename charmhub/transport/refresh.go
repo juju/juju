@@ -14,6 +14,7 @@ type RefreshRequest struct {
 	Context []RefreshRequestContext `json:"context"`
 	Actions []RefreshRequestAction  `json:"actions"`
 	Metrics RequestMetrics          `json:"metrics,omitempty"`
+	Fields  []string                `json:"fields,omitempty"`
 }
 
 // RequestMetrics are a map of key value pairs of metrics for the controller
@@ -44,12 +45,13 @@ type RefreshRequestAction struct {
 	// InstanceKey should be unique for every action, as results may not be
 	// ordered in the same way, so it is expected to use this to ensure
 	// completeness and ordering.
-	InstanceKey string  `json:"instance-key"`
-	ID          *string `json:"id,omitempty"`
-	Name        *string `json:"name,omitempty"`
-	Channel     *string `json:"channel,omitempty"`
-	Revision    *int    `json:"revision,omitempty"`
-	Base        *Base   `json:"base,omitempty"`
+	InstanceKey       string                    `json:"instance-key"`
+	ID                *string                   `json:"id,omitempty"`
+	Name              *string                   `json:"name,omitempty"`
+	Channel           *string                   `json:"channel,omitempty"`
+	Revision          *int                      `json:"revision,omitempty"`
+	Base              *Base                     `json:"base"`
+	ResourceRevisions []RefreshResourceRevision `json:"resource-revisions,omitempty"`
 }
 
 // RefreshResponses holds a series of typed RefreshResponse or a series of
@@ -85,8 +87,16 @@ type RefreshEntity struct {
 	Name      string             `json:"name"`
 	Publisher map[string]string  `json:"publisher,omitempty"`
 	Resources []ResourceRevision `json:"resources"`
+	Bases     []Base             `json:"bases,omitempty"`
 	Revision  int                `json:"revision"`
 	Summary   string             `json:"summary"`
 	Version   string             `json:"version"`
 	CreatedAt time.Time          `json:"created-at"`
+}
+
+// RefreshResourceRevision represents a resource name revision pair for
+// install by revision.
+type RefreshResourceRevision struct {
+	Name     string `json:"name"`
+	Revision int    `json:"revision"`
 }

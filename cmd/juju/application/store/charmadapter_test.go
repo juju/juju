@@ -268,7 +268,7 @@ func (s *resolveSuite) TestCharmStoreGetBundle(c *gc.C) {
 func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("ch:testme")
+	curl, err := charm.ParseURL("ch:testme-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	origin := commoncharm.Origin{

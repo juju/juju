@@ -64,13 +64,29 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			}
 		}
 
+		revision := -1
+		if application.Revision != nil {
+			revision = *application.Revision
+		} else {
+			// The case of upgrade charmhub charm with by channel... need the correct revision,
+			// or we will not have an addCharmChange corresponding to the upgradeCharmChange.
+			if r.charmResolver != nil {
+				_, rev, err := r.charmResolver(application.Charm, application.Series, application.Channel, arch, revision)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				revision = rev
+			}
+		}
+
 		// Add the addCharm record if one hasn't been added yet, this means
 		// if the arch and series differ from an existing charm, then we create
 		// a new charm.
-		key := applicationKey(application.Charm, arch, series, application.Channel)
-		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, application.Channel, r.constraintGetter) {
+		key := applicationKey(application.Charm, arch, series, application.Channel, revision)
+		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, application.Channel, revision, r.constraintGetter) {
 			change = newAddCharmChange(AddCharmParams{
 				Charm:        application.Charm,
+				Revision:     application.Revision,
 				Series:       series,
 				Channel:      application.Channel,
 				Architecture: arch,
@@ -265,8 +281,12 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 		resolvedRev  = -1
 	)
 	if r.charmResolver != nil {
+		rev := -1
+		if bundleApp.Revision != nil {
+			rev = *bundleApp.Revision
+		}
 		var err error
-		resolvedChan, resolvedRev, err = r.charmResolver(bundleApp.Charm, bundleApp.Series, bundleApp.Channel, bundleArch)
+		resolvedChan, resolvedRev, err = r.charmResolver(bundleApp.Charm, bundleApp.Series, bundleApp.Channel, bundleArch, rev)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -278,9 +298,12 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 		}
 		return false, errors.Errorf("upgrades not supported across channels (existing: %q, %s: %q); use --force to override", existingApp.Channel, verb, resolvedChan)
 	}
+
+	// The revision number is in the origin for a charmhub charm and in the url for a charmstore charm.
 	if resolvedRev > existingApp.Revision {
 		return true, nil
-	} else if resolvedRev != -1 && resolvedRev < existingApp.Revision {
+	}
+	if resolvedRev != -1 && resolvedRev < existingApp.Revision {
 		// For charmhub charms, we currently don't support downgrades.
 		return false, errors.Errorf("downgrades are not currently supported")
 	}
@@ -1169,8 +1192,8 @@ func placeholder(changeID string) string {
 	return "$" + changeID
 }
 
-func applicationKey(charm, arch, series, channel string) string {
-	return fmt.Sprintf("%s:%s:%s:%s", charm, arch, series, channel)
+func applicationKey(charm, arch, series, channel string, revision int) string {
+	return fmt.Sprintf("%s:%s:%s:%s:%d", charm, arch, series, channel, revision)
 }
 
 // getSeries retrieves the series of a application from the ApplicationSpec or from the

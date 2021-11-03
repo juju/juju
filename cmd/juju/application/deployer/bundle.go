@@ -248,11 +248,15 @@ func (d *repositoryBundle) String() string {
 	if isEmptyOrigin(d.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
+	var revision string
+	if d.origin.Revision != nil && *d.origin.Revision != -1 {
+		revision = fmt.Sprintf(" with revision %d", *d.origin.Revision)
+	}
 	var channel string
 	if ch := d.origin.CharmChannel().String(); ch != "" {
 		channel = fmt.Sprintf(" from channel %s", ch)
 	}
-	return fmt.Sprintf("%s%s", str, channel)
+	return fmt.Sprintf("%s%s%s", str, revision, channel)
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.

@@ -176,13 +176,16 @@ func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
 
 	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
-		{},
+		{Entity: transport.RefreshEntity{
+			Bases: []transport.Base{{Channel: "18.04"}, {Channel: "20.04"}},
+		}},
 	}, nil)
 
 	revision := 1
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -228,6 +231,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c 
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -258,6 +262,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -278,8 +283,11 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 	defer ctrl.Finish()
 
 	client := NewMockCharmhubClient(ctrl)
-	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
-		{Error: &transport.APIError{
+	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{{
+		Entity: transport.RefreshEntity{
+			Bases: []transport.Base{{Channel: "18.04"}, {Channel: "20.04"}},
+		},
+		Error: &transport.APIError{
 			Message: "bad",
 		}},
 	}, nil)
@@ -288,6 +296,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		ID:       "mycharmhubid",
 		Revision: &revision,
 		Platform: &state.Platform{
 			Architecture: "amd64",

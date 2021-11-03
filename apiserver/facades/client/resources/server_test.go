@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -15,12 +16,12 @@ type FacadeSuite struct {
 }
 
 func (s *FacadeSuite) TestNewFacadeOkay(c *gc.C) {
-	_, err := NewResourcesAPI(s.data, func(chID CharmID) (NewCharmRepository, error) { return &stubFactory{}, nil })
+	_, err := NewResourcesAPI(s.data, func(*charm.URL) (NewCharmRepository, error) { return &stubFactory{}, nil })
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *FacadeSuite) TestNewFacadeMissingDataStore(c *gc.C) {
-	_, err := NewResourcesAPI(nil, func(chID CharmID) (NewCharmRepository, error) { return &stubFactory{}, nil })
+	_, err := NewResourcesAPI(nil, func(*charm.URL) (NewCharmRepository, error) { return &stubFactory{}, nil })
 	c.Check(err, gc.ErrorMatches, `missing data backend`)
 }
 
