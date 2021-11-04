@@ -105,6 +105,15 @@ var runHookTests = []struct {
 		err:      "fork/exec.*: exec format error",
 		hookType: runner.ExplicitHookHandler,
 	}, {
+		summary: "report error with missing charm",
+		relid:   -1,
+		spec: hookSpec{
+			charmMissing: true,
+			perm:         0700,
+		},
+		err:      "charm missing from disk",
+		hookType: runner.InvalidHookHandler,
+	}, {
 		summary: "output logging",
 		relid:   -1,
 		spec: hookSpec{
@@ -163,6 +172,8 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			c.Logf("makeCharm %#v", spec)
 			makeCharm(c, spec, paths.GetCharmDir())
 			hookExists = true
+		} else if !t.spec.charmMissing {
+			makeCharmMetadata(c, paths.GetCharmDir())
 		}
 		t0 := time.Now()
 		hookType, err := rnr.RunHook("something-happened")
