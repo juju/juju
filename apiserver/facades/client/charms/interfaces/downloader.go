@@ -4,8 +4,8 @@
 package interfaces
 
 import (
-	"gopkg.in/macaroon.v2"
 	"github.com/juju/charm/v9"
+	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
 )
