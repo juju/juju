@@ -18,7 +18,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 )
 
-
 type networkingBase struct {
 	env *Environ
 }
@@ -52,7 +51,7 @@ func processResolveNetworkIds(name string, networkIds []string) (string, error) 
 // NeutronNetworking is an implementation of Networking that uses the Neutron
 // network APIs.
 type NeutronNetworking struct {
-	 NetworkingBase
+	NetworkingBase
 }
 
 // projectIDFilter returns a neutron.Filter to match Neutron Networks with
@@ -94,12 +93,12 @@ func newNetworking(e *Environ) Networking {
 
 // AllocatePublicIP is part of the Networking interface.
 func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
-	// Look for external networks, in the same AZ as the server, to use for the FIP.
+	// Look for external networks, in the same AZ as the server's networks, to use for the FIP.
 	detail, err := n.nova().GetServer(string(id))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	extNetworkIds, err := n.getExternalNetworkIDs(detail.AvailabilityZone)
+	extNetworkIds, err := n.getExternalNetworkIDsFromHostAddrs(detail.Addresses)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -142,11 +141,11 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 	return nil, lastErr
 }
 
-// getExternalNetworkIDs returns a slice of external network IDs.
-// If specified, the configured external network is returned.
-// Otherwise search for an external network in the provided
-// availability zone.
-func (n *NeutronNetworking) getExternalNetworkIDs(availabilityZone string) ([]string, error) {
+// getExternalNetworkIDsFromHostAddrs returns a slice of external network IDs.
+// If specified, the configured external network is returned. Otherwise search
+// for an external network in the same availability zones as the provided server
+// addresses.
+func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string][]nova.IPAddress) ([]string, error) {
 	extNetworkIds := make([]string, 0)
 	neutronClient := n.neutron()
 	externalNetwork := n.ecfg().externalNetwork()
@@ -166,33 +165,51 @@ func (n *NeutronNetworking) getExternalNetworkIDs(availabilityZone string) ([]st
 		return extNetworkIds, nil
 	}
 
-	// Create slice of network.Ids for external networks in the same AZ as
-	// the instance's network, to find an existing floating ip in, or allocate
-	// a new floating ip from.
-	extNetIds, _ := getExternalNeutronNetworksByAZ(n, availabilityZone)
-	if len(extNetIds) > 0 {
-		extNetworkIds = append(extNetworkIds, extNetIds...)
+	hostAddrAZs, err := n.findNetworkAZForHostAddrs(addrs)
+	if err != nil {
+		return nil, errors.NewNotFound(nil,
+			fmt.Sprintf("could not find an external network in availability zone(s) %q", hostAddrAZs.SortedValues()))
 	}
+
+	// Create slice of network.Ids for external networks in the same AZ as
+	// the instance's networks, to find an existing floating ip in, or allocate
+	// a new floating ip from.
+	extNetIds, _ := getExternalNeutronNetworksByAZ(n, hostAddrAZs)
 
 	// We have an external network ID, no need for specific error message.
-	if len(extNetworkIds) > 0 {
-		return extNetworkIds, nil
+	if len(extNetIds) > 0 {
+		return extNetIds, nil
 	}
 
-	var returnErr error
-	if availabilityZone == "" {
-		returnErr = errors.NotFoundf("could not find an external network, network availability zones not in use")
-	} else {
-		returnErr = errors.NotFoundf(
-			"could not find an external network in availability zone %s", availabilityZone)
+	return nil, errors.NewNotFound(nil,
+		fmt.Sprintf("could not find an external network in availability zone(s) %q", strings.Join(hostAddrAZs.SortedValues(), ", ")))
+}
+
+func (n *NeutronNetworking) findNetworkAZForHostAddrs(addrs map[string][]nova.IPAddress) (set.Strings, error) {
+	netNames := set.NewStrings()
+	for name, _ := range addrs {
+		netNames.Add(name)
 	}
-	return nil, returnErr
+	if netNames.Size() == 0 {
+		return nil, errors.NotFoundf("no networks found with server")
+	}
+	azNames := set.NewStrings()
+	networks, err := n.neutron().ListNetworksV2(internalNetworkFilter())
+	if err != nil {
+		return nil, err
+	}
+	for _, network := range networks {
+		if netNames.Contains(network.Name) {
+			azNames = azNames.Union(set.NewStrings(network.AvailabilityZones...))
+		}
+	}
+	return azNames, nil
 }
 
 // getExternalNeutronNetworksByAZ returns all external networks within the
-// given availability zone. If azName is empty, return all external networks
-// with no AZ.
-func getExternalNeutronNetworksByAZ(e NetworkingBase, azName string) ([]string, error) {
+// given availability zones. If azName is empty, return all external networks
+// with no AZ.  If no network has an AZ, return all external networks.
+func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]string, error) {
 	neutronClient := e.neutron()
 	// Find all external networks in availability zone
 	networks, err := neutronClient.ListNetworksV2(externalNetworkFilter())
@@ -202,12 +219,12 @@ func getExternalNeutronNetworksByAZ(e NetworkingBase, azName string) ([]string, 
 	netIds := make([]string, 0)
 	for _, network := range networks {
 		for _, netAZ := range network.AvailabilityZones {
-			if azName == netAZ {
+			if azNames.Contains(netAZ) {
 				netIds = append(netIds, network.Id)
 				break
 			}
 		}
-		if azName == "" && len(network.AvailabilityZones) == 0 {
+		if azNames.IsEmpty() || len(network.AvailabilityZones) == 0 {
 			netIds = append(netIds, network.Id)
 		}
 	}
