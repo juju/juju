@@ -5820,8 +5820,8 @@
     },
     {
         "Name": "Bundle",
-        "Description": "APIv5 provides the Bundle API facade for version 5. It is otherwise\nidentical to V4 with the exception that the V5 adds an arg to export\nbundle to control what is exported..",
-        "Version": 5,
+        "Description": "APIv6 provides the Bundle API facade for version 6. It is otherwise\nidentical to V5 with the exception that the V6 adds the support for\nmulti-part yaml handling to GetChanges and GetChangesMapArgs.",
+        "Version": 6,
         "AvailableTo": [
             "controller-user",
             "model-user"

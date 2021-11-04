@@ -26,7 +26,7 @@ import (
 type bundleSuite struct {
 	coretesting.BaseSuite
 	auth     *apiservertesting.FakeAuthorizer
-	facade   *bundle.APIv5
+	facade   *bundle.APIv6
 	st       *mockState
 	modelTag names.ModelTag
 }
@@ -44,14 +44,14 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.facade = s.makeAPI(c)
 }
 
-func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv5 {
+func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv6 {
 	api, err := bundle.NewBundleAPI(
 		s.st,
 		s.auth,
 		s.modelTag,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &bundle.APIv5{api}
+	return &bundle.APIv6{api}
 }
 
 func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
@@ -59,7 +59,7 @@ func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
 
@@ -214,6 +214,207 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	c.Assert(r.Errors, gc.IsNil)
 }
 
+func (s *bundleSuite) TestGetChangesWithOverlaysV6(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:trusty/haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+--- # overlay
+description: remove haproxy
+applications:
+    haproxy:
+        `,
+	}
+
+	expectedChanges_V6 := []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}}
+
+	apiv6 := s.makeAPI(c)
+	r_v6, err_v6 := apiv6.GetChanges(args)
+	c.Assert(err_v6, jc.ErrorIsNil)
+	c.Assert(r_v6.Changes, jc.DeepEquals, expectedChanges_V6)
+}
+
+func (s *bundleSuite) TestGetChangesWithOverlaysV1_5(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:trusty/haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+--- # overlay
+description: remove haproxy
+applications:
+    haproxy:
+        `,
+	}
+	// Before V6, GetChanges ignores the extra parts in a
+	// multi-yaml data, therefore we expect to see 'haproxy' still
+	// exists in the changes
+	expectedChanges_V1 := []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"trusty",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}}
+
+	expectedChanges_V2_5 := []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"trusty",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}}
+
+	apiv6 := s.makeAPI(c)
+	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{apiv6}}}}}
+	apiv2 := &bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{apiv6}}}}
+	apiv3 := &bundle.APIv3{&bundle.APIv4{&bundle.APIv5{apiv6}}}
+	apiv4 := &bundle.APIv4{&bundle.APIv5{apiv6}}
+	apiv5 := &bundle.APIv5{apiv6}
+
+	r1, err1 := apiv1.GetChanges(args)
+	r2, err2 := apiv2.GetChanges(args)
+	r3, err3 := apiv3.GetChanges(args)
+	r4, err4 := apiv4.GetChanges(args)
+	r5, err5 := apiv5.GetChanges(args)
+
+	c.Assert(err1, jc.ErrorIsNil)
+	c.Assert(err2, jc.ErrorIsNil)
+	c.Assert(err3, jc.ErrorIsNil)
+	c.Assert(err4, jc.ErrorIsNil)
+	c.Assert(err5, jc.ErrorIsNil)
+
+	c.Assert(r1.Changes, jc.DeepEquals, expectedChanges_V1)
+	c.Assert(r2.Changes, jc.DeepEquals, expectedChanges_V2_5)
+	c.Assert(r3.Changes, jc.DeepEquals, expectedChanges_V2_5)
+	c.Assert(r4.Changes, jc.DeepEquals, expectedChanges_V2_5)
+	c.Assert(r5.Changes, jc.DeepEquals, expectedChanges_V2_5)
+}
+
 func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
@@ -308,7 +509,7 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
         `,
 	}
 	api := s.makeAPI(c)
-	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{api}}}}
+	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{api}}}}}
 
 	r, err := apiv1.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -404,7 +605,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesMapArgsResults{})
 }
 

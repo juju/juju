@@ -177,6 +177,7 @@ func AllFacades() *facade.Registry {
 	reg("Bundle", 3, bundle.NewFacadeV3)
 	reg("Bundle", 4, bundle.NewFacadeV4)
 	reg("Bundle", 5, bundle.NewFacadeV5)
+	reg("Bundle", 6, bundle.NewFacadeV6)
 	reg("CharmHub", 1, charmhub.NewFacade)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacadeV2)

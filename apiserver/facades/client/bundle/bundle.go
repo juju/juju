@@ -64,6 +64,13 @@ type APIv4 struct {
 // identical to V4 with the exception that the V5 adds an arg to export
 // bundle to control what is exported..
 type APIv5 struct {
+	*APIv6
+}
+
+// APIv6 provides the Bundle API facade for version 6. It is otherwise
+// identical to V5 with the exception that the V6 adds the support for
+// multi-part yaml handling to GetChanges and GetChangesMapArgs.
+type APIv6 struct {
 	*BundleAPI
 }
 
@@ -119,11 +126,21 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 // NewFacadeV5 provides the signature required for facade registration
 // for version 5.
 func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
-	api, err := newFacade(ctx)
+	api, err := NewFacadeV6(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv5{api}, nil
+}
+
+// NewFacadeV6 provides the signature required for facade registration
+// for version 6.
+func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
+	api, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv6{api}, nil
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -167,7 +184,7 @@ func NewBundleAPIv1(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv1{&APIv2{&APIv3{&APIv4{&APIv5{api}}}}}, nil
+	return &APIv1{&APIv2{&APIv3{&APIv4{&APIv5{&APIv6{api}}}}}}, nil
 }
 
 func (b *BundleAPI) checkCanRead() error {
@@ -181,11 +198,41 @@ func (b *BundleAPI) checkCanRead() error {
 	return nil
 }
 
+type validators struct {
+	verifyConstraints func(string) error
+	verifyStorage     func(string) error
+	verifyDevices     func(string) error
+}
+
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
 // V1 GetChanges did not support device.
 func (b *APIv1) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+	return b.doGetChanges(args, 1)
+}
+
+// GetChanges returns the list of changes required to deploy the given bundle
+// data. The changes are sorted by requirements, so that they can be applied in
+// order.
+// GetChanges has been superseded in favour of GetChangesMapArgs. It's
+// preferable to use that new method to add new functionality and move clients
+// away from this one.
+func (b *APIv5) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+	return b.doGetChanges(args, 5)
+}
+
+// GetChanges returns the list of changes required to deploy the given bundle
+// data. The changes are sorted by requirements, so that they can be applied in
+// order.
+// GetChanges has been superseded in favour of GetChangesMapArgs. It's
+// preferable to use that new method to add new functionality and move clients
+// away from this one.
+func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+	return b.doGetChanges(args, 6)
+}
+
+func (b *BundleAPI) doGetChanges(args params.BundleChangesParams, version int) (params.BundleChangesResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -195,32 +242,93 @@ func (b *APIv1) GetChanges(args params.BundleChangesParams) (params.BundleChange
 			_, err := storage.ParseConstraints(s)
 			return err
 		},
-		verifyDevices: nil,
+		verifyDevices: func(s string) error {
+			_, err := devices.ParseConstraints(s)
+			return err
+		},
 	}
-	return getChanges(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
-		results.Changes = make([]*params.BundleChange, len(changes))
-		for i, c := range changes {
-			results.Changes[i] = &params.BundleChange{
-				Id:       c.Id(),
-				Method:   c.Method(),
-				Args:     c.GUIArgs(),
-				Requires: c.Requires(),
-			}
-		}
-		return nil
-	})
+
+	expandOverlays := version > 5
+
+	mapFn := mapBundleChanges
+
+	if version == 1 {
+		mapFn = mapBundleChangesV1
+		vs.verifyDevices = nil // device verification is not supported for V1 facades
+	}
+
+	return b.getBundleChanges(args, vs, expandOverlays, mapFn)
 }
 
-type validators struct {
-	verifyConstraints func(string) error
-	verifyStorage     func(string) error
-	verifyDevices     func(string) error
-}
-
-func getBundleChanges(args params.BundleChangesParams,
+func (b *BundleAPI) getBundleChanges(
+	args params.BundleChangesParams,
 	vs validators,
+	expandOverlays bool,
+	postProcess func([]bundlechanges.Change, *params.BundleChangesResults) error,
+) (params.BundleChangesResults, error) {
+	var results params.BundleChangesResults
+	changes, validationErrors, err := b.doGetBundleChanges(args, vs, expandOverlays)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if len(validationErrors) > 0 {
+		results.Errors = make([]string, len(validationErrors))
+		for k, v := range validationErrors {
+			results.Errors[k] = v.Error()
+		}
+		return results, nil
+	}
+	err = postProcess(changes, &results)
+	return results, errors.Trace(err)
+
+}
+
+func mapBundleChangesV1(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
+	results.Changes = make([]*params.BundleChange, len(changes))
+	for i, c := range changes {
+		results.Changes[i] = &params.BundleChange{
+			Id:       c.Id(),
+			Method:   c.Method(),
+			Args:     c.GUIArgs(),
+			Requires: c.Requires(),
+		}
+	}
+	return nil
+}
+
+func mapBundleChanges(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
+	results.Changes = make([]*params.BundleChange, len(changes))
+	for i, c := range changes {
+		var guiArgs []interface{}
+		switch c := c.(type) {
+		case *bundlechanges.AddApplicationChange:
+			guiArgs = c.GUIArgsWithDevices()
+		default:
+			guiArgs = c.GUIArgs()
+		}
+		results.Changes[i] = &params.BundleChange{
+			Id:       c.Id(),
+			Method:   c.Method(),
+			Args:     guiArgs,
+			Requires: c.Requires(),
+		}
+	}
+	return nil
+}
+
+func (b *BundleAPI) doGetBundleChanges(
+	args params.BundleChangesParams,
+	vs validators,
+	expandOverlays bool,
 ) ([]bundlechanges.Change, []error, error) {
-	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
+	var data *charm.BundleData
+	var err error
+	if expandOverlays {
+		dataSource, _ := charm.StreamBundleDataSource(strings.NewReader(args.BundleDataYAML), args.BundleURL)
+		data, err = charm.ReadAndMergeBundleData(dataSource)
+	} else {
+		data, err = charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
+	}
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot read bundle YAML")
 	}
@@ -247,69 +355,6 @@ func getBundleChanges(args params.BundleChangesParams,
 	return changes, nil, nil
 }
 
-func getChanges(
-	args params.BundleChangesParams,
-	vs validators,
-	postProcess func([]bundlechanges.Change, *params.BundleChangesResults) error,
-) (params.BundleChangesResults, error) {
-	var results params.BundleChangesResults
-	changes, validationErrors, err := getBundleChanges(args, vs)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	if len(validationErrors) > 0 {
-		results.Errors = make([]string, len(validationErrors))
-		for k, v := range validationErrors {
-			results.Errors[k] = v.Error()
-		}
-		return results, nil
-	}
-	err = postProcess(changes, &results)
-	return results, errors.Trace(err)
-}
-
-// GetChanges returns the list of changes required to deploy the given bundle
-// data. The changes are sorted by requirements, so that they can be applied in
-// order.
-// GetChanges has been superseded in favour of GetChangesMapArgs. It's
-// preferable to use that new method to add new functionality and move clients
-// away from this one.
-func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	vs := validators{
-		verifyConstraints: func(s string) error {
-			_, err := constraints.Parse(s)
-			return err
-		},
-		verifyStorage: func(s string) error {
-			_, err := storage.ParseConstraints(s)
-			return err
-		},
-		verifyDevices: func(s string) error {
-			_, err := devices.ParseConstraints(s)
-			return err
-		},
-	}
-	return getChanges(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
-		results.Changes = make([]*params.BundleChange, len(changes))
-		for i, c := range changes {
-			var guiArgs []interface{}
-			switch c := c.(type) {
-			case *bundlechanges.AddApplicationChange:
-				guiArgs = c.GUIArgsWithDevices()
-			default:
-				guiArgs = c.GUIArgs()
-			}
-			results.Changes[i] = &params.BundleChange{
-				Id:       c.Id(),
-				Method:   c.Method(),
-				Args:     guiArgs,
-				Requires: c.Requires(),
-			}
-		}
-		return nil
-	})
-}
-
 // GetChangesMapArgs is not in V3 API or less.
 // Mask the new method from V3 API or less.
 func (u *APIv3) GetChangesMapArgs() (_, _ struct{}) { return }
@@ -318,7 +363,19 @@ func (u *APIv3) GetChangesMapArgs() (_, _ struct{}) { return }
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
 // V4 GetChangesMapArgs is not supported on anything less than v4
+func (b *APIv5) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
+	return b.doGetChangesMapArgs(args, false)
+}
+
+// GetChangesMapArgs returns the list of changes required to deploy the given
+// bundle data. The changes are sorted by requirements, so that they can be
+// applied in order.
+// V4 GetChangesMapArgs is not supported on anything less than v4
 func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
+	return b.doGetChangesMapArgs(args, true)
+}
+
+func (b *BundleAPI) doGetChangesMapArgs(args params.BundleChangesParams, expandOverlays bool) (params.BundleChangesMapArgsResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -333,7 +390,7 @@ func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.B
 			return err
 		},
 	}
-	return getChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
+	return b.doGetBundleChangesMapArgs(args, vs, expandOverlays, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
 		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
 		for i, c := range changes {
 			args, err := c.Args()
@@ -352,13 +409,14 @@ func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.B
 	})
 }
 
-func getChangesMapArgs(
+func (b *BundleAPI) doGetBundleChangesMapArgs(
 	args params.BundleChangesParams,
 	vs validators,
+	expandOverlays bool,
 	postProcess func([]bundlechanges.Change, *params.BundleChangesMapArgsResults) error,
 ) (params.BundleChangesMapArgsResults, error) {
 	var results params.BundleChangesMapArgsResults
-	changes, validationErrors, err := getBundleChanges(args, vs)
+	changes, validationErrors, err := b.doGetBundleChanges(args, vs, expandOverlays)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
