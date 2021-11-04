@@ -20,6 +20,7 @@ import (
 	"text/template"
 
 	"github.com/gorilla/handlers"
+	"github.com/juju/charmrepo/v6/csclient"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -561,7 +562,7 @@ func (h *legacyGUIHandler) serveConfig(w http.ResponseWriter, req *http.Request)
 		"base":             base,
 		"bakeryEnabled":    ctrl.IdentityURL() != "",
 		"controllerSocket": "/api",
-		"charmstoreURL":    ctrl.CharmStoreURL(),
+		"charmstoreURL":    csclient.ServerURL,
 		"host":             req.Host,
 		"socket":           "/model/$uuid/api",
 		// staticURL holds the root of the static hierarchy, hence why the

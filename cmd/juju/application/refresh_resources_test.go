@@ -247,7 +247,6 @@ Deploying charm "cs:bionic/starsay-1".`
 	upgrade := NewRefreshCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
-			csURL string,
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			return s.fakeAPI, &fakeCharmStoreAPI{

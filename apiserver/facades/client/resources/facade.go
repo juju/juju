@@ -61,11 +61,6 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -103,7 +98,7 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 		case charm.CharmStore.Matches(schema):
 			cl, err := charmstore.NewCachingClient(state.MacaroonCache{
 				MacaroonCacheState: st,
-			}, controllerCfg.CharmStoreURL())
+			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

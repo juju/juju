@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
 	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -305,15 +304,7 @@ func (c *CharmStoreResourceLister) ListResources(ids []CharmID) ([][]charmresour
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conAPIRoot, err := c.ControllerAPIRootFn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	csURL, err := c.getCharmStoreAPIURL(conAPIRoot)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	client, err := charmstore.NewCustomClientAtURL(bakeryClient, csURL)
+	client, err := charmstore.NewCustomClientAtURL(bakeryClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -327,14 +318,4 @@ func (c *CharmStoreResourceLister) ListResources(ids []CharmID) ([][]charmresour
 	}
 
 	return client.ListResources(charmIDs)
-}
-
-// getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
-func (c *CharmStoreResourceLister) getCharmStoreAPIURL(conAPIRoot api.Connection) (string, error) {
-	controllerAPI := controller.NewClient(conAPIRoot)
-	controllerCfg, err := controllerAPI.ControllerConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return controllerCfg.CharmStoreURL(), nil
 }

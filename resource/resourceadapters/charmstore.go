@@ -28,13 +28,9 @@ type csClientState interface {
 }
 
 func newCharmStoreClient(st csClientState) (charmstore.Client, error) {
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return charmstore.Client{}, errors.Trace(err)
-	}
 	return charmstore.NewCachingClient(state.MacaroonCache{
 		MacaroonCacheState: st,
-	}, controllerCfg.CharmStoreURL())
+	})
 }
 
 type csClient struct {

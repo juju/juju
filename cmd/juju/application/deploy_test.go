@@ -2565,20 +2565,12 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			}, nil
 		}
 		deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
-			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
 			bakeryClient, err := deployCmd.BakeryClient()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
 			risk := csclientparams.Channel(deployCmd.Channel.Risk)
-			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
+			cstoreClient := store.NewCharmStoreClient(bakeryClient).WithChannel(risk)
 			return &store.CharmStoreAdaptor{
 				MacaroonGetter:     cstoreClient,
 				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),

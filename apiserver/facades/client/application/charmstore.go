@@ -185,14 +185,7 @@ func (s charmStateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateChar
 // TODO: remove in juju 3.0
 func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, openCSRepo OpenCSRepoFunc) error {
 	return AddCharmWithAuthorizationAndRepo(st, args, func() (Repository, error) {
-		// determine which charmstore api url to use.
-		controllerCfg, err := st.ControllerConfig()
-		if err != nil {
-			return nil, err
-		}
-
 		return openCSRepo(OpenCSRepoParams{
-			CSURL:              controllerCfg.CharmStoreURL(),
 			Channel:            args.Channel,
 			CharmStoreMacaroon: args.CharmStoreMacaroon,
 		})
@@ -202,7 +195,6 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, 
 type OpenCSRepoFunc func(args OpenCSRepoParams) (Repository, error)
 
 type OpenCSRepoParams struct {
-	CSURL              string
 	Channel            string
 	CharmStoreMacaroon *macaroon.Macaroon
 }
@@ -217,12 +209,11 @@ var OpenCSRepo = func(args OpenCSRepoParams) (Repository, error) {
 }
 
 func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
-	csURL, err := url.Parse(args.CSURL)
+	csURL, err := url.Parse(csclient.ServerURL)
 	if err != nil {
 		return nil, err
 	}
 	csParams := csclient.Params{
-		URL:            csURL.String(),
 		BakeryClient:   httpbakery.NewClient(),
 		UserAgentValue: jujuversion.UserAgentVersion,
 	}
@@ -387,13 +378,7 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFunc) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return params.ResolveCharmResults{}, errors.Trace(err)
-	}
-	repo, err := openCSRepo(OpenCSRepoParams{
-		CSURL: controllerCfg.CharmStoreURL(),
-	})
+	repo, err := openCSRepo(OpenCSRepoParams{})
 	if err != nil {
 		return params.ResolveCharmResults{}, errors.Trace(err)
 	}

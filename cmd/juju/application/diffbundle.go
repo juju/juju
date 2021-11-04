@@ -342,23 +342,13 @@ Consider using a CharmStore bundle instead.`
 
 func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm.URL) (BundleResolver, error) {
 	charmStoreRepo := func() (store.CharmrepoForDeploy, error) {
-		controllerAPIRoot, err := c.newControllerAPIRootFn()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer func() { _ = controllerAPIRoot.Close() }()
-		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		bakeryClient, err := c.BakeryClient()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		risk := csparams.Channel(c.channel.Risk)
-		cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
+		cstoreClient := store.NewCharmStoreClient(bakeryClient).WithChannel(risk)
 		return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
 	}
 	downloadClient := func() (store.DownloadBundleClient, error) {

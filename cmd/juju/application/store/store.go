@@ -57,9 +57,8 @@ func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl
 
 // NewCharmStoreClient is called to obtain a charm store client.
 // It is defined as a variable so it can be changed for testing purposes.
-var NewCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
+var NewCharmStoreClient = func(client *httpbakery.Client) *csclient.Client {
 	return csclient.New(csclient.Params{
-		URL:            csURL,
 		BakeryClient:   client,
 		UserAgentValue: version.UserAgentVersion,
 	})
@@ -79,8 +78,8 @@ func authorizeCharmStoreEntity(csClient MacaroonGetter, curl *charm.URL) (*macar
 }
 
 // NewCharmStoreAdaptor combines charm store functionality with the ability to get a macaroon.
-func NewCharmStoreAdaptor(client *httpbakery.Client, csURL string) *CharmStoreAdaptor {
-	cstoreClient := NewCharmStoreClient(client, csURL)
+func NewCharmStoreAdaptor(client *httpbakery.Client) *CharmStoreAdaptor {
+	cstoreClient := NewCharmStoreClient(client)
 	return &CharmStoreAdaptor{
 		CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 		MacaroonGetter:     cstoreClient,

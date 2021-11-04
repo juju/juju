@@ -29,16 +29,14 @@ type CharmStoreClient interface {
 // CharmStoreRepository provides an API for charm-related operations using charmstore.
 type CharmStoreRepository struct {
 	logger        Logger
-	charmstoreURL string
-	clientFactory func(storeURL string, channel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error)
+	clientFactory func(channel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error)
 }
 
 // NewCharmStoreRepository returns a new repository instance using the provided
 // charmstore client.
-func NewCharmStoreRepository(logger Logger, charmstoreURL string) *CharmStoreRepository {
+func NewCharmStoreRepository(logger Logger) *CharmStoreRepository {
 	return &CharmStoreRepository{
 		logger:        logger,
-		charmstoreURL: charmstoreURL,
 		clientFactory: makeCharmStoreClient,
 	}
 }
@@ -48,7 +46,7 @@ func NewCharmStoreRepository(logger Logger, charmstoreURL string) *CharmStoreRep
 // charm/bundle from the store.
 func (c *CharmStoreRepository) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
 	channel := csparams.Channel(requestedOrigin.Channel.Risk)
-	client, err := c.clientFactory(c.charmstoreURL, channel, macaroons)
+	client, err := c.clientFactory(channel, macaroons)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
@@ -83,7 +81,7 @@ func (c *CharmStoreRepository) doResolveWithClient(client CharmStoreClient, char
 // contents to the specified path.
 func (c *CharmStoreRepository) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
 	channel := csparams.Channel(requestedOrigin.Channel.Risk)
-	client, err := c.clientFactory(c.charmstoreURL, channel, macaroons)
+	client, err := c.clientFactory(channel, macaroons)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -107,7 +105,7 @@ func (c *CharmStoreRepository) DownloadCharm(charmURL *charm.URL, requestedOrigi
 // can be used to download the blob associated with the charm/bundle.
 func (c *CharmStoreRepository) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*url.URL, corecharm.Origin, error) {
 	channel := csparams.Channel(requestedOrigin.Channel.Risk)
-	client, err := c.clientFactory(c.charmstoreURL, channel, macaroons)
+	client, err := c.clientFactory(channel, macaroons)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -135,8 +133,8 @@ func (c *CharmStoreRepository) ListResources(charmURL *charm.URL, _ corecharm.Or
 	return nil, nil
 }
 
-func makeCharmStoreClient(charmstoreURL string, defaultChannel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error) {
-	apiURL, err := url.Parse(charmstoreURL)
+func makeCharmStoreClient(defaultChannel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error) {
+	apiURL, err := url.Parse(csclient.ServerURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

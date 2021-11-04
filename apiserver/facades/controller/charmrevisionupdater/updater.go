@@ -54,11 +54,7 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 		return nil, apiservererrors.ErrPerm
 	}
 	newCharmstoreClient := func(st State) (charmstore.Client, error) {
-		controllerCfg, err := st.ControllerConfig()
-		if err != nil {
-			return charmstore.Client{}, errors.Trace(err)
-		}
-		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
+		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st})
 	}
 	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
 		// TODO (stickupkid): Get the http transport from the facade context

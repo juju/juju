@@ -111,7 +111,7 @@ func (c *ListPlansCommand) Run(ctx *cmd.Context) (rErr error) {
 		return errors.Annotate(err, "failed to create an http client")
 	}
 
-	resolver, err := rcmd.NewCharmStoreResolverForControllerCmd(&c.ControllerCommandBase)
+	resolver, err := rcmd.NewCharmStoreResolverForControllerCmd()
 	if err != nil {
 		return errors.Trace(err)
 	}

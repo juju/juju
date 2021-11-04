@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujuresource "github.com/juju/juju/cmd/juju/resource"
-	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
 )
 
@@ -36,7 +35,7 @@ func (s *CharmResourcesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CharmResourcesSuite) TestInfo(c *gc.C) {
-	var command resourcecmd.CharmResourcesCommand
+	var command jujuresource.CharmResourcesCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
@@ -79,7 +78,7 @@ func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
 	resources[0].Revision = 2
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
+	command := jujuresource.NewCharmResourcesCommandForTest(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -104,7 +103,7 @@ website   2
 func (s *CharmResourcesSuite) TestCharmhub(c *gc.C) {
 	s.client.stub.SetErrors(errors.Errorf("charmhub charms are currently not supported"))
 
-	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
+	command := jujuresource.NewCharmResourcesCommandForTest(s.client)
 	code, stdout, stderr := runCmd(c, command, "a-charm")
 	c.Check(code, gc.Equals, 1)
 	c.Check(stdout, gc.Equals, "")
@@ -114,7 +113,7 @@ func (s *CharmResourcesSuite) TestCharmhub(c *gc.C) {
 func (s *CharmResourcesSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
+	command := jujuresource.NewCharmResourcesCommandForTest(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -185,7 +184,7 @@ website   1
 	}
 	for format, expected := range formats {
 		c.Logf("checking format %q", format)
-		command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
+		command := jujuresource.NewCharmResourcesCommandForTest(s.client)
 		args := []string{
 			"--format", format,
 			"cs:a-charm",
@@ -208,7 +207,7 @@ func (s *CharmResourcesSuite) TestChannelFlag(c *gc.C) {
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
-	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
+	command := jujuresource.NewCharmResourcesCommandForTest(s.client)
 
 	code, _, stderr := runCmd(c, command,
 		"--channel", "development",
@@ -217,5 +216,5 @@ func (s *CharmResourcesSuite) TestChannelFlag(c *gc.C) {
 
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
-	c.Check(resourcecmd.CharmResourcesCommandChannel(command), gc.Equals, "development")
+	c.Check(jujuresource.CharmResourcesCommandChannel(command), gc.Equals, "development")
 }

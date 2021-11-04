@@ -16,6 +16,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient"
 	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd/v3"
@@ -183,10 +184,9 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 		s.deployResources,
 		func(
 			bakeryClient *httpbakery.Client,
-			csURL string,
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			s.AddCall("NewCharmStore", csURL)
+			s.AddCall("NewCharmStore")
 			return s.fakeAPI, &fakeCharmStoreAPI{
 				fakeDeployAPI: s.fakeAPI,
 			}
@@ -213,10 +213,6 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 		func(conn base.APICallCloser) (utils.ResourceLister, error) {
 			s.AddCall("NewResourceLister", conn)
 			return &s.resourceLister, s.NextErr()
-		},
-		func(conn base.APICallCloser) (string, error) {
-			s.AddCall("CharmStoreURLGetter", conn)
-			return "testing.api.charmstore", s.NextErr()
 		},
 		func(conn base.APICallCloser) SpacesAPI {
 			s.AddCall("NewSpacesClient", conn)
@@ -265,7 +261,7 @@ func (s *RefreshSuite) TestUseConfiguredCharmStoreURL(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(csURL, gc.Equals, "testing.api.charmstore")
+	c.Assert(csURL, gc.Equals, csclient.ServerURL)
 }
 
 func (s *RefreshSuite) TestStorageConstraintsMinFacadeVersion(c *gc.C) {
@@ -403,7 +399,6 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 	s.cmd = NewRefreshCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
-			csURL string,
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			return s.fakeAPI, &fakeCharmStoreAPI{
@@ -523,7 +518,6 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.cmd = NewRefreshCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
-			csURL string,
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			return s.fakeAPI, &fakeCharmStoreAPI{

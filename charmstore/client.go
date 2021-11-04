@@ -38,21 +38,19 @@ type MacaroonCache interface {
 }
 
 // NewCachingClient returns a Juju charm store client that stores and retrieves
-// macaroons for calls in the given cache. The client will use server as the
-// charmstore url.
-func NewCachingClient(cache MacaroonCache, server string) (Client, error) {
-	return newCachingClient(cache, server, makeWrapper)
+// macaroons for calls in the given cache.
+func NewCachingClient(cache MacaroonCache) (Client, error) {
+	return newCachingClient(cache, makeWrapper)
 }
 
 func newCachingClient(
 	cache MacaroonCache,
-	server string,
-	makeWrapper func(*httpbakery.Client, string) (csWrapper, error),
+	makeWrapper func(*httpbakery.Client) (csWrapper, error),
 ) (Client, error) {
 	bakeryClient := &httpbakery.Client{
 		Client: httpbakery.NewHTTPClient(),
 	}
-	client, err := makeWrapper(bakeryClient, server)
+	client, err := makeWrapper(bakeryClient)
 	if err != nil {
 		return Client{}, errors.Trace(err)
 	}
@@ -81,29 +79,24 @@ func NewCustomClient(base csWrapper) Client {
 // httpbakery.Client to store and retrieve macaroons.  If not nil, the client
 // will use server as the charmstore url, otherwise it will default to the
 // standard juju charmstore url.
-func NewCustomClientAtURL(bakeryClient *httpbakery.Client, server string) (Client, error) {
-	return newCustomClient(bakeryClient, server, makeWrapper)
+func NewCustomClientAtURL(bakeryClient *httpbakery.Client) (Client, error) {
+	return newCustomClient(bakeryClient, makeWrapper)
 }
 
 func newCustomClient(
 	bakeryClient *httpbakery.Client,
-	server string,
-	makeWrapper func(*httpbakery.Client, string) (csWrapper, error),
+	makeWrapper func(*httpbakery.Client) (csWrapper, error),
 ) (Client, error) {
-	client, err := makeWrapper(bakeryClient, server)
+	client, err := makeWrapper(bakeryClient)
 	if err != nil {
 		return Client{}, errors.Trace(err)
 	}
 	return Client{csWrapper: client}, nil
 }
 
-func makeWrapper(bakeryClient *httpbakery.Client, server string) (csWrapper, error) {
-	if server == "" {
-		return csclientImpl{}, errors.NotValidf("empty charmstore URL")
-	}
+func makeWrapper(bakeryClient *httpbakery.Client) (csWrapper, error) {
 	p := csclient.Params{
 		BakeryClient:   bakeryClient,
-		URL:            server,
 		UserAgentValue: version.UserAgentVersion,
 	}
 	return csclientImpl{csclient.New(p)}, nil

@@ -167,19 +167,11 @@ func newDeployCommand() *DeployCommand {
 		Steps: deployer.Steps(),
 	}
 	deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
-		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		url, err := getCharmStoreAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		bakeryClient, err := deployCmd.BakeryClient()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return store.NewCharmStoreAdaptor(bakeryClient, url), nil
+		return store.NewCharmStoreAdaptor(bakeryClient), nil
 	}
 	deployCmd.NewModelConfigClient = func(api base.APICallCloser) ModelConfigClient {
 		return modelconfig.NewClient(api)
