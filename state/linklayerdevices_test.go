@@ -167,6 +167,21 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateProvide
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
+func (s *linkLayerDevicesStateSuite) TestRemoveAllLinkLayerDevicesClearsProviderIDs(c *gc.C) {
+	args1 := state.LinkLayerDeviceArgs{
+		Name:       "eth0.42",
+		Type:       corenetwork.EthernetDevice,
+		ProviderID: "42",
+	}
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args1)
+
+	c.Assert(s.machine.RemoveAllLinkLayerDevices(), jc.ErrorIsNil)
+
+	// We can add the same device, with the same provider ID without error
+	// because the global provider ID references were removed with the devices.
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args1)
+}
+
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0.42",
