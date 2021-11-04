@@ -113,6 +113,13 @@ func (c *runActionCommand) Init(args []string) (err error) {
 		return errors.New("no action specified")
 	}
 
+	// force timeout to be equal or larger than 100ms
+	if c.wait.String() != "" {
+		if time.Duration(c.wait.d.Milliseconds()) < time.Millisecond {
+			return errors.New("timeout must equal or greater than 1 ms")
+		}
+	}
+
 	// Parse CLI key-value args if they exist.
 	c.args = make([][]string, 0)
 	for _, arg := range args[len(c.unitReceivers)+1:] {
