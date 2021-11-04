@@ -25,19 +25,34 @@ const (
 var (
 	// ErrDeadlineExceeded is a sentinel error for all exceeded deadlines for
 	// operations.
-	ErrDeadlineExceeded = deadlineExceeded("enqueueing deadline exceeded")
+	ErrDeadlineExceeded = deadlineExceededErr("enqueueing deadline exceeded")
+
+	// ErrCanceled is a sentinel error for when the operation has been stopped.
+	ErrCanceled = canceledErr("enqueueing canceled")
 )
 
-type deadlineExceeded string
+type deadlineExceededErr string
 
-func (e deadlineExceeded) Error() string {
+func (e deadlineExceededErr) Error() string {
 	return string(e)
 }
 
 // IsDeadlineExceeded checks to see if the underlying error is a deadline
 // exceeded error.
 func IsDeadlineExceeded(err error) bool {
-	_, ok := errors.Cause(err).(deadlineExceeded)
+	_, ok := errors.Cause(err).(deadlineExceededErr)
+	return ok
+}
+
+type canceledErr string
+
+func (e canceledErr) Error() string {
+	return string(e)
+}
+
+// IsCanceled checks to see if the underlying error is a canceled error.
+func IsCanceled(err error) bool {
+	_, ok := errors.Cause(err).(canceledErr)
 	return ok
 }
 
@@ -45,6 +60,7 @@ func IsDeadlineExceeded(err error) bool {
 type Operation struct {
 	Command []byte
 	Done    func(error)
+	Stop    func() <-chan struct{}
 }
 
 // OpQueue holds the operations in a blocking queue. The purpose of this
@@ -112,6 +128,8 @@ const (
 )
 
 func (q *OpQueue) loop() error {
+	defer close(q.out)
+
 	// Start of the loop with the a average delay timeout.
 	delay := maxDelay / 2
 
@@ -168,6 +186,10 @@ func (q *OpQueue) consume(delay time.Duration) []Operation {
 	for {
 		select {
 		case op := <-q.in:
+			if isCanceled(op) {
+				break
+			}
+
 			// Ensure we don't put operations that have already expired.
 			if q.clock.Now().After(op.ExpiredTime) {
 				op.Operation.Done(ErrDeadlineExceeded)
@@ -180,6 +202,20 @@ func (q *OpQueue) consume(delay time.Duration) []Operation {
 		case <-timeout:
 			return ops
 		}
+	}
+}
+
+func isCanceled(op ringOp) bool {
+	stop := op.Operation.Stop
+	if stop == nil {
+		return false
+	}
+	select {
+	case <-stop():
+		op.Operation.Done(ErrCanceled)
+		return true
+	default:
+		return false
 	}
 }
 
