@@ -183,7 +183,7 @@ func (s *RunActionSuite) TestInit(c *gc.C) {
 		expectKVArgs: [][]string{},
 	}, {
 		should:      "reject timeouts smaller than 1 ms",
-		args:        []string{"mysql/leader", "valid-action-name", "--wait=99ms"},
+		args:        []string{"mysql/leader", "valid-action-name", "--wait=99ns"},
 		expectError: "timeout must equal or greater than 1 ms",
 	}}
 
