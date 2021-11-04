@@ -64,7 +64,7 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
 
 	m.queue.Enqueue(queue.Operation{
 		Command: cmd,
-		Stop:    ctx.Done(),
+		Stop:    ctx.Done,
 		Done: func(err error) {
 			// We can do this, because the caller of done, is in another
 			// goroutine, otherwise this is a sure fire way to deadlock.

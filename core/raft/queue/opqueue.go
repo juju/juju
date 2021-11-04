@@ -60,7 +60,7 @@ func IsCanceled(err error) bool {
 type Operation struct {
 	Command []byte
 	Done    func(error)
-	Stop    <-chan struct{}
+	Stop    func() <-chan struct{}
 }
 
 // OpQueue holds the operations in a blocking queue. The purpose of this
@@ -128,8 +128,6 @@ const (
 )
 
 func (q *OpQueue) loop() error {
-	// Ensure we close the queue channels when we've been killed.
-	defer close(q.in)
 	defer close(q.out)
 
 	// Start of the loop with the a average delay timeout.
@@ -208,8 +206,12 @@ func (q *OpQueue) consume(delay time.Duration) []Operation {
 }
 
 func isCanceled(op ringOp) bool {
+	stop := op.Operation.Stop
+	if stop == nil {
+		return false
+	}
 	select {
-	case <-op.Operation.Stop:
+	case <-stop():
 		op.Operation.Done(ErrCanceled)
 		return true
 	default:

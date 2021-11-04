@@ -60,7 +60,9 @@ func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
 	done := make(chan error)
 	go queue.Enqueue(Operation{
 		Command: command(),
-		Stop:    canceled,
+		Stop: func() <-chan struct{} {
+			return canceled
+		},
 		Done: func(err error) {
 			done <- err
 		},
@@ -240,7 +242,9 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
 
 		go queue.Enqueue(Operation{
 			Command: opName(i),
-			Stop:    canceled,
+			Stop: func() <-chan struct{} {
+				return canceled
+			},
 			Done: func(err error) {
 				done <- err
 			},
