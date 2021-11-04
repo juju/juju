@@ -844,18 +844,6 @@ func (s *linkLayerDevicesStateSuite) createBridgeWithIP(c *gc.C, machine *state.
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// createAllDefaultDevices creates the loopback, lxcbr0, lxdbr0, and virbr0 devices
-func (s *linkLayerDevicesStateSuite) createAllDefaultDevices(c *gc.C, machine *state.Machine) {
-	// loopback
-	s.createLoopbackNIC(c, s.machine)
-	// container.DefaultLxcBridge
-	s.createBridgeWithIP(c, s.machine, "lxcbr0", "10.0.3.1/24")
-	// container.DefaultLxdBridge
-	s.createBridgeWithIP(c, s.machine, "lxdbr0", "10.0.4.1/24")
-	// container.DefaultKvmBridge
-	s.createBridgeWithIP(c, s.machine, "virbr0", "192.168.124.1/24")
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithLightStateChurn(c *gc.C) {
 	childArgs, churnHook := s.prepareSetLinkLayerDevicesWithStateChurn(c)
 	defer state.SetTestHooks(c, s.State, churnHook).Check()
