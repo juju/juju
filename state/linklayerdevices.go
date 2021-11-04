@@ -574,9 +574,9 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 		return newDev, errors.Errorf("device must be a Bridge Device, but is type %q", dev.Type())
 	}
 
-	addrs, err := dev.Addresses()
+	mtu, err := dev.mtuForChild()
 	if err != nil {
-		return network.InterfaceInfo{}, errors.Trace(err)
+		return network.InterfaceInfo{}, errors.Annotate(err, "determining child MTU")
 	}
 
 	newDev = network.InterfaceInfo{
@@ -584,9 +584,14 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 		MACAddress:          network.GenerateVirtualMACAddress(),
 		ConfigType:          network.ConfigDHCP,
 		InterfaceType:       network.EthernetDevice,
-		MTU:                 int(dev.MTU()),
+		MTU:                 int(mtu),
 		ParentInterfaceName: dev.Name(),
 		VirtualPortType:     dev.VirtualPortType(),
+	}
+
+	addrs, err := dev.Addresses()
+	if err != nil {
+		return network.InterfaceInfo{}, errors.Trace(err)
 	}
 
 	// Include a single address without an IP, but with a CIDR
@@ -614,6 +619,33 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	}
 
 	return newDev, nil
+}
+
+// mtuForChild returns a suitable MTU to use for a child of this device.
+// At the time of writing, Fan devices are configured with a static MTU.
+// See /usr/sbin/fanctl. It is either 1480 or (usually) 1450, which appears
+// to be a lazy 50 less than the common 1500. Using this value can cause
+// issues if the underlay has a MTU lower than 1450. If this is a Fan device,
+// locate the accompanying VXLAN device instead, and use that MTU.
+// This should have the correct value relative to the underlay.
+func (dev *LinkLayerDevice) mtuForChild() (uint, error) {
+	if !strings.HasPrefix(dev.doc.Name, "fan-") {
+		return dev.MTU(), nil
+	}
+
+	linkLayerDevs, closer := dev.st.db().GetCollection(linkLayerDevicesC)
+	defer closer()
+
+	var resultDoc struct {
+		MTU uint `bson:"mtu"`
+	}
+	err := linkLayerDevs.Find(bson.D{
+		{"machine-id", dev.doc.MachineID},
+		{"parent-name", dev.doc.Name},
+		{"type", network.VXLANDevice},
+	}).Select(bson.D{{"mtu", 1}}).One(&resultDoc)
+
+	return resultDoc.MTU, errors.Trace(err)
 }
 
 func (dev *LinkLayerDevice) isBridge() bool {

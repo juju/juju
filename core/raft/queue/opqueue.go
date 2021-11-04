@@ -61,7 +61,7 @@ type OpQueue struct {
 // NewOpQueue creates a new OpQueue.
 func NewOpQueue(clock clock.Clock) *OpQueue {
 	queue := &OpQueue{
-		in:           make(chan ringOp, EnqueueBatchSize),
+		in:           make(chan ringOp),
 		out:          make(chan []Operation),
 		clock:        clock,
 		maxBatchSize: EnqueueBatchSize,
@@ -79,13 +79,11 @@ func NewOpQueue(clock clock.Clock) *OpQueue {
 // correctly handle backing off from enqueueing.
 func (q *OpQueue) Enqueue(op Operation) {
 	select {
-	case q.in <- makeRingOp(op, q.clock.Now()):
-	case <-q.clock.After(EnqueueTimeout):
-		op.Done(ErrDeadlineExceeded)
 	case <-q.tomb.Dying():
 		op.Done(tomb.ErrDying)
 	case <-q.tomb.Dead():
 		op.Done(q.tomb.Err())
+	case q.in <- makeRingOp(op, q.clock.Now()):
 	}
 }
 

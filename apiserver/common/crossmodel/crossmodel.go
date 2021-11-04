@@ -190,11 +190,11 @@ func handleChangedUnits(change params.RemoteRelationChangeEvent, applicationTag 
 func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, string, error) {
 	offerName, err := backend.OfferNameForRelation(tag.Id())
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotatef(err, "getting offer for relation %q", tag.Id())
 	}
 	relationToken, err := backend.GetToken(tag)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotatef(err, "getting token for relation %q", tag.Id())
 	}
 	appToken, err := backend.GetToken(names.NewApplicationTag(offerName))
 	if err != nil {
@@ -205,7 +205,7 @@ func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, 
 		// I don't think so because this method is only called from
 		// API methods that were added after the transition to offer
 		// name as the app token.
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotatef(err, "getting token for application %q", offerName)
 	}
 	return relationToken, appToken, nil
 }
@@ -215,19 +215,19 @@ func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, 
 func GetConsumingRelationTokens(backend Backend, tag names.RelationTag) (string, string, error) {
 	relation, err := backend.KeyRelation(tag.Id())
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotatef(err, "getting relation for %q", tag.Id())
 	}
 	localAppName, err := getLocalApplicationName(backend, relation)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotatef(err, "getting local application for relation %q", tag.Id())
 	}
 	relationToken, err := backend.GetToken(tag)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotatef(err, "getting consuming token for relation %q", tag.Id())
 	}
 	appToken, err := backend.GetToken(names.NewApplicationTag(localAppName))
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotatef(err, "getting consuming token for application %q", localAppName)
 	}
 	return relationToken, appToken, nil
 }
@@ -250,19 +250,19 @@ func getLocalApplicationName(backend Backend, relation Relation) (string, error)
 func WatchRelationUnits(backend Backend, tag names.RelationTag) (common.RelationUnitsWatcher, error) {
 	relation, err := backend.KeyRelation(tag.Id())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "getting relation for %q", tag.Id())
 	}
 	localAppName, err := getLocalApplicationName(backend, relation)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "getting local application for relation %q", tag.Id())
 	}
 	w, err := relation.WatchUnits(localAppName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "watching units for %q", localAppName)
 	}
 	wrapped, err := common.RelationUnitsWatcherFromState(w)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "getting relation units watcher for %q", tag.Id())
 	}
 	return wrapped, nil
 }

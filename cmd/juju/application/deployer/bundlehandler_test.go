@@ -410,7 +410,6 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
 
 	s.runDeploy(c, kubernetesCharmhubGitlabRevisionBundle)
-
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
 	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
@@ -796,6 +795,7 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	}
 	s.setupCharmUnits(chUnits)
 	s.expectAddRelation([]string{"wordpress:db", "mysql:db"})
+	s.expectResolveCharm(nil)
 
 	spec := s.bundleDeploySpec()
 	s.runDeployWithSpec(c, wordpressBundleWithStorage, spec)
