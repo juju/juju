@@ -795,7 +795,7 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	}
 	s.setupCharmUnits(chUnits)
 	s.expectAddRelation([]string{"wordpress:db", "mysql:db"})
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil)
 
 	spec := s.bundleDeploySpec()
 	s.runDeployWithSpec(c, wordpressBundleWithStorage, spec)
