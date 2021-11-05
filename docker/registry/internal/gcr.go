@@ -68,7 +68,7 @@ func googleContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 	}
 	return newTokenTransport(
 		transport,
-		repoDetails.Username, repoDetails.Password, repoDetails.Auth.String(), "", false,
+		repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(), "", false,
 	), nil
 }
 

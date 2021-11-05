@@ -612,6 +612,28 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v2`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Method, gc.Equals, `GET`)
 				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
 				resps := &http.Response{
 					StatusCode: http.StatusOK,

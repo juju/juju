@@ -10,14 +10,17 @@ import (
 	"github.com/juju/version/v2"
 )
 
+// ImageInfo defines image versions information.
 type ImageInfo struct {
 	version version.Number
 }
 
+// AgentVersion returns the image version.
 func (info ImageInfo) AgentVersion() version.Number {
 	return info.version
 }
 
+// String returns string format of the image version.
 func (info ImageInfo) String() string {
 	return info.version.String()
 }
@@ -33,8 +36,7 @@ func (info *ImageInfo) UnmarshalJSON(data []byte) (err error) {
 	if err = json.Unmarshal(data, &s); err != nil {
 		return err
 	}
-	info.version, err = version.Parse(s)
-	if err != nil {
+	if info.version, err = version.Parse(s); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -865,7 +865,7 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 	if err = r.Ping(); err != nil {
 		return "", errors.Trace(err)
 	}
-	return r.ImageRepoDetails().String(), nil
+	return r.ImageRepoDetails().Content(), nil
 }
 
 // CAASImageRepo sets the url of the docker repo
