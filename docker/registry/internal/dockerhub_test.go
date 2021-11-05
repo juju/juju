@@ -48,50 +48,50 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 	}
 
 	s.mockRoundTripper = mocks.NewMockRoundTripper(ctrl)
-	if s.isPrivate {
-		gomock.InOrder(
-			// registry.Ping() 1st try failed - bearer token was missing.
-			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{})
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
-					return &http.Response{
-						Request:    req,
-						StatusCode: http.StatusUnauthorized,
-						Body:       ioutil.NopCloser(nil),
-						Header: http.Header{
-							http.CanonicalHeaderKey("WWW-Authenticate"): []string{
-								`Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:jujuqa/jujud-operator:pull"`,
-							},
+	gomock.InOrder(
+		// registry.Ping() 1st try failed - bearer token was missing.
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       ioutil.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:jujuqa/jujud-operator:pull"`,
 						},
-					}, nil
-				},
-			),
-			// Refresh OAuth Token
-			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-				func(req *http.Request) (*http.Response, error) {
+					},
+				}, nil
+			},
+		),
+		// Refresh OAuth Token
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				if s.isPrivate {
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
-					return &http.Response{
-						Request:    req,
-						StatusCode: http.StatusOK,
-						Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
-					}, nil
-				},
-			),
-			// registry.Ping()
-			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
-					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
-				},
-			),
-		)
-	}
+				}
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		// registry.Ping()
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
+				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+			},
+		),
+	)
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	reg, err := registry.New(s.imageRepoDetails)

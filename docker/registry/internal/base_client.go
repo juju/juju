@@ -110,7 +110,7 @@ func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoD
 		)
 	}
 	return newTokenTransport(
-		transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.String(), "", false,
+		transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(), "", false,
 	), nil
 }
 
@@ -161,7 +161,7 @@ func decideBaseURLCommon(version APIVersion, repoDetails *docker.ImageRepoDetail
 
 	serverAddressURL.Scheme = ""
 	repoDetails.ServerAddress = serverAddressURL.String()
-	logger.Tracef("baseClient repoDetails %s", repoDetails.Print())
+	logger.Tracef("baseClient repoDetails %s", repoDetails)
 	return nil
 }
 
@@ -189,10 +189,6 @@ func (c baseClient) url(pathTemplate string, args ...interface{}) string {
 
 // Ping pings the baseClient endpoint.
 func (c baseClient) Ping() error {
-	if !c.repoDetails.IsPrivate() {
-		// V2 API does not support - ping without credential.
-		return nil
-	}
 	url := c.url("/")
 	logger.Debugf("baseClient ping %q", url)
 	resp, err := c.client.Get(url)
