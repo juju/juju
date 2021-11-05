@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/docker/registry/utils"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -151,13 +150,7 @@ func (w *manager) loop() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = w.reg.Ping()
-	if utils.IsPublicAPINotAvailableError(err) {
-		// No ops for public registry config.
-		// This should never happen because we have done this check above.
-		return nil
-	}
-	if err != nil {
+	if err = w.reg.Ping(); err != nil {
 		return errors.Trace(err)
 	}
 	if err := w.ensureImageRepoSecret(true); err != nil {

@@ -208,7 +208,8 @@ func (s *authSuite) TestBasicAuthConfigEmpty(c *gc.C) {
 func (s *authSuite) TestToken(c *gc.C) {
 	token := docker.NewToken("xxxx==")
 	c.Assert(token, gc.DeepEquals, &docker.Token{Value: "xxxx=="})
-	c.Assert(token.String(), jc.DeepEquals, `xxxx==`)
+	c.Assert(token.String(), jc.DeepEquals, `******`)
+	c.Assert(token.Content(), jc.DeepEquals, `xxxx==`)
 	c.Assert(token.Empty(), jc.IsFalse)
 	data, err := token.MarshalJSON()
 	c.Assert(err, jc.ErrorIsNil)

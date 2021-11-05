@@ -612,7 +612,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v1`)
+				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
 				resps := &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       ioutil.NopCloser(nil),
@@ -623,7 +623,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v1`)
+				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v2`)
 				resps := &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       ioutil.NopCloser(nil),
@@ -665,6 +665,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 }`, base64.StdEncoding.EncodeToString([]byte("username:pwd"))),
 			expected: "ghcr.io/test-account"},
 	} {
+		c.Logf("testing %#v", imageRepo)
 		if imageRepo.expected == "" {
 			imageRepo.expected = imageRepo.content
 		}

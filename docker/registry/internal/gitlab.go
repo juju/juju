@@ -25,5 +25,15 @@ func (c *gitlabContainerRegistry) Match() bool {
 }
 
 func (c *gitlabContainerRegistry) WrapTransport(...TransportWrapper) error {
-	return c.baseClient.WrapTransport(newPrivateOnlyTransport)
+	return c.baseClient.WrapTransport()
+}
+
+// Ping pings the gitlab endpoint.
+func (c gitlabContainerRegistry) Ping() error {
+	if !c.repoDetails.IsPrivate() {
+		// The root gitlab endpoint requires credentials.
+		// Anonymous login does not work.
+		return nil
+	}
+	return c.baseClient.Ping()
 }

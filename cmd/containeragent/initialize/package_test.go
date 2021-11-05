@@ -84,7 +84,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"docker/registry",
 		"docker/registry/image",
 		"docker/registry/internal",
-		"docker/registry/utils",
 		"environs/cloudspec",
 		"environs/config",
 		"environs/context",

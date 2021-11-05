@@ -91,21 +91,6 @@ func (c *elasticContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "amazonaws.com")
 }
 
-// APIVersion returns the registry API version to use.
-func (c *elasticContainerRegistry) APIVersion() APIVersion {
-	// ecr container registry always uses v2.
-	return APIVersionV2
-}
-
-func (c elasticContainerRegistry) url(pathTemplate string, args ...interface{}) string {
-	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
-}
-
-// DecideBaseURL decides the API url to use.
-func (c *elasticContainerRegistry) DecideBaseURL() error {
-	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
-}
-
 func (c *elasticContainerRegistry) refreshTokenForElasticContainerRegistry(imageRepo *docker.ImageRepoDetails) (err error) {
 	if imageRepo.Region == "" {
 		return errors.NewNotValid(nil, "region is required")
@@ -188,10 +173,26 @@ func (c elasticContainerRegistry) Ping() error {
 
 // Tags fetches tags for an OCI image.
 func (c elasticContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
-	// ecr container registry always uses v2.
 	url := c.url("/%s/tags/list", imageName)
 	var response tagsResponseV2
 	return c.fetchTags(url, &response)
+}
+
+// GetArchitecture returns the archtecture of the image for the specified tag.
+func (c elasticContainerRegistry) GetArchitecture(imageName, tag string) (string, error) {
+	return getArchitecture(imageName, tag, c)
+}
+
+// GetManifests returns the manifests of the image for the specified tag.
+func (c elasticContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+	url := c.url("/%s/manifests/%s", imageName, tag)
+	return c.GetManifestsCommon(url)
+}
+
+// GetBlobs gets the archtecture of the image for the specified tag via blobs API.
+func (c elasticContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+	url := c.url("/%s/blobs/%s", imageName, digest)
+	return c.GetBlobsCommon(url)
 }
 
 type elasticContainerRegistryPublic struct {
@@ -209,5 +210,7 @@ func (c *elasticContainerRegistryPublic) Match() bool {
 }
 
 func (c *elasticContainerRegistryPublic) WrapTransport(...TransportWrapper) error {
+	// `/manifests` and `/blobs` API work.
+	// but `/tags/list` does not work. - https://github.com/aws/containers-roadmap/issues/1262
 	return errors.NotSupportedf("container registry %q", c.repoDetails.ServerAddress)
 }
