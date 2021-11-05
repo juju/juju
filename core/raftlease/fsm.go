@@ -388,8 +388,11 @@ func (r *response) Notify(target NotifyTarget) error {
 			errs = append(errs, errors.Annotatef(err, "claim lease"))
 		}
 	}
-	if err := target.Expiries(r.expired); err != nil {
-		errs = append(errs, errors.Annotatef(err, "expirying leases"))
+	// One call expiries when we have some expired keys.
+	if len(r.expired) > 0 {
+		if err := target.Expiries(r.expired); err != nil {
+			errs = append(errs, errors.Annotatef(err, "expirying leases"))
+		}
 	}
 	if errs == nil {
 		return nil
