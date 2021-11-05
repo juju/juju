@@ -252,7 +252,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		return nil, err
 	}
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
-		Agent:              op,
+		AgentTag:           op.CurrentConfig().Tag(),
 		Engine:             engine,
 		MachineLock:        op.machineLock,
 		NewSocketName:      addons.DefaultIntrospectionSocketName,

@@ -621,7 +621,7 @@ func (a *MachineAgent) makeEngineCreator(
 			return nil, err
 		}
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
-			Agent:              a,
+			AgentTag:           a.CurrentConfig().Tag(),
 			Engine:             engine,
 			StatePoolReporter:  &statePoolReporter,
 			PubSubReporter:     pubsubReporter,

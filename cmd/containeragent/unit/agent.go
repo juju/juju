@@ -301,7 +301,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		return nil, err
 	}
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
-		Agent:              c,
+		AgentTag:           c.CurrentConfig().Tag(),
 		Engine:             eng,
 		MachineLock:        c.machineLock,
 		NewSocketName:      addons.DefaultIntrospectionSocketName,

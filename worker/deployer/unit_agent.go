@@ -224,7 +224,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		a.mu.Unlock()
 	}()
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
-		Agent:              a,
+		AgentTag:           a.CurrentConfig().Tag(),
 		Engine:             engine,
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: a.prometheusRegistry,
