@@ -579,16 +579,12 @@ func (BootstrapFSM) Restore(io.ReadCloser) error {
 
 type BootstrapNotifyTarget struct{}
 
-// Claimed will be called when a new lease has been claimed. Not
-// allowed to return an error because this is purely advisory -
-// the lease claim has still occurred, whether or not the callback
-// succeeds.
+// Claimed will be called when a new lease has been claimed.
 func (BootstrapNotifyTarget) Claimed(lease.Key, string) error {
 	return nil
 }
 
-// Expired will be called when an existing lease has expired. Not
-// allowed to return an error because this is purely advisory.
+// Expired will be called when an existing lease has expired.
 func (BootstrapNotifyTarget) Expired(lease.Key) error {
 	return nil
 }

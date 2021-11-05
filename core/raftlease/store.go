@@ -37,14 +37,10 @@ func aborted(command *Command) error {
 // updated with who holds leases. (In non-test code the notify target
 // will generally be the state DB.)
 type NotifyTarget interface {
-	// Claimed will be called when a new lease has been claimed. Not
-	// allowed to return an error because this is purely advisory -
-	// the lease claim has still occurred, whether or not the callback
-	// succeeds.
+	// Claimed will be called when a new lease has been claimed.
 	Claimed(lease.Key, string) error
 
-	// Expired will be called when an existing lease has expired. Not
-	// allowed to return an error because this is purely advisory.
+	// Expired will be called when an existing lease has expired.
 	Expired(lease.Key) error
 }
 
