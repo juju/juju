@@ -184,7 +184,7 @@ func (s *networkingSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.client.EXPECT().TenantId().Return("TenantId").AnyTimes()
 	s.nova.EXPECT().GetServer(gomock.Any()).Return(&nova.ServerDetail{
 		Addresses: map[string][]nova.IPAddress{
-			"int-net": []nova.IPAddress{},
+			"int-net": {},
 		},
 		AvailabilityZone: s.serverAZ,
 	}, nil)

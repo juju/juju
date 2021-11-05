@@ -187,7 +187,7 @@ func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string]
 
 func (n *NeutronNetworking) findNetworkAZForHostAddrs(addrs map[string][]nova.IPAddress) (set.Strings, error) {
 	netNames := set.NewStrings()
-	for name, _ := range addrs {
+	for name := range addrs {
 		netNames.Add(name)
 	}
 	if netNames.Size() == 0 {
