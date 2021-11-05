@@ -4,7 +4,6 @@
 package globalclockupdater
 
 import (
-	"io"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -29,7 +28,6 @@ type ManifoldConfig struct {
 	StateName string
 
 	FSM            raftlease.ReadOnlyClock
-	LeaseLog       io.Writer
 	NewWorker      func(Config) (worker.Worker, error)
 	NewTarget      func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
 	UpdateInterval time.Duration
@@ -48,9 +46,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.FSM == nil {
 		return errors.NotValidf("nil FSM")
-	}
-	if config.LeaseLog == nil {
-		return errors.NotValidf("nil LeaseLog")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -101,7 +96,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	st := statePool.SystemState()
 
-	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
+	notifyTarget := config.NewTarget(st, config.Logger)
 	w, err := config.NewWorker(Config{
 		NewUpdater: func() globalclock.Updater {
 			return newUpdater(r, notifyTarget, config.FSM, timeSleeper{}, timeTimer{}, config.Logger)

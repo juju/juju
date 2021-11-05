@@ -4,7 +4,6 @@
 package raft
 
 import (
-	"io"
 	"path/filepath"
 
 	"github.com/hashicorp/raft"
@@ -38,8 +37,7 @@ type ManifoldConfig struct {
 	NewTarget            func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
 	NewApplier           func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier
 
-	Queue    Queue
-	LeaseLog io.Writer
+	Queue Queue
 }
 
 // Validate validates the manifold configuration.
@@ -67,9 +65,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewTarget == nil {
 		return errors.NotValidf("nil NewTarget")
-	}
-	if config.LeaseLog == nil {
-		return errors.NotValidf("nil LeaseLog")
 	}
 	if config.NewApplier == nil {
 		return errors.NotValidf("nil NewApplier")
@@ -146,7 +141,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	agentConfig := agent.CurrentConfig()
 	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
 
-	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
+	notifyTarget := config.NewTarget(st, config.Logger)
 
 	w, err := config.NewWorker(Config{
 		FSM:                      fsm,

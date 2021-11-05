@@ -566,17 +566,6 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
-		raftLeaseLogPath := filepath.Join(a.CurrentConfig().LogDir(), "lease.log")
-		if err := paths.PrimeLogFile(raftLeaseLogPath); err != nil {
-			// This isn't a fatal error, so log and continue if priming
-			// fails.
-			logger.Warningf(
-				"unable to prime log file %q (proceeding anyway): %s",
-				raftLeaseLogPath,
-				err.Error(),
-			)
-		}
-
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
 			AgentName:               agentName,
@@ -619,7 +608,6 @@ func (a *MachineAgent) makeEngineCreator(
 			UnitEngineConfig:                  engineConfigFunc,
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			LeaseFSM:                          raftlease.NewFSM(),
-			LeaseLog:                          makeRaftLeaseLog(raftLeaseLogPath),
 			RaftOpQueue:                       queue.NewOpQueue(clock.WallClock),
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
@@ -1411,22 +1399,4 @@ func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
 		return "agent has no pool set"
 	}
 	return h.pool.IntrospectionReport()
-}
-
-const (
-	// raftLeaseMaxLogs is the maximum number of backup lease log files to keep.
-	raftLeaseMaxLogs = 10
-
-	// raftLeaseMaxLogSizeMB is the maximum size of the lease log file on disk
-	// in megabytes.
-	raftLeaseMaxLogSizeMB = 30
-)
-
-func makeRaftLeaseLog(path string) *lumberjack.Logger {
-	return &lumberjack.Logger{
-		Filename:   path,
-		MaxSize:    raftLeaseMaxLogSizeMB,
-		MaxBackups: raftLeaseMaxLogs,
-		Compress:   true,
-	}
 }

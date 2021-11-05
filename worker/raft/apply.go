@@ -140,7 +140,12 @@ func (a *Applier) applyOperation(i int, op queue.Operation, applyTimeout time.Du
 		return
 	}
 
-	fsmResponse.Notify(a.notifyTarget)
+	// If the notify fails here, just ignore it and log out the
+	// error, so that the operator can at least see the issues when
+	// inspecting the controller logs.
+	if err := fsmResponse.Notify(a.notifyTarget); err != nil {
+		a.logger.Errorf("failed to notify: %v", err)
+	}
 
 	op.Done(nil)
 }

@@ -4,8 +4,6 @@
 package raftforwarder
 
 import (
-	"io"
-
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
@@ -29,7 +27,6 @@ type ManifoldConfig struct {
 
 	RequestTopic         string
 	PrometheusRegisterer prometheus.Registerer
-	LeaseLog             io.Writer
 	Logger               Logger
 	NewWorker            func(Config) (worker.Worker, error)
 	NewTarget            func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
@@ -48,9 +45,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
-	}
-	if config.LeaseLog == nil {
-		return errors.NotValidf("nil LeaseLog")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -89,7 +83,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	st := statePool.SystemState()
 
-	notifyTarget := config.NewTarget(st, raftlease.NewTargetLogger(config.LeaseLog, config.Logger))
+	notifyTarget := config.NewTarget(st, config.Logger)
 	w, err := config.NewWorker(Config{
 		Raft:                 r,
 		Hub:                  hub,

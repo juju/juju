@@ -58,7 +58,7 @@ func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request, _ <-chan struc
 		start:    s.clock.Now(),
 		duration: req.Duration,
 	}
-	s.target.Claimed(key, req.Holder)
+	_ = s.target.Claimed(key, req.Holder)
 	return nil
 }
 
@@ -96,7 +96,7 @@ func (s *leaseStore) RevokeLease(key lease.Key, holder string, stop <-chan struc
 		return lease.ErrInvalid
 	}
 	delete(s.entries, key)
-	s.target.Expired(key)
+	_ = s.target.Expired(key)
 	return nil
 }
 

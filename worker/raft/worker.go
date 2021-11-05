@@ -78,6 +78,7 @@ type Logger interface {
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 	Infof(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	Logf(level loggo.Level, message string, args ...interface{})
 	IsTraceEnabled() bool
@@ -578,15 +579,15 @@ func (BootstrapFSM) Restore(io.ReadCloser) error {
 
 type BootstrapNotifyTarget struct{}
 
-// Claimed will be called when a new lease has been claimed. Not
-// allowed to return an error because this is purely advisory -
-// the lease claim has still occurred, whether or not the callback
-// succeeds.
-func (BootstrapNotifyTarget) Claimed(lease.Key, string) {}
+// Claimed will be called when a new lease has been claimed.
+func (BootstrapNotifyTarget) Claimed(lease.Key, string) error {
+	return nil
+}
 
-// Expired will be called when an existing lease has expired. Not
-// allowed to return an error because this is purely advisory.
-func (BootstrapNotifyTarget) Expired(lease.Key) {}
+// Expired will be called when an existing lease has expired.
+func (BootstrapNotifyTarget) Expired(lease.Key) error {
+	return nil
+}
 
 type BootstrapLeaseApplier struct{}
 

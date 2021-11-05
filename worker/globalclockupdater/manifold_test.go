@@ -48,7 +48,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		RaftName:       "raft",
 		StateName:      "state",
 		FSM:            stubFSM{},
-		LeaseLog:       &noopLeaseLog{},
 		NewWorker:      s.newWorker,
 		NewTarget:      s.newTarget,
 		UpdateInterval: time.Second,
@@ -233,16 +232,14 @@ func (s *stubStateTracker) waitDone(c *gc.C) {
 	}
 }
 
-type noopLeaseLog struct{}
-
-func (noopLeaseLog) Write(p []byte) (n int, err error) {
-	return len(p), nil
-}
-
 type noopTarget struct{}
 
-func (noopTarget) Claimed(lease.Key, string) {}
+func (noopTarget) Claimed(lease.Key, string) error {
+	return nil
+}
 
 // Expired will be called when an existing lease has expired. Not
 // allowed to return an error because this is purely advisory.
-func (noopTarget) Expired(lease.Key) {}
+func (noopTarget) Expired(lease.Key) error {
+	return nil
+}

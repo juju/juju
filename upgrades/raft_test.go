@@ -561,8 +561,9 @@ type mockTarget struct {
 	stub testing.Stub
 }
 
-func (t *mockTarget) Claimed(key lease.Key, holder string) {
+func (t *mockTarget) Claimed(key lease.Key, holder string) error {
 	t.stub.AddCall("Claimed", key, holder)
+	return t.stub.NextErr()
 }
 
 func (t *mockTarget) assertClaimed(c *gc.C, claims map[lease.Key]string) {
