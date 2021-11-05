@@ -113,7 +113,7 @@ type notifyTarget struct {
 func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder string) ([]txn.Op, error) {
 	existingDoc, err := getRecord(coll, docId)
 	switch {
-	case err == mgo.ErrNotFound:
+	case errors.Cause(err) == mgo.ErrNotFound:
 		doc, err := newLeaseHolderDoc(
 			key.Namespace,
 			key.ModelUUID,
@@ -174,33 +174,53 @@ func (t *notifyTarget) Claimed(key lease.Key, holder string) error {
 	return errors.Annotatef(err, "%q for %q in db", docId, holder)
 }
 
-// Expired is part of raftlease.NotifyTarget.
-func (t *notifyTarget) Expired(key lease.Key) error {
+// Expiries is part of raftlease.NotifyTarget.
+func (t *notifyTarget) Expiries(keys []lease.Key) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
 	coll, closer := t.mongo.GetCollection(t.collection)
 	defer closer()
 
-	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Infof("expiring lease %q", docId)
+	// Cache all the document idents up front, incase we have to retry the
+	// transaction again. Also this serves as a de-duping process.
+	uniqueDocIds := make(map[lease.Key]string)
+	for _, key := range keys {
+		uniqueDocIds[key] = leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+	}
+	docIds := make([]string, 0, len(uniqueDocIds))
+	for _, docId := range uniqueDocIds {
+		docIds = append(docIds, docId)
+	}
+	t.logger.Infof("expiring leases %v", docIds)
 
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
-		existingDoc, err := getRecord(coll, docId)
-		if err == mgo.ErrNotFound {
+		// Bulk get the records, to prevent potato programming.
+		existingDocs, err := getRecords(coll, docIds)
+		if errors.Cause(err) == mgo.ErrNotFound {
 			return nil, jujutxn.ErrNoOperations
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return []txn.Op{{
-			C:  t.collection,
-			Id: docId,
-			Assert: bson.M{
-				fieldHolder: existingDoc.Holder,
-			},
-			Remove: true,
-		}}, nil
+
+		ops := make([]txn.Op, len(existingDocs))
+		for k, doc := range existingDocs {
+			ops[k] = txn.Op{
+				C:  t.collection,
+				Id: doc.Id,
+				Assert: bson.M{
+					fieldHolder: doc.Holder,
+				},
+				Remove: true,
+			}
+		}
+
+		return ops, nil
 	})
 
-	return errors.Annotatef(err, "%q in db", docId)
+	return errors.Annotatef(err, "%v in db", docIds)
 }
 
 // MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified
@@ -247,11 +267,22 @@ func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
 
 func getRecord(coll mongo.Collection, docId string) (leaseHolderDoc, error) {
 	var doc leaseHolderDoc
-	err := coll.FindId(docId).One(&doc)
-	if err != nil {
-		return leaseHolderDoc{}, err
+	if err := coll.FindId(docId).One(&doc); err != nil {
+		return leaseHolderDoc{}, errors.Trace(err)
 	}
 	return doc, nil
+}
+
+func getRecords(coll mongo.Collection, docIds []string) ([]leaseHolderDoc, error) {
+	var docs []leaseHolderDoc
+	if err := coll.Find(bson.M{
+		"_id": bson.M{
+			"$in": docIds,
+		},
+	}).Sort("_id").All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
 }
 
 // LeaseHolders returns a map of each lease and the holder in the

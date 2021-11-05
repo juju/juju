@@ -1052,8 +1052,8 @@ func (t *fakeTarget) Claimed(key lease.Key, holder string) error {
 	return t.NextErr()
 }
 
-func (t *fakeTarget) Expired(key lease.Key) error {
-	t.AddCall("Expired", key)
+func (t *fakeTarget) Expiries(keys []lease.Key) error {
+	t.AddCall("Expiries", keys)
 	return t.NextErr()
 }
 
