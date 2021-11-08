@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -270,7 +271,7 @@ func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
 	c.Assert(truncated, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(operations, gc.HasLen, 1)
-	c.Assert(operations[0].Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "operation 14")
 	c.Assert(operations[0].Actions, gc.HasLen, 1)
 	s.assertActions(c, operations)
 }

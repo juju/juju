@@ -1220,7 +1220,7 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 	expect := map[state.ActionStatus][]state.Action{}
 	all := []state.Action{}
 	for _, tcase := range testCase {
-		operationID, err := s.Model.EnqueueOperation("a test")
+		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
 		a, err := s.Model.AddAction(tcase.receiver, operationID, tcase.name, nil)
 		c.Assert(err, jc.ErrorIsNil)
