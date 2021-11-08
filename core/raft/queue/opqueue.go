@@ -134,6 +134,9 @@ func (q *OpQueue) loop() error {
 		}
 
 		ops := q.consume()
+		if len(ops) == 0 {
+			continue
+		}
 
 		// Send the batch operations.
 		select {
@@ -169,9 +172,7 @@ func (q *OpQueue) consume() []Operation {
 				return ops
 			}
 		default:
-			if len(ops) > 0 {
-				return ops
-			}
+			return ops
 		}
 	}
 }
