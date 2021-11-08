@@ -113,7 +113,7 @@ func (c *runActionCommand) Init(args []string) (err error) {
 		return errors.New("no action specified")
 	}
 
-	// force timeout to be equal or larger than 100ms
+	// force timeout to be greater or equal to 1ms
 	if c.wait.String() != "" {
 		if c.wait.d.Milliseconds() < 1 {
 			return errors.New("timeout must be greater or equal to 1 ms")
