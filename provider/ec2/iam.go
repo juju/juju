@@ -39,6 +39,12 @@ type instanceProfileClient interface {
 // IAMClient is a subset interface of the AWS IAM client. This interface aims
 // to define the small set of what Juju's needs from the larger client.
 type IAMClient interface {
+	// STOP!!
+	// Are you about to add a new function to this interface?
+	// If so please make sure you update Juju permission policy on discourse
+	// here https://discourse.charmhub.io/t/juju-aws-permissions/5307
+	// We must keep this policy inline with our usage for operators that are
+	// using very strict permissions for Juju.
 	CreateInstanceProfile(stdcontext.Context, *iam.CreateInstanceProfileInput, ...func(*iam.Options)) (*iam.CreateInstanceProfileOutput, error)
 	GetInstanceProfile(stdcontext.Context, *iam.GetInstanceProfileInput, ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error)
 }
