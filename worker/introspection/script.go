@@ -114,7 +114,9 @@ juju_statetracker_report () {
 }
 
 juju_machine_lock () {
-  juju_agent machinelock 2> /dev/null
+  for agent in $(ls /var/lib/juju/agents); do
+    juju_agent machinelock --agent=$agent 2> /dev/null
+  done
 }
 
 juju_unit_status () {

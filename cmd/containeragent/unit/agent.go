@@ -24,12 +24,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/containeragent/utils"
-	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
@@ -301,7 +301,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		return nil, err
 	}
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
-		Agent:              c,
+		AgentTag:           c.CurrentConfig().Tag(),
 		Engine:             eng,
 		MachineLock:        c.machineLock,
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
