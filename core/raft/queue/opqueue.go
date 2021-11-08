@@ -151,6 +151,10 @@ func (q *OpQueue) loop() error {
 // blocked :writers. We return whatever we have accrued whenever:
 // - There are no blocked writers.
 // - We reach the maximum batch size.
+// TODO (manadart 2021-11-08): Note that his batching takes effect when there
+// are multiple concurrent callers to the Raft client API, but *not* for a
+// batch of operations enqueued synchronously. Further work would be required
+// to accommodate such a scenario.
 func (q *OpQueue) consume() []Operation {
 	ops := make([]Operation, 0)
 
