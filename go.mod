@@ -40,7 +40,7 @@ require (
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v2 v2.0.0-20210429075918-d7956ed9de2b
+	github.com/juju/description/v2 v2.0.0-20211108003436-9dbbb2e5f6f7
 	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -53,7 +53,7 @@ require (
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
 	github.com/juju/mgo/v2 v2.0.0-20210302023703-70d5d206e208
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
-	github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b
+	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os v1.1.1
 	github.com/juju/packaging v0.0.0-20210322161715-32d1b6c12454

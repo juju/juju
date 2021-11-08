@@ -756,6 +756,7 @@ func (s *MigrationSuite) TestOperationDocFields(c *gc.C) {
 		"Completed",
 		"Status",
 		"Fail",
+		"SpawnedTaskCount",
 	)
 	s.AssertExportedFields(c, operationDoc{}, migrated.Union(ignored))
 }

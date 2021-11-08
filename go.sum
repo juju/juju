@@ -323,8 +323,8 @@ github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c/go.mod h1:Ep+c0vn
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271 h1:4R626WTwa7pRYQFiIRLVPepMhm05eZMEx+wIurRnMLc=
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271/go.mod h1:5XgO71dV1JClcOJE+4dzdn4HrI5LiyKd7PlVG6eZYhY=
 github.com/juju/description/v2 v2.0.0-20200623093622-bd6ec044a72a/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
-github.com/juju/description/v2 v2.0.0-20210429075918-d7956ed9de2b h1:Y/sMOFx4+NpZb/1lQclQ9ylceqR0tKaMqzeVMXjL7pI=
-github.com/juju/description/v2 v2.0.0-20210429075918-d7956ed9de2b/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
+github.com/juju/description/v2 v2.0.0-20211108003436-9dbbb2e5f6f7 h1:B1TqEBIIbsvcmlXz+2DY1n0jp2Cb5XZ7876y92xG8Xg=
+github.com/juju/description/v2 v2.0.0-20211108003436-9dbbb2e5f6f7/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20180726005433-812b06ada177/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20190930114154-d42613fe1ab9/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
@@ -390,8 +390,9 @@ github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf/go.mod h1:Y3oOzHH8CQ0Pp
 github.com/juju/names v0.0.0-20200331100531-2c9a102df211 h1:1CLcjLMrUrNtMGcEJvUbi0ghDBWQv3ZfQJzq5A/GTdU=
 github.com/juju/names v0.0.0-20200331100531-2c9a102df211/go.mod h1:TsJFq2EFrT7gNhdECy4H2dRN7rcDlMwfOkdIQdXrhYc=
 github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524/go.mod h1:P+u7+RMCDcu1MQsNKKyWSluoCdkCRhXa684WAhITPO8=
-github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b h1:Di2nkRRNo2VA4exZvivFc9TdAgfpBxXElisMGeltnj4=
 github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b/go.mod h1:gdlBx0aNufAMkEx3GjT8Yz4MChs3oVjCp/nEz/PrTX4=
+github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0 h1:SqeiFgQd+LhYUHg3fpRBaR4iK8a0MviLC7v8TJuiJ20=
+github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0/go.mod h1:gdlBx0aNufAMkEx3GjT8Yz4MChs3oVjCp/nEz/PrTX4=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b h1:Ow9ltIspVQvDdGAmZRkbL8q62jqOo3MOLtWASCFc//4=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b/go.mod h1:Zqa/vGkXr78k47zM6tFmU9phhxKz/PIdqBzpLhJ86zc=
 github.com/juju/os v0.0.0-20190625135142-88a4c6ac59c1/go.mod h1:buR1fIbfLx3neIA/TKE8ZlS/nRR3keo+hjVqV+VR4ns=

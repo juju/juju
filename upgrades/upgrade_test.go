@@ -635,6 +635,7 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 		"2.8.2",
 		"2.8.6",
 		"2.8.9",
+		"2.8.13",
 	})
 }
 
