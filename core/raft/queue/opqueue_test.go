@@ -109,17 +109,23 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
+	toEnqueue := 3
 	go func() {
 		// Synchronous enqueues will result in batches of 1.
-		for i := 0; i < 3; i++ {
+		for i := 0; i < toEnqueue; i++ {
 			queue.Enqueue(Operation{Command: opName(i)})
 		}
-		queue.Kill(nil)
 	}()
 
 	var results [][]Operation
+	var totalRead int
 	for ops := range queue.Queue() {
 		results = append(results, ops)
+
+		totalRead += len(ops)
+		if totalRead >= toEnqueue {
+			queue.Kill(nil)
+		}
 	}
 
 	err := queue.Wait()
@@ -132,21 +138,22 @@ func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
 func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
-	toEnqueue := EnqueueBatchSize * 2
+	toEnqueue := EnqueueBatchSize * 3
 	for i := 0; i < toEnqueue; i++ {
 		go func(i int) {
 			queue.Enqueue(Operation{Command: opName(i)})
-
-			// Kill only once the last op is enqueued.
-			if i == toEnqueue-1 {
-				queue.Kill(nil)
-			}
 		}(i)
 	}
 
 	var results [][]Operation
+	var totalRead int
 	for ops := range queue.Queue() {
 		results = append(results, ops)
+
+		totalRead += len(ops)
+		if totalRead >= toEnqueue {
+			queue.Kill(nil)
+		}
 	}
 
 	err := queue.Wait()
@@ -154,7 +161,8 @@ func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 
 	// The exact batching that occurs is variable, but as a conservative test,
 	// ensure that we had some factor of batching.
-	c.Assert(len(results) < EnqueueBatchSize, jc.IsTrue)
+	c.Check(len(results) > 1, jc.IsTrue)
+	c.Check(len(results) < EnqueueBatchSize, jc.IsTrue)
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {

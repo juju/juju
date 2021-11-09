@@ -148,9 +148,10 @@ func (q *OpQueue) loop() error {
 }
 
 // Consume will read ops off the pending queue as long as there are
-// blocked :writers. We return whatever we have accrued whenever:
-// - There are no blocked writers.
+// blocked writers. We return whatever we have accrued whenever:
+// - There are no blocked writers and we have some ops.
 // - We reach the maximum batch size.
+// - We are being killed.
 // TODO (manadart 2021-11-08): Note that his batching takes effect when there
 // are multiple concurrent callers to the Raft client API, but *not* for a
 // batch of operations enqueued synchronously. Further work would be required
@@ -175,8 +176,18 @@ func (q *OpQueue) consume() []Operation {
 			if len(ops) >= q.maxBatchSize {
 				return ops
 			}
-		default:
+		case <-q.tomb.Dying():
 			return ops
+		case <-q.tomb.Dead():
+			return ops
+		default:
+			if len(ops) > 0 {
+				return ops
+			}
+
+			// If there is no work to do, pause briefly
+			// so that this loop is not thrashing CPU.
+			time.Sleep(5 * time.Millisecond)
 		}
 	}
 }
