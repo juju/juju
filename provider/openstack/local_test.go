@@ -1411,6 +1411,7 @@ func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 		expectedSubnetMap[network.Id(subnet.Id)] = network.SubnetInfo{
 			CIDR:              subnet.Cidr,
 			ProviderId:        network.Id(subnet.Id),
+			ProviderNetworkId: network.Id(subnet.NetworkId),
 			VLANTag:           0,
 			AvailabilityZones: net.AvailabilityZones,
 			ProviderSpaceId:   "",
@@ -1448,6 +1449,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 		expectedSubnetMap[network.Id(subnets.Id)] = network.SubnetInfo{
 			CIDR:              subnets.Cidr,
 			ProviderId:        network.Id(subnets.Id),
+			ProviderNetworkId: network.Id(subnets.NetworkId),
 			VLANTag:           0,
 			AvailabilityZones: net.AvailabilityZones,
 			ProviderSpaceId:   "",
