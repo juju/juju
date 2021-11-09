@@ -121,17 +121,8 @@ func (q *OpQueue) Wait() error {
 	return q.tomb.Wait()
 }
 
-const (
-	minDelay   = time.Millisecond * 2
-	maxDelay   = time.Millisecond * 200
-	deltaDelay = maxDelay - minDelay
-)
-
 func (q *OpQueue) loop() error {
 	defer close(q.out)
-
-	// Start of the loop with the a average delay timeout.
-	delay := maxDelay / 2
 
 	for {
 		select {
@@ -142,7 +133,7 @@ func (q *OpQueue) loop() error {
 		default:
 		}
 
-		ops := q.consume(delay)
+		ops := q.consume()
 		if len(ops) == 0 {
 			continue
 		}
@@ -153,35 +144,20 @@ func (q *OpQueue) loop() error {
 		case <-q.tomb.Dead():
 			return q.tomb.Err()
 		}
-
-		delay = q.calculateDelay(delay, len(ops))
 	}
 }
 
-func (q *OpQueue) calculateDelay(delay time.Duration, n int) time.Duration {
-	// If the number of operations are being consumed at a quicker rate
-	// (larger slice), then the delay should be reduced between timeouts, so
-	// we could process more messages during a stampeding herd.
-	// During calmer times, the delay will slowly move to the maxDelay to
-	// prevent the loop running too tightly.
-	percentage := float64(n) / float64(q.maxBatchSize)
-	fixed := deltaDelay - time.Duration(float64(deltaDelay)*percentage)
-	delay += (fixed - delay) / 2
-
-	// Round the delay, before doing the min and max checks.
-	delay = delay.Round(time.Millisecond)
-	if delay <= minDelay {
-		delay = minDelay
-	} else if delay >= maxDelay {
-		delay = maxDelay
-	}
-
-	return delay
-}
-
-func (q *OpQueue) consume(delay time.Duration) []Operation {
+// Consume will read ops off the pending queue as long as there are
+// blocked writers. We return whatever we have accrued whenever:
+// - There are no blocked writers and we have some ops.
+// - We reach the maximum batch size.
+// - We are being killed.
+// TODO (manadart 2021-11-08): Note that his batching takes effect when there
+// are multiple concurrent callers to the Raft client API, but *not* for a
+// batch of operations enqueued synchronously. Further work would be required
+// to accommodate such a scenario.
+func (q *OpQueue) consume() []Operation {
 	ops := make([]Operation, 0)
-	timeout := q.clock.After(delay)
 
 	for {
 		select {
@@ -190,17 +166,28 @@ func (q *OpQueue) consume(delay time.Duration) []Operation {
 				break
 			}
 
-			// Ensure we don't put operations that have already expired.
+			// Never enqueue operations that have already expired.
 			if q.clock.Now().After(op.ExpiredTime) {
 				op.Operation.Done(ErrDeadlineExceeded)
 				break
 			}
+
 			ops = append(ops, op.Operation)
-			if len(ops) == q.maxBatchSize {
+			if len(ops) >= q.maxBatchSize {
 				return ops
 			}
-		case <-timeout:
+		case <-q.tomb.Dying():
 			return ops
+		case <-q.tomb.Dead():
+			return ops
+		default:
+			if len(ops) > 0 {
+				return ops
+			}
+
+			// If there is no work to do, pause briefly
+			// so that this loop is not thrashing CPU.
+			time.Sleep(5 * time.Millisecond)
 		}
 	}
 }
