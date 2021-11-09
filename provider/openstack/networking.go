@@ -225,6 +225,7 @@ func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]st
 			}
 		}
 		if azNames.IsEmpty() || len(network.AvailabilityZones) == 0 {
+			logger.Debugf("Adding %q to potential external networks for Floating IPs, no availability zones found", network.Name)
 			netIds = append(netIds, network.Id)
 		}
 	}
