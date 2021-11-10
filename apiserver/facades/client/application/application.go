@@ -743,7 +743,7 @@ func deployApplication(
 		}
 	}
 
-	appConfig, _, charmSettings, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML)
+	appConfig, _, charmSettings, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -859,7 +859,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string) (*application.Config, environschema.Fields, charm.Settings, error) {
+func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string, useDefaults bool) (*application.Config, environschema.Fields, charm.Settings, error) {
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
@@ -894,6 +894,9 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	appCfgSchema, defaults, err := applicationConfigSchema(modelType)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
+	}
+	if !useDefaults {
+		defaults = nil
 	}
 	appConfig, err := application.NewConfig(appSettings, appCfgSchema, defaults)
 	if err != nil {
@@ -1088,7 +1091,10 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 		return errors.Annotate(err, "obtaining charm for this application")
 	}
 
-	appConfig, appConfigSchema, charmSettings, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML)
+	// parseCharmSettings is passed false for useDefaults because setConfig
+	// should not care about defaults.
+	// If defaults are wanted, one should call unsetApplicationConfig.
+	appConfig, appConfigSchema, charmSettings, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML, false)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}

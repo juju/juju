@@ -421,12 +421,12 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
 	appDefaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
-	appCfgSchema, appDefaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
+	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "foo",
-	}, appCfgSchema, appDefaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
@@ -460,12 +460,12 @@ func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 	appDefaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
-	appCfgSchema, appDefaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
+	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "foo",
-	}, appCfgSchema, appDefaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
@@ -1968,12 +1968,12 @@ func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) 
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
@@ -2004,12 +2004,12 @@ func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
@@ -2039,12 +2039,12 @@ func (s *ApplicationSuite) TestSetApplicationsEmptyConfigMasterBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
@@ -2071,12 +2071,12 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
@@ -2105,12 +2105,12 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
