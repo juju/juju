@@ -4,6 +4,14 @@
 package azure
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/Azure/go-autorest/autorest/adal"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
 )
@@ -13,19 +21,23 @@ func ForceVolumeSourceTokenRefresh(vs storage.VolumeSource) error {
 }
 
 func ForceTokenRefresh(env environs.Environ) error {
-	return env.(*azureEnviron).authorizer.refresh()
+	auth := env.(*azureEnviron).authorizer
+	resourceID, _ := azureauth.ResourceManagerResourceId(auth.cloud.StorageEndpoint)
+	token, ok := auth.tokens[resourceID]
+	if ok {
+		token.SetCustomRefreshFunc(func(ctx context.Context, resource string) (*adal.Token, error) {
+			return &adal.Token{
+				AccessToken: "access-token",
+				ExpiresOn:   json.Number(fmt.Sprint(time.Now().Add(time.Hour).Unix())),
+				Type:        "Bearer",
+			}, nil
+		})
+		auth.tokens[resourceID] = token
+	}
+	return env.(*azureEnviron).authorizer.refreshToken("")
 }
 
 func SetRetries(env environs.Environ) {
 	azureEnv := env.(*azureEnviron)
-	azureEnv.resources.RetryDuration = 0
-	azureEnv.resources.RetryAttempts = 1
-	azureEnv.compute.RetryDuration = 0
-	azureEnv.compute.RetryAttempts = 1
-	azureEnv.storage.RetryDuration = 0
-	azureEnv.storage.RetryAttempts = 1
-	azureEnv.disk.RetryDuration = 0
-	azureEnv.disk.RetryAttempts = 1
-	azureEnv.network.RetryDuration = 0
-	azureEnv.network.RetryAttempts = 1
+	azureEnv.setClientRetries(1, 0)
 }

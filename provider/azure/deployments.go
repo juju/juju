@@ -4,8 +4,6 @@
 package azure
 
 import (
-	stdcontext "context"
-
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
 	"github.com/juju/errors"
 
@@ -31,15 +29,11 @@ func createDeployment(
 			Mode:     resources.Incremental,
 		},
 	}
-	sdkCtx := stdcontext.Background()
 	_, err = client.CreateOrUpdate(
-		sdkCtx,
+		ctx,
 		resourceGroup,
 		deploymentName,
 		deployment,
 	)
-	if err != nil {
-		return errorutils.HandleCredentialError(errors.Annotatef(err, "creating deployment %q", deploymentName), ctx)
-	}
-	return nil
+	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating deployment %q", deploymentName), ctx)
 }

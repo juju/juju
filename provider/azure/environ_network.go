@@ -52,15 +52,15 @@ func (env *azureEnviron) Subnets(
 	if instanceID != instance.UnknownId {
 		return nil, errors.NotSupportedf("subnets for instance")
 	}
-	subnets, err := env.allSubnets()
+	subnets, err := env.allSubnets(ctx)
 	return subnets, errorutils.HandleCredentialError(err, ctx)
 }
 
-func (env *azureEnviron) allProviderSubnets() ([]azurenetwork.Subnet, error) {
+func (env *azureEnviron) allProviderSubnets(ctx context.ProviderCallContext) ([]azurenetwork.Subnet, error) {
 	// Subnet discovery happens immediately after model creation.
 	// We need to ensure that the asynchronously invoked resource creation has
 	// completed and added our networking assets.
-	if err := env.waitCommonResourcesCreated(); err != nil {
+	if err := env.waitCommonResourcesCreated(ctx); err != nil {
 		return nil, errors.Annotate(
 			err, "waiting for common resources to be created",
 		)
@@ -75,8 +75,8 @@ func (env *azureEnviron) allProviderSubnets() ([]azurenetwork.Subnet, error) {
 	return subnets.Values(), nil
 }
 
-func (env *azureEnviron) allSubnets() ([]network.SubnetInfo, error) {
-	values, err := env.allProviderSubnets()
+func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.SubnetInfo, error) {
+	values, err := env.allProviderSubnets(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -162,7 +162,7 @@ func (env *azureEnviron) defaultControllerSubnet() network.Id {
 }
 
 func (env *azureEnviron) findSubnetID(ctx context.ProviderCallContext, subnetName string) (network.Id, error) {
-	subnets, err := env.allProviderSubnets()
+	subnets, err := env.allProviderSubnets(ctx)
 	if err != nil {
 		return "", errorutils.HandleCredentialError(err, ctx)
 	}
@@ -223,7 +223,7 @@ func (env *azureEnviron) networkInfoForInstance(
 
 		// For deployments without a spaces constraint, there's no subnets to zones mapping.
 		// So get all accessible subnets.
-		allSubnets, err := env.allSubnets()
+		allSubnets, err := env.allSubnets(ctx)
 		if err != nil {
 			return "", nil, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 		}

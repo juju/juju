@@ -199,16 +199,7 @@ func (env *azureEnviron) initEnviron() error {
 	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.storage = legacystorage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	clients := map[string]*autorest.Client{
-		"azure.compute":   &env.compute.Client,
-		"azure.disk":      &env.disk.Client,
-		"azure.resources": &env.resources.Client,
-		"azure.storage":   &env.storage.Client,
-		"azure.network":   &env.network.Client,
-		"azure.vault":     &env.vault.Client,
-		"azure.keyvault":  &env.vaultKey.Client,
-	}
-	for id, client := range clients {
+	for id, client := range env.apiClients() {
 		useragent.UpdateClient(client)
 		client.Authorizer = env.authorizer.auth()
 		clientLogger := loggo.GetLogger(id)
@@ -226,8 +217,34 @@ func (env *azureEnviron) initEnviron() error {
 				return p
 			}
 		}
+		client.SendDecorators = []autorest.SendDecorator{
+			doRetryForStaleCredential(env.authorizer),
+			autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...),
+		}
 	}
 	return nil
+}
+
+func (env *azureEnviron) apiClients() map[string]*autorest.Client {
+	return map[string]*autorest.Client{
+		"azure.compute":   &env.compute.Client,
+		"azure.disk":      &env.disk.Client,
+		"azure.resources": &env.resources.Client,
+		"azure.storage":   &env.storage.Client,
+		"azure.network":   &env.network.Client,
+		"azure.vault":     &env.vault.Client,
+		"azure.keyvault":  &env.vaultKey.Client,
+	}
+}
+
+func (env *azureEnviron) setClientRetries(retryAttempts int, retryDuration time.Duration) {
+	// When the client retry parameters are set, we need to redo the retry sender as well to use them.
+	for _, client := range env.apiClients() {
+		client.SendDecorators = []autorest.SendDecorator{
+			doRetryForStaleCredential(env.authorizer),
+			autorest.DoRetryForStatusCodes(retryAttempts, retryDuration, autorest.StatusCodesForRetry...),
+		}
+	}
 }
 
 // PrepareForBootstrap is part of the Environ interface.
@@ -666,7 +683,7 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 	if !bootstrapping {
 		// Wait for the common resource deployment to complete.
-		if err := env.waitCommonResourcesCreated(); err != nil {
+		if err := env.waitCommonResourcesCreated(ctx); err != nil {
 			return errors.Annotate(
 				err, "waiting for common resources to be created",
 			)
@@ -930,13 +947,13 @@ func maxFaultDomains(location string) int32 {
 }
 
 // waitCommonResourcesCreated waits for the "common" deployment to complete.
-func (env *azureEnviron) waitCommonResourcesCreated() error {
+func (env *azureEnviron) waitCommonResourcesCreated(ctx context.ProviderCallContext) error {
 	env.mu.Lock()
 	defer env.mu.Unlock()
 	if env.commonResourcesCreated {
 		return nil
 	}
-	deployment, err := env.waitCommonResourcesCreatedLocked()
+	deployment, err := env.waitCommonResourcesCreatedLocked(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -975,7 +992,7 @@ type deploymentIncompleteError struct {
 	error
 }
 
-func (env *azureEnviron) waitCommonResourcesCreatedLocked() (*resources.DeploymentExtended, error) {
+func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCallContext) (*resources.DeploymentExtended, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 
 	// Release the lock while we're waiting, to avoid blocking others.
@@ -987,9 +1004,8 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() (*resources.Deployme
 	// states. The deployment typically takes only around 30 seconds,
 	// but we allow for a longer duration to be defensive.
 	var deployment *resources.DeploymentExtended
-	sdkCtx := stdcontext.Background()
 	waitDeployment := func() error {
-		result, err := deploymentsClient.Get(sdkCtx, env.resourceGroup, "common")
+		result, err := deploymentsClient.Get(ctx, env.resourceGroup, "common")
 		if err != nil {
 			if result.StatusCode == http.StatusNotFound {
 				// The controller model, and also models with bespoke
@@ -1510,8 +1526,7 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 }
 
 func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContext, client *resources.GroupsClient, groupName, controllerUUID string) error {
-	sdkCtx := stdcontext.Background()
-	group, err := client.Get(sdkCtx, groupName)
+	group, err := client.Get(ctx, groupName)
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Trace(err), ctx)
 	}
@@ -1527,7 +1542,7 @@ func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContex
 		(*group.Properties).ProvisioningState = nil
 	}
 
-	_, err = client.CreateOrUpdate(sdkCtx, groupName, group)
+	_, err = client.CreateOrUpdate(ctx, groupName, group)
 	return errorutils.HandleCredentialError(errors.Annotatef(err, "updating controller for resource group %q", groupName), ctx)
 }
 
@@ -2233,9 +2248,8 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
 	}
 	instanceTypes := make(map[string]instances.InstanceType)
-	sdkCtx := stdcontext.Background()
 nextResource:
-	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
+	for ; res.NotDone(); err = res.NextWithContext(ctx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing resources")
 		}
@@ -2326,7 +2340,7 @@ func (env *azureEnviron) getStorageClient(ctx stdcontext.Context) (internalazure
 		return nil, nil, errors.Annotate(err, "getting storage account")
 	}
 	storageAccountKey, err := env.getStorageAccountKeyLocked(
-		to.String(storageAccount.Name), false,
+		ctx, to.String(storageAccount.Name), false,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting storage account key")
@@ -2377,12 +2391,12 @@ func (env *azureEnviron) getStorageAccountLocked(ctx stdcontext.Context) (*legac
 // getStorageAccountKeysLocked returns a storage account key for this
 // environment's storage account. If refresh is true, any cached key
 // will be refreshed. This method assumes that env.mu is held.
-func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh bool) (*legacystorage.AccountKey, error) {
+func (env *azureEnviron) getStorageAccountKeyLocked(ctx stdcontext.Context, accountName string, refresh bool) (*legacystorage.AccountKey, error) {
 	if !refresh && env.storageAccountKey != nil {
 		return env.storageAccountKey, nil
 	}
 	client := legacystorage.AccountsClient{env.storage}
-	key, err := getStorageAccountKey(client, env.resourceGroup, accountName)
+	key, err := getStorageAccountKey(ctx, client, env.resourceGroup, accountName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

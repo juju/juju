@@ -57,7 +57,7 @@ func MaybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool 
 	if ctx == nil {
 		return false
 	}
-	if !hasDenialStatusCode(err) {
+	if !HasDenialStatusCode(err) {
 		return false
 	}
 
@@ -69,7 +69,9 @@ func MaybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool 
 	return true
 }
 
-func hasDenialStatusCode(err error) bool {
+// HasDenialStatusCode returns true of the error has a status code
+// meaning that the credential is invalid.
+func HasDenialStatusCode(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -78,7 +80,8 @@ func hasDenialStatusCode(err error) bool {
 		if d.Response != nil {
 			return common.AuthorisationFailureStatusCodes.Contains(d.Response.StatusCode)
 		}
-		return common.AuthorisationFailureStatusCodes.Contains(d.StatusCode.(int))
+		statusCode, _ := d.StatusCode.(int)
+		return common.AuthorisationFailureStatusCodes.Contains(statusCode)
 	}
 	return false
 }
