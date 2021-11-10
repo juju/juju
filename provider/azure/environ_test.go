@@ -28,6 +28,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock/testclock"
 	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -659,10 +660,30 @@ func (s *environSuite) TestCloudEndpointManagementURIWithCredentialError(c *gc.C
 	s.requests = nil
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	env.AllRunningInstances(s.callCtx) // trigger a query
-	c.Assert(s.requests, gc.HasLen, 1)
+	_, err := env.AllRunningInstances(s.callCtx) // trigger a query
+	c.Assert(errorutils.HasDenialStatusCode(err), jc.IsTrue)
+	// The authorised workflow attempts to refresh to token to there's 3 requests.
+	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
+}
+
+func (s *environSuite) TestRetryOnInvalidCredential(c *gc.C) {
+	env := s.openEnviron(c)
+	unauthSender := mocks.NewSender()
+	unauthSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	s.sender = azuretesting.Senders{unauthSender, tokenRefreshSender(),
+		makeSender("/deployments", resources.DeploymentListResult{}),
+		makeSender("/virtualMachines", compute.VirtualMachineListResult{}),
+	}
+	s.requests = nil
+
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	_, err := env.AllRunningInstances(s.callCtx) // trigger a query
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
@@ -772,9 +793,9 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 }
 
 func (s *environSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
-	mockSender := mocks.NewSender()
-	mockSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 2)
-	s.sender = azuretesting.Senders{mockSender}
+	unauthSender := mocks.NewSender()
+	unauthSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	s.sender = azuretesting.Senders{unauthSender, tokenRefreshSender(), unauthSender, unauthSender}
 }
 
 func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
@@ -1734,8 +1755,9 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 
-	// Successful bootstrap expects 4 but we expecte to bail out after getting an authorised error.
-	c.Assert(len(s.requests), gc.Equals, 1)
+	// Successful bootstrap expects 4 but we expect to bail out after getting an authorised error.
+	// The authorised workflow attempts to refresh to token to there's 3 requests.
+	c.Assert(s.requests, gc.HasLen, 3)
 }
 
 func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
@@ -1936,15 +1958,10 @@ func (s *environSuite) TestStopInstancesInvalidCredential(c *gc.C) {
 	env := s.openEnviron(c)
 	s.createSenderWithUnauthorisedStatusCode(c)
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	err := env.StopInstances(s.callCtx, "a", "b")
+	err := env.StopInstances(s.callCtx, "a")
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
-	// This call is expected to have made 2 calls. Although we do understand that we could have gotten
-	// an invalid credential for one of the instances, the actual stop command to cloud api is done
-	// in a separate go routine for each instance. These goroutine do not really communicate with each other.
-	// There will be as many routines as there are instances and only once they all complete, will we have a chance to
-	// stop proceeding.
-	// There is also a retry from go-autorest to count
+	// The authorised workflow attempts to refresh to token to there's 3 additional requests.
 	c.Assert(s.requests, gc.HasLen, 3)
 }
 
@@ -2240,7 +2257,8 @@ func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
-	c.Assert(s.requests, gc.HasLen, 1)
+	// The authorised workflow attempts to refresh to token to there's 3 requests.
+	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
 }
 
@@ -2287,7 +2305,8 @@ func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 
-	c.Assert(s.requests, gc.HasLen, 1)
+	// The authorised workflow attempts to refresh to token to there's 3 requests.
+	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-controller-uuid' and tagValue eq '%s'",

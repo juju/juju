@@ -184,6 +184,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 // error will be returned, and the original error will be logged at debug
 // level.
 var verifyCredentials = func(e *azureEnviron, ctx context.ProviderCallContext) error {
-	// TODO(axw) user-friendly error message
-	return errorutils.HandleCredentialError(e.authorizer.refresh(), ctx)
+	// This is used at bootstrap - the ctx invalid credential callback will log
+	// a suitable message.
+	return errorutils.HandleCredentialError(e.authorizer.refreshToken(""), ctx)
 }

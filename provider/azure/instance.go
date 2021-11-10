@@ -105,8 +105,7 @@ func instanceNetworkInterfaces(
 	resourceGroup string,
 	nicClient network.InterfacesClient,
 ) (map[instance.Id][]network.Interface, error) {
-	sdkCtx := stdcontext.Background()
-	nicsResult, err := nicClient.ListComplete(sdkCtx, resourceGroup)
+	nicsResult, err := nicClient.ListComplete(ctx, resourceGroup)
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing network interfaces"), ctx)
 	}
@@ -114,7 +113,7 @@ func instanceNetworkInterfaces(
 		return nil, nil
 	}
 	instanceNics := make(map[instance.Id][]network.Interface)
-	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(sdkCtx) {
+	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(ctx) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -133,8 +132,7 @@ func instancePublicIPAddresses(
 	resourceGroup string,
 	pipClient network.PublicIPAddressesClient,
 ) (map[instance.Id][]network.PublicIPAddress, error) {
-	sdkCtx := stdcontext.Background()
-	pipsResult, err := pipClient.ListComplete(sdkCtx, resourceGroup)
+	pipsResult, err := pipClient.ListComplete(ctx, resourceGroup)
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing public IP addresses"), ctx)
 	}
@@ -142,7 +140,7 @@ func instancePublicIPAddresses(
 		return nil, nil
 	}
 	instancePips := make(map[instance.Id][]network.PublicIPAddress)
-	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(sdkCtx) {
+	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(ctx) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -267,13 +265,12 @@ func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron
 
 // OpenPorts is specified in the Instance interface.
 func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
-	sdkCtx := stdcontext.Background()
-	securityGroupInfos, err := inst.getSecurityGroupInfo(sdkCtx)
+	securityGroupInfos, err := inst.getSecurityGroupInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, info := range securityGroupInfos {
-		if err := inst.openPortsOnGroup(sdkCtx, ctx, machineId, info, rules); err != nil {
+		if err := inst.openPortsOnGroup(ctx, ctx, machineId, info, rules); err != nil {
 			return errors.Annotatef(err,
 				"opening ports on security group %q on machine %q", to.String(info.securityGroup.Name), machineId)
 		}
@@ -367,13 +364,12 @@ func (inst *azureInstance) openPortsOnGroup(
 
 // ClosePorts is specified in the Instance interface.
 func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
-	sdkCtx := stdcontext.Background()
-	securityGroupInfos, err := inst.getSecurityGroupInfo(sdkCtx)
+	securityGroupInfos, err := inst.getSecurityGroupInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, info := range securityGroupInfos {
-		if err := inst.closePortsOnGroup(sdkCtx, ctx, machineId, info, rules); err != nil {
+		if err := inst.closePortsOnGroup(ctx, ctx, machineId, info, rules); err != nil {
 			return errors.Annotatef(err,
 				"closing ports on security group %q on machine %q", to.String(info.securityGroup.Name), machineId)
 		}
@@ -422,14 +418,13 @@ func (inst *azureInstance) closePortsOnGroup(
 // IngressRules is specified in the Instance interface.
 func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	// The rules to use will be those on the primary network interface.
-	sdkCtx := stdcontext.Background()
 	var info *securityGroupInfo
 	for _, nic := range inst.networkInterfaces {
 		if !to.Bool(nic.Primary) {
 			continue
 		}
 		var err error
-		info, err = primarySecurityGroupInfo(sdkCtx, inst.env, nic)
+		info, err = primarySecurityGroupInfo(ctx, inst.env, nic)
 		if errors.IsNotFound(err) {
 			continue
 		}

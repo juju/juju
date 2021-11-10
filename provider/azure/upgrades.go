@@ -4,7 +4,6 @@
 package azure
 
 import (
-	stdcontext "context"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
@@ -59,7 +58,7 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 	nsgClient := network.SecurityGroupsClient{
 		BaseClient: env.network,
 	}
-	allRules, err := existingSecurityRules(nsgClient, env.resourceGroup)
+	allRules, err := existingSecurityRules(ctx, nsgClient, env.resourceGroup)
 	if errors.IsNotFound(err) {
 		allRules = nil
 	} else if err != nil {
@@ -89,11 +88,11 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 // security group has not been created, this function will return an error
 // satisfying errors.IsNotFound.
 func existingSecurityRules(
+	ctx context.ProviderCallContext,
 	nsgClient network.SecurityGroupsClient,
 	resourceGroup string,
 ) ([]network.SecurityRule, error) {
-	sdkCtx := stdcontext.Background()
-	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
+	nsg, err := nsgClient.Get(ctx, resourceGroup, internalSecurityGroupName, "")
 	if err != nil {
 		if isNotFoundResult(nsg.Response) {
 			return nil, errors.NotFoundf("security group")
@@ -110,8 +109,7 @@ func existingSecurityRules(
 func isControllerEnviron(env *azureEnviron, ctx context.ProviderCallContext) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
-	sdkCtx := stdcontext.Background()
-	result, err := client.ListComplete(sdkCtx, env.resourceGroup)
+	result, err := client.ListComplete(ctx, env.resourceGroup)
 	if err != nil {
 		return false, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
 	}
@@ -123,7 +121,7 @@ func isControllerEnviron(env *azureEnviron, ctx context.ProviderCallContext) (bo
 		return false, nil
 	}
 
-	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
+	for ; result.NotDone(); err = result.NextWithContext(ctx) {
 		if err != nil {
 			return false, errors.Annotate(err, "iterating machines")
 		}
