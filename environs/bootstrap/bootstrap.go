@@ -622,8 +622,8 @@ func bootstrapIAAS(
 		environVersion = e.Provider().Version()
 	}
 
-	if finalizer, ok := environ.(environs.BootstrapCredentialsFinalizer); ok {
-		cred, err := finalizer.FinalizeBootstrapCredential(
+	if finalizer, ok := environ.(environs.BootstrapCredentialsFinaliser); ok {
+		cred, err := finalizer.FinaliseBootstrapCredential(
 			ctx,
 			bootstrapParams,
 			args.CloudCredential)

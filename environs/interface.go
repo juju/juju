@@ -141,13 +141,13 @@ type ProviderCredentials interface {
 	) (*cloud.Credential, error)
 }
 
-// BootstrapCredentialsFinalizer is an interface for environs to provide a
+// BootstrapCredentialsFinaliser is an interface for environs to provide a
 // method for finalizing bootstrap credentials before being passed to a
 // newly bootstrapped controller.
-type BootstrapCredentialsFinalizer interface {
+type BootstrapCredentialsFinaliser interface {
 	// FinalizeBootstrapCredential finalizes credential as the last step of a
 	// bootstrap process.
-	FinalizeBootstrapCredential(BootstrapContext, BootstrapParams, *cloud.Credential) (*cloud.Credential, error)
+	FinaliseBootstrapCredential(BootstrapContext, BootstrapParams, *cloud.Credential) (*cloud.Credential, error)
 }
 
 // ProviderCredentialsRegister is an interface that an EnvironProvider
