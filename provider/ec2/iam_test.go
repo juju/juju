@@ -4,197 +4,92 @@
 package ec2
 
 import (
-	"context"
-	"net/http"
-	time "time"
+	//	"context"
+	//	"net/http"
+	//	time "time"
+	//
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	//	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
+
+	//	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	//	smithyhttp "github.com/aws/smithy-go/transport/http"
+	//	"github.com/juju/errors"
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/tags"
+	//
+	//	"github.com/juju/juju/environs/tags"
+
+	"github.com/juju/juju/provider/ec2/internal/testing"
 )
 
-type IAMSuite struct{}
-
-type mockIAMClient struct {
-	createInstanceProfileFn func(context.Context, *iam.CreateInstanceProfileInput, ...func(*iam.Options)) (*iam.CreateInstanceProfileOutput, error)
-	getInstanceProfileFn    func(context.Context, *iam.GetInstanceProfileInput, ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error)
+type IAMSuite struct {
+	server *testing.IAMServer
 }
 
 var _ = gc.Suite(&IAMSuite{})
 
-func (m *mockIAMClient) CreateInstanceProfile(
-	c context.Context,
-	i *iam.CreateInstanceProfileInput,
-	o ...func(*iam.Options),
-) (*iam.CreateInstanceProfileOutput, error) {
-	if m.createInstanceProfileFn == nil {
-		return nil, errors.NewNotImplemented(nil, "mockIAMClient has no createInstanceProfileFn set")
-	}
-	return m.createInstanceProfileFn(c, i, o...)
-}
-
-func (m *mockIAMClient) GetInstanceProfile(
-	c context.Context,
-	i *iam.GetInstanceProfileInput,
-	o ...func(*iam.Options),
-) (*iam.GetInstanceProfileOutput, error) {
-	if m.getInstanceProfileFn == nil {
-		return nil, errors.NewNotImplemented(nil, "mockIAMClient has no getInstanceProfileFn set")
-	}
-	return m.getInstanceProfileFn(c, i, o...)
-}
-
-func (*IAMSuite) TestEnsureControllerInstanceProfileFromScratch(c *gc.C) {
-	client := &mockIAMClient{
-		createInstanceProfileFn: func(
-			_ context.Context,
-			i *iam.CreateInstanceProfileInput,
-			_ ...func(*iam.Options)) (*iam.CreateInstanceProfileOutput, error) {
-
-			c.Assert(*i.InstanceProfileName, gc.Equals, "juju-controller-test")
-			c.Assert(i.Path, gc.IsNil)
-			c.Assert(i.Tags, jc.DeepEquals, []types.Tag{
-				{
-					Key:   aws.String(tags.JujuController),
-					Value: aws.String("AABBCC"),
-				},
-			})
-
-			t := time.Now()
-			return &iam.CreateInstanceProfileOutput{
-				InstanceProfile: &types.InstanceProfile{
-					Arn:                 aws.String("arn://12345"),
-					CreateDate:          &t,
-					InstanceProfileName: i.InstanceProfileName,
-				},
-			}, nil
-		},
-	}
-
-	_, err := ensureControllerInstanceProfile(context.TODO(), client, "test", "AABBCC")
+func (i *IAMSuite) SetUpTest(c *gc.C) {
+	server, err := testing.NewIAMServer()
 	c.Assert(err, jc.ErrorIsNil)
+	i.server = server
 }
 
-func (*IAMSuite) TestEnsureControllerInstanceProfileAlreadyExists(c *gc.C) {
-	getInstanceProfileCalled := false
-
-	client := &mockIAMClient{
-		createInstanceProfileFn: func(
-			_ context.Context,
-			i *iam.CreateInstanceProfileInput,
-			_ ...func(*iam.Options)) (*iam.CreateInstanceProfileOutput, error) {
-
-			c.Assert(*i.InstanceProfileName, gc.Equals, "juju-controller-test")
-			c.Assert(i.Path, gc.IsNil)
-			c.Assert(i.Tags, jc.DeepEquals, []types.Tag{
-				{
-					Key:   aws.String(tags.JujuController),
-					Value: aws.String("ABCD"),
-				},
-			})
-
-			return nil, &types.EntityAlreadyExistsException{
-				Message: aws.String("already exists"),
-			}
-		},
-		getInstanceProfileFn: func(
-			_ context.Context,
-			i *iam.GetInstanceProfileInput,
-			_ ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error) {
-			getInstanceProfileCalled = true
-
-			c.Assert(*i.InstanceProfileName, gc.Equals, "juju-controller-test")
-
-			t := time.Now()
-			return &iam.GetInstanceProfileOutput{
-				InstanceProfile: &types.InstanceProfile{
-					Arn:                 aws.String("arn://12345"),
-					CreateDate:          &t,
-					InstanceProfileName: i.InstanceProfileName,
-				},
-			}, nil
-		},
-	}
-
-	instanceProfile, err := ensureControllerInstanceProfile(context.TODO(), client, "test", "ABCD")
+func (i *IAMSuite) TestEnsureControllerInstanceProfileFromScratch(c *gc.C) {
+	ip, _, err := ensureControllerInstanceProfile(context.Background(), i.server, "test", "AABBCC")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(getInstanceProfileCalled, jc.IsTrue)
-	c.Assert(*instanceProfile.Arn, gc.Equals, "arn://12345")
+	c.Assert(*ip.InstanceProfileName, gc.Equals, "juju-controller-test")
+	c.Assert(ip.Path, gc.IsNil)
+
+	roleOutput, err := i.server.GetRole(context.Background(), &iam.GetRoleInput{
+		RoleName: aws.String("juju-controller-test"),
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*roleOutput.Role.RoleName, gc.Equals, "juju-controller-test")
+}
+
+func (i *IAMSuite) TestEnsureControllerInstanceProfileAlreadyExists(c *gc.C) {
+	_, err := i.server.CreateInstanceProfile(context.Background(), &iam.CreateInstanceProfileInput{
+		InstanceProfileName: aws.String("juju-controller-test"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceProfile, _, err := ensureControllerInstanceProfile(context.Background(), i.server, "test", "ABCD")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*instanceProfile.InstanceProfileName, gc.Equals, "juju-controller-test")
 }
 
-func (*IAMSuite) TestFindInstanceProfileExists(c *gc.C) {
-	client := &mockIAMClient{
-		getInstanceProfileFn: func(
-			_ context.Context,
-			i *iam.GetInstanceProfileInput,
-			_ ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error) {
-
-			c.Assert(*i.InstanceProfileName, gc.Equals, "test")
-			t := time.Now()
-			return &iam.GetInstanceProfileOutput{
-				InstanceProfile: &types.InstanceProfile{
-					Arn:                 aws.String("arn://12345"),
-					CreateDate:          &t,
-					InstanceProfileName: i.InstanceProfileName,
-				},
-			}, nil
-		},
-	}
-
-	instanceProfile, err := findInstanceProfileFromName(context.TODO(), client, "test")
+func (i *IAMSuite) TestFindInstanceProfileExists(c *gc.C) {
+	_, err := i.server.CreateInstanceProfile(context.Background(), &iam.CreateInstanceProfileInput{
+		InstanceProfileName: aws.String("juju-controller-test"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*instanceProfile.Arn, gc.Equals, "arn://12345")
-	c.Assert(*instanceProfile.InstanceProfileName, gc.Equals, "test")
+
+	instanceProfile, err := findInstanceProfileFromName(context.Background(), i.server, "juju-controller-test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*instanceProfile.InstanceProfileName, gc.Equals, "juju-controller-test")
 }
 
-func (*IAMSuite) TestFindInstanceProfileWithNotFoundError(c *gc.C) {
-	client := &mockIAMClient{
-		getInstanceProfileFn: func(
-			_ context.Context,
-			i *iam.GetInstanceProfileInput,
-			_ ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error) {
-
-			c.Assert(*i.InstanceProfileName, gc.Equals, "test")
-			return nil, &awshttp.ResponseError{
-				ResponseError: &smithyhttp.ResponseError{
-					Response: &smithyhttp.Response{
-						&http.Response{
-							StatusCode: http.StatusNotFound,
-						},
-					},
-				},
-			}
-		},
-	}
-
-	instanceProfile, err := findInstanceProfileFromName(context.TODO(), client, "test")
+func (i *IAMSuite) TestFindInstanceProfileWithNotFoundError(c *gc.C) {
+	instanceProfile, err := findInstanceProfileFromName(context.Background(), i.server, "test")
 	c.Assert(instanceProfile, gc.IsNil)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
-func (*IAMSuite) TestFindInstanceProfileWithError(c *gc.C) {
-	rErr := errors.New("test error")
+func (i *IAMSuite) TestFindRoleExists(c *gc.C) {
+	_, err := i.server.CreateRole(context.Background(), &iam.CreateRoleInput{
+		RoleName:    aws.String("test-role"),
+		Description: aws.String("test-description"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	client := &mockIAMClient{
-		getInstanceProfileFn: func(
-			_ context.Context,
-			i *iam.GetInstanceProfileInput,
-			_ ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error) {
-
-			c.Assert(*i.InstanceProfileName, gc.Equals, "test")
-			return nil, rErr
-		},
-	}
-
-	instanceProfile, err := findInstanceProfileFromName(context.TODO(), client, "test")
-	c.Assert(instanceProfile, gc.IsNil)
-	c.Assert(err.Error(), gc.Equals, "finding instance profile for name test: test error")
+	role, err := findRoleFromName(context.Background(), i.server, "test-role")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*role.RoleName, gc.Equals, "test-role")
 }

@@ -53,6 +53,9 @@ type Client interface {
 	// here https://discourse.charmhub.io/t/juju-aws-permissions/5307
 	// We must keep this policy inline with our usage for operators that are
 	// using very strict permissions for Juju.
+	//
+	// You must also update the controllerRolePolicy document found in
+	// iam_docs.go.
 	AssociateIamInstanceProfile(context.Context, *ec2.AssociateIamInstanceProfileInput, ...func(*ec2.Options)) (*ec2.AssociateIamInstanceProfileOutput, error)
 	DescribeIamInstanceProfileAssociations(context.Context, *ec2.DescribeIamInstanceProfileAssociationsInput, ...func(*ec2.Options)) (*ec2.DescribeIamInstanceProfileAssociationsOutput, error)
 	DescribeInstances(context.Context, *ec2.DescribeInstancesInput, ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
