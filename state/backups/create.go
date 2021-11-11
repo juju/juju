@@ -33,6 +33,7 @@ type createArgs struct {
 	filesToBackUp          []string
 	db                     DBDumper
 	availableDisk          func(volumePath string) uint64
+	totalDisk              func(volumePath string) uint64
 	metadataReader         io.Reader
 	noDownload             bool
 	approxSpaceRequiredMib int
@@ -62,15 +63,23 @@ func create(args *createArgs) (_ *createResult, err error) {
 		}
 	}()
 
-	// Require an extra 5GB on top of the approximate backup size,
-	// or 20%, whatever is greater, to be free.
-	const minFree = 5 * humanize.GiByte
-	margin := uint64(float64(args.approxSpaceRequiredMib)*0.20) * humanize.MiByte
-	if margin < minFree {
-		margin = minFree
-	}
-	wantFree := uint64(args.approxSpaceRequiredMib) + margin/humanize.MiByte
+	// We require space equal to the larger of:
+	// - smaller of 5GB or 10% of the total disk size
+	// - 20% of the backup size
+	// on top of the approximate backup size to be available.
+	const minFreeAbsolute = 5 * humanize.GiByte
+
 	for _, dir := range []string{builder.archivePaths.DBDumpDir, os.TempDir()} {
+		diskSizeMargin := float64(args.totalDisk(dir)) * 0.10
+		if diskSizeMargin > minFreeAbsolute {
+			diskSizeMargin = minFreeAbsolute
+		}
+		backupSizeMargin := float64(args.approxSpaceRequiredMib) * 0.20 * humanize.MiByte
+		if backupSizeMargin < diskSizeMargin {
+			backupSizeMargin = diskSizeMargin
+		}
+		wantFree := uint64(args.approxSpaceRequiredMib) + uint64(backupSizeMargin/humanize.MiByte)
+
 		available := args.availableDisk(dir) / humanize.MiByte
 		logger.Infof("free disk on volume hosting %q: %dMiB", dir, available)
 		if available < wantFree {

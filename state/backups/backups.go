@@ -72,6 +72,9 @@ var (
 	availableDisk = func(path string) uint64 {
 		return du.NewDiskUsage(path).Available()
 	}
+	totalDisk = func(path string) uint64 {
+		return du.NewDiskUsage(path).Size()
+	}
 	dirSize = totalDirSize
 )
 
@@ -186,6 +189,7 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy,
 		filesToBackUp:          filesToBackUp,
 		db:                     dumper,
 		availableDisk:          availableDisk,
+		totalDisk:              totalDisk,
 		metadataReader:         metadataFile,
 		noDownload:             noDownload,
 		approxSpaceRequiredMib: int(totalFizeSizesMiB),

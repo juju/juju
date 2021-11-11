@@ -31,6 +31,7 @@ var (
 	ReplaceableFolders    = &replaceableFolders
 	MongoInstalledVersion = &mongoInstalledVersion
 	AvailableDisk         = &availableDisk
+	TotalDisk             = &totalDisk
 	DirSize               = &dirSize
 )
 
@@ -105,6 +106,9 @@ func NewTestCreateArgs(backupDir string, filesToBackUp []string, db DBDumper, me
 		noDownload:     noDownload,
 		availableDisk: func(string) uint64 {
 			return 6666 * 1024 * 1024
+		},
+		totalDisk: func(string) uint64 {
+			return 8666 * 1024 * 1024
 		},
 	}
 	return &args

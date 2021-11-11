@@ -28,6 +28,7 @@ type backupsSuite struct {
 
 	api backups.Backups
 
+	totalDiskMiB     uint64
 	availableDiskMiB uint64
 	dirSizeBytes     int64
 	dbSizeMiB        int
@@ -41,6 +42,9 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.api = backups.NewBackups(s.Storage)
 	s.PatchValue(backups.AvailableDisk, func(string) uint64 {
 		return s.availableDiskMiB
+	})
+	s.PatchValue(backups.TotalDisk, func(string) uint64 {
+		return s.totalDiskMiB
 	})
 	s.PatchValue(backups.DirSize, func(path string) (int64, error) {
 		return s.dirSizeBytes, nil
@@ -270,6 +274,7 @@ func (s *backupsSuite) TestNotEnoughDiskSpaceSmallBackup(c *gc.C) {
 	s.dbSizeMiB = 6
 	s.dirSizeBytes = 3 * humanize.MiByte
 	s.availableDiskMiB = 10 * humanize.MiByte
+	s.totalDiskMiB = 200 * humanize.GiByte
 
 	s.checkFailure(c, "while creating backup archive: not enough free space in .*; want 5129MiB, have 10MiB")
 }
@@ -281,6 +286,19 @@ func (s *backupsSuite) TestNotEnoughDiskSpaceLargeBackup(c *gc.C) {
 	s.dbSizeMiB = 100
 	s.dirSizeBytes = 50 * humanize.GiByte
 	s.availableDiskMiB = 10 * humanize.MiByte
+	s.totalDiskMiB = 200 * humanize.GiByte
 
 	s.checkFailure(c, "while creating backup archive: not enough free space in .*; want 61560MiB, have 10MiB")
+}
+
+func (s *backupsSuite) TestNotEnoughDiskSpaceSmallDisk(c *gc.C) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+		return []string{"file1"}, nil
+	})
+	s.dbSizeMiB = 6
+	s.dirSizeBytes = 3 * humanize.MiByte
+	s.availableDiskMiB = 10 * humanize.MiByte
+	s.totalDiskMiB = 20 * humanize.GiByte
+
+	s.checkFailure(c, "while creating backup archive: not enough free space in .*; want 2057MiB, have 10MiB")
 }
