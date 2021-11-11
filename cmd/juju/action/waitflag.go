@@ -8,8 +8,8 @@ import (
 )
 
 // A gnuflag.Value for the --wait command line argument. If called
-// as a boolean  with no arguments, the forever flag is set to true.
-// If called  with an argument, d is set to the result of
+// as a boolean with no arguments, the forever flag is set to true.
+// If called with an argument, d is set to the result of
 // time.ParseDuration().
 // eg:
 //   --wait
@@ -30,6 +30,15 @@ func (f *waitFlag) Set(s string) error {
 	}
 	f.d = v
 	return nil
+}
+
+// Get returns the time.Duration for a given wait flag or if we've been told
+// to wait forever.
+func (f *waitFlag) Get() (time.Duration, bool) {
+	if f.forever {
+		return f.d, true
+	}
+	return f.d, false
 }
 
 func (f *waitFlag) String() string {

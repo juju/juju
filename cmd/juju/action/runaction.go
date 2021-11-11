@@ -30,7 +30,6 @@ type runActionCommand struct {
 	ActionCommandBase
 	api           APIClient
 	unitReceivers []string
-	leaders       map[string]string
 	actionName    string
 	paramsYAML    cmd.FileVar
 	parseStrings  bool
@@ -113,11 +112,10 @@ func (c *runActionCommand) Init(args []string) (err error) {
 		return errors.New("no action specified")
 	}
 
-	// force timeout to be greater or equal to 1ms
-	if c.wait.String() != "" {
-		if c.wait.d.Milliseconds() < 1 {
-			return errors.New("timeout must be greater or equal to 1 ms")
-		}
+	// Force the timeout to be greater or equal to 1ms if we're not waiting
+	// forever.
+	if timeout, forever := c.wait.Get(); !forever && (timeout > 0 && timeout.Milliseconds() < 1) {
+		return errors.New("timeout must be greater or equal to 1 ms")
 	}
 
 	// Parse CLI key-value args if they exist.
@@ -263,7 +261,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	if c.wait.d.Nanoseconds() <= 0 {
 		// Indefinite wait. Discard the tick.
 		wait = time.NewTimer(0 * time.Second)
-		_ = <-wait.C
+		<-wait.C
 	} else {
 		wait = time.NewTimer(c.wait.d)
 	}
