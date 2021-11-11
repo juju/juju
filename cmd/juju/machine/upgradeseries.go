@@ -322,12 +322,13 @@ func (c *upgradeSeriesCommand) retrieveUnits() ([]string, error) {
 	var units []string
 	for _, application := range fullStatus.Applications {
 		for name, unit := range application.Units {
-			if unit.Machine == machineID {
-				units = append(units, name)
+			if unit.Machine != machineID {
+				continue
 			}
+			units = append(units, name)
 			for subName, subordinate := range unit.Subordinates {
 				if subordinate.Machine != "" && subordinate.Machine != machineID {
-					return nil, errors.Errorf("subordinate %q machine has unexpected instance id %s", subName, machineID)
+					return nil, errors.Errorf("subordinate %q machine has unexpected machine id %s", subName, machineID)
 				}
 				units = append(units, subName)
 			}
