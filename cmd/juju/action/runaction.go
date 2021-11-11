@@ -261,7 +261,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	if c.wait.d.Nanoseconds() <= 0 {
 		// Indefinite wait. Discard the tick.
 		wait = time.NewTimer(0 * time.Second)
-		_ = <-wait.C
+		<-wait.C
 	} else {
 		wait = time.NewTimer(c.wait.d)
 	}

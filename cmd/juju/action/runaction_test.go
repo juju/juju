@@ -185,6 +185,23 @@ func (s *RunActionSuite) TestInit(c *gc.C) {
 		should:      "reject timeouts smaller than 1 ms",
 		args:        []string{"mysql/leader", "valid-action-name", "--wait=99ns"},
 		expectError: "timeout must be greater or equal to 1 ms",
+	}, {
+		should: "do not reject forever timeouts",
+		args: []string{
+			validUnitId,
+			"valid-action-name",
+			"foo.bar=2",
+			"foo.baz.bo=y",
+			"bar.foo=hello",
+			"--wait",
+		},
+		expectUnits:  []string{validUnitId},
+		expectAction: "valid-action-name",
+		expectKVArgs: [][]string{
+			{"foo", "bar", "2"},
+			{"foo", "baz", "bo", "y"},
+			{"bar", "foo", "hello"},
+		},
 	}}
 
 	for i, t := range tests {
