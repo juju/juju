@@ -62,7 +62,7 @@ func NewCanonicalArchivePaths() ArchivePaths {
 	}
 }
 
-// NonCanonicalArchivePaths builds a new ArchivePaths using default
+// NewNonCanonicalArchivePaths builds a new ArchivePaths using default
 // values, rooted at the provided rootDir. The path separator used is
 // platform-dependent. The resulting paths are suitable for locating
 // backup archive contents in a directory into which an archive has
@@ -131,7 +131,7 @@ func (ws *ArchiveWorkspace) UnpackFilesBundle(targetRoot string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer tarFile.Close()
+	defer func() { _ = tarFile.Close() }()
 
 	err = tar.UntarFiles(tarFile, targetRoot)
 	return errors.Trace(err)
@@ -151,7 +151,7 @@ func (ws *ArchiveWorkspace) OpenBundledFile(filename string) (io.Reader, error) 
 
 	_, file, err := tar.FindFile(tarFile, filename)
 	if err != nil {
-		tarFile.Close()
+		_ = tarFile.Close()
 		return nil, errors.Trace(err)
 	}
 	return file, nil
@@ -163,7 +163,7 @@ func (ws *ArchiveWorkspace) Metadata() (*Metadata, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer metaFile.Close()
+	defer func() { _ = metaFile.Close() }()
 
 	meta, err := NewMetadataJSONReader(metaFile)
 	return meta, errors.Trace(err)
@@ -189,7 +189,7 @@ func NewArchiveData(data []byte) *ArchiveData {
 	}
 }
 
-// NewArchiveReader returns a new archive data wrapper for the data in
+// NewArchiveDataReader returns a new archive data wrapper for the data in
 // the provided reader. Note that the entire archive will be read into
 // memory and kept there. So for relatively large archives it will often
 // be more appropriate to use ArchiveWorkspace instead.
@@ -198,7 +198,7 @@ func NewArchiveDataReader(r io.Reader) (*ArchiveData, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	data, err := ioutil.ReadAll(gzr)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
@@ -44,6 +45,8 @@ type DBInfo struct {
 	Targets set.Strings
 	// MongoVersion the version of the running mongo db.
 	MongoVersion mongo.Version
+	// ApproxSizeMB is the storage needed to back up the database.
+	ApproxSizeMB int
 }
 
 // ignoredDatabases is the list of databases that should not be
@@ -56,8 +59,15 @@ var ignoredDatabases = set.NewStrings(
 	imagestorage.ImagesDB, // note: this is still backed up anyway
 )
 
+// DBSession is a subset of mgo.Session.
 type DBSession interface {
 	DatabaseNames() ([]string, error)
+	DB(name string) Database
+}
+
+// Database is a subset of mgo.Database.
+type Database interface {
+	Run(cmd interface{}, result interface{}) error
 }
 
 // NewDBInfo returns the information needed by backups to dump
@@ -68,11 +78,30 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession, version mongo.Versio
 		return nil, errors.Trace(err)
 	}
 
+	var totalDataSize float64
+	for _, target := range targets.Values() {
+		var result bson.M
+		err := session.DB(target).Run(bson.D{
+			{"dbStats", 1},
+			{"scale", humanize.MiByte},
+		}, &result)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		dataSize, ok := result["dataSize"].(float64)
+		if !ok {
+			return nil, errors.Errorf("missing 'dataSize' value in db stats for database %q", target)
+		}
+		logger.Debugf("dataSize for %q is %dMiB", target, dataSize)
+		totalDataSize += dataSize
+	}
+
 	info := DBInfo{
 		Address:      mgoInfo.Addrs[0],
 		Password:     mgoInfo.Password,
 		Targets:      targets,
 		MongoVersion: version,
+		ApproxSizeMB: int(totalDataSize),
 	}
 
 	// TODO(dfc) Backup should take a Tag.
@@ -292,9 +321,9 @@ var getMongorestorePath = func() (string, error) {
 	return getMongoToolPath(restoreName, os.Stat, exec.LookPath)
 }
 
-// DBDumper is any type that dumps something to a dump dir.
+// DBRestorer is any type that dumps something to a dump dir.
 type DBRestorer interface {
-	// Dump something to dumpDir.
+	// Restore restores the database in dumpDir.
 	Restore(dumpDir string, dialInfo *mgo.DialInfo) error
 }
 

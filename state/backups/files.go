@@ -41,9 +41,14 @@ type Paths struct {
 	LogsDir   string
 }
 
+// DiskUsage instances are used to find disk usage for a path.
+type DiskUsage interface {
+	Available(path string) uint64
+}
+
 // GetFilesToBackUp returns the paths that should be included in the
 // backup archive.
-func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string, error) {
+func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 	var glob string
 
 	glob = filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
