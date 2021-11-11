@@ -743,7 +743,7 @@ func deployApplication(
 		}
 	}
 
-	appConfig, _, charmSettings, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML, true)
+	appConfig, _, charmSettings, _, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -859,7 +859,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string, useDefaults bool) (*application.Config, environschema.Fields, charm.Settings, error) {
+func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string, bakeDefaults bool) (*application.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
@@ -869,7 +869,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	)
 	if len(config) > 0 {
 		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, config); err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -881,7 +881,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	)
 	if len(configYaml) != 0 {
 		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(modelType, configYaml, appName); err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -893,14 +893,18 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 
 	appCfgSchema, defaults, err := applicationConfigSchema(modelType)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, nil, nil, nil, errors.Trace(err)
 	}
-	if !useDefaults {
-		defaults = nil
+	getDefaults := func() schema.Defaults {
+		// If bakeDefaults is true, defaults are baked into the app config.
+		if bakeDefaults {
+			return defaults
+		}
+		return nil
 	}
-	appConfig, err := application.NewConfig(appSettings, appCfgSchema, defaults)
+	appConfig, err := application.NewConfig(appSettings, appCfgSchema, getDefaults())
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, nil, nil, nil, errors.Trace(err)
 	}
 
 	// If there isn't a charm YAML, then we can just return the charmConfig as
@@ -908,9 +912,9 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	if len(charmYamlConfig) == 0 {
 		settings, err := ch.Config().ParseSettingsStrings(charmConfig)
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
-		return appConfig, appCfgSchema, settings, nil
+		return appConfig, appCfgSchema, settings, defaults, nil
 	}
 
 	var charmSettings charm.Settings
@@ -920,7 +924,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
 		if pErr != nil {
 			// Not 'juju output' either; return original error
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 		charmSettings = jujuGetSettings
 	}
@@ -931,14 +935,14 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		// Parse config in a compatible way (see function comment).
 		overrideSettings, err := parseSettingsCompatible(ch.Config(), charmConfig)
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 		for k, v := range overrideSettings {
 			charmSettings[k] = v
 		}
 	}
 
-	return appConfig, appCfgSchema, charmSettings, nil
+	return appConfig, appCfgSchema, charmSettings, defaults, nil
 }
 
 // checkMachinePlacement does a non-exhaustive validation of any supplied
@@ -1094,7 +1098,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	// parseCharmSettings is passed false for useDefaults because setConfig
 	// should not care about defaults.
 	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML, false)
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML, false)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -1107,7 +1111,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 		configChanged = true
 	}
 	if cfgAttrs := appConfig.Attributes(); len(cfgAttrs) > 0 {
-		if err = app.UpdateApplicationConfig(cfgAttrs, nil, appConfigSchema, nil); err != nil {
+		if err = app.UpdateApplicationConfig(cfgAttrs, nil, appConfigSchema, defaults); err != nil {
 			return errors.Annotate(err, "updating application config settings")
 		}
 		configChanged = true

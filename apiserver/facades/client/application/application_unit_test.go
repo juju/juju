@@ -13,7 +13,6 @@ import (
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/schema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -418,10 +417,10 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
 		"stringOption": "bar",
 	})
 
-	appDefaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
-	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
@@ -429,7 +428,7 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 }
 
 func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
@@ -457,10 +456,10 @@ func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 		"stringOption": "bar",
 	})
 
-	appDefaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
-	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
@@ -468,7 +467,7 @@ func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 }
 
 func (s *ApplicationSuite) TestUpdateCAASApplicationSettingsInIAASModelTriggersError(c *gc.C) {
@@ -1968,7 +1967,7 @@ func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) 
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
@@ -1976,7 +1975,7 @@ func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) 
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationMaster, charm.Settings{"stringOption": "stringVal"})
 
 	// We should never have accessed the generation.
@@ -2004,7 +2003,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
@@ -2012,7 +2011,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", "new-branch", charm.Settings{"stringOption": "stringVal"})
 
 	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
@@ -2039,7 +2038,7 @@ func (s *ApplicationSuite) TestSetApplicationsEmptyConfigMasterBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
@@ -2047,7 +2046,7 @@ func (s *ApplicationSuite) TestSetApplicationsEmptyConfigMasterBranch(c *gc.C) {
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", "master", charm.Settings{"stringOption": ""})
 }
 
@@ -2071,7 +2070,7 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
@@ -2079,7 +2078,7 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", "new-branch", charm.Settings{"stringOption": "stringVal"})
 
 	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
@@ -2105,7 +2104,7 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, _, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
@@ -2113,7 +2112,7 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", "master", charm.Settings{"stringOption": ""})
 }
 
