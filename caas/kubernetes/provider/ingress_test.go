@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
@@ -27,11 +28,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8sspecs.K8sIngress, expectedErrString string, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8sspecs.K8sIngress, expectedErrString string, assertCalls ...*gomock.Call) {
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			IngressResources: IngressResources,
+			IngressResources: ingressResources,
 		},
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
@@ -135,6 +136,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1Beta1(c *gc.C)
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "18",
+		}, nil),
+	)
+
 	ingress1Rule1 := networkingv1beta1.IngressRule{
 		IngressRuleValue: networkingv1beta1.IngressRuleValue{
 			HTTP: &networkingv1beta1.HTTPIngressRuleValue{
@@ -168,7 +175,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1Beta1(c *gc.C)
 		},
 	}
 
-	IngressResources := []k8sspecs.K8sIngress{ingress1}
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
 	ingress := &networkingv1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test-ingress",
@@ -183,7 +190,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1Beta1(c *gc.C)
 		},
 	}
 	s.assertIngressResources(
-		c, IngressResources, "",
+		c, ingressResources, "",
 		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, metav1.CreateOptions{}).Return(ingress, nil),
 	)
 }
@@ -191,6 +198,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1Beta1(c *gc.C)
 func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "18",
+		}, nil),
+	)
 
 	ingress1Rule1 := networkingv1beta1.IngressRule{
 		IngressRuleValue: networkingv1beta1.IngressRuleValue{
@@ -225,7 +238,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C)
 		},
 	}
 
-	IngressResources := []k8sspecs.K8sIngress{ingress1}
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
 	ingress := &networkingv1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test-ingress",
@@ -242,7 +255,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, ingress)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertIngressResources(
-		c, IngressResources, "",
+		c, ingressResources, "",
 		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, metav1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressV1Beta1.EXPECT().Get(gomock.Any(), "test-ingress", metav1.GetOptions{}).Return(ingress, nil),
 		s.mockIngressV1Beta1.EXPECT().
@@ -254,6 +267,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C)
 func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExistingNonJujuManagedIngressV1Beta1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "18",
+		}, nil),
+	)
 
 	ingress1Rule1 := networkingv1beta1.IngressRule{
 		IngressRuleValue: networkingv1beta1.IngressRuleValue{
@@ -289,7 +308,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 		},
 	}
 
-	IngressResources := []k8sspecs.K8sIngress{ingress1}
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
 
 	getIngress := func() *networkingv1beta1.Ingress {
 		return &networkingv1beta1.Ingress{
@@ -310,7 +329,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	existingNonJujuManagedIngress := getIngress()
 	existingNonJujuManagedIngress.SetLabels(map[string]string{})
 	s.assertIngressResources(
-		c, IngressResources, `creating or updating ingress resources: ensuring ingress "test-ingress" with version "v1beta1": existing ingress "test-ingress" found which does not belong to "app-name"`,
+		c, ingressResources, `creating or updating ingress resources: ensuring ingress "test-ingress" with version "v1beta1": existing ingress "test-ingress" found which does not belong to "app-name"`,
 		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, gomock.Any()).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressV1Beta1.EXPECT().Get(gomock.Any(), "test-ingress", metav1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
 	)
@@ -319,6 +338,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "22",
+		}, nil),
+	)
 
 	ingress1Rule1 := networkingv1.IngressRule{
 		IngressRuleValue: networkingv1.IngressRuleValue{
@@ -356,7 +381,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
 		},
 	}
 
-	IngressResources := []k8sspecs.K8sIngress{ingress1}
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
@@ -375,7 +400,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
 		},
 	}
 	s.assertIngressResources(
-		c, IngressResources, "",
+		c, ingressResources, "",
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, gomock.Any()).Return(ingress, nil),
 	)
 }
@@ -383,6 +408,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
 func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "22",
+		}, nil),
+	)
 
 	ingress1Rule1 := networkingv1.IngressRule{
 		IngressRuleValue: networkingv1.IngressRuleValue{
@@ -420,7 +451,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 		},
 	}
 
-	IngressResources := []k8sspecs.K8sIngress{ingress1}
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
@@ -441,7 +472,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, ingress)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertIngressResources(
-		c, IngressResources, "",
+		c, ingressResources, "",
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, gomock.Any()).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressV1.EXPECT().Get(gomock.Any(), "test-ingress", metav1.GetOptions{}).Return(ingress, nil),
 		s.mockIngressV1.EXPECT().
@@ -453,6 +484,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExistingNonJujuManagedIngressV1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "22",
+		}, nil),
+	)
 
 	ingress1Rule1 := networkingv1.IngressRule{
 		IngressRuleValue: networkingv1.IngressRuleValue{
@@ -491,7 +528,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 		},
 	}
 
-	IngressResources := []k8sspecs.K8sIngress{ingress1}
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
 
 	getIngress := func() *networkingv1.Ingress {
 		return &networkingv1.Ingress{
@@ -516,7 +553,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	existingNonJujuManagedIngress := getIngress()
 	existingNonJujuManagedIngress.SetLabels(map[string]string{})
 	s.assertIngressResources(
-		c, IngressResources, `creating or updating ingress resources: ensuring ingress "test-ingress" with version "v1": existing ingress "test-ingress" found which does not belong to "app-name"`,
+		c, ingressResources, `creating or updating ingress resources: ensuring ingress "test-ingress" with version "v1": existing ingress "test-ingress" found which does not belong to "app-name"`,
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, gomock.Any()).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressV1.EXPECT().Get(gomock.Any(), "test-ingress", metav1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
 	)
@@ -525,6 +562,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngressCreatedByJujuExpose(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "22",
+		}, nil),
+	)
 
 	ingress1Rule1 := networkingv1beta1.IngressRule{
 		IngressRuleValue: networkingv1beta1.IngressRuleValue{
@@ -559,8 +602,158 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngr
 		},
 	}
 
-	IngressResources := []k8sspecs.K8sIngress{ingress1}
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
 	s.assertIngressResources(
-		c, IngressResources, `creating or updating ingress resources: ingress name "app-name" is reserved for juju expose not valid`,
+		c, ingressResources, `creating or updating ingress resources: ingress name "app-name" is reserved for juju expose not valid`,
+	)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesV1Beta1OnV1Cluster(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "19",
+		}, nil),
+	)
+
+	ingress1Rule1 := networkingv1beta1.IngressRule{
+		IngressRuleValue: networkingv1beta1.IngressRuleValue{
+			HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+				Paths: []networkingv1beta1.HTTPIngressPath{
+					{
+						Path: "/testpath",
+						Backend: networkingv1beta1.IngressBackend{
+							ServiceName: "test",
+							ServicePort: intstr.IntOrString{IntVal: 80},
+						},
+					},
+				},
+			},
+		},
+	}
+	ingress1 := k8sspecs.K8sIngress{
+		Meta: k8sspecs.Meta{
+			Name: "test-ingress",
+		},
+		Spec: k8sspecs.K8sIngressSpec{
+			Version: k8sspecs.K8sIngressV1Beta1,
+			SpecV1Beta1: networkingv1beta1.IngressSpec{
+				Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
+			},
+		},
+	}
+
+	pathType := networkingv1.PathTypeImplementationSpecific
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
+	ingress := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test-ingress",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
+			Annotations: map[string]string{
+				"controller.juju.is/id": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
+							{
+								Path:     "/testpath",
+								PathType: &pathType,
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "test",
+										Port: networkingv1.ServiceBackendPort{Number: 80},
+									},
+								},
+							},
+						},
+					},
+				},
+			}},
+		},
+	}
+	s.assertIngressResources(
+		c, ingressResources, "",
+		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, metav1.CreateOptions{}).Return(ingress, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesV1OnV1BetaCluster(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "18",
+		}, nil),
+	)
+
+	ingress1Rule1 := networkingv1.IngressRule{
+		IngressRuleValue: networkingv1.IngressRuleValue{
+			HTTP: &networkingv1.HTTPIngressRuleValue{
+				Paths: []networkingv1.HTTPIngressPath{
+					{
+						Path: "/testpath",
+						Backend: networkingv1.IngressBackend{
+							Resource: &core.TypedLocalObjectReference{
+								APIGroup: pointer.StringPtr("k8s.example.com"),
+								Kind:     "StorageBucket",
+								Name:     "icon-assets",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ingress1 := k8sspecs.K8sIngress{
+		Meta: k8sspecs.Meta{
+			Name: "test-ingress",
+		},
+		Spec: k8sspecs.K8sIngressSpec{
+			Version: k8sspecs.K8sIngressV1,
+			SpecV1: networkingv1.IngressSpec{
+				Rules: []networkingv1.IngressRule{ingress1Rule1},
+			},
+		},
+	}
+
+	ingressResources := []k8sspecs.K8sIngress{ingress1}
+	ingress := &networkingv1beta1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test-ingress",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
+			Annotations: map[string]string{
+				"controller.juju.is/id": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+			},
+		},
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{{
+				IngressRuleValue: networkingv1beta1.IngressRuleValue{
+					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+						Paths: []networkingv1beta1.HTTPIngressPath{
+							{
+								Path: "/testpath",
+								Backend: networkingv1beta1.IngressBackend{
+									Resource: &core.TypedLocalObjectReference{
+										APIGroup: pointer.StringPtr("k8s.example.com"),
+										Kind:     "StorageBucket",
+										Name:     "icon-assets",
+									},
+								},
+							},
+						},
+					},
+				},
+			}},
+		},
+	}
+	s.assertIngressResources(
+		c, ingressResources, "",
+		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, metav1.CreateOptions{}).Return(ingress, nil),
 	)
 }
