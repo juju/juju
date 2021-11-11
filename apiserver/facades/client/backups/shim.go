@@ -5,12 +5,14 @@ package backups
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backups"
 )
 
 // This file contains untested shims to let us wrap state in a sensible
@@ -108,4 +110,12 @@ type Machine interface {
 
 	// Series has machine's series.
 	Series() string
+}
+
+type sessionShim struct {
+	*mgo.Session
+}
+
+func (s sessionShim) DB(name string) backups.Database {
+	return s.Session.DB(name)
 }

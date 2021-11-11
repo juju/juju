@@ -56,7 +56,7 @@ func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataRes
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, session, mongoVersion)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, sessionShim{session}, mongoVersion)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

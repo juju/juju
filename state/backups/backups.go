@@ -39,12 +39,15 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/utils/v2/du"
 	"github.com/juju/utils/v2/filestorage"
 )
 
@@ -65,7 +68,14 @@ var (
 	finishMeta       = func(meta *Metadata, result *createResult) error {
 		return meta.MarkComplete(result.size, result.checksum)
 	}
-	storeArchive = StoreArchive
+	storeArchive  = StoreArchive
+	availableDisk = func(path string) uint64 {
+		return du.NewDiskUsage(path).Available()
+	}
+	totalDisk = func(path string) uint64 {
+		return du.NewDiskUsage(path).Size()
+	}
+	dirSize = totalDirSize
 )
 
 // StoreArchive sends the backup archive and its metadata to storage.
@@ -120,6 +130,20 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 	return &b
 }
 
+func totalDirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
+}
+
 // Create creates and stores a new juju backup archive (based on arguments)
 // and updates the provided metadata.  A filename to download the backup is provided.
 func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy, noDownload bool) (string, error) {
@@ -137,22 +161,44 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy,
 	}
 
 	// Create the archive.
-	filesToBackUp, err := getFilesToBackUp("", paths, meta.Origin.Machine)
+	filesToBackUp, err := getFilesToBackUp("", paths)
 	if err != nil {
 		return "", errors.Annotate(err, "while listing files to back up")
 	}
+
+	var totalFileSizes int64
+	for _, f := range filesToBackUp {
+		size, err := dirSize(f)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		totalFileSizes += size
+	}
+
+	totalFizeSizesMiB := int64(dbInfo.ApproxSizeMB) + totalFileSizes/humanize.MiByte
+	logger.Infof("backing up %dMiB (files) and %dMiB (database) = %dMiB",
+		totalFizeSizesMiB, dbInfo.ApproxSizeMB, int(totalFizeSizesMiB)+dbInfo.ApproxSizeMB)
 
 	dumper, err := getDBDumper(dbInfo)
 	if err != nil {
 		return "", errors.Annotate(err, "while preparing for DB dump")
 	}
 
-	args := createArgs{paths.BackupDir, filesToBackUp, dumper, metadataFile, noDownload}
+	args := createArgs{
+		backupDir:              paths.BackupDir,
+		filesToBackUp:          filesToBackUp,
+		db:                     dumper,
+		availableDisk:          availableDisk,
+		totalDisk:              totalDisk,
+		metadataReader:         metadataFile,
+		noDownload:             noDownload,
+		approxSpaceRequiredMib: int(totalFizeSizesMiB),
+	}
 	result, err := runCreate(&args)
 	if err != nil {
 		return "", errors.Annotate(err, "while creating backup archive")
 	}
-	defer result.archiveFile.Close()
+	defer func() { _ = result.archiveFile.Close() }()
 
 	// Finalize the metadata.
 	err = finishMeta(meta, result)
@@ -169,6 +215,12 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy,
 	}
 
 	return result.filename, nil
+}
+
+type diskUsage struct{}
+
+func (diskUsage) Available(path string) uint64 {
+	return du.NewDiskUsage(path).Available()
 }
 
 // Add stores the backup archive and returns its new ID.
