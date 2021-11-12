@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
@@ -170,13 +171,14 @@ type syncToolsAPIAdapter struct {
 
 func (s syncToolsAPIAdapter) FindTools(majorVersion int, stream string) (coretools.List, error) {
 	result, err := s.syncToolsAPI.FindTools(majorVersion, -1, "", "", "")
+	if params.IsCodeNotFound(result.Error) || errors.IsNotFound(err) {
+		return nil, coretools.ErrNoMatches
+	}
 	if err != nil {
 		return nil, err
 	}
 	if result.Error != nil {
-		if params.IsCodeNotFound(result.Error) {
-			return nil, coretools.ErrNoMatches
-		}
+
 		return nil, result.Error
 	}
 	return result.List, nil
