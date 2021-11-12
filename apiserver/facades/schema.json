@@ -37536,6 +37536,9 @@
                     "properties": {
                         "command": {
                             "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
