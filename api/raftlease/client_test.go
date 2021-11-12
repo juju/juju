@@ -616,9 +616,11 @@ func (s *RaftLeaseRemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 type fakeLogger struct{}
 
-func (fakeLogger) Errorf(string, ...interface{}) {}
-func (fakeLogger) Debugf(string, ...interface{}) {}
-func (fakeLogger) Tracef(string, ...interface{}) {}
+func (fakeLogger) Errorf(string, ...interface{})   {}
+func (fakeLogger) Warningf(string, ...interface{}) {}
+func (fakeLogger) Infof(string, ...interface{})    {}
+func (fakeLogger) Debugf(string, ...interface{})   {}
+func (fakeLogger) Tracef(string, ...interface{})   {}
 
 type fakeClientMetrics struct{}
 
