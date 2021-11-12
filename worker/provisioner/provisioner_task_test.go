@@ -249,12 +249,6 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 			zoneLock.Unlock()
 		})
 	}
-	broker.EXPECT().StopInstances(s.callCtx, gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
-		for _, id := range ids {
-			expectedIds.Remove(fmt.Sprintf("%s", id))
-		}
-		c.Assert(expectedIds.Size(), gc.Equals, 0)
-	})
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, expectedIds.Values()...)
@@ -344,7 +338,6 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 		go func() { started <- struct{}{} }()
 	})
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
 	s.sendModelMachinesChange(c, "0")
 
@@ -372,7 +365,6 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az9")
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
 
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForWorkerSetup(c, "worker not set up")
@@ -422,7 +414,6 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
@@ -506,7 +497,6 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
 	// Another machine from the same distribution group is already in az1,
 	// so we expect the machine to be created in az2.
