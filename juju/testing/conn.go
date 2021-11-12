@@ -18,6 +18,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	jujutesting "github.com/juju/testing"
@@ -138,9 +139,18 @@ type JujuConnSuite struct {
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
+	s.MgoSuite.SkipTestCleanup = true
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&paths.Chown, func(name string, uid, gid int) error { return nil })
+
+	session, err := jujutesting.MgoServer.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
+	err = state.InitDatabase(session, testing.ControllerTag.Id(), &controller.Config{
+		"max-txn-log-size": "10M",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
@@ -542,6 +552,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
 
+	environTesting := environ.(environTesting)
+	environTesting.SetInitDatabaseFunc(func(s *mgo.Session, modelUUID string, config *controller.Config) error {
+		c.Check(modelUUID, gc.Equals, testing.ModelTag.Id())
+		return state.TruncateTables(s, modelUUID, config)
+	})
+
 	versions := DefaultVersions(environ.Config())
 
 	// Upload tools for both preferred and fake default series
@@ -927,4 +943,12 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 		return profile
 	}
 	return nil
+}
+
+// enivronTesting is only implemented by the dummy provider.
+// This should only be used for testing.
+type environTesting interface {
+	// SetInitDatabaseFunc, if set with a non-nil func, will be used in place of the
+	// default init database function, state.InitDatabase.
+	SetInitDatabaseFunc(state.InitDatabaseFunc)
 }

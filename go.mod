@@ -57,7 +57,7 @@ require (
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
 	github.com/juju/description/v3 v3.0.0-20210709162012-5f861fa82eab
-	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
+	github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
@@ -78,13 +78,13 @@ require (
 	github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset/v2 v2.0.1-0.20211125220232-7967ce535201
-	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
+	github.com/juju/retry v0.0.0-20210818141810-5526f6f6ff07
 	github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client/v2 v2.0.0-20210422053140-27f71c100676
-	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
+	github.com/juju/testing v0.0.0-20211215003918-77eb13d6cad2
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
@@ -92,7 +92,7 @@ require (
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/kr/pretty v0.2.1
+	github.com/kr/pretty v0.3.0
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
@@ -106,14 +106,15 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	go.opencensus.io v0.23.0 // indirect
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/crypto v0.0.0-20211209193657-4570a0811e8b
 	golang.org/x/mod v0.4.0 // indirect
-	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
+	golang.org/x/net v0.0.0-20211209124913-491a49abca63
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e

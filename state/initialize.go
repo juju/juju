@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -66,6 +67,11 @@ type InitializeParams struct {
 
 	// AdminPassword holds the password for the initial user.
 	AdminPassword string
+
+	// InitDatabaseFunc, if non-nil, will be used in place of the
+	// default init database function, state.InitDatabase.
+	// This should only be used for testing.
+	InitDatabaseFunc InitDatabaseFunc
 }
 
 // Validate checks that the state initialization parameters are valid.
@@ -153,13 +159,18 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	}
 	modelTag := names.NewModelTag(modelUUID)
 
+	initDatabase := args.InitDatabaseFunc
+	if initDatabase == nil {
+		initDatabase = InitDatabase
+	}
+
 	ctlr, err := OpenController(OpenParams{
 		Clock:              args.Clock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       args.MongoSession,
 		NewPolicy:          args.NewPolicy,
-		InitDatabaseFunc:   InitDatabase,
+		InitDatabaseFunc:   initDatabase,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "opening controller")
@@ -302,6 +313,41 @@ func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.C
 	schema := allCollections()
 	if err := schema.Create(session.DB(jujuDB), settings); err != nil {
 		return errors.Trace(err)
+	}
+	if err := InitDbLogs(session); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// TruncateTables should only be called in testing to truncate all the tables.
+func TruncateTables(session *mgo.Session, modelUUID string, settings *controller.Config) error {
+	db := session.DB(jujuDB)
+	schema := allCollections()
+	for name, info := range schema {
+		c := db.C(name)
+		if name == txnLogC || name == txnsC {
+			continue
+		}
+		if info.explicitCreate != nil && info.explicitCreate.Capped {
+			err := c.DropCollection()
+			if err != nil {
+				return mongo.MaybeUnauthorizedf(err, "cannot drop collection %q", name)
+			}
+			if err := createCollection(c, info.explicitCreate); err != nil {
+				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
+			}
+			for _, index := range info.indexes {
+				if err := c.EnsureIndex(index); err != nil {
+					return mongo.MaybeUnauthorizedf(err, "cannot create index")
+				}
+			}
+			continue
+		}
+		_, err := c.RemoveAll(nil)
+		if err != nil {
+			return mongo.MaybeUnauthorizedf(err, "cannot truncate collection %q", name)
+		}
 	}
 	if err := InitDbLogs(session); err != nil {
 		return errors.Trace(err)
