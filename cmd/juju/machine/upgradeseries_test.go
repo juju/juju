@@ -47,8 +47,18 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 			Applications: map[string]params.ApplicationStatus{
 				"foo": {
 					Units: map[string]params.UnitStatus{
-						"foo/1": {Machine: "1"},
-						"foo/2": {Machine: "2/lxd/0"},
+						"foo/1": {
+							Machine: "1",
+							Subordinates: map[string]params.UnitStatus{
+								"sub/1": {},
+							},
+						},
+						"foo/2": {
+							Machine: "2/lxd/0",
+							Subordinates: map[string]params.UnitStatus{
+								"sub/2": {},
+							},
+						},
 					},
 				},
 			},
@@ -216,6 +226,15 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c
 	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), jc.HasSuffix, "Continue [y/N]?")
+}
+
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldIndicateOnlySubordinatesOnMachine(c *gc.C) {
+	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, seriesArg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out := ctx.Stdout.(*bytes.Buffer).String()
+	c.Check(strings.Contains(out, "sub/1"), jc.IsTrue)
+	c.Check(strings.Contains(out, "sub/2"), jc.IsFalse)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c *gc.C) {
