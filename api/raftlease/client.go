@@ -491,7 +491,7 @@ func NewRemote(config RemoteConfig) Remote {
 
 // RaftLeaseApplier defines a client for applying leases.
 type RaftLeaseApplier interface {
-	ApplyLease(command string) error
+	ApplyLease(leaseType, command string) error
 }
 
 type remote struct {
@@ -557,7 +557,7 @@ func (r *remote) Request(ctx context.Context, command *raftlease.Command) error 
 	default:
 	}
 
-	return r.client.ApplyLease(string(bytes))
+	return r.client.ApplyLease(command.Operation, string(bytes))
 }
 
 // Kill is part of the worker.Worker interface.

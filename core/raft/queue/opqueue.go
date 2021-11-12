@@ -17,6 +17,12 @@ const (
 	// returned.
 	EnqueueTimeout time.Duration = time.Second * 3
 
+	// EnqueueExtendTimeout is the timeout for enqueueing an extended operation.
+	// We want a different timeout for extensions as we want to reduce the
+	// amount of application leadership churning. To give the operation a better
+	// chance of succeeding.
+	EnqueueExtendTimeout time.Duration = time.Second * 5
+
 	// EnqueueBatchSize dictates how many operations can be processed at any
 	// one time.
 	EnqueueBatchSize = 64
@@ -58,6 +64,7 @@ func IsCanceled(err error) bool {
 
 // Operation holds the operations that a queue can hold.
 type Operation struct {
+	Type    string
 	Command []byte
 	Done    func(error)
 	Stop    func() <-chan struct{}
@@ -212,8 +219,14 @@ type ringOp struct {
 }
 
 func makeRingOp(op Operation, now time.Time) ringOp {
+	// If we locate a extension in the queue, give it a larger timeout to prevent
+	// excessive lease churning.
+	timeout := EnqueueTimeout
+	if op.Type == "extend" {
+		timeout = EnqueueExtendTimeout
+	}
 	return ringOp{
 		Operation:   op,
-		ExpiredTime: now.Add(EnqueueTimeout),
+		ExpiredTime: now.Add(timeout),
 	}
 }

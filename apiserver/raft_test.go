@@ -36,7 +36,7 @@ func (s *raftMediatorSuite) TestApplyLease(c *gc.C) {
 		logger: logger,
 		clock:  clock.WallClock,
 	}
-	err := mediator.ApplyLease(context.Background(), cmd)
+	err := mediator.ApplyLease(context.Background(), "claim", cmd)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.matcheOne(c, results, string(cmd))
@@ -53,7 +53,7 @@ func (s *raftMediatorSuite) TestApplyLeaseError(c *gc.C) {
 		logger: logger,
 		clock:  clock.WallClock,
 	}
-	err := mediator.ApplyLease(context.Background(), cmd)
+	err := mediator.ApplyLease(context.Background(), "claim", cmd)
 	c.Assert(err, gc.ErrorMatches, `boom`)
 
 	s.matcheOne(c, results, string(cmd))
@@ -70,7 +70,7 @@ func (s *raftMediatorSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
 		logger: logger,
 		clock:  clock.WallClock,
 	}
-	err := mediator.ApplyLease(context.Background(), cmd)
+	err := mediator.ApplyLease(context.Background(), "claim", cmd)
 	c.Assert(err, gc.ErrorMatches, `not currently the leader, try "1"`)
 
 	s.matcheOne(c, results, string(cmd))
@@ -89,7 +89,7 @@ func (s *raftMediatorSuite) TestApplyLeaseDeadlineExceededError(c *gc.C) {
 		logger: logger,
 		clock:  clock.WallClock,
 	}
-	err := mediator.ApplyLease(context.Background(), cmd)
+	err := mediator.ApplyLease(context.Background(), "claim", cmd)
 	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
 	c.Assert(apiservererrors.IsDeadlineExceededError(err), jc.IsTrue)
 
@@ -112,7 +112,7 @@ func (s *raftMediatorSuite) TestApplyLeaseContextDoneError(c *gc.C) {
 	// exercise the done path.
 	cancel()
 
-	err := mediator.ApplyLease(ctx, cmd)
+	err := mediator.ApplyLease(ctx, "claim", cmd)
 	c.Assert(err, gc.ErrorMatches, `enqueueing canceled`)
 	c.Assert(apiservererrors.IsDeadlineExceededError(err), jc.IsTrue)
 }

@@ -1077,6 +1077,7 @@ type LeaseOperations struct {
 
 // LeaseOperation is used to send raft operational messages between controllers.
 type LeaseOperation struct {
+	Type    string `json:"type,omitempty"`
 	Command string `json:"command"`
 }
 

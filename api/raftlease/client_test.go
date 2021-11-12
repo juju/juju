@@ -583,7 +583,7 @@ func (s *RaftLeaseRemoteSuite) TestRequest(c *gc.C) {
 		client: s.raftLeaseApplier,
 	}
 
-	s.raftLeaseApplier.EXPECT().ApplyLease("version: 0\noperation: \"\"\n").Return(nil)
+	s.raftLeaseApplier.EXPECT().ApplyLease("", "version: 0\noperation: \"\"\n").Return(nil)
 
 	err := remote.Request(context.TODO(), &raftlease.Command{})
 	c.Assert(err, jc.ErrorIsNil)

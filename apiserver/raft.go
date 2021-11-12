@@ -53,9 +53,9 @@ type raftMediator struct {
 // already processing a application, then back pressure is applied to the
 // caller and a ErrEnqueueDeadlineExceeded will be sent. It's up to the caller
 // to retry or drop depending on how the retry algorithm is implemented.
-func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
+func (m *raftMediator) ApplyLease(ctx context.Context, leaseType string, cmd []byte) error {
 	if m.logger.IsTraceEnabled() {
-		m.logger.Tracef("Applying Lease with command %s", string(cmd))
+		m.logger.Tracef("Applying %q Lease with command %s", leaseType, string(cmd))
 	}
 
 	done := make(chan error, 1)
@@ -63,6 +63,7 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
 	start := m.clock.Now()
 
 	m.queue.Enqueue(queue.Operation{
+		Type:    leaseType,
 		Command: cmd,
 		Stop:    ctx.Done,
 		Done: func(err error) {

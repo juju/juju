@@ -139,15 +139,15 @@ func (m *MockRaftLeaseApplier) EXPECT() *MockRaftLeaseApplierMockRecorder {
 }
 
 // ApplyLease mocks base method.
-func (m *MockRaftLeaseApplier) ApplyLease(arg0 string) error {
+func (m *MockRaftLeaseApplier) ApplyLease(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplyLease", arg0)
+	ret := m.ctrl.Call(m, "ApplyLease", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ApplyLease indicates an expected call of ApplyLease.
-func (mr *MockRaftLeaseApplierMockRecorder) ApplyLease(arg0 interface{}) *gomock.Call {
+func (mr *MockRaftLeaseApplierMockRecorder) ApplyLease(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyLease", reflect.TypeOf((*MockRaftLeaseApplier)(nil).ApplyLease), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyLease", reflect.TypeOf((*MockRaftLeaseApplier)(nil).ApplyLease), arg0, arg1)
 }

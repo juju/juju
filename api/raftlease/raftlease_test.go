@@ -30,6 +30,7 @@ func (s *RaftLeaseSuite) TestApplyLease(c *gc.C) {
 
 	arg := params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
+			Type:    "claim",
 			Command: "do it",
 		}},
 	}
@@ -39,7 +40,7 @@ func (s *RaftLeaseSuite) TestApplyLease(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("ApplyLease", arg, gomock.Any()).SetArg(2, result)
 
 	client := s.newAPI(c)
-	err := client.ApplyLease("do it")
+	err := client.ApplyLease("claim", "do it")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -52,6 +53,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotTheLeader(c *gc.C) {
 	}
 	arg := params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
+			Type:    "claim",
 			Command: "do it",
 		}},
 	}
@@ -67,7 +69,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotTheLeader(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("ApplyLease", arg, gomock.Any()).SetArg(2, result)
 
 	client := s.newAPI(c)
-	err := client.ApplyLease("do it")
+	err := client.ApplyLease("claim", "do it")
 	c.Assert(err, gc.ErrorMatches, `not currently the leader, try "1"`)
 	c.Assert(apiservererrors.IsNotLeaderError(err), jc.IsTrue)
 	c.Assert(err.(*apiservererrors.NotLeaderError).ServerAddress(), gc.DeepEquals, "10.0.0.8")
@@ -79,6 +81,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotNotTheLeaderError(c *gc.C) {
 
 	arg := params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
+			Type:    "claim",
 			Command: "do it",
 		}},
 	}
@@ -93,7 +96,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotNotTheLeaderError(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("ApplyLease", arg, gomock.Any()).SetArg(2, result)
 
 	client := s.newAPI(c)
-	err := client.ApplyLease("do it")
+	err := client.ApplyLease("claim", "do it")
 	c.Assert(err, gc.ErrorMatches, "bad request")
 	c.Assert(apiservererrors.IsNotLeaderError(err), jc.IsFalse)
 }
@@ -103,6 +106,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseToManyErrors(c *gc.C) {
 
 	arg := params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
+			Type:    "claim",
 			Command: "do it",
 		}},
 	}
@@ -122,7 +126,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseToManyErrors(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("ApplyLease", arg, gomock.Any()).SetArg(2, result)
 
 	client := s.newAPI(c)
-	err := client.ApplyLease("do it")
+	err := client.ApplyLease("claim", "do it")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 

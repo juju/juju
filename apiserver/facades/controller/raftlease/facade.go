@@ -54,7 +54,7 @@ func (facade *Facade) ApplyLease(ctx context.Context, args params.LeaseOperation
 	results := make([]params.ErrorResult, len(args.Operations))
 
 	for k, op := range args.Operations {
-		err := facade.raft.ApplyLease(ctx, []byte(op.Command))
+		err := facade.raft.ApplyLease(ctx, op.Type, []byte(op.Command))
 		if err == nil {
 			continue
 		}

@@ -37,17 +37,17 @@ func (m *MockRaftContext) EXPECT() *MockRaftContextMockRecorder {
 }
 
 // ApplyLease mocks base method.
-func (m *MockRaftContext) ApplyLease(arg0 context.Context, arg1 []byte) error {
+func (m *MockRaftContext) ApplyLease(arg0 context.Context, arg1 string, arg2 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplyLease", arg0, arg1)
+	ret := m.ctrl.Call(m, "ApplyLease", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ApplyLease indicates an expected call of ApplyLease.
-func (mr *MockRaftContextMockRecorder) ApplyLease(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRaftContextMockRecorder) ApplyLease(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyLease", reflect.TypeOf((*MockRaftContext)(nil).ApplyLease), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyLease", reflect.TypeOf((*MockRaftContext)(nil).ApplyLease), arg0, arg1, arg2)
 }
 
 // MockAuthorizer is a mock of Authorizer interface.
