@@ -101,7 +101,7 @@ def get_credentials(env, creds_path=juju_home):
     :return: Dict of credential information
     """
     with open(os.path.join(creds_path, 'credentials.yaml')) as f:
-        creds_dict = yaml.load(f)
+        creds_dict = yaml.safe_load(f)
     cred = creds_dict['credentials'][env]
     return cred
 
@@ -126,7 +126,7 @@ def verify_credentials_match(env, cred):
     :param cred: Dict of credential information
     """
     with open(os.path.join(os.environ['JUJU_DATA'], 'credentials.yaml')) as f:
-        test_creds = yaml.load(f)
+        test_creds = yaml.safe_load(f)
         test_creds = test_creds['credentials'][env][env]
     if not test_creds == cred['credentials']:
         error = 'Credential miss-match after manual add'

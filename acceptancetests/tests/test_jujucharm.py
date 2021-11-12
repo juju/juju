@@ -58,7 +58,7 @@ class TestCharm(TestCase):
             charm.to_dir(charm_dir)
             metafile = os.path.join(charm_dir, 'metadata.yaml')
             with open(metafile) as f:
-                metadata = yaml.load(f)
+                metadata = yaml.safe_load(f)
         expected = {
             'name': 'test',
             'summary': 'a summary',
@@ -73,7 +73,7 @@ class TestCharm(TestCase):
             charm.to_repo_dir(repo_dir)
             metafile = os.path.join(repo_dir, 'wily', 'test', 'metadata.yaml')
             with open(metafile) as f:
-                metadata = yaml.load(f)
+                metadata = yaml.safe_load(f)
         expected = {
             'name': 'test',
             'summary': 'a summary',
