@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -21,23 +22,29 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -53,8 +60,7 @@ type API struct {
 
 	multiwatcherFactory multiwatcher.Factory
 
-	client           *Client
-	toolsFinder      *common.ToolsFinder
+	toolsFinder      common.ToolsFinder
 	leadershipReader leadership.Reader
 	modelCache       *cache.Model
 }
@@ -73,11 +79,12 @@ type Client struct {
 	// on the client facade until GUI and Python client library are updated.
 	*modelconfig.ModelConfigAPIV1
 
-	api         *API
-	newEnviron  common.NewEnvironFunc
-	check       *common.BlockChecker
-	callContext context.ProviderCallContext
-	openCSRepo  application.OpenCSRepoFunc
+	api             *API
+	newEnviron      common.NewEnvironFunc
+	check           *common.BlockChecker
+	callContext     context.ProviderCallContext
+	openCSRepo      application.OpenCSRepoFunc
+	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 }
 
 // ClientV1 serves the (v1) client-specific API methods.
@@ -87,6 +94,11 @@ type ClientV1 struct {
 
 // ClientV2 serves the (v2) client-specific API methods.
 type ClientV2 struct {
+	*ClientV3
+}
+
+// ClientV2 serves the (v2) client-specific API methods.
+type ClientV3 struct {
 	*Client
 }
 
@@ -138,11 +150,6 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacade creates a version 1 Client facade to handle API requests.
-func NewFacade(ctx facade.Context) (*Client, error) {
-	return newFacade(ctx)
-}
-
 // NewFacadeV1 creates a version 1 Client facade to handle API requests.
 func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
 	client, err := NewFacadeV2(ctx)
@@ -154,14 +161,24 @@ func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
 
 // NewFacadeV2 creates a version 2 Client facade to handle API requests.
 func NewFacadeV2(ctx facade.Context) (*ClientV2, error) {
-	client, err := newFacade(ctx)
+	client, err := NewFacadeV3(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ClientV2{client}, nil
 }
 
-func newFacade(ctx facade.Context) (*Client, error) {
+// NewFacadeV3 creates a version 3 Client facade to handle API requests.
+func NewFacadeV3(ctx facade.Context) (*ClientV3, error) {
+	client, err := NewFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ClientV3{client}, nil
+}
+
+// NewFacade creates a version 4 Client facade to handle API requests.
+func NewFacade(ctx facade.Context) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
@@ -212,6 +229,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		modelCache,
 		factory,
 		application.OpenCSRepo,
+		registry.New,
 	)
 }
 
@@ -223,7 +241,7 @@ func NewClient(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
-	toolsFinder *common.ToolsFinder,
+	toolsFinder common.ToolsFinder,
 	newEnviron common.NewEnvironFunc,
 	blockChecker *common.BlockChecker,
 	callCtx context.ProviderCallContext,
@@ -231,6 +249,7 @@ func NewClient(
 	modelCache *cache.Model,
 	factory multiwatcher.Factory,
 	openCSRepo application.OpenCSRepoFunc,
+	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -248,10 +267,11 @@ func NewClient(
 			modelCache:          modelCache,
 			multiwatcherFactory: factory,
 		},
-		newEnviron:  newEnviron,
-		check:       blockChecker,
-		callContext: callCtx,
-		openCSRepo:  openCSRepo,
+		newEnviron:      newEnviron,
+		check:           blockChecker,
+		callContext:     callCtx,
+		openCSRepo:      openCSRepo,
+		registryAPIFunc: registryAPIFunc,
 	}
 	return client, nil
 }
@@ -554,7 +574,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	}
 
 	getProvisioningScript := sshprovisioner.ProvisioningScript
-	if osSeries == os.Windows {
+	if osSeries == coreos.Windows {
 		getProvisioningScript = winrmprovisioner.ProvisioningScript
 	}
 
@@ -792,12 +812,125 @@ func (c *Client) AbortCurrentUpgrade() error {
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
-func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+func (c *ClientV3) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+	logger.Criticalf("ClientV3.FindTools args %#v", args)
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}
-
 	return c.api.toolsFinder.FindTools(args)
+}
+
+// FindTools returns a List containing all tools matching the given parameters.
+func (c *Client) FindTools(args params.FindToolsParams) (result params.FindToolsResult, err error) {
+	defer func() {
+		logger.Criticalf("Client.FindTools args -> %#v, params.FindToolsResult -> %#v, error -> %#v", args, result, err)
+	}()
+
+	if err := c.checkCanWrite(); err != nil {
+		return params.FindToolsResult{}, err
+	}
+	result, err = c.api.toolsFinder.FindTools(args)
+	if err == nil {
+		if result.Error != nil {
+			err = result.Error
+			// We need to deal with older controllers.
+			if strings.HasSuffix(result.Error.Message, "not valid") {
+				// TODO: probably we can remove this!!
+				err = errors.NotValidf("finding stream data for this model")
+			}
+			if params.IsCodeNotFound(err) {
+				err = errors.NewNotFound(err, "finding stream data for this model")
+			}
+		}
+	}
+	if err != nil && !errors.IsNotFound(err) {
+		return result, errors.Trace(err)
+	}
+	model, err := c.api.stateAccessor.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if model.Type() != state.ModelTypeCAAS {
+		logger.Criticalf("Client.FindTools model.Type() iaas")
+		return result, nil
+	}
+	logger.Criticalf("Client.FindTools model.Type() caas")
+	streamsVersions := set.NewStrings()
+	for _, a := range result.List {
+		streamsVersions.Add(a.Version.Number.String())
+	}
+	logger.Criticalf("Client.FindTools streamsVersions %#v", streamsVersions)
+	return c.toolVersionsForCAAS(args, streamsVersions)
+}
+
+func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings) (params.FindToolsResult, error) {
+	result := params.FindToolsResult{}
+	controllerCfg, err := c.api.stateAccessor.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	imageRepoDetails := controllerCfg.CAASImageRepo()
+	if imageRepoDetails.Empty() {
+		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		imageRepoDetails = *repoDetails
+	}
+	reg, err := c.registryAPIFunc(imageRepoDetails)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	defer func() { _ = reg.Close() }()
+	imageName := podcfg.JujudOCIName
+	tags, err := reg.Tags(imageName)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	logger.Criticalf("toolVersionsForCAAS tags %#v", tags)
+	for _, tag := range tags {
+		number := tag.AgentVersion()
+		if number.Compare(jujuversion.Current) <= 0 {
+			continue
+		}
+		if jujuversion.OfficialBuild == 0 && number.Build > 0 {
+			continue
+		}
+		if args.MajorVersion != -1 && number.Major != args.MajorVersion {
+			continue
+		}
+		number.Build = 0
+		if !controllerCfg.Features().Contains(feature.DeveloperMode) && streamsVersions.Size() > 0 {
+			if !streamsVersions.Contains(number.String()) {
+				continue
+			}
+		} else {
+			// Fallback for when we can't query the streams versions.
+			// Ignore tagged (non-release) versions if agent stream is released.
+			if (args.AgentStream == "" || args.AgentStream == envtools.ReleasedStream) && number.Tag != "" {
+				continue
+			}
+		}
+		arch, err := reg.GetArchitecture(imageName, number.String())
+		logger.Criticalf("toolVersionsForCAAS GetArchitecture arch %#v, err %#v", arch, err)
+		if err != nil {
+			return result, errors.Annotatef(err, "getting architecture for %q:%q", imageName, number.String())
+		}
+		if args.Arch != "" && arch != args.Arch {
+			// TODO: we don't have series and osType applicable here.
+			// So we only check arch for now.
+			continue
+		}
+		tools := tools.Tools{
+			Version: version.Binary{
+				Number:  number,
+				Release: coreos.HostOSTypeName(),
+				Arch:    arch,
+			},
+		}
+		result.List = append(result.List, &tools)
+	}
+	return result, nil
 }
 
 // NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.
@@ -952,6 +1085,7 @@ func (c *Client) CACert() (params.BytesResult, error) {
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+	logger.Criticalf("ClientV1.FindTools args %#v", args)
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}
