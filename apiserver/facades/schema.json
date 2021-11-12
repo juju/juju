@@ -16241,7 +16241,7 @@
     {
         "Name": "Client",
         "Description": "Client serves client-specific API methods.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
