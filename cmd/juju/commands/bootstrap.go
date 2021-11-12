@@ -313,7 +313,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	}
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the provisioned controller instance if bootstrap fails")
 	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "After bootstrap, upgrade to the latest patch release")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
@@ -374,7 +374,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
 	}
 
-	/* controller is the name of controller created for internal juju management */
+	// controller is the name of the model created for internal juju management.
 	if c.hostedModelName == "controller" {
 		return errors.New(" 'controller' name is already assigned to juju internal management model")
 	}
@@ -1011,13 +1011,13 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	cloudCallCtx *envcontext.CloudCallContext,
 	bootstrapCfg bootstrapConfigs,
 ) error {
-
 	agentVersion := jujuversion.Current
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	// this function allows polling address info later during retring.
-	// for example, the Load Balancer needs time to be provisioned.
+
+	// This logic allows polling for address info later during retries,
+	// for example, when a load balancer needs time to be provisioned.
 	var addrs []network.ProviderAddress
 	var err error
 	if env, ok := environ.(environs.InstanceBroker); ok {
@@ -1038,8 +1038,9 @@ func (c *bootstrapCommand) controllerDataRefresher(
 		}
 		addrs = svc.Addresses
 	} else {
-		// TODO(caas): this should never happen.
-		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
+		// This should never happen.
+		return errors.New(
+			"supplied BootstrapEnviron implements neither environs.InstanceBroker nor caas.ServiceGetterSetter")
 	}
 
 	var proxier proxy.Proxier
