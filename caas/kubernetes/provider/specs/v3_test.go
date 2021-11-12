@@ -378,12 +378,22 @@ kubernetesResources:
                     - name: tensorflow
                       image: kubeflow/tf-dist-mnist-test:1.0
   ingressResources:
-    - name: test-ingress
+    - name: test-ingress-beta
       labels:
         foo: bar
       annotations:
-        nginx.ingress.kubernetes.io/rewrite-target: /
+        nginx.ingress.kubernetes.io/affinity: cookie
       spec:
+        backend:
+          serviceName: fooServiceDefault
+          servicePort: 6666
+          resource:
+            apiGroup: k8s.example.com
+            kind: StorageBucket
+            name: static-assets
+        tls:
+          - secretName: shhhh
+            hosts: [foo, bar]
         rules:
           - http:
               paths:
@@ -391,19 +401,36 @@ kubernetesResources:
                   backend:
                     serviceName: test
                     servicePort: 80
-    - name: ingress-resource-backend
+    - name: ingress-resource-v1
+      labels:
+        foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/affinity: cookie
       spec:
         defaultBackend:
+          service:
+            name: fooServiceDefault
+            port:
+              name: www
+              number: 8080
           resource:
             apiGroup: k8s.example.com
             kind: StorageBucket
             name: static-assets
+        tls:
+          - secretName: shhhh
+            hosts: [foo, bar]
         rules:
           - http:
               paths:
                 - path: /icons
                   pathType: ImplementationSpecific
                   backend:
+                    service:
+                      name: fooService
+                      port:
+                        name: www
+                        number: 8080
                     resource:
                       apiGroup: k8s.example.com
                       kind: StorageBucket
@@ -733,17 +760,30 @@ echo "do some stuff here for gitlab-init container"
 
 		ingressv1beta1 := k8sspecs.K8sIngress{
 			Meta: k8sspecs.Meta{
-				Name: "test-ingress",
+				Name: "test-ingress-beta",
 				Labels: map[string]string{
 					"foo": "bar",
 				},
 				Annotations: map[string]string{
-					"nginx.ingress.kubernetes.io/rewrite-target": "/",
+					"nginx.ingress.kubernetes.io/affinity": "cookie",
 				},
 			},
 			Spec: k8sspecs.K8sIngressSpec{
 				Version: k8sspecs.K8sIngressV1Beta1,
 				SpecV1Beta1: networkingv1beta1.IngressSpec{
+					Backend: &networkingv1beta1.IngressBackend{
+						ServiceName: "fooServiceDefault",
+						ServicePort: intstr.IntOrString{IntVal: 6666},
+						Resource: &core.TypedLocalObjectReference{
+							APIGroup: pointer.StringPtr("k8s.example.com"),
+							Kind:     "StorageBucket",
+							Name:     "static-assets",
+						},
+					},
+					TLS: []networkingv1beta1.IngressTLS{{
+						Hosts:      []string{"foo", "bar"},
+						SecretName: "shhhh",
+					}},
 					Rules: []networkingv1beta1.IngressRule{
 						{
 							IngressRuleValue: networkingv1beta1.IngressRuleValue{
@@ -767,18 +807,35 @@ echo "do some stuff here for gitlab-init container"
 		pathType1 := networkingv1.PathTypeImplementationSpecific
 		ingressv1 := k8sspecs.K8sIngress{
 			Meta: k8sspecs.Meta{
-				Name: "ingress-resource-backend",
+				Name: "ingress-resource-v1",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"nginx.ingress.kubernetes.io/affinity": "cookie",
+				},
 			},
 			Spec: k8sspecs.K8sIngressSpec{
 				Version: k8sspecs.K8sIngressV1,
 				SpecV1: networkingv1.IngressSpec{
 					DefaultBackend: &networkingv1.IngressBackend{
+						Service: &networkingv1.IngressServiceBackend{
+							Name: "fooServiceDefault",
+							Port: networkingv1.ServiceBackendPort{
+								Name:   "www",
+								Number: 8080,
+							},
+						},
 						Resource: &core.TypedLocalObjectReference{
 							APIGroup: pointer.StringPtr("k8s.example.com"),
 							Kind:     "StorageBucket",
 							Name:     "static-assets",
 						},
 					},
+					TLS: []networkingv1.IngressTLS{{
+						Hosts:      []string{"foo", "bar"},
+						SecretName: "shhhh",
+					}},
 					Rules: []networkingv1.IngressRule{
 						{
 							IngressRuleValue: networkingv1.IngressRuleValue{
@@ -788,6 +845,13 @@ echo "do some stuff here for gitlab-init container"
 											Path:     "/icons",
 											PathType: &pathType1,
 											Backend: networkingv1.IngressBackend{
+												Service: &networkingv1.IngressServiceBackend{
+													Name: "fooService",
+													Port: networkingv1.ServiceBackendPort{
+														Name:   "www",
+														Number: 8080,
+													},
+												},
 												Resource: &core.TypedLocalObjectReference{
 													APIGroup: pointer.StringPtr("k8s.example.com"),
 													Kind:     "StorageBucket",
