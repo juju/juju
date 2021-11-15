@@ -178,6 +178,8 @@ func NewFacadeV3(ctx facade.Context) (*ClientV3, error) {
 }
 
 // NewFacade creates a version 4 Client facade to handle API requests.
+// Changes:
+// - FindTools deals with CAAS models now;
 func NewFacade(ctx facade.Context) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
@@ -813,7 +815,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *ClientV3) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	logger.Criticalf("ClientV3.FindTools args %#v", args)
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}
@@ -822,48 +823,37 @@ func (c *ClientV3) FindTools(args params.FindToolsParams) (params.FindToolsResul
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (result params.FindToolsResult, err error) {
-	defer func() {
-		logger.Criticalf("Client.FindTools args -> %#v, params.FindToolsResult -> %#v, error -> %#v", args, result, err)
-	}()
-
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
-	}
-	result, err = c.api.toolsFinder.FindTools(args)
-	if err == nil {
-		if result.Error != nil {
-			err = result.Error
-			// We need to deal with older controllers.
-			if strings.HasSuffix(result.Error.Message, "not valid") {
-				// TODO: probably we can remove this!!
-				err = errors.NotValidf("finding stream data for this model")
-			}
-			if params.IsCodeNotFound(err) {
-				err = errors.NewNotFound(err, "finding stream data for this model")
-			}
-		}
-	}
-	if err != nil && !errors.IsNotFound(err) {
-		return result, errors.Trace(err)
 	}
 	model, err := c.api.stateAccessor.Model()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	result, err = c.api.toolsFinder.FindTools(args)
 	if model.Type() != state.ModelTypeCAAS {
-		logger.Criticalf("Client.FindTools model.Type() iaas")
-		return result, nil
+		return result, errors.Annotate(err, "finding tool version from simple streams")
 	}
-	logger.Criticalf("Client.FindTools model.Type() caas")
+	if err != nil && !errors.IsNotFound(err) || result.Error != nil && !params.IsCodeNotFound(result.Error) {
+		return result, errors.Annotate(err, "finding tool versions from simplestream")
+	}
 	streamsVersions := set.NewStrings()
 	for _, a := range result.List {
 		streamsVersions.Add(a.Version.Number.String())
 	}
-	logger.Criticalf("Client.FindTools streamsVersions %#v", streamsVersions)
-	return c.toolVersionsForCAAS(args, streamsVersions)
+	logger.Tracef("versions from simplestream %v", streamsVersions.SortedValues())
+	mCfg, err := model.Config()
+	if err != nil {
+		return result, errors.Annotate(err, "getting model config")
+	}
+	currentVersion, ok := mCfg.AgentVersion()
+	if !ok {
+		return result, errors.NewNotValid(nil, fmt.Sprintf("agent version is not set for model %q", model.Name()))
+	}
+	return c.toolVersionsForCAAS(args, streamsVersions, currentVersion)
 }
 
-func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings) (params.FindToolsResult, error) {
+func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
 	result := params.FindToolsResult{}
 	controllerCfg, err := c.api.stateAccessor.ControllerConfig()
 	if err != nil {
@@ -879,7 +869,7 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 	}
 	reg, err := c.registryAPIFunc(imageRepoDetails)
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, errors.Annotatef(err, "constructing registry API for %s", imageRepoDetails)
 	}
 	defer func() { _ = reg.Close() }()
 	imageName := podcfg.JujudOCIName
@@ -887,10 +877,9 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	logger.Criticalf("toolVersionsForCAAS tags %#v", tags)
 	for _, tag := range tags {
 		number := tag.AgentVersion()
-		if number.Compare(jujuversion.Current) <= 0 {
+		if number.Compare(current) <= 0 {
 			continue
 		}
 		if jujuversion.OfficialBuild == 0 && number.Build > 0 {
@@ -912,13 +901,10 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 			}
 		}
 		arch, err := reg.GetArchitecture(imageName, number.String())
-		logger.Criticalf("toolVersionsForCAAS GetArchitecture arch %#v, err %#v", arch, err)
 		if err != nil {
 			return result, errors.Annotatef(err, "getting architecture for %q:%q", imageName, number.String())
 		}
 		if args.Arch != "" && arch != args.Arch {
-			// TODO: we don't have series and osType applicable here.
-			// So we only check arch for now.
 			continue
 		}
 		tools := tools.Tools{
@@ -1085,7 +1071,6 @@ func (c *Client) CACert() (params.BytesResult, error) {
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	logger.Criticalf("ClientV1.FindTools args %#v", args)
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}

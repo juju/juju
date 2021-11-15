@@ -171,15 +171,11 @@ type syncToolsAPIAdapter struct {
 
 func (s syncToolsAPIAdapter) FindTools(majorVersion int, stream string) (coretools.List, error) {
 	result, err := s.syncToolsAPI.FindTools(majorVersion, -1, "", "", "")
-	if params.IsCodeNotFound(result.Error) || errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		return nil, coretools.ErrNoMatches
 	}
 	if err != nil {
 		return nil, err
-	}
-	if result.Error != nil {
-
-		return nil, result.Error
 	}
 	return result.List, nil
 }

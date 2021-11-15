@@ -390,7 +390,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration) (err error) {
 	defer func() {
-		logger.Criticalf("upgradeJujuCommand) upgradeModel %#v", err)
+		if err != nil {
+			logger.Debugf("upgradeModel failed %v", err)
+		}
 	}()
 	// Validate a model can be upgraded, by running some pre-flight checks.
 	if err := c.validateModelUpgrade(); err != nil {
@@ -801,6 +803,7 @@ func (c *baseUpgradeCommand) initVersions(
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
+	logger.Debugf("fetched stream versions %s", streamVersions)
 	agents, err := toolListToVersions(streamVersions)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -843,7 +846,6 @@ func fetchStreamsVersions(
 
 // The default available agents come directly from streams metadata.
 func toolListToVersions(streamsVersions coretools.List) (coretools.Versions, error) {
-	logger.Criticalf("toolListToVersions streamsVersions %s", streamsVersions)
 	agents := make(coretools.Versions, len(streamsVersions))
 	for i, t := range streamsVersions {
 		agents[i] = t

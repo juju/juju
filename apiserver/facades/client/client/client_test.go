@@ -2039,9 +2039,9 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
 
+		backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
-		backend.EXPECT().Model().Return(model, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
@@ -2058,6 +2058,17 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, simpleStreams)
+}
+
+func (s *findToolsSuite) getModelConfig(c *gc.C, agentVersion string) *config.Config {
+	// Validate version string.
+	ver, err := version.Parse(agentVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	mCfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+		config.AgentVersionKey: ver.String(),
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	return mCfg
 }
 
 func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
@@ -2077,7 +2088,6 @@ func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
 			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 		},
 	}
-	s.PatchValue(&jujuversion.Current, version.MustParse("2.9.9"))
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	gomock.InOrder(
@@ -2087,10 +2097,11 @@ func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
 
+		backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
-		backend.EXPECT().Model().Return(model, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9"), nil),
 
 		backend.EXPECT().ControllerConfig().Return(controller.Config{
 			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
