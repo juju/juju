@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/raftlease"
 	"gopkg.in/tomb.v2"
 )
 
@@ -62,9 +63,17 @@ func IsCanceled(err error) bool {
 	return ok
 }
 
-// Operation holds the operations that a queue can hold.
-type Operation struct {
-	Type    string
+// InOperation is used to identify operations that can be enqueued on a given
+// queue.
+type InOperation struct {
+	Command raftlease.Command
+	Done    func(error)
+	Stop    func() <-chan struct{}
+}
+
+// OutOperation holds the operations that a queue can hold and is used for the
+// consuming side.
+type OutOperation struct {
 	Command []byte
 	Done    func(error)
 	Stop    func() <-chan struct{}
@@ -75,7 +84,7 @@ type Operation struct {
 // and not at the consuming of the queue.
 type OpQueue struct {
 	in           chan ringOp
-	out          chan []Operation
+	out          chan []OutOperation
 	clock        clock.Clock
 	maxBatchSize int
 	tomb         *tomb.Tomb
@@ -85,7 +94,7 @@ type OpQueue struct {
 func NewOpQueue(clock clock.Clock) *OpQueue {
 	queue := &OpQueue{
 		in:           make(chan ringOp),
-		out:          make(chan []Operation),
+		out:          make(chan []OutOperation),
 		clock:        clock,
 		maxBatchSize: EnqueueBatchSize,
 		tomb:         new(tomb.Tomb),
@@ -100,19 +109,26 @@ func NewOpQueue(clock clock.Clock) *OpQueue {
 // to be completed.
 // The design of this is to ensure that people calling this will have to
 // correctly handle backing off from enqueueing.
-func (q *OpQueue) Enqueue(op Operation) {
+func (q *OpQueue) Enqueue(op InOperation) error {
+	bytes, err := op.Command.Marshal()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	select {
 	case <-q.tomb.Dying():
 		op.Done(tomb.ErrDying)
 	case <-q.tomb.Dead():
 		op.Done(q.tomb.Err())
-	case q.in <- makeRingOp(op, q.clock.Now()):
+	case q.in <- makeRingOp(op.Command.Lease, bytes, op.Stop, op.Done, q.clock.Now()):
 	}
+
+	return nil
 }
 
 // Queue returns the queue of operations. Removing an item from the channel
 // will unblock to allow another to take it's place.
-func (q *OpQueue) Queue() <-chan []Operation {
+func (q *OpQueue) Queue() <-chan []OutOperation {
 	return q.out
 }
 
@@ -163,8 +179,8 @@ func (q *OpQueue) loop() error {
 // are multiple concurrent callers to the Raft client API, but *not* for a
 // batch of operations enqueued synchronously. Further work would be required
 // to accommodate such a scenario.
-func (q *OpQueue) consume() []Operation {
-	ops := make([]Operation, 0)
+func (q *OpQueue) consume() []OutOperation {
+	ops := make([]OutOperation, 0)
 
 	for {
 		select {
@@ -175,11 +191,18 @@ func (q *OpQueue) consume() []Operation {
 
 			// Never enqueue operations that have already expired.
 			if q.clock.Now().After(op.ExpiredTime) {
-				op.Operation.Done(ErrDeadlineExceeded)
+				op.Done(ErrDeadlineExceeded)
 				break
 			}
 
-			ops = append(ops, op.Operation)
+			// TODO (stickupkid): We could use a sync.Pool for this OutOperation
+			// and we can put the operation back in the pool once the stop is
+			// done.
+			ops = append(ops, OutOperation{
+				Command: op.Command,
+				Done:    op.Done,
+				Stop:    op.Stop,
+			})
 			if len(ops) >= q.maxBatchSize {
 				return ops
 			}
@@ -200,13 +223,13 @@ func (q *OpQueue) consume() []Operation {
 }
 
 func isCanceled(op ringOp) bool {
-	stop := op.Operation.Stop
+	stop := op.Stop
 	if stop == nil {
 		return false
 	}
 	select {
 	case <-stop():
-		op.Operation.Done(ErrCanceled)
+		op.Done(ErrCanceled)
 		return true
 	default:
 		return false
@@ -214,19 +237,23 @@ func isCanceled(op ringOp) bool {
 }
 
 type ringOp struct {
-	Operation   Operation
+	Command     []byte
+	Stop        func() <-chan struct{}
+	Done        func(error)
 	ExpiredTime time.Time
 }
 
-func makeRingOp(op Operation, now time.Time) ringOp {
+func makeRingOp(leaseType string, cmd []byte, stop func() <-chan struct{}, done func(error), now time.Time) ringOp {
 	// If we locate a extension in the queue, give it a larger timeout to prevent
 	// excessive lease churning.
 	timeout := EnqueueTimeout
-	if op.Type == "extend" {
+	if leaseType == "extend" {
 		timeout = EnqueueExtendTimeout
 	}
 	return ringOp{
-		Operation:   op,
+		Command:     cmd,
+		Stop:        stop,
+		Done:        done,
 		ExpiredTime: now.Add(timeout),
 	}
 }

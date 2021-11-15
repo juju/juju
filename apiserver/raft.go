@@ -12,6 +12,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/raft/queue"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/raft"
 )
 
@@ -38,7 +39,7 @@ type Queue interface {
 	// to be completed.
 	// The design of this is to ensure that people calling this will have to
 	// correctly handle backing off from enqueueing.
-	Enqueue(queue.Operation)
+	Enqueue(queue.InOperation) error
 }
 
 // raftMediator encapsulates raft related capabilities to the facades.
@@ -53,17 +54,15 @@ type raftMediator struct {
 // already processing a application, then back pressure is applied to the
 // caller and a ErrEnqueueDeadlineExceeded will be sent. It's up to the caller
 // to retry or drop depending on how the retry algorithm is implemented.
-func (m *raftMediator) ApplyLease(ctx context.Context, leaseType string, cmd []byte) error {
+func (m *raftMediator) ApplyLease(ctx context.Context, cmd raftlease.Command) error {
 	if m.logger.IsTraceEnabled() {
-		m.logger.Tracef("Applying %q Lease with command %s", leaseType, string(cmd))
+		m.logger.Tracef("Applying %q Lease with command %s", cmd.Operation, cmd)
 	}
 
+	start := m.clock.Now()
 	done := make(chan error, 1)
 
-	start := m.clock.Now()
-
-	m.queue.Enqueue(queue.Operation{
-		Type:    leaseType,
+	err := m.queue.Enqueue(queue.InOperation{
 		Command: cmd,
 		Stop:    ctx.Done,
 		Done: func(err error) {
@@ -75,13 +74,15 @@ func (m *raftMediator) ApplyLease(ctx context.Context, leaseType string, cmd []b
 			close(done)
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	var err error
 	select {
 	case err = <-done:
 		if m.logger.IsTraceEnabled() {
 			elapsed := m.clock.Now().Sub(start)
-			m.logger.Tracef("Applying lease %s took: %v with error: %s", string(cmd), elapsed, err)
+			m.logger.Tracef("Applying lease %s took: %v with error: %s", cmd, elapsed, err)
 		}
 
 	case <-m.clock.After(ApplyLeaseTimeout):

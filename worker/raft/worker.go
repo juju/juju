@@ -88,8 +88,8 @@ type Logger interface {
 // allowing for client side backoff.
 type Queue interface {
 	// Queue returns the queue of operations. Removing an item from the channel
-	// will unblock to allow another to take its place.
-	Queue() <-chan []queue.Operation
+	// will unblock to allow another to take it's place.
+	Queue() <-chan []queue.OutOperation
 }
 
 // LeaseApplier applies operations from the queue onto the underlying raft
@@ -105,7 +105,7 @@ type LeaseApplier interface {
 	// the fsm.
 	// The time duration is the applying of a command in an operation, not for
 	// the whole operation.
-	ApplyOperation([]queue.Operation, time.Duration)
+	ApplyOperation([]queue.OutOperation, time.Duration)
 }
 
 // Config is the configuration required for running a raft worker.
@@ -591,6 +591,6 @@ func (BootstrapNotifyTarget) Expired(lease.Key) error {
 
 type BootstrapLeaseApplier struct{}
 
-func (BootstrapLeaseApplier) ApplyOperation([]queue.Operation, time.Duration) {
+func (BootstrapLeaseApplier) ApplyOperation([]queue.OutOperation, time.Duration) {
 	panic("ApplyOperation should not be called during bootstrap")
 }

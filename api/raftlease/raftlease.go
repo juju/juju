@@ -32,13 +32,10 @@ func NewAPI(caller base.APICaller) *API {
 // ApplyLease attempts to apply a lease against the given controller. If the
 // controller is not the leader, then an error to redirect to a new leader will
 // be given.
-func (api *API) ApplyLease(leaseType, command string) error {
+func (api *API) ApplyLease(command params.LeaseOperationCommand) error {
 	var results params.ErrorResults
-	err := api.facade.FacadeCall("ApplyLease", params.LeaseOperations{
-		Operations: []params.LeaseOperation{{
-			Type:    leaseType,
-			Command: command,
-		}},
+	err := api.facade.FacadeCall("ApplyLease", params.LeaseOperationsV2{
+		Operations: []params.LeaseOperationCommand{command},
 	}, &results)
 	if err != nil {
 		return errors.Trace(apiservererrors.RestoreError(err))

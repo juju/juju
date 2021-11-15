@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v3"
 )
 
 type OpQueueSuite struct {
@@ -27,12 +29,15 @@ func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
 	results := consumeN(c, queue, 1)
 
 	done := make(chan error)
-	go queue.Enqueue(Operation{
-		Command: command(),
-		Done: func(err error) {
-			done <- err
-		},
-	})
+	go func() {
+		err := queue.Enqueue(InOperation{
+			Command: command(opName(0)),
+			Done: func(err error) {
+				done <- err
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}()
 
 	var err error
 	select {
@@ -44,7 +49,7 @@ func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
 
 	var count int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(count))
+		c.Assert(result, gc.DeepEquals, command(opName(count)))
 		count++
 	}
 	c.Assert(count, gc.Equals, 1)
@@ -57,15 +62,18 @@ func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
 	close(canceled)
 
 	done := make(chan error)
-	go queue.Enqueue(Operation{
-		Command: command(),
-		Stop: func() <-chan struct{} {
-			return canceled
-		},
-		Done: func(err error) {
-			done <- err
-		},
-	})
+	go func() {
+		err := queue.Enqueue(InOperation{
+			Command: command(opName(0)),
+			Stop: func() <-chan struct{} {
+				return canceled
+			},
+			Done: func(err error) {
+				done <- err
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}()
 
 	var err error
 	select {
@@ -83,12 +91,15 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 	results := consumeNUntilErr(c, queue, 1, errors.New("boom"))
 
 	done := make(chan error)
-	go queue.Enqueue(Operation{
-		Command: command(),
-		Done: func(err error) {
-			done <- err
-		},
-	})
+	go func() {
+		err := queue.Enqueue(InOperation{
+			Command: command(opName(0)),
+			Done: func(err error) {
+				done <- err
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}()
 
 	var err error
 	select {
@@ -100,7 +111,7 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 
 	var count int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(count))
+		c.Assert(result, gc.DeepEquals, command(opName(count)))
 		count++
 	}
 	c.Assert(count, gc.Equals, 1)
@@ -113,11 +124,14 @@ func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
 	go func() {
 		// Synchronous enqueues will result in batches of 1.
 		for i := 0; i < toEnqueue; i++ {
-			queue.Enqueue(Operation{Command: opName(i)})
+			err := queue.Enqueue(InOperation{
+				Command: command(opName(i)),
+			})
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}()
 
-	var results [][]Operation
+	var results [][]OutOperation
 	var totalRead int
 	for ops := range queue.Queue() {
 		results = append(results, ops)
@@ -141,11 +155,13 @@ func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 	toEnqueue := EnqueueBatchSize * 3
 	for i := 0; i < toEnqueue; i++ {
 		go func(i int) {
-			queue.Enqueue(Operation{Command: opName(i)})
+			queue.Enqueue(InOperation{
+				Command: command(opName(i)),
+			})
 		}(i)
 	}
 
-	var results [][]Operation
+	var results [][]OutOperation
 	var totalRead int
 	for ops := range queue.Queue() {
 		results = append(results, ops)
@@ -168,15 +184,19 @@ func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
-	results := make(chan []byte, 3)
+	results := make(chan raftlease.Command, 3)
 	go func() {
 		defer close(results)
 
 		var count int
 		for ops := range queue.Queue() {
 			for _, op := range ops {
+				var got raftlease.Command
+				mErr := yaml.Unmarshal(op.Command, &got)
+				c.Assert(mErr, jc.ErrorIsNil)
+
 				select {
-				case results <- op.Command:
+				case results <- got:
 				case <-time.After(testing.LongWait):
 					c.Fatal("timed out setting results")
 				}
@@ -195,12 +215,15 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 		done := make(chan error)
 		defer close(done)
 
-		go queue.Enqueue(Operation{
-			Command: opName(i),
-			Done: func(err error) {
-				done <- err
-			},
-		})
+		go func() {
+			err := queue.Enqueue(InOperation{
+				Command: command(opName(i)),
+				Done: func(err error) {
+					done <- err
+				},
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}()
 
 		var err error
 		select {
@@ -232,7 +255,7 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 
 	var count int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(count))
+		c.Assert(result, gc.DeepEquals, command(opName(count)))
 		count++
 	}
 	c.Assert(count, gc.Equals, 3)
@@ -241,15 +264,19 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
-	results := make(chan []byte, 2)
+	results := make(chan raftlease.Command, 2)
 	go func() {
 		defer close(results)
 
 		var count int
 		for ops := range queue.Queue() {
 			for _, op := range ops {
+				var got raftlease.Command
+				mErr := yaml.Unmarshal(op.Command, &got)
+				c.Assert(mErr, jc.ErrorIsNil)
+
 				select {
-				case results <- op.Command:
+				case results <- got:
 				case <-time.After(testing.LongWait):
 					c.Fatal("timed out setting results")
 				}
@@ -265,15 +292,18 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
 		done := make(chan error)
 		defer close(done)
 
-		go queue.Enqueue(Operation{
-			Command: opName(i),
-			Stop: func() <-chan struct{} {
-				return canceled
-			},
-			Done: func(err error) {
-				done <- err
-			},
-		})
+		go func() {
+			err := queue.Enqueue(InOperation{
+				Command: command(opName(i)),
+				Stop: func() <-chan struct{} {
+					return canceled
+				},
+				Done: func(err error) {
+					done <- err
+				},
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}()
 
 		var err error
 		select {
@@ -308,7 +338,7 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
 
 	var count, index int
 	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(index))
+		c.Assert(result, gc.DeepEquals, command(opName(index)))
 		count++
 		index += 2
 	}
@@ -327,16 +357,16 @@ func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 			defer wg.Done()
 
 			done := make(chan error)
-			queue.Enqueue(Operation{
-				Command: opName(i),
+			err := queue.Enqueue(InOperation{
+				Command: command(opName(i)),
 				Done: func(err error) {
 					go func() {
 						done <- err
 					}()
 				},
 			})
+			c.Assert(err, jc.ErrorIsNil)
 
-			var err error
 			select {
 			case err = <-done:
 			case <-time.After(testing.LongWait):
@@ -347,31 +377,42 @@ func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 	}
 	wg.Wait()
 
-	var received []string
+	var received []raftlease.Command
 	for result := range results {
-		received = append(received, string(result))
+		received = append(received, result)
 	}
 	c.Assert(len(received), gc.Equals, 10)
-	c.Assert(received, jc.SameContents, []string{
-		"abc-0", "abc-1", "abc-2", "abc-3", "abc-4",
-		"abc-5", "abc-6", "abc-7", "abc-8", "abc-9",
+	c.Assert(received, jc.SameContents, []raftlease.Command{
+		command("abc-0"),
+		command("abc-1"),
+		command("abc-2"),
+		command("abc-3"),
+		command("abc-4"),
+		command("abc-5"),
+		command("abc-6"),
+		command("abc-7"),
+		command("abc-8"),
+		command("abc-9"),
 	})
 }
 
-func opName(i int) []byte {
-	return []byte(fmt.Sprintf("abc-%d", i))
+func opName(i int) string {
+	return fmt.Sprintf("abc-%d", i)
 }
 
-func command() []byte {
-	return opName(0)
+func command(lease string) raftlease.Command {
+	return raftlease.Command{
+		Operation: "claim",
+		Lease:     lease,
+	}
 }
 
-func consumeN(c *gc.C, queue *OpQueue, n int) <-chan []byte {
+func consumeN(c *gc.C, queue *OpQueue, n int) <-chan raftlease.Command {
 	return consumeNUntilErr(c, queue, n, nil)
 }
 
-func consumeNUntilErr(c *gc.C, queue *OpQueue, n int, err error) <-chan []byte {
-	results := make(chan []byte, n)
+func consumeNUntilErr(c *gc.C, queue *OpQueue, n int, err error) <-chan raftlease.Command {
+	results := make(chan raftlease.Command, n)
 
 	go func() {
 		defer close(results)
@@ -379,8 +420,12 @@ func consumeNUntilErr(c *gc.C, queue *OpQueue, n int, err error) <-chan []byte {
 		var count int
 		for ops := range queue.Queue() {
 			for _, op := range ops {
+				var got raftlease.Command
+				mErr := yaml.Unmarshal(op.Command, &got)
+				c.Assert(mErr, jc.ErrorIsNil)
+
 				select {
-				case results <- op.Command:
+				case results <- got:
 				case <-time.After(testing.LongWait):
 					c.Fatal("timed out setting results")
 				}

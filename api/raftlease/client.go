@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -491,7 +492,7 @@ func NewRemote(config RemoteConfig) Remote {
 
 // RaftLeaseApplier defines a client for applying leases.
 type RaftLeaseApplier interface {
-	ApplyLease(leaseType, command string) error
+	ApplyLease(params.LeaseOperationCommand) error
 }
 
 type remote struct {
@@ -545,11 +546,6 @@ func (r *remote) Request(ctx context.Context, command *raftlease.Command) error 
 		return lease.ErrDropped
 	}
 
-	bytes, err := command.Marshal()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Check that the context hasn't been canceled before applying the lease.
 	select {
 	case <-ctx.Done():
@@ -557,7 +553,18 @@ func (r *remote) Request(ctx context.Context, command *raftlease.Command) error 
 	default:
 	}
 
-	return r.client.ApplyLease(command.Operation, string(bytes))
+	return r.client.ApplyLease(params.LeaseOperationCommand{
+		Version:   command.Version,
+		Operation: command.Operation,
+		Namespace: command.Namespace,
+		ModelUUID: command.ModelUUID,
+		Lease:     command.Lease,
+		Holder:    command.Holder,
+		Duration:  command.Duration,
+		OldTime:   command.OldTime,
+		NewTime:   command.NewTime,
+		PinEntity: command.PinEntity,
+	})
 }
 
 // Kill is part of the worker.Worker interface.

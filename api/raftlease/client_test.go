@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -583,7 +584,7 @@ func (s *RaftLeaseRemoteSuite) TestRequest(c *gc.C) {
 		client: s.raftLeaseApplier,
 	}
 
-	s.raftLeaseApplier.EXPECT().ApplyLease("", "version: 0\noperation: \"\"\n").Return(nil)
+	s.raftLeaseApplier.EXPECT().ApplyLease(params.LeaseOperationCommand{}).Return(nil)
 
 	err := remote.Request(context.TODO(), &raftlease.Command{})
 	c.Assert(err, jc.ErrorIsNil)
