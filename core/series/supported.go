@@ -249,6 +249,7 @@ const (
 	Groovy  SeriesName = "groovy"
 	Hirsute SeriesName = "hirsute"
 	Impish  SeriesName = "impish"
+	Jammy   SeriesName = "jammy"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
@@ -342,6 +343,13 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 	Impish: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "21.10",
+	},
+	Jammy: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "22.04",
+		LTS:          true,
+		Supported:    true,
+		ESMSupported: true,
 	},
 }
 
