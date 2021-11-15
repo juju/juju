@@ -589,6 +589,8 @@ func (manager *Manager) setNextTimeout(t time.Time) {
 	// Ensure we never walk the next check back without have performed a
 	// scheduled check *unless* we think our last check was in the past.
 	if !manager.nextTimeout.Before(now) && !t.Before(manager.nextTimeout) {
+		manager.config.Logger.Tracef("[%s] not rescheduling check from %v to %v based on current time %v",
+			manager.logContext, manager.nextTimeout, t, now)
 		return
 	}
 	manager.nextTimeout = t
