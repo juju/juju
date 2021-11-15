@@ -14,13 +14,13 @@ import (
 
 const facadeName = "RaftLease"
 
-// API provides access to the pubsub API.
+// API provides access to the raft lease API.
 type API struct {
 	facade base.FacadeCaller
 	caller base.APICaller
 }
 
-// NewAPI creates a new client-side pubsub API.
+// NewAPI creates a new client-side raft lease API.
 func NewAPI(caller base.APICaller) *API {
 	facadeCaller := base.NewFacadeCaller(caller, facadeName)
 	return &API{
