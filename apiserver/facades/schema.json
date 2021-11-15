@@ -37457,8 +37457,8 @@
     },
     {
         "Name": "RaftLease",
-        "Description": "Facade allows for modification of the underlying raft instance from a\ncontroller facade.",
-        "Version": 1,
+        "Description": "",
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -37472,13 +37472,12 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/LeaseOperations"
+                            "$ref": "#/definitions/LeaseOperationsV2"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ApplyLease is a bulk API to allow applying lease operations to a raft\ncontext. If the current controller is not the leader, then a NotLeaderError\nis returned. Information about where they can locate the leader maybe\nsupplied in the error message, but isn't guaranteed.\nIf no information is supplied, it is expected that the client performs their\nown algorithm to locate the leader (roundrobin or listen to the apidetails\ntopic)."
+                    }
                 }
             },
             "definitions": {
@@ -37531,28 +37530,55 @@
                         "results"
                     ]
                 },
-                "LeaseOperation": {
+                "LeaseOperationCommand": {
                     "type": "object",
                     "properties": {
-                        "command": {
+                        "duration": {
+                            "type": "integer"
+                        },
+                        "holder": {
                             "type": "string"
                         },
-                        "type": {
+                        "lease": {
                             "type": "string"
+                        },
+                        "model-uuid": {
+                            "type": "string"
+                        },
+                        "namespace": {
+                            "type": "string"
+                        },
+                        "new-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "old-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "operation": {
+                            "type": "string"
+                        },
+                        "pin-entity": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "command"
+                        "version",
+                        "operation"
                     ]
                 },
-                "LeaseOperations": {
+                "LeaseOperationsV2": {
                     "type": "object",
                     "properties": {
                         "commands": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/LeaseOperation"
+                                "$ref": "#/definitions/LeaseOperationCommand"
                             }
                         }
                     },
