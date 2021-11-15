@@ -85,10 +85,17 @@ func (s *applicationOffersSuite) TestEndpoints(c *gc.C) {
 
 func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 	offer := s.createDefaultOffer(c)
+	r := s.State.RemoteEntities()
+	_, err := r.ExportLocalEntity(names.NewApplicationTag(offer.OfferName))
+	c.Assert(err, jc.ErrorIsNil)
+
 	sd := state.NewApplicationOffers(s.State)
-	err := sd.Remove(offer.OfferName, false)
+	err = sd.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sd.ApplicationOffer(offer.OfferName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = r.GetToken(names.NewApplicationTag(offer.OfferName))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
