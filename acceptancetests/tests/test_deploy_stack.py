@@ -213,7 +213,7 @@ class DeployStackTestCase(FakeHomeTestCase):
             dump_juju_timings(client, fake_dir)
             with open(os.path.join(fake_dir,
                       'juju_command_times.yaml')) as out_file:
-                file_data = yaml.load(out_file)
+                file_data = yaml.safe_load(out_file)
         self.assertEqual(file_data, expected)
 
     def test_check_token(self):

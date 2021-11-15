@@ -179,7 +179,7 @@ class RequiredConfig(dict):
         self.required_options = args
         self['config'] = hookenv.config()
         with open(os.path.join(hookenv.charm_dir(), 'config.yaml')) as fp:
-            self.config = yaml.load(fp).get('options', {})
+            self.config = yaml.safe_load(fp).get('options', {})
 
     def __bool__(self):
         for option in self.required_options:
@@ -227,7 +227,7 @@ class StoredContext(dict):
         if not os.path.isabs(file_name):
             file_name = os.path.join(hookenv.charm_dir(), file_name)
         with open(file_name, 'r') as file_stream:
-            data = yaml.load(file_stream)
+            data = yaml.safe_load(file_stream)
             if not data:
                 raise OSError("%s is empty" % file_name)
             return data
