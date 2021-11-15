@@ -20,6 +20,11 @@ type steps2918Suite struct {
 
 var _ = gc.Suite(&steps2918Suite{})
 
+func (s *steps2918Suite) TestRemoveOrphanedLinkLayerDevices(c *gc.C) {
+	step := findStateStep(c, v2918, "remove link-layer devices without machines")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 func (s *steps2918Suite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
 	step := findStateStep(c, v2918, "remove unused link-layer device provider IDs")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
