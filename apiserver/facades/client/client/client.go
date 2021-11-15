@@ -832,8 +832,10 @@ func (c *Client) FindTools(args params.FindToolsParams) (result params.FindTools
 	}
 	result, err = c.api.toolsFinder.FindTools(args)
 	if model.Type() != state.ModelTypeCAAS {
+		// We return now for non CAAS model.
 		return result, errors.Annotate(err, "finding tool version from simple streams")
 	}
+	// Continue to check agent image tags via registry API for CAAS model.
 	if err != nil && !errors.IsNotFound(err) || result.Error != nil && !params.IsCodeNotFound(result.Error) {
 		return result, errors.Annotate(err, "finding tool versions from simplestream")
 	}
@@ -848,7 +850,7 @@ func (c *Client) FindTools(args params.FindToolsParams) (result params.FindTools
 	}
 	currentVersion, ok := mCfg.AgentVersion()
 	if !ok {
-		return result, errors.NewNotValid(nil, fmt.Sprintf("agent version is not set for model %q", model.Name()))
+		return result, errors.NotValidf("agent version is not set for model %q", model.Name())
 	}
 	return c.toolVersionsForCAAS(args, streamsVersions, currentVersion)
 }
@@ -902,7 +904,7 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		}
 		arch, err := reg.GetArchitecture(imageName, number.String())
 		if err != nil {
-			return result, errors.Annotatef(err, "getting architecture for %q:%q", imageName, number.String())
+			return result, errors.Annotatef(err, "cannot get architecture for %q:%q", imageName, number.String())
 		}
 		if args.Arch != "" && arch != args.Arch {
 			continue
