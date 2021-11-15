@@ -14,7 +14,9 @@ var (
 	// generate better error messages when an "assumes" expression requests a
 	// feature that is not included in the feature set supported by the
 	// current model.
-	userFriendlyFeatureDescriptions = map[string]string{}
+	UserFriendlyFeatureDescriptions = map[string]string{
+		"juju": "the version of Juju used by the model",
+	}
 )
 
 // A link to a web page with additional information about features,
@@ -46,7 +48,7 @@ func satisfyExpr(fs FeatureSet, expr chassumes.Expression, exprTreeDepth int) er
 func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 	supported, defined := fs.Get(expr.Name)
 	if !defined {
-		featDescr := userFriendlyFeatureDescriptions[expr.Name]
+		featDescr := UserFriendlyFeatureDescriptions[expr.Name]
 		return featureError(
 			expr.Name, featDescr,
 			"charm requires feature %q but model does not support it", expr.Name,
@@ -77,7 +79,7 @@ func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 	if featDescr == "" {
 		// The feature set should always have a feature description.
 		// Try the fallback descriptions if it is missing.
-		featDescr = userFriendlyFeatureDescriptions[featDescr]
+		featDescr = UserFriendlyFeatureDescriptions[featDescr]
 	}
 	return featureError(
 		expr.Name, featDescr,

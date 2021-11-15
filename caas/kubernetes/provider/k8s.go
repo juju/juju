@@ -2700,6 +2700,24 @@ func (k *kubernetesClient) deploymentName(appName string, legacySupport bool) st
 	return appName
 }
 
+// SupportedFeatures implements environs.SupportedFeatureEnumerator.
+func (k *kubernetesClient) SupportedFeatures() (assumes.FeatureSet, error) {
+	var fs assumes.FeatureSet
+
+	k8sAPIVersion, err := k.APIVersion()
+	if err != nil {
+		return fs, errors.Annotatef(err, "querying kubernetes API version")
+	}
+
+	fs.Add(
+		assumes.Feature{
+			Name:        "k8s-api",
+			Description: "the version of kubernetes API that charms can access",
+		},
+	)
+	return fs, nil
+}
+
 func isLegacyName(resourceName string) bool {
 	return strings.HasPrefix(resourceName, "juju-")
 }

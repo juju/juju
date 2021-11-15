@@ -28,7 +28,7 @@ func SupportedFeatures(model Model, newEnviron environs.NewEnvironFunc) (assumes
 	agentVersion, _ := modelConf.AgentVersion()
 	fs.Add(assumes.Feature{
 		Name:        "juju",
-		Description: "the version of Juju used by the model",
+		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
 	})
 
