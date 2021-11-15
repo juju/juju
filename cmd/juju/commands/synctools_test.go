@@ -199,29 +199,15 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
-	fake := fakeSyncToolsAPI{
-		findTools: func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
-			err := apiservererrors.ServerError(errors.NotFoundf("tools"))
-			return params.FindToolsResult{Error: err}, nil
-		},
-	}
-	a := syncToolsAPIAdapter{&fake}
-	list, err := a.FindTools(1, "released")
-	c.Assert(err, gc.Equals, coretools.ErrNoMatches)
-	c.Assert(list, gc.HasLen, 0)
-}
-
 func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
-	findToolsErr := apiservererrors.ServerError(errors.NotFoundf("tools"))
 	fake := fakeSyncToolsAPI{
 		findTools: func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
-			return params.FindToolsResult{Error: findToolsErr}, findToolsErr
+			return params.FindToolsResult{}, errors.NotFoundf("tools")
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
 	list, err := a.FindTools(1, "released")
-	c.Assert(err, gc.Equals, findToolsErr) // error comes through untranslated
+	c.Assert(err, gc.ErrorMatches, `no matching agent binaries available`) // error comes through untranslated
 	c.Assert(list, gc.HasLen, 0)
 }
 
