@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -743,7 +743,7 @@ func deployApplication(
 		}
 	}
 
-	appConfig, _, charmSettings, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML)
+	appConfig, _, charmSettings, _, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -859,7 +859,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string) (*application.Config, environschema.Fields, charm.Settings, error) {
+func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string, defaults environsconfig.Defaulting) (*application.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
@@ -869,7 +869,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	)
 	if len(config) > 0 {
 		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, config); err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -881,7 +881,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	)
 	if len(configYaml) != 0 {
 		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(modelType, configYaml, appName); err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -891,13 +891,20 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		appSettings[k] = v
 	}
 
-	appCfgSchema, defaults, err := applicationConfigSchema(modelType)
+	appCfgSchema, schemaDefaults, err := applicationConfigSchema(modelType)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, nil, nil, nil, errors.Trace(err)
 	}
-	appConfig, err := application.NewConfig(appSettings, appCfgSchema, defaults)
+	getDefaults := func() schema.Defaults {
+		// If defaults is UseDefaults, defaults are baked into the app config.
+		if defaults == environsconfig.UseDefaults {
+			return schemaDefaults
+		}
+		return nil
+	}
+	appConfig, err := application.NewConfig(appSettings, appCfgSchema, getDefaults())
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, nil, nil, nil, errors.Trace(err)
 	}
 
 	// If there isn't a charm YAML, then we can just return the charmConfig as
@@ -905,9 +912,9 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	if len(charmYamlConfig) == 0 {
 		settings, err := ch.Config().ParseSettingsStrings(charmConfig)
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
-		return appConfig, appCfgSchema, settings, nil
+		return appConfig, appCfgSchema, settings, schemaDefaults, nil
 	}
 
 	var charmSettings charm.Settings
@@ -917,7 +924,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
 		if pErr != nil {
 			// Not 'juju output' either; return original error
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 		charmSettings = jujuGetSettings
 	}
@@ -928,14 +935,14 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		// Parse config in a compatible way (see function comment).
 		overrideSettings, err := parseSettingsCompatible(ch.Config(), charmConfig)
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, nil, errors.Trace(err)
 		}
 		for k, v := range overrideSettings {
 			charmSettings[k] = v
 		}
 	}
 
-	return appConfig, appCfgSchema, charmSettings, nil
+	return appConfig, appCfgSchema, charmSettings, schemaDefaults, nil
 }
 
 // checkMachinePlacement does a non-exhaustive validation of any supplied
@@ -1088,7 +1095,10 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 		return errors.Annotate(err, "obtaining charm for this application")
 	}
 
-	appConfig, appConfigSchema, charmSettings, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML)
+	// parseCharmSettings is passed false for useDefaults because setConfig
+	// should not care about defaults.
+	// If defaults are wanted, one should call unsetApplicationConfig.
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -1101,7 +1111,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 		configChanged = true
 	}
 	if cfgAttrs := appConfig.Attributes(); len(cfgAttrs) > 0 {
-		if err = app.UpdateApplicationConfig(cfgAttrs, nil, appConfigSchema, nil); err != nil {
+		if err = app.UpdateApplicationConfig(cfgAttrs, nil, appConfigSchema, defaults); err != nil {
 			return errors.Annotate(err, "updating application config settings")
 		}
 		configChanged = true
@@ -1395,7 +1405,7 @@ func (api *APIBase) applicationSetCharm(
 // for a refresh from a pod-spec to a sidecar charm. It looks at the model's
 // default and falls back to the charm's series (no support for "--series",
 // series in charm URL, or default LTS).
-func sidecarUpgradeSeries(modelConfig *config.Config, supported []string) (string, error) {
+func sidecarUpgradeSeries(modelConfig *environsconfig.Config, supported []string) (string, error) {
 	supportedJuju, err := series.WorkloadSeries(time.Now(), "", modelConfig.ImageStream())
 	if err != nil {
 		return "", errors.Trace(err)
