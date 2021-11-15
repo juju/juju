@@ -34,7 +34,7 @@ func (s *WaitUntilExpiredSuite) SetUpTest(c *gc.C) {
 func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
-			key("redis"): {
+			key("postgresql"): {
 				Holder: "postgresql/0",
 				Expiry: offset(time.Second),
 			},
