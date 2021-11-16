@@ -168,7 +168,7 @@ func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannel(c *gc.C) {
 
 	r := resolver{}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `^upgrades not supported when the channel for the deployed application is unknown; use --force to override`)
+	c.Assert(err, gc.ErrorMatches, `^upgrades not supported when the channel for "" is unknown; use --force to override`)
 	c.Assert(ok, jc.IsFalse)
 }
 

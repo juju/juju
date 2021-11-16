@@ -271,7 +271,7 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 		// If the bundle channel is not empty and we're not using force, then
 		// raise an error asking the user to supply force.
 		if !r.force && bundleApp.Channel != "" {
-			return false, errors.Errorf("upgrades not supported when the channel for the deployed application is unknown; use --force to override")
+			return false, errors.Errorf("upgrades not supported when the channel for %q is unknown; use --force to override", existingApp.Name)
 		}
 		return true, nil
 	}
