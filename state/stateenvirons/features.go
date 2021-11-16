@@ -5,13 +5,16 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
 )
 
 var (
 	// Overridden by tests
-	environGetter = environs.GetEnviron
+	iaasEnvironGetter = GetNewEnvironFunc(environs.New)
+	caasBrokerGetter  = GetNewCAASBrokerFunc(caas.New)
 )
 
 // SupportedFeatures returns the set of features that the model makes available
@@ -28,15 +31,28 @@ func SupportedFeatures(model Model, newEnviron environs.NewEnvironFunc) (assumes
 	agentVersion, _ := modelConf.AgentVersion()
 	fs.Add(assumes.Feature{
 		Name:        "juju",
-		Description: "the version of Juju used by the model",
+		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
 	})
 
 	// Access the environment associated with the model and query any
 	// substrate-specific features that might be available.
-	env, err := environGetter(EnvironConfigGetter{Model: model}, newEnviron)
-	if err != nil {
-		return fs, errors.Annotate(err, "accessing model environment")
+	var env interface{}
+	switch model.Type() {
+	case state.ModelTypeIAAS:
+		iaasEnv, err := iaasEnvironGetter(model)
+		if err != nil {
+			return fs, errors.Annotate(err, "accessing model environment")
+		}
+		env = iaasEnv
+	case state.ModelTypeCAAS:
+		caasEnv, err := caasBrokerGetter(model)
+		if err != nil {
+			return fs, errors.Annotate(err, "accessing model environment")
+		}
+		env = caasEnv
+	default:
+		return fs, errors.NotSupportedf("model type %q", model.Type())
 	}
 
 	if featureEnumerator, supported := env.(environs.SupportedFeatureEnumerator); supported {
