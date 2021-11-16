@@ -685,7 +685,7 @@ func logVersion(mongoPath string) {
 		logger.Infof("failed to read the output from %s --version: %v", mongoPath, err)
 		return
 	}
-	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
+	logger.Debugf("using mongod: %s --version:\n%s", mongoPath, output)
 }
 
 func installMongod(mongoDep packaging.Dependency, usingMongoFromSnap bool, hostSeries, dataDir string) (err error) {
