@@ -198,7 +198,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	any := `(.|\n)*`
 	start := "^" + any
 	tail := any + "$"
-	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version: "db version v\d\.\d\.\d`+tail)
+	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version:\sdb version v\d\.\d\.\d`+tail)
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
