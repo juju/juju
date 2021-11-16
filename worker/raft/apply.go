@@ -106,48 +106,55 @@ func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Durati
 
 func (a *Applier) applyOperation(i int, op queue.Operation, applyTimeout time.Duration) {
 	// We use the error to signal if the apply was a failure or not.
-	var err error
-
 	start := a.clock.Now()
-	defer func() {
-		result := "success"
-		if err != nil {
-			result = "failure"
-		}
-		a.metrics.Record(start, result)
-	}()
 
 	if a.logger.IsTraceEnabled() {
 		a.logger.Tracef("Applying command %d %v", i, string(op.Command))
 	}
 
+	// Back pressure is applied when you attempt to apply, reading from the
+	// FSM future should be read async and that's done in another goroutine.
 	future := a.raft.Apply(op.Command, applyTimeout)
-	if err = future.Error(); err != nil {
-		op.Done(err)
-		return
-	}
 
-	response := future.Response()
-	fsmResponse, ok := response.(raftlease.FSMResponse)
-	if !ok {
-		a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
-		err = errors.Errorf("invalid FSM response")
-		op.Done(err)
-		return
-	}
-	if err = fsmResponse.Error(); err != nil {
-		op.Done(err)
-		return
-	}
+	// Once you've written to the log, you need to also write to the notify
+	// target.
+	go func() {
+		var err error
+		defer func() {
+			result := "success"
+			if err != nil {
+				result = "failure"
+			}
+			a.metrics.Record(start, result)
+		}()
 
-	// If the notify fails here, just ignore it and log out the
-	// error, so that the operator can at least see the issues when
-	// inspecting the controller logs.
-	if err := fsmResponse.Notify(a.notifyTarget); err != nil {
-		a.logger.Errorf("failed to notify: %v", err)
-	}
+		if err = future.Error(); err != nil {
+			op.Done(err)
+			return
+		}
 
-	op.Done(nil)
+		response := future.Response()
+		fsmResponse, ok := response.(raftlease.FSMResponse)
+		if !ok {
+			a.logger.Criticalf("programming error: expected an FSMResponse, got %T: %#v", response, response)
+			err = errors.Errorf("invalid FSM response")
+			op.Done(err)
+			return
+		}
+		if err = fsmResponse.Error(); err != nil {
+			op.Done(err)
+			return
+		}
+
+		// If the notify fails here, just ignore it and log out the
+		// error, so that the operator can at least see the issues when
+		// inspecting the controller logs.
+		if err := fsmResponse.Notify(a.notifyTarget); err != nil {
+			a.logger.Errorf("failed to notify: %v", err)
+		}
+
+		op.Done(nil)
+	}()
 }
 
 func (a *Applier) currentLeaderState() error {
