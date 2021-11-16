@@ -15,7 +15,8 @@ var (
 	// feature that is not included in the feature set supported by the
 	// current model.
 	UserFriendlyFeatureDescriptions = map[string]string{
-		"juju": "the version of Juju used by the model",
+		"juju":    "the version of Juju used by the model",
+		"k8s-api": "the Kubernetes API lets charms query and manipulate the state of API objects in a Kubernetes cluster",
 	}
 )
 

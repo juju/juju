@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
@@ -2704,7 +2705,7 @@ func (k *kubernetesClient) deploymentName(appName string, legacySupport bool) st
 func (k *kubernetesClient) SupportedFeatures() (assumes.FeatureSet, error) {
 	var fs assumes.FeatureSet
 
-	k8sAPIVersion, err := k.APIVersion()
+	k8sAPIVersion, err := k.Version()
 	if err != nil {
 		return fs, errors.Annotatef(err, "querying kubernetes API version")
 	}
@@ -2712,7 +2713,8 @@ func (k *kubernetesClient) SupportedFeatures() (assumes.FeatureSet, error) {
 	fs.Add(
 		assumes.Feature{
 			Name:        "k8s-api",
-			Description: "the version of kubernetes API that charms can access",
+			Description: assumes.UserFriendlyFeatureDescriptions["k8s-api"],
+			Version:     k8sAPIVersion,
 		},
 	)
 	return fs, nil
