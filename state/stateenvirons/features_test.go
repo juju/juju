@@ -9,9 +9,11 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -22,17 +24,20 @@ type featuresSuite struct {
 var _ = gc.Suite(&featuresSuite{})
 
 func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
-	defer func(getter func(environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)) {
-		environGetter = getter
-	}(environGetter)
-	environGetter = func(environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error) {
+	defer func(getter func(Model) (environs.Environ, error)) {
+		iaasEnvironGetter = getter
+	}(iaasEnvironGetter)
+	iaasEnvironGetter = func(Model) (environs.Environ, error) {
 		// Not supporting environs.SupportedFeaturesEnumerator
 		return nil, nil
 	}
 
 	jujuVersion := version.MustParse("2.9.17")
-
-	fs, err := SupportedFeatures(mockModel{jujuVersion: jujuVersion}, nil)
+	m := mockModel{
+		jujuVersion: jujuVersion,
+		modelType:   state.ModelTypeIAAS,
+	}
+	fs, err := SupportedFeatures(m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{
@@ -46,17 +51,20 @@ func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
 	c.Assert(fs.AsList(), gc.DeepEquals, exp)
 }
 
-func (s *featuresSuite) TestSupportedFeaturesWithCompatibleEnviron(c *gc.C) {
-	defer func(getter func(environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)) {
-		environGetter = getter
-	}(environGetter)
-	environGetter = func(environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error) {
-		return mockEnvironWithFeatures{}, nil
+func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) {
+	defer func(getter func(Model) (environs.Environ, error)) {
+		iaasEnvironGetter = getter
+	}(iaasEnvironGetter)
+	iaasEnvironGetter = func(Model) (environs.Environ, error) {
+		return mockIAASEnvironWithFeatures{}, nil
 	}
 
 	jujuVersion := version.MustParse("2.9.17")
-
-	fs, err := SupportedFeatures(mockModel{jujuVersion: jujuVersion}, nil)
+	m := mockModel{
+		jujuVersion: jujuVersion,
+		modelType:   state.ModelTypeIAAS,
+	}
+	fs, err := SupportedFeatures(m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{
@@ -72,10 +80,40 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleEnviron(c *gc.C) {
 	c.Assert(fs.AsList(), gc.DeepEquals, exp)
 }
 
+func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *gc.C) {
+	defer func(getter func(Model) (caas.Broker, error)) {
+		caasBrokerGetter = getter
+	}(caasBrokerGetter)
+	caasBrokerGetter = func(Model) (caas.Broker, error) {
+		return mockCAASEnvironWithFeatures{}, nil
+	}
+
+	jujuVersion := version.MustParse("2.9.17")
+	m := mockModel{
+		jujuVersion: jujuVersion,
+		modelType:   state.ModelTypeCAAS,
+	}
+	fs, err := SupportedFeatures(m, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := []assumes.Feature{
+		{
+			Name:        "juju",
+			Description: "the version of Juju used by the model",
+			Version:     &jujuVersion,
+		},
+		// The following feature was reported by the environ.
+		{Name: "k8s-api"},
+	}
+
+	c.Assert(fs.AsList(), gc.DeepEquals, exp)
+}
+
 type mockModel struct {
 	Model
 
 	jujuVersion version.Number
+	modelType   state.ModelType
 }
 
 func (m mockModel) Config() (*config.Config, error) {
@@ -86,12 +124,26 @@ func (m mockModel) Config() (*config.Config, error) {
 	)
 }
 
-type mockEnvironWithFeatures struct {
+func (m mockModel) Type() state.ModelType {
+	return m.modelType
+}
+
+type mockIAASEnvironWithFeatures struct {
 	environs.Environ
 }
 
-func (mockEnvironWithFeatures) SupportedFeatures() (assumes.FeatureSet, error) {
+func (mockIAASEnvironWithFeatures) SupportedFeatures() (assumes.FeatureSet, error) {
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{Name: "web-scale"})
+	return fs, nil
+}
+
+type mockCAASEnvironWithFeatures struct {
+	caas.Broker
+}
+
+func (mockCAASEnvironWithFeatures) SupportedFeatures() (assumes.FeatureSet, error) {
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{Name: "k8s-api"})
 	return fs, nil
 }
