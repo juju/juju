@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -2435,13 +2433,6 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
 		},
 	}
 
-	// Enable controller flag so we can enforce "assumes" blocks
-	ctrlCfg := coretesting.FakeControllerConfig()
-	ctrlCfg[controller.Features] = []interface{}{
-		feature.CharmAssumes,
-	}
-	s.backend.controllerCfg = &ctrlCfg
-
 	// Try to upgrade the charm
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
@@ -2461,13 +2452,6 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 			},
 		},
 	}
-
-	// Enable controller flag so we can enforce "assumes" blocks
-	ctrlCfg := coretesting.FakeControllerConfig()
-	ctrlCfg[controller.Features] = []interface{}{
-		feature.CharmAssumes,
-	}
-	s.backend.controllerCfg = &ctrlCfg
 
 	// Try to upgrade the charm
 	err := s.api.SetCharm(params.ApplicationSetCharm{
