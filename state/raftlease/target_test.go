@@ -193,7 +193,10 @@ func (s *targetSuite) TestExpired(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.newTarget().Expiries([]lease.Key{{"leadership", "model", "twin"}})
+	err = s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin"},
+		Holder: "kitamura",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 }
@@ -217,10 +220,13 @@ func (s *targetSuite) TestExpires(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.newTarget().Expiries([]lease.Key{
-		{"leadership", "model", "twin1"},
-		{"leadership", "model", "twin2"},
-	})
+	err = s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin1"},
+		Holder: "kitamura1",
+	}, {
+		Key:    lease.Key{"leadership", "model", "twin2"},
+		Holder: "kitamura2",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 }
@@ -244,11 +250,16 @@ func (s *targetSuite) TestExpiresWithDuplicateEntries(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.newTarget().Expiries([]lease.Key{
-		{"leadership", "model", "twin1"},
-		{"leadership", "model", "twin2"},
-		{"leadership", "model", "twin1"},
-	})
+	err = s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin1"},
+		Holder: "kitamura1",
+	}, {
+		Key:    lease.Key{"leadership", "model", "twin2"},
+		Holder: "kitamura2",
+	}, {
+		Key:    lease.Key{"leadership", "model", "twin1"},
+		Holder: "kitamura1",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 }
@@ -265,16 +276,22 @@ func (s *targetSuite) TestExpiresWithMissingRecord(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.newTarget().Expiries([]lease.Key{
-		{"leadership", "model", "twin1"},
-		{"leadership", "model", "twin2"},
-	})
+	err = s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin1"},
+		Holder: "kitamura1",
+	}, {
+		Key:    lease.Key{"leadership", "model", "twin2"},
+		Holder: "kitamura2",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 }
 
 func (s *targetSuite) TestExpiredNoRecord(c *gc.C) {
-	err := s.newTarget().Expiries([]lease.Key{{"leadership", "model", "twin"}})
+	err := s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin"},
+		Holder: "kitamura",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 }
@@ -296,7 +313,10 @@ func (s *targetSuite) TestExpiredRemovedWhileRunning(c *gc.C) {
 		c.Assert(coll.Remove(nil), jc.ErrorIsNil)
 	}).Check()
 
-	err = s.newTarget().Expiries([]lease.Key{{"leadership", "model", "twin"}})
+	err = s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin"},
+		Holder: "kitamura",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 }
@@ -318,7 +338,10 @@ func (s *targetSuite) TestExpiredError(c *gc.C) {
 
 	s.mongo.txnErr = errors.Errorf("oops!")
 
-	err = s.newTarget().Expiries([]lease.Key{{"leadership", "model", "twin"}})
+	err = s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin"},
+		Holder: "kitamura",
+	}})
 	c.Assert(err, gc.ErrorMatches, `\[model:leadership#twin#\] in db: oops!`)
 	c.Assert(logWriter.Log(), jc.LogMatches, []string{
 		`expiring leases \[model:leadership#twin#\]`,
