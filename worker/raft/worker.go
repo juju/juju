@@ -88,14 +88,14 @@ type Logger interface {
 // allowing for client side backoff.
 type Queue interface {
 	// Queue returns the queue of operations. Removing an item from the channel
-	// will unblock to allow another to take it's place.
+	// will unblock to allow another to take its place.
 	Queue() <-chan []queue.Operation
 }
 
 // LeaseApplier applies operations from the queue onto the underlying raft
 // instance.
 type LeaseApplier interface {
-	// ApplyOperation applies an lease opeartion against the raft instance. If
+	// ApplyOperation applies a lease opeartion against the raft instance. If
 	// the raft instance isn't the leader, then an error is returned with the
 	// leader information if available.
 	// This Raft spec outlines this "The first option, which we recommend ...,
