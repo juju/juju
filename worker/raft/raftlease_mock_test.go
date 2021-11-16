@@ -50,7 +50,7 @@ func (mr *MockNotifyTargetMockRecorder) Claimed(arg0, arg1 interface{}) *gomock.
 }
 
 // Expiries mocks base method.
-func (m *MockNotifyTarget) Expiries(arg0 []lease.Key) error {
+func (m *MockNotifyTarget) Expiries(arg0 []raftlease.Expired) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Expiries", arg0)
 	ret0, _ := ret[0].(error)

@@ -231,6 +231,38 @@ func (s *targetSuite) TestExpires(c *gc.C) {
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 }
 
+func (s *targetSuite) TestExpiresWithDifferentHolder(c *gc.C) {
+	err := s.db.C(collection).Insert(
+		bson.M{
+			"_id":        "model:leadership#twin1#",
+			"namespace":  "leadership",
+			"model-uuid": "model",
+			"lease":      "twin1",
+			"holder":     "kitamuraA",
+		},
+		bson.M{
+			"_id":        "model:leadership#twin2#",
+			"namespace":  "leadership",
+			"model-uuid": "model",
+			"lease":      "twin2",
+			"holder":     "kitamura2",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Attempt to expire this one, but it won't match. We should still expire
+	// the second lease.
+	err = s.newTarget().Expiries([]coreraftlease.Expired{{
+		Key:    lease.Key{"leadership", "model", "twin1"},
+		Holder: "kitamura1",
+	}, {
+		Key:    lease.Key{"leadership", "model", "twin2"},
+		Holder: "kitamura2",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.getRows(c), gc.HasLen, 1)
+}
+
 func (s *targetSuite) TestExpiresWithDuplicateEntries(c *gc.C) {
 	err := s.db.C(collection).Insert(
 		bson.M{

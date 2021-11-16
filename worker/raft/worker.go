@@ -585,7 +585,7 @@ func (BootstrapNotifyTarget) Claimed(lease.Key, string) error {
 }
 
 // Expiries will be called when a set of existing leases have expired.
-func (BootstrapNotifyTarget) Expiries([]lease.Key) error {
+func (BootstrapNotifyTarget) Expiries([]raftlease.Expired) error {
 	return nil
 }
 
