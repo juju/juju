@@ -198,13 +198,6 @@ func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, 
 	}
 	appToken, err := backend.GetToken(names.NewApplicationTag(offerName))
 	if err != nil {
-		// TODO(babbageclunk): do we need to try getting the appToken
-		// for the application name instead (opposite of the fallback
-		// in
-		// apiserver/facades/controller/crossmodelrelations/crossmodelrelations.go:296)?
-		// I don't think so because this method is only called from
-		// API methods that were added after the transition to offer
-		// name as the app token.
 		return "", "", errors.Annotatef(err, "getting token for application %q", offerName)
 	}
 	return relationToken, appToken, nil
