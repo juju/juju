@@ -74,7 +74,7 @@ func (st stateShim) ControllerTag() names.ControllerTag {
 	return st.Model.ControllerTag()
 }
 
-// ControllerTag returns the tag of the controller in which we are operating.
+// ModelTag returns the tag of the model in which we are operating.
 // This is a temporary transitional step.
 func (st stateShim) ModelTag() names.ModelTag {
 	return st.Model.ModelTag()

@@ -3770,3 +3770,70 @@ func DropLegacyAssumesSectionsFromCharmMetadata(pool *StatePool) error {
 		return nil
 	}))
 }
+
+// MigrateLegacyCrossModelTokens updates the remoteEntities collection
+// to fix a potential legacy Juju 2.5.1 issue.
+func MigrateLegacyCrossModelTokens(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		entities, closer := st.db().GetCollection(remoteEntitiesC)
+		defer closer()
+
+		offers, closer := st.db().GetCollection(applicationOffersC)
+		defer closer()
+
+		var docs []remoteEntityDoc
+		if err := entities.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, entityDoc := range docs {
+			modelUUID, originalID, ok := splitDocID(entityDoc.DocID)
+			if !ok {
+				return errors.Errorf("bad data, remote entity _id %s", entityDoc.DocID)
+			}
+			tag, err := names.ParseTag(originalID)
+			if err != nil {
+				return errors.Errorf("bad data, invalid entity tag %q", originalID)
+			}
+			// We only want to deal with application tags.
+			if tag.Kind() != names.ApplicationTagKind {
+				continue
+			}
+
+			// Check to see if there's any records using the
+			// offer application name instead of the offer name.
+			var matchingOffers []applicationOfferDoc
+			err = offers.Find(bson.D{{"application-name", tag.Id()}}).All(&matchingOffers)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if len(matchingOffers) == 0 {
+				continue
+			}
+			ops = append(ops, txn.Op{
+				C:      remoteEntitiesC,
+				Id:     entityDoc.DocID,
+				Remove: true,
+			})
+			// If there's only 1, we know what the offer should be.
+			// If there's > 1, its ambiguous so best just to delete
+			// the ambiguous record.
+			if len(matchingOffers) != 1 {
+				continue
+			}
+			entityDoc.DocID = ensureModelUUID(
+				modelUUID,
+				names.NewApplicationTag(matchingOffers[0].OfferName).String())
+			ops = append(ops, txn.Op{
+				C:      remoteEntitiesC,
+				Id:     entityDoc.DocID,
+				Insert: entityDoc,
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
