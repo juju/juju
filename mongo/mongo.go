@@ -723,9 +723,24 @@ func installMongod(mongoDep packaging.Dependency, usingMongoFromSnap bool, hostS
 
 	if usingMongoFromSnap {
 		defer func() {
+			if err != nil {
+				return
+			}
 			err = snapSvc.ConfigOverride()
-			if err == nil {
-				err = snapSvc.Restart()
+			if err != nil {
+				err = errors.Annotate(err, "cannot override mongo service config")
+				return
+			}
+			// TODO(juju3): refactor and update tests during merge
+			err = snapSvc.Stop()
+			if err != nil {
+				err = errors.Annotate(err, "cannot stop mongo service")
+				return
+			}
+			err = snapSvc.Start()
+			if err != nil {
+				err = errors.Annotate(err, "cannot start mongo service")
+				return
 			}
 		}()
 	}
