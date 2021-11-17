@@ -153,6 +153,21 @@ func (mr *MockDeployerAPIMockRecorder) AddUnits(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnits", reflect.TypeOf((*MockDeployerAPI)(nil).AddUnits), arg0)
 }
 
+// ApplicationsInfo mocks base method.
+func (m *MockDeployerAPI) ApplicationsInfo(arg0 []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationsInfo", arg0)
+	ret0, _ := ret[0].([]params.ApplicationInfoResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationsInfo indicates an expected call of ApplicationsInfo.
+func (mr *MockDeployerAPIMockRecorder) ApplicationsInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationsInfo", reflect.TypeOf((*MockDeployerAPI)(nil).ApplicationsInfo), arg0)
+}
+
 // BakeryClient mocks base method.
 func (m *MockDeployerAPI) BakeryClient() base.MacaroonDischarger {
 	m.ctrl.T.Helper()
