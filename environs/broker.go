@@ -93,7 +93,7 @@ type StartInstanceParams struct {
 
 	// CleanupCallback is a callback to be used to clean up any residual
 	// status-reporting output from StatusCallback.
-	CleanupCallback func(info string) error
+	CleanupCallback func() error
 
 	// StatusCallback is a callback to be used by the instance to report
 	// changes in status. Its signature is consistent with other
