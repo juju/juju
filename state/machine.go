@@ -178,14 +178,6 @@ func (m *Machine) ContainerType() instance.ContainerType {
 	return instance.ContainerType(m.doc.ContainerType)
 }
 
-func (m *Machine) ModelName() string {
-	name, err := m.st.modelName()
-	if err != nil {
-		logger.Errorf(err.Error())
-	}
-	return name
-}
-
 // ForceDestroyed returns whether the destruction of a dying/dead
 // machine was forced. It's always false for a machine that's alive.
 func (m *Machine) ForceDestroyed() bool {
