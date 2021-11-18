@@ -933,10 +933,6 @@ func AppStorageConstraints(app *Application) (map[string]StorageConstraints, err
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
 }
 
-func AppDeviceConstraints(app *Application) (map[string]DeviceConstraints, error) {
-	return readDeviceConstraints(app.st, app.deviceConstraintsKey())
-}
-
 func RemoveRelation(c *gc.C, rel *Relation, force bool) {
 	op := &ForcedOperation{Force: force}
 	ops, err := rel.removeOps("", "", op)
