@@ -95,12 +95,6 @@ func iamClientFunc(
 	return iam.NewFromConfig(cfg), nil
 }
 
-// controllerInstanceProfileName is a convience function for idempotently
-// generating controller instance profile names.
-func controllerInstanceProfileName(controllerName string) string {
-	return fmt.Sprintf("juju-controller-%s", controllerName)
-}
-
 // ensureControllerInstanceProfile ensures that a controller Instance Profile
 // has been created for the supplied controller name in the specified AWS cloud.
 func ensureControllerInstanceProfile(
@@ -136,9 +130,14 @@ func ensureControllerInstanceProfile(
 	}
 
 	cleanups = append([]func(){func() {
-		_, _ = client.DeleteInstanceProfile(ctx, &iam.DeleteInstanceProfileInput{
+		_, err := client.DeleteInstanceProfile(ctx, &iam.DeleteInstanceProfileInput{
 			InstanceProfileName: res.InstanceProfile.InstanceProfileName,
 		})
+		if err != nil {
+			logger.Errorf("cleanup delete instance profile %q: %v",
+				*res.InstanceProfile.InstanceProfileName,
+				err)
+		}
 	}}, cleanups...)
 
 	_, err = client.AddRoleToInstanceProfile(ctx, &iam.AddRoleToInstanceProfileInput{
@@ -156,10 +155,16 @@ func ensureControllerInstanceProfile(
 	}
 
 	cleanups = append([]func(){func() {
-		_, _ = client.RemoveRoleFromInstanceProfile(ctx, &iam.RemoveRoleFromInstanceProfileInput{
+		_, err := client.RemoveRoleFromInstanceProfile(ctx, &iam.RemoveRoleFromInstanceProfileInput{
 			InstanceProfileName: res.InstanceProfile.InstanceProfileName,
 			RoleName:            role.RoleName,
 		})
+		if err != nil {
+			logger.Errorf("cleanup remove role %q from instance profile %q: %v",
+				*role.RoleName,
+				*res.InstanceProfile.InstanceProfileName,
+				err)
+		}
 	}}, cleanups...)
 
 	return res.InstanceProfile, cleanups, nil
@@ -197,9 +202,14 @@ func ensureControllerInstanceRole(
 	}
 
 	cleanups = append(cleanups, func() {
-		_, _ = client.DeleteRole(ctx, &iam.DeleteRoleInput{
+		_, err := client.DeleteRole(ctx, &iam.DeleteRoleInput{
 			RoleName: res.Role.RoleName,
 		})
+		if err != nil {
+			logger.Errorf("cleanup delete role %q: %v",
+				*res.Role.RoleName,
+				err)
+		}
 	})
 
 	_, err = client.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
@@ -213,10 +223,16 @@ func ensureControllerInstanceRole(
 	}
 
 	cleanups = append([]func(){func() {
-		_, _ = client.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+		_, err := client.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
 			PolicyName: aws.String(roleName),
 			RoleName:   res.Role.RoleName,
 		})
+		if err != nil {
+			logger.Errorf("cleanup delete role %q policy %q: %v",
+				*res.Role.RoleName,
+				roleName,
+				err)
+		}
 	}}, cleanups...)
 
 	return res.Role, cleanups, nil

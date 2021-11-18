@@ -4,26 +4,13 @@
 package ec2
 
 import (
-	//	"context"
-	//	"net/http"
-	//	time "time"
-	//
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	//	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-
-	//	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	//	smithyhttp "github.com/aws/smithy-go/transport/http"
-	//	"github.com/juju/errors"
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	//
-	//	"github.com/juju/juju/environs/tags"
 
 	"github.com/juju/juju/provider/ec2/internal/testing"
 )

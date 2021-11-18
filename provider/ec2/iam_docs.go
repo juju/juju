@@ -50,7 +50,7 @@ const (
         "ec2:DescribeSecurityGroups",
         "ec2:DescribeSpotPriceHistory",
         "ec2:DescribeSubnets",
-        "ec2:DescibeVolumes",
+        "ec2:DescribeVolumes",
         "ec2:DescribeVpcs",
         "ec2:DetachVolume",
         "ec2:RevokeSecurityGroupIngress",
@@ -70,6 +70,7 @@ const (
 		"iam:DeleteRolePolicy",
         "iam:GetInstanceProfile",
 		"iam:GetRole",
+		"iam:PassRole",
 		"iam:PutRolePolicy",
 		"iam:RemoveRoleFromInstanceProfile"
       ],
