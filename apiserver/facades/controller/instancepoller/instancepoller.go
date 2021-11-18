@@ -197,8 +197,8 @@ func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.Interfac
 
 // mapNetworkConfigsToProviderAddresses iterates the list of incoming network
 // configuration parameters, extracts all usable private/shadow IP addresses,
-// attempts to resolve each one to a known space and returns back a list of
-// scoped, space-aware ProviderAddresses.
+// attempts to resolve each one to a known space and returns a list of scoped,
+// space-aware ProviderAddresses.
 func mapNetworkConfigsToProviderAddresses(
 	cfgs []params.NetworkConfig, spaceInfos network.SpaceInfos,
 ) (network.ProviderAddresses, error) {

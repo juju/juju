@@ -178,6 +178,12 @@ func (m *Machine) ContainerType() instance.ContainerType {
 	return instance.ContainerType(m.doc.ContainerType)
 }
 
+// ModelUUID returns the unique identifier
+// for the model that this machine is in.
+func (m *Machine) ModelUUID() string {
+	return m.doc.ModelUUID
+}
+
 // ForceDestroyed returns whether the destruction of a dying/dead
 // machine was forced. It's always false for a machine that's alive.
 func (m *Machine) ForceDestroyed() bool {
