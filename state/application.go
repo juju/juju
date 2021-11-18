@@ -2796,10 +2796,15 @@ func (a *Application) updateBranchConfig(branchName string, current *Settings, v
 // ApplicationConfig returns the configuration for the application itself.
 func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) {
 	config, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
-	if errors.IsNotFound(err) || len(config.Keys()) == 0 {
-		return application.ConfigAttributes(nil), nil
-	} else if err != nil {
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return application.ConfigAttributes(nil), nil
+		}
 		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
+	}
+
+	if len(config.Keys()) == 0 {
+		return application.ConfigAttributes(nil), nil
 	}
 	return config.Map(), nil
 }
