@@ -1561,19 +1561,14 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			return nil, nil
 		}
 
-		lifeAssert := isAliveDoc
-		if force {
-			// Since we are force destroying, life assert should be current volume's life.
-			lifeAssert = bson.D{{"life", volume.Life()}}
-		}
 		if plans, err := sb.machineVolumeAttachmentPlans(hostTag, volume.VolumeTag()); err != nil {
 			return nil, errors.Trace(err)
 		} else {
 			if len(plans) > 0 {
-				return detachStorageAttachmentOps(hostTag, volume.VolumeTag(), lifeAssert), nil
+				return sb.detachVolumeAttachmentPlanOps(hostTag, volume.VolumeTag(), force)
 			}
 		}
-		return detachVolumeOps(hostTag, volume.VolumeTag(), lifeAssert), nil
+		return sb.detachVolumeOps(hostTag, volume.VolumeTag(), force)
 
 	case StorageKindFilesystem:
 		filesystem, err := sb.storageInstanceFilesystem(si.StorageTag())

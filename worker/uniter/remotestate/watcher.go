@@ -311,10 +311,12 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 		providerID := w.unit.ProviderID()
 		if providerID != "" {
 			running, err := w.containerRunningStatusFunc(providerID)
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
-			w.containerRunningStatus(*running)
+			if running != nil {
+				w.containerRunningStatus(*running)
+			}
 		}
 	}
 	return nil
@@ -576,10 +578,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				}
 			}
 			runningStatus, err := w.containerRunningStatusFunc(w.current.ProviderID)
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return errors.Annotatef(err, "getting container running status for %q", unitTag.String())
 			}
-			w.containerRunningStatus(*runningStatus)
+			if runningStatus != nil {
+				w.containerRunningStatus(*runningStatus)
+			}
 
 		case hashes, ok := <-charmConfigw.Changes():
 			w.logger.Debugf("got config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
