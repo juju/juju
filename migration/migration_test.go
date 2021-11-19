@@ -341,21 +341,6 @@ func (f *fakeUploader) SetUnitResource(unit string, res resource.Resource) error
 	return nil
 }
 
-type ExportSuite struct {
-	statetesting.StateSuite
-}
-
-var _ = gc.Suite(&ExportSuite{})
-
-func (s *ExportSuite) TestExportModel(c *gc.C) {
-	bytes, err := migration.ExportModel(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	// The bytes must be a valid model.
-	modelDesc, err := description.Deserialize(bytes)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelDesc.Validate(), jc.ErrorIsNil)
-}
-
 func fakeGetClaimer(string) (leadership.Claimer, error) {
 	return &fakeClaimer{}, nil
 }
