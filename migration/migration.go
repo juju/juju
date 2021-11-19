@@ -32,22 +32,6 @@ type StateExporter interface {
 	Export() (description.Model, error)
 }
 
-// ExportModel creates a description.Model representation of the
-// active model for StateExporter (typically a *state.State), and
-// returns the serialized version. It provides the symmetric
-// functionality to ImportModel.
-func ExportModel(st StateExporter) ([]byte, error) {
-	model, err := st.Export()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bytes, err := description.Serialize(model)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return bytes, nil
-}
-
 // StateImporter describes the method needed to import a model
 // into the database.
 type StateImporter interface {
@@ -89,7 +73,7 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 		// a reasonable sized model. We don't yet know how long this
 		// is going to be, but we need something.
 		// TODO(babbageclunk): Handle this better - maybe a way to
-		// suppress leadership expiries for a model until it's
+		// suppress leadership expirations for a model until it is
 		// finished importing?
 		logger.Debugf("%q is the leader for %q", application.Leader(), application.Name())
 		err := claimer.ClaimLeadership(
@@ -109,7 +93,7 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 	return dbModel, dbState, nil
 }
 
-// CharmDownlaoder defines a single method that is used to download a
+// CharmDownloader defines a single method that is used to download a
 // charm from the source controller in a migration.
 type CharmDownloader interface {
 	OpenCharm(*charm.URL) (io.ReadCloser, error)
@@ -212,7 +196,7 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	}
 	defer func() {
 		if err != nil {
-			os.Remove(tempFile.Name())
+			_ = os.Remove(tempFile.Name())
 		}
 	}()
 	_, err = io.Copy(tempFile, r)
@@ -225,8 +209,8 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	}
 	rmTempFile := func() {
 		filename := tempFile.Name()
-		tempFile.Close()
-		os.Remove(filename)
+		_ = tempFile.Close()
+		_ = os.Remove(filename)
 	}
 
 	return tempFile, rmTempFile, nil
@@ -250,7 +234,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		content, cleanup, err := streamThroughTempFile(reader)
 		if err != nil {
@@ -276,7 +260,7 @@ func uploadTools(config UploadBinariesConfig) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		content, cleanup, err := streamThroughTempFile(reader)
 		if err != nil {
@@ -320,7 +304,7 @@ func uploadAppResource(config UploadBinariesConfig, rev resource.Resource) error
 	if err != nil {
 		return errors.Annotate(err, "cannot open resource")
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// TODO(menn0) - validate that the downloaded revision matches
 	// the expected metadata. Check revision and fingerprint.
