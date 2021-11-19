@@ -156,7 +156,7 @@ type ModelManagerAPI struct {
 	ctlrState   common.ModelManagerBackend
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
-	toolsFinder *common.ToolsFinder
+	toolsFinder common.ToolsFinder
 	apiUser     names.UserTag
 	isAdmin     bool
 	model       common.Model

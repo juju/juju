@@ -306,6 +306,19 @@ func (c *Client) FindTools(majorVersion, minorVersion int, osType, arch, agentSt
 		AgentStream:  agentStream,
 	}
 	err = c.facade.FacadeCall("FindTools", args, &result)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if result.Error != nil {
+		err = result.Error
+		// We need to deal with older controllers.
+		if strings.HasSuffix(result.Error.Message, "not valid") {
+			err = errors.NewNotValid(result.Error, "finding tools")
+		}
+		if params.IsCodeNotFound(err) {
+			err = errors.NewNotFound(err, "finding tools")
+		}
+	}
 	return result, err
 }
 
