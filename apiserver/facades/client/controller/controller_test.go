@@ -16,7 +16,9 @@ import (
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
+	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -30,6 +32,7 @@ import (
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -396,16 +399,28 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(disposed, jc.IsTrue)
 	}()
 
+	done := make(chan bool)
+	defer close(done)
 	resultC := make(chan params.AllWatcherNextResults)
 	go func() {
-		result, err := watcherAPI.Next()
-		c.Assert(err, jc.ErrorIsNil)
-		resultC <- result
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				result, err := watcherAPI.Next()
+				if err != nil {
+					c.Assert(err, jc.Satisfies, coremultiwatcher.IsErrStopped)
+					return
+				}
+				resultC <- result
+			}
+		}
 	}()
 
 	select {
 	case result := <-resultC:
-		// Expect to see the initial environment be reported.
+		// Expect to see the initial model be reported.
 		deltas := result.Deltas
 		c.Assert(deltas, gc.HasLen, 1)
 		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
@@ -413,6 +428,44 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(modelInfo.IsController, gc.Equals, s.State.IsController())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
+	}
+
+	// To ensure we really watch all models, make another one.
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "test"})
+	defer st.Close()
+
+	// Update the model agent versions to ensure settings changes cause an update.
+	err = s.State.SetModelAgentVersion(version.MustParse("2.6.666"), true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SetModelAgentVersion(version.MustParse("2.6.667"), true)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedVersions := map[string]string{
+		s.State.ModelUUID(): "2.6.666",
+		st.ModelUUID():      "2.6.667",
+	}
+
+	s.State.StartSync()
+
+	for resultCount := 0; resultCount != 2; {
+		select {
+		case result := <-resultC:
+			c.Logf("got change: %# v", pretty.Formatter(result))
+			for _, d := range result.Deltas {
+				if d.Removed {
+					continue
+				}
+				modelInfo, ok := d.Entity.(*params.ModelUpdate)
+				if !ok {
+					continue
+				}
+				if modelInfo.Config["agent-version"] == expectedVersions[modelInfo.ModelUUID] {
+					resultCount = resultCount + 1
+				}
+			}
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for 2 model updates, got %d", resultCount)
+		}
 	}
 }
 
