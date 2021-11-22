@@ -49,22 +49,23 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 // attachmentLife queries the lifecycle state of each specified
 // attachment, and then partitions the IDs by them.
 func attachmentLife(ctx *context, ids []params.MachineStorageId) (
-	alive, dying, dead []params.MachineStorageId, _ error,
+	alive, dying, dead, gone []params.MachineStorageId, _ error,
 ) {
 	lifeResults, err := ctx.config.Life.AttachmentLife(ids)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "getting machine attachment life")
+		return nil, nil, nil, nil, errors.Annotate(err, "getting machine attachment life")
 	}
 	for i, result := range lifeResults {
 		value := result.Life
 		if result.Error != nil {
 			if !params.IsCodeNotFound(result.Error) {
-				return nil, nil, nil, errors.Annotatef(
+				return nil, nil, nil, nil, errors.Annotatef(
 					result.Error, "getting life of %s attached to %s",
 					ids[i].AttachmentTag, ids[i].MachineTag,
 				)
 			}
-			value = life.Dead
+			gone = append(gone, ids[i])
+			continue
 		}
 		switch value {
 		case life.Alive:
@@ -75,7 +76,7 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 			dead = append(dead, ids[i])
 		}
 	}
-	return alive, dying, dead, nil
+	return alive, dying, dead, gone, nil
 }
 
 // removeEntities removes each specified Dead entity from state.

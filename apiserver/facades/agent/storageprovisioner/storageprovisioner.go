@@ -1568,7 +1568,7 @@ func (s *StorageProvisionerAPIv3) Remove(args params.Entities) (params.ErrorResu
 	return results, nil
 }
 
-// RemoveAttachments removes the specified machine storage attachments
+// RemoveAttachment removes the specified machine storage attachments
 // from state.
 func (s *StorageProvisionerAPIv3) RemoveAttachment(args params.MachineStorageIds) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()

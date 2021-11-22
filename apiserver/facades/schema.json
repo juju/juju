@@ -42883,7 +42883,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "RemoveAttachments removes the specified machine storage attachments\nfrom state."
+                    "description": "RemoveAttachment removes the specified machine storage attachments\nfrom state."
                 },
                 "RemoveFilesystemParams": {
                     "type": "object",

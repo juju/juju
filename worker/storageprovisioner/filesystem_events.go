@@ -69,7 +69,7 @@ func filesystemsChanged(ctx *context, changes []string) error {
 // attachments with the provided IDs have been seen to have changed.
 func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
 	ids := copyMachineStorageIds(watcherIds)
-	alive, dying, dead, err := attachmentLife(ctx, ids)
+	alive, dying, dead, gone, err := attachmentLife(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -78,6 +78,10 @@ func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStor
 		// We should not see dead filesystem attachments;
 		// attachments go directly from Dying to removed.
 		ctx.config.Logger.Warningf("unexpected dead filesystem attachments: %v", dead)
+	}
+	// Clean up any attachments which have been removed.
+	for _, id := range gone {
+		delete(ctx.filesystemAttachments, id)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil
