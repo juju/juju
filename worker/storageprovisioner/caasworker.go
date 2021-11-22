@@ -89,11 +89,11 @@ func (p *provisioner) getApplicationWorker(appName string) (worker.Worker, bool)
 }
 
 func (p *provisioner) loop() error {
-	w, err := p.config.Applications.WatchApplications()
+	appsWatcher, err := p.config.Applications.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.catacomb.Add(w); err != nil {
+	if err := p.catacomb.Add(appsWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -109,7 +109,7 @@ func (p *provisioner) loop() error {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
-		case apps, ok := <-w.Changes():
+		case apps, ok := <-appsWatcher.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
@@ -123,20 +123,19 @@ func (p *provisioner) loop() error {
 			}
 			for i, appID := range apps {
 				appLifeResult := appsLife[i]
-				if appLifeResult.Error != nil && params.IsCodeNotFound(appLifeResult.Error) {
+				if appLifeResult.Error != nil && params.IsCodeNotFound(appLifeResult.Error) || appLifeResult.Life == life.Dead {
 					p.config.Logger.Debugf("app %v not found", appID)
 					_, ok := p.getApplicationWorker(appID)
 					if ok {
-						if err := worker.Stop(w); err != nil {
+						if err := worker.Stop(appsWatcher); err != nil {
 							p.config.Logger.Errorf("stopping application storage worker for %v: %v", appID, err)
 						}
 						p.deleteApplicationWorker(appID)
 					}
 					continue
 				}
-				if _, ok := p.getApplicationWorker(appID); ok || appLifeResult.Life == life.Dead {
-					// Already watching the application. or we're
-					// not yet watching it and it's dead.
+				if _, ok := p.getApplicationWorker(appID); ok {
+					// Already watching the application.
 					continue
 				}
 				cfg := p.config
