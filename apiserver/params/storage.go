@@ -43,7 +43,7 @@ type BlockDevicesResult struct {
 	Error  *Error                `json:"error,omitempty"`
 }
 
-// BlockDevicseResults holds the result of an API call to retrieve details
+// BlockDevicesResults holds the result of an API call to retrieve details
 // of all block devices relating to some entities.
 type BlockDevicesResults struct {
 	Results []BlockDevicesResult `json:"results,omitempty"`
@@ -134,7 +134,7 @@ type StorageAttachmentIdsResult struct {
 	Error  *Error               `json:"error,omitempty"`
 }
 
-// StorageAttachmentIdsResult holds the result of an API call to retrieve the
+// StorageAttachmentIdsResults holds the result of an API call to retrieve the
 // IDs of multiple units attached storage instances.
 type StorageAttachmentIdsResults struct {
 	Results []StorageAttachmentIdsResult `json:"results,omitempty"`
@@ -187,7 +187,7 @@ type Volume struct {
 	Info      VolumeInfo `json:"info"`
 }
 
-// Volume describes a storage volume in the model.
+// VolumeInfo describes a storage volume in the model.
 type VolumeInfo struct {
 	VolumeId   string `json:"volume-id"`
 	HardwareId string `json:"hardware-id,omitempty"`
@@ -214,7 +214,7 @@ type VolumeAttachment struct {
 	Info       VolumeAttachmentInfo `json:"info"`
 }
 
-// VolumeAttachment identifies and describes a volume attachment.
+// VolumeAttachmentPlan identifies and describes a volume attachment plan.
 type VolumeAttachmentPlan struct {
 	VolumeTag  string                   `json:"volume-tag"`
 	MachineTag string                   `json:"machine-tag"`
@@ -334,7 +334,7 @@ type VolumeResults struct {
 	Results []VolumeResult `json:"results,omitempty"`
 }
 
-// VolumeParamsResults holds provisioning parameters for a volume.
+// VolumeParamsResult holds provisioning parameters for a volume.
 type VolumeParamsResult struct {
 	Result VolumeParams `json:"result"`
 	Error  *Error       `json:"error,omitempty"`
@@ -345,7 +345,7 @@ type VolumeParamsResults struct {
 	Results []VolumeParamsResult `json:"results,omitempty"`
 }
 
-// RemoveVolumeParamsResults holds parameters for destroying a volume.
+// RemoveVolumeParamsResult holds parameters for destroying a volume.
 type RemoveVolumeParamsResult struct {
 	Result RemoveVolumeParams `json:"result"`
 	Error  *Error             `json:"error,omitempty"`
@@ -356,7 +356,7 @@ type RemoveVolumeParamsResults struct {
 	Results []RemoveVolumeParamsResult `json:"results,omitempty"`
 }
 
-// VolumeAttachmentParamsResults holds provisioning parameters for a volume
+// VolumeAttachmentParamsResult holds provisioning parameters for a volume
 // attachment.
 type VolumeAttachmentParamsResult struct {
 	Result VolumeAttachmentParams `json:"result"`
@@ -376,7 +376,7 @@ type Filesystem struct {
 	Info          FilesystemInfo `json:"info"`
 }
 
-// Filesystem describes a storage filesystem in the model.
+// FilesystemInfo describes a storage filesystem in the model.
 type FilesystemInfo struct {
 	FilesystemId string `json:"filesystem-id"`
 	// Pool is the name of the storage pool used to
@@ -471,7 +471,7 @@ type FilesystemResults struct {
 	Results []FilesystemResult `json:"results,omitempty"`
 }
 
-// FilesystemParamsResults holds provisioning parameters for a filesystem.
+// FilesystemParamsResult holds provisioning parameters for a filesystem.
 type FilesystemParamsResult struct {
 	Result FilesystemParams `json:"result"`
 	Error  *Error           `json:"error,omitempty"`
@@ -495,7 +495,7 @@ type RemoveFilesystemParamsResults struct {
 	Results []RemoveFilesystemParamsResult `json:"results,omitempty"`
 }
 
-// FilesystemAttachmentParamsResults holds provisioning parameters for a filesystem
+// FilesystemAttachmentParamsResult holds provisioning parameters for a filesystem
 // attachment.
 type FilesystemAttachmentParamsResult struct {
 	Result FilesystemAttachmentParams `json:"result"`
