@@ -27,6 +27,10 @@ const (
 	// there are timeouts.
 	maxRetries = 10
 
+	// maxDeadlineRetries gives the maximum number of deadline attempts we'll
+	// try if there are timeouts.
+	maxDeadlineRetries = 3
+
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
 	initialRetryDelay = 50 * time.Millisecond
@@ -679,7 +683,7 @@ func isFatalClaimRetryError(act action, err error, count int) bool {
 	case lease.IsDeadlineExceeded(err):
 		// Extend action we want to retry if the count is less that the number
 		// of retries.
-		if act == extendAction && count < 3 {
+		if act == extendAction && count < maxDeadlineRetries {
 			return false
 		}
 	}
