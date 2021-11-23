@@ -3372,8 +3372,8 @@ func (op *UpdateUnitsOperation) Build(attempt int) ([]txn.Op, error) {
 	var ops []txn.Op
 
 	all := op.allOps()
-	for _, op := range all {
-		switch nextOps, err := op.Build(attempt); err {
+	for _, txnOp := range all {
+		switch nextOps, err := txnOp.Build(attempt); err {
 		case jujutxn.ErrNoOperations:
 			continue
 		case nil:
