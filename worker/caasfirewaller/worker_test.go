@@ -246,7 +246,6 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWorker(c *gc.C) {
 	// Set up the errors before triggering any events to avoid racing
 	// with the worker loop. First time around the loop the
 	// application's alive, then it's gone.
-	//s.lifeGetter.life = life.Dead
 	s.applicationGetter.SetErrors(nil, nil, errors.NotFoundf("application"))
 
 	w, err := caasfirewaller.NewWorker(s.config)
