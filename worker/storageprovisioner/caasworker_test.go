@@ -142,7 +142,7 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter
 	c.Assert(running, jc.IsTrue)
 
 	// Add an additional app worker so we can check that the correct one is accessed.
-	storageprovisioner.NewStorageWorker(w, "postgresql")
+	storageprovisioner.NewStorageWorker(c, w, "postgresql")
 
 	if lifeGetterInjecter != nil {
 		lifeGetterInjecter()
