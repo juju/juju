@@ -157,13 +157,13 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
-	// Stopped app1's worker.
+	// Stopped app1's worker because it's removed.
 	app1Worker.EXPECT().Kill()
 	app1Worker.EXPECT().Wait().Return(nil)
 
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app2").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life("app2").Return(life.Value(""), errors.NotFoundf("%q", "app2"))
-	// Stopped app2's worker.
+	s.lifeGetter.EXPECT().Life("app2").Return(life.Dead, nil)
+	// Stopped app2's worker because it's dead.
 	app2Worker.EXPECT().Kill()
 	app2Worker.EXPECT().Wait().Return(nil)
 
