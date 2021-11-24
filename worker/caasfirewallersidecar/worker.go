@@ -133,7 +133,7 @@ func (p *firewaller) loop() error {
 				}
 
 				appLife, err := p.config.LifeGetter.Life(appName)
-				if errors.IsNotFound(err) {
+				if errors.IsNotFound(err) || appLife == life.Dead {
 					w, ok := p.appWorkers[appName]
 					if ok {
 						if err := worker.Stop(w); err != nil {
@@ -146,9 +146,8 @@ func (p *firewaller) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, ok := p.appWorkers[appName]; ok || appLife == life.Dead {
-					// Already watching the application. or we're
-					// not yet watching it and it's dead.
+				if _, ok := p.appWorkers[appName]; ok {
+					// Already watching the application.
 					continue
 				}
 				w, err := p.newApplicationWorker(
