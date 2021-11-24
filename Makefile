@@ -8,7 +8,12 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
-export CGO_ENABLED=0
+
+CGO_ENABLED=1
+CGO_CFLAGS=-I$(GOPATH)/deps/raft/include/ -I$(GOPATH)/deps/dqlite/include/
+CGO_LDFLAGS=-L$(GOPATH)/deps/raft/.libs -L$(GOPATH)/deps/dqlite/.libs/
+LD_LIBRARY_PATH=$(GOPATH)/deps/raft/.libs/:$(GOPATH)/deps/dqlite/.libs/
+CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
@@ -103,6 +108,7 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 # Build tags passed to go install/build.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
 BUILD_TAGS ?=
+REQUIRED_BUILD_TAGS = libsqlite3
 
 # Build number passed in must be a monotonic int representing
 # the build.
@@ -117,7 +123,7 @@ ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-    LINK_FLAGS = -ldflags "-s -w -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    LINK_FLAGS = -ldflags "-s -w  -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
 define DEPENDENCIES
@@ -273,8 +279,8 @@ run-tests:
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
-	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@TMPDIR=$(TMP) CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
 .PHONY: install
@@ -291,6 +297,16 @@ clean:
 	go clean -n -r --cache --testcache $(PROJECT)/...
 
 .PHONY: vendor-dependencies
+go-install:
+## go-install: Install Juju binaries without updating dependencies
+	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+
+go-build:
+## go-build: Build Juju binaries without updating dependencies
+	@mkdir -p ${BIN_DIR} #@echo 'CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+
 vendor-dependencies:
 ## vendor-dependencies: updates vendored dependencies
 	@go mod vendor
@@ -474,3 +490,45 @@ STATIC_ANALYSIS_JOB ?=
 static-analysis:
 ## static-analysis: Check the go code using static-analysis
 	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
+
+.PHONY: build check install release-install release-build go-build go-install
+.PHONY: clean format simplify test run-tests
+.PHONY: install-dependencies
+.PHONY: check-deps
+
+
+RAFT_PATH=$(GOPATH)/deps/raft
+DQLITE_PATH=$(GOPATH)/deps/dqlite
+
+.PHONY: deps
+deps:
+	@if [ ! -e "$(RAFT_PATH)" ]; then \
+		git clone --depth=1 "https://github.com/canonical/raft" "$(RAFT_PATH)"; \
+	elif [ -e "$(RAFT_PATH)/.git" ]; then \
+		cd "$(RAFT_PATH)"; git pull; \
+	fi
+
+	cd "$(RAFT_PATH)" && \
+		autoreconf -i && \
+		./configure && \
+		make
+
+	# dqlite
+	@if [ ! -e "$(DQLITE_PATH)" ]; then \
+		git clone --depth=1 "https://github.com/canonical/dqlite" "$(DQLITE_PATH)"; \
+	elif [ -e "$(DQLITE_PATH)/.git" ]; then \
+		cd "$(DQLITE_PATH)"; git pull; \
+	fi
+
+	cd "$(DQLITE_PATH)" && \
+		autoreconf -i && \
+		PKG_CONFIG_PATH="$(RAFT_PATH)" ./configure && \
+		make CFLAGS="-I$(RAFT_PATH)/include/" LDFLAGS="-L$(RAFT_PATH)/.libs/"
+
+	# environment
+	@echo ""
+	@echo "Please set the following in your environment (possibly ~/.bashrc)"
+	@echo "export CGO_CFLAGS=\"-I$(RAFT_PATH)/include/ -I$(DQLITE_PATH)/include/\""
+	@echo "export CGO_LDFLAGS=\"-L$(RAFT_PATH)/.libs -L$(DQLITE_PATH)/.libs/\""
+	@echo "export LD_LIBRARY_PATH=\"$(RAFT_PATH)/.libs/:$(DQLITE_PATH)/.libs/\""
+	@echo "export CGO_LDFLAGS_ALLOW=\"(-Wl,-wrap,pthread_create)|(-Wl,-z,now)\""

@@ -52,6 +52,7 @@ import (
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
 	"github.com/juju/juju/worker/credentialvalidator"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
@@ -746,6 +747,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			AgentName:      agentName,
+			CentralHubName: centralHubName,
+			Clock:          config.Clock,
+			Logger:         loggo.GetLogger("juju.worker.dbaccessor"),
+		})),
+
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName: agentName,
 			StateName: stateName,
@@ -1150,6 +1158,8 @@ const (
 	modelWorkerManagerName        = "model-worker-manager"
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
+	dbAccessorName                = "db-accessor"
+	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"
