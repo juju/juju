@@ -14,13 +14,12 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -95,8 +94,8 @@ func (st *State) EnableHA(
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
 		return ControllersChanges{}, errors.New("number of controllers must be odd and non-negative")
 	}
-	if numControllers > controller.MaxPeers {
-		return ControllersChanges{}, errors.Errorf("controller count is too large (allowed %d)", controller.MaxPeers)
+	if numControllers > replicaset.MaxPeers {
+		return ControllersChanges{}, errors.Errorf("controller count is too large (allowed %d)", replicaset.MaxPeers)
 	}
 	var change ControllersChanges
 	buildTxn := func(attempt int) ([]txn.Op, error) {

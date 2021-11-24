@@ -6,7 +6,7 @@ package upgrades
 import (
 	"time"
 
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"

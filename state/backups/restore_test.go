@@ -17,7 +17,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/ssh"
