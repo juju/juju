@@ -206,6 +206,9 @@ func (w *dbWorker) GetDB(modelUUID string) (*sql.DB, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "acccessing DB for model %q", modelUUID)
 	}
+	if err := ensureDBSchema(modelUUID, db); err != nil {
+		return nil, errors.Annotatef(err, "acccessing DB for model %q", modelUUID)
+	}
 	w.dbHandles[modelUUID] = db
 
 	return db, nil
