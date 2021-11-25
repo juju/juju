@@ -4240,6 +4240,18 @@ func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
 	}
 }
 
+func (s *ApplicationSuite) TestApplicationConfigNotFoundNoError(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy-application", ch)
+
+	// Delete all the settings. We should get a nil return, but no error.
+	_, _ = s.State.MongoSession().DB("juju").C("settings").RemoveAll(nil)
+
+	cfg, err := app.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg, gc.IsNil)
+}
+
 func (s *ApplicationSuite) TestStatusInitial(c *gc.C) {
 	appStatus, err := s.mysql.Status()
 	c.Check(err, jc.ErrorIsNil)
