@@ -149,11 +149,11 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 
 func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
-	s.applicationWatcher = newMockNotifyWatcher()
 	s.runningStatusWatcher = newMockNotifyWatcher()
+	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
+	s.applicationWatcher = s.st.unit.application.applicationWatcher
 
 	cfg := s.setupWatcherConfig()
-	cfg.ApplicationChannel = s.applicationWatcher.Changes()
 	cfg.ContainerRunningStatusChannel = s.runningStatusWatcher.Changes()
 	cfg.ContainerRunningStatusFunc = func(providerID string) (*remotestate.ContainerRunningStatus, error) {
 		return s.running, nil
@@ -291,16 +291,14 @@ func (s *WatcherSuite) signalAll() {
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
-	if s.st.modelType == model.IAAS || s.sidecar {
-		s.applicationWatcher.changes <- struct{}{}
-	}
+	s.applicationWatcher.changes <- struct{}{}
 	if s.st.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		s.st.unit.instanceDataWatcher.changes <- struct{}{}
 	}
 }
 
-func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
+func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -356,8 +354,8 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		Life:                   s.st.unit.life,
 		Relations:              map[int]remotestate.RelationSnapshot{},
 		Storage:                map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:   0,
-		CharmURL:               nil,
+		CharmModifiedVersion:   s.st.unit.application.charmModifiedVersion,
+		CharmURL:               s.st.unit.application.curl,
 		ForceCharmUpgrade:      s.st.unit.application.forceUpgrade,
 		ResolvedMode:           s.st.unit.resolved,
 		ConfigHash:             "confighash",
@@ -391,8 +389,8 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		Life:                   s.st.unit.life,
 		Relations:              map[int]remotestate.RelationSnapshot{},
 		Storage:                map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:   0,
-		CharmURL:               nil,
+		CharmModifiedVersion:   s.st.unit.application.charmModifiedVersion,
+		CharmURL:               s.st.unit.application.curl,
 		ForceCharmUpgrade:      s.st.unit.application.forceUpgrade,
 		ResolvedMode:           s.st.unit.resolved,
 		ConfigHash:             "confighash",
@@ -425,8 +423,8 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		Life:                   s.st.unit.life,
 		Relations:              map[int]remotestate.RelationSnapshot{},
 		Storage:                map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:   0,
-		CharmURL:               nil,
+		CharmModifiedVersion:   s.st.unit.application.charmModifiedVersion,
+		CharmURL:               s.st.unit.application.curl,
 		ForceCharmUpgrade:      s.st.unit.application.forceUpgrade,
 		ResolvedMode:           s.st.unit.resolved,
 		ConfigHash:             "confighash",
@@ -974,17 +972,6 @@ func (s *WatcherSuite) waitAlarmsStable(c *gc.C) {
 			c.Fatalf("never stopped setting alarms")
 		}
 	}
-}
-
-func (s *WatcherSuiteCAAS) TestWatcherConfig(c *gc.C) {
-	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{
-		ModelType: model.CAAS,
-		Logger:    loggo.GetLogger("test"),
-	})
-	c.Assert(err, gc.ErrorMatches, "watcher config for CAAS model with nil application channel not valid")
-
-	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{})
-	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
 }
 
 func (s *WatcherSuiteSidecar) TestWatcherConfig(c *gc.C) {

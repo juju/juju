@@ -132,10 +132,6 @@ type Uniter struct {
 	// the update-status hook
 	updateStatusAt remotestate.UpdateStatusTimerFunc
 
-	// applicationChannel, if set, is used to signal a change in the
-	// application's charm. It is passed to the remote state watcher.
-	applicationChannel watcher.NotifyChannel
-
 	// containerRunningStatusChannel, if set, is used to signal a change in the
 	// unit's status. It is passed to the remote state watcher.
 	containerRunningStatusChannel watcher.NotifyChannel
@@ -197,7 +193,6 @@ type UniterParams struct {
 	RunListener                   *RunListener
 	TranslateResolverErr          func(error) error
 	Clock                         clock.Clock
-	ApplicationChannel            watcher.NotifyChannel
 	ContainerRunningStatusChannel watcher.NotifyChannel
 	ContainerRunningStatusFunc    remotestate.ContainerRunningStatusFunc
 	IsRemoteUnit                  bool
@@ -270,7 +265,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			observer:                      uniterParams.Observer,
 			clock:                         uniterParams.Clock,
 			downloader:                    uniterParams.Downloader,
-			applicationChannel:            uniterParams.ApplicationChannel,
 			containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
 			containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
 			isRemoteUnit:                  uniterParams.IsRemoteUnit,
@@ -394,7 +388,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
 				RetryHookChannel:              retryHookChan,
-				ApplicationChannel:            u.applicationChannel,
 				ContainerRunningStatusChannel: u.containerRunningStatusChannel,
 				ContainerRunningStatusFunc:    u.containerRunningStatusFunc,
 				ModelType:                     u.modelType,
@@ -900,6 +893,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 	}
+
 	return nil
 }
 
