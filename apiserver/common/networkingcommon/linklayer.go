@@ -108,6 +108,10 @@ type LinkLayerMachine interface {
 	// AssertAliveOp returns a transaction operation for asserting
 	// that the machine is currently alive.
 	AssertAliveOp() txn.Op
+
+	// ModelUUID returns the unique identifier
+	// for the model that this machine is in.
+	ModelUUID() string
 }
 
 // LinkLayerState describes methods required for sanitising and persisting
@@ -163,14 +167,17 @@ type MachineLinkLayerOp struct {
 	existingAddrs []LinkLayerAddress
 }
 
-// NewMachineLinkLayerOp returns a reference that can be embedded in a model
-// operation for updating the input machine's link layer data.
-func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceInfos) *MachineLinkLayerOp {
-	logger.Infof("processing link-layer devices for machine %q", machine.Id())
+// NewMachineLinkLayerOp returns a reference that can be embedded in a
+// model operation for updating the input machine's link layer data.
+func NewMachineLinkLayerOp(source string, machine LinkLayerMachine, in network.InterfaceInfos) *MachineLinkLayerOp {
+	logger.Infof(
+		"processing %s-sourced link-layer devices for machine %q in model %q",
+		source, machine.Id(), machine.ModelUUID(),
+	)
 
 	return &MachineLinkLayerOp{
 		machine:  machine,
-		incoming: incoming,
+		incoming: in,
 	}
 }
 

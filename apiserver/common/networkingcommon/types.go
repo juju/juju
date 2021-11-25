@@ -225,7 +225,7 @@ func networkAddressesToStateArgs(
 	for _, addr := range addrs {
 		cidrAddress, err := addr.ValueWithMask()
 		if err != nil {
-			logger.Warningf("ignoring address %q for device %q: %v", addr.Value, dev.InterfaceName, err)
+			logger.Infof("ignoring address %q for device %q: %v", addr.Value, dev.InterfaceName, err)
 			continue
 		}
 

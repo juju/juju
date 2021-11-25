@@ -296,6 +296,15 @@ func (m *mockMachine) Id() string {
 	return m.id
 }
 
+// ModelUUID implements StateMachine.
+func (m *mockMachine) ModelUUID() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.MethodCall(m, "ModelUUID")
+	return "any-model-uuid"
+}
+
 // InstanceId implements StateMachine.
 func (m *mockMachine) InstanceId() (instance.Id, error) {
 	m.mu.Lock()
