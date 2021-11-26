@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -780,6 +781,30 @@ func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
 	assertDetach := func() {
 		err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag(), false)
+		c.Assert(err, jc.ErrorIsNil)
+		attachment := s.volumeAttachment(c, machine.MachineTag(), volume.VolumeTag())
+		c.Assert(attachment.Life(), gc.Equals, state.Dying)
+	}
+	defer state.SetBeforeHooks(c, s.State, assertDetach).Check()
+	assertDetach()
+}
+
+func (s *VolumeStateSuite) TestDetachVolumeForce(c *gc.C) {
+	volume, machine := s.setupModelScopedVolumeAttachment(c)
+	coll, closer := state.GetCollection(s.st, "volumes")
+	defer closer()
+
+	// Set the volume to Dying even though the attachment is still alive.
+	err := coll.Writeable().UpdateId(
+		state.DocID(s.st, volume.VolumeTag().Id()),
+		bson.D{{"$set", bson.D{{"life", state.Dying}}}})
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err = s.storageBackend.Volume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volume.Life(), gc.Equals, state.Dying)
+
+	assertDetach := func() {
+		err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag(), true)
 		c.Assert(err, jc.ErrorIsNil)
 		attachment := s.volumeAttachment(c, machine.MachineTag(), volume.VolumeTag())
 		c.Assert(attachment.Life(), gc.Equals, state.Dying)

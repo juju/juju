@@ -16,9 +16,11 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
@@ -26,6 +28,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -40,9 +43,10 @@ type UnitAgent struct {
 	agentConf        agent.ConfigSetterWriter
 	configChangedVal *voyeur.Value
 
-	setupLogging     func(*loggo.Context, agent.Config)
-	unitEngineConfig func() dependency.EngineConfig
-	unitManifolds    func(UnitManifoldsConfig) dependency.Manifolds
+	setupLogging       func(*loggo.Context, agent.Config)
+	unitEngineConfig   func() dependency.EngineConfig
+	unitManifolds      func(UnitManifoldsConfig) dependency.Manifolds
+	prometheusRegistry *prometheus.Registry
 
 	// Able to disable running units.
 	workerRunning bool
@@ -123,16 +127,21 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	prometheusRegistry, err := addons.NewPrometheusRegistry()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	unit := &UnitAgent{
-		tag:              tag,
-		name:             config.Name,
-		clock:            config.Clock,
-		logger:           config.Logger,
-		agentConf:        conf,
-		configChangedVal: voyeur.NewValue(true),
-		setupLogging:     config.SetupLogging,
-		unitEngineConfig: config.UnitEngineConfig,
-		unitManifolds:    config.UnitManifolds,
+		tag:                tag,
+		name:               config.Name,
+		clock:              config.Clock,
+		logger:             config.Logger,
+		agentConf:          conf,
+		configChangedVal:   voyeur.NewValue(true),
+		setupLogging:       config.SetupLogging,
+		unitEngineConfig:   config.UnitEngineConfig,
+		unitManifolds:      config.UnitManifolds,
+		prometheusRegistry: prometheusRegistry,
 	}
 	// Update the 'upgradedToVersion' in the agent.conf file if it is
 	// different to the current version.
@@ -214,6 +223,20 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		a.workerRunning = false
 		a.mu.Unlock()
 	}()
+	if err := addons.StartIntrospection(addons.IntrospectionConfig{
+		AgentTag:           a.CurrentConfig().Tag(),
+		Engine:             engine,
+		NewSocketName:      addons.DefaultIntrospectionSocketName,
+		PrometheusGatherer: a.prometheusRegistry,
+		MachineLock:        machineLock,
+		WorkerFunc:         introspection.NewWorker,
+	}); err != nil {
+		// If the introspection worker failed to start, we just log error
+		// but continue. It is very unlikely to happen in the real world
+		// as the only issue is connecting to the abstract domain socket
+		// and the agent is controlled by by the OS to only have one.
+		a.logger.Errorf("failed to start introspection worker: %v", err)
+	}
 	a.logger.Tracef("engine for %q running", a.name)
 	return engine, nil
 }

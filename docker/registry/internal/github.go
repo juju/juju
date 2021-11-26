@@ -33,9 +33,8 @@ func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 		return nil, errors.NewNotValid(nil, "github only supports username and password or auth token")
 	}
 	if repoDetails.BasicAuthConfig.Empty() {
-		// We allow github container registry config without auth details but we will raise PublicAPINotAvailableError.
-		// Because github allows image fetching without credential but their registry API always requires a credential.
-		return transport, nil
+		// Anonymous login.
+		return newTokenTransport(transport, "", "", "", "", false), nil
 	}
 	password := repoDetails.Password
 	if password == "" {
@@ -58,7 +57,7 @@ func githubContainerRegistryTransport(transport http.RoundTripper, repoDetails *
 func (c *githubContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
 	if c.client.Transport, err = mergeTransportWrappers(
 		c.client.Transport, c.repoDetails,
-		newPrivateOnlyTransport, githubContainerRegistryTransport, wrapErrorTransport,
+		githubContainerRegistryTransport, wrapErrorTransport,
 	); err != nil {
 		return errors.Trace(err)
 	}
@@ -67,6 +66,10 @@ func (c *githubContainerRegistry) WrapTransport(...TransportWrapper) (err error)
 
 // Ping pings the github endpoint.
 func (c githubContainerRegistry) Ping() error {
+	if !c.repoDetails.IsPrivate() {
+		// V2 API does not support - ping without credential.
+		return nil
+	}
 	url := c.url("/")
 	if !strings.HasSuffix(url, "/") {
 		// github v2 root endpoint requires the trailing slash(otherwise 404 returns).

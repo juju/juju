@@ -8,10 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 
 	jworker "github.com/juju/juju/worker"
 )
+
+var logger = loggo.GetLogger("juju.worker.txnpruner")
 
 // TransactionPruner defines the interface for types capable of
 // pruning transactions.
@@ -26,10 +29,14 @@ func New(tp TransactionPruner, interval time.Duration, clock clock.Clock) worker
 		for {
 			select {
 			case <-clock.After(interval):
+				logger.Infof("starting txn pruner")
+				start := time.Now()
 				err := tp.MaybePruneTransactions()
 				if err != nil {
 					return errors.Annotate(err, "pruning failed, txnpruner stopping")
 				}
+				elapsed := time.Since(start)
+				logger.Infof("txn pruner completed in %d seconds", elapsed/time.Second)
 			case <-stopCh:
 				return nil
 			}

@@ -1246,6 +1246,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			"--data-dir", jujuDataDir,
 			"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
 			"--append-env", "PATH=$PATH:/charm/bin",
+			"--show-log",
 		},
 		Env: env,
 		SecurityContext: &corev1.SecurityContext{
@@ -1581,7 +1582,7 @@ func (a *app) volumeName(storageName string) string {
 }
 
 // pvcNames returns a mapping of volume name to PVC name for this app's PVCs.
-func (a *app) pvcNames() (map[string]string, error) {
+func (a *app) pvcNames(storagePrefix string) (map[string]string, error) {
 	// Fetch all Juju PVCs associated with this app
 	labelSelectors := map[string]string{
 		"app.kubernetes.io/managed-by": "juju",
@@ -1604,11 +1605,12 @@ func (a *app) pvcNames() (map[string]string, error) {
 		}
 
 		// Try to match different PVC name formats that have evolved over time
+		storagePart := s + "-" + storagePrefix
 		regexes := []string{
 			// Sidecar "{appName}-{storageName}-{uniqueId}", e.g., "dex-auth-test-0837847d-dex-auth-0"
-			"^" + regexp.QuoteMeta(a.name+"-"+s) + `-[0-9a-f]{8}`,
+			"^" + regexp.QuoteMeta(a.name+"-"+storagePart),
 			// Pod-spec "{storageName}-{uniqueId}", e.g., "test-0837847d-dex-auth-0"
-			"^" + regexp.QuoteMeta(s) + `-[0-9a-f]{8}`,
+			"^" + regexp.QuoteMeta(storagePart),
 			// Legacy "juju-{storageName}-{n}", e.g., "juju-test-1-dex-auth-0"
 			"^juju-" + regexp.QuoteMeta(s) + `-[0-9]+`,
 		}
@@ -1641,7 +1643,7 @@ func (a *app) configureStorage(
 		storageClassMap[v.Name] = v
 	}
 
-	pvcNames, err := a.pvcNames()
+	pvcNames, err := a.pvcNames(storageUniqueID)
 	if err != nil {
 		return errors.Trace(err)
 	}

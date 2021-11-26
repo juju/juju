@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/charmrepo/v7"
 	"github.com/juju/errors"
@@ -22,11 +23,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/client"
+	"github.com/juju/juju/apiserver/facades/client/client/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
@@ -38,20 +39,24 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/image"
+	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	toolstesting "github.com/juju/juju/environs/tools/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -61,7 +66,6 @@ type serverSuite struct {
 	baseSuite
 	client     *client.Client
 	newEnviron func() (environs.BootstrapEnviron, error)
-	newBroker  func() (environs.BootstrapEnviron, error)
 }
 
 var _ = gc.Suite(&serverSuite{})
@@ -1264,48 +1268,6 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	c.Assert(addr, gc.Equals, "private")
 }
 
-func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	s.assertClientFindTools(c, s.APIState)
-}
-
-func (s *clientSuite) TestClientFindToolsCAAS(c *gc.C) {
-	otherSt := s.Factory.MakeCAASModel(c, nil)
-	defer otherSt.Close()
-
-	apiInfo, err := environs.APIInfo(s.ProviderCallContext, s.ControllerConfig.ControllerUUID(), coretesting.ModelTag.Id(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
-	c.Assert(err, jc.ErrorIsNil)
-	apiInfo.Tag = s.AdminUserTag(c)
-	apiInfo.Password = jujutesting.AdminSecret
-	apiCaller, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertClientFindTools(c, apiCaller)
-}
-
-func (s *clientSuite) assertClientFindTools(c *gc.C, apiCaller api.Connection) {
-	result, err := apiCaller.Client().FindTools(99, -1, "", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-ubuntu-amd64"))
-	result, err = apiCaller.Client().FindTools(2, 99, "ubuntu", "amd64", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, gc.HasLen, 1)
-	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-ubuntu-amd64"))
-	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-		apiCaller.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
-	c.Assert(result.List[0].URL, gc.Equals, url)
-
-	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "pretend", version.MustParseBinary("3.0.1-ubuntu-amd64"))
-	result, err = apiCaller.Client().FindTools(3, 0, "ubuntu", "amd64", "pretend")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, gc.HasLen, 1)
-	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("3.0.1-ubuntu-amd64"))
-	url = fmt.Sprintf("https://%s/model/%s/tools/%s",
-		apiCaller.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
-	c.Assert(result.List[0].URL, gc.Equals, url)
-}
-
 func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
 	// Ensure the machine was actually created.
 	machine, err := s.BackingState.Machine(id)
@@ -1956,4 +1918,147 @@ type fakeSession struct {
 
 func (s fakeSession) CurrentStatus() (*replicaset.Status, error) {
 	return s.status, s.err
+}
+
+type findToolsSuite struct {
+	jtesting.IsolationSuite
+}
+
+var _ = gc.Suite(&findToolsSuite{})
+
+func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	backend := mocks.NewMockBackend(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	registryProvider := registrymocks.NewMockRegistry(ctrl)
+	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
+		},
+	}
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(true, nil),
+		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
+		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
+
+		backend.EXPECT().Model().Return(model, nil),
+		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
+			Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+	)
+
+	api, err := client.NewClient(
+		backend,
+		nil, nil, nil,
+		authorizer, nil, toolsFinder,
+		nil, nil, nil, nil, nil, nil,
+		func(docker.ImageRepoDetails) (registry.Registry, error) {
+			return registryProvider, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, simpleStreams)
+}
+
+func (s *findToolsSuite) getModelConfig(c *gc.C, agentVersion string) *config.Config {
+	// Validate version string.
+	ver, err := version.Parse(agentVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	mCfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+		config.AgentVersionKey: ver.String(),
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	return mCfg
+}
+
+func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	backend := mocks.NewMockBackend(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	registryProvider := registrymocks.NewMockRegistry(ctrl)
+	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		},
+	}
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(true, nil),
+		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
+		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
+
+		backend.EXPECT().Model().Return(model, nil),
+		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
+			Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9"), nil),
+
+		backend.EXPECT().ControllerConfig().Return(controller.Config{
+			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
+			controller.CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
+		}, nil),
+		registryProvider.EXPECT().Tags("jujud-operator").Return(tools.Versions{
+			image.NewImageInfo(version.MustParse("2.9.8")),    // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.9")),    // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.10.1")), // skip: current is stable build.
+			image.NewImageInfo(version.MustParse("2.9.10")),
+			image.NewImageInfo(version.MustParse("2.9.11")),
+			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
+		}, nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		registryProvider.EXPECT().Close().Return(nil),
+	)
+
+	api, err := client.NewClient(
+		backend,
+		nil, nil, nil,
+		authorizer, nil, toolsFinder,
+		nil, nil, nil, nil, nil, nil,
+		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
+			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
+				Repository:    "test-account",
+				ServerAddress: "quay.io",
+				BasicAuthConfig: docker.BasicAuthConfig{
+					Auth: docker.NewToken("xxxxx=="),
+				},
+			})
+			return registryProvider, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
+		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		},
+	})
 }

@@ -1560,7 +1560,7 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
 				// contained filesystem is removed, whose
-				// destruction is initiated below.
+				// destruction is initiated above.
 				continue
 			}
 			if !force {

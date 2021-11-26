@@ -480,7 +480,13 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			Image:           "ubuntu:20.04",
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/charm/bin/containeragent"},
-			Args:            []string{"unit", "--data-dir", jujuDataDir, "--charm-modified-version", "9001", "--append-env", "PATH=$PATH:/charm/bin"},
+			Args: []string{
+				"unit",
+				"--data-dir", jujuDataDir,
+				"--charm-modified-version", "9001",
+				"--append-env", "PATH=$PATH:/charm/bin",
+				"--show-log",
+			},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
@@ -2365,12 +2371,23 @@ func (s *applicationSuite) TestPVCNames(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitlab-storage_b-abcd1235-gitlab-0",
+				Name:      "gitlab-storage_b-abcd1234-gitlab-0",
 				Namespace: "test",
 				Labels: map[string]string{
 					"app.kubernetes.io/managed-by": "juju",
 					"app.kubernetes.io/name":       "gitlab",
 					"storage.juju.is/name":         "storage_b",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gitlab-storage_g-abcd666-gitlab-0",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "juju",
+					"app.kubernetes.io/name":       "gitlab",
+					"storage.juju.is/name":         "storage_g",
 				},
 			},
 		},
@@ -2413,11 +2430,11 @@ func (s *applicationSuite) TestPVCNames(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	names, err := application.PVCNames(s.client, "test", "gitlab")
+	names, err := application.PVCNames(s.client, "test", "gitlab", "abcd1234")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(names, gc.DeepEquals, map[string]string{
 		"gitlab-storage_a": "storage_a-abcd1234",
-		"gitlab-storage_b": "gitlab-storage_b-abcd1235",
+		"gitlab-storage_b": "gitlab-storage_b-abcd1234",
 		"gitlab-storage_c": "juju-storage_c-42",
 	})
 }

@@ -4,7 +4,6 @@
 package raftforwarder_test
 
 import (
-	"io"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -70,7 +69,6 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 		CentralHubName:       "hub",
 		RequestTopic:         "test.request",
 		Logger:               &s.logger,
-		LeaseLog:             &noopLeaseLog{},
 		PrometheusRegisterer: &noopRegisterer{},
 		NewWorker:            s.newWorker,
 		NewTarget:            s.newTarget,
@@ -110,9 +108,6 @@ func (s *manifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *raftforwarder.ManifoldConfig) { cfg.LeaseLog = nil },
-		"nil LeaseLog not valid",
-	}, {
 		func(cfg *raftforwarder.ManifoldConfig) { cfg.StateName = "" },
 		"empty StateName not valid",
 	}, {
@@ -257,12 +252,4 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
-}
-
-type noopLeaseLog struct {
-	io.Writer
-}
-
-func (noopLeaseLog) Write(p []byte) (n int, err error) {
-	return len(p), nil
 }

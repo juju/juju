@@ -682,11 +682,6 @@ func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem 
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			lifeAssert := isAliveDoc
-			if force {
-				// Since we are force destroying, life assert should be current volume's life.
-				lifeAssert = bson.D{{"life", v.Life()}}
-			}
 			if v.Detachable() {
 				plans, err := sb.machineVolumeAttachmentPlans(host, volume)
 				if err != nil {
@@ -697,9 +692,12 @@ func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem 
 				// detaching the actual disk
 				var volOps []txn.Op
 				if len(plans) == 0 {
-					volOps = detachVolumeOps(host, volume, lifeAssert)
+					volOps, err = sb.detachVolumeOps(host, volume, force)
 				} else {
-					volOps = detachStorageAttachmentOps(host, volume, lifeAssert)
+					volOps, err = sb.detachVolumeAttachmentPlanOps(host, volume, force)
+				}
+				if err != nil {
+					return nil, errors.Trace(err)
 				}
 				ops = append(ops, volOps...)
 			}

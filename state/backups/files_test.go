@@ -110,43 +110,21 @@ func (s *filesSuite) checkSameStrings(c *gc.C, actual, expected []string) {
 	}
 }
 
-func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
+func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 	paths := backups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
 	}
 	s.createFiles(c, paths, s.root, "0", false)
+	s.createFiles(c, paths, s.root, "1", false)
 
-	files, err := backups.GetFilesToBackUp(s.root, &paths, "0")
+	files, err := backups.GetFilesToBackUp(s.root, &paths)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
-		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
-		filepath.Join(s.root, "/var/lib/juju/server.pem"),
-		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
-		filepath.Join(s.root, "/var/lib/juju/system-identity"),
-		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
-	}
-	c.Check(files, jc.SameContents, expected)
-	s.checkSameStrings(c, files, expected)
-}
-
-func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
-	paths := backups.Paths{
-		DataDir: "/var/lib/juju",
-		LogsDir: "/var/log/juju",
-	}
-	s.createFiles(c, paths, s.root, "10", false)
-
-	files, err := backups.GetFilesToBackUp(s.root, &paths, "10")
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := []string{
-		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
-		filepath.Join(s.root, "/var/lib/juju/agents/machine-10.conf"),
+		filepath.Join(s.root, "/var/lib/juju/agents/machine-1.conf"),
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
@@ -174,7 +152,7 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	files, err := backups.GetFilesToBackUp(s.root, &paths, "0")
+	files, err := backups.GetFilesToBackUp(s.root, &paths)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
@@ -198,7 +176,7 @@ func (s *filesSuite) TestGetFilesToBackUpSnap(c *gc.C) {
 	}
 	s.createFiles(c, paths, s.root, "0", true)
 
-	files, err := backups.GetFilesToBackUp(s.root, &paths, "0")
+	files, err := backups.GetFilesToBackUp(s.root, &paths)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{

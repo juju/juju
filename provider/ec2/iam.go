@@ -39,8 +39,25 @@ type instanceProfileClient interface {
 // IAMClient is a subset interface of the AWS IAM client. This interface aims
 // to define the small set of what Juju's needs from the larger client.
 type IAMClient interface {
+	// STOP!!
+	// Are you about to add a new function to this interface?
+	// If so please make sure you update Juju permission policy on discourse
+	// here https://discourse.charmhub.io/t/juju-aws-permissions/5307
+	// We must keep this policy inline with our usage for operators that are
+	// using very strict permissions for Juju.
+	//
+	// You must also update the controllerRolePolicy document found in
+	// iam_docs.go.
+	AddRoleToInstanceProfile(stdcontext.Context, *iam.AddRoleToInstanceProfileInput, ...func(*iam.Options)) (*iam.AddRoleToInstanceProfileOutput, error)
 	CreateInstanceProfile(stdcontext.Context, *iam.CreateInstanceProfileInput, ...func(*iam.Options)) (*iam.CreateInstanceProfileOutput, error)
+	CreateRole(stdcontext.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
+	DeleteInstanceProfile(stdcontext.Context, *iam.DeleteInstanceProfileInput, ...func(*iam.Options)) (*iam.DeleteInstanceProfileOutput, error)
+	DeleteRole(stdcontext.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+	DeleteRolePolicy(stdcontext.Context, *iam.DeleteRolePolicyInput, ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error)
 	GetInstanceProfile(stdcontext.Context, *iam.GetInstanceProfileInput, ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error)
+	GetRole(stdcontext.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	PutRolePolicy(stdcontext.Context, *iam.PutRolePolicyInput, ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
+	RemoveRoleFromInstanceProfile(stdcontext.Context, *iam.RemoveRoleFromInstanceProfileInput, ...func(*iam.Options)) (*iam.RemoveRoleFromInstanceProfileOutput, error)
 }
 
 // IAMClientFunc defines a type that can generate an AWS IAMClient from a
@@ -78,20 +95,19 @@ func iamClientFunc(
 	return iam.NewFromConfig(cfg), nil
 }
 
-// controllerInstanceProfileName is a convience function for idempotently
-// generating controller instance profile names.
-func controllerInstanceProfileName(controllerName string) string {
-	return fmt.Sprintf("juju-controller-%s", controllerName)
-}
-
 // ensureControllerInstanceProfile ensures that a controller Instance Profile
 // has been created for the supplied controller name in the specified AWS cloud.
 func ensureControllerInstanceProfile(
 	ctx stdcontext.Context,
 	client IAMClient,
-	controllerName string,
+	controllerName,
 	controllerUUID string,
-) (*iamtypes.InstanceProfile, error) {
+) (*iamtypes.InstanceProfile, []func(), error) {
+	role, cleanups, err := ensureControllerInstanceRole(ctx, client, controllerName, controllerUUID)
+	if err != nil {
+		return nil, cleanups, err
+	}
+
 	profileName := fmt.Sprintf("juju-controller-%s", controllerName)
 	res, err := client.CreateInstanceProfile(ctx, &iam.CreateInstanceProfileInput{
 		InstanceProfileName: aws.String(profileName),
@@ -106,12 +122,120 @@ func ensureControllerInstanceProfile(
 		var alreadyExistsErr *iamtypes.EntityAlreadyExistsException
 		if stderrors.As(err, &alreadyExistsErr) {
 			// Instance Profile already exists so we don't need todo anything. Let just find it
-			return findInstanceProfileFromName(ctx, client, profileName)
+			ip, err := findInstanceProfileFromName(ctx, client, profileName)
+			return ip, cleanups, err
 		}
 		// Some other error that we can't recover from.
-		return nil, errors.Annotate(err, "creating controller instance profile")
+		return nil, cleanups, errors.Annotate(err, "creating controller instance profile")
 	}
-	return res.InstanceProfile, nil
+
+	cleanups = append([]func(){func() {
+		_, err := client.DeleteInstanceProfile(ctx, &iam.DeleteInstanceProfileInput{
+			InstanceProfileName: res.InstanceProfile.InstanceProfileName,
+		})
+		if err != nil {
+			logger.Errorf("cleanup delete instance profile %q: %v",
+				*res.InstanceProfile.InstanceProfileName,
+				err)
+		}
+	}}, cleanups...)
+
+	_, err = client.AddRoleToInstanceProfile(ctx, &iam.AddRoleToInstanceProfileInput{
+		InstanceProfileName: res.InstanceProfile.InstanceProfileName,
+		RoleName:            role.RoleName,
+	})
+
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(
+			err,
+			"attaching role %s to instance profile %s",
+			*role.RoleName,
+			*res.InstanceProfile.InstanceProfileName,
+		)
+	}
+
+	cleanups = append([]func(){func() {
+		_, err := client.RemoveRoleFromInstanceProfile(ctx, &iam.RemoveRoleFromInstanceProfileInput{
+			InstanceProfileName: res.InstanceProfile.InstanceProfileName,
+			RoleName:            role.RoleName,
+		})
+		if err != nil {
+			logger.Errorf("cleanup remove role %q from instance profile %q: %v",
+				*role.RoleName,
+				*res.InstanceProfile.InstanceProfileName,
+				err)
+		}
+	}}, cleanups...)
+
+	return res.InstanceProfile, cleanups, nil
+}
+
+func ensureControllerInstanceRole(
+	ctx stdcontext.Context,
+	client IAMClient,
+	controllerName,
+	controllerUUID string,
+) (*iamtypes.Role, []func(), error) {
+	roleName := fmt.Sprintf("juju-controller-%s", controllerName)
+	cleanups := []func(){}
+	res, err := client.CreateRole(ctx, &iam.CreateRoleInput{
+		AssumeRolePolicyDocument: aws.String(controllerRoleAssumePolicy),
+		RoleName:                 aws.String(roleName),
+		Description:              aws.String(fmt.Sprintf("juju role for controller %s", controllerName)),
+		Tags: []iamtypes.Tag{
+			{
+				Key:   aws.String(tags.JujuController),
+				Value: aws.String(controllerUUID),
+			},
+		},
+	})
+
+	if err != nil {
+		var alreadyExistsErr *iamtypes.EntityAlreadyExistsException
+		if stderrors.As(err, &alreadyExistsErr) {
+			// Role already exists so we don't need todo anything. Let just find it
+			r, err := findRoleFromName(ctx, client, roleName)
+			return r, cleanups, err
+		}
+		// Some other error that we can't recover from.
+		return nil, cleanups, errors.Annotate(err, "creating controller instance role")
+	}
+
+	cleanups = append(cleanups, func() {
+		_, err := client.DeleteRole(ctx, &iam.DeleteRoleInput{
+			RoleName: res.Role.RoleName,
+		})
+		if err != nil {
+			logger.Errorf("cleanup delete role %q: %v",
+				*res.Role.RoleName,
+				err)
+		}
+	})
+
+	_, err = client.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
+		PolicyDocument: aws.String(controllerRolePolicy),
+		PolicyName:     aws.String(roleName),
+		RoleName:       res.Role.RoleName,
+	})
+
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(err, "attaching role %s policy", *res.Role.RoleName)
+	}
+
+	cleanups = append([]func(){func() {
+		_, err := client.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+			PolicyName: aws.String(roleName),
+			RoleName:   res.Role.RoleName,
+		})
+		if err != nil {
+			logger.Errorf("cleanup delete role %q policy %q: %v",
+				*res.Role.RoleName,
+				roleName,
+				err)
+		}
+	}}, cleanups...)
+
+	return res.Role, cleanups, nil
 }
 
 // findInstanceProfileForName is responsible for finding the concrete instance
@@ -135,6 +259,26 @@ func findInstanceProfileFromName(
 	}
 
 	return res.InstanceProfile, nil
+}
+
+func findRoleFromName(
+	ctx stdcontext.Context,
+	client IAMClient,
+	name string,
+) (*iamtypes.Role, error) {
+	res, err := client.GetRole(ctx, &iam.GetRoleInput{
+		RoleName: aws.String(name),
+	})
+
+	if err != nil {
+		var opHTTPErr *awshttp.ResponseError
+		if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == http.StatusNotFound {
+			return nil, errors.NotFoundf("role %q not found", name)
+		}
+		return nil, errors.Annotatef(err, "finding role for name %s", name)
+	}
+
+	return res.Role, nil
 }
 
 // setInstanceProfileWithWait sets the instnace profile for a given instance

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/tools"
 )
 
 type googleContainerRegistry struct {
@@ -55,45 +54,32 @@ func validateGoogleContainerRegistryCredential(auth docker.BasicAuthConfig) (err
 	return nil
 }
 
-// APIVersion returns the registry API version to use.
-func (c *googleContainerRegistry) APIVersion() APIVersion {
-	// google container registry always uses v2.
-	return APIVersionV2
-}
-
 func googleContainerRegistryTransport(transport http.RoundTripper, repoDetails *docker.ImageRepoDetails,
 ) (http.RoundTripper, error) {
-	if !repoDetails.BasicAuthConfig.Empty() {
-		if err := validateGoogleContainerRegistryCredential(repoDetails.BasicAuthConfig); err != nil {
-			return nil, errors.Annotatef(err, "validating the google container registry credential")
-		}
-		return newTokenTransport(
-			transport,
-			repoDetails.Username, repoDetails.Password, repoDetails.Auth.Value, "", false,
-		), nil
-	}
 	if !repoDetails.TokenAuthConfig.Empty() {
 		return nil, errors.NewNotValid(nil, "google container registry only supports username and password or auth token")
 	}
-	return transport, nil
+	if repoDetails.BasicAuthConfig.Empty() {
+		// Anonymous login.
+		return newTokenTransport(transport, "", "", "", "", false), nil
+	}
+	if err := validateGoogleContainerRegistryCredential(repoDetails.BasicAuthConfig); err != nil {
+		return nil, errors.Annotatef(err, "validating the google container registry credential")
+	}
+	return newTokenTransport(
+		transport,
+		repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(), "", false,
+	), nil
 }
 
 func (c *googleContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
 	if c.client.Transport, err = mergeTransportWrappers(
-		c.client.Transport, c.repoDetails, googleContainerRegistryTransport, wrapErrorTransport,
+		c.client.Transport, c.repoDetails,
+		googleContainerRegistryTransport, wrapErrorTransport,
 	); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func (c googleContainerRegistry) url(pathTemplate string, args ...interface{}) string {
-	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
-}
-
-// DecideBaseURL decides the API url to use.
-func (c *googleContainerRegistry) DecideBaseURL() error {
-	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
 }
 
 // Ping pings the github endpoint.
@@ -114,10 +100,4 @@ func (c googleContainerRegistry) Ping() error {
 		defer resp.Body.Close()
 	}
 	return errors.Trace(err)
-}
-
-// Tags fetches tags for an OCI image.
-func (c googleContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
-	// google container registry always uses v2.
-	return fetchTagsV2(c, imageName)
 }

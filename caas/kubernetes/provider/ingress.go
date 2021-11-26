@@ -33,6 +33,10 @@ func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
 func (k *kubernetesClient) ensureIngressResources(
 	appName string, annotations k8sannotations.Annotation, ingSpecs []k8sspecs.K8sIngress,
 ) (cleanUps []func(), err error) {
+	k8sVersion, err := k.Version()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting k8s api version")
+	}
 	for _, v := range ingSpecs {
 		if v.Name == appName {
 			return cleanUps, errors.NotValidf("ingress name %q is reserved for juju expose", appName)
@@ -46,20 +50,45 @@ func (k *kubernetesClient) ensureIngressResources(
 
 		logger.Infof("ensuring ingress %q with version %q", obj.GetName(), v.Spec.Version)
 		var cleanUp func()
+
+		var (
+			specV1Beta1 *networkingv1beta1.IngressSpec
+			specV1      *networkingv1.IngressSpec
+		)
+
+		// k8s 1.22 drops support for networkingv1beta1, so we need
+		// to convert the ingress spec to the correct version for the
+		// version of k8s we are deploying to.
+		// The v1 networking api is available since 1.19.
 		switch v.Spec.Version {
 		case k8sspecs.K8sIngressV1:
-			cleanUp, err = k.ensureIngressV1(appName, &networkingv1.Ingress{
-				ObjectMeta: obj,
-				Spec:       v.Spec.SpecV1,
-			}, false)
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 19 {
+				specV1Beta1 = k8sspecs.IngressSpecFromV1(&v.Spec.SpecV1)
+			} else {
+				specV1 = &v.Spec.SpecV1
+			}
 		case k8sspecs.K8sIngressV1Beta1:
-			cleanUp, err = k.ensureIngressV1beta1(appName, &networkingv1beta1.Ingress{
-				ObjectMeta: obj,
-				Spec:       v.Spec.SpecV1Beta1,
-			}, false)
+			if k8sVersion.Major == 1 && k8sVersion.Minor >= 19 {
+				specV1 = k8sspecs.IngressSpecToV1(&v.Spec.SpecV1Beta1)
+			} else {
+				specV1Beta1 = &v.Spec.SpecV1Beta1
+			}
 		default:
 			// This should never happen.
 			return cleanUps, errors.NotSupportedf("ingress version %q", v.Spec.Version)
+		}
+
+		if specV1 != nil {
+			cleanUp, err = k.ensureIngressV1(appName, &networkingv1.Ingress{
+				ObjectMeta: obj,
+				Spec:       *specV1,
+			}, false)
+		}
+		if specV1Beta1 != nil {
+			cleanUp, err = k.ensureIngressV1beta1(appName, &networkingv1beta1.Ingress{
+				ObjectMeta: obj,
+				Spec:       *specV1Beta1,
+			}, false)
 		}
 
 		cleanUps = append(cleanUps, cleanUp)

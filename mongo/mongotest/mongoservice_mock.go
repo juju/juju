@@ -119,20 +119,6 @@ func (mr *MockMongoSnapServiceMockRecorder) Remove() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockMongoSnapService)(nil).Remove))
 }
 
-// Restart mocks base method.
-func (m *MockMongoSnapService) Restart() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Restart")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Restart indicates an expected call of Restart.
-func (mr *MockMongoSnapServiceMockRecorder) Restart() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restart", reflect.TypeOf((*MockMongoSnapService)(nil).Restart))
-}
-
 // Running mocks base method.
 func (m *MockMongoSnapService) Running() (bool, error) {
 	m.ctrl.T.Helper()

@@ -208,7 +208,7 @@ func (s *RaftLeaseClientSuite) TestRequestWithDeadlineExceededError(c *gc.C) {
 	c.Assert(client.lastKnownRemote, gc.NotNil)
 
 	err = client.Request(context.TODO(), cmd)
-	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
+	c.Assert(err, gc.ErrorMatches, `lease deadline exceeded`)
 
 	// Ensure that a lease operation that has the deadline exceeded does not
 	// drop the lastKnownRemote.
@@ -616,9 +616,11 @@ func (s *RaftLeaseRemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 type fakeLogger struct{}
 
-func (fakeLogger) Errorf(string, ...interface{}) {}
-func (fakeLogger) Debugf(string, ...interface{}) {}
-func (fakeLogger) Tracef(string, ...interface{}) {}
+func (fakeLogger) Errorf(string, ...interface{})   {}
+func (fakeLogger) Warningf(string, ...interface{}) {}
+func (fakeLogger) Infof(string, ...interface{})    {}
+func (fakeLogger) Debugf(string, ...interface{})   {}
+func (fakeLogger) Tracef(string, ...interface{})   {}
 
 type fakeClientMetrics struct{}
 

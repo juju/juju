@@ -396,6 +396,9 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 		Assert: txn.DocExists,
 		Remove: true,
 	}, decRefOp)
+	r := op.offerStore.st.RemoteEntities()
+	tokenOps := r.removeRemoteEntityOps(names.NewApplicationTag(offer.OfferName))
+	ops = append(ops, tokenOps...)
 	return ops, nil
 }
 

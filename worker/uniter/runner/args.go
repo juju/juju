@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/errors"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/worker/common/charmrunner"
 )
@@ -83,4 +85,13 @@ func hookCommand(hook string) []string {
 		}
 	}
 	return []string{hook}
+}
+
+func checkCharmExists(charmDir string) error {
+	if _, err := os.Stat(path.Join(charmDir, "metadata.yaml")); os.IsNotExist(err) {
+		return errors.New("charm missing from disk")
+	} else if err != nil {
+		return errors.Annotatef(err, "failed to check for metadata.yaml")
+	}
+	return nil
 }

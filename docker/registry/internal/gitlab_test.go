@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/docker/registry/utils"
 	"github.com/juju/juju/tools"
 )
 
@@ -54,7 +53,7 @@ func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 			// registry.Ping() 1st try failed - bearer token was missing.
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+					c.Assert(req.Header, jc.DeepEquals, http.Header{})
 					c.Assert(req.Method, gc.Equals, `GET`)
 					c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2`)
 					return &http.Response{
@@ -100,12 +99,7 @@ func (s *gitlabSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 	_, ok := reg.(*internal.GitlabContainerRegistry)
 	c.Assert(ok, jc.IsTrue)
 	err = reg.Ping()
-	if s.isPrivate {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, jc.Satisfies, utils.IsPublicAPINotAvailableError)
-		c.Assert(err, gc.ErrorMatches, `.*public registry API is not available for "registry.gitlab.com"`)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 	return reg, ctrl
 }
 
@@ -121,18 +115,9 @@ func (s *gitlabSuite) TestPingPrivateRepository(c *gc.C) {
 	ctrl.Finish()
 }
 
-func (s *gitlabSuite) TestTagsPublic(c *gc.C) {
+func (s *gitlabSuite) TestTagsPublicRegistry(c *gc.C) {
+	// Use anonymous login for public repository.
 	s.isPrivate = false
-	reg, ctrl := s.getRegistry(c)
-	defer ctrl.Finish()
-
-	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `.*public registry API is not available for "registry.gitlab.com"`)
-}
-
-func (s *gitlabSuite) TestTagsV2(c *gc.C) {
-	// Use v2 for private repository.
-	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
 
@@ -143,7 +128,7 @@ func (s *gitlabSuite) TestTagsV2(c *gc.C) {
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
 				c.Assert(req.Method, gc.Equals, `GET`)
 				c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
 				return &http.Response{
@@ -158,7 +143,69 @@ func (s *gitlabSuite) TestTagsV2(c *gc.C) {
 				}, nil
 			},
 		),
-		// Refresh OAuth Token
+		// Refresh OAuth Token without credential.
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://gitlab.com/jwt/auth?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=container_registry`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Method, gc.Equals, `GET`)
+			c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
+			resps := &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader(data)),
+			}
+			return resps, nil
+		}),
+	)
+	vers, err := reg.Tags("jujud-operator")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers, jc.DeepEquals, tools.Versions{
+		image.NewImageInfo(version.MustParse("2.9.10.1")),
+		image.NewImageInfo(version.MustParse("2.9.10.2")),
+		image.NewImageInfo(version.MustParse("2.9.10")),
+	})
+}
+
+func (s *gitlabSuite) TestTagsPrivateRegistry(c *gc.C) {
+	// Use v2 for private repository.
+	s.isPrivate = true
+	reg, ctrl := s.getRegistry(c)
+	defer ctrl.Finish()
+
+	data := `
+{"name":"jujuqa/jujud-operator","tags":["2.9.10.1","2.9.10.2","2.9.10"]}
+`[1:]
+
+	gomock.InOrder(
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusUnauthorized,
+					Body:       ioutil.NopCloser(nil),
+					Header: http.Header{
+						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+							`Bearer realm="https://gitlab.com/jwt/auth",service="container_registry",scope="repository:jujuqa/jujud-operator:pull",error="invalid_token"`,
+						},
+					},
+				}, nil
+			},
+		),
+		// Refresh OAuth Token.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
@@ -192,16 +239,7 @@ func (s *gitlabSuite) TestTagsV2(c *gc.C) {
 	})
 }
 
-func (s *gitlabSuite) TestTagsErrorResponsePublic(c *gc.C) {
-	s.isPrivate = false
-	reg, ctrl := s.getRegistry(c)
-	defer ctrl.Finish()
-
-	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `.*public registry API is not available for "registry.gitlab.com"`)
-}
-
-func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
+func (s *gitlabSuite) TestTagsErrorResponse(c *gc.C) {
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
@@ -212,7 +250,7 @@ func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{})
 			c.Assert(req.Method, gc.Equals, `GET`)
 			c.Assert(req.URL.String(), gc.Equals, `https://registry.gitlab.com/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
@@ -226,7 +264,7 @@ func (s *gitlabSuite) TestTagsErrorResponseV2(c *gc.C) {
 				},
 			}, nil
 		}),
-		// Refresh OAuth Token
+		// Refresh OAuth Token.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})

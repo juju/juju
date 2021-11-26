@@ -29,6 +29,8 @@ import (
 // Logger is a in place interface to represent a logger for consuming.
 type Logger interface {
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
@@ -150,7 +152,7 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 		// If we can't find a remote server for any reason, then return an
 		// ErrDropped. This will cause the lease manager to correctly retry.
 		if errors.IsNotFound(err) {
-			c.config.Logger.Errorf("Masking %q with lease.ErrDropped to allow for retries", err)
+			c.config.Logger.Debugf("Masking %q with lease.ErrDropped to allow for retries", err)
 			return lease.ErrDropped
 		}
 		return errors.Trace(err)
@@ -220,7 +222,7 @@ func (c *Client) handleRetryRequestError(command *raftlease.Command, remote Remo
 		if notLeaderError.ServerAddress() == "" {
 			// The raft instance isn't clustered, we don't have a way
 			// forward, so send back a dropped error.
-			c.config.Logger.Errorf("No leader found and no cluster available, dropping command: %v", command)
+			c.config.Logger.Infof("No leader found and no cluster available, dropping command: %v", command)
 		}
 
 		// If it is a not leader error and we haven't got a remote, just
@@ -231,8 +233,8 @@ func (c *Client) handleRetryRequestError(command *raftlease.Command, remote Remo
 		// Enqueuing into the queue just timed out, we should just
 		// log this error and try again if possible. The lease manager
 		// will know if a retry at that level is possible.
-		c.config.Logger.Errorf("Deadline exceeded enqueuing command.")
-		return remote, lease.ErrDropped
+		c.config.Logger.Warningf("Rate limit enqueuing %q command. Deadline exceeded for lease %s model: %v.", command.Operation, command.Lease, command.ModelUUID)
+		return remote, lease.ErrDeadlineExceeded
 	}
 
 	// If we can't find a remote, we should just return that the error was
@@ -448,7 +450,7 @@ func (c *Client) ensureServers(addresses map[string]string) error {
 		if err := remote.Wait(); err != nil {
 			// We don't care in reality about the death rattle of a server, as
 			// it's already dead to us.
-			c.config.Logger.Errorf("error waiting for remote server death: %v", err)
+			c.config.Logger.Warningf("error waiting for remote server death: %v", err)
 		}
 		// Ensure we still delete the id from the server list, even though the
 		// remote Wait might have failed.

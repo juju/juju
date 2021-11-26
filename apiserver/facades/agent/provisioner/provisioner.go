@@ -64,7 +64,7 @@ type ProvisionerAPI struct {
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
 	providerCallContext     context.ProviderCallContext
-	toolsFinder             *common.ToolsFinder
+	toolsFinder             common.ToolsFinder
 
 	// Used for MaybeWriteLXDProfile()
 	mu sync.Mutex

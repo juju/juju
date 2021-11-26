@@ -4,6 +4,7 @@
 package azure_test
 
 import (
+	stdcontext "context"
 	"net/http"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
@@ -50,6 +51,7 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 	s.requests = nil
 	s.invalidCredential = false
 	s.callCtx = &context.CloudCallContext{
+		Context: stdcontext.TODO(),
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
 			return nil
@@ -216,9 +218,9 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	trueString := "true"
 	controllerTags["juju-is-controller"] = &trueString
 
-	mockSender := mocks.NewSender()
-	mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
-	s.sender = append(s.sender, mockSender)
+	unauthSender := mocks.NewSender()
+	unauthSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	s.sender = append(s.sender, unauthSender, tokenRefreshSender(), unauthSender, unauthSender)
 
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	op0 := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})[0]

@@ -279,7 +279,7 @@ func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) 
 	return w
 }
 
-// WatchMachineManagedFilesystemAttachments returns a strings watcher that
+// WatchUnitManagedFilesystemAttachments returns a strings watcher that
 // reports lifecycle changes for attachments to both unit-scoped filesystems,
 // and model-scoped, volume-backed filesystems that are attached to units of the
 // specified application.

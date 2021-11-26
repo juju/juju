@@ -5734,6 +5734,72 @@ func (s *upgradesSuite) TestDropLegacyAssumesSectionsFromCharmMetadata(c *gc.C) 
 	)
 }
 
+func (s *upgradesSuite) TestMigrateLegacyCrossModelTokens(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	makeOffer := func(st *State, username, exportedName string) (string, string) {
+		ch := AddTestingCharm(c, st, "mysql")
+		AddTestingApplication(c, st, "test", ch)
+		_, err := st.AddUser(username, username, "secret", "admin")
+		c.Assert(err, jc.ErrorIsNil)
+		sd := NewApplicationOffers(st)
+		offerArgs := crossmodel.AddApplicationOfferArgs{
+			OfferName:       "testoffer",
+			ApplicationName: "test",
+			Endpoints:       map[string]string{"db": "server"},
+			Owner:           username,
+		}
+		_, err = sd.AddOffer(offerArgs)
+		c.Assert(err, jc.ErrorIsNil)
+
+		r := st.RemoteEntities()
+		token, err := r.ExportLocalEntity(names.NewApplicationTag(exportedName))
+		c.Assert(err, jc.ErrorIsNil)
+		relToken, err := r.ExportLocalEntity(names.NewRelationTag("foo:bar"))
+		c.Assert(err, jc.ErrorIsNil)
+		return token, relToken
+	}
+
+	token1, relToken1 := makeOffer(model1, "fred", "test")
+	token2, relToken2 := makeOffer(model2, "mary", "testoffer")
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "application-testoffer"),
+			"model-uuid": uuid1,
+			"token":      token1,
+		}, {
+			"_id":        ensureModelUUID(uuid1, "relation-foo.bar"),
+			"model-uuid": uuid1,
+			"token":      relToken1,
+		}, {
+			"_id":        ensureModelUUID(uuid2, "application-testoffer"),
+			"model-uuid": uuid2,
+			"token":      token2,
+		}, {
+			"_id":        ensureModelUUID(uuid2, "relation-foo.bar"),
+			"model-uuid": uuid2,
+			"token":      relToken2,
+		},
+	}
+	sort.Sort(expected)
+
+	col, closer := s.state.db().GetRawCollection(remoteEntitiesC)
+	defer closer()
+
+	s.assertUpgradedData(c, MigrateLegacyCrossModelTokens,
+		upgradedData(col, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

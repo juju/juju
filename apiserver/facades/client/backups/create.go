@@ -33,7 +33,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 	if err != nil {
 		return result, errors.Annotatef(err, "getting mongo info")
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, sessionShim{session})
 	if err != nil {
 		return result, errors.Trace(err)
 	}

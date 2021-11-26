@@ -30,6 +30,7 @@ type RaftApplier interface {
 type Logger interface {
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 
@@ -147,18 +148,24 @@ func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err er
 
 func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, error) {
 	var empty raftlease.ForwardResponse
+
 	start := time.Now()
 	future := w.config.Raft.Apply([]byte(command), applyTimeout)
 	if err := future.Error(); err != nil {
 		return empty, errors.Trace(err)
 	}
 	w.metrics.record(start, "apply")
+
 	respValue := future.Response()
 	response, ok := respValue.(raftlease.FSMResponse)
 	if !ok {
 		return empty, errors.Errorf("expected an FSMResponse, got %T: %#v", respValue, respValue)
 	}
-	response.Notify(w.config.Target)
+
+	if err := response.Notify(w.config.Target); err != nil {
+		w.config.Logger.Errorf("failed to notify: %v", err)
+	}
+
 	return responseFromError(response.Error()), nil
 }
 

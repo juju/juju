@@ -78,6 +78,7 @@ type Logger interface {
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 	Infof(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	Logf(level loggo.Level, message string, args ...interface{})
 	IsTraceEnabled() bool
@@ -87,14 +88,14 @@ type Logger interface {
 // allowing for client side backoff.
 type Queue interface {
 	// Queue returns the queue of operations. Removing an item from the channel
-	// will unblock to allow another to take it's place.
+	// will unblock to allow another to take its place.
 	Queue() <-chan []queue.Operation
 }
 
 // LeaseApplier applies operations from the queue onto the underlying raft
 // instance.
 type LeaseApplier interface {
-	// ApplyOperation applies an lease opeartion against the raft instance. If
+	// ApplyOperation applies a lease opeartion against the raft instance. If
 	// the raft instance isn't the leader, then an error is returned with the
 	// leader information if available.
 	// This Raft spec outlines this "The first option, which we recommend ...,
@@ -578,15 +579,15 @@ func (BootstrapFSM) Restore(io.ReadCloser) error {
 
 type BootstrapNotifyTarget struct{}
 
-// Claimed will be called when a new lease has been claimed. Not
-// allowed to return an error because this is purely advisory -
-// the lease claim has still occurred, whether or not the callback
-// succeeds.
-func (BootstrapNotifyTarget) Claimed(lease.Key, string) {}
+// Claimed will be called when a new lease has been claimed.
+func (BootstrapNotifyTarget) Claimed(lease.Key, string) error {
+	return nil
+}
 
-// Expired will be called when an existing lease has expired. Not
-// allowed to return an error because this is purely advisory.
-func (BootstrapNotifyTarget) Expired(lease.Key) {}
+// Expired will be called when an existing lease has expired.
+func (BootstrapNotifyTarget) Expired(lease.Key) error {
+	return nil
+}
 
 type BootstrapLeaseApplier struct{}
 

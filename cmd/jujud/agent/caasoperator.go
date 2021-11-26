@@ -23,11 +23,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -252,7 +252,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		return nil, err
 	}
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
-		Agent:              op,
+		AgentTag:           op.CurrentConfig().Tag(),
 		Engine:             engine,
 		MachineLock:        op.machineLock,
 		NewSocketName:      addons.DefaultIntrospectionSocketName,

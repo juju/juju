@@ -327,21 +327,11 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	// This allows > 1 offers off the one application to be made.
 	// NB we need to export the application last so that everything else is in place when the worker is
 	// woken up by the watcher.
-
-	// Juju 2.5.1 and earlier exported the local application name so for backwards compatibility
-	// use that if it's there.
-	token, err := api.st.GetToken(names.NewApplicationTag(localApplicationName))
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Annotatef(err, "checking local application token for %v", localApplicationName)
+	token, err := api.st.ExportLocalEntity(names.NewApplicationTag(appOffer.OfferName))
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return nil, errors.Annotatef(err, "exporting local application offer %q", appOffer.OfferName)
 	}
-	if err != nil {
-		// No token yet so export using the offer name which we prefer.
-		token, err = api.st.ExportLocalEntity(names.NewApplicationTag(appOffer.OfferName))
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return nil, errors.Annotatef(err, "exporting local application offer %v", appOffer.OfferName)
-		}
-	}
-	logger.Debugf("local application offer %v from model %v exported with token %v ", appOffer.OfferName, api.st.ModelUUID(), token)
+	logger.Debugf("local application offer %v from model %v exported with token %q ", appOffer.OfferName, api.st.ModelUUID(), token)
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(

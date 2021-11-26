@@ -65,7 +65,6 @@ func fakeServicePrincipalCredential() *cloud.Credential {
 
 func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 	cfg := makeTestModelConfig(c)
-	s.sender = azuretesting.Senders{tokenRefreshSender()}
 	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Cloud:  s.spec,
 		Config: cfg,

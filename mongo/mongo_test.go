@@ -122,7 +122,8 @@ func (s *MongoSuite) expectInstallMongoSnap() {
 	mExp.Name().Return("not-juju-db")
 	mExp.Install().Return(nil)
 	mExp.ConfigOverride().Return(nil)
-	mExp.Restart().Return(nil)
+	mExp.Stop().Return(nil)
+	mExp.Start().Return(nil)
 
 	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {
 		return s.mongoSnapService, nil
@@ -189,7 +190,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	any := `(.|\n)*`
 	start := "^" + any
 	tail := any + "$"
-	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version: "db version v\d\.\d\.\d`+tail)
+	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version:\sdb version v\d\.\d\.\d`+tail)
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {

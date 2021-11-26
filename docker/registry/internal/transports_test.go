@@ -15,10 +15,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/docker/registry/utils"
 )
 
 type transportSuite struct {
@@ -92,13 +90,23 @@ func (s *transportSuite) TestBasicTransport(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// missing credentials.
+	// no credentials.
+	mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{})
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader(``)),
+			}, nil
+		},
+	)
 	t = internal.NewBasicTransport(mockRoundTripper, "", "", "")
 	_, err = t.RoundTrip(&http.Request{
 		Header: http.Header{},
 		URL:    url,
 	})
-	c.Assert(err, gc.ErrorMatches, `no basic auth credentials not valid`)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *transportSuite) TestTokenTransportOAuthTokenProvided(c *gc.C) {
@@ -138,7 +146,7 @@ func (s *transportSuite) TestTokenTransportTokenRefresh(c *gc.C) {
 		// 1st try failed - bearer token was missing.
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
 				return &http.Response{
 					Request:    req,
@@ -192,7 +200,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedRealmMissing(c *gc.
 	gomock.InOrder(
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
 				return &http.Response{
 					Request:    req,
@@ -226,7 +234,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 	gomock.InOrder(
 		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer "}})
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
 				return &http.Response{
 					Request:    req,
@@ -247,18 +255,4 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 		URL:    url,
 	})
 	c.Assert(err, gc.ErrorMatches, `refreshing OAuth token: no service specified for token auth challenge`)
-}
-
-func (s *transportSuite) TestPrivateOnlyTransport(c *gc.C) {
-	url, err := url.Parse(`https://example.com`)
-	c.Assert(err, jc.ErrorIsNil)
-
-	t, err := internal.NewPrivateOnlyTransport(nil, &docker.ImageRepoDetails{
-		Repository:    "test-account",
-		ServerAddress: "example.com",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = t.RoundTrip(&http.Request{Header: http.Header{}, URL: url})
-	c.Assert(err, jc.Satisfies, utils.IsPublicAPINotAvailableError)
-	c.Assert(err, gc.ErrorMatches, `public registry API is not available for "example.com"`)
 }

@@ -4,6 +4,7 @@
 package azure_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/http"
 
@@ -53,6 +54,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudCallCtx = &context.CloudCallContext{
+		Context: stdcontext.TODO(),
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
 			return nil
@@ -212,12 +214,10 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	assertRequestBody(c, s.requests[4], makeDisk("volume-2", 1))
 }
 
-func (s *storageSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
-	mockSender := mocks.NewSender()
-	mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
-	s.sender = azuretesting.Senders{
-		mockSender,
-	}
+func (s *storageSuite) createSenderWithUnauthorisedStatusCode() {
+	unauthSender := mocks.NewSender()
+	unauthSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	s.sender = azuretesting.Senders{unauthSender, unauthSender, unauthSender}
 }
 
 func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
@@ -245,7 +245,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 
 	volumeSource := s.volumeSource(c)
 	s.requests = nil
-	s.createSenderWithUnauthorisedStatusCode(c)
+	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
@@ -262,11 +262,13 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidCredential, jc.IsTrue)
 
 	// Validate HTTP request bodies.
-	// account for the retry attemptd for volumes 1,2
-	c.Assert(s.requests, gc.HasLen, 5)
+	// account for the retry attempts for volumes 1,2
+	// The authorised workflow attempts to refresh to token so
+	// there's additional requests to account for as well.
+	c.Assert(s.requests, gc.HasLen, 7)
 	c.Assert(s.requests[0].Method, gc.Equals, "PUT") // create volume-0
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // create volume-1
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // create volume-2
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // create volume-1
+	c.Assert(s.requests[5].Method, gc.Equals, "PUT") // create volume-2
 
 	makeDisk := func(name string, size int32) *compute.Disk {
 		tags := map[string]*string{
@@ -286,10 +288,10 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 			},
 		}
 	}
-	// account for the retry attemptd for volumes 1,2
+	// account for the retry attempts for volumes 1,2
 	assertRequestBody(c, s.requests[0], makeDisk("volume-0", 1))
-	assertRequestBody(c, s.requests[1], makeDisk("volume-1", 2))
-	assertRequestBody(c, s.requests[3], makeDisk("volume-2", 1))
+	assertRequestBody(c, s.requests[3], makeDisk("volume-1", 2))
+	assertRequestBody(c, s.requests[5], makeDisk("volume-2", 1))
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
@@ -314,7 +316,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 
 func (s *storageSuite) TestListVolumesWithInvalidCredential(c *gc.C) {
 	volumeSource := s.volumeSource(c)
-	s.createSenderWithUnauthorisedStatusCode(c)
+	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
@@ -357,7 +359,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 
 func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
 	volumeSource := s.volumeSource(c)
-	s.createSenderWithUnauthorisedStatusCode(c)
+	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	_, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
@@ -401,7 +403,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 
-	s.createSenderWithUnauthorisedStatusCode(c)
+	s.createSenderWithUnauthorisedStatusCode()
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)

@@ -19,8 +19,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"

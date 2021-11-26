@@ -15,7 +15,6 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
@@ -34,7 +33,7 @@ func DefaultIntrospectionSocketName(entityTag names.Tag) string {
 // IntrospectionConfig defines the various components that the introspection
 // worker reports on or needs to start up.
 type IntrospectionConfig struct {
-	Agent              agent.Agent
+	AgentTag           names.Tag
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.Reporter
 	PubSubReporter     introspection.Reporter
@@ -62,7 +61,7 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		return nil
 	}
 
-	socketName := cfg.NewSocketName(cfg.Agent.CurrentConfig().Tag())
+	socketName := cfg.NewSocketName(cfg.AgentTag)
 	w, err := cfg.WorkerFunc(introspection.Config{
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,

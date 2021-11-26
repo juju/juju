@@ -247,7 +247,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
 	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{lbDev, ethDev, delDev}, nil)
-	mExp.AllAddresses().Return([]networkingcommon.LinkLayerAddress{lbAddr, delAddr}, nil)
+	mExp.AllDeviceAddresses().Return([]networkingcommon.LinkLayerAddress{lbAddr, delAddr}, nil)
 	mExp.AddLinkLayerDeviceOps(
 		state.LinkLayerDeviceArgs{
 			Name:        "eth1",
@@ -340,7 +340,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
 	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{delDev}, nil)
-	mExp.AllAddresses().Return([]networkingcommon.LinkLayerAddress{delAddr}, nil)
+	mExp.AllDeviceAddresses().Return([]networkingcommon.LinkLayerAddress{delAddr}, nil)
 	mExp.AddLinkLayerDeviceOps(
 		state.LinkLayerDeviceArgs{
 			Name:        "eth1",
@@ -386,7 +386,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
 	mExp.AllLinkLayerDevices().Return(nil, nil)
-	mExp.AllAddresses().Return(nil, nil)
+	mExp.AllDeviceAddresses().Return(nil, nil)
 
 	// We expect 3 devices and their addresses to be added.
 	mExp.AddLinkLayerDeviceOps(gomock.Any(), gomock.Any()).Return([]txn.Op{{}, {}}, nil).Times(3)
@@ -465,7 +465,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
 	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{childDev}, nil)
-	mExp.AllAddresses().Return([]networkingcommon.LinkLayerAddress{childAddr}, nil)
+	mExp.AllDeviceAddresses().Return([]networkingcommon.LinkLayerAddress{childAddr}, nil)
 	mExp.AddLinkLayerDeviceOps(
 		state.LinkLayerDeviceArgs{
 			Name:        "br-eth0",
@@ -519,7 +519,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *g
 	s.expectMachine()
 	mExp := s.machine.EXPECT()
 	mExp.AllLinkLayerDevices().Return(nil, nil).Times(2)
-	mExp.AllAddresses().Return(nil, nil).Times(2)
+	mExp.AllDeviceAddresses().Return(nil, nil).Times(2)
 
 	// Expect the device addition to be attempted twice.
 	mExp.AddLinkLayerDeviceOps(
@@ -561,6 +561,7 @@ func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *networkConfigSuite) expectMachine() {
 	s.tag = names.NewMachineTag("0")
 	s.machine.EXPECT().Id().Return(s.tag.Id()).AnyTimes()
+	s.machine.EXPECT().ModelUUID().Return("some-model-uuid").AnyTimes()
 	s.state.EXPECT().Machine(s.tag.Id()).Return(s.machine, nil).AnyTimes()
 }
 

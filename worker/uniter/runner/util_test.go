@@ -5,7 +5,9 @@ package runner_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -206,6 +208,8 @@ type hookSpec struct {
 	background string
 	// missingShebang will omit the '#!/bin/bash' line
 	missingShebang bool
+	// charmMissing will remove the charm before running the hook
+	charmMissing bool
 }
 
 // makeCharm constructs a fake charm dir containing a single named hook
@@ -218,6 +222,9 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		dir = filepath.Join(dir, spec.dir)
 		err := os.Mkdir(dir, 0755)
 		c.Assert(err, jc.ErrorIsNil)
+	}
+	if !spec.charmMissing {
+		makeCharmMetadata(c, charmDir)
 	}
 	c.Logf("openfile perm %v", spec.perm)
 	hook, err := os.OpenFile(
@@ -251,6 +258,13 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
 	}
 	printf("exit %d", spec.code)
+}
+
+func makeCharmMetadata(c *gc.C, charmDir string) {
+	err := os.MkdirAll(charmDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type relUnitShim struct {

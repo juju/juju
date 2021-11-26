@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/docker/registry/utils"
 	"github.com/juju/juju/tools"
 )
 
@@ -76,12 +75,7 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 	_, ok := reg.(*internal.GithubContainerRegistry)
 	c.Assert(ok, jc.IsTrue)
 	err = reg.Ping()
-	if s.isPrivate {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, jc.Satisfies, utils.IsPublicAPINotAvailableError)
-		c.Assert(err, gc.ErrorMatches, `.*public registry API is not available for "ghcr.io"`)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 	return reg, ctrl
 }
 
@@ -145,16 +139,67 @@ func (s *githubSuite) TestPingPrivateRepositoryBadAuthTokenNoPasswordIncluded(c 
 	c.Assert(err, gc.ErrorMatches, `github container registry auth token contains empty password`)
 }
 
-func (s *githubSuite) TestTagsPublic(c *gc.C) {
+func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
+	// Use anonymous login for public repository.
 	s.isPrivate = false
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
 
-	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags": public registry API is not available for "ghcr.io"`)
+	data := `
+{"name":"jujuqa/jujud-operator","tags":["2.9.10.1","2.9.10.2","2.9.10"]}
+`[1:]
+
+	gomock.InOrder(
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{})
+			c.Assert(req.Method, gc.Equals, `GET`)
+			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusUnauthorized,
+				Body:       ioutil.NopCloser(nil),
+				Header: http.Header{
+					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+						`Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:jujuqa/jujud-operator:pull"`,
+					},
+				},
+			}, nil
+		}),
+		// Refresh OAuth Token without credential.
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Header, jc.DeepEquals, http.Header{})
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=ghcr.io`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Method, gc.Equals, `GET`)
+			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			resps := &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader(data)),
+			}
+			return resps, nil
+		}),
+	)
+	vers, err := reg.Tags("jujud-operator")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers, jc.DeepEquals, tools.Versions{
+		image.NewImageInfo(version.MustParse("2.9.10.1")),
+		image.NewImageInfo(version.MustParse("2.9.10.2")),
+		image.NewImageInfo(version.MustParse("2.9.10")),
+	})
 }
 
-func (s *githubSuite) TestTagsV2(c *gc.C) {
+func (s *githubSuite) TestTagsPrivateRegistry(c *gc.C) {
 	// Use v2 for private repository.
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
@@ -187,16 +232,7 @@ func (s *githubSuite) TestTagsV2(c *gc.C) {
 	})
 }
 
-func (s *githubSuite) TestTagsErrorResponsePublic(c *gc.C) {
-	s.isPrivate = false
-	reg, ctrl := s.getRegistry(c)
-	defer ctrl.Finish()
-
-	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://ghcr.io/v1/repositories/jujuqa/jujud-operator/tags": public registry API is not available for "ghcr.io"`)
-}
-
-func (s *githubSuite) TestTagsErrorResponseV2(c *gc.C) {
+func (s *githubSuite) TestTagsErrorResponse(c *gc.C) {
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()

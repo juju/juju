@@ -113,7 +113,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
 		s.runner.Call(
 			"RunCommands",
 			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
@@ -155,7 +155,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
 		s.runner.Call(
 			"RunCommands",
 			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
@@ -194,7 +194,7 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
 		s.runner.Call(
 			"RunCommands",
 			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
@@ -208,7 +208,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
 		s.runner.Call(
 			"RunCommands",
 			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
@@ -222,7 +222,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
 		s.runner.Call(
 			"RunCommands",
 			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(

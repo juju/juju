@@ -561,6 +561,18 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
+	if bootstrapParams.BootstrapConstraints.HasInstanceRole() {
+		instanceRoleEnviron, ok := environ.(environs.InstanceRole)
+		if !ok || !instanceRoleEnviron.SupportsInstanceRoles(callCtx) {
+			return errors.NewNotSupported(nil, "instance role constraint for provider")
+		}
+
+		bootstrapParams, err = finaliseInstanceRole(callCtx, instanceRoleEnviron, bootstrapParams)
+		if err != nil {
+			return errors.Annotate(err, "finalising instance role for provider")
+		}
+	}
+
 	ctx.Verbosef("Starting new instance for initial controller")
 
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
@@ -624,8 +636,8 @@ func bootstrapIAAS(
 		environVersion = e.Provider().Version()
 	}
 
-	if finalizer, ok := environ.(environs.BootstrapCredentialsFinalizer); ok {
-		cred, err := finalizer.FinalizeBootstrapCredential(
+	if finalizer, ok := environ.(environs.BootstrapCredentialsFinaliser); ok {
+		cred, err := finalizer.FinaliseBootstrapCredential(
 			ctx,
 			bootstrapParams,
 			args.CloudCredential)
@@ -648,6 +660,20 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func finaliseInstanceRole(
+	ctx context.ProviderCallContext,
+	ir environs.InstanceRole,
+	args environs.BootstrapParams,
+) (environs.BootstrapParams, error) {
+	if *args.BootstrapConstraints.InstanceRole !=
+		environs.InstanceProfileAutoCreate {
+		return args, nil
+	}
+	irName, err := ir.CreateAutoInstanceRole(ctx, args)
+	args.BootstrapConstraints.InstanceRole = &irName
+	return args, err
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are

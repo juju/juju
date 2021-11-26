@@ -27,6 +27,10 @@ const (
 	// there are timeouts.
 	maxRetries = 10
 
+	// maxDeadlineRetries gives the maximum number of deadline attempts we'll
+	// try if there are timeouts.
+	maxDeadlineRetries = 3
+
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
 	initialRetryDelay = 50 * time.Millisecond
@@ -278,8 +282,9 @@ func (manager *Manager) retryingClaim(claim claim) {
 	)
 
 	for a := manager.startRetry(); a.Next(); {
-		success, err = manager.handleClaim(claim)
-		if isFatalRetryError(err) {
+		var act action
+		act, success, err = manager.handleClaim(claim)
+		if isFatalClaimRetryError(act, err, a.Count()) {
 			break
 		}
 
@@ -338,6 +343,13 @@ func (manager *Manager) retryingClaim(claim claim) {
 				manager.logContext, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrClaimDenied)
 
+		case lease.IsDeadlineExceeded(err):
+			// This can happen if we where unable to process the claim in a
+			// given time. We should just return the claim denied.
+			manager.config.Logger.Warningf("[%s] deadline exceeded while handling claim %q for %q",
+				manager.logContext, claim.leaseKey, claim.holderName)
+			claim.respond(lease.ErrClaimDenied)
+
 		default:
 			// Stop the main loop because we got an abnormal error
 			manager.catacomb.Kill(errors.Trace(err))
@@ -345,30 +357,49 @@ func (manager *Manager) retryingClaim(claim claim) {
 	}
 }
 
+type action string
+
+const (
+	claimAction  action = "claim"
+	extendAction action = "extend"
+)
+
+func (a action) String() string {
+	switch a {
+	case claimAction:
+		return "claiming"
+	case extendAction:
+		return "extending"
+	}
+	return "unknown"
+}
+
 // handleClaim processes the supplied claim. It will only return
 // unrecoverable errors or timeouts; mere failure to claim just
 // indicates a bad request, and is returned as (false, nil).
-func (manager *Manager) handleClaim(claim claim) (bool, error) {
+func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 	store := manager.config.Store
 	request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
-	var err error
-	var action string
+	var (
+		err error
+		act action
+	)
 	select {
 	case <-manager.catacomb.Dying():
-		return false, manager.catacomb.ErrDying()
+		return "unknown", false, manager.catacomb.ErrDying()
 	default:
 		info, found := manager.lookupLease(claim.leaseKey)
 		switch {
 		case !found:
 			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
-			action = "claiming"
+			act = claimAction
 			err = store.ClaimLease(claim.leaseKey, request, manager.catacomb.Dying())
 
 		case info.Holder == claim.holderName:
 			manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
-			action = "extending"
+			act = extendAction
 			err = store.ExtendLease(claim.leaseKey, request, manager.catacomb.Dying())
 
 		default:
@@ -377,18 +408,18 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 			remaining := info.Expiry.Sub(manager.config.Clock.Now())
 			manager.config.Logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
-			return false, nil
+			return "unknown", false, nil
 		}
 	}
 	if lease.IsAborted(err) {
-		return false, manager.catacomb.ErrDying()
+		return act, false, manager.catacomb.ErrDying()
 	}
 	if err != nil {
-		return false, errors.Trace(err)
+		return act, false, errors.Trace(err)
 	}
 	manager.config.Logger.Tracef("[%s] %s %s lease %s for %s successful",
-		manager.logContext, claim.holderName, action, claim.leaseKey.Lease, claim.duration)
-	return true, nil
+		manager.logContext, claim.holderName, act.String(), claim.leaseKey.Lease, claim.duration)
+	return act, true, nil
 }
 
 // retryingRevoke handles timeouts when revoking, and responds to the
@@ -449,6 +480,11 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 
 		case lease.IsDropped(err):
 			manager.config.Logger.Warningf("[%s] dropped while handling revoke %q for %q",
+				manager.logContext, revoke.leaseKey, revoke.holderName)
+			revoke.respond(lease.ErrDropped)
+
+		case lease.IsDeadlineExceeded(err):
+			manager.config.Logger.Warningf("[%s] deadline exceeded while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
 			revoke.respond(lease.ErrDropped)
 
@@ -589,6 +625,8 @@ func (manager *Manager) setNextTimeout(t time.Time) {
 	// Ensure we never walk the next check back without have performed a
 	// scheduled check *unless* we think our last check was in the past.
 	if !manager.nextTimeout.Before(now) && !t.Before(manager.nextTimeout) {
+		manager.config.Logger.Tracef("[%s] not rescheduling check from %v to %v based on current time %v",
+			manager.logContext, manager.nextTimeout, t, now)
 		return
 	}
 	manager.nextTimeout = t
@@ -632,6 +670,24 @@ func isFatalRetryError(err error) bool {
 		return false
 	case lease.IsDropped(err):
 		return false
+	}
+	return true
+}
+
+func isFatalClaimRetryError(act action, err error, count int) bool {
+	switch {
+	case lease.IsTimeout(err):
+		return false
+	case lease.IsInvalid(err):
+		return false
+	case lease.IsDropped(err):
+		return false
+	case lease.IsDeadlineExceeded(err):
+		// Extend action we want to retry if the count is less that the number
+		// of retries.
+		if act == extendAction && count < maxDeadlineRetries {
+			return false
+		}
 	}
 	return true
 }

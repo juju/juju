@@ -534,7 +534,7 @@ def setup_spaces(maas, bundle=None):
         return
     with open(bundle) as f:
         data = f.read()
-        bundle_yaml = yaml.load(data)
+        bundle_yaml = yaml.safe_load(data)
     existing_spaces = maas.spaces()
     new_spaces = _setup_spaces(bundle_yaml, existing_spaces)
     for space in new_spaces:

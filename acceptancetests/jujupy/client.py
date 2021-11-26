@@ -320,7 +320,7 @@ class JujuData:
     @classmethod
     def for_existing(cls, juju_data_dir, controller_name, model_name):
         with open(get_bootstrap_config_path(juju_data_dir)) as f:
-            all_bootstrap = yaml.load(f)
+            all_bootstrap = yaml.safe_load(f)
         ctrl_config = all_bootstrap['controllers'][controller_name]
         config = ctrl_config['controller-config']
         # config is expected to have a 1.x style of config, so mash up

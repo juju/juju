@@ -31,9 +31,9 @@ var (
 	NewErrorTransport                  = newErrorTransport
 	NewBasicTransport                  = newBasicTransport
 	NewTokenTransport                  = newTokenTransport
-	NewPrivateOnlyTransport            = newPrivateOnlyTransport
 	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
 	NewAzureContainerRegistry          = newAzureContainerRegistry
+	GetArchitecture                    = getArchitecture
 )
 
 func (c *BaseClient) SetImageRepoDetails(i docker.ImageRepoDetails) {
