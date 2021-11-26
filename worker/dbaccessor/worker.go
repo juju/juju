@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -306,6 +307,17 @@ func (w *dbWorker) initializeDqlite(details apiserver.Details) error {
 		w.dqliteApp = nil
 		return errors.Annotatef(err, "ensuring dqlite is ready to process changes")
 	}
+
+	// Start REPL
+	replSocket := filepath.Join(w.cfg.DataDir, "juju.sock")
+	_ = os.Remove(replSocket)
+	repl, err := newREPL(replSocket, w, w.cfg.Clock, w.cfg.Logger)
+	if err != nil {
+		_ = w.dqliteApp.Close()
+		w.dqliteApp = nil
+		return errors.Annotatef(err, "starting dqlite REPL")
+	}
+	w.catacomb.Add(repl)
 
 	w.cfg.Logger.Infof("initialized dqlite application (ID: %v)", w.dqliteApp.ID())
 	close(w.dqliteReadyCh) // start accepting GetDB() requests.
