@@ -294,6 +294,7 @@ func (fakeLogger) Criticalf(message string, args ...interface{})               {
 func (fakeLogger) Warningf(message string, args ...interface{})                {}
 func (fakeLogger) Errorf(message string, args ...interface{})                  {}
 func (fakeLogger) Infof(message string, args ...interface{})                   {}
+func (fakeLogger) Debugf(message string, args ...interface{})                  {}
 func (fakeLogger) Tracef(message string, args ...interface{})                  {}
 func (fakeLogger) Logf(level loggo.Level, message string, args ...interface{}) {}
 func (fakeLogger) IsTraceEnabled() bool                                        { return true }

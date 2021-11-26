@@ -177,12 +177,10 @@ func (m *Machine) ContainerType() instance.ContainerType {
 	return instance.ContainerType(m.doc.ContainerType)
 }
 
-func (m *Machine) ModelName() string {
-	name, err := m.st.modelName()
-	if err != nil {
-		logger.Errorf(err.Error())
-	}
-	return name
+// ModelUUID returns the unique identifier
+// for the model that this machine is in.
+func (m *Machine) ModelUUID() string {
+	return m.doc.ModelUUID
 }
 
 // ForceDestroyed returns whether the destruction of a dying/dead

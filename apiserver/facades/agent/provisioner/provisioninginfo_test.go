@@ -459,7 +459,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 
 	controllerCfg := s.ControllerConfig
 
-	pName := fmt.Sprintf("juju-%s-lxd-profile-0", profileMachine.ModelName())
+	mod, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	pName := fmt.Sprintf("juju-%s-lxd-profile-0", mod.Name())
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{

@@ -9,9 +9,11 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v2/bson"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
@@ -39,6 +41,8 @@ type DBInfo struct {
 	Password string
 	// Targets is a list of databases to dump.
 	Targets set.Strings
+	// ApproxSizeMB is the storage needed to back up the database.
+	ApproxSizeMB int
 }
 
 // ignoredDatabases is the list of databases that should not be
@@ -51,8 +55,15 @@ var ignoredDatabases = set.NewStrings(
 	imagestorage.ImagesDB, // note: this is still backed up anyway
 )
 
+// DBSession is a subset of mgo.Session.
 type DBSession interface {
 	DatabaseNames() ([]string, error)
+	DB(name string) Database
+}
+
+// Database is a subset of mgo.Database.
+type Database interface {
+	Run(cmd interface{}, result interface{}) error
 }
 
 // NewDBInfo returns the information needed by backups to dump
@@ -63,10 +74,29 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
+	var totalDataSize float64
+	for _, target := range targets.Values() {
+		var result bson.M
+		err := session.DB(target).Run(bson.D{
+			{"dbStats", 1},
+			{"scale", humanize.MiByte},
+		}, &result)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		dataSize, ok := result["dataSize"].(float64)
+		if !ok {
+			return nil, errors.Errorf("missing 'dataSize' value in db stats for database %q", target)
+		}
+		logger.Debugf("dataSize for %q is %dMiB", target, dataSize)
+		totalDataSize += dataSize
+	}
+
 	info := DBInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-		Targets:  targets,
+		Address:      mgoInfo.Addrs[0],
+		Password:     mgoInfo.Password,
+		Targets:      targets,
+		ApproxSizeMB: int(totalDataSize),
 	}
 
 	// TODO(dfc) Backup should take a Tag.

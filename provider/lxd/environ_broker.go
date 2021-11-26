@@ -94,19 +94,15 @@ func (env *environ) newContainer(
 	// are made, instead of at a higher level in the package, so as not to
 	// assume that all providers will have the same need to be implemented
 	// in the same way.
-	longestMsg := 0
 	statusCallback := func(currentStatus status.Status, msg string, data map[string]interface{}) error {
 		if args.StatusCallback != nil {
 			_ = args.StatusCallback(currentStatus, msg, nil)
-		}
-		if len(msg) > longestMsg {
-			longestMsg = len(msg)
 		}
 		return nil
 	}
 	cleanupCallback := func() {
 		if args.CleanupCallback != nil {
-			_ = args.CleanupCallback(strings.Repeat(" ", longestMsg))
+			_ = args.CleanupCallback()
 		}
 	}
 	defer cleanupCallback()

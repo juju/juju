@@ -25,6 +25,7 @@ type constraintsDoc struct {
 	Mem              *uint64
 	RootDisk         *uint64
 	RootDiskSource   *string
+	InstanceRole     *string
 	InstanceType     *string
 	Container        *instance.ContainerType
 	Tags             *[]string
@@ -43,6 +44,7 @@ func newConstraintsDoc(cons constraints.Value, id string) constraintsDoc {
 		Mem:              cons.Mem,
 		RootDisk:         cons.RootDisk,
 		RootDiskSource:   cons.RootDiskSource,
+		InstanceRole:     cons.InstanceRole,
 		InstanceType:     cons.InstanceType,
 		Container:        cons.Container,
 		Tags:             cons.Tags,
@@ -62,6 +64,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		Mem:              doc.Mem,
 		RootDisk:         doc.RootDisk,
 		RootDiskSource:   doc.RootDiskSource,
+		InstanceRole:     doc.InstanceRole,
 		InstanceType:     doc.InstanceType,
 		Container:        doc.Container,
 		Tags:             doc.Tags,

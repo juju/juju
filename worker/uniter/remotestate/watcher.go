@@ -57,7 +57,6 @@ type RemoteStateWatcher struct {
 	updateStatusChannel           UpdateStatusTimerFunc
 	commandChannel                <-chan string
 	retryHookChannel              watcher.NotifyChannel
-	applicationChannel            watcher.NotifyChannel
 	containerRunningStatusChannel watcher.NotifyChannel
 	containerRunningStatusFunc    ContainerRunningStatusFunc
 	canApplyCharmProfile          bool
@@ -96,7 +95,6 @@ type WatcherConfig struct {
 	UpdateStatusChannel           UpdateStatusTimerFunc
 	CommandChannel                <-chan string
 	RetryHookChannel              watcher.NotifyChannel
-	ApplicationChannel            watcher.NotifyChannel
 	ContainerRunningStatusChannel watcher.NotifyChannel
 	ContainerRunningStatusFunc    ContainerRunningStatusFunc
 	UnitTag                       names.UnitTag
@@ -116,9 +114,6 @@ func (w WatcherConfig) validate() error {
 	}
 
 	if w.ModelType == model.CAAS && !w.Sidecar {
-		if w.ApplicationChannel == nil {
-			return errors.NotValidf("watcher config for CAAS model with nil application channel")
-		}
 		if w.ContainerRunningStatusChannel != nil &&
 			w.ContainerRunningStatusFunc == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil container running status func")
@@ -147,7 +142,6 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		updateStatusChannel:           config.UpdateStatusChannel,
 		commandChannel:                config.CommandChannel,
 		retryHookChannel:              config.RetryHookChannel,
-		applicationChannel:            config.ApplicationChannel,
 		containerRunningStatusChannel: config.ContainerRunningStatusChannel,
 		containerRunningStatusFunc:    config.ContainerRunningStatusFunc,
 		modelType:                     config.ModelType,
@@ -311,10 +305,12 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 		providerID := w.unit.ProviderID()
 		if providerID != "" {
 			running, err := w.containerRunningStatusFunc(providerID)
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
-			w.containerRunningStatus(*running)
+			if running != nil {
+				w.containerRunningStatus(*running)
+			}
 		}
 	}
 	return nil
@@ -387,25 +383,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		instanceDataChannel     watcher.NotifyChannel
 	)
 
-	// CAAS models don't use an application watcher
-	// which fires an initial event.
-	if w.modelType == model.CAAS && !w.sidecar {
-		seenApplicationChange = true
+	applicationw, err := w.application.Watch()
+	if err != nil {
+		return errors.Trace(err)
 	}
-
-	if w.modelType == model.IAAS || w.sidecar {
-		// For IAAS model and sidecar CAAS model, we need to watch state for
-		// application charm changes instead of being informed by the operator.
-		applicationw, err := w.application.Watch()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(applicationw); err != nil {
-			return errors.Trace(err)
-		}
-		w.applicationChannel = applicationw.Changes()
-		requiredEvents++
+	if err := w.catacomb.Add(applicationw); err != nil {
+		return errors.Trace(err)
 	}
+	requiredEvents++
 
 	if w.modelType == model.IAAS {
 		// Only IAAS models support upgrading the machine series.
@@ -540,7 +525,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUnitChange)
 
-		case _, ok := <-w.applicationChannel:
+		case _, ok := <-applicationw.Changes():
 			w.logger.Debugf("got application change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("application watcher closed")
@@ -576,10 +561,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				}
 			}
 			runningStatus, err := w.containerRunningStatusFunc(w.current.ProviderID)
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return errors.Annotatef(err, "getting container running status for %q", unitTag.String())
 			}
-			w.containerRunningStatus(*runningStatus)
+			if runningStatus != nil {
+				w.containerRunningStatus(*runningStatus)
+			}
 
 		case hashes, ok := <-charmConfigw.Changes():
 			w.logger.Debugf("got config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)

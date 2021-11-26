@@ -163,8 +163,8 @@ func (api *NetworkConfigAPI) getMachine(tag names.MachineTag) (LinkLayerMachine,
 	return m, errors.Trace(err)
 }
 
-// mergeMachineLinkLayerOp is a model operation used to merge incoming
-// provider-sourced network configuration with existing data for a single
+// updateMachineLinkLayerOp is a model operation used to merge incoming
+// agent-sourced network configuration with existing data for a single
 // machine/host/container.
 type updateMachineLinkLayerOp struct {
 	*MachineLinkLayerOp
@@ -191,7 +191,7 @@ func newUpdateMachineLinkLayerOp(
 	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool, st AddSubnetsState,
 ) *updateMachineLinkLayerOp {
 	return &updateMachineLinkLayerOp{
-		MachineLinkLayerOp:    NewMachineLinkLayerOp(machine, incoming),
+		MachineLinkLayerOp:    NewMachineLinkLayerOp("agent", machine, incoming),
 		observedParentDevices: set.NewStrings(),
 		discoverSubnets:       discoverSubnets,
 		st:                    st,

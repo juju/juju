@@ -302,8 +302,8 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 }
 
 func checkMicrok8sUserGroupSetup(cmdRunner CommandRunner) error {
-	if jujuos.HostOS() == jujuos.Windows {
-		// The microk8s on windows is running on a vm managed by multipass.
+	if jujuos.HostOS() == jujuos.Windows || jujuos.HostOS() == jujuos.OSX {
+		// The microk8s on windows and macOS is running on a vm managed by multipass.
 		// Even the vm does not have the user group properly configured but it is not
 		// a problem because microk8s CLI uses `multipass exec` with sudo to run the commands.
 		// https://github.com/ubuntu/microk8s/blob/master/installer/vm_providers/_multipass/_multipass.py#L50

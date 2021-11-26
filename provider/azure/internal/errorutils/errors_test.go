@@ -46,6 +46,15 @@ func (s *ErrorSuite) TestNilContext(c *gc.C) {
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 }
 
+func (s *ErrorSuite) TestHasDenialStatusCode(c *gc.C) {
+	c.Assert(errorutils.HasDenialStatusCode(
+		autorest.DetailedError{StatusCode: http.StatusUnauthorized}), jc.IsTrue)
+	c.Assert(errorutils.HasDenialStatusCode(
+		autorest.DetailedError{StatusCode: http.StatusNotFound}), jc.IsFalse)
+	c.Assert(errorutils.HasDenialStatusCode(nil), jc.IsFalse)
+	c.Assert(errorutils.HasDenialStatusCode(errors.New("FAIL")), jc.IsFalse)
+}
+
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	ctx := context.NewEmptyCloudCallContext()
 	ctx.InvalidateCredentialFunc = func(msg string) error {

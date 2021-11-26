@@ -892,6 +892,24 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 	c.Assert(owner, gc.Equals, u2.Tag())
 }
 
+func (s *StorageStateSuite) TestAttachStorageIdempotent(c *gc.C) {
+	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
+	u2, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Detach, but do not destroy, the storage.
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now attach the storage to the second unit.
+	err = s.storageBackend.AttachStorage(storageTag, u2.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// And again.
+	err = s.storageBackend.AttachStorage(storageTag, u2.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 	u2, err := app.AddUnit(state.AddUnitParams{})

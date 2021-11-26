@@ -158,6 +158,7 @@ func AllFacades() *facade.Registry {
 	reg("Bundle", 3, bundle.NewFacadeV3)
 	reg("Bundle", 4, bundle.NewFacadeV4)
 	reg("Bundle", 5, bundle.NewFacadeV5)
+	reg("Bundle", 6, bundle.NewFacadeV6)
 	reg("CharmHub", 1, charmhub.NewFacade)
 	reg("CharmDownloader", 1, charmdownloader.NewFacadeV1)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
@@ -167,7 +168,8 @@ func AllFacades() *facade.Registry {
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
 	reg("Client", 1, client.NewFacadeV1)
 	reg("Client", 2, client.NewFacadeV2)
-	reg("Client", 3, client.NewFacade)
+	reg("Client", 3, client.NewFacadeV3)
+	reg("Client", 4, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacadeV1)
 	reg("Cloud", 2, cloud.NewFacadeV2) // adds AddCloud, AddCredentials, CredentialContents, RemoveClouds
 	reg("Cloud", 3, cloud.NewFacadeV3) // changes signature of UpdateCredentials, adds ModifyCloudAccess

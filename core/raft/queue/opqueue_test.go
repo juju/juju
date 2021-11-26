@@ -6,7 +6,6 @@ package queue
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -51,6 +50,33 @@ func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
 	c.Assert(count, gc.Equals, 1)
 }
 
+func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
+
+	canceled := make(chan struct{}, 1)
+	close(canceled)
+
+	done := make(chan error)
+	go queue.Enqueue(Operation{
+		Command: command(),
+		Stop: func() <-chan struct{} {
+			return canceled
+		},
+		Done: func(err error) {
+			done <- err
+		},
+	})
+
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("testing took too long")
+	}
+	c.Assert(err, gc.ErrorMatches, `enqueueing canceled`)
+
+}
+
 func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
@@ -80,37 +106,63 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 	c.Assert(count, gc.Equals, 1)
 }
 
-func (s *OpQueueSuite) TestMultipleEnqueue(c *gc.C) {
+func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
-	results := consumeN(c, queue, 2)
+	toEnqueue := 3
+	go func() {
+		// Synchronous enqueues will result in batches of 1.
+		for i := 0; i < toEnqueue; i++ {
+			queue.Enqueue(Operation{Command: opName(i)})
+		}
+	}()
 
-	done := make(chan error)
-	for i := 0; i < 2; i++ {
-		queue.Enqueue(Operation{
-			Command: opName(i),
-			Done: func(err error) {
-				go func() {
-					done <- err
-				}()
-			},
-		})
+	var results [][]Operation
+	var totalRead int
+	for ops := range queue.Queue() {
+		results = append(results, ops)
+
+		totalRead += len(ops)
+		if totalRead >= toEnqueue {
+			queue.Kill(nil)
+		}
 	}
 
-	var err error
-	select {
-	case err = <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatal("testing took too long")
-	}
+	err := queue.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 
-	var count int
-	for result := range results {
-		c.Assert(result, gc.DeepEquals, opName(count))
-		count++
+	// The 3 operations were dispatched in separate batches.
+	c.Assert(len(results), gc.Equals, 3)
+}
+
+func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
+
+	toEnqueue := EnqueueBatchSize * 3
+	for i := 0; i < toEnqueue; i++ {
+		go func(i int) {
+			queue.Enqueue(Operation{Command: opName(i)})
+		}(i)
 	}
-	c.Assert(count, gc.Equals, 2)
+
+	var results [][]Operation
+	var totalRead int
+	for ops := range queue.Queue() {
+		results = append(results, ops)
+
+		totalRead += len(ops)
+		if totalRead >= toEnqueue {
+			queue.Kill(nil)
+		}
+	}
+
+	err := queue.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The exact batching that occurs is variable, but as a conservative test,
+	// ensure that we had some factor of batching.
+	c.Check(len(results) > 1, jc.IsTrue)
+	c.Check(len(results) < EnqueueBatchSize, jc.IsTrue)
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
@@ -173,6 +225,94 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 	consumeNilErr(0)
 	consumeErr(1, `boom`)
 	consumeNilErr(2)
+
+	queue.Kill(nil)
+	err := queue.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var count int
+	for result := range results {
+		c.Assert(result, gc.DeepEquals, opName(count))
+		count++
+	}
+	c.Assert(count, gc.Equals, 3)
+}
+
+func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
+	queue := NewOpQueue(clock.WallClock)
+
+	results := make(chan []byte, 2)
+	go func() {
+		defer close(results)
+
+		var count int
+		for ops := range queue.Queue() {
+			for _, op := range ops {
+				select {
+				case results <- op.Command:
+				case <-time.After(testing.LongWait):
+					c.Fatal("timed out setting results")
+				}
+
+				op.Done(nil)
+
+				count++
+			}
+		}
+	}()
+
+	consume := func(i int, canceled <-chan struct{}) error {
+		done := make(chan error)
+		defer close(done)
+
+		go queue.Enqueue(Operation{
+			Command: opName(i),
+			Stop: func() <-chan struct{} {
+				return canceled
+			},
+			Done: func(err error) {
+				done <- err
+			},
+		})
+
+		var err error
+		select {
+		case err = <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("testing took too long")
+		}
+
+		return err
+	}
+
+	consumeNilErr := func(i int) {
+		err := consume(i, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	consumeErr := func(i int, e string) {
+		canceled := make(chan struct{})
+		close(canceled)
+
+		err := consume(i, canceled)
+		c.Assert(err, gc.ErrorMatches, e)
+	}
+
+	consumeNilErr(0)
+	consumeErr(1, `enqueueing canceled`)
+	consumeNilErr(2)
+
+	queue.Kill(nil)
+	err := queue.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var count, index int
+	for result := range results {
+		c.Assert(result, gc.DeepEquals, opName(index))
+		count++
+		index += 2
+	}
+	c.Assert(count, gc.Equals, 2)
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
@@ -216,66 +356,6 @@ func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
 		"abc-0", "abc-1", "abc-2", "abc-3", "abc-4",
 		"abc-5", "abc-6", "abc-7", "abc-8", "abc-9",
 	})
-}
-
-func (s *OpQueueSuite) TestCalculateByGoesDown(c *gc.C) {
-	queue := &OpQueue{
-		maxBatchSize: EnqueueBatchSize,
-	}
-
-	// Reducing the number of operations should be less than the previous one.
-	delay := maxDelay
-	for i := 0; i < 20; i++ {
-		newDelay := queue.calculateDelay(delay, queue.maxBatchSize)
-		c.Assert(newDelay <= delay, jc.IsTrue)
-		delay = newDelay
-	}
-	c.Assert(delay < minDelay, jc.IsFalse)
-}
-
-func (s *OpQueueSuite) TestCalculateByGoesUp(c *gc.C) {
-	queue := &OpQueue{
-		maxBatchSize: EnqueueBatchSize,
-	}
-
-	// Increasing the number of operations should be more than the previous one.
-	delay := minDelay
-	for i := 0; i < 20; i++ {
-		newDelay := queue.calculateDelay(delay, 0)
-		c.Assert(newDelay >= delay, jc.IsTrue)
-		delay = newDelay
-	}
-	c.Assert(delay > maxDelay, jc.IsFalse)
-}
-
-func (s *OpQueueSuite) TestCalculateByBrownian(c *gc.C) {
-	queue := &OpQueue{
-		maxBatchSize: EnqueueBatchSize,
-	}
-
-	delay := maxDelay / 2
-	num := queue.maxBatchSize / 2
-	for i := 0; i < 10; i++ {
-		n := num - 2
-		if rand.Intn(2) == 0 {
-			n += 2
-		}
-		if n >= queue.maxBatchSize {
-			n = queue.maxBatchSize
-		} else if n <= 0 {
-			n = 0
-		}
-
-		newDelay := queue.calculateDelay(delay, n)
-		if n > num {
-			c.Assert(newDelay < delay, jc.IsTrue)
-		} else if n < num {
-			c.Assert(newDelay > delay, jc.IsTrue)
-		}
-		delay = newDelay
-
-		num = n
-	}
 }
 
 func opName(i int) []byte {

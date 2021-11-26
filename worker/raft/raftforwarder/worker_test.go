@@ -195,6 +195,7 @@ func (s *workerSuite) TestBadResponseType(c *gc.C) {
 
 func (s *workerSuite) TestResponseGenericError(c *gc.C) {
 	s.response.SetErrors(errors.Errorf("help!"))
+
 	_, err := s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
 		Command:       "france",
 		ResponseTopic: "response",
@@ -332,8 +333,9 @@ func (r *mockResponse) Error() error {
 	return r.NextErr()
 }
 
-func (r *mockResponse) Notify(target raftlease.NotifyTarget) {
+func (r *mockResponse) Notify(target raftlease.NotifyTarget) error {
 	r.AddCall("Notify", target)
+	return nil
 }
 
 type fakeTarget struct {

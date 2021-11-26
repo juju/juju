@@ -36,7 +36,7 @@ func newMergeMachineLinkLayerOp(
 	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos,
 ) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
-		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp(machine, incoming),
+		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp("provider", machine, incoming),
 		namelessHWAddrs:    set.NewStrings(),
 	}
 }

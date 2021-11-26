@@ -94,10 +94,7 @@ func (c *baseClient) Match() bool {
 
 // APIVersion returns the registry API version to use.
 func (c *baseClient) APIVersion() APIVersion {
-	if c.repoDetails.IsPrivate() {
-		return APIVersionV2
-	}
-	return APIVersionV1
+	return APIVersionV2
 }
 
 // TransportWrapper wraps RoundTripper.
@@ -112,12 +109,9 @@ func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoD
 			),
 		)
 	}
-	if !repoDetails.BasicAuthConfig.Empty() {
-		return newTokenTransport(
-			transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Value, "", false,
-		), nil
-	}
-	return transport, nil
+	return newTokenTransport(
+		transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(), "", false,
+	), nil
 }
 
 func mergeTransportWrappers(
@@ -167,7 +161,7 @@ func decideBaseURLCommon(version APIVersion, repoDetails *docker.ImageRepoDetail
 
 	serverAddressURL.Scheme = ""
 	repoDetails.ServerAddress = serverAddressURL.String()
-	logger.Tracef("baseClient repoDetails %#v", repoDetails)
+	logger.Tracef("baseClient repoDetails %s", repoDetails)
 	return nil
 }
 

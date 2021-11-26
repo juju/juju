@@ -476,9 +476,6 @@ func (op *caasOperator) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	// Keep a record of the alive units and a channel used to notify
-	// their uniter workers when the charm version has changed.
-	aliveUnits := make(map[string]chan struct{})
 	// Channels used to notify uniter worker that the workload container
 	// is running.
 	unitRunningChannels := make(map[string]chan struct{})
@@ -513,15 +510,6 @@ func (op *caasOperator) loop() (err error) {
 				if err := op.setStatus(status.Active, ""); err != nil {
 					return errors.Trace(err)
 				}
-				// Notify all uniters of the change so they run the upgrade-charm hook.
-				for unitID, changedChan := range aliveUnits {
-					logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
-					select {
-					case <-op.catacomb.Dying():
-						return op.catacomb.ErrDying()
-					case changedChan <- struct{}{}:
-					}
-				}
 			}
 		case units, ok := <-containerStartChan:
 			if !ok {
@@ -555,7 +543,6 @@ func (op *caasOperator) loop() (err error) {
 				logger.Debugf("got unit change %q (%s)", unitID, unitLife)
 				unitTag := names.NewUnitTag(unitID)
 				if errors.IsNotFound(err) || unitLife == life.Dead {
-					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
 					logger.Debugf("stopping uniter for dead unit %q", unitID)
 					if err := op.runner.StopAndRemoveWorker(unitID, op.catacomb.Dying()); err != nil {
@@ -574,9 +561,6 @@ func (op *caasOperator) loop() (err error) {
 					// Nothing to do for a dead unit further.
 					continue
 				} else {
-					if _, ok := aliveUnits[unitID]; !ok {
-						aliveUnits[unitID] = make(chan struct{})
-					}
 					if _, ok := unitRunningChannels[unitID]; !ok && op.deploymentMode != caas.ModeOperator {
 						// We make a buffered channel here so that we don't
 						// block the operator while the uniter may not be ready
@@ -600,7 +584,6 @@ func (op *caasOperator) loop() (err error) {
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTrackerFunc = op.config.LeadershipTrackerFunc
-				params.ApplicationChannel = aliveUnits[unitID]
 				params.Logger = params.Logger.Child(unitID)
 				if op.deploymentMode != caas.ModeOperator {
 					params.IsRemoteUnit = true

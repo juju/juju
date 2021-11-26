@@ -13,7 +13,6 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/schema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -417,18 +416,18 @@ func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 		"stringOption": "bar",
 	})
 
-	appDefaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
-	appCfgSchema, appDefaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
+	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "foo",
-	}, appCfgSchema, appDefaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 }
 
 func (s *ApplicationSuite) TestSetCAASConfigSettingsInIAASModelTriggersError(c *gc.C) {
@@ -1903,10 +1902,10 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", "new-branch", charm.Settings{"stringOption": "stringVal"})
 
 	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
@@ -1937,10 +1936,10 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 
 	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
-	}, appCfgSchema, defaults)
+	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+	app.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", "master", charm.Settings{"stringOption": ""})
 }
 

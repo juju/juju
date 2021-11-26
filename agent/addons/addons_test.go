@@ -17,8 +17,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/agent/addons"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/introspection"
@@ -54,7 +53,7 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 	}
 
 	cfg := addons.IntrospectionConfig{
-		Agent:         &dummyAgent{},
+		AgentTag:      names.NewMachineTag("42"),
 		NewSocketName: addons.DefaultIntrospectionSocketName,
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")
@@ -83,7 +82,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := addons.IntrospectionConfig{
-		Agent:         &dummyAgent{},
+		AgentTag:      names.NewMachineTag("42"),
 		Engine:        engine,
 		NewSocketName: func(tag names.Tag) string { return "bananas" },
 		WorkerFunc: func(cfg introspection.Config) (worker.Worker, error) {
@@ -111,22 +110,6 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 func (s *introspectionSuite) TestDefaultIntrospectionSocketName(c *gc.C) {
 	name := addons.DefaultIntrospectionSocketName(names.NewMachineTag("42"))
 	c.Assert(name, gc.Equals, "jujud-machine-42")
-}
-
-type dummyAgent struct {
-	agent.Agent
-}
-
-func (*dummyAgent) CurrentConfig() agent.Config {
-	return &dummyConfig{}
-}
-
-type dummyConfig struct {
-	agent.Config
-}
-
-func (*dummyConfig) Tag() names.Tag {
-	return names.NewMachineTag("42")
 }
 
 type dummyWorker struct {

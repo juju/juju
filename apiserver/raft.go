@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -65,6 +64,7 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
 
 	m.queue.Enqueue(queue.Operation{
 		Command: cmd,
+		Stop:    ctx.Done,
 		Done: func(err error) {
 			// We can do this, because the caller of done, is in another
 			// goroutine, otherwise this is a sure fire way to deadlock.
@@ -83,11 +83,6 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
 			m.logger.Tracef("Applying lease %s took: %v with error: %s", string(cmd), elapsed, err)
 		}
 
-	case <-ctx.Done():
-		m.logger.Errorf("Context was marked as done whilst waiting for enqueue: %v", m.clock.Now().Sub(start))
-		msg := fmt.Sprintf("Apply lease context deadline exceeded: %s", ctx.Err())
-		return apiservererrors.NewDeadlineExceededError(msg)
-
 	case <-m.clock.After(ApplyLeaseTimeout):
 		m.logger.Errorf("Applying Lease timed out, waiting for enqueue: %v", m.clock.Now().Sub(start))
 		return apiservererrors.NewDeadlineExceededError("Apply lease upper bound timeout")
@@ -105,8 +100,13 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd []byte) error {
 		return apiservererrors.NewNotLeaderError(leaderErr.ServerAddress(), leaderErr.ServerID())
 
 	case queue.IsDeadlineExceeded(err):
-		// If the deadline is exceeded, get original callee to handle the
+		// If the deadline is exceeded, get original caller to handle the
 		// timeout correctly.
+		return apiservererrors.NewDeadlineExceededError(err.Error())
+
+	case queue.IsCanceled(err):
+		// If the apply lease is canceled from the context (facade), then let
+		// the original caller handle it correctly.
 		return apiservererrors.NewDeadlineExceededError(err.Error())
 
 	}

@@ -42,6 +42,10 @@ var (
 	// indicative of no valid connection to propagate the lease operation to
 	// the leader.
 	ErrDropped = errors.New("lease operation dropped")
+
+	// ErrDeadlineExceeded indicates if the underlying request was rejected
+	// because enqueuing exceeded the timeout.
+	ErrDeadlineExceeded = errors.New("lease deadline exceeded")
 )
 
 // IsInvalid returns whether the specified error represents ErrInvalid
@@ -80,11 +84,17 @@ func IsDropped(err error) bool {
 	return errors.Cause(err) == ErrDropped
 }
 
+// IsDeadlineExceeded returns whether the specified errors represents
+// ErrDeadlineExceeded (even if it's wrapped).
+func IsDeadlineExceeded(err error) bool {
+	return errors.Cause(err) == ErrDeadlineExceeded
+}
+
 // IsLeaseError returns whether the specified error is part of the collection
 // of lease errors.
 func IsLeaseError(err error) bool {
 	switch errors.Cause(err) {
-	case ErrInvalid, ErrHeld, ErrTimeout, ErrAborted, ErrNotHeld, ErrDropped:
+	case ErrInvalid, ErrHeld, ErrTimeout, ErrAborted, ErrNotHeld, ErrDropped, ErrDeadlineExceeded:
 		return true
 	}
 	return false

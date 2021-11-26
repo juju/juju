@@ -159,7 +159,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		findParams.OSType = ""
 	}
 
-	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter, t.newEnviron)
+	toolsFinder := newToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter, t.newEnviron)
 	list, err := toolsFinder.findTools(findParams)
 	if err != nil {
 		return nil, err
@@ -219,7 +219,12 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 	return entity.SetAgentVersion(vers)
 }
 
-type ToolsFinder struct {
+// ToolsFinder defines methods for finding tools.
+type ToolsFinder interface {
+	FindTools(args params.FindToolsParams) (params.FindToolsResult, error)
+}
+
+type toolsFinder struct {
 	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
@@ -231,12 +236,19 @@ type ToolsFinder struct {
 func NewToolsFinder(
 	c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter,
 	newEnviron NewEnvironFunc,
-) *ToolsFinder {
-	return &ToolsFinder{c, s, t, newEnviron}
+) ToolsFinder {
+	return newToolsFinder(c, s, t, newEnviron)
+}
+
+func newToolsFinder(
+	c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter,
+	newEnviron NewEnvironFunc,
+) *toolsFinder {
+	return &toolsFinder{c, s, t, newEnviron}
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
-func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+func (f *toolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	list, err := f.findTools(args)
 	if err != nil {
 		return params.FindToolsResult{Error: apiservererrors.ServerError(err)}, nil
@@ -247,7 +259,7 @@ func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsRe
 
 // findTools calls findMatchingTools and then rewrites the URLs
 // using the provided ToolsURLGetter.
-func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, error) {
+func (f *toolsFinder) findTools(args params.FindToolsParams) (coretools.List, error) {
 	list, err := f.findMatchingTools(args)
 	if err != nil {
 		return nil, err
@@ -288,7 +300,7 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 }
 
 // TODO: Remove for Juju 3/4.
-func (f *ToolsFinder) resultForOSTools(list coretools.List, osType string) coretools.List {
+func (f *toolsFinder) resultForOSTools(list coretools.List, osType string) coretools.List {
 	added := make(map[version.Binary]bool)
 	var matched coretools.List
 	for _, t := range list {
@@ -318,7 +330,7 @@ func (f *ToolsFinder) resultForOSTools(list coretools.List, osType string) coret
 }
 
 // TODO: Remove for Juju 3/4.
-func (f *ToolsFinder) resultForSeriesTools(list coretools.List, series string) coretools.List {
+func (f *toolsFinder) resultForSeriesTools(list coretools.List, series string) coretools.List {
 	osType := coreseries.DefaultOSTypeNameFromSeries(series)
 
 	added := make(map[version.Binary]bool)
@@ -349,7 +361,7 @@ func (f *ToolsFinder) resultForSeriesTools(list coretools.List, series string) c
 // matching the given parameters.
 // If an exact match is specified (number, series and arch) and is found in
 // tools storage, then simplestreams will not be searched.
-func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
+func (f *toolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
 	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
 
 	storageList, err := f.matchingStorageTools(args)
@@ -398,7 +410,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (result cor
 
 // matchingStorageTools returns a coretools.List, with an entry for each
 // metadata entry in the tools storage that matches the given parameters.
-func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretools.List, error) {
+func (f *toolsFinder) matchingStorageTools(args params.FindToolsParams) (coretools.List, error) {
 	storage, err := f.toolsStorageGetter.ToolsStorage()
 	if err != nil {
 		return nil, err

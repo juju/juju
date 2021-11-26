@@ -85,11 +85,11 @@ func (p *firewaller) Wait() error {
 
 func (p *firewaller) loop() error {
 	logger := p.config.Logger
-	w, err := p.config.ApplicationGetter.WatchApplications()
+	appWatcher, err := p.config.ApplicationGetter.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.catacomb.Add(w); err != nil {
+	if err := p.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -98,7 +98,7 @@ func (p *firewaller) loop() error {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
-		case apps, ok := <-w.Changes():
+		case apps, ok := <-appWatcher.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
@@ -117,10 +117,9 @@ func (p *firewaller) loop() error {
 				}
 
 				appLife, err := p.config.LifeGetter.Life(appName)
-				if errors.IsNotFound(err) {
-					w, ok := appWorkers[appName]
-					if ok {
-						if err := worker.Stop(w); err != nil {
+				if errors.IsNotFound(err) || appLife == life.Dead {
+					if appWorker, ok := appWorkers[appName]; ok {
+						if err := worker.Stop(appWorker); err != nil {
 							logger.Errorf("error stopping caas firewaller: %v", err)
 						}
 						delete(appWorkers, appName)
@@ -130,12 +129,11 @@ func (p *firewaller) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, ok := appWorkers[appName]; ok || appLife == life.Dead {
-					// Already watching the application. or we're
-					// not yet watching it and it's dead.
+				if _, ok := appWorkers[appName]; ok {
+					// Already watching the application.
 					continue
 				}
-				w, err := newApplicationWorker(
+				appWorker, err := newApplicationWorker(
 					p.config.ControllerUUID,
 					p.config.ModelUUID,
 					appName,
@@ -148,8 +146,8 @@ func (p *firewaller) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				appWorkers[appName] = w
-				_ = p.catacomb.Add(w)
+				appWorkers[appName] = appWorker
+				_ = p.catacomb.Add(appWorker)
 			}
 		}
 	}

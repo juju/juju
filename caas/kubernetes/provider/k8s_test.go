@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
@@ -3092,6 +3093,27 @@ func (s *K8sBrokerSuite) TestVersion(c *gc.C) {
 	ver, err := s.broker.Version()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ver, gc.DeepEquals, &version.Number{Major: 1, Minor: 15})
+}
+
+func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Return(&k8sversion.Info{
+			Major: "1", Minor: "15+",
+		}, nil),
+	)
+
+	fs, err := s.broker.SupportedFeatures()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs.AsList(), gc.DeepEquals, []assumes.Feature{
+		{
+			Name:        "k8s-api",
+			Description: "the Kubernetes API lets charms query and manipulate the state of API objects in a Kubernetes cluster",
+			Version:     &version.Number{Major: 1, Minor: 15},
+		},
+	})
 }
 
 func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {

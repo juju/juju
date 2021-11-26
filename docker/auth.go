@@ -4,6 +4,7 @@
 package docker
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -30,16 +31,33 @@ type Token struct {
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (t *Token) UnmarshalJSON(value []byte) error {
-	return json.Unmarshal(value, &t.Value)
+	err := json.Unmarshal(value, &t.Value)
+	return errors.Trace(err)
 }
 
-// String returns the string value, or the Itoa of the int value.
+// String returns the string value.
 func (t *Token) String() string {
+	if t.Empty() {
+		return ""
+	}
+	o := NewToken(t.Value)
+	o.mask()
+	return o.Value
+}
+
+// Content returns the raw content of the token.
+func (t *Token) Content() string {
+	if t.Empty() {
+		return ""
+	}
 	return t.Value
 }
 
 // MarshalJSON implements the json.Marshaller interface.
 func (t Token) MarshalJSON() ([]byte, error) {
+	if t.Empty() {
+		return nil, nil
+	}
 	return json.Marshal(t.Value)
 }
 
@@ -54,6 +72,18 @@ func NewToken(value string) *Token {
 // Empty checks if the auth information is empty.
 func (t *Token) Empty() bool {
 	return t == nil || t.Value == ""
+}
+
+// Mask hides the token value.
+func (t *Token) mask() {
+	if t.Empty() {
+		return
+	}
+	var b bytes.Buffer
+	for range t.Value {
+		b.WriteString("*")
+	}
+	t.Value = b.String()
 }
 
 // TokenAuthConfig contains authorization information for token auth.
@@ -149,7 +179,6 @@ type dockerConfigData struct {
 // SecretData returns secret data format.
 func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 	if rid.BasicAuthConfig.Empty() && rid.TokenAuthConfig.Empty() {
-		// No auth information is required for a public repository.
 		return nil, nil
 	}
 	rid.Repository = ""
@@ -161,8 +190,8 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 	return json.Marshal(o)
 }
 
-// String returns yaml format.
-func (rid ImageRepoDetails) String() string {
+// Content returns the json marshalled string with raw credentials.
+func (rid ImageRepoDetails) Content() string {
 	d, _ := json.Marshal(rid)
 	return string(d)
 }

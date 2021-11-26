@@ -17,7 +17,7 @@ type StubPersistence struct {
 
 	RunFunc func(jujutxn.TransactionSource) error
 
-	ReturnAll interface{} // homegenous(?) list of doc struct (not pointers)
+	ReturnAll interface{} // homogenous(?) list of doc struct (not pointers)
 	ReturnOne interface{} // a doc struct (not a pointer)
 
 	ReturnApplicationExistsOps       []txn.Op

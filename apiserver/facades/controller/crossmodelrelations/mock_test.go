@@ -182,7 +182,7 @@ func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {
 	if err := st.NextErr(); err != nil {
 		return err
 	}
-	if _, ok := st.remoteEntities[entity]; ok {
+	if existing, ok := st.remoteEntities[entity]; ok && existing != token {
 		return errors.AlreadyExistsf(entity.Id())
 	}
 	st.remoteEntities[entity] = token

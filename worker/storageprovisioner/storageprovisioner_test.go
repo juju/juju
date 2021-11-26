@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/context"
@@ -120,7 +119,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		defer close(volumeInfoSet)
 		c.Assert(volumes, jc.SameContents, expectedVolumes)
@@ -160,7 +159,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestCreateVolumeCreatesAttachment(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 
 	volumeAttachmentInfoSet := make(chan interface{})
 	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
@@ -220,7 +219,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeCreatesAttachment(c *gc.C) {
 func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		defer close(volumeInfoSet)
 		return make([]params.ErrorResult, len(volumes)), nil
@@ -289,7 +288,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 func (s *storageProvisionerSuite) TestCreateFilesystemRetry(c *gc.C) {
 	filesystemInfoSet := make(chan interface{})
 	filesystemAccessor := newMockFilesystemAccessor()
-	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
 		defer close(filesystemInfoSet)
 		return make([]params.ErrorResult, len(filesystems)), nil
@@ -358,7 +357,7 @@ func (s *storageProvisionerSuite) TestCreateFilesystemRetry(c *gc.C) {
 func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		defer close(volumeInfoSet)
 		return make([]params.ErrorResult, len(volumes)), nil
@@ -440,7 +439,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
 	filesystemInfoSet := make(chan interface{})
 	filesystemAccessor := newMockFilesystemAccessor()
-	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
 		defer close(filesystemInfoSet)
 		return make([]params.ErrorResult, len(filesystems)), nil
@@ -521,7 +520,7 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.provisionedVolumes["volume-3"] = params.Volume{
 		VolumeTag: "volume-3",
 		Info:      params.VolumeInfo{VolumeId: "vol-ume"},
@@ -615,7 +614,7 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
 	filesystemAccessor := newMockFilesystemAccessor()
-	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	filesystemAccessor.provisionedFilesystems["filesystem-3"] = params.Filesystem{
 		FilesystemTag: "filesystem-3",
 		Info:          params.FilesystemInfo{FilesystemId: "fs-id"},
@@ -844,8 +843,8 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 			VolumeId: "vol-123",
 		},
 	}
-	volumeAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 
 	// machine-0/volume-1 attachment is already created.
 	// We should see a reattachment.
@@ -903,8 +902,8 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentNoStaticReattachment(c *gc
 			VolumeId: "vol-123",
 		},
 	}
-	volumeAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 
 	alreadyAttached := params.MachineStorageId{
 		MachineTag:    "machine-0",
@@ -967,8 +966,8 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 			FilesystemId: "fs-123",
 		},
 	}
-	filesystemAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
-	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 
 	// machine-0/filesystem-1 attachment is already created.
 	// We should see a reattachment.
@@ -1097,7 +1096,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 			Size:         123,
 		},
 	}
-	filesystemAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
+	filesystemAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
 
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
@@ -1154,7 +1153,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		defer close(volumeInfoSet)
 		return nil, nil
@@ -1162,7 +1161,7 @@ func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
 
 	filesystemInfoSet := make(chan interface{})
 	filesystemAccessor := newMockFilesystemAccessor()
-	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
 		defer close(filesystemInfoSet)
 		return nil, nil
@@ -1217,7 +1216,7 @@ func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		return nil, errors.New("belly up")
 	}
@@ -1240,7 +1239,7 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestSetVolumeInfoErrorResultDoesNotStopWorker(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		return []params.ErrorResult{{Error: &params.Error{Message: "message", Code: "code"}}}, nil
 	}
@@ -1341,7 +1340,7 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 			VolumeId: "vol-123",
 		},
 	}
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 
 	args := &workerArgs{
 		volumes: volumeAccessor,
@@ -1385,7 +1384,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 			VolumeId: "vol-123",
 		},
 	}
-	volumeAccessor.provisionedMachines[machine.String()] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedMachines[machine.String()] = "already-provisioned-1"
 
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
 		return []params.LifeResult{{Life: life.Dying}}, nil
@@ -1462,6 +1461,86 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 		{Tag: "volume-1", Status: "detaching", Info: "badness"},
 		{Tag: "volume-1", Status: "detached", Info: ""},
 	})
+}
+
+func (s *storageProvisionerSuite) TestDetachVolumesNotFound(c *gc.C) {
+	// This test just checks that there are no unexpected api calls
+	// if a volume attachment is deleted from state.
+	var attached bool
+	volumeAttachmentInfoSet := make(chan interface{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
+		close(volumeAttachmentInfoSet)
+		attached = true
+		for _, a := range volumeAttachments {
+			id := params.MachineStorageId{
+				MachineTag:    a.MachineTag,
+				AttachmentTag: a.VolumeTag,
+			}
+			volumeAccessor.provisionedAttachments[id] = a
+		}
+		return make([]params.ErrorResult, len(volumeAttachments)), nil
+	}
+
+	expectedAttachmentIds := []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}}
+
+	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
+		value := life.Alive
+		var lifeErr *params.Error
+		if attached {
+			lifeErr = &params.Error{Code: params.CodeNotFound}
+		}
+		return []params.LifeResult{{Life: value, Error: lifeErr}}, nil
+	}
+
+	s.provider.detachVolumesFunc = func(args []storage.VolumeAttachmentParams) ([]error, error) {
+		c.Fatalf("unexpected call to detachVolumes")
+		return nil, nil
+	}
+	s.provider.destroyVolumesFunc = func(ids []string) ([]error, error) {
+		c.Fatalf("unexpected call to destroyVolumes")
+		return nil, nil
+	}
+
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		c.Fatalf("unexpected call to removeAttachments")
+		return nil, nil
+	}
+
+	// volume-1 and machine-1 are provisioned.
+	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
+		VolumeTag: "volume-1",
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+		},
+	}
+	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
+
+	args := &workerArgs{
+		volumes: volumeAccessor,
+		life: &mockLifecycleManager{
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
+		},
+		registry: s.registry,
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
+
+	// This results in a not found attachment.
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}}
+	workertest.CleanKill(c, worker)
 }
 
 func (s *storageProvisionerSuite) TestDetachFilesystemsUnattached(c *gc.C) {
@@ -1542,7 +1621,7 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 			FilesystemId: "fs-id",
 		},
 	}
-	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 
 	args := &workerArgs{
 		filesystems: filesystemAccessor,
@@ -1566,6 +1645,86 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 	}}
 	waitChannel(c, detached, "waiting for filesystem to be detached")
 	waitChannel(c, removed, "waiting for attachment to be removed")
+}
+
+func (s *storageProvisionerSuite) TestDetachFilesystemsNotFound(c *gc.C) {
+	// This test just checks that there are no unexpected api calls
+	// if a volume attachment is deleted from state.
+	var attached bool
+	filesystemAttachmentInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.setFilesystemAttachmentInfo = func(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+		close(filesystemAttachmentInfoSet)
+		attached = true
+		for _, a := range filesystemAttachments {
+			id := params.MachineStorageId{
+				MachineTag:    a.MachineTag,
+				AttachmentTag: a.FilesystemTag,
+			}
+			filesystemAccessor.provisionedAttachments[id] = a
+		}
+		return make([]params.ErrorResult, len(filesystemAttachments)), nil
+	}
+
+	expectedAttachmentIds := []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+
+	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
+		value := life.Alive
+		var lifeErr *params.Error
+		if attached {
+			lifeErr = &params.Error{Code: params.CodeNotFound}
+		}
+		return []params.LifeResult{{Life: value, Error: lifeErr}}, nil
+	}
+
+	s.provider.detachFilesystemsFunc = func(args []storage.FilesystemAttachmentParams) ([]error, error) {
+		c.Fatalf("unexpected call to detachFilesystems")
+		return nil, nil
+	}
+	s.provider.destroyFilesystemsFunc = func(ids []string) ([]error, error) {
+		c.Fatalf("unexpected call to destroyFilesystems")
+		return nil, nil
+	}
+
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		c.Fatalf("unexpected call to removeAttachments")
+		return nil, nil
+	}
+
+	// filesystem-1 and machine-1 are provisioned.
+	filesystemAccessor.provisionedFilesystems["filesystem-1"] = params.Filesystem{
+		FilesystemTag: "filesystem-1",
+		Info: params.FilesystemInfo{
+			FilesystemId: "fs-id",
+		},
+	}
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		life: &mockLifecycleManager{
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
+		},
+		registry: s.registry,
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
+
+	// This results in a not found attachment.
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	workertest.CleanKill(c, worker)
 }
 
 func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {

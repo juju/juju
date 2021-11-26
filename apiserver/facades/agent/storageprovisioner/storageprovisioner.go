@@ -107,7 +107,9 @@ func NewStorageProvisionerAPIv4(
 				return authorizer.AuthController()
 			}
 			f, err := sb.Filesystem(tag)
-			if err != nil {
+			if errors.IsNotFound(err) {
+				return authorizer.AuthController()
+			} else if err != nil {
 				return false
 			}
 			volumeTag, err := f.Volume()
@@ -117,7 +119,7 @@ func NewStorageProvisionerAPIv4(
 				// machines that the volume is attached to, then
 				// it may access the filesystem too.
 				volumeAttachments, err := sb.VolumeAttachments(volumeTag)
-				if err != nil {
+				if err != nil && !errors.IsNotFound(err) {
 					return false
 				}
 				for _, a := range volumeAttachments {
@@ -125,7 +127,7 @@ func NewStorageProvisionerAPIv4(
 						return true
 					}
 				}
-			} else if err != state.ErrNoBackingVolume {
+			} else if !errors.IsNotFound(err) && err != state.ErrNoBackingVolume {
 				return false
 			}
 			return authorizer.AuthController()

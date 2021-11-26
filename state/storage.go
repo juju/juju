@@ -1042,6 +1042,9 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 			return nil, errors.Annotate(err, "getting charm")
 		}
 		ops, err := sb.attachStorageOps(si, u.UnitTag(), u.Series(), ch, u)
+		if errors.IsAlreadyExists(err) {
+			return nil, jujutxn.ErrNoOperations
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1097,23 +1100,22 @@ func (sb *storageBackend) attachStorageOps(
 	}
 	if owner, ok := si.Owner(); ok {
 		if owner == unitTag {
-			return nil, jujutxn.ErrNoOperations
-		} else {
-			if owner.Id() != unitApplicationName {
-				return nil, errors.Errorf(
-					"cannot attach storage owned by %s to %s",
-					names.ReadableString(owner),
-					names.ReadableString(unitTag),
-				)
-			}
-			if _, err := sb.storageAttachment(
-				si.StorageTag(),
-				unitTag,
-			); err == nil {
-				return nil, jujutxn.ErrNoOperations
-			} else if !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			}
+			return nil, errors.AlreadyExistsf("storage attachment %q on %q", si.StorageTag().Id(), unitTag.Id())
+		}
+		if owner.Id() != unitApplicationName {
+			return nil, errors.Errorf(
+				"cannot attach storage owned by %s to %s",
+				names.ReadableString(owner),
+				names.ReadableString(unitTag),
+			)
+		}
+		if _, err := sb.storageAttachment(
+			si.StorageTag(),
+			unitTag,
+		); err == nil {
+			return nil, errors.AlreadyExistsf("storage attachment %q on %q", si.StorageTag().Id(), unitTag.Id())
+		} else if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
 		}
 	} else {
 		// TODO(axw) should we store the application name on the
@@ -1561,19 +1563,14 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			return nil, nil
 		}
 
-		lifeAssert := isAliveDoc
-		if force {
-			// Since we are force destroying, life assert should be current volume's life.
-			lifeAssert = bson.D{{"life", volume.Life()}}
-		}
 		if plans, err := sb.machineVolumeAttachmentPlans(hostTag, volume.VolumeTag()); err != nil {
 			return nil, errors.Trace(err)
 		} else {
 			if len(plans) > 0 {
-				return detachStorageAttachmentOps(hostTag, volume.VolumeTag(), lifeAssert), nil
+				return sb.detachVolumeAttachmentPlanOps(hostTag, volume.VolumeTag(), force)
 			}
 		}
-		return detachVolumeOps(hostTag, volume.VolumeTag(), lifeAssert), nil
+		return sb.detachVolumeOps(hostTag, volume.VolumeTag(), force)
 
 	case StorageKindFilesystem:
 		filesystem, err := sb.storageInstanceFilesystem(si.StorageTag())

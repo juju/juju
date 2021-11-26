@@ -274,7 +274,7 @@ def update_service_ports(old_service_ports=None, new_service_ports=None):
 # update_sysctl: create a sysctl.conf file from YAML-formatted 'sysctl' config
 # -----------------------------------------------------------------------------
 def update_sysctl(config_data):
-    sysctl_dict = yaml.load(config_data.get("sysctl", "{}"))
+    sysctl_dict = yaml.safe_load(config_data.get("sysctl", "{}"))
     if sysctl_dict:
         sysctl_file = open("/etc/sysctl.d/50-haproxy.conf", "w")
         for key in sysctl_dict:

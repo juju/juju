@@ -22,7 +22,6 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/replicaset/v2"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/utils/v2/voyeur"
@@ -34,6 +33,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
@@ -126,7 +125,7 @@ func init() {
 		safe := mgo.Safe{}
 		if ProductionMongoWriteConcern {
 			safe.J = true
-			_, err := replicaset.CurrentConfig(session)
+			_, err := mongo.CurrentReplicasetConfig(session)
 			if err == nil {
 				// set mongo to write-majority (writes only returned after
 				// replicated to a majority of replica-set members).
@@ -567,17 +566,6 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
-		raftLeaseLogPath := filepath.Join(a.CurrentConfig().LogDir(), "lease.log")
-		if err := paths.PrimeLogFile(raftLeaseLogPath); err != nil {
-			// This isn't a fatal error, so log and continue if priming
-			// fails.
-			logger.Warningf(
-				"unable to prime log file %q (proceeding anyway): %s",
-				raftLeaseLogPath,
-				err.Error(),
-			)
-		}
-
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
 			AgentName:               agentName,
@@ -619,7 +607,6 @@ func (a *MachineAgent) makeEngineCreator(
 			UnitEngineConfig:                  engineConfigFunc,
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			LeaseFSM:                          raftlease.NewFSM(),
-			LeaseLog:                          makeRaftLeaseLog(raftLeaseLogPath),
 			RaftOpQueue:                       queue.NewOpQueue(clock.WallClock),
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
@@ -633,7 +620,7 @@ func (a *MachineAgent) makeEngineCreator(
 			return nil, err
 		}
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
-			Agent:              a,
+			AgentTag:           a.CurrentConfig().Tag(),
 			Engine:             engine,
 			StatePoolReporter:  &statePoolReporter,
 			PubSubReporter:     pubsubReporter,
@@ -1408,22 +1395,4 @@ func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
 		return "agent has no pool set"
 	}
 	return h.pool.IntrospectionReport()
-}
-
-const (
-	// raftLeaseMaxLogs is the maximum number of backup lease log files to keep.
-	raftLeaseMaxLogs = 10
-
-	// raftLeaseMaxLogSizeMB is the maximum size of the lease log file on disk
-	// in megabytes.
-	raftLeaseMaxLogSizeMB = 30
-)
-
-func makeRaftLeaseLog(path string) *lumberjack.Logger {
-	return &lumberjack.Logger{
-		Filename:   path,
-		MaxSize:    raftLeaseMaxLogSizeMB,
-		MaxBackups: raftLeaseMaxLogs,
-		Compress:   true,
-	}
 }

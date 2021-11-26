@@ -207,7 +207,11 @@ func MigrateLegacyLeases(context Context) error {
 			Start:    zero,
 			Duration: info.Expiry.Sub(zero),
 		}
-		target.Claimed(key, info.Holder)
+		// TODO(stickupkid): Only log out the error, look into if it's realistic
+		// to return here if there is an error attempting to claim the lease.
+		if err := target.Claimed(key, info.Holder); err != nil {
+			logger.Errorf("claiming lease %v", err)
+		}
 	}
 
 	newSnapshot := raftlease.Snapshot{

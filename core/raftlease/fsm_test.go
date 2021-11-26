@@ -1047,12 +1047,14 @@ type fakeTarget struct {
 	testing.Stub
 }
 
-func (t *fakeTarget) Claimed(key lease.Key, holder string) {
+func (t *fakeTarget) Claimed(key lease.Key, holder string) error {
 	t.AddCall("Claimed", key, holder)
+	return t.NextErr()
 }
 
-func (t *fakeTarget) Expired(key lease.Key) {
+func (t *fakeTarget) Expired(key lease.Key) error {
 	t.AddCall("Expired", key)
+	return t.NextErr()
 }
 
 type fakeSnapshotSink struct {

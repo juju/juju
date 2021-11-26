@@ -280,8 +280,15 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		if svc == nil || err != nil {
 			return
 		}
-		if err = svc.Restart(); err != nil {
-			logger.Criticalf("unable to (re)start mongod snap service: %v", err)
+		err = svc.Stop()
+		if err != nil {
+			err = errors.Annotate(err, "cannot stop mongo service")
+			return
+		}
+		err = svc.Start()
+		if err != nil {
+			err = errors.Annotate(err, "cannot start mongo service")
+			return
 		}
 	}(svc)
 
@@ -413,7 +420,7 @@ func logVersion(mongoPath string) {
 		logger.Infof("failed to read the output from %s --version: %v", mongoPath, err)
 		return
 	}
-	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
+	logger.Debugf("using mongod: %s --version:\n%s", mongoPath, output)
 }
 
 func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService, error) {
@@ -471,9 +478,15 @@ type MongoSnapService interface {
 	MongoService
 	ConfigOverride() error
 	Name() string
-	Restart() error
+	Start() error
+	Stop() error
 }
 
 var newSnapService = func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (MongoSnapService, error) {
 	return snap.NewService(mainSnap, serviceName, conf, snapPath, configDir, channel, confinementPolicy, backgroundServices, prerequisites)
+}
+
+// CurrentReplicasetConfig is overridden in tests.
+var CurrentReplicasetConfig = func(session *mgo.Session) (*replicaset.Config, error) {
+	return replicaset.CurrentConfig(session)
 }

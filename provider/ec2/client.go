@@ -47,6 +47,15 @@ type ClientFunc = func(context.Context, cloudspec.CloudSpec, ...ClientOption) (C
 
 // Client defines the subset of *ec2.Client methods that we currently use.
 type Client interface {
+	// STOP!!
+	// Are you about to add a new function to this interface?
+	// If so please make sure you update Juju permission policy on discourse
+	// here https://discourse.charmhub.io/t/juju-aws-permissions/5307
+	// We must keep this policy inline with our usage for operators that are
+	// using very strict permissions for Juju.
+	//
+	// You must also update the controllerRolePolicy document found in
+	// iam_docs.go.
 	AssociateIamInstanceProfile(context.Context, *ec2.AssociateIamInstanceProfileInput, ...func(*ec2.Options)) (*ec2.AssociateIamInstanceProfileOutput, error)
 	DescribeIamInstanceProfileAssociations(context.Context, *ec2.DescribeIamInstanceProfileAssociationsInput, ...func(*ec2.Options)) (*ec2.DescribeIamInstanceProfileAssociationsOutput, error)
 	DescribeInstances(context.Context, *ec2.DescribeInstancesInput, ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)

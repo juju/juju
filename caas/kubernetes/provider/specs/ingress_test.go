@@ -142,3 +142,157 @@ spec:
 		},
 	})
 }
+
+func (s *ingressSuite) TestIngressSpecToV1(c *gc.C) {
+	specV1Beta1 := `
+  name: ingress-resource-v1
+  spec:
+    backend:
+      serviceName: fooServiceDefault
+      servicePort: 6666
+      resource:
+        apiGroup: k8s.example.com
+        kind: StorageBucket
+        name: static-assets
+    tls:
+      - secretName: shhhh
+        hosts: [foo, bar]
+    rules:
+      - http:
+          paths:
+            - path: /icons
+              pathType: ImplementationSpecific
+              backend:
+                serviceName: fooService
+                servicePort: 8080
+                resource:
+                  apiGroup: k8s.example.com
+                  kind: StorageBucket
+                  name: icon-assets
+`
+	var obj k8sspecs.K8sIngress
+	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
+	c.Assert(err, jc.ErrorIsNil)
+	specV1 := k8sspecs.IngressSpecToV1(&obj.Spec.SpecV1Beta1)
+	pathType := networkingv1.PathTypeImplementationSpecific
+	c.Assert(specV1, jc.DeepEquals, &networkingv1.IngressSpec{
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
+				Name: "fooServiceDefault",
+				Port: networkingv1.ServiceBackendPort{Number: 6666},
+			},
+			Resource: &core.TypedLocalObjectReference{
+				APIGroup: pointer.StringPtr("k8s.example.com"),
+				Kind:     "StorageBucket",
+				Name:     "static-assets",
+			},
+		},
+		TLS: []networkingv1.IngressTLS{{
+			Hosts:      []string{"foo", "bar"},
+			SecretName: "shhhh",
+		}},
+		Rules: []networkingv1.IngressRule{
+			{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
+							{
+								Path:     "/icons",
+								PathType: &pathType,
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "fooService",
+										Port: networkingv1.ServiceBackendPort{
+											Number: 8080,
+										},
+									},
+									Resource: &core.TypedLocalObjectReference{
+										APIGroup: pointer.StringPtr("k8s.example.com"),
+										Kind:     "StorageBucket",
+										Name:     "icon-assets",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *ingressSuite) TestIngressSpecFromV1(c *gc.C) {
+	specV1 := `
+  name: ingress-resource-v1
+  spec:
+    defaultBackend:
+      service:
+        name: fooServiceDefault
+        port: 
+          number: 6666
+      resource:
+        apiGroup: k8s.example.com
+        kind: StorageBucket
+        name: static-assets
+    tls:
+      - secretName: shhhh
+        hosts: [foo, bar]
+    rules:
+      - http:
+          paths:
+            - path: /icons
+              pathType: ImplementationSpecific
+              backend:
+                service:
+                  name: fooService
+                  port: 
+                    number: 8080
+                resource:
+                  apiGroup: k8s.example.com
+                  kind: StorageBucket
+                  name: icon-assets
+`
+	var obj k8sspecs.K8sIngress
+	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1), len(specV1)).Decode(&obj)
+	c.Assert(err, jc.ErrorIsNil)
+	specV1Beta1 := k8sspecs.IngressSpecFromV1(&obj.Spec.SpecV1)
+	pathType := networkingv1beta1.PathTypeImplementationSpecific
+	c.Assert(specV1Beta1, jc.DeepEquals, &networkingv1beta1.IngressSpec{
+		Backend: &networkingv1beta1.IngressBackend{
+			ServiceName: "fooServiceDefault",
+			ServicePort: intstr.FromInt(6666),
+			Resource: &core.TypedLocalObjectReference{
+				APIGroup: pointer.StringPtr("k8s.example.com"),
+				Kind:     "StorageBucket",
+				Name:     "static-assets",
+			},
+		},
+		TLS: []networkingv1beta1.IngressTLS{{
+			Hosts:      []string{"foo", "bar"},
+			SecretName: "shhhh",
+		}},
+		Rules: []networkingv1beta1.IngressRule{
+			{
+				IngressRuleValue: networkingv1beta1.IngressRuleValue{
+					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+						Paths: []networkingv1beta1.HTTPIngressPath{
+							{
+								Path:     "/icons",
+								PathType: &pathType,
+								Backend: networkingv1beta1.IngressBackend{
+									ServiceName: "fooService",
+									ServicePort: intstr.FromInt(8080),
+									Resource: &core.TypedLocalObjectReference{
+										APIGroup: pointer.StringPtr("k8s.example.com"),
+										Kind:     "StorageBucket",
+										Name:     "icon-assets",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+}

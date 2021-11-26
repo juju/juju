@@ -727,22 +727,17 @@ func (sb *storageBackend) DetachVolume(host names.Tag, volume names.VolumeTag, f
 		if !v.Detachable() {
 			return nil, errors.New("volume is not detachable")
 		}
-		lifeAssert := isAliveDoc
-		if force {
-			// Since we are force destroying, life assert should be current volume's life.
-			lifeAssert = bson.D{{"life", v.Life()}}
-		}
 		if plans, err := sb.machineVolumeAttachmentPlans(host, volume); err != nil {
 			return nil, errors.Trace(err)
 		} else {
 			if len(plans) > 0 {
-				if plans[0].Life() != Alive {
+				if plans[0].Life() != Alive && !force {
 					return nil, jujutxn.ErrNoOperations
 				}
-				return detachStorageAttachmentOps(host, volume, lifeAssert), nil
+				return sb.detachVolumeAttachmentPlanOps(host, volume, force)
 			}
 		}
-		return detachVolumeOps(host, volume, lifeAssert), nil
+		return sb.detachVolumeOps(host, volume, force)
 	}
 	return sb.mb.db().Run(buildTxn)
 }
@@ -755,23 +750,44 @@ func (sb *storageBackend) volumeFilesystemAttachment(host names.Tag, volume name
 	return sb.FilesystemAttachment(host, filesystem.FilesystemTag())
 }
 
-func detachStorageAttachmentOps(host names.Tag, v names.VolumeTag, asserts bson.D) []txn.Op {
-	id := volumeAttachmentId(host.Id(), v.Id())
+func (sb *storageBackend) detachVolumeAttachmentPlanOps(host names.Tag, v names.VolumeTag, force bool) ([]txn.Op, error) {
+	asserts := isAliveDoc
+	if force {
+		// Since we are force destroying, life assert should be current attachment plan's life.
+		va, err := sb.VolumeAttachmentPlan(host, v)
+		if errors.IsNotFound(err) {
+			return nil, nil
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		asserts = bson.D{{"life", va.Life()}}
+	}
 	return []txn.Op{{
 		C:      volumeAttachmentPlanC,
-		Id:     id,
+		Id:     volumeAttachmentId(host.Id(), v.Id()),
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}}
+	}}, nil
 }
 
-func detachVolumeOps(host names.Tag, v names.VolumeTag, asserts bson.D) []txn.Op {
+func (sb *storageBackend) detachVolumeOps(host names.Tag, v names.VolumeTag, force bool) ([]txn.Op, error) {
+	asserts := isAliveDoc
+	if force {
+		// Since we are force destroying, life assert should be current attachment's life.
+		va, err := sb.VolumeAttachment(host, v)
+		if errors.IsNotFound(err) {
+			return nil, nil
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		asserts = bson.D{{"life", va.Life()}}
+	}
 	return []txn.Op{{
 		C:      volumeAttachmentsC,
 		Id:     volumeAttachmentId(host.Id(), v.Id()),
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}}
+	}}, nil
 }
 
 // RemoveVolumeAttachment removes the volume attachment from state.
@@ -962,11 +978,14 @@ func destroyVolumeOps(im *storageBackend, v *volume, release, force bool, extraA
 				len(attachments),
 			)
 		}
-		detachOps := detachVolumeOps(
+		detachOps, err := im.detachVolumeOps(
 			attachments[0].Host(),
 			v.VolumeTag(),
-			lifeAssert,
+			force,
 		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		ops = append(ops, detachOps...)
 	} else {
 		// TODO(gsamfira): add cleanup for volume plans
@@ -1395,18 +1414,7 @@ func (sb *storageBackend) RemoveVolumeAttachmentPlan(hostTag names.Tag, volume n
 		} else {
 			return nil, jujutxn.ErrNoOperations
 		}
-		lifeAssert := isAliveDoc
-		if force {
-			v, err := sb.Volume(volume)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			}
-			if err == nil {
-				// Since we are force destroying, life assert should be current volume's life.
-				lifeAssert = bson.D{{"life", v.Life()}}
-			}
-		}
-		return removeVolumeAttachmentPlanOps(hostTag, volume, lifeAssert), nil
+		return sb.removeVolumeAttachmentPlanOps(hostTag, volume, force)
 	}
 	return sb.mb.db().Run(buildTxn)
 }
@@ -1414,8 +1422,11 @@ func (sb *storageBackend) RemoveVolumeAttachmentPlan(hostTag names.Tag, volume n
 // removeVolumeAttachmentPlanOps removes the plan from state and sets the volume attachment to Dying.
 // this will trigger the storageprovisioner on the controller to eventually detach the volume from
 // the machine.
-func removeVolumeAttachmentPlanOps(hostTag names.Tag, volume names.VolumeTag, asserts bson.D) []txn.Op {
-	detachOps := detachVolumeOps(hostTag, volume, asserts)
+func (sb *storageBackend) removeVolumeAttachmentPlanOps(hostTag names.Tag, volume names.VolumeTag, force bool) ([]txn.Op, error) {
+	detachOps, err := sb.detachVolumeOps(hostTag, volume, force)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	removeOps := []txn.Op{{
 		C:      volumeAttachmentPlanC,
 		Id:     volumeAttachmentId(hostTag.Id(), volume.Id()),
@@ -1423,7 +1434,7 @@ func removeVolumeAttachmentPlanOps(hostTag names.Tag, volume names.VolumeTag, as
 		Remove: true,
 	}}
 	removeOps = append(removeOps, detachOps...)
-	return removeOps
+	return removeOps, nil
 }
 
 // setProvisionedVolumeInfo sets the initial info for newly

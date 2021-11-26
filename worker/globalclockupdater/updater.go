@@ -100,7 +100,10 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 
 			// Ensure we also check the FSMResponse error.
 			if err = response.Error(); err == nil {
-				response.Notify(u.expiryNotifyTarget)
+				// If the notify fails here, just ignore it and log out the
+				// error, so that the operator can at least see the issues when
+				// inspecting the controller logs.
+				u.notify(response)
 				break
 			}
 		}
@@ -146,4 +149,10 @@ func (u *updater) createCommand(oldTime, newTime time.Time) ([]byte, error) {
 	}).Marshal()
 
 	return cmd, errors.Trace(err)
+}
+
+func (u *updater) notify(response raftlease.FSMResponse) {
+	if err := response.Notify(u.expiryNotifyTarget); err != nil {
+		u.logger.Errorf("failed to notify: %v", err)
+	}
 }

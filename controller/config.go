@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
-	registryutils "github.com/juju/juju/docker/registry/utils"
 	"github.com/juju/juju/pki"
 )
 
@@ -863,13 +862,10 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 	}
 	defer func() { _ = r.Close() }()
 
-	if err = r.Ping(); registryutils.IsPublicAPINotAvailableError(err) {
-		logger.Warningf("docker registry for %q requires authentication: %v", imageDetails.Repository, err)
-		logger.Warningf("upgrade controller will not work if no authentication provided!")
-	} else if err != nil {
+	if err = r.Ping(); err != nil {
 		return "", errors.Trace(err)
 	}
-	return r.ImageRepoDetails().String(), nil
+	return r.ImageRepoDetails().Content(), nil
 }
 
 // CAASImageRepo sets the url of the docker repo

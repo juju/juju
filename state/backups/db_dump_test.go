@@ -30,7 +30,10 @@ func (s *dumpSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	targets := set.NewStrings("juju", "admin")
-	s.dbInfo = &backups.DBInfo{"a", "b", "c", targets}
+	s.dbInfo = &backups.DBInfo{
+		Address: "a", Username: "b", Password: "c",
+		Targets:      targets,
+		ApproxSizeMB: 100}
 	s.targets = targets
 	s.dumpDir = c.MkDir()
 }

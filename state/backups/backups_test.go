@@ -11,6 +11,7 @@ import (
 	"path"
 	"time" // Only used for time types.
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -25,6 +26,11 @@ type backupsSuite struct {
 	backupstesting.BaseSuite
 
 	api backups.Backups
+
+	totalDiskMiB     uint64
+	availableDiskMiB uint64
+	dirSizeBytes     int64
+	dbSizeMiB        int
 }
 
 var _ = gc.Suite(&backupsSuite{}) // Register the suite.
@@ -33,6 +39,15 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.api = backups.NewBackups(s.Storage)
+	s.PatchValue(backups.AvailableDisk, func(string) uint64 {
+		return s.availableDiskMiB
+	})
+	s.PatchValue(backups.TotalDisk, func(string) uint64 {
+		return s.totalDiskMiB
+	})
+	s.PatchValue(backups.DirSize, func(path string) (int64, error) {
+		return s.dirSizeBytes, nil
+	})
 }
 
 func (s *backupsSuite) setStored(id string) *time.Time {
@@ -57,7 +72,10 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 
 	paths := backups.Paths{DataDir: "/var/lib/juju"}
 	targets := set.NewStrings("juju", "admin")
-	dbInfo := backups.DBInfo{"a", "b", "c", targets}
+	dbInfo := backups.DBInfo{
+		Address: "a", Username: "b", Password: "c",
+		Targets:      targets,
+		ApproxSizeMB: s.dbSizeMiB}
 	meta := backupstesting.NewMetadataStarted()
 	meta.Notes = "some notes"
 
@@ -97,7 +115,7 @@ func (s *backupsSuite) testCreateOkay(c *gc.C, keepCopy, noDownload bool) {
 	s.PatchValue(backups.RunCreate, testCreate)
 
 	rootDir := "<was never set>"
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		rootDir = root
 		return []string{"<some file>"}, nil
 	})
@@ -113,7 +131,10 @@ func (s *backupsSuite) testCreateOkay(c *gc.C, keepCopy, noDownload bool) {
 	// Run the backup.
 	paths := backups.Paths{BackupDir: backupDir, DataDir: dataDir}
 	targets := set.NewStrings("juju", "admin")
-	dbInfo := backups.DBInfo{"a", "b", "c", targets}
+	dbInfo := backups.DBInfo{
+		Address: "a", Username: "b", Password: "c",
+		Targets:      targets,
+		ApproxSizeMB: s.dbSizeMiB}
 	meta := backupstesting.NewMetadataStarted()
 	backupstesting.SetOrigin(meta, "<model ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"
@@ -165,7 +186,7 @@ func (s *backupsSuite) testCreateOkay(c *gc.C, keepCopy, noDownload bool) {
 }
 
 func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return nil, errors.New("failed!")
 	})
 
@@ -173,7 +194,7 @@ func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	s.PatchValue(backups.RunCreate, backups.NewTestCreateFailure("failed!"))
@@ -182,7 +203,7 @@ func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)
@@ -193,7 +214,7 @@ func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)
@@ -221,15 +242,17 @@ func (s *backupsSuite) TestStoreArchive(c *gc.C) {
 
 func (s *backupsSuite) TestGetFileName(c *gc.C) {
 	backupDir := c.MkDir()
-	os.MkdirAll(backupDir, 0644)
+	err := os.MkdirAll(backupDir, 0644)
+	c.Assert(err, jc.ErrorIsNil)
 	backupFilename := path.Join(backupDir, backups.TempFilename)
 	backupFile, err := os.Create(backupFilename)
 	c.Assert(err, jc.ErrorIsNil)
-	backupFile.Write([]byte("archive file testing"))
+	_, err = backupFile.Write([]byte("archive file testing"))
+	c.Assert(err, jc.ErrorIsNil)
 
 	resultMeta, resultArchive, err := s.api.Get(backupFilename)
 	c.Assert(err, jc.ErrorIsNil)
-	defer resultArchive.Close()
+	defer func() { _ = resultArchive.Close() }()
 	resultMeta.FileMetadata.Checksum()
 
 	// Purpose for metadata here is for the checksum to be used by the
@@ -241,4 +264,40 @@ func (s *backupsSuite) TestGetFileName(c *gc.C) {
 
 	_, err = ioutil.ReadDir(backupDir)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("open %s: no such file or directory", backupDir))
+}
+
+func (s *backupsSuite) TestNotEnoughDiskSpaceSmallBackup(c *gc.C) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+		return []string{"file1"}, nil
+	})
+	s.dbSizeMiB = 6
+	s.dirSizeBytes = 3 * humanize.MiByte
+	s.availableDiskMiB = 10 * humanize.MiByte
+	s.totalDiskMiB = 200 * humanize.GiByte
+
+	s.checkFailure(c, "while creating backup archive: not enough free space in .*; want 5129MiB, have 10MiB")
+}
+
+func (s *backupsSuite) TestNotEnoughDiskSpaceLargeBackup(c *gc.C) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+		return []string{"file1"}, nil
+	})
+	s.dbSizeMiB = 100
+	s.dirSizeBytes = 50 * humanize.GiByte
+	s.availableDiskMiB = 10 * humanize.MiByte
+	s.totalDiskMiB = 200 * humanize.GiByte
+
+	s.checkFailure(c, "while creating backup archive: not enough free space in .*; want 61560MiB, have 10MiB")
+}
+
+func (s *backupsSuite) TestNotEnoughDiskSpaceSmallDisk(c *gc.C) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+		return []string{"file1"}, nil
+	})
+	s.dbSizeMiB = 6
+	s.dirSizeBytes = 3 * humanize.MiByte
+	s.availableDiskMiB = 10 * humanize.MiByte
+	s.totalDiskMiB = 20 * humanize.GiByte
+
+	s.checkFailure(c, "while creating backup archive: not enough free space in .*; want 2057MiB, have 10MiB")
 }
