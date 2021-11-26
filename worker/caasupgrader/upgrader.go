@@ -91,7 +91,7 @@ func (u *Upgrader) loop() error {
 	hostOSType := coreos.HostOSTypeName()
 	if agent.IsAllowedControllerTag(u.tag.Kind()) || u.tag.Kind() == names.UnitTagKind {
 		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
-			return errors.Annotate(err, "cannot set agent version")
+			return errors.Annotatef(err, "cannot set agent version for %q", u.tag.String())
 		}
 	}
 

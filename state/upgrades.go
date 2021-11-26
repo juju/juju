@@ -3837,3 +3837,37 @@ func MigrateLegacyCrossModelTokens(pool *StatePool) error {
 		return nil
 	}))
 }
+
+// CleanupDeadAssignUnits removes all dead or removed applications' the assignunits documents.
+func CleanupDeadAssignUnits(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		unitAssignments, err := st.AllUnitAssignments()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ops []txn.Op
+		deadOrRemovedApps := set.NewStrings()
+		for _, ua := range unitAssignments {
+			appName, err := names.UnitApplication(ua.Unit)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if deadOrRemovedApps.Contains(appName) {
+				ops = append(ops, removeStagedAssignmentOp(st.docID(ua.Unit)))
+				continue
+			}
+			app, err := st.Application(appName)
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			if errors.IsNotFound(err) || app.Life() == Dead {
+				deadOrRemovedApps.Add(appName)
+				ops = append(ops, removeStagedAssignmentOp(st.docID(ua.Unit)))
+			}
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}

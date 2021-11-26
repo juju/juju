@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package upgrades_test
@@ -12,16 +12,15 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v222 = version.MustParse("2.2.2")
+var v2920 = version.MustParse("2.9.20")
 
-type steps222Suite struct {
+type steps2920Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps222Suite{})
+var _ = gc.Suite(&steps2920Suite{})
 
-func (s *steps222Suite) TestAddModelEnvironVersionStep(c *gc.C) {
-	step := findStateStep(c, v222, "add environ-version to model docs")
-	// Logic for step itself is tested in state package.
+func (s *steps2920Suite) TestCleanupDeadAssignUnits(c *gc.C) {
+	step := findStateStep(c, v2920, `clean up assignUnits for dead and removed applications`)
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

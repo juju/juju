@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	apicallermocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	servicemocks "github.com/juju/juju/service/mocks"
@@ -82,7 +81,6 @@ type mergeAgents29Suite struct {
 	mockCtx         *mocks.MockContext
 	mockClient      *mocks.MockUpgradeStepsClient
 	mockAgentConfig *configsettermocks.MockConfigSetter
-	mockAPICaller   *apicallermocks.MockAPICaller
 }
 
 var _ = gc.Suite(&mergeAgents29Suite{})

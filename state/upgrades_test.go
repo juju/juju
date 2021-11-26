@@ -5799,6 +5799,83 @@ func (s *upgradesSuite) TestMigrateLegacyCrossModelTokens(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestCleanupDeadAssignUnits(c *gc.C) {
+	model0 := s.makeModel(c, "model-0", coretesting.Attrs{})
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() {
+		_ = model0.Close()
+		_ = model1.Close()
+	}()
+
+	assignUnitColl, assignUnitCloser := s.state.db().GetRawCollection(assignUnitC)
+	defer assignUnitCloser()
+	s.makeApplication(c, model0.ModelUUID(), "app01", Alive)
+	s.makeApplication(c, model0.ModelUUID(), "app02", Dying)
+	s.makeApplication(c, model0.ModelUUID(), "app03", Dead)
+	s.makeApplication(c, model1.ModelUUID(), "app11", Alive)
+	s.makeApplication(c, model1.ModelUUID(), "app12", Dying)
+	s.makeApplication(c, model1.ModelUUID(), "app13", Dead)
+	err := assignUnitColl.Insert(
+		bson.M{
+			"_id":        model0.docID("app01/0"),
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model0.docID("app02/0"),
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model0.docID("app03/0"), // remove: dead app.
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model0.docID("non-exist-app/0"), // remove: non-exist app.
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("app11/0"),
+			"model-uuid": model1.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("app12/0"),
+			"model-uuid": model1.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("app13/0"), // remove: dead app.
+			"model-uuid": model1.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("non-exist-app/0"), // remove: non-exist app.
+			"model-uuid": model1.ModelUUID(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := assignUnitColl.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 8)
+
+	s.assertUpgradedData(c, CleanupDeadAssignUnits,
+		upgradedData(assignUnitColl, []bson.M{
+			bson.M{
+				"_id":        model0.docID("app01/0"),
+				"model-uuid": model0.ModelUUID(),
+			},
+			bson.M{
+				"_id":        model0.docID("app02/0"),
+				"model-uuid": model0.ModelUUID(),
+			},
+			bson.M{
+				"_id":        model1.docID("app11/0"),
+				"model-uuid": model1.ModelUUID(),
+			},
+			bson.M{
+				"_id":        model1.docID("app12/0"),
+				"model-uuid": model1.ModelUUID(),
+			},
+		}),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
