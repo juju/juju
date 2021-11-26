@@ -17,7 +17,6 @@ type updateLeaderSettingsOperation struct {
 	sets   bson.M
 	unsets bson.M
 
-	appName   string
 	key       string
 	updateDoc bson.D
 
