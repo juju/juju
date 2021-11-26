@@ -555,10 +555,7 @@ func (c *controllerNode) SetPassword(password string) error {
 // PasswordValid implements Authenticator.
 func (c *controllerNode) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == c.doc.PasswordHash {
-		return true
-	}
-	return false
+	return agentHash == c.doc.PasswordHash
 }
 
 func (c *controllerNode) AgentTools() (*tools.Tools, error) {

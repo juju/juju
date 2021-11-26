@@ -444,6 +444,12 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	}
 	ops = append(ops, resOps...)
 
+	removeUnitAssignmentOps, err := op.app.removeUnitAssignmentsOps()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, removeUnitAssignmentOps...)
+
 	// We can't delete an application if it is being offered,
 	// unless those offers have no relations.
 	if !op.RemoveOffers {
@@ -624,6 +630,24 @@ func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
 	ops, err := persist.NewRemoveResourcesOps(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	return ops, nil
+}
+
+func (a *Application) removeUnitAssignmentsOps() (ops []txn.Op, err error) {
+	pattern := fmt.Sprintf("^%s:%s/[0-9]+$", a.st.ModelUUID(), a.Name())
+	unitAssignments, err := a.st.unitAssignments(bson.D{
+		{
+			Name: "_id", Value: bson.D{
+				{Name: "$regex", Value: pattern},
+			},
+		},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, unitAssignment := range unitAssignments {
+		ops = append(ops, removeStagedAssignmentOp(a.st.docID(unitAssignment.Unit)))
 	}
 	return ops, nil
 }
@@ -1500,7 +1524,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		return errors.Trace(err)
 	}
 	if cfg.Charm.Meta().Deployment != currentCharm.Meta().Deployment {
-		if currentCharm.Meta().Deployment == nil || currentCharm.Meta().Deployment == nil {
+		if cfg.Charm.Meta().Deployment == nil || currentCharm.Meta().Deployment == nil {
 			return errors.New("cannot change a charm's deployment info")
 		}
 		if cfg.Charm.Meta().Deployment.DeploymentType != currentCharm.Meta().Deployment.DeploymentType {
@@ -2106,7 +2130,7 @@ func (a *Application) ClearResources() error {
 				{"has-resources", true}},
 			Update: bson.D{{"$set", bson.D{{"has-resources", false}}}},
 		}}
-		logger.Debugf("aaplication %q still has cluster resources, scheduling cleanup", a.doc.Name)
+		logger.Debugf("application %q still has cluster resources, scheduling cleanup", a.doc.Name)
 		cleanupOp := newCleanupOp(
 			cleanupApplication,
 			a.doc.Name,
@@ -2328,7 +2352,6 @@ func (a *Application) addUnitStorageOps(
 	unitTag names.UnitTag,
 	charm *Charm,
 ) ([]txn.Op, int, error) {
-
 	sb, err := NewStorageBackend(a.st)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
@@ -3327,10 +3350,7 @@ func (a *Application) SetPassword(password string) error {
 // for the given application.
 func (a *Application) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == a.doc.PasswordHash {
-		return true
-	}
-	return false
+	return agentHash == a.doc.PasswordHash
 }
 
 // UnitUpdateProperties holds information used to update
