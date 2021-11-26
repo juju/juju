@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -47,6 +48,7 @@ type ManifoldConfig struct {
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
 	RaftTransportName      string
+	DBAccessorName         string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -96,6 +98,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.RaftTransportName == "" {
 		return errors.NotValidf("empty RaftTransportName")
 	}
+	if config.DBAccessorName == "" {
+		return errors.NotValidf("empty DBAccessorName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -138,6 +143,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.RaftTransportName,
+			config.DBAccessorName,
 		},
 		Start: config.start,
 	}
@@ -229,6 +235,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var dbGetter dbaccessor.DBGetter
+	if err := context.Get(config.DBAccessorName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
@@ -248,6 +259,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
 		RaftOpQueue:                       config.RaftOpQueue,
+		SQLDBGetter:                       dbGetter,
 	})
 	if err != nil {
 		_ = stTracker.Done()

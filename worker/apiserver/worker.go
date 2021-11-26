@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/dbaccessor"
 )
 
 // Queue is a blocking queue to guard access and to serialize raft applications,
@@ -55,6 +56,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
+	DBGetter                          dbaccessor.DBGetter
 }
 
 // NewServerFunc is the type of function that will be used
@@ -165,6 +167,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
+		DBGetter:                      config.DBGetter,
 	}
 	return config.NewServer(serverConfig)
 }

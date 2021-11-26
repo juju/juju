@@ -715,6 +715,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// can't shutdown properly.
 			RaftTransportName: raftTransportName,
 
+			DBAccessorName: dbAccessorName,
+
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:                               config.CentralHub,

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"database/sql"
 	"io"
 	"net/http"
 	"strings"
@@ -50,6 +51,7 @@ type dbloggers struct {
 	clock                 clock.Clock
 	dbLoggerBufferSize    int
 	dbLoggerFlushInterval time.Duration
+	sqlDBGetter           SQLDBGetter
 	mu                    sync.Mutex
 	loggers               map[*state.State]*bufferedDbLogger
 }
@@ -63,9 +65,13 @@ func (d *dbloggers) get(st *state.State) recordLogger {
 	if d.loggers == nil {
 		d.loggers = make(map[*state.State]*bufferedDbLogger)
 	}
+
 	dbl := state.NewDbLogger(st)
 	l := &bufferedDbLogger{dbl, logdb.NewBufferedLogger(
-		dbl,
+		logdb.NewTeeLogger(
+			dbl,
+			newSQLLogger(d.sqlDBGetter),
+		),
 		d.dbLoggerBufferSize,
 		d.dbLoggerFlushInterval,
 		d.clock,
@@ -217,4 +223,51 @@ func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
 		strings.Join(m.Labels, ","),
 	}, " ") + "\n"))
 	return err
+}
+
+// sqlLogger inserts log entries to an sql.DB instance.
+type sqlLogger struct {
+	db    *sql.DB
+	dbErr error
+}
+
+func newSQLLogger(dbGetter SQLDBGetter) *sqlLogger {
+	db, err := dbGetter.GetDB("logs")
+	return &sqlLogger{
+		db:    db,
+		dbErr: err,
+	}
+}
+
+const (
+	sqlInsertLogEntry = "INSERT INTO logs (ts, entity, version, module, location, level, message, labels) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+)
+
+func (l *sqlLogger) Log(records []state.LogRecord) error {
+	if l.dbErr != nil {
+		return l.dbErr
+	}
+
+	tx, err := l.db.Begin()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, r := range records {
+		if _, err = tx.Exec(sqlInsertLogEntry,
+			r.Time,
+			r.Entity,
+			r.Version.String(),
+			r.Module,
+			r.Location,
+			r.Level,
+			r.Message,
+			strings.Join(r.Labels, ","),
+		); err != nil {
+			_ = tx.Rollback()
+			return errors.Trace(err)
+		}
+	}
+
+	return errors.Trace(tx.Commit())
 }

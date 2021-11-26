@@ -11,6 +11,18 @@ import (
 
 var (
 	schemas = map[string]string{
+		"logs": `
+CREATE TABLE IF NOT EXISTS logs(
+	ts DATETIME,
+	entity TEXT,
+	version TEXT,
+	module TEXT,
+	location TEXT,
+	level INTEGER,
+	message TEXT,
+	labels TEXT
+);
+`,
 		// default schema
 		"_default": ``,
 	}
