@@ -5856,19 +5856,19 @@ func (s *upgradesSuite) TestCleanupDeadAssignUnits(c *gc.C) {
 
 	s.assertUpgradedData(c, CleanupDeadAssignUnits,
 		upgradedData(assignUnitColl, []bson.M{
-			bson.M{
+			{
 				"_id":        model0.docID("app01/0"),
 				"model-uuid": model0.ModelUUID(),
 			},
-			bson.M{
+			{
 				"_id":        model0.docID("app02/0"),
 				"model-uuid": model0.ModelUUID(),
 			},
-			bson.M{
+			{
 				"_id":        model1.docID("app11/0"),
 				"model-uuid": model1.ModelUUID(),
 			},
-			bson.M{
+			{
 				"_id":        model1.docID("app12/0"),
 				"model-uuid": model1.ModelUUID(),
 			},

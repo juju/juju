@@ -197,6 +197,16 @@ func (s *sequenceSuite) TestEnsureBackwards(c *gc.C) {
 	s.incAndCheck(c, s.State, "foo", 3)
 }
 
+func (s *sequenceSuite) TestResetSequence(c *gc.C) {
+	err := state.SequenceEnsure(s.State, "foo", 3)
+	c.Assert(err, jc.ErrorIsNil)
+	s.incAndCheck(c, s.State, "foo", 3)
+
+	err = state.ResetSequence(s.State, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.incAndCheck(c, s.State, "foo", 0)
+}
 func (s *sequenceSuite) incAndCheck(c *gc.C, st *state.State, name string, expectedCount int) {
 	value, err := state.Sequence(st, name)
 	c.Assert(err, jc.ErrorIsNil)

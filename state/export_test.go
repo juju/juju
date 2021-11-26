@@ -240,6 +240,15 @@ func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch 
 	})
 }
 
+func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name string, ch *Charm) *Application {
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:       st,
+		numUnits: numUnits,
+		name:     name,
+		ch:       ch,
+	})
+}
+
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
@@ -275,6 +284,7 @@ type addTestingApplicationParams struct {
 	bindings     map[string]string
 	storage      map[string]StorageConstraints
 	devices      map[string]DeviceConstraints
+	numUnits     int
 }
 
 func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
@@ -287,6 +297,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		EndpointBindings: params.bindings,
 		Storage:          params.storage,
 		Devices:          params.devices,
+		NumUnits:         params.numUnits,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
@@ -484,6 +495,10 @@ func MultiModelCollections() []string {
 
 func Sequence(st *State, name string) (int, error) {
 	return sequence(st, name)
+}
+
+func ResetSequence(mb modelBackend, name string) error {
+	return resetSequence(mb, name)
 }
 
 func SequenceWithMin(st *State, name string, minVal int) (int, error) {

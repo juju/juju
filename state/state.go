@@ -1325,6 +1325,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 				return nil, errors.Trace(err)
 			}
 		}
+
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
 			unitName, unitOps, err := app.addUnitOpsWithCons(applicationAddUnitOpsArgs{
