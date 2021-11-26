@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/juju/clock"
@@ -23,6 +24,11 @@ import (
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
 )
+
+// SQLDBGetter provides access to model-scoped SQL databases.
+type SQLDBGetter interface {
+	GetDB(modelUUID string) (*sql.DB, error)
+}
 
 // Queue is a blocking queue to guard access and to serialize raft applications,
 // allowing for client side backoff.
@@ -54,6 +60,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
+	SQLDBGetter                       SQLDBGetter
 }
 
 // NewServerFunc is the type of function that will be used
@@ -160,6 +167,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
+		SQLDBGetter:                   config.SQLDBGetter,
 	}
 	return config.NewServer(serverConfig)
 }
