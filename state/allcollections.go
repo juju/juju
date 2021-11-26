@@ -275,6 +275,8 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "principal"},
 			}, {
 				Key: []string{"model-uuid", "machineid"},
+			}, {
+				Key: []string{"model-uuid", "name"},
 			}},
 		},
 		unitStatesC: {
