@@ -293,101 +293,105 @@ applications:
 	// Before V6, GetChanges ignores the extra parts in a
 	// multi-yaml data, therefore we expect to see 'haproxy' still
 	// exists in the changes
-	expectedChanges_V1 := []*params.BundleChange{{
-		Id:     "addCharm-0",
-		Method: "addCharm",
-		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-1",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-0",
-			"",
-			"django",
-			map[string]interface{}{"debug": true},
-			"",
-			map[string]string{"tmpfs": "tmpfs,1G"},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
+	expectedChanges_V1 := []*params.BundleChange{
+		{
+			Id:     "addCharm-2",
+			Method: "addCharm",
+			Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+		}, {
+			Id:     "addCharm-0",
+			Method: "addCharm",
+			Args:   []interface{}{"django", "", ""},
+		}, {
+			Id:     "deploy-3",
+			Method: "deploy",
+			Args: []interface{}{
+				"$addCharm-2",
+				"trusty",
+				"haproxy",
+				map[string]interface{}{},
+				"",
+				map[string]string{},
+				map[string]string{},
+				map[string]int{},
+				0,
+				"",
+			},
+			Requires: []string{"addCharm-2"},
+		}, {
+			Id:     "deploy-1",
+			Method: "deploy",
+			Args: []interface{}{
+				"$addCharm-0",
+				"",
+				"django",
+				map[string]interface{}{"debug": true},
+				"",
+				map[string]string{"tmpfs": "tmpfs,1G"},
+				map[string]string{},
+				map[string]int{},
+				0,
+				"",
+			},
+			Requires: []string{"addCharm-0"},
+		}, {
+			Id:       "addRelation-4",
+			Method:   "addRelation",
+			Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+			Requires: []string{"deploy-1", "deploy-3"},
 		},
-		Requires: []string{"addCharm-0"},
-	}, {
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-2",
-			"trusty",
-			"haproxy",
-			map[string]interface{}{},
-			"",
-			map[string]string{},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
-		},
-		Requires: []string{"addCharm-2"},
-	}, {
-		Id:       "addRelation-4",
-		Method:   "addRelation",
-		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
-		Requires: []string{"deploy-1", "deploy-3"},
-	}}
+	}
 
-	expectedChanges_V2_5 := []*params.BundleChange{{
-		Id:     "addCharm-0",
-		Method: "addCharm",
-		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-1",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-0",
-			"",
-			"django",
-			map[string]interface{}{"debug": true},
-			"",
-			map[string]string{"tmpfs": "tmpfs,1G"},
-			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
+	expectedChanges_V2_5 := []*params.BundleChange{
+		{
+			Id:     "addCharm-2",
+			Method: "addCharm",
+			Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
+		}, {
+			Id:     "addCharm-0",
+			Method: "addCharm",
+			Args:   []interface{}{"django", "", ""},
+		}, {
+			Id:     "deploy-3",
+			Method: "deploy",
+			Args: []interface{}{
+				"$addCharm-2",
+				"trusty",
+				"haproxy",
+				map[string]interface{}{},
+				"",
+				map[string]string{},
+				map[string]string{},
+				map[string]string{},
+				map[string]int{},
+				0,
+				"",
+			},
+			Requires: []string{"addCharm-2"},
+		}, {
+			Id:     "deploy-1",
+			Method: "deploy",
+			Args: []interface{}{
+				"$addCharm-0",
+				"",
+				"django",
+				map[string]interface{}{"debug": true},
+				"",
+				map[string]string{"tmpfs": "tmpfs,1G"},
+				map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+				map[string]string{},
+				map[string]int{},
+				0,
+				"",
+			},
+			Requires: []string{"addCharm-0"},
+		}, {
+			Id:       "addRelation-4",
+			Method:   "addRelation",
+			Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+			Requires: []string{"deploy-1", "deploy-3"},
 		},
-		Requires: []string{"addCharm-0"},
-	}, {
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-2",
-			"trusty",
-			"haproxy",
-			map[string]interface{}{},
-			"",
-			map[string]string{},
-			map[string]string{},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
-		},
-		Requires: []string{"addCharm-2"},
-	}, {
-		Id:       "addRelation-4",
-		Method:   "addRelation",
-		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
-		Requires: []string{"deploy-1", "deploy-3"},
-	}}
+	}
 
 	apiv6 := s.makeAPI(c)
 	apiv1 := &bundle.APIv1{&bundle.APIv2{&bundle.APIv3{&bundle.APIv4{&bundle.APIv5{apiv6}}}}}
