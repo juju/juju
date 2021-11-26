@@ -168,6 +168,8 @@ func BootstrapInstance(
 	// Print instance status reports status changes during provisioning.
 	// Note the carriage returns, meaning subsequent prints are to the same
 	// line of stderr, not a new line.
+	lastLength := 0
+	statusCleanedUp := false
 	instanceStatus := func(settableStatus status.Status, info string, data map[string]interface{}) error {
 		// The data arg is not expected to be used in this case, but
 		// print it, rather than ignore it, if we get something.
@@ -175,16 +177,28 @@ func BootstrapInstance(
 		if len(data) > 0 {
 			dataString = fmt.Sprintf(" %v", data)
 		}
-		fmt.Fprintf(ctx.GetStderr(), " - %s%s\r", info, dataString)
+		length := len(info) + len(dataString)
+		padding := ""
+		if lastLength > length {
+			padding = strings.Repeat(" ", lastLength-length)
+		}
+		lastLength = length
+		statusCleanedUp = false
+		fmt.Fprintf(ctx.GetStderr(), " - %s%s%s\r", info, dataString, padding)
 		return nil
 	}
 	// Likely used after the final instanceStatus call to white-out the
 	// current stderr line before the next use, removing any residual status
 	// reporting output.
-	statusCleanup := func(info string) error {
+	statusCleanup := func() error {
+		if statusCleanedUp {
+			return nil
+		}
+		statusCleanedUp = true
 		// The leading spaces account for the leading characters
 		// emitted by instanceStatus above.
-		fmt.Fprintf(ctx.GetStderr(), "   %s\r", info)
+		padding := strings.Repeat(" ", lastLength)
+		fmt.Fprintf(ctx.GetStderr(), "   %s\r", padding)
 		return nil
 	}
 
@@ -255,7 +269,7 @@ func BootstrapInstance(
 
 		select {
 		case <-ctx.Context().Done():
-			return nil, "", nil, errors.Annotatef(err, "starting controller (cancelled)")
+			return nil, "", nil, errors.Annotate(err, "starting controller (cancelled)")
 		default:
 		}
 
@@ -278,6 +292,10 @@ func BootstrapInstance(
 		return nil, "", nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
 
+	err = statusCleanup()
+	if err != nil {
+		return nil, "", nil, errors.Annotate(err, "cleaning up status line")
+	}
 	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
 	// We need some padding below to overwrite any previous messages.
 	if len(msg) < 40 {
