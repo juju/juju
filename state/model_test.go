@@ -809,14 +809,13 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
-	ch, _, err := application.Charm()
-	c.Assert(err, jc.ErrorIsNil)
 
+	ch := state.AddTestingCharm(c, otherSt, "dummy")
 	args := state.AddApplicationArgs{
 		Name:  application.Name(),
 		Charm: ch,
 	}
-	application, err = otherSt.AddApplication(args)
+	_, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -1285,13 +1284,13 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
-	ch, _, err := application.Charm()
-	c.Assert(err, jc.ErrorIsNil)
+
+	ch := state.AddTestingCharm(c, st, "dummy")
 	args := state.AddApplicationArgs{
 		Name:  application.Name(),
 		Charm: ch,
 	}
-	application, err = st.AddApplication(args)
+	_, err = st.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
