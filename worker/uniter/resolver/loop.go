@@ -123,7 +123,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 				if errors.Cause(err) == mutex.ErrCancelled {
 					// If the lock acquisition was cancelled (such as when the
-					// migration-inactive flag drops, we do not want the
+					// migration-inactive flag drops) we do not want the
 					// resolver to surface that error. This puts the agent into
 					// the "failed" state, which causes the initial migration
 					// validation phase to fail.
