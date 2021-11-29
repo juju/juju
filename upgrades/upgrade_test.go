@@ -205,7 +205,6 @@ func (mock *mockAgentConfig) Model() names.ModelTag {
 type mockStateBackend struct {
 	upgrades.StateBackend
 	testing.Stub
-	models []upgrades.Model
 }
 
 func (mock *mockStateBackend) ControllerUUID() string {
@@ -644,6 +643,7 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 		"2.9.15",
 		"2.9.17",
 		"2.9.19",
+		"2.9.20",
 	})
 }
 

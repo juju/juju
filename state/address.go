@@ -126,7 +126,7 @@ func (st *State) SetAPIHostPorts(newHostPorts []network.SpaceHostPorts) error {
 		}
 		ops = append(ops, agentAddrOps...)
 
-		if ops == nil || len(ops) == 0 {
+		if len(ops) == 0 {
 			return nil, jujutxn.ErrNoOperations
 		}
 		return ops, nil
@@ -489,9 +489,7 @@ func dupeAndSort(a []network.SpaceHostPorts) []network.SpaceHostPorts {
 
 	for _, val := range a {
 		var inner network.SpaceHostPorts
-		for _, hp := range val {
-			inner = append(inner, hp)
-		}
+		inner = append(inner, val...)
 		sort.Sort(inner)
 		result = append(result, inner)
 	}

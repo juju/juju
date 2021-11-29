@@ -1287,6 +1287,16 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			ops = append(ops, resOps...)
 		}
 
+		isSidecar, err := app.IsSidecar()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if isSidecar {
+			if err := resetSequence(st, app.Tag().String()); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
 			unitName, unitOps, err := app.addUnitOpsWithCons(applicationAddUnitOpsArgs{
@@ -1298,11 +1308,13 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, unitOps...)
-			placement := instance.Placement{}
-			if x < len(args.Placement) {
-				placement = *args.Placement[x]
+			if model.Type() != ModelTypeCAAS {
+				placement := instance.Placement{}
+				if x < len(args.Placement) {
+					placement = *args.Placement[x]
+				}
+				ops = append(ops, assignUnitOps(unitName, placement)...)
 			}
-			ops = append(ops, assignUnitOps(unitName, placement)...)
 		}
 		return ops, nil
 	}
