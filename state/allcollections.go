@@ -262,7 +262,11 @@ func allCollections() CollectionSchema {
 		// -----
 
 		// These collections hold information associated with applications.
-		charmsC: {},
+		charmsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 		applicationsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "name"},
@@ -344,7 +348,7 @@ func allCollections() CollectionSchema {
 		// that a particular machine in the process of performing a series upgrade.
 		machineUpgradeSeriesLocksC: {
 			indexes: []mgo.Index{{
-				Key: []string{"machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 
@@ -380,10 +384,16 @@ func allCollections() CollectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "storageid"},
 			}, {
-				Key: []string{"model-uuid", "machineid"},
+				Key: []string{"model-uuid", "hostid"},
 			}},
 		},
-		volumeAttachmentsC:    {},
+		volumeAttachmentsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "hostid"},
+			}, {
+				Key: []string{"model-uuid", "volumeid"},
+			}},
+		},
 		volumeAttachmentPlanC: {},
 
 		// -----
@@ -406,8 +416,16 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "machine-id", "device-name"},
 			}},
 		},
-		endpointBindingsC: {},
-		openedPortsC:      {},
+		endpointBindingsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
+		openedPortsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// -----
 
@@ -471,7 +489,11 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
-		constraintsC:        {},
+		constraintsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 		storageConstraintsC: {},
 		deviceConstraintsC:  {},
 		statusesC: {
@@ -527,7 +549,11 @@ func allCollections() CollectionSchema {
 		relationNetworksC: {},
 
 		// firewallRulesC holds firewall rules for defined service types.
-		firewallRulesC: {},
+		firewallRulesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// podSpecsC holds the CAAS pod specifications,
 		// for applications.

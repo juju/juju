@@ -215,7 +215,7 @@ func (m *Model) AllConstraints() (*ModelConstraints, error) {
 	return all, nil
 }
 
-// ModelConstraints represents all the contraints in  a model
+// ModelConstraints represents all the constraints in  a model
 // keyed on global key.
 type ModelConstraints struct {
 	data map[string]constraintsDoc
