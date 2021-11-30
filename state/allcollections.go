@@ -384,7 +384,7 @@ func allCollections() CollectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "storageid"},
 			}, {
-				Key: []string{"model-uuid", "machineid"},
+				Key: []string{"model-uuid", "hostid"},
 			}},
 		},
 		volumeAttachmentsC: {
