@@ -150,6 +150,11 @@ type Config struct {
 	APIPort            int
 	ControllerAPIPort  int
 
+	// ControllerId is the id of the controller running this worker.
+	// It is used in checking if this working is running on the
+	// primary mongo node.
+	ControllerIdGetter func() string
+
 	// Kubernetes controllers do not support HA yet.
 	SupportsHA bool
 
@@ -675,9 +680,21 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err := setHasVote(added, true); err != nil {
 		return nil, errors.Annotate(err, "adding new voters")
 	}
+
+	// Figure out if we are running on the mongo primary.
+	controllerId := w.config.ControllerIdGetter()
+	isPrimary, err := info.isPrimary(controllerId)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Annotatef(err, "determining primary status of controller %q", controllerId)
+	}
+	logger.Debugf("controller node %q primary: %v", controllerId, isPrimary)
 	// Currently k8s controllers do not support HA, so only update
 	// the replicaset config if HA is enabled and there is a change.
-	if w.config.SupportsHA && desired.isChanged {
+	// Only controllers corresponding with the mongo primary should
+	// update the replicaset, otherwise there will be a race since
+	// a diff needs to be calculated so the changes can be applied
+	// one at a time.
+	if isPrimary && w.config.SupportsHA && desired.isChanged {
 		ms := make([]replicaset.Member, 0, len(desired.members))
 		for _, m := range desired.members {
 			ms = append(ms, *m)

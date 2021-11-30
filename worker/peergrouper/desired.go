@@ -36,6 +36,7 @@ type peerGroupInfo struct {
 	// Replica-set member statuses sourced from the Mongo session.
 	statuses map[string]replicaset.MemberStatus
 
+	toRemove    []replicaset.Member
 	extra       []replicaset.Member
 	maxMemberId int
 	mongoPort   int
@@ -97,34 +98,63 @@ func newPeerGroupInfo(
 	}
 
 	// Iterate over the input members and associate them with a controller if
-	// possible; add any unassociated members to the "extra" slice.
+	// possible; add any non-juju unassociated members to the "extra" slice.
+	// Unassociated members with the juju machine id tag are to be removed.
 	// Link the statuses with the controller node IDs where associated.
 	// Keep track of the highest member ID that we observe.
 	for _, m := range members {
-		found := false
-		if id, ok := m.Tags[jujuNodeKey]; ok {
-			if controllers[id] != nil {
-				info.recognised[id] = m
-				found = true
-			}
+		if m.Id > info.maxMemberId {
+			info.maxMemberId = m.Id
+		}
 
-			// This invariably makes for N^2, but we anticipate small N.
-			for _, sts := range statuses {
-				if sts.Id == m.Id {
-					info.statuses[id] = sts
-				}
+		id, ok := m.Tags[jujuNodeKey]
+		if !ok {
+			info.extra = append(info.extra, m)
+			continue
+		}
+		found := false
+		if controllers[id] != nil {
+			info.recognised[id] = m
+			found = true
+		}
+
+		// This invariably makes for N^2, but we anticipate small N.
+		for _, sts := range statuses {
+			if sts.Id == m.Id {
+				info.statuses[id] = sts
 			}
 		}
 		if !found {
-			info.extra = append(info.extra, m)
-		}
-
-		if m.Id > info.maxMemberId {
-			info.maxMemberId = m.Id
+			info.toRemove = append(info.toRemove, m)
 		}
 	}
 
 	return &info, nil
+}
+
+// isPrimary returns true if the given controller node id is the mongo primary.
+func (info *peerGroupInfo) isPrimary(controllerId string) (bool, error) {
+	nodeID := -1
+	// Current status of replicaset contains node state.
+	// Here we determine node id of the primary node.
+	for _, m := range info.statuses {
+		if m.State == replicaset.PrimaryState {
+			nodeID = m.Id
+			break
+		}
+	}
+	if nodeID == -1 {
+		return false, errors.NotFoundf("HA primary machine")
+	}
+
+	for _, m := range info.recognised {
+		if m.Id == nodeID {
+			if machineID, k := m.Tags[jujuNodeKey]; k {
+				return machineID == controllerId, nil
+			}
+		}
+	}
+	return false, errors.NotFoundf("HA primary machine")
 }
 
 // getLogMessage generates a nicely formatted log message from the known peer
@@ -145,9 +175,17 @@ func (info *peerGroupInfo) getLogMessage() string {
 		lines = append(lines, fmt.Sprintf(template, info.controllers[id], rm.Id, rm.Address))
 	}
 
-	if len(info.extra) > 0 {
-		lines = append(lines, "\nother members:")
+	if len(info.toRemove) > 0 {
+		lines = append(lines, "\nmembers to remove:")
+		template := "\n   rs_id=%d, rs_addr=%s, tags=%v, vote=%t"
+		for _, em := range info.toRemove {
+			vote := em.Votes != nil && *em.Votes > 0
+			lines = append(lines, fmt.Sprintf(template, em.Id, em.Address, em.Tags, vote))
+		}
+	}
 
+	if len(info.extra) > 0 {
+		lines = append(lines, "\nother non-juju  members:")
 		template := "\n   rs_id=%d, rs_addr=%s, tags=%v, vote=%t"
 		for _, em := range info.extra {
 			vote := em.Votes != nil && *em.Votes > 0
@@ -243,12 +281,16 @@ func (p *peerGroupChanges) checkExtraMembers() error {
 	// Given that Juju is in control of the replicaset we don't really just 'accept' that some other node has a vote.
 	// *maybe* we could allow non-voting members that would be used by 3rd parties to provide a warm database backup.
 	// But I think the right answer is probably to downgrade unknown members from voting.
+	// Note: (wallyworld) notwithstanding the above, each controller runs its own peer grouper worker. The
+	// mongo primary will remove nodes as needed from the replicaset. There will be a short time where
+	// Juju managed nodes will not yet be accounted for by the other secondary workers. These are accounted
+	// for in the 'toRemove' list.
 	for _, member := range p.info.extra {
 		if isVotingMember(&member) {
-			return fmt.Errorf("non voting member %v found in peer group", member)
+			return fmt.Errorf("non juju voting member %v found in peer group", member)
 		}
 	}
-	if len(p.info.extra) > 0 {
+	if len(p.info.toRemove) > 0 || len(p.info.extra) > 0 {
 		p.desired.isChanged = true
 	}
 	return nil

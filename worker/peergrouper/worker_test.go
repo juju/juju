@@ -55,10 +55,11 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock *testclock.Clock
-	hub   Hub
-	idle  chan struct{}
-	mu    sync.Mutex
+	clock        *testclock.Clock
+	hub          Hub
+	controllerId string
+	idle         chan struct{}
+	mu           sync.Mutex
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -181,7 +182,7 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	// Update the status of the new members
 	// and check that they become voting.
 	c.Logf("\nupdating new member status")
-	st.session.setStatus(mkStatuses("0s 1p 2s", ipVersion))
+	st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
 	mustNext(c, memberWatcher, "new member status")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
 
@@ -197,6 +198,8 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	// controller. Also set the status of the new controller to healthy.
 	c.Logf("\nremoving vote from controller 10 and adding it to controller 13")
 	st.controller("10").setWantsVote(false)
+	// Controller 11 becomes the new primary.
+	s.controllerId = "11"
 	mustNext(c, memberWatcher, "waiting for vote switch")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2 3", ipVersion))
 
@@ -232,8 +235,8 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 
 	// Simulate a state where we have four controllers,
 	// one has gone down, and we're replacing it:
-	// 0 - hasvote true, wantsvote false, down
-	// 1 - hasvote true, wantsvote true
+	// 0 - hasvote true, wantsvote true, primary
+	// 1 - hasvote true, wantsvote false, down
 	// 2 - hasvote true, wantsvote true
 	// 3 - hasvote false, wantsvote true
 	//
@@ -251,14 +254,14 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	err = st.controller("13").SetHasVote(false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st.controller("10").setWantsVote(false)
-	st.controller("11").setWantsVote(true)
+	st.controller("10").setWantsVote(true)
+	st.controller("11").setWantsVote(false)
 	st.controller("12").setWantsVote(true)
 	st.controller("13").setWantsVote(true)
 
 	err = st.session.Set(mkMembers("0v 1v 2v 3", ipVersion))
 	c.Assert(err, jc.ErrorIsNil)
-	st.session.setStatus(mkStatuses("0H 1p 2s 3s", ipVersion))
+	st.session.setStatus(mkStatuses("0p 1H 2s 3s", ipVersion))
 
 	// Make the worker fail to set HasVote to false
 	// after changing the replica set membership.
@@ -273,7 +276,7 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 
 	// Wait for the worker to set the initial members.
 	mustNext(c, memberWatcher, "initial members")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2v 3v", ipVersion))
 
 	// The worker should encounter an error setting the
 	// has-vote status to false and exit.
@@ -309,7 +312,7 @@ loop:
 			correct := true
 			for i := 10; i < 14; i++ {
 				hasVote := st.controller(fmt.Sprint(i)).HasVote()
-				expectHasVote := i != 10
+				expectHasVote := i != 11
 				if hasVote != expectHasVote {
 					correct = false
 				}
@@ -572,6 +575,7 @@ func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
 		State:                st,
 		MongoSession:         st.session,
 		APIHostPortsSetter:   nopAPIHostPortsSetter{},
+		ControllerIdGetter:   func() string { return "10" },
 		MongoPort:            mongoPort,
 		APIPort:              apiPort,
 		ControllerAPIPort:    controllerAPIPort,
@@ -1015,9 +1019,13 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	c.Check(testStatus.Members[0].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	if testStatus.Members[1].State == replicaset.PrimaryState {
 		primaryMemberIndex = 1
+		// Controller 11 becomes the new primary.
+		s.controllerId = "11"
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	} else {
 		primaryMemberIndex = 2
+		// Controller 12 becomes the new primary.
+		s.controllerId = "12"
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	}
 	// Now we have to wait for time to advance for us to reevaluate the system
@@ -1051,9 +1059,11 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	testStatus = mustNextStatus(c, statusWatcher, "stepping down new primary")
 	if primaryMemberIndex == 1 {
 		// 11 was the primary, now 12 is
+		s.controllerId = "12"
 		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	} else {
+		s.controllerId = "11"
 		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	}
@@ -1174,10 +1184,12 @@ func (s *workerSuite) newWorker(
 	apiHostPortsSetter APIHostPortsSetter,
 	supportsHA bool,
 ) worker.Worker {
+	s.controllerId = "10"
 	return s.newWorkerWithConfig(c, Config{
 		State:                st,
 		MongoSession:         session,
 		APIHostPortsSetter:   apiHostPortsSetter,
+		ControllerIdGetter:   func() string { return s.controllerId },
 		MongoPort:            mongoPort,
 		APIPort:              apiPort,
 		Hub:                  s.hub,

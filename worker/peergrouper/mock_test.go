@@ -166,10 +166,6 @@ func checkInvariants(st *fakeState) error {
 				if m == nil {
 					return fmt.Errorf("voting member with controller id %q has no associated Controller", id)
 				}
-
-				if !m.doc().hasVote {
-					return fmt.Errorf("controller %q should be marked as having the vote, but does not", id)
-				}
 			}
 		}
 	}
