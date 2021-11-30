@@ -22,7 +22,9 @@ from deploy_stack import BootstrapManager
 from jujupy.k8s_provider import K8sProviderType, providers
 from jujupy.utility import until_timeout
 from utility import (
-    JujuAssertionError, add_basic_testing_arguments, configure_logging,
+    JujuAssertionError,
+    add_basic_testing_arguments,
+    configure_logging,
 )
 
 __metaclass__ = type
@@ -49,50 +51,54 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None,
             sleep(3)
             if remaining % 30 == 0:
                 log.info('timeout in %ss', remaining)
-    log.error('HTTP health check failed -> %s, status_code -> %s !', url,
-              status_code)
+    log.error(f'HTTP health check failed -> {url}, status_code -> {status_code} !')
     fail_hook()
-    raise JujuAssertionError('%s is not healthy' % url)
+    raise JujuAssertionError(f'{url} is not healthy')
 
 
 def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=180):
-    if svc_type == 'LoadBalancer':
-        for remaining in until_timeout(timeout):
+    if svc_type.lower() == 'loadbalancer':
+        for _ in until_timeout(timeout):
             try:
                 lb_addr = caas_client.get_lb_svc_address(app_name, model_name)
                 if lb_addr:
-                    log.info('load balancer addr for {} is {}'.format(
-                        app_name, lb_addr))
+                    log.info(f'load balancer addr for {app_name} is {lb_addr}')
                     return lb_addr
             except:  # noqa: E722
                 continue
-        raise JujuAssertionError(
-            'No load balancer addr available for {}'.format(app_name))
+        raise JujuAssertionError(f'No load balancer addr available for {app_name}')
 
     return caas_client.get_external_hostname()
 
 
+def enable_microk8s_addon_metallb(caas_client):
+    caas_client.enable_microk8s_addons(
+        ["metallb:10.64.140.43-10.64.140.49"],
+    )
+    caas_client.kubectl(
+        "wait", "--for=condition=available",
+        "-nkube-system", "deployment/coredns", "deployment/hostpath-provisioner", "--timeout=5m",
+    )
+
+
 def deploy_test_workloads(caas_client, k8s_model, caas_provider):
     k8s_model.deploy(charm="cs:~juju/mariadb-k8s-3")
-    svc_type = None
+
     if caas_provider == K8sProviderType.MICROK8S.name:
-        k8s_model.deploy(
-            charm="cs:~juju/mediawiki-k8s-4",
-            config='juju-external-hostname={}'.format(
-                caas_client.get_external_hostname()),
-        )
-        k8s_model.juju('expose', ('mediawiki-k8s',))
-    else:
-        k8s_model.deploy(
-            charm="cs:~juju/mediawiki-k8s-4",
-            config='kubernetes-service-type=loadbalancer',
-        )
-        svc_type = 'LoadBalancer'
+        enable_microk8s_addon_metallb(caas_client)
+
+    svc_type = "loadbalancer"
+    k8s_model.deploy(
+        charm="cs:~juju/mediawiki-k8s-4",
+        config=f"kubernetes-service-type={svc_type}",
+    )
 
     k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
     k8s_model.wait_for_workloads(timeout=600)
-    return 'http://' + get_app_endpoint(caas_client, k8s_model.model_name,
-                                        'mediawiki-k8s', svc_type)
+    address = get_app_endpoint(
+        caas_client, k8s_model.model_name, 'mediawiki-k8s', svc_type,
+    )
+    return f'http://{address}'
 
 
 def assess_caas_charm_deployment(caas_client, caas_provider):

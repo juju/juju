@@ -264,7 +264,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		if err != nil {
 			return errResp(err)
 		}
-		logger.Debugf("created new unit %q for pod %q", unit.Tag().String(), args.PodName)
+		logger.Debugf("created new unit %q for pod %s/%s", unit.Tag().String(), args.PodName, containerID)
 	}
 
 	password, err := utils.RandomPassword()

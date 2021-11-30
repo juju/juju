@@ -615,7 +615,6 @@ var getCAASBroker = func(getter environs.EnvironConfigGetter) (caas.Broker, erro
 		Config: modelConfig,
 	})
 	if err != nil {
-		logger.Warningf("getCAASBroker err %#v", errors.Cause(err))
 		return nil, errors.Trace(err)
 	}
 	return env, nil
