@@ -5,6 +5,7 @@ package context_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -309,7 +310,7 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 func (s *HookContextSuite) context(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.getHookContext(c, uuid.String(), -1, "")
+	return s.getHookContext(c, uuid.String(), -1, "", names.StorageTag{})
 }
 
 func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {

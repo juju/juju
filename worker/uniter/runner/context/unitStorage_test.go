@@ -215,7 +215,7 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 
 func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.StorageConstraints) *context.HookContext {
 	// Get the context.
-	ctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+	ctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
 
 	for _, one := range cons {

@@ -40,40 +40,48 @@ type InterfaceSuite struct {
 var _ = gc.Suite(&InterfaceSuite{})
 
 func (s *InterfaceSuite) TestUnitName(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 }
 
 func (s *InterfaceSuite) TestHookRelation(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	r, err := ctx.HookRelation()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(r, gc.IsNil)
 }
 
+func (s *InterfaceSuite) TestHookStorage(c *gc.C) {
+	ctx := s.GetContext(c, -1, "", names.NewStorageTag("data/0"))
+	storage, err := ctx.HookStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storage, gc.NotNil)
+	c.Assert(storage.Tag().Id(), gc.Equals, "data/0")
+}
+
 func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	name, err := ctx.RemoteUnitName()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(name, gc.Equals, "")
 }
 
 func (s *InterfaceSuite) TestRemoteApplicationName(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	name, err := ctx.RemoteApplicationName()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(name, gc.Equals, "")
 }
 
 func (s *InterfaceSuite) TestWorkloadName(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	name, err := ctx.WorkloadName()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(name, gc.Equals, "")
 }
 
 func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	relIds, err := ctx.RelationIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relIds, gc.HasLen, 2)
@@ -87,7 +95,7 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestRelationContext(c *gc.C) {
-	ctx := s.GetContext(c, 1, "")
+	ctx := s.GetContext(c, 1, "", names.StorageTag{})
 	r, err := ctx.HookRelation()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
@@ -95,14 +103,14 @@ func (s *InterfaceSuite) TestRelationContext(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
-	ctx := s.GetContext(c, 1, "u/123")
+	ctx := s.GetContext(c, 1, "u/123", names.StorageTag{})
 	name, err := ctx.RemoteUnitName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "u/123")
 }
 
 func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
-	ctx := s.GetContext(c, 1, "u/123")
+	ctx := s.GetContext(c, 1, "u/123", names.StorageTag{})
 	err := ctx.AddMetric("key", "123", time.Now())
 	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
 	err = ctx.AddMetricLabels("key", "123", time.Now(), map[string]string{"foo": "bar"})
@@ -110,7 +118,7 @@ func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	zone, err := ctx.AvailabilityZone()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(zone, gc.Equals, "a-zone")
@@ -120,7 +128,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	// Only the error case is tested to ensure end-to-end integration, the rest
 	// of the cases are tested separately for network-get, api/uniter, and
 	// apiserver/uniter, respectively.
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
@@ -134,7 +142,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	defer context.PatchCachedStatus(ctx.(context.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
 	status, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
@@ -144,7 +152,7 @@ func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	status := jujuc.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
@@ -159,7 +167,7 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), jc.IsFalse)
 	status := jujuc.StatusInfo{
 		Status: "maintenance",
@@ -171,7 +179,7 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestGetSetWorkloadVersion(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	// No workload version set yet.
 	result, err := ctx.UnitWorkloadVersion()
 	c.Assert(result, gc.Equals, "")
@@ -186,7 +194,7 @@ func (s *InterfaceSuite) TestGetSetWorkloadVersion(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	unitStatus, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(unitStatus.Status, gc.Equals, "waiting")
@@ -212,7 +220,7 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	pr, err := ctx.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
@@ -238,7 +246,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	settings, err := ctx.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
@@ -287,7 +295,7 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 		},
 	}
 
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	goalState, err := ctx.GoalState()
 
 	// Mock status Since string
@@ -358,7 +366,7 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
-		hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+		hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 		context.WithActionContext(hctx, t.initial, nil)
 		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, jc.ErrorIsNil)
@@ -370,7 +378,7 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 
 // TestSetActionFailed ensures SetActionFailed works properly.
 func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
-	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 	context.WithActionContext(hctx, nil, nil)
 	err := hctx.SetActionFailed()
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +389,7 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 
 // TestSetActionMessage ensures SetActionMessage works properly.
 func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
-	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 	context.WithActionContext(hctx, nil, nil)
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, jc.ErrorIsNil)
@@ -410,7 +418,7 @@ func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
 	_, err = action.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
-	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 	context.WithActionContext(hctx, nil, nil)
 	err = hctx.LogActionMessage("hello world")
 	c.Assert(err, jc.ErrorIsNil)
@@ -427,7 +435,7 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 		killed = true
 		return nil
 	}}
-	ctx := s.GetContext(c, -1, "").(*context.HookContext)
+	ctx := s.GetContext(c, -1, "", names.StorageTag{}).(*context.HookContext)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
@@ -437,7 +445,7 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
-	ctx := s.GetContext(c, -1, "").(*context.HookContext)
+	ctx := s.GetContext(c, -1, "", names.StorageTag{}).(*context.HookContext)
 
 	var stub testing.Stub
 	var p *mockProcess
@@ -462,7 +470,7 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
-	ctx := s.GetContext(c, -1, "").(*context.HookContext)
+	ctx := s.GetContext(c, -1, "", names.StorageTag{}).(*context.HookContext)
 
 	var advanced bool
 	var p *mockProcess
