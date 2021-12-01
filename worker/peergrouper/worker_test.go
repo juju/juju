@@ -55,11 +55,10 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock        *testclock.Clock
-	hub          Hub
-	controllerId string
-	idle         chan struct{}
-	mu           sync.Mutex
+	clock *testclock.Clock
+	hub   Hub
+	idle  chan struct{}
+	mu    sync.Mutex
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -198,10 +197,14 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	// controller. Also set the status of the new controller to healthy.
 	c.Logf("\nremoving vote from controller 10 and adding it to controller 13")
 	st.controller("10").setWantsVote(false)
-	// Controller 11 becomes the new primary.
-	s.controllerId = "11"
+	// Controller 11 or 12 becomes the new primary (it is randomised).
 	mustNext(c, memberWatcher, "waiting for vote switch")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2 3", ipVersion))
+
+	if st.session.currentPrimary() == "11" {
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2 3", ipVersion))
+	} else {
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1 2v 3", ipVersion))
+	}
 
 	st.controller("13").setWantsVote(true)
 
@@ -575,7 +578,7 @@ func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
 		State:                st,
 		MongoSession:         st.session,
 		APIHostPortsSetter:   nopAPIHostPortsSetter{},
-		ControllerIdGetter:   func() string { return "10" },
+		ControllerId:         func() string { return "10" },
 		MongoPort:            mongoPort,
 		APIPort:              apiPort,
 		ControllerAPIPort:    controllerAPIPort,
@@ -1019,13 +1022,9 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	c.Check(testStatus.Members[0].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	if testStatus.Members[1].State == replicaset.PrimaryState {
 		primaryMemberIndex = 1
-		// Controller 11 becomes the new primary.
-		s.controllerId = "11"
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	} else {
 		primaryMemberIndex = 2
-		// Controller 12 becomes the new primary.
-		s.controllerId = "12"
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	}
 	// Now we have to wait for time to advance for us to reevaluate the system
@@ -1042,11 +1041,7 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// the other secondary. We first unset the invariant checker, because we are intentionally going to an even number
 	// of voters, but this is not the normal condition
 	st.setCheck(nil)
-	if primaryMemberIndex == 1 {
-		st.controller("11").setWantsVote(false)
-	} else {
-		st.controller("12").setWantsVote(false)
-	}
+	st.controller(st.session.currentPrimary()).setWantsVote(false)
 	// member watcher must fire first
 	mustNext(c, memberWatcher, "observing member step down")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v", testIPv4))
@@ -1058,12 +1053,9 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	s.clock.Advance(2 * pollInterval)
 	testStatus = mustNextStatus(c, statusWatcher, "stepping down new primary")
 	if primaryMemberIndex == 1 {
-		// 11 was the primary, now 12 is
-		s.controllerId = "12"
 		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	} else {
-		s.controllerId = "11"
 		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	}
@@ -1180,16 +1172,15 @@ func (s *workerSuite) newWorkerWithConfig(
 func (s *workerSuite) newWorker(
 	c *gc.C,
 	st State,
-	session MongoSession,
+	session *fakeMongoSession,
 	apiHostPortsSetter APIHostPortsSetter,
 	supportsHA bool,
 ) worker.Worker {
-	s.controllerId = "10"
 	return s.newWorkerWithConfig(c, Config{
 		State:                st,
 		MongoSession:         session,
 		APIHostPortsSetter:   apiHostPortsSetter,
-		ControllerIdGetter:   func() string { return s.controllerId },
+		ControllerId:         session.currentPrimary,
 		MongoPort:            mongoPort,
 		APIPort:              apiPort,
 		Hub:                  s.hub,

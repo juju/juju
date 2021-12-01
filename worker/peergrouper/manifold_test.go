@@ -117,8 +117,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[0], gc.FitsTypeOf, peergrouper.Config{})
 	config := args[0].(peergrouper.Config)
 
-	c.Assert(config.ControllerIdGetter(), gc.Equals, "10")
-	config.ControllerIdGetter = nil
+	c.Assert(config.ControllerId(), gc.Equals, "10")
+	config.ControllerId = nil
 	c.Assert(config, jc.DeepEquals, peergrouper.Config{
 		State:        peergrouper.StateShim{s.State},
 		MongoSession: peergrouper.MongoSessionShim{s.State.MongoSession()},

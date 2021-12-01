@@ -467,7 +467,7 @@ func (st *State) HAPrimaryMachine() (names.MachineTag, error) {
 	}
 	for _, m := range ms {
 		if m.Id == nodeID {
-			if machineID, k := m.Tags["juju-machine-id"]; k {
+			if machineID, ok := m.Tags["juju-machine-id"]; ok {
 				return names.NewMachineTag(machineID), nil
 			}
 		}

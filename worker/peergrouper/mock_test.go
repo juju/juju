@@ -502,6 +502,21 @@ func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
 	return deepCopy(session.status.Get()).(*replicaset.Status), nil
 }
 
+func (session *fakeMongoSession) currentPrimary() string {
+	members := session.members.Get().([]replicaset.Member)
+	status := session.status.Get().(*replicaset.Status)
+	for _, statusMember := range status.Members {
+		if statusMember.State == replicaset.PrimaryState {
+			for _, member := range members {
+				if member.Id == statusMember.Id {
+					return member.Tags["juju-machine-id"]
+				}
+			}
+		}
+	}
+	return ""
+}
+
 // setStatus sets the status of the current members of the session.
 func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
 	session.status.Set(deepCopy(&replicaset.Status{

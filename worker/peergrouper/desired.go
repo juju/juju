@@ -107,21 +107,21 @@ func newPeerGroupInfo(
 			info.maxMemberId = m.Id
 		}
 
-		id, ok := m.Tags[jujuNodeKey]
+		controllerId, ok := m.Tags[jujuNodeKey]
 		if !ok {
 			info.extra = append(info.extra, m)
 			continue
 		}
 		found := false
-		if controllers[id] != nil {
-			info.recognised[id] = m
+		if controllers[controllerId] != nil {
+			info.recognised[controllerId] = m
 			found = true
 		}
 
 		// This invariably makes for N^2, but we anticipate small N.
 		for _, sts := range statuses {
 			if sts.Id == m.Id {
-				info.statuses[id] = sts
+				info.statuses[controllerId] = sts
 			}
 		}
 		if !found {
@@ -133,24 +133,24 @@ func newPeerGroupInfo(
 }
 
 // isPrimary returns true if the given controller node id is the mongo primary.
-func (info *peerGroupInfo) isPrimary(controllerId string) (bool, error) {
-	nodeID := -1
+func (info *peerGroupInfo) isPrimary(workerControllerId string) (bool, error) {
+	primaryNodeId := -1
 	// Current status of replicaset contains node state.
 	// Here we determine node id of the primary node.
 	for _, m := range info.statuses {
 		if m.State == replicaset.PrimaryState {
-			nodeID = m.Id
+			primaryNodeId = m.Id
 			break
 		}
 	}
-	if nodeID == -1 {
+	if primaryNodeId == -1 {
 		return false, errors.NotFoundf("HA primary machine")
 	}
 
 	for _, m := range info.recognised {
-		if m.Id == nodeID {
-			if machineID, k := m.Tags[jujuNodeKey]; k {
-				return machineID == controllerId, nil
+		if m.Id == primaryNodeId {
+			if primaryControllerId, ok := m.Tags[jujuNodeKey]; ok {
+				return primaryControllerId == workerControllerId, nil
 			}
 		}
 	}
@@ -164,7 +164,7 @@ func (info *peerGroupInfo) getLogMessage() string {
 		fmt.Sprintf("calculating desired peer group\ndesired voting members: (maxId: %d)", info.maxMemberId),
 	}
 
-	template := "\n   %#v: rs_id=%d, rs_addr=%s"
+	template := "\n   %#v: rs_id=%d, rs_addr=%s, rs_primary=%v"
 	ids := make([]string, 0, len(info.recognised))
 	for id := range info.recognised {
 		ids = append(ids, id)
@@ -172,7 +172,8 @@ func (info *peerGroupInfo) getLogMessage() string {
 	sortAsInts(ids)
 	for _, id := range ids {
 		rm := info.recognised[id]
-		lines = append(lines, fmt.Sprintf(template, info.controllers[id], rm.Id, rm.Address))
+		isPrimary := isPrimaryMember(info, id)
+		lines = append(lines, fmt.Sprintf(template, info.controllers[id], rm.Id, rm.Address, isPrimary))
 	}
 
 	if len(info.toRemove) > 0 {
@@ -297,7 +298,7 @@ func (p *peerGroupChanges) checkExtraMembers() error {
 }
 
 // sortAsInts converts all the vals to an integer to sort them as numbers instead of strings
-// If any of the values are not valid integers, they will be sorted as stirngs, and added to the end
+// If any of the values are not valid integers, they will be sorted as strings, and added to the end
 // the slice will be sorted in place.
 // (generally this should only be used for strings we expect to represent ints, but we don't want to error if
 // something isn't an int.)
