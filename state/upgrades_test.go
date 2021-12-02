@@ -5871,6 +5871,95 @@ func (s *upgradesSuite) TestCleanupDeadAssignUnits(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestRemoveOrphanedLinkLayerDevices(c *gc.C) {
+	// Add 2 machines with link-layer devices.
+	m0, err := s.state.AddOneMachine(MachineTemplate{
+		Series: "focal",
+		Jobs:   []MachineJob{JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	m1, err := s.state.AddOneMachine(MachineTemplate{
+		Series: "focal",
+		Jobs:   []MachineJob{JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops, err := m0.AddLinkLayerDeviceOps(
+		LinkLayerDeviceArgs{
+			Name: "eth0",
+			Type: network.EthernetDevice,
+		},
+		LinkLayerDeviceAddress{
+			DeviceName:  "eth0",
+			CIDRAddress: "192.168.0.66/24",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops, err = m1.AddLinkLayerDeviceOps(
+		LinkLayerDeviceArgs{
+			Name: "eth0",
+			Type: network.EthernetDevice,
+		},
+		LinkLayerDeviceAddress{
+			DeviceName:  "eth0",
+			CIDRAddress: "192.168.0.99/24",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Delete the first machine directly leaving the link-layer data orphaned.
+	mCol, mCloser := s.state.db().GetCollection(machinesC)
+	defer mCloser()
+
+	err = mCol.Writeable().Remove(bson.M{"machineid": m0.Id()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	devCol, devCloser := s.state.db().GetRawCollection(linkLayerDevicesC)
+	defer devCloser()
+
+	addrCol, addrCloser := s.state.db().GetRawCollection(ipAddressesC)
+	defer addrCloser()
+
+	// Only the link-layer data for the second machine should be retained.
+	devExp := bsonMById{{
+		"_id":               ensureModelUUID(s.state.modelUUID(), fmt.Sprintf("m#%s#d#eth0", m1.Id())),
+		"model-uuid":        s.state.modelUUID(),
+		"is-auto-start":     false,
+		"is-up":             false,
+		"mac-address":       "",
+		"machine-id":        m1.Id(),
+		"mtu":               0,
+		"name":              "eth0",
+		"parent-name":       "",
+		"type":              "ethernet",
+		"virtual-port-type": "",
+	}}
+
+	addrExp := bsonMById{{
+		"_id":           ensureModelUUID(s.state.modelUUID(), fmt.Sprintf("m#%s#d#eth0#ip#192.168.0.99", m1.Id())),
+		"model-uuid":    s.state.modelUUID(),
+		"config-method": "",
+		"device-name":   "eth0",
+		"machine-id":    m1.Id(),
+		"origin":        "",
+		"subnet-cidr":   "192.168.0.0/24",
+		"value":         "192.168.0.99",
+	}}
+
+	s.assertUpgradedData(c, RemoveOrphanedLinkLayerDevices,
+		upgradedData(devCol, devExp),
+		upgradedData(addrCol, addrExp),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
