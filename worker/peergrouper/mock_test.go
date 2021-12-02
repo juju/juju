@@ -166,10 +166,6 @@ func checkInvariants(st *fakeState) error {
 				if m == nil {
 					return fmt.Errorf("voting member with controller id %q has no associated Controller", id)
 				}
-
-				if !m.doc().hasVote {
-					return fmt.Errorf("controller %q should be marked as having the vote, but does not", id)
-				}
 			}
 		}
 	}
@@ -504,6 +500,21 @@ func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
 		return nil, err
 	}
 	return deepCopy(session.status.Get()).(*replicaset.Status), nil
+}
+
+func (session *fakeMongoSession) currentPrimary() string {
+	members := session.members.Get().([]replicaset.Member)
+	status := session.status.Get().(*replicaset.Status)
+	for _, statusMember := range status.Members {
+		if statusMember.State == replicaset.PrimaryState {
+			for _, member := range members {
+				if member.Id == statusMember.Id {
+					return member.Tags["juju-machine-id"]
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // setStatus sets the status of the current members of the session.

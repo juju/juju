@@ -208,7 +208,7 @@ func (s *RaftLeaseClientSuite) TestRequestWithDeadlineExceededError(c *gc.C) {
 	c.Assert(client.lastKnownRemote, gc.NotNil)
 
 	err = client.Request(context.TODO(), cmd)
-	c.Assert(err, gc.ErrorMatches, `lease operation dropped`)
+	c.Assert(err, gc.ErrorMatches, `lease deadline exceeded`)
 
 	// Ensure that a lease operation that has the deadline exceeded does not
 	// drop the lastKnownRemote.

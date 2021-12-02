@@ -275,7 +275,7 @@ func (s *stateSuite) TestAllFacadeVersionsSafeFromMutation(c *gc.C) {
 }
 
 func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
-	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 3)
+	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 4)
 }
 
 func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {

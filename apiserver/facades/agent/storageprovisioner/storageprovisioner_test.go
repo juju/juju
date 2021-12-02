@@ -1490,7 +1490,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsController(c *gc.C) {
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: nil},
 			{Error: &params.Error{Message: "removing filesystem 2: filesystem is not dead"}},
-			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Error: nil},
 			{Error: &params.Error{Message: `"filesystem-invalid" is not a valid filesystem tag`}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
@@ -1753,7 +1753,10 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{
+				Code:    params.CodeNotFound,
+				Message: `filesystem "42" not found`,
+			}},
 		},
 	})
 }

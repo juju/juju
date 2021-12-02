@@ -18,7 +18,7 @@ type steps222Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps223Suite{})
+var _ = gc.Suite(&steps222Suite{})
 
 func (s *steps222Suite) TestAddModelEnvironVersionStep(c *gc.C) {
 	step := findStateStep(c, v222, "add environ-version to model docs")

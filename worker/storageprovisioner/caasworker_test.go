@@ -7,14 +7,12 @@ import (
 	stdcontext "context"
 	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -33,8 +31,6 @@ type WorkerSuite struct {
 	lifeGetter          *mockLifecycleManager
 
 	applicationChanges chan []string
-
-	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -85,18 +81,6 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
-	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case s.applicationChanges <- []string{"mariadb"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
-	return w
-}
-
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,7 +109,13 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	s.config.Filesystems.(*mockFilesystemAccessor).CheckCall(c, 0, "WatchFilesystems", coretesting.ModelTag)
 }
 
-func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
+func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationRemoved(c *gc.C) {
+	s.assertStopsWatchingApplication(c, func() {
+		s.lifeGetter.err = &params.Error{Code: params.CodeNotFound}
+	})
+}
+
+func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter func()) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -152,9 +142,11 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 	c.Assert(running, jc.IsTrue)
 
 	// Add an additional app worker so we can check that the correct one is accessed.
-	storageprovisioner.NewStorageWorker(w, "postgresql")
+	storageprovisioner.NewStorageWorker(c, w, "postgresql")
 
-	s.lifeGetter.err = &params.Error{Code: params.CodeNotFound}
+	if lifeGetterInjecter != nil {
+		lifeGetterInjecter()
+	}
 	select {
 	case s.applicationChanges <- []string{"postgresql"}:
 	case <-time.After(coretesting.LongWait):
@@ -177,6 +169,10 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 	c.Assert(running, jc.IsFalse)
 	workertest.CleanKill(c, w)
 	workertest.CheckKilled(c, s.applicationsWatcher.watcher)
+}
+
+func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationDead(c *gc.C) {
+	s.assertStopsWatchingApplication(c, nil)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {

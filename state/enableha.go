@@ -467,7 +467,7 @@ func (st *State) HAPrimaryMachine() (names.MachineTag, error) {
 	}
 	for _, m := range ms {
 		if m.Id == nodeID {
-			if machineID, k := m.Tags["juju-machine-id"]; k {
+			if machineID, ok := m.Tags["juju-machine-id"]; ok {
 				return names.NewMachineTag(machineID), nil
 			}
 		}
@@ -555,10 +555,7 @@ func (c *controllerNode) SetPassword(password string) error {
 // PasswordValid implements Authenticator.
 func (c *controllerNode) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == c.doc.PasswordHash {
-		return true
-	}
-	return false
+	return agentHash == c.doc.PasswordHash
 }
 
 func (c *controllerNode) AgentTools() (*tools.Tools, error) {

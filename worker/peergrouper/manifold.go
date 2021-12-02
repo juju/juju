@@ -122,6 +122,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ControllerAPIPort:    stateServingInfo.ControllerAPIPort,
 		SupportsHA:           supportsHA,
 		PrometheusRegisterer: config.PrometheusRegisterer,
+		// On machine models, the controller id is the same as the machine/agent id.
+		// TODO(wallyworld) - revisit when we add HA to k8s.
+		ControllerId: agentConfig.Tag().Id,
 	})
 	if err != nil {
 		_ = stTracker.Done()

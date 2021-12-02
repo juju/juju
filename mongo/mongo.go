@@ -771,3 +771,8 @@ func providesMongoAsSnap(mongoDep packaging.Dependency, series string) bool {
 	}
 	return false
 }
+
+// CurrentReplicasetConfig is overridden in tests.
+var CurrentReplicasetConfig = func(session *mgo.Session) (*replicaset.Config, error) {
+	return replicaset.CurrentConfig(session)
+}

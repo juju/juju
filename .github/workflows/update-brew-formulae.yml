@@ -6,7 +6,7 @@ on:
     - cron:  '0 */12 * * *'
 jobs:
   update-brew-tap:
-    if: ${{ github.repository == "juju/juju" }}
+    if: github.repository_owner == 'juju'
     runs-on: ubuntu-latest
     steps:
       - name: Update Homebrew formulae

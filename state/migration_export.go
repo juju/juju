@@ -1939,7 +1939,7 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	}
 	origin := doc.CharmOrigin
 
-	// If the channel is empty, then we fallback to the Revision.
+	// If the channel is empty, then we fall back to the Revision.
 	var revision int
 	if rev := origin.Revision; rev != nil {
 		revision = *rev
@@ -1955,10 +1955,10 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 		// the architecture is set in the platform if it's not set. This
 		// shouldn't happen that often, but handles clients sending bad requests
 		// when deploying.
-		arch := origin.Platform.Architecture
-		if arch == "" {
-			e.logger.Warningf("using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
-			arch = defaultArch
+		pArch := origin.Platform.Architecture
+		if pArch == "" {
+			e.logger.Debugf("using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
+			pArch = defaultArch
 		}
 		var os string
 		if origin.Platform.Series != "" {
@@ -1969,7 +1969,7 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 			os = strings.ToLower(sys.String())
 		}
 		platform = corecharm.Platform{
-			Architecture: arch,
+			Architecture: pArch,
 			OS:           os,
 			Series:       origin.Platform.Series,
 		}

@@ -30,8 +30,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -82,17 +80,15 @@ See also:
 
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
-	command.registryAPIFunc = registry.New
 	return modelcmd.Wrap(command)
 }
 
 func newUpgradeJujuCommandForTest(
 	store jujuclient.ClientStore,
-	jujuClientAPI jujuClientAPI,
+	jujuClientAPI ClientAPI,
 	modelConfigAPI modelConfigAPI,
 	modelManagerAPI modelManagerAPI,
 	controllerAPI ControllerAPI,
-	registryAPIFunc registryAPINewer,
 	options ...modelcmd.WrapOption,
 ) cmd.Command {
 	command := &upgradeJujuCommand{
@@ -100,7 +96,6 @@ func newUpgradeJujuCommandForTest(
 			modelConfigAPI:  modelConfigAPI,
 			modelManagerAPI: modelManagerAPI,
 			controllerAPI:   controllerAPI,
-			registryAPIFunc: registryAPIFunc,
 		},
 		jujuClientAPI: jujuClientAPI,
 	}
@@ -130,7 +125,6 @@ type baseUpgradeCommand struct {
 	modelConfigAPI  modelConfigAPI
 	modelManagerAPI modelManagerAPI
 	controllerAPI   ControllerAPI
-	registryAPIFunc registryAPINewer
 }
 
 func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -233,7 +227,7 @@ type upgradeJujuCommand struct {
 	modelcmd.ModelCommandBase
 	baseUpgradeCommand
 
-	jujuClientAPI jujuClientAPI
+	jujuClientAPI ClientAPI
 }
 
 func (c *upgradeJujuCommand) Info() *cmd.Info {
@@ -309,7 +303,8 @@ type statusAPI interface {
 	Status(patterns []string) (*params.FullStatus, error)
 }
 
-type jujuClientAPI interface {
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/cmd/juju/commands ClientAPI
+type ClientAPI interface {
 	toolsAPI
 	upgradeJujuAPI
 	statusAPI
@@ -333,9 +328,7 @@ type ControllerAPI interface {
 	Close() error
 }
 
-type registryAPINewer func(docker.ImageRepoDetails) (registry.Registry, error)
-
-func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
+func (c *upgradeJujuCommand) getJujuClientAPI() (ClientAPI, error) {
 	if c.jujuClientAPI != nil {
 		return c.jujuClientAPI, nil
 	}
@@ -375,19 +368,13 @@ func (c *upgradeJujuCommand) getControllerAPI() (ControllerAPI, error) {
 	return apicontroller.NewClient(api), nil
 }
 
+const caasStreamsTimeout = 20 * time.Second
+
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	modelType, err := c.ModelType()
 	if err != nil {
 		return errors.Trace(err)
-	}
-	// The default available agents come directly from streams metadata.
-	availableAgents := func(controllerCfg controller.Config, majorVersion int, streamsVersions coretools.List) (coretools.Versions, error) {
-		agents := make(coretools.Versions, len(streamsVersions))
-		for i, t := range streamsVersions {
-			agents[i] = t
-		}
-		return agents, nil
 	}
 	implicitAgentUploadAllowed := true
 	fetchToolsTimeout := 10 * time.Minute
@@ -397,12 +384,16 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		implicitAgentUploadAllowed = false
 		fetchToolsTimeout = caasStreamsTimeout
-		availableAgents = c.initCAASVersions
 	}
-	return c.upgradeModel(ctx, implicitAgentUploadAllowed, fetchToolsTimeout, availableAgents)
+	return c.upgradeModel(ctx, implicitAgentUploadAllowed, fetchToolsTimeout)
 }
 
-func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration, availableAgents availableAgentsFunc) (err error) {
+func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration) (err error) {
+	defer func() {
+		if err != nil {
+			logger.Debugf("upgradeModel failed %v", err)
+		}
+	}()
 	// Validate a model can be upgraded, by running some pre-flight checks.
 	if err := c.validateModelUpgrade(); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
@@ -457,10 +448,6 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 			return errors.Errorf("--build-agent can only be used with the controller model")
 		}
 	}
-	controllerCfg, err := controllerClient.ControllerConfig()
-	if err != nil {
-		return err
-	}
 
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
@@ -473,7 +460,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		return err
 	}
 
-	upgradeCtx, versionsErr := c.initVersions(client, controllerCfg, cfg, agentVersion, warnCompat, fetchTimeout, availableAgents)
+	upgradeCtx, versionsErr := c.initVersions(client, cfg, agentVersion, warnCompat, fetchTimeout)
 	if versionsErr != nil {
 		return versionsErr
 	}
@@ -790,18 +777,13 @@ func (c *baseUpgradeCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 	return answer == "y" || answer == "yes", nil
 }
 
-// availableAgentsFunc defines a function that returns the
-// available agent versions for the given simple streams agent metadata.
-type availableAgentsFunc func(controllerCfg controller.Config, majorVersion int, streamVersions coretools.List) (coretools.Versions, error)
-
 // initVersions collects state relevant to an upgrade decision. The returned
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
 func (c *baseUpgradeCommand) initVersions(
-	client toolsAPI, controllerCfg controller.Config, cfg *config.Config,
+	client toolsAPI, cfg *config.Config,
 	agentVersion version.Number, filterOnPrior bool, timeout time.Duration,
-	availableAgents availableAgentsFunc,
 ) (*upgradeContext, error) {
 	if c.Version == agentVersion {
 		return nil, errUpToDate
@@ -817,10 +799,11 @@ func (c *baseUpgradeCommand) initVersions(
 	}
 	logger.Debugf("searching for %q agent binaries with major: %d", c.AgentStream, filterVersion.Major)
 	streamVersions, err := fetchStreamsVersions(client, filterVersion.Major, c.AgentStream, timeout)
-	if err != nil && !params.IsCodeNotFound(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	agents, err := availableAgents(controllerCfg, filterVersion.Major, streamVersions)
+	logger.Debugf("fetched stream versions %s", streamVersions)
+	agents, err := toolListToVersions(streamVersions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -831,6 +814,42 @@ func (c *baseUpgradeCommand) initVersions(
 		packagedAgents: agents,
 		config:         cfg,
 	}, nil
+}
+
+// fetchStreamsVersions returns simplestreams agent metadata
+// for the specified stream. timeout ensures we don't block forever.
+func fetchStreamsVersions(
+	client toolsAPI, majorVersion int, stream string, timeout time.Duration,
+) (coretools.List, error) {
+	// Use a go routine so we can timeout.
+	result := make(chan coretools.List, 1)
+	errChan := make(chan error, 1)
+	go func() {
+		findResult, err := client.FindTools(majorVersion, -1, "", "", stream)
+		if err != nil {
+			errChan <- err
+		} else {
+			result <- findResult.List
+		}
+	}()
+
+	select {
+	case <-time.After(timeout):
+		return nil, nil
+	case err := <-errChan:
+		return nil, err
+	case resultList := <-result:
+		return resultList, nil
+	}
+}
+
+// The default available agents come directly from streams metadata.
+func toolListToVersions(streamsVersions coretools.List) (coretools.Versions, error) {
+	agents := make(coretools.Versions, len(streamsVersions))
+	for i, t := range streamsVersions {
+		agents[i] = t
+	}
+	return agents, nil
 }
 
 // upgradeContext holds the version information for making upgrade decisions.
@@ -850,7 +869,7 @@ type upgradeContext struct {
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
 func (context *upgradeContext) uploadTools(
-	client jujuClientAPI, buildAgent bool, agentVersion version.Number, controllerAgentVersion version.Number, dryRun bool,
+	client ClientAPI, buildAgent bool, agentVersion version.Number, controllerAgentVersion version.Number, dryRun bool,
 ) (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// jujuversion.Current matches whatever source happens to be built. The

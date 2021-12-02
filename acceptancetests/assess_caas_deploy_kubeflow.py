@@ -25,7 +25,9 @@ from deploy_stack import BootstrapManager
 from jujupy.k8s_provider import K8sProviderType, providers
 from jujupy.utility import until_timeout
 from utility import (
-    JujuAssertionError, add_basic_testing_arguments, configure_logging,
+    JujuAssertionError,
+    add_basic_testing_arguments,
+    configure_logging,
 )
 
 __metaclass__ = type
@@ -287,7 +289,9 @@ def get_pub_addr(caas_client, model_name):
             return '%s.xip.io' % pub_ip
         except (KeyError, subprocess.CalledProcessError):
             pass
-    log.warn('it is not possible to get the public address from either ambassador or istio-ingressgateway, now fall back to "localhost"')
+    log.warn("""
+it is not possible to get the public address from either ambassador or istio-ingressgateway, now fall back to "localhost"
+""")
     # If all else fails, just use localhost
     return 'localhost'
 

@@ -100,6 +100,7 @@ type StateBackend interface {
 	RemoveOrphanedCrossModelProxies() error
 	DropLegacyAssumesSectionsFromCharmMetadata() error
 	MigrateLegacyCrossModelTokens() error
+	CleanupDeadAssignUnits() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -432,4 +433,8 @@ func (s stateBackend) DropLegacyAssumesSectionsFromCharmMetadata() error {
 
 func (s stateBackend) MigrateLegacyCrossModelTokens() error {
 	return state.MigrateLegacyCrossModelTokens(s.pool)
+}
+
+func (s stateBackend) CleanupDeadAssignUnits() error {
+	return state.CleanupDeadAssignUnits(s.pool)
 }

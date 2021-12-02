@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20211103232324-2ce34ccd3350
+	github.com/canonical/pebble v0.0.0-20211124224737-13a5e875b6a1
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -77,7 +77,7 @@ require (
 	github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258
 	github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/juju/replicaset/v2 v2.0.1-0.20210310024806-bbbdc5f31eb3
+	github.com/juju/replicaset/v2 v2.0.1-0.20211125220232-7967ce535201
 	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
 	github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568

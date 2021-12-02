@@ -180,7 +180,7 @@ func volumePlansToMachineIds(plans []params.VolumeAttachmentPlanResult) []params
 // attachments with the provided IDs have been seen to have changed.
 func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
 	ids := copyMachineStorageIds(watcherIds)
-	alive, dying, dead, err := attachmentLife(ctx, ids)
+	alive, dying, dead, gone, err := attachmentLife(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -189,6 +189,10 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 		// We should not see dead volume attachments;
 		// attachments go directly from Dying to removed.
 		ctx.config.Logger.Warningf("unexpected dead volume attachments: %v", dead)
+	}
+	// Clean up any attachments which have been removed.
+	for _, id := range gone {
+		delete(ctx.volumeAttachments, id)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil

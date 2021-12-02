@@ -584,6 +584,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Mem",
 		"RootDisk",
 		"RootDiskSource",
+		"InstanceRole",
 		"InstanceType",
 		"Container",
 		"Tags",

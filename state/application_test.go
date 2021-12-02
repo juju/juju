@@ -68,15 +68,6 @@ func (s *ApplicationSuite) assertNeedsCleanup(c *gc.C) {
 	c.Assert(dirty, jc.IsTrue)
 }
 
-func (s *ApplicationSuite) removeOfferConnections(c *gc.C, offer crossmodel.ApplicationOffer) {
-	jujudb := s.MgoSuite.Session.DB("juju")
-	offerConnectionsCollection := jujudb.C(state.OfferConnectionsC)
-
-	info, err := offerConnectionsCollection.RemoveAll(bson.M{"offer-uuid": offer.OfferUUID})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Matched, gc.Equals, info.Removed)
-}
-
 func (s *ApplicationSuite) assertNoCleanup(c *gc.C) {
 	dirty, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1116,6 +1107,75 @@ func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
 	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
+}
+
+func (s *ApplicationSuite) TestAssignUnitsRemovedAfterAppDestroy(c *gc.C) {
+	mariadb := s.AddTestingApplicationWithNumUnits(c, 1, "mariadb", s.charm)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	units, err := mariadb.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(units), gc.Equals, 1)
+	unit := units[0]
+	c.Assert(unit.Name(), gc.Equals, "mariadb/0")
+	unitAssignments, err := s.State.AllUnitAssignments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(unitAssignments), gc.Equals, 1)
+
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mariadb.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, mariadb)
+
+	unitAssignments, err = s.State.AllUnitAssignments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(unitAssignments), gc.Equals, 0)
+}
+
+func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroyForSidecarApplication(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	s.AddCleanup(func(*gc.C) { _ = st.Close() })
+	f := factory.NewFactory(st, s.StatePool)
+	charmDef := `
+name: cockroachdb
+description: foo
+summary: foo
+containers:
+  redis:
+    resource: redis-container-resource
+resources:
+  redis-container-resource:
+    name: redis-container
+    type: oci-image
+`
+	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, "cockroachdb/0")
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, st.ModelUUID())
+	assertCleanupCount(c, st, 2)
+	unitAssignments, err := st.AllUnitAssignments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(unitAssignments), gc.Equals, 0)
+
+	ch = state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	app = f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+	unit, err = app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, "cockroachdb/0")
 }
 
 func (s *ApplicationSuite) TestSequenceUnitIds(c *gc.C) {
@@ -4238,6 +4298,18 @@ func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
 		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *ApplicationSuite) TestApplicationConfigNotFoundNoError(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy-application", ch)
+
+	// Delete all the settings. We should get a nil return, but no error.
+	_, _ = s.State.MongoSession().DB("juju").C("settings").RemoveAll(nil)
+
+	cfg, err := app.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg, gc.IsNil)
 }
 
 func (s *ApplicationSuite) TestStatusInitial(c *gc.C) {

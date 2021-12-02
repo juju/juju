@@ -49,7 +49,7 @@ func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
 		ServiceInstalled: true,
 	}
 	suite.PatchValue(&mongo.IsServiceInstalled, f.IsServiceInstalled)
-	suite.PatchValue(&replicaset.CurrentConfig, f.CurrentConfig)
+	suite.PatchValue(&mongo.CurrentReplicasetConfig, f.CurrentConfig)
 	suite.PatchValue(&cmdutil.EnsureMongoServer, f.EnsureMongo)
 	return f
 }

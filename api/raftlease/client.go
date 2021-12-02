@@ -234,7 +234,7 @@ func (c *Client) handleRetryRequestError(command *raftlease.Command, remote Remo
 		// log this error and try again if possible. The lease manager
 		// will know if a retry at that level is possible.
 		c.config.Logger.Warningf("Rate limit enqueuing %q command. Deadline exceeded for lease %s model: %v.", command.Operation, command.Lease, command.ModelUUID)
-		return remote, lease.ErrDropped
+		return remote, lease.ErrDeadlineExceeded
 	}
 
 	// If we can't find a remote, we should just return that the error was

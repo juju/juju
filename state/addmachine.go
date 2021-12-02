@@ -387,7 +387,8 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 // newContainerId returns a new id for a machine within the machine
 // with id parentId and the given container type.
 func (st *State) newContainerId(parentId string, containerType instance.ContainerType) (string, error) {
-	seq, err := sequence(st, fmt.Sprintf("machine%s%sContainer", parentId, containerType))
+	name := fmt.Sprintf("machine%s%sContainer", parentId, containerType)
+	seq, err := sequence(st, name)
 	if err != nil {
 		return "", err
 	}

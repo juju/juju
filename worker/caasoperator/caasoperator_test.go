@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/juju/sockets"
@@ -319,15 +318,11 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 }
 
-func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.NotifyChannel) {
-	applicationChannel := make(chan watcher.NotifyChannel)
+func (s *WorkerSuite) assertUniterStarted(c *gc.C) worker.Worker {
+	ch := make(chan struct{})
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
+		defer close(ch)
 		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-		select {
-		case applicationChannel <- params.ApplicationChannel:
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timeout sending application channel")
-		}
 		return nil
 	}
 
@@ -346,35 +341,11 @@ func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.Notif
 	}
 
 	select {
-	case channel := <-applicationChannel:
-		return w, channel
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for uniter to start")
-	}
-	panic("not reachable")
-}
-
-func (s *WorkerSuite) TestUpgradeCharm(c *gc.C) {
-	w, applicationChannel := s.assertUniterStarted(c)
-	defer workertest.CleanKill(c, w)
-
-	select {
-	case <-applicationChannel:
-		c.Fatal("unexpected application change")
+	case <-ch:
 	case <-time.After(coretesting.ShortWait):
+		c.Fatal("timed out waiting for start uniter to be called for unit gitlab/0")
 	}
-
-	select {
-	case s.appChanges <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending application change")
-	}
-
-	select {
-	case <-applicationChannel:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for application change")
-	}
+	return w
 }
 
 func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
@@ -402,7 +373,7 @@ func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemovedUnit(c *gc.C) {
-	w, _ := s.assertUniterStarted(c)
+	w := s.assertUniterStarted(c)
 	defer workertest.CleanKill(c, w)
 
 	s.client.ResetCalls()
@@ -412,6 +383,7 @@ func (s *WorkerSuite) TestRemovedUnit(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending unit change")
 	}
+
 	select {
 	case <-s.unitRemoved:
 	case <-time.After(coretesting.LongWait):

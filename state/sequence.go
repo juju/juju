@@ -42,6 +42,16 @@ func sequence(mb modelBackend, name string) (int, error) {
 	return result.Counter, nil
 }
 
+func resetSequence(mb modelBackend, name string) error {
+	sequences, closer := mb.db().GetCollection(sequenceC)
+	defer closer()
+	err := sequences.Writeable().RemoveId(name)
+	if err != nil && errors.Cause(err) != mgo.ErrNotFound {
+		return errors.Annotatef(err, "can not reset sequence for %q", name)
+	}
+	return nil
+}
+
 // sequenceWithMin safely increments a database backed sequence,
 // allowing for a minimum value for the sequence to be specified. The
 // minimum value is used as an initial value for the first use of a

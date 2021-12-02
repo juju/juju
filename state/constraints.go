@@ -25,6 +25,7 @@ type constraintsDoc struct {
 	Mem              *uint64
 	RootDisk         *uint64
 	RootDiskSource   *string
+	InstanceRole     *string
 	InstanceType     *string
 	Container        *instance.ContainerType
 	Tags             *[]string
@@ -43,6 +44,7 @@ func newConstraintsDoc(cons constraints.Value, id string) constraintsDoc {
 		Mem:              cons.Mem,
 		RootDisk:         cons.RootDisk,
 		RootDiskSource:   cons.RootDiskSource,
+		InstanceRole:     cons.InstanceRole,
 		InstanceType:     cons.InstanceType,
 		Container:        cons.Container,
 		Tags:             cons.Tags,
@@ -62,6 +64,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		Mem:              doc.Mem,
 		RootDisk:         doc.RootDisk,
 		RootDiskSource:   doc.RootDiskSource,
+		InstanceRole:     doc.InstanceRole,
 		InstanceType:     doc.InstanceType,
 		Container:        doc.Container,
 		Tags:             doc.Tags,
@@ -212,7 +215,7 @@ func (m *Model) AllConstraints() (*ModelConstraints, error) {
 	return all, nil
 }
 
-// ModelConstraints represents all the contraints in  a model
+// ModelConstraints represents all the constraints in  a model
 // keyed on global key.
 type ModelConstraints struct {
 	data map[string]constraintsDoc

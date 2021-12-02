@@ -35,7 +35,6 @@ import (
 	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -2169,22 +2168,15 @@ func (s *upgradesSuite) TestCreateMissingApplicationConfig(c *gc.C) {
 	model2 := s.makeModel(c, "model-new", coretesting.Attrs{})
 	defer model2.Close()
 
-	chDir := testcharms.Repo.CharmDir("dummy")
-	chInfo := CharmInfo{
-		Charm:       chDir,
-		ID:          charm.MustParseURL(fmt.Sprintf("cs:xenial/%s-%d", chDir.Meta().Name, chDir.Revision())),
-		StoragePath: "dummy-1",
-		SHA256:      "dummy-1-sha256",
-	}
-	ch, err := s.state.AddCharm(chInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	ch1 := AddTestingCharm(c, model1, "dummy")
+	ch2 := AddTestingCharm(c, model2, "dummy")
 
-	app1, err := model1.AddApplication(AddApplicationArgs{Name: "dummy", Charm: ch})
+	app1, err := model1.AddApplication(AddApplicationArgs{Name: "dummy", Charm: ch1})
 	c.Assert(err, jc.ErrorIsNil)
 	// This one will be left alone to model a 2.4-beta1 created app.
-	_, err = model1.AddApplication(AddApplicationArgs{Name: "dummy2", Charm: ch})
+	_, err = model1.AddApplication(AddApplicationArgs{Name: "dummy2", Charm: ch1})
 	c.Assert(err, jc.ErrorIsNil)
-	app2, err := model2.AddApplication(AddApplicationArgs{Name: "dummy", Charm: ch})
+	app2, err := model2.AddApplication(AddApplicationArgs{Name: "dummy", Charm: ch2})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove any application config that has been added (to model a pre-2.4-beta1 collection)
@@ -5796,6 +5788,86 @@ func (s *upgradesSuite) TestMigrateLegacyCrossModelTokens(c *gc.C) {
 
 	s.assertUpgradedData(c, MigrateLegacyCrossModelTokens,
 		upgradedData(col, expected),
+	)
+}
+
+func (s *upgradesSuite) TestCleanupDeadAssignUnits(c *gc.C) {
+	model0 := s.makeModel(c, "model-0", coretesting.Attrs{})
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() {
+		_ = model0.Close()
+		_ = model1.Close()
+	}()
+
+	assignUnitColl, assignUnitCloser := s.state.db().GetRawCollection(assignUnitC)
+	defer assignUnitCloser()
+	s.makeApplication(c, model0.ModelUUID(), "app01", Alive)
+	s.makeApplication(c, model0.ModelUUID(), "app02", Dying)
+	s.makeApplication(c, model0.ModelUUID(), "app03", Dead)
+	s.makeApplication(c, model1.ModelUUID(), "app11", Alive)
+	s.makeApplication(c, model1.ModelUUID(), "app12", Dying)
+	s.makeApplication(c, model1.ModelUUID(), "app13", Dead)
+	err := assignUnitColl.Insert(
+		bson.M{
+			"_id":        model0.docID("app01/0"),
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model0.docID("app02/0"),
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model0.docID("app03/0"), // remove: dead app.
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model0.docID("non-exist-app/0"), // remove: non-exist app.
+			"model-uuid": model0.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("app11/0"),
+			"model-uuid": model1.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("app12/0"),
+			"model-uuid": model1.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("app13/0"), // remove: dead app.
+			"model-uuid": model1.ModelUUID(),
+		},
+		bson.M{
+			"_id":        model1.docID("non-exist-app/0"), // remove: non-exist app.
+			"model-uuid": model1.ModelUUID(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := assignUnitColl.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 8)
+
+	expected := bsonMById{
+		{
+			"_id":        model0.docID("app01/0"),
+			"model-uuid": model0.ModelUUID(),
+		},
+		{
+			"_id":        model0.docID("app02/0"),
+			"model-uuid": model0.ModelUUID(),
+		},
+		{
+			"_id":        model1.docID("app11/0"),
+			"model-uuid": model1.ModelUUID(),
+		},
+		{
+			"_id":        model1.docID("app12/0"),
+			"model-uuid": model1.ModelUUID(),
+		},
+	}
+	sort.Sort(expected)
+
+	s.assertUpgradedData(c, CleanupDeadAssignUnits,
+		upgradedData(assignUnitColl, expected),
 	)
 }
 
