@@ -2651,6 +2651,13 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 	return []string{cidr}, nil
 }
 
+// GetCloudSpec is specificed in the CloudSpecGetter interface
+func (e *environ) GetCloudSpec(ctx stdcontext.Context) (environscloudspec.CloudSpec, error) {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	return e.cloud, nil
+}
+
 // SetCloudSpec is specified in the environs.Environ interface.
 func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	if err := validateCloudSpec(spec); err != nil {

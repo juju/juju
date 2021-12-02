@@ -288,6 +288,20 @@ type ConfigSetter interface {
 	SetConfig(cfg *config.Config) error
 }
 
+// CloudSpecGetter implents access to retrieving an environment's cloud spec
+type CloudSpecGetter interface {
+	// GetCloudSpec returns the current cloud spec in use by the Environ
+	GetCloudSpec(stdcontext.Context) (environscloudspec.CloudSpec, error)
+}
+
+// CloudSpecGetterFn provides a function type that implements CloudSpecGetter
+type CloudSpecGetterFn func(stdcontext.Context) (environscloudspec.CloudSpec, error)
+
+// GetCloudSpec implements CloudSpecGetter interface
+func (c CloudSpecGetterFn) GetCloudSpec(ctx stdcontext.Context) (environscloudspec.CloudSpec, error) {
+	return c(ctx)
+}
+
 // CloudSpecSetter implements access to an environment's cloud spec.
 type CloudSpecSetter interface {
 	// SetCloudSpec updates the Environ's configuration.

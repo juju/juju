@@ -21,6 +21,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -146,9 +147,17 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
 
+	controllerCloudSpecGetter, ok := controllerEnviron.(environs.CloudSpecGetter)
+	if !ok {
+		controllerCloudSpecGetter = environs.CloudSpecGetterFn(
+			func(c stdcontext.Context) (environscloudspec.CloudSpec, error) {
+				return environscloudspec.CloudSpec{}, errors.NewNotImplemented(nil, "GetCloudSpec")
+			})
+	}
+
 	uuid := controllerEnviron.Config().UUID()
 	if err := c.WaitForModels(ctx, api, uuid); err != nil {
-		c.DirectDestroyRemaining(ctx, api)
+		c.DirectDestroyRemaining(ctx, api, controllerCloudSpecGetter)
 	}
 	return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 }
@@ -181,7 +190,11 @@ func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destro
 
 // DirectDestroyRemaining will attempt to directly destroy any remaining
 // models that have machines left.
-func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyControllerAPI) {
+func (c *killCommand) DirectDestroyRemaining(
+	ctx *cmd.Context,
+	api destroyControllerAPI,
+	controllerCloudSpec environs.CloudSpecGetter) {
+
 	hasErrors := false
 	hostedConfig, err := api.HostedModelConfigs()
 	if err != nil {
@@ -219,10 +232,25 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 			hasErrors = true
 			continue
 		}
+
+		modelCloudSpec := model.CloudSpec
+		if modelCloudSpec.Type == "ec2" && model.CloudSpec.Credential.AuthType() == cloud.InstanceRoleAuthType {
+			ccSpec, err := controllerCloudSpec.GetCloudSpec(stdcontext.Background())
+			if err == nil && (modelCloudSpec.Type != ccSpec.Type ||
+				modelCloudSpec.Name != ccSpec.Name) {
+				logger.Warningf("model %q uses instance profile credentials, can't destroy model. It will have to be cleaned up manually", model.Name)
+			} else if err != nil {
+				logger.Warningf("cannot get  controller cloud spec: %v", err)
+			} else {
+				logger.Infof("detected ec2 instance role credential for model %q, swapping to controller credentials", model.Name)
+				modelCloudSpec = ccSpec
+			}
+		}
+
 		if cloudProvider, ok := p.(environs.EnvironProvider); ok {
 			openParams := environs.OpenParams{
 				ControllerUUID: ctrlUUID,
-				Cloud:          model.CloudSpec,
+				Cloud:          modelCloudSpec,
 				Config:         cfg,
 			}
 			var env environs.CloudDestroyer
