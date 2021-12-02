@@ -3,8 +3,8 @@
 
 package upgrades
 
-// stateStepsFor2918 returns database upgrade steps for Juju 2.9.18
-func stateStepsFor2918() []Step {
+// stateStepsFor2922 returns database upgrade steps for Juju 2.9.22
+func stateStepsFor2922() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "remove link-layer devices without machines",
@@ -14,7 +14,7 @@ func stateStepsFor2918() []Step {
 			},
 		},
 		// This is a repetition of the same step run for the 2.8.6 upgrade.
-		// It is here due to the fix in 2.8.18 of a bug that was still
+		// It is here due to the fix in 2.9.22 of a bug that was still
 		// causing this issue to occur.
 		&upgradeStep{
 			description: "remove unused link-layer device provider IDs",

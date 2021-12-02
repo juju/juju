@@ -12,20 +12,20 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v2918 = version.MustParse("2.9.18")
+var v2922 = version.MustParse("2.9.22")
 
-type steps2918Suite struct {
+type steps2922Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps2918Suite{})
+var _ = gc.Suite(&steps2922Suite{})
 
-func (s *steps2918Suite) TestRemoveOrphanedLinkLayerDevices(c *gc.C) {
-	step := findStateStep(c, v2918, "remove link-layer devices without machines")
+func (s *steps2922Suite) TestRemoveOrphanedLinkLayerDevices(c *gc.C) {
+	step := findStateStep(c, v2922, "remove link-layer devices without machines")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
-func (s *steps2918Suite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
-	step := findStateStep(c, v2918, "remove unused link-layer device provider IDs")
+func (s *steps2922Suite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
+	step := findStateStep(c, v2922, "remove unused link-layer device provider IDs")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
