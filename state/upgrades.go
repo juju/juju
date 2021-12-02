@@ -3877,29 +3877,37 @@ func CleanupDeadAssignUnits(pool *StatePool) error {
 // This situation could occur in the past for force-destroyed machines.
 func RemoveOrphanedLinkLayerDevices(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		machines, err := st.AllMachines()
-		if err != nil {
-			return errors.Trace(err)
-		}
+		machines, mCloser := st.db().GetCollection(machinesC)
+		defer mCloser()
+		iter := machines.Find(nil).Iter()
 
 		machineIDs := set.NewStrings()
-		for _, m := range machines {
-			machineIDs.Add(m.Id())
+		var mDoc struct {
+			ID string `bson:"machineid"`
+		}
+		for iter.Next(&mDoc) {
+			machineIDs.Add(mDoc.ID)
 		}
 
-		devs, err := st.AllLinkLayerDevices()
-		if err != nil {
+		if err := iter.Close(); err != nil {
 			return errors.Trace(err)
 		}
 
-		for _, dev := range devs {
-			if machineIDs.Contains(dev.MachineID()) {
+		linkLayerDevices, lldCloser := st.db().GetCollection(linkLayerDevicesC)
+		defer lldCloser()
+		iter = linkLayerDevices.Find(nil).Iter()
+
+		var devDoc linkLayerDeviceDoc
+		for iter.Next(&devDoc) {
+			if machineIDs.Contains(devDoc.MachineID) {
 				continue
 			}
-			if err := dev.Remove(); err != nil {
+			if err := newLinkLayerDevice(st, devDoc).Remove(); err != nil {
+				_ = iter.Close()
 				return errors.Trace(err)
 			}
 		}
-		return nil
+
+		return errors.Trace(iter.Close())
 	}))
 }
