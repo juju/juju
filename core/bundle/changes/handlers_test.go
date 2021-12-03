@@ -102,6 +102,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameRevision(c *gc.C) {
 
 func (s *resolverSuite) TestAllowUpgradeWithDifferentChannel(c *gc.C) {
 	existing := &Application{
+		Name:    "ubuntu",
 		Charm:   "ch:ubuntu",
 		Channel: "stable",
 	}
@@ -113,12 +114,13 @@ func (s *resolverSuite) TestAllowUpgradeWithDifferentChannel(c *gc.C) {
 
 	r := resolver{}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `^upgrades not supported across channels \(existing: "stable", requested: "edge"\); use --force to override`)
+	c.Assert(err, gc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", requested: "edge"\); use --force to override`)
 	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *resolverSuite) TestAllowUpgradeWithNoBundleChannel(c *gc.C) {
 	existing := &Application{
+		Name:    "ubuntu",
 		Charm:   "ch:ubuntu",
 		Channel: "stable",
 	}
@@ -129,7 +131,7 @@ func (s *resolverSuite) TestAllowUpgradeWithNoBundleChannel(c *gc.C) {
 
 	r := resolver{}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `^upgrades not supported across channels \(existing: "stable", resolved: ""\); use --force to override`)
+	c.Assert(err, gc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", resolved: ""\); use --force to override`)
 	c.Assert(ok, jc.IsFalse)
 }
 
