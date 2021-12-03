@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"text/template"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -43,12 +41,6 @@ func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
 		Password:       dialInfo.Password,
 	}
 	return peergrouper.InitiateMongoServer(params)
-}
-
-var filesystemRoot = getFilesystemRoot
-
-func getFilesystemRoot() string {
-	return string(os.PathSeparator)
 }
 
 // tagUserCredentials is a convenience function that extracts the
@@ -121,27 +113,6 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 	return nil
 }
 
-// updateMachineAddresses will update the machine doc to the current addresses
-func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddress string) error {
-	privateAddressAddress := network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: privateAddress,
-			Type:  network.DeriveAddressType(privateAddress),
-		},
-	}
-	publicAddressAddress := network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: publicAddress,
-			Type:  network.DeriveAddressType(publicAddress),
-		},
-	}
-	if err := machine.SetProviderAddresses(publicAddressAddress, privateAddressAddress); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// assign to variables for testing purposes.
 var mongoDefaultDialOpts = mongo.DefaultDialOpts
 var environsGetNewPolicyFunc = stateenvirons.GetNewPolicyFunc
 
@@ -181,44 +152,6 @@ func connectToDB(controllerTag names.ControllerTag, modelTag names.ModelTag, inf
 		logger.Errorf("cannot open state, retrying: %v", err)
 	}
 	return nil, errors.Annotate(err, "cannot open state")
-}
-
-type machineModel struct {
-	machine *state.Machine
-	model   *state.Model
-}
-
-// updateAllMachines finds all machines and resets the stored state address
-// in each of them. The address does not include the port.
-// It is too late to go back and errors in a couple of agents have
-// better chance of being fixed by the user, if we were to fail
-// we risk an inconsistent controller because of one unresponsive
-// agent, we should nevertheless return the err info to the user.
-func updateAllMachines(privateAddress, publicAddress string, machines []machineModel) error {
-	var machineUpdating sync.WaitGroup
-	for _, item := range machines {
-		machine := item.machine
-		// A newly resumed controller requires no updating, and more
-		// than one controller is not yet supported by this code.
-		if machine.IsManager() || machine.Life() == state.Dead {
-			continue
-		}
-		machineUpdating.Add(1)
-		go func(machine *state.Machine, model *state.Model) {
-			defer machineUpdating.Done()
-			logger.Debugf("updating addresses for machine %s in model %s/%s", machine.Tag().Id(), model.Owner().Id(), model.Name())
-			// TODO: thumper 2016-09-20
-			// runMachineUpdate only handles linux machines, what about windows?
-			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress, publicAddress))
-			if err != nil {
-				logger.Errorf("failed updating machine: %v", err)
-			}
-		}(machine, item.model)
-	}
-	machineUpdating.Wait()
-
-	// We should return errors encapsulated in a digest.
-	return nil
 }
 
 // agentAddressAndRelationsTemplate is the template used to replace the api server data
@@ -266,18 +199,6 @@ func setAgentAddressScript(stateAddr, statePubAddr string) string {
 		panic(errors.Annotate(err, "template error"))
 	}
 	return buf.String()
-}
-
-// runMachineUpdate connects via ssh to the machine and runs the update script.
-func runMachineUpdate(machine *state.Machine, sshArg string) error {
-	addr, err := machine.PublicAddress()
-	if err != nil {
-		if network.IsNoAddressError(err) {
-			return errors.Annotatef(err, "no appropriate public address found")
-		}
-		return errors.Trace(err)
-	}
-	return runViaSSH(addr.Value, sshArg)
 }
 
 // sshCommand hods ssh.Command type for testing purposes.

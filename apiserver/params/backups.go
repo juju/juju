@@ -12,7 +12,6 @@ import (
 // BackupsCreateArgs holds the args for the API Create method.
 type BackupsCreateArgs struct {
 	Notes      string `json:"notes"`
-	KeepCopy   bool   `json:"keep-copy"`
 	NoDownload bool   `json:"no-download"`
 }
 

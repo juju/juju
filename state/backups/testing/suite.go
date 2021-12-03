@@ -10,17 +10,14 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-// The base suite for backups testing.
+// BaseSuite is the  base suite for backups testing.
 type BaseSuite struct {
 	testing.IsolationSuite
 	// Meta is a Metadata with standard test values.
 	Meta *backups.Metadata
-	// Storage is a FileStorage to use when testing backups.
-	Storage *FakeStorage
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Meta = NewMetadata()
-	s.Storage = &FakeStorage{}
 }

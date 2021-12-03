@@ -19,7 +19,6 @@ var waitUntilReady = replicaset.WaitUntilReady
 //
 // NOTE(hml) this provides backwards compatibility for facade version 1.
 func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	args.KeepCopy = true
 	args.NoDownload = true
 
 	apiv2 := APIv2{a}
@@ -31,8 +30,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 }
 
 func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	backupsMethods, closer := newBackups(a.backend)
-	defer closer.Close()
+	backupsMethods := newBackups()
 
 	session := a.backend.MongoSession().Copy()
 	defer session.Close()
@@ -87,7 +85,7 @@ func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataRes
 	}
 	meta.Controller.HANodes = int64(len(nodes))
 
-	fileName, err := backupsMethods.Create(meta, a.paths, dbInfo, args.KeepCopy, args.NoDownload)
+	fileName, err := backupsMethods.Create(meta, a.paths, dbInfo)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

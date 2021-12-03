@@ -6,6 +6,7 @@ package backups
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -13,7 +14,6 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/state/backups"
 )
 
 const downloadDoc = `
@@ -31,18 +31,18 @@ func NewDownloadCommand() cmd.Command {
 // downloadCommand is the sub-command for downloading a backup archive.
 type downloadCommand struct {
 	CommandBase
-	// Filename is where to save the downloaded archive.
-	Filename string
-	// ID is the backup ID to download.
-	ID string
+	// LocalFilename is where to save the downloaded archive.
+	LocalFilename string
+	// RemoteFilename is the backup filename to download.
+	RemoteFilename string
 }
 
 // Info implements Command.Info.
 func (c *downloadCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "download-backup",
-		Args:    "<ID>",
-		Purpose: "Get an archive file.",
+		Args:    "/full/path/to/backup/on/controller",
+		Purpose: "Download a backup archive file.",
 		Doc:     downloadDoc,
 	})
 }
@@ -50,19 +50,19 @@ func (c *downloadCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.Filename, "filename", "", "Download target")
+	f.StringVar(&c.LocalFilename, "filename", "", "Download target")
 }
 
 // Init implements Command.Init.
 func (c *downloadCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing ID")
+		return errors.New("missing filename")
 	}
-	id, args := args[0], args[1:]
+	filename, args := args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {
 		return errors.Trace(err)
 	}
-	c.ID = id
+	c.RemoteFilename = filename
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	// Download the archive.
-	resultArchive, err := client.Download(c.ID)
+	resultArchive, err := client.Download(c.RemoteFilename)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -105,9 +105,9 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 
 // ResolveFilename returns the filename used by the command.
 func (c *downloadCommand) ResolveFilename() string {
-	filename := c.Filename
+	filename := c.LocalFilename
 	if filename == "" {
-		filename = backups.FilenamePrefix + c.ID + ".tar.gz"
+		_, filename = filepath.Split(c.RemoteFilename)
 	}
 	return filename
 }

@@ -5363,10 +5363,6 @@
                         }
                     }
                 },
-                "FinishRestore": {
-                    "type": "object",
-                    "description": "FinishRestore implements the server side of Backups.FinishRestore."
-                },
                 "Info": {
                     "type": "object",
                     "properties": {
@@ -5390,10 +5386,6 @@
                         }
                     },
                     "description": "List provides the implementation of the API method."
-                },
-                "PrepareRestore": {
-                    "type": "object",
-                    "description": "PrepareRestore implements the server side of Backups.PrepareRestore."
                 },
                 "Remove": {
                     "type": "object",
@@ -5421,9 +5413,6 @@
                 "BackupsCreateArgs": {
                     "type": "object",
                     "properties": {
-                        "keep-copy": {
-                            "type": "boolean"
-                        },
                         "no-download": {
                             "type": "boolean"
                         },
@@ -5434,7 +5423,6 @@
                     "additionalProperties": false,
                     "required": [
                         "notes",
-                        "keep-copy",
                         "no-download"
                     ]
                 },

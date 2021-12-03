@@ -5,7 +5,6 @@ package backups_test
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -38,8 +37,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 
 	s.expectedOut = MetaResultString
 	s.expectedErr = `
-Remote backup was not created.
-Downloaded to juju-backup-00010101-000000.tar.gz.
+Downloaded to juju-backup-00010101-000000.tar.gz
 `[1:]
 }
 
@@ -77,18 +75,13 @@ func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
 
 	out := cmdtesting.Stderr(ctx)
 	parts := strings.Split(out, "\n")
-	c.Assert(parts, gc.HasLen, 3)
-	if s.command.KeepCopy {
-		c.Check(parts[0], gc.Equals, fmt.Sprintf("Remote backup stored on the controller as %v.", s.metaresult.ID))
-	} else {
-		c.Check(parts[0], gc.Equals, "Remote backup was not created.")
-	}
+	c.Assert(parts, gc.HasLen, 2)
 
 	// Check the download message.
-	parts = strings.Split(parts[1], "Downloaded to ")
+	parts = strings.Split(parts[0], "Downloaded to ")
 	c.Assert(parts, gc.HasLen, 2)
 	c.Assert(parts[0], gc.Equals, "")
-	s.filename = parts[1][:len(parts[1])-1]
+	s.filename = parts[1][:len(parts[1])]
 }
 
 func (s *createSuite) checkDownload(c *gc.C, ctx *cmd.Context) {
@@ -101,7 +94,6 @@ type createBackupArgParsing struct {
 	args       []string
 	errMatch   string
 	filename   string
-	keepCopy   bool
 	noDownload bool
 	notes      string
 }
@@ -111,7 +103,6 @@ var testCreateBackupArgParsing = []createBackupArgParsing{
 		title:      "no args",
 		args:       []string{},
 		filename:   backups.NotSet,
-		keepCopy:   false,
 		noDownload: false,
 		notes:      "",
 	},
@@ -119,7 +110,6 @@ var testCreateBackupArgParsing = []createBackupArgParsing{
 		title:      "filename",
 		args:       []string{"--filename", "testname"},
 		filename:   "testname",
-		keepCopy:   false,
 		noDownload: false,
 		notes:      "",
 	},
@@ -128,7 +118,6 @@ var testCreateBackupArgParsing = []createBackupArgParsing{
 		args:       []string{"--filename"},
 		errMatch:   "option needs an argument: --filename",
 		filename:   backups.NotSet,
-		keepCopy:   false,
 		noDownload: false,
 		notes:      "",
 	},
@@ -137,16 +126,6 @@ var testCreateBackupArgParsing = []createBackupArgParsing{
 		args:       []string{"--filename", "testname", "--no-download"},
 		errMatch:   "cannot mix --no-download and --filename",
 		filename:   backups.NotSet,
-		keepCopy:   false,
-		noDownload: false,
-		notes:      "",
-	},
-	{
-		title:      "keep-copy",
-		args:       []string{"--keep-copy"},
-		errMatch:   "",
-		filename:   backups.NotSet,
-		keepCopy:   true,
 		noDownload: false,
 		notes:      "",
 	},
@@ -155,7 +134,6 @@ var testCreateBackupArgParsing = []createBackupArgParsing{
 		args:       []string{"note for the backup"},
 		errMatch:   "",
 		filename:   backups.NotSet,
-		keepCopy:   false,
 		noDownload: false,
 		notes:      "note for the backup",
 	},
@@ -168,7 +146,6 @@ func (s *createSuite) TestArgParsing(c *gc.C) {
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.command.Filename, gc.Equals, test.filename)
-			c.Assert(s.command.KeepCopy, gc.Equals, test.keepCopy)
 			c.Assert(s.command.NoDownload, gc.Equals, test.noDownload)
 			c.Assert(s.command.Notes, gc.Equals, test.notes)
 		} else {
@@ -183,7 +160,7 @@ func (s *createSuite) TestDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "false", "filename")
+	client.CheckArgs(c, "", "false", "backup-filename")
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
 }
@@ -195,11 +172,9 @@ func (s *createSuite) TestDefaultV1(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "true", "false", "spam")
-	c.Assert(s.command.KeepCopy, jc.IsTrue)
+	client.CheckArgs(c, "", "false", "backup-id")
 	s.expectedErr = `
-Remote backup stored on the controller as spam.
-Downloaded to juju-backup-00010101-000000.tar.gz.
+Downloaded to juju-backup-00010101-000000.tar.gz
 `[1:]
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
@@ -211,7 +186,7 @@ func (s *createSuite) TestDefaultQuiet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "false", "filename")
+	client.CheckArgs(c, "", "false", "backup-filename")
 
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
@@ -223,7 +198,7 @@ func (s *createSuite) TestNotes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "test notes", "false", "false", "filename")
+	client.CheckArgs(c, "test notes", "false", "backup-filename")
 	s.checkDownload(c, ctx)
 }
 
@@ -233,10 +208,9 @@ func (s *createSuite) TestFilename(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "false", "filename")
+	client.CheckArgs(c, "", "false", "backup-filename")
 	s.expectedErr = `
-Remote backup was not created.
-Downloaded to backup.tgz.
+Downloaded to backup.tgz
 `[1:]
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, gc.Equals, "backup.tgz")
@@ -248,45 +222,10 @@ func (s *createSuite) TestNoDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create")
-	client.CheckArgs(c, "", "true", "true")
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Remote backup stored on the controller as spam.\n")
+	client.CheckArgs(c, "", "true")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Remote backup stored on the controller as backup-filename\n")
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.expectedOut)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
-}
-
-func (s *createSuite) TestKeepCopy(c *gc.C) {
-	client := s.setDownload()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--keep-copy")
-	c.Assert(err, jc.ErrorIsNil)
-
-	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "true", "false", "filename")
-
-	s.expectedErr = `
-Remote backup stored on the controller as spam.
-Downloaded to juju-backup-00010101-000000.tar.gz.
-`[1:]
-	s.checkDownload(c, ctx)
-}
-
-func (s *createSuite) TestFailKeepCopyNoDownload(c *gc.C) {
-	s.setDownload()
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--keep-copy", "--no-download")
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *createSuite) TestFailKeepCopyFalseNoDownload(c *gc.C) {
-	s.setDownload()
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--keep-copy=false", "--no-download")
-	c.Check(err, gc.ErrorMatches, "--no-download cannot be set when --keep-copy is not: the backup will not be created")
-}
-
-func (s *createSuite) TestKeepCopyV1Fail(c *gc.C) {
-	s.apiVersion = 1
-	s.setDownload()
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--keep-copy")
-
-	c.Assert(err, gc.ErrorMatches, "--keep-copy is not supported by this controller")
 }
 
 func (s *createSuite) TestFilenameAndNoDownload(c *gc.C) {

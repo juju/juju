@@ -17,7 +17,6 @@ const (
 var (
 	NewAPIClient = &newAPIClient
 	NewGetAPI    = &getAPI
-	GetArchive   = &getArchive
 )
 
 type CreateCommand struct {
@@ -26,10 +25,6 @@ type CreateCommand struct {
 
 type DownloadCommand struct {
 	*downloadCommand
-}
-
-type RestoreCommand struct {
-	*restoreCommand
 }
 
 func NewCreateCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CreateCommand) {
@@ -42,40 +37,4 @@ func NewDownloadCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Down
 	c := &downloadCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &DownloadCommand{c}
-}
-
-func NewListCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &listCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
-}
-
-func NewShowCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &showCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
-}
-
-func NewUploadCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &uploadCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
-}
-
-func NewRemoveCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &removeCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
-}
-
-func NewRestoreCommandForTest(
-	store jujuclient.ClientStore,
-) (cmd.Command, *RestoreCommand) {
-	c := &restoreCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &RestoreCommand{c}
-}
-
-func (r *RestoreCommand) AssignGetModelStatusAPI(apiFunc func() (ModelStatusAPI, error)) {
-	r.getModelStatusAPI = apiFunc
 }

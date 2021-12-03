@@ -11,8 +11,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/hash"
@@ -24,19 +24,14 @@ import (
 // files.
 
 const (
-	tempPrefix   = "jujuBackup-"
-	TempFilename = "juju-backup.tar.gz"
+	tempPrefix = "jujuBackup-"
 )
 
 type createArgs struct {
-	backupDir              string
-	filesToBackUp          []string
-	db                     DBDumper
-	availableDisk          func(volumePath string) uint64
-	totalDisk              func(volumePath string) uint64
-	metadataReader         io.Reader
-	noDownload             bool
-	approxSpaceRequiredMib int
+	destinationDir string
+	filesToBackUp  []string
+	db             DBDumper
+	metadataReader io.Reader
 }
 
 type createResult struct {
@@ -50,42 +45,18 @@ type createResult struct {
 // updates the metadata with the file info.
 func create(args *createArgs) (_ *createResult, err error) {
 	// Prepare the backup builder.
-	builder, err := newBuilder(args.backupDir, args.filesToBackUp, args.db)
+	builder, err := newBuilder(args.destinationDir, args.filesToBackUp, args.db)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer func() {
-		if cerr := builder.cleanUp(args.noDownload); cerr != nil {
+		if cerr := builder.cleanUp(err != nil); cerr != nil {
 			cerr.Log(logger)
 			if err == nil {
 				err = cerr
 			}
 		}
 	}()
-
-	// We require space equal to the larger of:
-	// - smaller of 5GB or 10% of the total disk size
-	// - 20% of the backup size
-	// on top of the approximate backup size to be available.
-	const minFreeAbsolute = 5 * humanize.GiByte
-
-	for _, dir := range []string{builder.archivePaths.DBDumpDir, os.TempDir()} {
-		diskSizeMargin := float64(args.totalDisk(dir)) * 0.10
-		if diskSizeMargin > minFreeAbsolute {
-			diskSizeMargin = minFreeAbsolute
-		}
-		backupSizeMargin := float64(args.approxSpaceRequiredMib) * 0.20 * humanize.MiByte
-		if backupSizeMargin < diskSizeMargin {
-			backupSizeMargin = diskSizeMargin
-		}
-		wantFree := uint64(args.approxSpaceRequiredMib) + uint64(backupSizeMargin/humanize.MiByte)
-
-		available := args.availableDisk(dir) / humanize.MiByte
-		logger.Infof("free disk on volume hosting %q: %dMiB", dir, available)
-		if available < wantFree {
-			return nil, errors.Errorf("not enough free space in %q; want %dMiB, have %dMiB", dir, wantFree, available)
-		}
-	}
 
 	// Inject the metadata file.
 	if args.metadataReader == nil {
@@ -117,8 +88,10 @@ func create(args *createArgs) (_ *createResult, err error) {
 
 // builder exposes the machinery for creating a backup of juju's state.
 type builder struct {
-	// rootDir is the root of the archive workspace.
-	rootDir string
+	// destinationDir is where the backup archive is stored.
+	destinationDir string
+	// stagingDir is the root of the archive workspace.
+	stagingDir string
 	// archivePaths is the backups archive summary.
 	archivePaths ArchivePaths
 	// filename is the path to the archive file.
@@ -140,23 +113,30 @@ type builder struct {
 // directories which backup uses as its staging area while building the
 // archive.  It also creates the archive
 // (temp root, tarball root, DB dumpdir), along with any error.
-func newBuilder(backupDir string, filesToBackUp []string, db DBDumper) (b *builder, err error) {
+func newBuilder(destinationDir string, filesToBackUp []string, db DBDumper) (b *builder, err error) {
 	// Create the backups workspace root directory.
-	rootDir, err := ioutil.TempDir(backupDir, tempPrefix)
+	// The root directory will always be relative to the
+	// specified backup dir - by default we'll write to
+	// a directory under "/tmp".
+
+	stagingDir, err := ioutil.TempDir(destinationDir, tempPrefix)
 	if err != nil {
-		return nil, errors.Annotate(err, "while making backups workspace")
+		return nil, errors.Annotate(err, "while making backups staging directory")
 	}
 
+	finalFilename := time.Now().Format(FilenameTemplate)
 	// Populate the builder.
 	b = &builder{
-		rootDir:       rootDir,
-		archivePaths:  NewNonCanonicalArchivePaths(rootDir),
-		filename:      filepath.Join(rootDir, TempFilename),
-		filesToBackUp: filesToBackUp,
-		db:            db,
+		destinationDir: destinationDir,
+		stagingDir:     stagingDir,
+		archivePaths:   NewNonCanonicalArchivePaths(stagingDir),
+		filename:       filepath.Join(destinationDir, finalFilename),
+		filesToBackUp:  filesToBackUp,
+		db:             db,
 	}
 	defer func() {
 		if err != nil {
+			logger.Errorf("error creating backup, cleaning up: %v", err)
 			if cerr := b.cleanUp(true); cerr != nil {
 				cerr.Log(logger)
 			}
@@ -214,14 +194,14 @@ func (b *builder) closeBundleFile() error {
 	return nil
 }
 
-func (b *builder) removeRootDir() error {
+func (b *builder) removeStagingDir() error {
 	// Currently this method isn't thread-safe (doesn't need to be).
-	if b.rootDir == "" {
-		panic(fmt.Sprintf("rootDir is unexpected empty, filename(%s)", b.filename))
+	if b.stagingDir == "" {
+		return errors.Errorf("stagingDir is unexpected empty, filename(%s)", b.filename)
 	}
 
-	if err := os.RemoveAll(b.rootDir); err != nil {
-		return errors.Annotate(err, "while removing backups temp dir")
+	if err := os.RemoveAll(b.stagingDir); err != nil {
+		return errors.Annotate(err, "while removing backups staging dir")
 	}
 
 	return nil
@@ -246,7 +226,7 @@ func (e cleanupErrors) Log(logger loggo.Logger) {
 	}
 }
 
-func (b *builder) cleanUp(removeDir bool) *cleanupErrors {
+func (b *builder) cleanUp(removeBackup bool) *cleanupErrors {
 	var errors []error
 
 	if err := b.closeBundleFile(); err != nil {
@@ -255,8 +235,11 @@ func (b *builder) cleanUp(removeDir bool) *cleanupErrors {
 	if err := b.closeArchiveFile(); err != nil {
 		errors = append(errors, err)
 	}
-	if removeDir {
-		if err := b.removeRootDir(); err != nil {
+	if err := b.removeStagingDir(); err != nil {
+		errors = append(errors, err)
+	}
+	if removeBackup {
+		if err := os.Remove(b.filename); err != nil && !os.IsNotExist(err) {
 			errors = append(errors, err)
 		}
 	}
@@ -325,7 +308,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 	// We add a trailing slash (or whatever) to root so that everything
 	// in the path up to and including that slash is stripped off when
 	// each file is added to the tar file.
-	stripPrefix := b.rootDir + string(os.PathSeparator)
+	stripPrefix := b.stagingDir + string(os.PathSeparator)
 	filenames := []string{b.archivePaths.ContentDir}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		return errors.Annotate(err, "while bundling final archive")
