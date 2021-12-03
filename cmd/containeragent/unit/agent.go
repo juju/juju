@@ -290,7 +290,9 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 	}
 	manifolds := Manifolds(cfg)
 
-	eng, err := dependency.NewEngine(engine.DependencyEngineConfig())
+	metrics := engine.NewMetrics()
+	workerMetricsSink := metrics.ForModel(agentConfig.Model())
+	eng, err := dependency.NewEngine(engine.DependencyEngineConfig(workerMetricsSink))
 	if err != nil {
 		return nil, err
 	}
@@ -314,6 +316,13 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		// and the agent is controlled by the OS to only have one.
 		logger.Errorf("failed to start introspection worker: %v", err)
 	}
+	if err := addons.RegisterEngineMetrics(c.prometheusRegistry, metrics, eng); err != nil {
+		// If the dependency engine metrics fail, continue on. This is unlikely
+		// to happen in the real world, but should't stop or bring down an
+		// agent.
+		logger.Errorf("failed to start the dependency engine metrics %v", err)
+	}
+
 	return eng, nil
 }
 
@@ -343,6 +352,7 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 	if err := c.runner.StartWorker("unit", c.workers); err != nil {
 		return errors.Annotate(err, "starting worker")
 	}
+
 	return AgentDone(logger, c.runner.Wait())
 }
 

@@ -147,6 +147,11 @@ type AgentInitializer interface {
 	DataDir() string
 }
 
+// ModelMetrics defines a type for creating metrics for a given model.
+type ModelMetrics interface {
+	ForModel(model names.ModelTag) dependency.Metrics
+}
+
 // NewMachineAgentCmd creates a Command which handles parsing
 // command-line arguments and instantiating and running a
 // MachineAgent.
@@ -535,7 +540,9 @@ func (a *MachineAgent) makeEngineCreator(
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		engineConfigFunc := engine.DependencyEngineConfig
-		engine, err := dependency.NewEngine(engineConfigFunc())
+		metrics := engine.NewMetrics()
+		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
+		engine, err := dependency.NewEngine(engineConfigFunc(controllerMetricsSink))
 		if err != nil {
 			return nil, err
 		}
@@ -599,15 +606,19 @@ func (a *MachineAgent) makeEngineCreator(
 			MachineLock:                       a.machineLock,
 			SetStatePool:                      statePoolReporter.Set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
-			NewModelWorker:                    a.startModelWorkers,
-			MuxShutdownWait:                   1 * time.Minute,
-			NewContainerBrokerFunc:            newCAASBroker,
-			NewBrokerFunc:                     newBroker,
-			IsCaasConfig:                      a.isCaasAgent,
-			UnitEngineConfig:                  engineConfigFunc,
-			SetupLogging:                      agentconf.SetupAgentLogging,
-			LeaseFSM:                          raftlease.NewFSM(),
-			RaftOpQueue:                       queue.NewOpQueue(clock.WallClock),
+			NewModelWorker: func(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
+				return a.startModelWorkers(cfg, metrics)
+			},
+			MuxShutdownWait:        1 * time.Minute,
+			NewContainerBrokerFunc: newCAASBroker,
+			NewBrokerFunc:          newBroker,
+			IsCaasConfig:           a.isCaasAgent,
+			UnitEngineConfig: func() dependency.EngineConfig {
+				return engineConfigFunc(controllerMetricsSink)
+			},
+			SetupLogging: agentconf.SetupAgentLogging,
+			LeaseFSM:     raftlease.NewFSM(),
+			RaftOpQueue:  queue.NewOpQueue(clock.WallClock),
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -639,6 +650,12 @@ func (a *MachineAgent) makeEngineCreator(
 			// as the only issue is connecting to the abstract domain socket
 			// and the agent is controlled by by the OS to only have one.
 			logger.Errorf("failed to start introspection worker: %v", err)
+		}
+		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine); err != nil {
+			// If the dependency engine metrics fail, continue on. This is unlikely
+			// to happen in the real world, but should't stop or bring down an
+			// agent.
+			logger.Errorf("failed to start the dependency engine metrics %v", err)
 		}
 		return engine, nil
 	}
@@ -1048,7 +1065,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 
 // startModelWorkers starts the set of workers that run for every model
 // in each controller, both IAAS and CAAS.
-func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
+func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig, modelMetrics ModelMetrics) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 	controllerUUID := currentConfig.Controller().Id()
 	// We look at the model in the agent.conf file to see if we are starting workers
@@ -1058,7 +1075,9 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config := engine.DependencyEngineConfig()
+
+	metrics := modelMetrics.ForModel(modelAgent.CurrentConfig().Model())
+	config := engine.DependencyEngineConfig(metrics)
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
 	config.Filter = model.IgnoreErrRemoved

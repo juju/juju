@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -32,6 +33,8 @@ type CAASOperatorSuite struct {
 	coretesting.BaseSuite
 
 	rootDir string
+
+	prometheus *prometheus.Registry
 }
 
 var _ = gc.Suite(&CAASOperatorSuite{})
@@ -43,6 +46,7 @@ func newExecClient(modelName string) (exec.Executor, error) {
 func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.rootDir = c.MkDir()
+	s.prometheus = prometheus.NewRegistry()
 }
 
 func (s *CAASOperatorSuite) dataDir() string {
@@ -59,6 +63,7 @@ func (s *CAASOperatorSuite) TestParseSuccess(c *gc.C) {
 	// Now init actually reads the agent configuration file.
 	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), func(mc *caasoperator.ManifoldsConfig) error {
 		mc.NewExecClient = newExecClient
+		mc.PrometheusRegisterer = s.prometheus
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,6 +79,7 @@ func (s *CAASOperatorSuite) TestParseSuccess(c *gc.C) {
 func (s *CAASOperatorSuite) TestParseMissing(c *gc.C) {
 	uc, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), func(mc *caasoperator.ManifoldsConfig) error {
 		mc.NewExecClient = newExecClient
+		mc.PrometheusRegisterer = s.prometheus
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,6 +100,7 @@ func (s *CAASOperatorSuite) TestParseNonsense(c *gc.C) {
 	} {
 		a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), func(mc *caasoperator.ManifoldsConfig) error {
 			mc.NewExecClient = newExecClient
+			mc.PrometheusRegisterer = s.prometheus
 			return nil
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -106,6 +113,7 @@ func (s *CAASOperatorSuite) TestParseNonsense(c *gc.C) {
 func (s *CAASOperatorSuite) TestParseUnknown(c *gc.C) {
 	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), func(mc *caasoperator.ManifoldsConfig) error {
 		mc.NewExecClient = newExecClient
+		mc.PrometheusRegisterer = s.prometheus
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -161,11 +169,12 @@ func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	a := &CaasOperatorAgent{
-		AgentConf:       agentconf.NewAgentConf(dataDir),
-		ctx:             ctx,
-		ApplicationName: "mysql",
-		bufferedLogger:  s.newBufferedLogWriter(),
-		dead:            make(chan struct{}),
+		AgentConf:          agentconf.NewAgentConf(dataDir),
+		ctx:                ctx,
+		ApplicationName:    "mysql",
+		bufferedLogger:     s.newBufferedLogWriter(),
+		dead:               make(chan struct{}),
+		prometheusRegistry: prometheus.NewRegistry(),
 	}
 
 	dummy := jujuworker.NewSimpleWorker(func(stopCh <-chan struct{}) error {
@@ -196,8 +205,9 @@ func (s *CAASOperatorSuite) TestChangeConfig(c *gc.C) {
 	config := FakeAgentConfig{}
 	configChanged := voyeur.NewValue(true)
 	a := CaasOperatorAgent{
-		AgentConf:        config,
-		configChangedVal: configChanged,
+		AgentConf:          config,
+		configChangedVal:   configChanged,
+		prometheusRegistry: prometheus.NewRegistry(),
 	}
 
 	var mutateCalled bool
