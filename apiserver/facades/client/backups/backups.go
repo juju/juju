@@ -4,10 +4,7 @@
 package backups
 
 import (
-	"io"
-
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 
@@ -21,8 +18,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.backups")
 
 // Backend exposes state.State functionality needed by the backups Facade.
 type Backend interface {
@@ -131,10 +126,7 @@ func extractResourceValue(resources facade.Resources, key string) (string, error
 	return strRes.String(), nil
 }
 
-var newBackups = func(backend Backend) (backups.Backups, io.Closer) {
-	stor := backups.NewStorage(backend)
-	return backups.NewBackups(stor), stor
-}
+var newBackups = backups.NewBackups
 
 // CreateResult updates the result with the information in the
 // metadata value.
@@ -178,30 +170,4 @@ func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadat
 	result.Filename = filename
 
 	return result
-}
-
-// MetadataFromResult returns a new Metadata based on the result. The ID
-// of the metadata is not set. Call meta.SetID() if that is desired.
-// Likewise with Stored and meta.SetStored().
-func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
-	meta := backups.NewMetadata()
-	meta.Started = result.Started
-	if !result.Finished.IsZero() {
-		meta.Finished = &result.Finished
-	}
-	meta.Origin.Model = result.Model
-	meta.Origin.Machine = result.Machine
-	meta.Origin.Hostname = result.Hostname
-	meta.Origin.Version = result.Version
-	meta.Origin.Series = result.Series
-	meta.Notes = result.Notes
-	meta.FormatVersion = result.FormatVersion
-	meta.Controller = backups.ControllerMetadata{
-		UUID:              result.ControllerUUID,
-		MachineID:         result.ControllerMachineID,
-		MachineInstanceID: result.ControllerMachineInstanceID,
-		HANodes:           result.HANodes,
-	}
-	_ = meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
-	return meta
 }
