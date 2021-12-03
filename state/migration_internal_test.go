@@ -118,8 +118,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		usermodelnameC,
 		// Metrics aren't migrated.
 		metricsC,
-		// Backup and restore information is not migrated.
-		restoreInfoC,
 		// reference counts are implementation details that should be
 		// reconstructed on the other side.
 		refcountsC,

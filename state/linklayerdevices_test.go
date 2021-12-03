@@ -167,6 +167,21 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateProvide
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
+func (s *linkLayerDevicesStateSuite) TestRemoveAllLinkLayerDevicesClearsProviderIDs(c *gc.C) {
+	args1 := state.LinkLayerDeviceArgs{
+		Name:       "eth0.42",
+		Type:       corenetwork.EthernetDevice,
+		ProviderID: "42",
+	}
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args1)
+
+	c.Assert(s.machine.RemoveAllLinkLayerDevices(), jc.ErrorIsNil)
+
+	// We can add the same device, with the same provider ID without error
+	// because the global provider ID references were removed with the devices.
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args1)
+}
+
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0.42",
@@ -827,18 +842,6 @@ func (s *linkLayerDevicesStateSuite) createBridgeWithIP(c *gc.C, machine *state.
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// createAllDefaultDevices creates the loopback, lxcbr0, lxdbr0, and virbr0 devices
-func (s *linkLayerDevicesStateSuite) createAllDefaultDevices(c *gc.C, machine *state.Machine) {
-	// loopback
-	s.createLoopbackNIC(c, s.machine)
-	// container.DefaultLxcBridge
-	s.createBridgeWithIP(c, s.machine, "lxcbr0", "10.0.3.1/24")
-	// container.DefaultLxdBridge
-	s.createBridgeWithIP(c, s.machine, "lxdbr0", "10.0.4.1/24")
-	// container.DefaultKvmBridge
-	s.createBridgeWithIP(c, s.machine, "virbr0", "192.168.124.1/24")
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithLightStateChurn(c *gc.C) {

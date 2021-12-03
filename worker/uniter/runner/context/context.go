@@ -710,6 +710,9 @@ func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
 // available to the context.
 // Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
+	if ctx.storage == nil {
+		return nil, errors.NotFoundf("storage %s", tag)
+	}
 	return ctx.storage.Storage(tag)
 }
 
@@ -1127,6 +1130,16 @@ func (ctx *HookContext) HookVars(
 		vars = append(vars,
 			"JUJU_SECRET_URL="+ctx.secretURL,
 		)
+	}
+
+	if storage, err := ctx.HookStorage(); err == nil {
+		vars = append(vars,
+			"JUJU_STORAGE_ID="+storage.Tag().Id(),
+			"JUJU_STORAGE_LOCATION="+storage.Location(),
+			"JUJU_STORAGE_KIND="+storage.Kind().String(),
+		)
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
 
 	return append(vars, OSDependentEnvVars(paths, env)...), nil

@@ -193,7 +193,7 @@ type RelationData struct {
 	Data                    map[string]UnitRelationData `yaml:"related-units,omitempty" json:"related-units,omitempty"`
 }
 
-// ApplicationInfo defines the serialization behaviour of the application information.
+// UnitInfo defines the serialization behaviour of the unit information.
 type UnitInfo struct {
 	WorkloadVersion string         `yaml:"workload-version,omitempty" json:"workload-version,omitempty"`
 	Machine         string         `yaml:"machine,omitempty" json:"machine,omitempty"`

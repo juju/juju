@@ -5101,51 +5101,12 @@
                         }
                     },
                     "description": "Create is the API method that requests juju to create a new backup\nof its state."
-                },
-                "Info": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/BackupsInfoArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/BackupsMetadataResult"
-                        }
-                    },
-                    "description": "Info provides the implementation of the API method."
-                },
-                "List": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/BackupsListArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/BackupsListResult"
-                        }
-                    },
-                    "description": "List provides the implementation of the API method."
-                },
-                "Remove": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/BackupsRemoveArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "Remove deletes the backups defined by ID from the database."
                 }
             },
             "definitions": {
                 "BackupsCreateArgs": {
                     "type": "object",
                     "properties": {
-                        "keep-copy": {
-                            "type": "boolean"
-                        },
                         "no-download": {
                             "type": "boolean"
                         },
@@ -5156,39 +5117,7 @@
                     "additionalProperties": false,
                     "required": [
                         "notes",
-                        "keep-copy",
                         "no-download"
-                    ]
-                },
-                "BackupsInfoArgs": {
-                    "type": "object",
-                    "properties": {
-                        "id": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "id"
-                    ]
-                },
-                "BackupsListArgs": {
-                    "type": "object",
-                    "additionalProperties": false
-                },
-                "BackupsListResult": {
-                    "type": "object",
-                    "properties": {
-                        "list": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/BackupsMetadataResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "list"
                     ]
                 },
                 "BackupsMetadataResult": {
@@ -5276,70 +5205,6 @@
                         "controller-machine-id",
                         "controller-machine-inst-id",
                         "ha-nodes"
-                    ]
-                },
-                "BackupsRemoveArgs": {
-                    "type": "object",
-                    "properties": {
-                        "ids": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "ids"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "Number": {

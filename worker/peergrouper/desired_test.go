@@ -128,14 +128,14 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 		}, {
 			about:        "extra member with nil Vote",
 			machines:     mkMachines("11v", ipVersion),
-			members:      mkMembers("1v 2v", ipVersion),
+			members:      mkMembers("1vT 2v", ipVersion),
 			statuses:     mkStatuses("1p 2s", ipVersion),
 			expectVoting: []bool{true},
-			expectErr:    "non voting member.* found in peer group",
+			expectErr:    "non juju voting member.* found in peer group",
 		}, {
 			about:    "extra member with >1 votes",
 			machines: mkMachines("11v", ipVersion),
-			members: append(mkMembers("1v", ipVersion), replicaset.Member{
+			members: append(mkMembers("1vT", ipVersion), replicaset.Member{
 				Id:    2,
 				Votes: newInt(2),
 				Address: net.JoinHostPort(
@@ -145,7 +145,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			}),
 			statuses:     mkStatuses("1p 2s", ipVersion),
 			expectVoting: []bool{true},
-			expectErr:    "non voting member.* found in peer group",
+			expectErr:    "non juju voting member.* found in peer group",
 		}, {
 			about:         "one controller has become ready to vote (no change)",
 			machines:      mkMachines("11v 12v", ipVersion),
@@ -410,6 +410,25 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 	}
 }
 
+func (s *desiredPeerGroupSuite) TestIsPrimary(c *gc.C) {
+	machines := mkMachines("11v 12v 13v", testIPv4)
+	trackerMap := make(map[string]*controllerTracker)
+	for _, m := range machines {
+		c.Assert(trackerMap[m.Id()], gc.IsNil)
+		trackerMap[m.Id()] = m
+	}
+	members := mkMembers("1v 2v 3v", testIPv4)
+	statuses := mkStatuses("1p 2s 3s", testIPv4)
+	info, err := newPeerGroupInfo(trackerMap, statuses, members, mongoPort, network.SpaceInfo{})
+	c.Assert(err, jc.ErrorIsNil)
+	isPrimary, err := info.isPrimary("11")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isPrimary, jc.IsTrue)
+	isPrimary, err = info.isPrimary("12")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isPrimary, jc.IsFalse)
+}
+
 func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *gc.C) {
 	_, err := newPeerGroupInfo(nil, nil, nil, 666, network.SpaceInfo{})
 	c.Check(err, gc.ErrorMatches, "current member set is empty")
@@ -421,13 +440,22 @@ func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(
 		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
 	}
 	err := peerChanges.checkExtraMembers()
-	c.Check(err, gc.ErrorMatches, "non voting member .+ found in peer group")
+	c.Check(err, gc.ErrorMatches, "non juju voting member .+ found in peer group")
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c *gc.C) {
 	v := 0
 	peerChanges := peerGroupChanges{
 		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
+	}
+	err := peerChanges.checkExtraMembers()
+	c.Check(peerChanges.desired.isChanged, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *desiredPeerGroupSuite) TestCheckToRemoveMembersReturnsTrueWhenCheckMade(c *gc.C) {
+	peerChanges := peerGroupChanges{
+		info: &peerGroupInfo{toRemove: []replicaset.Member{{}}},
 	}
 	err := peerChanges.checkExtraMembers()
 	c.Check(peerChanges.desired.isChanged, jc.IsTrue)

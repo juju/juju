@@ -671,6 +671,44 @@ func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
 	assertLifeIs(c, machine, state.Alive)
 }
 
+func (s *CleanupSuite) TestForceDestroyMachineRemovesLinkLayerDevices(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	// Add a NIC with an address.
+	ops, err := machine.AddLinkLayerDeviceOps(
+		state.LinkLayerDeviceArgs{
+			Name: "eth0",
+		},
+		state.LinkLayerDeviceAddress{
+			DeviceName:  "eth0",
+			CIDRAddress: "192.168.0.9/24",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, s.State, ops)
+
+	nics, err := machine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nics, gc.HasLen, 1)
+
+	err = machine.ForceDestroy(time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+
+	assertLifeIs(c, machine, state.Dead)
+
+	// Nics should be gone.
+	nics, err = machine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nics, gc.HasLen, 0)
+}
+
 func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)

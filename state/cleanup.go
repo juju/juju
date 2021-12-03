@@ -1246,6 +1246,10 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 		}
 	}
 
+	if err := machine.RemoveAllLinkLayerDevices(); err != nil {
+		return errors.Trace(err)
+	}
+
 	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
 	// new dependencies being added while we clean up the ones we know about.
 	// But machine destruction is unsophisticated, and doesn't allow for

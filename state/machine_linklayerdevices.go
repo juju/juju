@@ -105,8 +105,7 @@ func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
 		}
 	}
 
-	selectDocIDOnly := bson.D{{"_id", 1}}
-	if err := m.forEachLinkLayerDeviceDoc(selectDocIDOnly, callbackFunc); err != nil {
+	if err := m.forEachLinkLayerDeviceDoc(nil, callbackFunc); err != nil {
 		return nil, errors.Trace(err)
 	}
 

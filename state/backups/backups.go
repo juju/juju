@@ -36,18 +36,16 @@ connection.
 package backups
 
 import (
+	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/du"
-	"github.com/juju/utils/v2/filestorage"
 )
 
 const (
@@ -67,7 +65,6 @@ var (
 	finishMeta       = func(meta *Metadata, result *createResult) error {
 		return meta.MarkComplete(result.size, result.checksum)
 	}
-	storeArchive  = StoreArchive
 	availableDisk = func(path string) uint64 {
 		return du.NewDiskUsage(path).Available()
 	}
@@ -77,51 +74,21 @@ var (
 	dirSize = totalDirSize
 )
 
-// StoreArchive sends the backup archive and its metadata to storage.
-// It also sets the metadata's ID and Stored values.
-func StoreArchive(stor filestorage.FileStorage, meta *Metadata, file io.Reader) error {
-	id, err := stor.Add(meta, file)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	meta.SetID(id)
-	stored, err := stor.Metadata(id)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	meta.SetStored(stored.Stored())
-	return nil
-}
-
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
 	// Create creates a new juju backup archive. It updates
 	// the provided metadata.
-	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy, noDownload bool) (string, error)
+	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) (string, error)
 
-	// Add stores the backup archive and returns its new ID.
-	Add(archive io.Reader, meta *Metadata) (string, error)
-
-	// Get returns the metadata and archive file associated with the ID.
-	Get(id string) (*Metadata, io.ReadCloser, error)
-
-	// List returns the metadata for all stored backups.
-	List() ([]*Metadata, error)
-
-	// Remove deletes the backup from storage.
-	Remove(id string) error
+	// Get returns the metadata and specified archive file.
+	Get(fileName string) (*Metadata, io.ReadCloser, error)
 }
 
-type backups struct {
-	storage filestorage.FileStorage
-}
+type backups struct{}
 
 // NewBackups creates a new Backups value using the FileStorage provided.
-func NewBackups(stor filestorage.FileStorage) Backups {
-	b := backups{
-		storage: stor,
-	}
-	return &b
+func NewBackups() Backups {
+	return &backups{}
 }
 
 func totalDirSize(path string) (int64, error) {
@@ -140,7 +107,7 @@ func totalDirSize(path string) (int64, error) {
 
 // Create creates and stores a new juju backup archive (based on arguments)
 // and updates the provided metadata.  A filename to download the backup is provided.
-func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy, noDownload bool) (string, error) {
+func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) (string, error) {
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	meta.Started = time.Now().UTC()
 
@@ -173,20 +140,53 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy,
 	logger.Infof("backing up %dMiB (files) and %dMiB (database) = %dMiB",
 		totalFizeSizesMiB, dbInfo.ApproxSizeMB, int(totalFizeSizesMiB)+dbInfo.ApproxSizeMB)
 
+	destinationDir := paths.BackupDir
+	if destinationDir == "" {
+		destinationDir = os.TempDir()
+	}
+
+	if _, err := os.Stat(destinationDir); err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.Errorf("backup destination directory %q does not exist", destinationDir)
+		}
+		return "", errors.NewNotValid(nil, fmt.Sprintf("invalid backup destination directory %q: %v", destinationDir, err))
+	}
+	if !filepath.IsAbs(destinationDir) {
+		return "", errors.Errorf("cannot use relative backup destination directory %q", destinationDir)
+	}
+
+	// We require space equal to the larger of:
+	// - smaller of 5GB or 10% of the total disk size
+	// - 20% of the backup size
+	// on top of the approximate backup size to be available.
+	const minFreeAbsolute = 5 * humanize.GiByte
+
+	diskSizeMargin := float64(totalDisk(destinationDir)) * 0.10
+	if diskSizeMargin > minFreeAbsolute {
+		diskSizeMargin = minFreeAbsolute
+	}
+	backupSizeMargin := float64(totalFizeSizesMiB) * 0.20 * humanize.MiByte
+	if backupSizeMargin < diskSizeMargin {
+		backupSizeMargin = diskSizeMargin
+	}
+	wantFree := uint64(totalFizeSizesMiB) + uint64(backupSizeMargin/humanize.MiByte)
+
+	available := availableDisk(destinationDir) / humanize.MiByte
+	logger.Infof("free disk on volume hosting %q: %dMiB", destinationDir, available)
+	if available < wantFree {
+		return "", errors.Errorf("not enough free space in %q; want %dMiB, have %dMiB", destinationDir, wantFree, available)
+	}
+
 	dumper, err := getDBDumper(dbInfo)
 	if err != nil {
 		return "", errors.Annotate(err, "while preparing for DB dump")
 	}
 
 	args := createArgs{
-		backupDir:              paths.BackupDir,
-		filesToBackUp:          filesToBackUp,
-		db:                     dumper,
-		availableDisk:          availableDisk,
-		totalDisk:              totalDisk,
-		metadataReader:         metadataFile,
-		noDownload:             noDownload,
-		approxSpaceRequiredMib: int(totalFizeSizesMiB),
+		destinationDir: destinationDir,
+		filesToBackUp:  filesToBackUp,
+		db:             dumper,
+		metadataReader: metadataFile,
 	}
 	result, err := runCreate(&args)
 	if err != nil {
@@ -200,67 +200,22 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy,
 		return "", errors.Annotate(err, "while updating metadata")
 	}
 
-	// Store the archive if asked by user
-	if keepCopy {
-		err = storeArchive(b.storage, meta, result.archiveFile)
-		if err != nil {
-			return "", errors.Annotate(err, "while storing backup archive")
-		}
-	}
-
 	return result.filename, nil
 }
 
-type diskUsage struct{}
-
-func (diskUsage) Available(path string) uint64 {
-	return du.NewDiskUsage(path).Available()
-}
-
-// Add stores the backup archive and returns its new ID.
-func (b *backups) Add(archive io.Reader, meta *Metadata) (string, error) {
-	// Store the archive.
-	err := storeArchive(b.storage, meta, archive)
-	if err != nil {
-		return "", errors.Annotate(err, "while storing backup archive")
-	}
-
-	return meta.ID(), nil
-}
-
-// Get retrieves the associated metadata and archive file from model storage.
-// There are two cases, the archive file can be in the juju database or
-// a file on the machine.
-func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
-	if strings.Contains(id, TempFilename) {
-		return b.getArchiveFromFilename(id)
-	}
-	rawmeta, archiveFile, err := b.storage.Get(id)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	meta, ok := rawmeta.(*Metadata)
-	if !ok {
-		return nil, nil, errors.New("did not get a backups.Metadata value from storage")
-	}
-
-	return meta, archiveFile, nil
-}
-
-func (b *backups) getArchiveFromFilename(name string) (_ *Metadata, _ io.ReadCloser, err error) {
-	dir, _ := path.Split(name)
-	build := builder{rootDir: dir}
+// Get retrieves the associated metadata and archive file a file on the machine.
+func (b *backups) Get(fileName string) (_ *Metadata, _ io.ReadCloser, err error) {
 	defer func() {
-		if err2 := build.removeRootDir(); err2 != nil {
-			logger.Errorf(err2.Error())
-			if err != nil {
-				err = errors.Annotatef(err2, "getArchiveFromFilename(%s)", name)
-			}
+		// On success, remove the retrieved file.
+		if err != nil {
+			return
+		}
+		if err2 := os.Remove(fileName); err2 != nil && !os.IsNotExist(err2) {
+			logger.Errorf("error removing backup archive: %v", err2.Error())
 		}
 	}()
 
-	readCloser, err := os.Open(name)
+	readCloser, err := os.Open(fileName)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "while opening archive file for download")
 	}
@@ -277,27 +232,4 @@ func (b *backups) getArchiveFromFilename(name string) (_ *Metadata, _ io.ReadClo
 	}
 
 	return meta, readCloser, nil
-}
-
-// List returns the metadata for all stored backups.
-func (b *backups) List() ([]*Metadata, error) {
-	metaList, err := b.storage.List()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]*Metadata, len(metaList))
-	for i, meta := range metaList {
-		m, ok := meta.(*Metadata)
-		if !ok {
-			msg := "expected backups.Metadata value from storage for %q, got %T"
-			return nil, errors.Errorf(msg, meta.ID(), meta)
-		}
-		result[i] = m
-	}
-	return result, nil
-}
-
-// Remove deletes the backup from storage.
-func (b *backups) Remove(id string) error {
-	return errors.Trace(b.storage.Remove(id))
 }

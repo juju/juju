@@ -28,7 +28,7 @@ func (s *downloadSuite) SetUpTest(c *gc.C) {
 
 func (s *downloadSuite) TearDownTest(c *gc.C) {
 	filename := s.command.ResolveFilename()
-	if s.command.Filename == "" {
+	if s.command.LocalFilename == "" {
 		filename = s.filename
 	}
 
@@ -48,10 +48,10 @@ func (s *downloadSuite) setSuccess() *fakeAPIClient {
 
 func (s *downloadSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.metaresult.ID)
+	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.filename)
 	c.Check(err, jc.ErrorIsNil)
 
-	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.filename+"\n")
 	s.checkArchive(c)

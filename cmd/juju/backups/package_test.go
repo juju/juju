@@ -31,7 +31,6 @@ import (
 // s.metaresult.
 var MetaResultString = `
 
-backup ID:             spam 
 backup format version: 0 
 juju version:          0.0.0 
 series:                 
@@ -73,8 +72,8 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.metaresult = &params.BackupsMetadataResult{
-		ID:       "spam",
-		Filename: "filename",
+		ID:       "backup-id",
+		Filename: "backup-filename",
 	}
 	s.data = "<compressed archive data>"
 
@@ -191,9 +190,9 @@ func (f *fakeAPIClient) CheckArgs(c *gc.C, args ...string) {
 	c.Check(f.args, jc.DeepEquals, args)
 }
 
-func (c *fakeAPIClient) Create(notes string, keepCopy, noDownload bool) (*params.BackupsMetadataResult, error) {
+func (c *fakeAPIClient) Create(notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Create")
-	c.args = append(c.args, notes, fmt.Sprintf("%t", keepCopy), fmt.Sprintf("%t", noDownload))
+	c.args = append(c.args, notes, fmt.Sprintf("%t", noDownload))
 	c.notes = notes
 	if c.err != nil {
 		return nil, c.err
@@ -203,26 +202,6 @@ func (c *fakeAPIClient) Create(notes string, keepCopy, noDownload bool) (*params
 	return createResult, nil
 }
 
-func (c *fakeAPIClient) Info(id string) (*params.BackupsMetadataResult, error) {
-	c.calls = append(c.calls, "Info")
-	c.args = append(c.args, id)
-	c.idArg = id
-	if c.err != nil {
-		return nil, c.err
-	}
-	return c.metaresult, nil
-}
-
-func (c *fakeAPIClient) List() (*params.BackupsListResult, error) {
-	c.calls = append(c.calls, "List")
-	if c.err != nil {
-		return nil, c.err
-	}
-	var result params.BackupsListResult
-	result.List = []params.BackupsMetadataResult{*c.metaresult}
-	return &result, nil
-}
-
 func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 	c.calls = append(c.calls, "Download")
 	c.args = append(c.args, id)
@@ -230,26 +209,6 @@ func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 		return nil, c.err
 	}
 	return c.archive, nil
-}
-
-func (c *fakeAPIClient) Upload(ar io.ReadSeeker, meta params.BackupsMetadataResult) (string, error) {
-	c.args = append(c.args, "ar", "meta")
-	if c.err != nil {
-		return "", c.err
-	}
-	return c.metaresult.ID, nil
-}
-
-func (c *fakeAPIClient) Remove(id ...string) ([]params.ErrorResult, error) {
-	c.calls = append(c.calls, "Remove")
-	c.args = append(c.args, "id")
-	c.idArg = id[0]
-	if c.err != nil {
-		return []params.ErrorResult{
-			{Error: &params.Error{Message: c.err.Error()}},
-		}, nil
-	}
-	return nil, nil
 }
 
 func (c *fakeAPIClient) Close() error {

@@ -19,6 +19,8 @@ type createSuite struct {
 	LegacySuite
 }
 
+const backupfileRegex = "juju-backup-\\d{8}-\\d{6}.tar.gz"
+
 var _ = gc.Suite(&createSuite{}) // Register the suite.
 
 type TestDBDumper struct {
@@ -41,7 +43,7 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 	_, testFiles, expected := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
-	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile, true)
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
@@ -63,21 +65,13 @@ func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
 	var testFiles []string
 	dumper := &TestDBDumper{}
 
-	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, nil, true)
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, nil)
 	_, err := backups.Create(args)
 
 	c.Check(err, gc.ErrorMatches, "missing metadataReader")
 }
 
-func (s *createSuite) TestNoDownloadTrue(c *gc.C) {
-	s.testCreateNoDownload(c, true)
-}
-
-func (s *createSuite) TestNoDownloadFalse(c *gc.C) {
-	s.testCreateNoDownload(c, false)
-}
-
-func (s *createSuite) testCreateNoDownload(c *gc.C, noDownload bool) {
+func (s *createSuite) TestCreate(c *gc.C) {
 	meta := backupstesting.NewMetadataStarted()
 	metadataFile, err := meta.AsJSONBuffer()
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,18 +79,14 @@ func (s *createSuite) testCreateNoDownload(c *gc.C, noDownload bool) {
 	_, testFiles, _ := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
-	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile, noDownload)
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	_, _, _, resultFilename := backups.ExposeCreateResult(result)
 	dir, filename := path.Split(resultFilename)
-	c.Assert(filename, gc.Equals, backups.TempFilename)
+	c.Assert(filename, gc.Matches, backupfileRegex)
 	c.Assert(dir, jc.Contains, backupDir)
 	_, err = os.Stat(resultFilename)
-	if noDownload {
-		c.Assert(err, jc.Satisfies, os.IsNotExist)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 }

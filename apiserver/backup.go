@@ -12,21 +12,11 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
-	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
 
-var newBackups = func(st *state.State, m *state.Model) (backups.Backups, io.Closer) {
-	backend := struct {
-		*state.State
-		*state.Model
-	}{st, m}
-	stor := backups.NewStorage(backend)
-	return backups.NewBackups(stor), stor
-}
+var newBackups = backups.NewBackups
 
 // backupHandler handles backup requests.
 type backupHandler struct {
@@ -48,32 +38,15 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	m, err := st.Model()
-	if err != nil {
-		h.sendError(resp, err)
-		return
-	}
-
-	backups, closer := newBackups(st.State, m)
-	defer closer.Close()
-
 	switch req.Method {
 	case "GET":
 		logger.Infof("handling backups download request")
-		id, err := h.download(backups, resp, req)
+		id, err := h.download(newBackups(), resp, req)
 		if err != nil {
 			h.sendError(resp, err)
 			return
 		}
 		logger.Infof("backups download request successful for %q", id)
-	case "PUT":
-		logger.Infof("handling backups upload request")
-		id, err := h.upload(backups, resp, req)
-		if err != nil {
-			h.sendError(resp, err)
-			return
-		}
-		logger.Infof("backups upload request successful for %q", id)
 	default:
 		h.sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
@@ -94,43 +67,6 @@ func (h *backupHandler) download(backups backups.Backups, resp http.ResponseWrit
 
 	err = h.sendFile(archive, meta.Checksum(), resp)
 	return args.ID, err
-}
-
-func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter, req *http.Request) (string, error) {
-	// Since we want to stream the archive in we cannot simply use
-	// mime/multipart directly.
-	defer req.Body.Close()
-
-	var metaResult params.BackupsMetadataResult
-	archive, err := httpattachment.Get(req, &metaResult)
-	if err != nil {
-		return "", err
-	}
-
-	if err := validateBackupMetadataResult(metaResult); err != nil {
-		return "", err
-	}
-
-	meta := apiserverbackups.MetadataFromResult(metaResult)
-	id, err := backups.Add(archive, meta)
-	if err != nil {
-		return "", err
-	}
-
-	if err := sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id}); err != nil {
-		return "", errors.Trace(err)
-	}
-	return id, nil
-}
-
-func validateBackupMetadataResult(metaResult params.BackupsMetadataResult) error {
-	if metaResult.ID != "" {
-		return errors.New("got unexpected metadata ID")
-	}
-	if !metaResult.Stored.IsZero() {
-		return errors.New(`got unexpected metadata "Stored" value`)
-	}
-	return nil
 }
 
 func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, error) {
