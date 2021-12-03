@@ -614,6 +614,38 @@ func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	data := "ancient-debris"
+	res := resourcetesting.NewResource(c, nil, "mug", app.Name(), data).Resource
+	resources, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = resources.SetResource(app.Name(), res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+	c.Assert(app.UnitCount(), gc.Equals, 1)
+
+	s.assertDoesNotNeedCleanup(c)
+
+	s.State.ScheduleForceCleanup(state.CleanupForceDestroyedUnit, unit.Name(), 1*time.Minute)
+	s.assertNeedsCleanup(c)
+
+	op := app.DestroyOperation()
+	op.DestroyStorage = false
+	op.Force = true
+	op.MaxWait = 1 * time.Minute
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	s.assertCleanupCount(c, 3)
+
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

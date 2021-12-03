@@ -1101,3 +1101,15 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	}
 	return nil
 }
+
+func (st *State) CleanupForceApplication(applicationName string, cleanupArgs []bson.Raw) error {
+	return st.cleanupForceApplication(applicationName, cleanupArgs)
+}
+
+var (
+	CleanupForceDestroyedUnit = cleanupForceDestroyedUnit
+)
+
+func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
+	st.scheduleForceCleanup(kind, name, maxWait)
+}
