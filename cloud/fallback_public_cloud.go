@@ -162,6 +162,10 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      westus3:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
       northeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
@@ -287,6 +291,10 @@ clouds:
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
       switzerlandwest:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      swedencentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
