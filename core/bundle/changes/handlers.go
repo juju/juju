@@ -64,6 +64,15 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			}
 		}
 
+		// For compatibility with pre juju 2.9 controllers, and to facilitate
+		// matching existing charms in this method, assume a channel of stable
+		// if not specified.  Required because another change ensures that the
+		// cs applications have a channel provided an old controller.
+		channel := application.Channel
+		if channel == "" {
+			channel = "stable"
+		}
+
 		revision := -1
 		if application.Revision != nil {
 			revision = *application.Revision
@@ -71,7 +80,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			// The case of upgrade charmhub charm with by channel... need the correct revision,
 			// or we will not have an addCharmChange corresponding to the upgradeCharmChange.
 			if r.charmResolver != nil {
-				_, rev, err := r.charmResolver(application.Charm, application.Series, application.Channel, arch, revision)
+				_, rev, err := r.charmResolver(application.Charm, application.Series, channel, arch, revision)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -82,8 +91,8 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		// Add the addCharm record if one hasn't been added yet, this means
 		// if the arch and series differ from an existing charm, then we create
 		// a new charm.
-		key := applicationKey(application.Charm, arch, series, application.Channel, revision)
-		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, application.Channel, revision, r.constraintGetter) {
+		key := applicationKey(application.Charm, arch, series, channel, revision)
+		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, channel, revision, r.constraintGetter) {
 			change = newAddCharmChange(AddCharmParams{
 				Charm:        application.Charm,
 				Revision:     application.Revision,
