@@ -18,9 +18,11 @@ import (
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
 type EnvSuite struct {
@@ -156,6 +158,24 @@ func (s *EnvSuite) setDepartingRelation(ctx *context.HookContext) (expectVars []
 	}
 }
 
+func (s *EnvSuite) setStorage(ctx *context.HookContext) (expectVars []string) {
+	tag := names.NewStorageTag("data/0")
+	context.SetEnvironmentHookContextStorage(ctx, &runnertesting.StorageContextAccessor{
+		map[names.StorageTag]*runnertesting.ContextStorage{
+			tag: {
+				tag,
+				storage.StorageKindBlock,
+				"/dev/sdb",
+			},
+		},
+	}, tag)
+	return []string{
+		"JUJU_STORAGE_ID=data/0",
+		"JUJU_STORAGE_KIND=block",
+		"JUJU_STORAGE_LOCATION=/dev/sdb",
+	}
+}
+
 func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 	paths := context.OSDependentEnvVars(MockEnvPaths{}, context.NewHostEnvironmenter())
 	c.Assert(paths, gc.Not(gc.HasLen), 0)
@@ -206,9 +226,10 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 
 	relationVars := s.setRelation(ctx)
 	secretVars := s.setSecret(ctx)
+	storageVars := s.setStorage(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars, secretVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars, secretVars, storageVars)
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
@@ -256,9 +277,11 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 		relationVars := s.setDepartingRelation(ctx)
+		secretVars := s.setSecret(ctx)
+		storageVars := s.setStorage(ctx)
 		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
+		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars)
 	}
 }
 

@@ -17,7 +17,6 @@ const (
 var (
 	NewAPIClient = &newAPIClient
 	NewGetAPI    = &getAPI
-	GetArchive   = &getArchive
 )
 
 type CreateCommand struct {
@@ -38,28 +37,4 @@ func NewDownloadCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Down
 	c := &downloadCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &DownloadCommand{c}
-}
-
-func NewListCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &listCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
-}
-
-func NewShowCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &showCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
-}
-
-func NewUploadCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &uploadCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
-}
-
-func NewRemoveCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	c := &removeCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c)
 }

@@ -397,10 +397,6 @@ func registerCommands(r commandRegistry) {
 	// Manage backups.
 	r.Register(backups.NewCreateCommand())
 	r.Register(backups.NewDownloadCommand())
-	r.Register(backups.NewShowCommand())
-	r.Register(backups.NewListCommand())
-	r.Register(backups.NewRemoveCommand())
-	r.Register(backups.NewUploadCommand())
 
 	// Manage authorized ssh keys.
 	r.Register(NewAddKeysCommand())

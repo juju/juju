@@ -34,6 +34,8 @@ type HookContextParams struct {
 	CharmMetrics        *charm.Metrics
 	ActionData          *ActionData
 	AssignedMachineTag  names.MachineTag
+	Storage             StorageContextAccessor
+	StorageTag          names.StorageTag
 	Paths               Paths
 	Clock               Clock
 }
@@ -54,6 +56,8 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		jujuProxySettings:   hcParams.JujuProxySettings,
 		actionData:          hcParams.ActionData,
 		assignedMachineTag:  hcParams.AssignedMachineTag,
+		storage:             hcParams.Storage,
+		storageTag:          hcParams.StorageTag,
 		clock:               hcParams.Clock,
 		logger:              loggo.GetLogger("test"),
 	}
@@ -133,6 +137,13 @@ func SetEnvironmentHookContextRelation(context *HookContext, relationId int, end
 		},
 	}
 	context.departingUnitName = departingUnitName
+}
+
+// SetEnvironmentHookContextStorage exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextStorage(context *HookContext, storage StorageContextAccessor, storageTag names.StorageTag) {
+	context.storage = storage
+	context.storageTag = storageTag
 }
 
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {

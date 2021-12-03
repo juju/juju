@@ -150,6 +150,11 @@ type Config struct {
 	APIPort            int
 	ControllerAPIPort  int
 
+	// ControllerId is the id of the controller running this worker.
+	// It is used in checking if this working is running on the
+	// primary mongo node.
+	ControllerId func() string
+
 	// Kubernetes controllers do not support HA yet.
 	SupportsHA bool
 
@@ -633,6 +638,17 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		}
 	}
 
+	// Figure out if we are running on the mongo primary.
+	controllerId := w.config.ControllerId()
+	isPrimary, err := info.isPrimary(controllerId)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Annotatef(err, "determining primary status of controller %q", controllerId)
+	}
+	logger.Debugf("controller node %q primary: %v", controllerId, isPrimary)
+	if !isPrimary {
+		return desired.members, nil
+	}
+
 	// We cannot change the HasVote flag of a controller in state at exactly
 	// the same moment as changing its voting status in the replica set.
 	//
@@ -675,11 +691,22 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err := setHasVote(added, true); err != nil {
 		return nil, errors.Annotate(err, "adding new voters")
 	}
+
 	// Currently k8s controllers do not support HA, so only update
 	// the replicaset config if HA is enabled and there is a change.
+	// Only controllers corresponding with the mongo primary should
+	// update the replicaset, otherwise there will be a race since
+	// a diff needs to be calculated so the changes can be applied
+	// one at a time.
 	if w.config.SupportsHA && desired.isChanged {
 		ms := make([]replicaset.Member, 0, len(desired.members))
-		for _, m := range desired.members {
+		ids := make([]string, 0, len(desired.members))
+		for id := range desired.members {
+			ids = append(ids, id)
+		}
+		sortAsInts(ids)
+		for _, id := range ids {
+			m := desired.members[id]
 			ms = append(ms, *m)
 		}
 		if err := w.config.MongoSession.Set(ms); err != nil {
@@ -714,7 +741,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	}
 	for _, removedTracker := range removed {
 		if removedTracker.host.Life() == state.Alive {
-			logger.Debugf("vote removed from %v but controller is %s", removedTracker.Id(), state.Alive)
+			logger.Infof("vote removed from %v but controller is %s, should soon die", removedTracker.Id(), state.Alive)
 		}
 	}
 	return desired.members, nil

@@ -125,10 +125,10 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (s *HookContextSuite) GetContext(c *gc.C, relId int, remoteName string) jujuc.Context {
+func (s *HookContextSuite) GetContext(c *gc.C, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.getHookContext(c, uuid.String(), relId, remoteName)
+	return s.getHookContext(c, uuid.String(), relId, remoteName, storageTag)
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, app *state.Application) *state.Unit {
@@ -182,7 +182,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string) *runnercontext.HookContext {
+func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -215,9 +215,12 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		CharmMetrics:        nil,
 		ActionData:          nil,
 		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
+		Storage:             s.storage,
+		StorageTag:          storageTag,
 		Paths:               runnertesting.NewRealPaths(c),
 		Clock:               s.clock,
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }

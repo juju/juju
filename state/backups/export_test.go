@@ -7,13 +7,8 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"time" // Only used for time types.
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	"github.com/juju/utils/v2/filestorage"
-
-	"github.com/juju/juju/state"
 )
 
 var (
@@ -24,7 +19,6 @@ var (
 	GetDBDumper          = &getDBDumper
 	RunCreate            = &runCreate
 	FinishMeta           = &finishMeta
-	StoreArchiveRef      = &storeArchive
 	GetMongodumpPath     = &getMongodumpPath
 	RunCommand           = &runCommandFn
 	AvailableDisk        = &availableDisk
@@ -32,88 +26,25 @@ var (
 	DirSize              = &dirSize
 )
 
-var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
-var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
-
-func getBackupDBWrapper(st *state.State) *storageDBWrapper {
-	db := st.MongoSession().DB(storageDBName)
-	return newStorageDBWrapper(db, storageMetaName, st.ModelUUID())
-}
-
-// NewBackupID creates a new backup ID based on the metadata.
-func NewBackupID(meta *Metadata) string {
-	doc := newStorageMetaDoc(meta)
-	return newStorageID(&doc)
-}
-
-// GetBackupMetadata returns the metadata retrieved from storage.
-func GetBackupMetadata(st *state.State, id string) (*Metadata, error) {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc, err := getStorageMetadata(db, id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return docAsMetadata(doc), nil
-}
-
-// AddBackupMetadata adds the metadata to storage.
-func AddBackupMetadata(st *state.State, meta *Metadata) (string, error) {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc := newStorageMetaDoc(meta)
-	return addStorageMetadata(db, &doc)
-}
-
-// AddBackupMetadataID adds the metadata to storage, using the given
-// backup ID.
-func AddBackupMetadataID(st *state.State, meta *Metadata, id string) error {
-	restore := testing.PatchValue(&newStorageID, func(*storageMetaDoc) string {
-		return id
-	})
-	defer restore()
-
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc := newStorageMetaDoc(meta)
-	_, err := addStorageMetadata(db, &doc)
-	return errors.Trace(err)
-}
-
-// SetBackupStoredTime stores the time of when the identified backup archive
-// file was stored.
-func SetBackupStoredTime(st *state.State, id string, stored time.Time) error {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	return setStorageStoredTime(db, id, stored)
-}
-
 // ExposeCreateResult extracts the values in a create() result.
 func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string, string) {
 	return result.archiveFile, result.size, result.checksum, result.filename
 }
 
 // NewTestCreateArgs builds a new args value for create() calls.
-func NewTestCreateArgs(backupDir string, filesToBackUp []string, db DBDumper, metar io.Reader, noDownload bool) *createArgs {
+func NewTestCreateArgs(backupDir string, filesToBackUp []string, db DBDumper, metar io.Reader) *createArgs {
 	args := createArgs{
-		backupDir:      backupDir,
+		destinationDir: backupDir,
 		filesToBackUp:  filesToBackUp,
 		db:             db,
 		metadataReader: metar,
-		noDownload:     noDownload,
-		availableDisk: func(string) uint64 {
-			return 6666 * 1024 * 1024
-		},
-		totalDisk: func(string) uint64 {
-			return 8666 * 1024 * 1024
-		},
 	}
 	return &args
 }
 
 // ExposeCreateResult extracts the values in a create() args value.
 func ExposeCreateArgs(args *createArgs) (string, []string, DBDumper) {
-	return args.backupDir, args.filesToBackUp, args.db
+	return args.destinationDir, args.filesToBackUp, args.db
 }
 
 // NewTestCreateResult builds a new create() result.
@@ -155,17 +86,6 @@ func NewTestCreateFailure(failure string) func(*createArgs) (*createResult, erro
 // the given failure.
 func NewTestMetaFinisher(failure string) func(*Metadata, *createResult) error {
 	return func(*Metadata, *createResult) error {
-		if failure == "" {
-			return nil
-		}
-		return errors.New(failure)
-	}
-}
-
-// NewTestArchiveStorer builds a new replacement for StoreArchive with
-// the given failure.
-func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadata, io.Reader) error {
-	return func(filestorage.FileStorage, *Metadata, io.Reader) error {
 		if failure == "" {
 			return nil
 		}

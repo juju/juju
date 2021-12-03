@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -116,6 +117,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[0], gc.FitsTypeOf, peergrouper.Config{})
 	config := args[0].(peergrouper.Config)
 
+	c.Assert(config.ControllerId(), gc.Equals, "10")
+	config.ControllerId = nil
 	c.Assert(config, jc.DeepEquals, peergrouper.Config{
 		State:        peergrouper.StateShim{s.State},
 		MongoSession: peergrouper.MongoSessionShim{s.State.MongoSession()},
@@ -180,6 +183,10 @@ func (ma *mockAgent) CurrentConfig() agent.Config {
 type mockAgentConfig struct {
 	agent.Config
 	info *controller.StateServingInfo
+}
+
+func (c *mockAgentConfig) Tag() names.Tag {
+	return names.NewMachineTag("10")
 }
 
 func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {

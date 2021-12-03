@@ -46,7 +46,7 @@ func splitDocID(id string) (string, string, bool) {
 const modelUUIDRequired = 1
 const noModelUUIDInInput = 2
 
-// mungeDocForMultiModel takes the value of an txn.Op Insert or $set
+// mungeDocForMultiModel takes the value of a txn.Op Insert or $set
 // Update and modifies it to be multi-model safe, returning the
 // modified document.
 func mungeDocForMultiModel(doc interface{}, modelUUID string, modelUUIDFlags int) (bson.D, error) {

@@ -19,14 +19,18 @@ type downloadParams struct {
 }
 
 // Download returns an io.ReadCloser for the given backup id.
-func (c *Client) Download(id string) (io.ReadCloser, error) {
-	// Send the request.
+func (c *Client) Download(filename string) (io.ReadCloser, error) {
+	httpClient, err := c.st.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var resp *http.Response
-	err := c.client.Call(
-		c.facade.RawAPICaller().Context(),
+	err = httpClient.Call(
+		c.st.Context(),
 		&downloadParams{
 			Body: params.BackupsDownloadArgs{
-				ID: id,
+				ID: filename,
 			},
 		},
 		&resp,
