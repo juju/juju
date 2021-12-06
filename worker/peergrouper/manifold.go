@@ -103,10 +103,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	agentConfig := agent.CurrentConfig()
 	stateServingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
+		_ = stTracker.Done()
 		return nil, errors.New("state serving info missing from agent config")
 	}
 	model, err := st.Model()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	supportsHA := model.Type() != state.ModelTypeCAAS

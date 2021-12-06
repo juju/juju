@@ -124,6 +124,15 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
+func (s *ManifoldSuite) TestStartErrorClosesState(c *gc.C) {
+	s.stub.SetErrors(errors.New("boom"))
+
+	_, err := s.manifold.Start(s.context)
+	c.Assert(err, gc.ErrorMatches, "boom")
+
+	s.stateTracker.CheckCallNames(c, "Use", "Done")
+}
+
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
