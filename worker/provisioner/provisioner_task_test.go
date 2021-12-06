@@ -715,7 +715,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 	// change will trigger a StartInstance call against the broker.  While
 	// in that call (i.e. the machine is still being started from the
 	// provisioner's perspective), we will set the machine as dead, queue a
-	// cahnge event for the same machine and wait until it has been
+	// change event for the same machine and wait until it has been
 	// processed and the event processed callback invoked.
 	//
 	// The change event for the dead machine should not immediately trigger

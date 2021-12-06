@@ -419,7 +419,7 @@ func (task *provisionerTask) pendingOrDead(
 	defer task.machinesMutex.RUnlock()
 	for _, id := range ids {
 		// Ignore machines that have been either queued for deferred
-		// stopping or they are currently sopping
+		// stopping or they are currently stopping
 		if _, found := task.machinesStopDeferred[id]; found {
 			task.logger.Tracef("pendingOrDead: ignoring machine %q; machine has deferred stop flag set", id)
 			continue // ignore: will be stopped once started
