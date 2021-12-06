@@ -714,20 +714,44 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
 	)
-	// No unit exists now, so cancel the cleanupForceDestroyedUnit docs to avoid new units of later deployment
-	// get removed accidentally because we re-use unit numbers for sidecar applications.
-	cancelCleanupOps, err := a.st.cancelCleanupOps(cleanupForceDestroyedUnit,
-		bson.DocElem{
-			Name: "prefix", Value: bson.D{
-				{Name: "$regex", Value: fmt.Sprintf("^%s/[0-9]+$", name)},
-			},
-		},
-	)
+
+	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, cancelCleanupOps...)
-	return ops, nil
+	return append(ops, cancelCleanupOps...), nil
+}
+
+func (a *Application) cancelScheduledCleanupOps() ([]txn.Op, error) {
+	appOrUnitPattern := bson.DocElem{
+		Name: "prefix", Value: bson.D{
+			{Name: "$regex", Value: fmt.Sprintf("^%s(/[0-9]+)*$", a.Name())},
+		},
+	}
+	// No unit and app exists now, so cancel the below scheduled cleanup docs to avoid new resources of later deployment
+	// getting removed accidentally because we re-use unit numbers for sidecar applications.
+	cancelCleanupOpsArgs := []cancelCleanupOpsArg{
+		{cleanupForceDestroyedUnit, appOrUnitPattern},
+		{cleanupForceRemoveUnit, appOrUnitPattern},
+		{cleanupForceApplication, appOrUnitPattern},
+	}
+	relations, err := a.Relations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, rel := range relations {
+		cancelCleanupOpsArgs = append(cancelCleanupOpsArgs, cancelCleanupOpsArg{
+			cleanupForceDestroyedRelation,
+			bson.DocElem{
+				Name: "prefix", Value: relationKey(rel.Endpoints())},
+		})
+	}
+
+	cancelCleanupOps, err := a.st.cancelCleanupOps(cancelCleanupOpsArgs...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cancelCleanupOps, nil
 }
 
 // IsExposed returns whether this application is exposed. The explicitly open

@@ -615,22 +615,25 @@ func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
-	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	data := "ancient-debris"
-	res := resourcetesting.NewResource(c, nil, "mug", app.Name(), data).Resource
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = resources.SetResource(app.Name(), res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
-	c.Assert(err, jc.ErrorIsNil)
-
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.Refresh(), jc.ErrorIsNil)
 	c.Assert(app.UnitCount(), gc.Equals, 1)
+	s.assertDoesNotNeedCleanup(c)
 
+	// app `dummyfoo` and its units should not be impacted after app `dummy` was destroyed.
+	appfoo := s.AddTestingApplication(c, "dummyfoo", ch)
+	unitfoo, err := appfoo.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appfoo.Refresh(), jc.ErrorIsNil)
+	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
 	s.assertDoesNotNeedCleanup(c)
 
 	s.State.ScheduleForceCleanup(state.CleanupForceDestroyedUnit, unit.Name(), 1*time.Minute)
+	s.State.ScheduleForceCleanup(state.CleanupForceRemoveUnit, unit.Name(), 1*time.Minute)
+	s.State.ScheduleForceCleanup(state.CleanupForceApplication, app.Name(), 1*time.Minute)
 	s.assertNeedsCleanup(c)
 
 	op := app.DestroyOperation()
@@ -639,11 +642,16 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 	op.MaxWait = 1 * time.Minute
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.assertNeedsCleanup(c)
 	s.assertCleanupCount(c, 3)
 
 	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
 	c.Assert(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	c.Assert(unitfoo.Refresh(), jc.ErrorIsNil)
+	c.Assert(appfoo.Refresh(), jc.ErrorIsNil)
+	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) {

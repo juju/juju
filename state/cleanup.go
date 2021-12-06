@@ -117,18 +117,24 @@ func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...int
 	}
 }
 
-func (st *State) cancelCleanupOps(kind cleanupKind, pattern bson.DocElem) ([]txn.Op, error) {
+type cancelCleanupOpsArg struct {
+	kind    cleanupKind
+	pattern bson.DocElem
+}
+
+func (st *State) cancelCleanupOps(args ...cancelCleanupOpsArg) ([]txn.Op, error) {
 	col, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
+	patterns := make([]bson.D, len(args))
+	for i, arg := range args {
+		patterns[i] = bson.D{
+			arg.pattern,
+			{Name: "kind", Value: arg.kind},
+		}
+	}
 	var docs []cleanupDoc
-	err := col.Find(
-		bson.D{
-			pattern,
-			{Name: "kind", Value: kind},
-		},
-	).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get %q cleanups docs with pattern %v", kind, pattern)
+	if err := col.Find(bson.D{{Name: "$or", Value: patterns}}).All(&docs); err != nil {
+		return nil, errors.Annotate(err, "cannot get cleanups docs")
 	}
 	var ops []txn.Op
 	for _, doc := range docs {
