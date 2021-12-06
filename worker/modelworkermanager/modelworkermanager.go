@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
@@ -58,6 +59,11 @@ type ModelLogger interface {
 	Close() error
 }
 
+// ModelMetrics defines a way to create metrics for a model.
+type ModelMetrics interface {
+	ForModel(names.ModelTag) dependency.Metrics
+}
+
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
@@ -66,6 +72,7 @@ type NewModelConfig struct {
 	ModelUUID        string
 	ModelType        state.ModelType
 	ModelLogger      ModelLogger
+	ModelMetrics     dependency.Metrics
 	Mux              *apiserverhttp.Mux
 	ControllerConfig controller.Config
 }
@@ -83,6 +90,7 @@ type Config struct {
 	Logger         Logger
 	MachineID      string
 	ModelWatcher   ModelWatcher
+	ModelMetrics   ModelMetrics
 	Mux            *apiserverhttp.Mux
 	Controller     Controller
 	NewModelWorker NewModelWorkerFunc
@@ -106,6 +114,9 @@ func (config Config) Validate() error {
 	}
 	if config.ModelWatcher == nil {
 		return errors.NotValidf("nil ModelWatcher")
+	}
+	if config.ModelMetrics == nil {
+		return errors.NotValidf("nil ModelMetrics")
 	}
 	if config.Controller == nil {
 		return errors.NotValidf("nil Controller")
@@ -201,6 +212,7 @@ func (m *modelWorkerManager) loop() error {
 			ModelName:        fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
 			ModelUUID:        modelUUID,
 			ModelType:        model.Type(),
+			ModelMetrics:     m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
 			Mux:              m.config.Mux,
 			ControllerConfig: controllerConfig,
 		}

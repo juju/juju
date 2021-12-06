@@ -606,19 +606,18 @@ func (a *MachineAgent) makeEngineCreator(
 			MachineLock:                       a.machineLock,
 			SetStatePool:                      statePoolReporter.Set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
-			NewModelWorker: func(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
-				return a.startModelWorkers(cfg, metrics)
-			},
-			MuxShutdownWait:        1 * time.Minute,
-			NewContainerBrokerFunc: newCAASBroker,
-			NewBrokerFunc:          newBroker,
-			IsCaasConfig:           a.isCaasAgent,
+			NewModelWorker:                    a.startModelWorkers,
+			MuxShutdownWait:                   1 * time.Minute,
+			NewContainerBrokerFunc:            newCAASBroker,
+			NewBrokerFunc:                     newBroker,
+			IsCaasConfig:                      a.isCaasAgent,
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return engineConfigFunc(controllerMetricsSink)
 			},
-			SetupLogging: agentconf.SetupAgentLogging,
-			LeaseFSM:     raftlease.NewFSM(),
-			RaftOpQueue:  queue.NewOpQueue(clock.WallClock),
+			SetupLogging:            agentconf.SetupAgentLogging,
+			LeaseFSM:                raftlease.NewFSM(),
+			RaftOpQueue:             queue.NewOpQueue(clock.WallClock),
+			DependencyEngineMetrics: metrics,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -1065,7 +1064,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 
 // startModelWorkers starts the set of workers that run for every model
 // in each controller, both IAAS and CAAS.
-func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig, modelMetrics ModelMetrics) (worker.Worker, error) {
+func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 	controllerUUID := currentConfig.Controller().Id()
 	// We look at the model in the agent.conf file to see if we are starting workers
@@ -1076,8 +1075,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig, 
 		return nil, errors.Trace(err)
 	}
 
-	metrics := modelMetrics.ForModel(modelAgent.CurrentConfig().Model())
-	config := engine.DependencyEngineConfig(metrics)
+	config := engine.DependencyEngineConfig(cfg.ModelMetrics)
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
 	config.Filter = model.IgnoreErrRemoved

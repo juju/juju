@@ -13,6 +13,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
@@ -194,12 +195,19 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 		ModelWatcher:   watcher,
 		Controller:     controller,
 		NewModelWorker: s.startModelWorker,
+		ModelMetrics:   dummyModelMetrics{},
 		ErrorDelay:     time.Millisecond,
 	}
 	w, err := modelworkermanager.New(config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer kill(c, w)
 	test(w, watcher, controller)
+}
+
+type dummyModelMetrics struct{}
+
+func (dummyModelMetrics) ForModel(model names.ModelTag) dependency.Metrics {
+	return dependency.DefaultMetrics()
 }
 
 func (s *suite) startModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {
@@ -279,7 +287,6 @@ func newMockModelWatcher() *mockModelWatcher {
 
 type mockModelWatcher struct {
 	envWatcher *mockEnvWatcher
-	modelErr   error
 }
 
 func (mock *mockModelWatcher) WatchModels() state.StringsWatcher {
