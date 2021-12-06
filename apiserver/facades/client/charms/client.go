@@ -54,14 +54,6 @@ type API struct {
 	repoFactory corecharm.RepositoryFactory
 }
 
-type APIv2 struct {
-	*APIv3
-}
-
-type APIv3 struct {
-	*API
-}
-
 // CharmInfo returns information about the requested charm.
 func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	return a.charmInfoAPI.CharmInfo(args)
@@ -92,29 +84,6 @@ func (a *API) checkCanWrite() error {
 		return apiservererrors.ErrPerm
 	}
 	return nil
-}
-
-// NewFacadeV2 provides the signature required for facade V2 registration.
-// It is unknown where V1 is.
-func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
-	v4, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, nil
-	}
-	return &APIv2{
-		APIv3: &APIv3{
-			API: v4,
-		},
-	}, nil
-}
-
-// NewFacadeV3 provides the signature required for facade V3 registration.
-func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
-	api, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{API: api}, nil
 }
 
 // NewFacadeV4 provides the signature required for facade V4 registration.
@@ -208,9 +177,6 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 	}
 	return params.CharmsListResult{CharmURLs: charmURLs}, nil
 }
-
-// GetDownloadInfos is not available via the V2 API.
-func (a *APIv2) GetDownloadInfos(_ struct{}) {}
 
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 //and origin.
@@ -316,9 +282,6 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	return o, nil
 }
 
-// AddCharm is not available via the V2 API.
-func (a *APIv2) AddCharm(_ struct{}) {}
-
 // AddCharm adds the given charm URL (which must include revision) to the
 // environment, if it does not exist yet. Local charms are not supported,
 // only charm store and charm hub URLs. See also AddLocalCharm().
@@ -332,9 +295,6 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 		Series:             args.Series,
 	})
 }
-
-// AddCharmWithAuthorization is not available via the V2 API.
-func (a *APIv2) AddCharmWithAuthorization(_ struct{}) {}
 
 // AddCharmWithAuthorization adds the given charm URL (which must include
 // revision) to the environment, if it does not exist yet. Local charms are
@@ -501,9 +461,6 @@ func (adapter charmInfoAdapter) Revision() int {
 	return 0 // not part of the essential metadata
 }
 
-// ResolveCharms is not available via the V2 API.
-func (a *APIv2) ResolveCharms(_ struct{}) {}
-
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
@@ -638,9 +595,6 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 	}
 	return params.IsMeteredResult{Metered: false}, nil
 }
-
-// CheckCharmPlacement isn't on the v13 API.
-func (a *APIv3) CheckCharmPlacement(_, _ struct{}) {}
 
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
@@ -782,9 +736,6 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 
 	return "", nil
 }
-
-// ListCharmResources is not available via the V2 API.
-func (a *APIv2) ListCharmResources(_ struct{}) {}
 
 // ListCharmResources returns a series of resources for a given charm.
 func (a *API) ListCharmResources(args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {

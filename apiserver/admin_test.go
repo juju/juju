@@ -50,6 +50,15 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+const (
+	clientFacadeVersion           = 4
+	userManagerFacadeVersion      = 2
+	sshClientFacadeVersion        = 2
+	pingerFacadeVersion           = 1
+	modelManagerFacadeVersion     = 9
+	highAvailabilityFacadeVersion = 2
+)
+
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
 
@@ -466,10 +475,10 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	}
 	s.testLoginDuringMaintenance(c, func(st api.Connection) {
 		var statusResult params.FullStatus
-		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
+		err := st.APICall("Client", clientFacadeVersion, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
+		err = st.APICall("Client", clientFacadeVersion, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(err, jc.Satisfies, params.IsCodeUpgradeInProgress)
 	})
 }
@@ -611,7 +620,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	c.Assert(result.ControllerTag, gc.Equals, s.State.ControllerTag().String())
 	c.Assert(result.ModelTag, gc.Equals, s.Model.ModelTag().String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
-		{Name: "CrossModelRelations", Versions: []int{1, 2}},
+		{Name: "CrossModelRelations", Versions: []int{2}},
 		{Name: "NotifyWatcher", Versions: []int{1}},
 		{Name: "OfferStatusWatcher", Versions: []int{1}},
 		{Name: "RelationStatusWatcher", Versions: []int{1}},
@@ -1014,7 +1023,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall("Client", clientFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
@@ -1042,7 +1051,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		When:    s.Clock.Now().Format(time.RFC3339),
 		Facade:  "Client",
 		Method:  "AddMachines",
-		Version: 1,
+		Version: clientFacadeVersion,
 	})
 }
 
@@ -1081,7 +1090,7 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall("Client", clientFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, gc.ErrorMatches, "bad news bears")
 }
 
@@ -1122,7 +1131,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall("Client", clientFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Still nothing logged - the AddMachines call has been filtered out.
@@ -1132,7 +1141,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	destroyReq := &params.DestroyMachines{
 		MachineNames: []string{addResults.Machines[0].Machine},
 	}
-	err = conn.APICall("Client", 1, "", "DestroyMachines", destroyReq, nil)
+	err = conn.APICall("Client", clientFacadeVersion, "", "DestroyMachines", destroyReq, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now the conversation and both requests are logged.

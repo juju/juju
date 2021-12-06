@@ -21,11 +21,6 @@ type FacadeV2 struct {
 	*common.ControllerConfigAPI
 }
 
-// FacadeV1 is the V1 facade of the caas agent
-type FacadeV1 struct {
-	*FacadeV2
-}
-
 // NewStateFacadeV2 provides the signature required for facade registration of
 // caas agent v2
 func NewStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
@@ -53,30 +48,5 @@ func NewStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
 		auth:                authorizer,
 		resources:           resources,
-	}, nil
-}
-
-// NewStateFacadeV1 provides the signature required for facade registration of
-// caas agent v1
-func NewStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
-	v2Facade, err := NewStateFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	v2Facade.CloudSpecer = cloudspec.NewCloudSpecV1(
-		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
-		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
-		common.AuthFuncForTag(model.ModelTag()),
-	)
-	return &FacadeV1{
-		v2Facade,
 	}, nil
 }

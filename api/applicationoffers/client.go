@@ -267,13 +267,8 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 	found := params.ConsumeOfferDetailsResults{}
 
 	offerURLs := params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}
-	var args interface{}
-	if c.facade.BestAPIVersion() < 3 {
-		args = offerURLs
-	} else {
-		args = params.ConsumeOfferDetailsArg{
-			OfferURLs: offerURLs,
-		}
+	args := params.ConsumeOfferDetailsArg{
+		OfferURLs: offerURLs,
 	}
 
 	err = c.facade.FacadeCall("GetConsumeDetails", args, &found)
@@ -301,11 +296,6 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 func (c *Client) DestroyOffers(force bool, offerURLs ...string) error {
 	if len(offerURLs) == 0 {
 		return nil
-	}
-	if force {
-		if bestVer := c.BestAPIVersion(); bestVer < 2 {
-			return errors.NotImplementedf("DestroyOffers() with force (need v2+, have v%d)", bestVer)
-		}
 	}
 	args := params.DestroyApplicationOffers{
 		Force:     force,

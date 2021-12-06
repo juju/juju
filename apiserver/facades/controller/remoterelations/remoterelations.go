@@ -18,26 +18,12 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// API provides access to version 1 of the remote relations API facade.
-type APIv1 struct {
-	*API
-}
-
 // API provides access to the remote relations API facade.
 type API struct {
 	*common.ControllerConfigAPI
 	st         RemoteRelationsState
 	resources  facade.Resources
 	authorizer facade.Authorizer
-}
-
-// NewAPIv1 creates a new server-side API facade backed by global state.
-func NewAPIv1(ctx facade.Context) (*APIv1, error) {
-	api, err := NewAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv1{api}, nil
 }
 
 // NewAPI creates a new server-side API facade backed by global state.
@@ -143,56 +129,6 @@ func (api *API) SaveMacaroons(args params.EntityMacaroonArgs) (params.ErrorResul
 		}
 		err = api.st.SaveMacaroon(entityTag, arg.Macaroon)
 		results.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return results, nil
-}
-
-// RelationUnitSettings returns the relation unit settings for the
-// given relation units in the local model. (Removed in v2 of the API
-// - the settings are included in the events from
-// WatchLocalRelationChanges.)
-func (api *APIv1) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
-	results := params.SettingsResults{
-		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
-	}
-	one := func(ru params.RelationUnit) (params.Settings, error) {
-		relationTag, err := names.ParseRelationTag(ru.Relation)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		rel, err := api.st.KeyRelation(relationTag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unitTag, err := names.ParseUnitTag(ru.Unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unit, err := rel.Unit(unitTag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		settings, err := unit.Settings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		paramsSettings := make(params.Settings)
-		for k, v := range settings {
-			vString, ok := v.(string)
-			if !ok {
-				return nil, errors.Errorf("invalid relation setting %q: expected string, got %T", k, v)
-			}
-			paramsSettings[k] = vString
-		}
-		return paramsSettings, nil
-	}
-	for i, ru := range relationUnits.RelationUnits {
-		settings, err := one(ru)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].Settings = settings
 	}
 	return results, nil
 }
@@ -313,37 +249,6 @@ func (api *API) WatchRemoteApplications() (params.StringsWatchResult, error) {
 	return params.StringsWatchResult{}, watcher.EnsureErr(w)
 }
 
-// WatchLocalRelationUnits starts a RelationUnitsWatcher for watching the local
-// relation units involved in each specified relation in the local model,
-// and returns the watcher IDs and initial values, or an error if the relation
-// units could not be watched. WatchLocalRelationUnits is only supported on the v1 API - later versions provide WatchLocalRelationChanges instead.
-func (api *APIv1) WatchLocalRelationUnits(args params.Entities) (params.RelationUnitsWatchResults, error) {
-	results := params.RelationUnitsWatchResults{
-		Results: make([]params.RelationUnitsWatchResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		relationTag, err := names.ParseRelationTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
-		changes, ok := <-w.Changes()
-		if !ok {
-			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
-			continue
-		}
-		results.Results[i].RelationUnitsWatcherId = api.resources.Register(w)
-		results.Results[i].Changes = changes
-	}
-	return results, nil
-}
-
 // WatchLocalRelationChanges starts a RemoteRelationWatcher for each
 // specified relation, returning the watcher IDs and initial values,
 // or an error if the remote relations couldn't be watched.
@@ -395,13 +300,6 @@ func (api *API) WatchLocalRelationChanges(args params.Entities) (params.RemoteRe
 	}
 	return results, nil
 }
-
-// Mask out new methods from the old API versions. The API reflection
-// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
-// so this removes the method as far as the RPC machinery is concerned.
-//
-// WatchLocalRelationChanges doesn't exist before the v2 API.
-func (api *APIv1) WatchLocalRelationChanges(_, _ struct{}) {}
 
 // WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
 // each specified application in the local model, and returns the watcher IDs
@@ -503,9 +401,6 @@ func (api *API) SetRemoteApplicationsStatus(args params.SetStatus) (params.Error
 	}
 	return result, nil
 }
-
-// UpdateControllersForModels is not available via the V1 API.
-func (u *APIv1) UpdateControllersForModels(_, _ struct{}) {}
 
 // UpdateControllersForModels changes the external controller records for the
 // associated model entities. This is used when the remote relations worker gets

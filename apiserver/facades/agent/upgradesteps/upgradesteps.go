@@ -5,7 +5,6 @@ package upgradesteps
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradesteps_mock.go github.com/juju/juju/apiserver/facades/agent/upgradesteps UpgradeStepsState,Machine,Unit
@@ -43,31 +43,14 @@ type UpgradeStepsAPI struct {
 	getUnitAuthFunc    common.GetAuthFunc
 }
 
-// UpgradeStepsAPIV2 implements version (v2) of the Upgrade Steps API,
-// which add WriteUniterState.
-type UpgradeStepsAPIV1 struct {
-	*UpgradeStepsAPI
-}
-
-// using apiserver/facades/client/cloud as an example.
 var (
 	_ UpgradeStepsV2 = (*UpgradeStepsAPI)(nil)
-	_ UpgradeStepsV1 = (*UpgradeStepsAPIV1)(nil)
 )
 
 // NewFacadeV2 is used for API registration.
 func NewFacadeV2(ctx facade.Context) (*UpgradeStepsAPI, error) {
 	st := &upgradeStepsStateShim{State: ctx.State()}
 	return NewUpgradeStepsAPI(st, ctx.Resources(), ctx.Auth())
-}
-
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(ctx facade.Context) (*UpgradeStepsAPIV1, error) {
-	v2, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &UpgradeStepsAPIV1{UpgradeStepsAPI: v2}, nil
 }
 
 func NewUpgradeStepsAPI(st UpgradeStepsState,
@@ -126,9 +109,6 @@ func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(arg params.Ent
 
 	return result, nil
 }
-
-// WriteAgentState did not exist prior to v2.
-func (*UpgradeStepsAPIV1) WriteAgentState(_, _ struct{}) {}
 
 // WriteAgentState writes the agent state for the set of units provided. This
 // call presently deals with the state for the unit agent.

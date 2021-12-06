@@ -3103,7 +3103,6 @@ func withAllWatcher(fakeAPI *fakeDeployAPI) {
 	id := "0"
 	fakeAPI.Call("WatchAll").Returns(api.NewAllWatcher(fakeAPI, &id), error(nil))
 
-	fakeAPI.Call("BestFacadeVersion", "Annotations").Returns(0)
 	fakeAPI.Call("BestFacadeVersion", "AllWatcher").Returns(0)
 	fakeAPI.Call("APICall", "AllWatcher", 0, "0", "Stop", nil, nil).Returns(error(nil))
 	fakeAPI.Call("Status", []string(nil)).Returns(&params.FullStatus{}, error(nil))

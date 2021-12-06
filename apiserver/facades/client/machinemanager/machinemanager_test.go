@@ -12,7 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +26,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
@@ -418,41 +418,6 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 	)
 }
 
-func (s *MachineManagerSuite) TestDestroyMachineWithParamsV4(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectUnpinAppLeaders("0")
-
-	apiV4 := s.machineManagerAPIV4()
-	s.st.machines["0"] = &mockMachine{}
-	results, err := apiV4.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
-		Force:       true,
-		MachineTags: []string{"machine-0"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.(*mockMachine).keep, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
-}
-
 func (s *MachineManagerSuite) assertDestroyMachineWithParams(c *gc.C, in params.DestroyMachinesParams, out params.DestroyMachineResults) {
 	s.st.machines["0"] = &mockMachine{}
 	results, err := s.api.DestroyMachineWithParams(in)
@@ -539,28 +504,19 @@ func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
 	}
 }
 
-func (s *MachineManagerSuite) apiV5() machinemanager.MachineManagerAPIV5 {
-	return machinemanager.MachineManagerAPIV5{
-		MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{
-			MachineManagerAPI: s.api,
-		},
-	}
-}
-
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].unitAgentState = status.Idle
 
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
 		}},
 	}
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result := results.Results[0]
@@ -580,13 +536,12 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsControllerError(c *gc.C
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("3").String()},
 		}},
 	}
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
@@ -597,13 +552,12 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsLockedForSeriesUpgradeE
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("4").String()},
 		}},
 	}
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
@@ -614,13 +568,12 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
 		}},
 	}
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "series missing from args")
@@ -630,7 +583,6 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *gc.
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("2").String()},
@@ -638,7 +590,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *gc.
 		}},
 	}
 
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		"machine-2 is running CentOS and is not valid for Ubuntu series upgrade")
@@ -648,7 +600,6 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotToUbuntuError(c *gc.C)
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
@@ -656,7 +607,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotToUbuntuError(c *gc.C)
 		}},
 	}
 
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		`series "centos7" is from OS "CentOS" and is not a valid upgrade target`)
@@ -666,7 +617,6 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
@@ -674,7 +624,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError
 		}},
 	}
 
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine-1 is already running series trusty")
 }
@@ -683,7 +633,6 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C)
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
@@ -691,7 +640,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C)
 		}},
 	}
 
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		"machine machine-1 is running trusty which is a newer series than precise.")
@@ -704,14 +653,13 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C)
 	s.st.machines["0"].unitAgentState = status.Executing
 	s.st.machines["0"].unitState = status.Active
 
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
 		}},
 	}
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		"unit unit-foo-[0-2] is not ready to start a series upgrade; its agent status is: \"executing\" ")
@@ -724,14 +672,13 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitStatusError(c *gc.C) 
 	s.st.machines["0"].unitAgentState = status.Idle
 	s.st.machines["0"].unitState = status.Error
 
-	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
 		}},
 	}
-	results, err := apiV5.UpgradeSeriesValidate(args)
+	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		"unit unit-foo-[0-2] is not ready to start a series upgrade; its status is: \"error\" ")
@@ -743,9 +690,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].unitAgentState = status.Idle
 
-	apiV5 := s.apiV5()
 	machineTag := names.NewMachineTag("0")
-	result, err := apiV5.UpgradeSeriesPrepare(
+	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
@@ -764,9 +710,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	apiV5 := s.apiV5()
 	machineTag := names.NewMachineTag("76")
-	result, err := apiV5.UpgradeSeriesPrepare(
+	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
@@ -780,9 +725,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	apiV5 := s.apiV5()
 	unitTag := names.NewUnitTag("mysql/0")
-	result, err := apiV5.UpgradeSeriesPrepare(
+	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{
 				Tag: unitTag.String()},
@@ -798,9 +742,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPreparePermissionDenied(c *gc.C) 
 
 	user := names.NewUserTag("fred")
 	s.setAPIUser(c, user)
-	apiV5 := s.apiV5()
 	machineTag := names.NewMachineTag("0")
-	_, err := apiV5.UpgradeSeriesPrepare(
+	_, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
@@ -813,10 +756,9 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPreparePermissionDenied(c *gc.C) 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareBlockedChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	apiV5 := s.apiV5()
 	s.st.blockMsg = "TestUpgradeSeriesPrepareBlockedChanges"
 	s.st.block = state.ChangeBlock
-	_, err := apiV5.UpgradeSeriesPrepare(
+	_, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{
 				Tag: names.NewMachineTag("0").String()},
@@ -833,8 +775,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareBlockedChanges(c *gc.C) {
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	apiV5 := s.apiV5()
-	result, err := apiV5.UpgradeSeriesPrepare(
+	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
@@ -853,8 +794,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].SetErrors(apiservererrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
-	apiV5 := s.apiV5()
-	result, err := apiV5.UpgradeSeriesPrepare(
+	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
@@ -878,8 +818,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	apiV5 := s.apiV5()
-	_, err := apiV5.UpgradeSeriesComplete(
+	_, err := s.api.UpgradeSeriesComplete(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
@@ -1346,9 +1285,4 @@ type mockVolume struct {
 
 func (v *mockVolume) Detachable() bool {
 	return v.detachable
-}
-
-func (s *MachineManagerSuite) machineManagerAPIV4() machinemanager.MachineManagerAPIV4 {
-	apiV5 := s.apiV5()
-	return machinemanager.MachineManagerAPIV4{&apiV5}
 }

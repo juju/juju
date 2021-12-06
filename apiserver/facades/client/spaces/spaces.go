@@ -5,7 +5,6 @@ package spaces
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -27,26 +26,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
 
-// APIv2 provides the spaces API facade for versions < 3.
-type APIv2 struct {
-	*APIv3
-}
-
-// APIv3 provides the spaces API facade for version 3.
-type APIv3 struct {
-	*APIv4
-}
-
-// APIv4 provides the spaces API facade for version 4.
-type APIv4 struct {
-	*APIv5
-}
-
-// APIv5 provides the spaces API facade for version 5.
-type APIv5 struct {
-	*API
-}
-
 // API provides the spaces API facade for version 6.
 type API struct {
 	reloadSpacesAPI ReloadSpaces
@@ -58,42 +37,6 @@ type API struct {
 
 	check     BlockChecker
 	opFactory OpFactory
-}
-
-// NewAPIv2 is a wrapper that creates a V2 spaces API.
-func NewAPIv2(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPIv3(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
-
-// NewAPIv3 is a wrapper that creates a V3 spaces API.
-func NewAPIv3(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv3, error) {
-	api, err := NewAPIv4(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewAPIv4 is a wrapper that creates a V4 spaces API.
-func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv4, error) {
-	api, err := NewAPIv5(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv4{api}, nil
-}
-
-// NewAPIv5 is a wrapper that creates a V5 spaces API.
-func NewAPIv5(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv5, error) {
-	api, err := NewAPI(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv5{api}, nil
 }
 
 // NewAPI creates a new Space API server-side facade with a
@@ -190,49 +133,6 @@ func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.Err
 	return results, nil
 }
 
-// CreateSpaces creates a new Juju network space, associating the
-// specified subnets with it (optional; can be empty).
-func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorResults, error) {
-	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if !isAdmin {
-		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if err := api.checkSupportsSpaces(); err != nil {
-		return params.ErrorResults{}, apiservererrors.ServerError(errors.Trace(err))
-	}
-
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Spaces)),
-	}
-
-	for i, space := range args.Spaces {
-		cidrs, err := convertOldSubnetTagToCIDR(space.SubnetTags)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		csParams := params.CreateSpaceParams{
-			CIDRs:      cidrs,
-			SpaceTag:   space.SpaceTag,
-			Public:     space.Public,
-			ProviderId: space.ProviderId,
-		}
-		err = api.createOneSpace(csParams)
-		if err == nil {
-			continue
-		}
-		results.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
-	}
-
-	return results, nil
-}
-
 // createOneSpace creates one new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) createOneSpace(args params.CreateSpaceParams) error {
@@ -260,20 +160,6 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
-	cidrs := make([]string, len(subnetTags))
-	// In lieu of keeping names.v2 around, split the expected
-	// string for the older api calls. Format: subnet-<CIDR>
-	for i, tag := range subnetTags {
-		split := strings.Split(tag, "-")
-		if len(split) != 2 || split[0] != "subnet" {
-			return nil, errors.New(fmt.Sprintf("%q is not valid SubnetTag", tag))
-		}
-		cidrs[i] = split[1]
-	}
-	return cidrs, nil
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
@@ -318,8 +204,6 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 	}
 	return results, nil
 }
-
-func (api *APIv5) ShowSpace(_, _ struct{}) {}
 
 // ShowSpace shows the spaces for a set of given entities.
 func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, error) {
@@ -384,9 +268,6 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 
 	return params.ShowSpaceResults{Results: results}, err
 }
-
-// ReloadSpaces is not available via the V2 API.
-func (u *APIv2) ReloadSpaces(_, _ struct{}) {}
 
 // ReloadSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces() error {

@@ -95,8 +95,6 @@ func (s *NewMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.clientFacade = mocks.NewMockClientFacade(ctrl)
 	s.facade = mocks.NewMockFacadeCaller(ctrl)
 
-	s.clientFacade.EXPECT().BestAPIVersion().Return(5)
-
 	s.client = machinemanager.ConstructClient(s.clientFacade, s.facade)
 
 	return ctrl

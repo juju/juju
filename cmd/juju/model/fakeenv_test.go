@@ -85,7 +85,6 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAPIRoot = &fakeAPIConnection{}
 	s.fakeDefaultsAPI = &fakeModelDefaultsAPI{
-		version: 6,
 		values: map[string]interface{}{
 			"name":    "test-model",
 			"special": "special value",
@@ -132,11 +131,6 @@ type fakeModelDefaultsAPI struct {
 	defaults      config.ModelDefaultAttributes
 	err           error
 	keys          []string
-	version       int
-}
-
-func (f *fakeModelDefaultsAPI) BestAPIVersion() int {
-	return f.version
 }
 
 func (f *fakeModelDefaultsAPI) Close() error {

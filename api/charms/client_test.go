@@ -5,7 +5,7 @@ package charms_test
 
 import (
 	"github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
@@ -89,7 +89,6 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		}}
 
-	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
 	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
@@ -123,20 +122,6 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	c.Assert(got, gc.DeepEquals, want)
 }
 
-func (s *charmsMockSuite) TestResolveCharmsIsNotSupported(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().BestAPIVersion().Return(2)
-
-	client := charms.NewClientWithFacade(mockFacadeCaller)
-
-	args := []charms.CharmToResolve{}
-	_, err := client.ResolveCharms(args)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
-}
-
 func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -161,7 +146,6 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 		}},
 	}
 
-	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
 	mockFacadeCaller.EXPECT().FacadeCall("GetDownloadInfos", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
@@ -174,22 +158,6 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	}
 
 	c.Assert(got, gc.DeepEquals, want)
-}
-
-func (s *charmsMockSuite) TestGetDownloadInfoIsNotSupported(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	curl := charm.MustParseURL("cs:a-charm")
-	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().BestAPIVersion().Return(2)
-
-	client := charms.NewClientWithFacade(mockFacadeCaller)
-
-	_, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin), nil)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 }
 
 func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
@@ -307,22 +275,6 @@ func (s charmsMockSuite) TestCheckCharmPlacementError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "trap")
 }
 
-func (s *charmsMockSuite) TestListCharmResourcesIsNotSupported(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().BestAPIVersion().Return(2)
-
-	client := charms.NewClientWithFacade(mockFacadeCaller)
-
-	curl := charm.MustParseURL("a-charm")
-	origin := apicharm.Origin{}
-
-	_, err := client.ListCharmResources(curl, origin)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
-}
-
 func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -353,7 +305,6 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 		}}},
 	}
 
-	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
 	mockFacadeCaller.EXPECT().FacadeCall("ListCharmResources", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)

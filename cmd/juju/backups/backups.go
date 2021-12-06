@@ -45,7 +45,7 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 }
 
 // NewGetAPI returns a client for the backups api endpoint.
-func (c *CommandBase) NewGetAPI() (APIClient, int, error) {
+func (c *CommandBase) NewGetAPI() (APIClient, error) {
 	return getAPI(c)
 }
 
@@ -88,14 +88,13 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 }
 
 // GetAPI returns a client and the api version of the controller
-var getAPI = func(c *CommandBase) (APIClient, int, error) {
+var getAPI = func(c *CommandBase) (APIClient, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, -1, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	version := root.BestFacadeVersion("Backups")
 	client := backups.NewClient(root)
-	return client, version, nil
+	return client, nil
 }
 
 // dumpMetadata writes the formatted backup metadata to stdout.

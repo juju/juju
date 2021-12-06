@@ -31,28 +31,6 @@ type Suite struct {
 
 var _ = gc.Suite(&Suite{})
 
-func (s *Suite) TestDestroyControllerStorageAPIVersion(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 3}
-	client := controller.NewClient(apiCaller)
-	for _, destroyStorage := range []*bool{nil, new(bool)} {
-		err := client.DestroyController(controller.DestroyControllerParams{
-			DestroyStorage: destroyStorage,
-		})
-		c.Assert(err, gc.ErrorMatches, "this Juju controller requires DestroyStorage to be true")
-	}
-
-}
-
-func (s *Suite) TestDestroyControllerForceAPIVersion(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 10}
-	client := controller.NewClient(apiCaller)
-	force := true
-	err := client.DestroyController(controller.DestroyControllerParams{
-		Force: &force,
-	})
-	c.Assert(err, gc.ErrorMatches, "this Juju controller does not support force destroy")
-}
-
 func (s *Suite) TestDestroyController(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.BestVersionCaller{
@@ -393,15 +371,6 @@ func (s *Suite) TestConfigSet(c *gc.C) {
 		"some-setting": 345,
 	})
 	c.Assert(err, gc.ErrorMatches, "ruth mundy")
-}
-
-func (s *Suite) TestConfigSetAgainstOlderAPIVersion(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 4}
-	client := controller.NewClient(apiCaller)
-	err := client.ConfigSet(map[string]interface{}{
-		"some-setting": 345,
-	})
-	c.Assert(err, gc.ErrorMatches, "this controller version doesn't support updating controller config")
 }
 
 func (s *Suite) TestWatchModelSummaries(c *gc.C) {

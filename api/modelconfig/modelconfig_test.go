@@ -181,20 +181,6 @@ func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
 	c.Assert(level, gc.Equals, "level")
 }
 
-func (s *modelconfigSuite) TestSequencesV1(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		basetesting.APICallerFunc(
-			func(_ string, _ int, _, _ string, _, _ interface{}) error {
-				c.Errorf("shoulnd't be called")
-				return nil
-			},
-		), 1} // facade version one
-	client := modelconfig.NewClient(apiCaller)
-	sequences, err := client.Sequences()
-	c.Assert(err, gc.ErrorMatches, "Sequences on v1 facade not supported")
-	c.Assert(sequences, gc.IsNil)
-}
-
 func (s *modelconfigSuite) TestSequences(c *gc.C) {
 	called := false
 	apiCaller := basetesting.BestVersionCaller{

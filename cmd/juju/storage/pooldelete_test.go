@@ -25,7 +25,7 @@ var _ = gc.Suite(&PoolRemoveSuite{})
 func (s *PoolRemoveSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockPoolRemoveAPI{APIVersion: 5}
+	s.mockAPI = &mockPoolRemoveAPI{}
 }
 
 func (s *PoolRemoveSuite) runPoolRemove(c *gc.C, args []string) (*cmd.Context, error) {
@@ -51,13 +51,6 @@ func (s *PoolRemoveSuite) TestPoolRemoveErrorsManyArgs(c *gc.C) {
 	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
 }
 
-func (s *PoolRemoveSuite) TestPoolRemoveUnsupportedAPIVersion(c *gc.C) {
-	s.mockAPI.APIVersion = 3
-	_, err := s.runPoolRemove(c, []string{"sunshine"})
-	c.Check(err, gc.ErrorMatches, "removing storage pools is not supported by this version of Juju")
-	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
-}
-
 func (s *PoolRemoveSuite) TestPoolRemoveNotFound(c *gc.C) {
 	s.mockAPI.err = params.Error{
 		Code: params.CodeNotFound,
@@ -67,7 +60,6 @@ func (s *PoolRemoveSuite) TestPoolRemoveNotFound(c *gc.C) {
 }
 
 type mockPoolRemoveAPI struct {
-	APIVersion   int
 	RemovedPools []string
 	err          error
 }
@@ -79,8 +71,4 @@ func (s *mockPoolRemoveAPI) RemovePool(pname string) error {
 
 func (s mockPoolRemoveAPI) Close() error {
 	return nil
-}
-
-func (s mockPoolRemoveAPI) BestAPIVersion() int {
-	return s.APIVersion
 }

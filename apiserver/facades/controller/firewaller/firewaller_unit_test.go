@@ -30,7 +30,7 @@ type RemoteFirewallerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
-	api        *firewaller.FirewallerAPIV4
+	api        *firewaller.FirewallerAPI
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -45,9 +45,10 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState(coretesting.ModelTag.Id())
-	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
+	controllerConfigAPI := common.NewControllerConfig(s.st)
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, controllerConfigAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &firewaller.FirewallerAPIV4{FirewallerAPIV3: api, ControllerConfigAPI: common.NewControllerConfig(s.st)}
+	s.api = api
 }
 
 func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
@@ -143,7 +144,7 @@ type FirewallerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
-	api        *firewaller.FirewallerAPIV6
+	api        *firewaller.FirewallerAPI
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -159,16 +160,10 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 
 	s.st = newMockState(coretesting.ModelTag.Id())
 
-	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
+	controllerConfigAPI := common.NewControllerConfig(newMockState(coretesting.ModelTag.Id()))
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, controllerConfigAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &firewaller.FirewallerAPIV6{
-		&firewaller.FirewallerAPIV5{
-			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3:     api,
-				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
-			},
-		},
-	}
+	s.api = api
 }
 
 func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {

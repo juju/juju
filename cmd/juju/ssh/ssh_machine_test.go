@@ -5,7 +5,6 @@ package ssh
 
 import (
 	"fmt"
-
 	"os"
 	"path/filepath"
 	"regexp"
@@ -172,7 +171,6 @@ func (s *SSHMachineSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ssh.ClearClientKeys()
 	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
-	s.setForceAPIv1(false)
 
 	s.binDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.binDir)
@@ -243,14 +241,6 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 	c.Assert(target.via, gc.Not(gc.IsNil), gc.Commentf("expected target.via to be populated for container target"))
 	c.Assert(target.via.user, gc.Equals, "ubuntu")
 	c.Assert(target.via.host, gc.Equals, "10.0.0.1", gc.Commentf("expected target.via.host to be set to the container's host machine address"))
-}
-
-func (s *SSHMachineSuite) setForceAPIv1(enabled bool) {
-	if enabled {
-		os.Setenv(jujuSSHClientForceAPIv1, "1")
-	} else {
-		os.Unsetenv(jujuSSHClientForceAPIv1)
-	}
 }
 
 func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {

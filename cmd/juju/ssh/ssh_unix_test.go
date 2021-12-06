@@ -34,26 +34,13 @@ var sshTests = []struct {
 	args        []string
 	hostChecker jujussh.ReachableChecker
 	isTerminal  bool
-	forceAPIv1  bool
 	expected    argsSpec
 	expectedErr string
 }{
 	{
-		about:       "connect to machine 0 (api v1)",
-		args:        []string{"0"},
-		hostChecker: validAddresses("0.private", "0.public"),
-		forceAPIv1:  true,
-		expected: argsSpec{
-			hostKeyChecking: "yes",
-			knownHosts:      "0",
-			args:            "ubuntu@0.public",
-		},
-	},
-	{
-		about:       "connect to machine 0 (api v2)",
+		about:       "connect to machine 0",
 		args:        []string{"0"},
 		hostChecker: validAddresses("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
-		forceAPIv1:  false,
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
@@ -164,22 +151,9 @@ var sshTests = []struct {
 		},
 	},
 	{
-		about:       "connect to unit mysql/0 with proxy (api v1)",
+		about:       "connect to unit mysql/0 with proxy",
 		args:        []string{"--proxy=true", "mysql/0"},
 		hostChecker: nil, // Host checker shouldn't get used with --proxy=true
-		forceAPIv1:  true,
-		expected: argsSpec{
-			hostKeyChecking: "yes",
-			knownHosts:      "0",
-			withProxy:       true,
-			args:            "ubuntu@0.private",
-		},
-	},
-	{
-		about:       "connect to unit mysql/0 with proxy (api v2)",
-		args:        []string{"--proxy=true", "mysql/0"},
-		hostChecker: nil, // Host checker shouldn't get used with --proxy=true
-		forceAPIv1:  false,
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
@@ -194,8 +168,6 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 
 	for i, t := range sshTests {
 		c.Logf("test %d: %s -> %s", i, t.about, t.args)
-
-		s.setForceAPIv1(t.forceAPIv1)
 
 		isTerminal := func(stdin interface{}) bool {
 			return t.isTerminal
@@ -221,8 +193,6 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"proxy-ssh": true}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.setForceAPIv1(true)
-
 	ctx, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
@@ -232,12 +202,6 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 		withProxy:       true,
 		args:            "ubuntu@0.private", // as set by setAddresses()
 	}
-	expectedArgs.check(c, cmdtesting.Stdout(ctx))
-
-	s.setForceAPIv1(false)
-	ctx, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), "0")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
@@ -263,34 +227,13 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 	}
 }
 
-/// XXX(jam): 2017-01-25 do we need these functions anymore? We don't really
-//support ssh'ing to V1 anymore
-func (s *SSHSuite) TestSSHCommandHostAddressRetryAPIv1(c *gc.C) {
-	// Start with nothing valid to connect to.
+func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
 	s.setHostChecker(validAddresses())
-	s.setForceAPIv1(true)
-
 	s.testSSHCommandHostAddressRetry(c, false)
 }
 
-func (s *SSHSuite) TestSSHCommandHostAddressRetryAPIv2(c *gc.C) {
+func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *gc.C) {
 	s.setHostChecker(validAddresses())
-	s.setForceAPIv1(false)
-
-	s.testSSHCommandHostAddressRetry(c, false)
-}
-
-func (s *SSHSuite) TestSSHCommandHostAddressRetryProxyAPIv1(c *gc.C) {
-	s.setHostChecker(validAddresses())
-	s.setForceAPIv1(true)
-
-	s.testSSHCommandHostAddressRetry(c, true)
-}
-
-func (s *SSHSuite) TestSSHCommandHostAddressRetryProxyAPIv2(c *gc.C) {
-	s.setHostChecker(validAddresses())
-	s.setForceAPIv1(false)
-
 	s.testSSHCommandHostAddressRetry(c, true)
 }
 

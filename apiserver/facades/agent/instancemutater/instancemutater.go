@@ -5,7 +5,6 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,Unit,Application,Charm
@@ -23,17 +23,6 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher,StringsWatcher
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
-
-// InstanceMutaterV1 defines the methods on the instance mutater API facade, version 1.
-type InstanceMutaterV1 interface {
-	Life(args params.Entities) (params.LifeResults, error)
-
-	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
-	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
-	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
-	WatchMachines() (params.StringsWatchResult, error)
-	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
-}
 
 // InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
 type InstanceMutaterV2 interface {
@@ -60,14 +49,9 @@ type InstanceMutaterAPI struct {
 
 type EntityMachineFunc func(state.Entity) (Machine, error)
 
-type InstanceMutaterAPIV1 struct {
-	*InstanceMutaterAPI
-}
-
 // using apiserver/facades/client/cloud as an example.
 var (
 	_ InstanceMutaterV2 = (*InstanceMutaterAPI)(nil)
-	_ InstanceMutaterV1 = (*InstanceMutaterAPIV1)(nil)
 )
 
 // NewFacadeV2 is used for API registration.
@@ -81,15 +65,6 @@ func NewFacadeV2(ctx facade.Context) (*InstanceMutaterAPI, error) {
 	modelCache := &modelCacheShim{Model: model}
 
 	return NewInstanceMutaterAPI(st, modelCache, ctx.Resources(), ctx.Auth())
-}
-
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPIV1, error) {
-	v2, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &InstanceMutaterAPIV1{v2}, nil
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing

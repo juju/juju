@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	_ "github.com/juju/juju/provider/dummy"
@@ -572,8 +572,7 @@ func (s *cloudSuite) TestCheckCredentialsModels(c *gc.C) {
 	// All we need to know is that this call does not actually update existing controller credential content.
 	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
-	apiV6 := &cloudfacade.CloudAPIV6{s.api}
-	results, err := apiV6.CheckCredentialsModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.CheckCredentialsModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "cloudcred-meep_bruce_three",
 		Credential: params.CloudCredential{
 			AuthType:   "oauth1",
@@ -713,40 +712,6 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
-			Models: []params.UpdateCredentialModelResult{
-				{
-					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-					ModelName: "testModel1",
-					Errors:    []params.ErrorResult{{Error: &params.Error{Message: "cannot get a model", Code: ""}}},
-				},
-			},
-		}},
-	})
-}
-
-func (s *cloudSuite) TestUpdateCredentialsModelGetErrorLegacy(c *gc.C) {
-	s.backend.credentialModelsF = func(tag names.CloudCredentialTag) (map[string]string, error) {
-		return map[string]string{
-			coretesting.ModelTag.Id(): "testModel1",
-		}, nil
-	}
-	s.statePool.getF = func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
-		return nil, nil, errors.New("cannot get a model")
-	}
-
-	apiV6 := &cloudfacade.CloudAPIV6{s.api}
-	results, err := apiV6.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
-		Force: false,
-		Credentials: []params.TaggedCredential{{
-			Tag:        "cloudcred-meep_julia_three",
-			Credential: params.CloudCredential{},
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels")
-	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{{
-			CredentialTag: "cloudcred-meep_julia_three",
-			Error:         &params.Error{Message: "some models are no longer visible"},
 			Models: []params.UpdateCredentialModelResult{
 				{
 					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -1056,6 +1021,8 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 	// admin can revoke others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
+
+type credentialModelFunction func(tag names.CloudCredentialTag) (map[string]string, error)
 
 type revokeCredentialData struct {
 	f           credentialModelFunction

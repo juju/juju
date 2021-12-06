@@ -191,10 +191,6 @@ type cloudAPI interface {
 
 // defaultsCommandAPI defines an API to be used during testing.
 type defaultsCommandAPI interface {
-	// BestAPIVersion returns the API version that we were able to
-	// determine is supported by both the client and the API Server.
-	BestAPIVersion() int
-
 	// Close closes the api connection.
 	Close() error
 
@@ -685,11 +681,7 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 // getDefaults writes out the value for a single key or the full tree of
 // defaults.
 func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
-	cloudName := c.cloudName
-	if client.BestAPIVersion() < 6 {
-		cloudName = ""
-	}
-	attrs, err := client.ModelDefaults(cloudName)
+	attrs, err := client.ModelDefaults(c.cloudName)
 	if err != nil {
 		return err
 	}
@@ -792,11 +784,7 @@ func (c *defaultsCommand) resetDefaults(client defaultsCommandAPI, ctx *cmd.Cont
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
 func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI, keys []string) error {
-	cloudName := c.cloudName
-	if client.BestAPIVersion() < 6 {
-		cloudName = ""
-	}
-	known, err := client.ModelDefaults(cloudName)
+	known, err := client.ModelDefaults(c.cloudName)
 	if err != nil {
 		return errors.Trace(err)
 	}

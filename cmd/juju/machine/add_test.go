@@ -26,7 +26,7 @@ import (
 type AddMachineSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fakeAddMachine     *fakeAddMachineAPI
-	fakeMachineManager *fakeMachineManagerAPI
+	fakeMachineManager *fakeAddMachineAPI
 }
 
 var _ = gc.Suite(&AddMachineSuite{})
@@ -34,7 +34,7 @@ var _ = gc.Suite(&AddMachineSuite{})
 func (s *AddMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAddMachine = &fakeAddMachineAPI{}
-	s.fakeMachineManager = &fakeMachineManagerAPI{}
+	s.fakeMachineManager = &fakeAddMachineAPI{}
 }
 
 func (s *AddMachineSuite) TestInit(c *gc.C) {
@@ -194,7 +194,6 @@ func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
-	s.fakeMachineManager.apiVersion = 1
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 0)
@@ -204,11 +203,6 @@ func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
 		{Size: 1024, Count: 2},
 		{Size: 2048, Count: 1},
 	})
-}
-
-func (s *AddMachineSuite) TestAddMachineWithDisksUnsupported(c *gc.C) {
-	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
-	c.Assert(err, gc.ErrorMatches, "cannot add machines with disks: not supported by the API server")
 }
 
 type fakeAddMachineAPI struct {
@@ -274,13 +268,4 @@ func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
 	return dummy.SampleConfig().Merge(map[string]interface{}{
 		"type": providerType,
 	}), nil
-}
-
-type fakeMachineManagerAPI struct {
-	apiVersion int
-	fakeAddMachineAPI
-}
-
-func (f *fakeMachineManagerAPI) BestAPIVersion() int {
-	return f.apiVersion
 }

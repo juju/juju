@@ -12,16 +12,6 @@ import (
 // ListResourcesArgs are the arguments for the ListResources endpoint.
 type ListResourcesArgs Entities
 
-// AddPendingResourcesArgs holds the arguments to the AddPendingResources
-// API endpoint.
-type AddPendingResourcesArgs struct {
-	Entity
-	AddCharmWithAuthorization
-
-	// Resources is the list of resources to add as pending.
-	Resources []CharmResource `json:"resources"`
-}
-
 // AddPendingResourcesArgsV2 holds the arguments to the AddPendingResources
 // API endpoint.
 type AddPendingResourcesArgsV2 struct {

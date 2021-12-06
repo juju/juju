@@ -68,7 +68,6 @@ func (s *addCredentialSuite) SetUpTest(c *gc.C) {
 		}, nil
 	}
 	s.api = &fakeUpdateCredentialAPI{
-		v:      5,
 		clouds: func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
 	}
 	s.credentialAPIFunc = func() (cloud.CredentialAPI, error) { return s.api, nil }

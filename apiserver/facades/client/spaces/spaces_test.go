@@ -1051,51 +1051,6 @@ func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
 }
 
-func (s *LegacySuite) TestCreateSpacesAPIv4(c *gc.C) {
-	apiV4 := &spaces.APIv4{APIv5: &spaces.APIv5{API: s.facade}}
-	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
-		Spaces: []params.CreateSpaceParamsV4{
-			{
-				SpaceTag:   "space-foo",
-				SubnetTags: []string{"subnet-10.10.0.0/24"},
-			},
-		},
-	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-}
-
-func (s *LegacySuite) TestCreateSpacesAPIv4FailCIDR(c *gc.C) {
-	apiV4 := &spaces.APIv4{APIv5: &spaces.APIv5{API: s.facade}}
-	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
-		Spaces: []params.CreateSpaceParamsV4{
-			{
-				SpaceTag:   "space-foo",
-				SubnetTags: []string{"subnet-bar"},
-			},
-		},
-	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bar" is not a valid CIDR`)
-}
-
-func (s *LegacySuite) TestCreateSpacesAPIv4FailTag(c *gc.C) {
-	apiV4 := &spaces.APIv4{APIv5: &spaces.APIv5{API: s.facade}}
-	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
-		Spaces: []params.CreateSpaceParamsV4{
-			{
-				SpaceTag:   "space-foo",
-				SubnetTags: []string{"bar"},
-			},
-		},
-	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bar" is not valid SubnetTag`)
-}
-
 func (s *LegacySuite) TestSupportsSpacesModelConfigError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
 		errors.New("boom"), // Backing.ModelConfig()

@@ -63,15 +63,8 @@ func NewState(
 	state.LeadershipSettings = NewLeadershipSettingsAccessor(
 		facadeCaller.FacadeCall,
 		newWatcher,
-		ErrIfNotVersionFn(2, state.BestAPIVersion()),
 	)
 	return state
-}
-
-// BestAPIVersion returns the API version that we were able to
-// determine is supported by both the client and the API Server.
-func (st *State) BestAPIVersion() int {
-	return st.facade.BestAPIVersion()
 }
 
 // Facade returns the current facade.
@@ -372,10 +365,6 @@ func (st *State) Model() (*model.Model, error) {
 // OpenedMachinePortRangesByEndpoint returns all port ranges currently open on the given
 // machine, grouped by unit tag and application endpoint.
 func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
-	if st.BestAPIVersion() < 17 {
-		// OpenedMachinePortRangesByEndpoint() was introduced in UniterAPIV17.
-		return nil, errors.NotImplementedf("OpenedMachinePortRangesByEndpoint() (need V17+)")
-	}
 	var results params.OpenMachinePortRangesByEndpointResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag.String()}},
@@ -439,23 +428,8 @@ func (st *State) WatchRelationUnits(
 	return w, nil
 }
 
-// ErrIfNotVersionFn returns a function which can be used to check for
-// the minimum supported version, and, if appropriate, generate an
-// error.
-func ErrIfNotVersionFn(minVersion int, bestAPIVersion int) func(string) error {
-	return func(fnName string) error {
-		if minVersion <= bestAPIVersion {
-			return nil
-		}
-		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)
-	}
-}
-
 // SLALevel returns the SLA level set on the model.
 func (st *State) SLALevel() (string, error) {
-	if st.BestAPIVersion() < 5 {
-		return "unsupported", nil
-	}
 	var result params.StringResult
 	err := st.facade.FacadeCall("SLALevel", nil, &result)
 	if err != nil {
@@ -469,9 +443,6 @@ func (st *State) SLALevel() (string, error) {
 
 // CloudAPIVersion returns the API version of the cloud, if known.
 func (st *State) CloudAPIVersion() (string, error) {
-	if st.BestAPIVersion() < 11 {
-		return "", nil
-	}
 	var result params.StringResult
 	err := st.facade.FacadeCall("CloudAPIVersion", nil, &result)
 	if err != nil {

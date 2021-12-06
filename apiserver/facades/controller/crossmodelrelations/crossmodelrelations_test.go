@@ -309,46 +309,6 @@ func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C
 	s.assertRegisterRemoteRelations(c)
 }
 
-func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
-	djangoRelationUnit := newMockRelationUnit()
-	djangoRelationUnit.settings["key"] = "value"
-	db2Relation := newMockRelation(123)
-	db2Relation.units["django/0"] = djangoRelationUnit
-	s.st.relations["db2:db django:db"] = db2Relation
-	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerUUID:       "hosted-db2-uuid",
-		sourcemodelUUID: "source-model-uuid",
-		relationKey:     "db2:db django:db",
-		relationId:      1,
-	}
-	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2"
-	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
-		bakery.LatestVersion,
-		[]checkers.Caveat{
-			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
-			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
-			checkers.DeclaredCaveat("username", "mary"),
-		}, bakery.Op{"db2:db django:db", "relate"})
-
-	c.Assert(err, jc.ErrorIsNil)
-	// RelationUnitSettings isn't available on the V2 API.
-	api := &crossmodelrelations.CrossModelRelationsAPIV1{s.api}
-	result, err := api.RelationUnitSettings(params.RemoteRelationUnits{
-		RelationUnits: []params.RemoteRelationUnit{{
-			RelationToken: "token-db2",
-			Unit:          "unit-django-0",
-			Macaroons:     macaroon.Slice{mac.M()},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, jc.DeepEquals, []params.SettingsResult{{Settings: params.Settings{"key": "value"}}})
-	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{"token-db2"}},
-		{"KeyRelation", []interface{}{"db2:db django:db"}},
-	})
-}
-
 func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	rel := newMockRelation(1)
@@ -823,74 +783,6 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 		c.Fatalf("timed out receiving change event")
 	}
 
-}
-
-func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
-	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
-	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
-	s.st.applications["django"] = &mockApplication{}
-	s.st.remoteEntities[names.NewApplicationTag("django")] = "token-django"
-	rel := newMockRelation(1)
-	ru1 := newMockRelationUnit()
-	ru2 := newMockRelationUnit()
-	rel.endpoints = append(rel.endpoints,
-		state.Endpoint{ApplicationName: "db2"},
-		state.Endpoint{ApplicationName: "django"},
-	)
-	rel.units["django/1"] = ru1
-	rel.units["django/2"] = ru2
-
-	w := &mockUnitsWatcher{
-		mockWatcher: &mockWatcher{
-			stopped: make(chan struct{}),
-		},
-		changes: make(chan watcher.RelationUnitsChange, 1),
-	}
-	w.changes <- watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{
-			"django/1": {Version: 100},
-		},
-	}
-	rel.watchers["django"] = w
-
-	s.st.relations["db2:db django:db"] = rel
-	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerUUID:       "hosted-db2-uuid",
-		sourcemodelUUID: "source-model-uuid",
-		relationKey:     "db2:db django:db",
-		relationId:      1,
-	}
-	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
-	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
-		bakery.LatestVersion,
-		[]checkers.Caveat{
-			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
-			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
-			checkers.DeclaredCaveat("username", "mary"),
-		}, bakery.Op{"db2:db django:db", "relate"})
-
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiV1 := &crossmodelrelations.CrossModelRelationsAPIV1{s.api}
-
-	result, err := apiV1.WatchRelationUnits(params.RemoteEntityArgs{
-		Args: []params.RemoteEntityArg{{
-			Token:     "token-db2:db django:db",
-			Macaroons: macaroon.Slice{mac.M()},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
-		Results: []params.RelationUnitsWatchResult{{
-			RelationUnitsWatcherId: "1",
-			Changes: params.RelationUnitsChange{
-				Changed: map[string]params.UnitSettings{
-					"django/1": {Version: 100},
-				},
-			},
-		}},
-	})
 }
 
 type fakeCachedModel struct {

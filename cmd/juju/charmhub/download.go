@@ -375,10 +375,6 @@ func (c *downloadCommand) getCharmHubURL() (string, error) {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
-		return "", errors.NotImplementedf("charmhub")
-	}
-
 	modelConfigClient := c.ModelConfigClientFunc(apiRoot)
 	defer func() { _ = modelConfigClient.Close() }()
 

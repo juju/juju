@@ -40,11 +40,6 @@ func (s *Application) Watch() (watcher.NotifyWatcher, error) {
 // ExposeInfo returns a flag to indicate whether an application is exposed
 // as well as any endpoint-specific expose settings (if present).
 func (s *Application) ExposeInfo() (bool, map[string]params.ExposedEndpoint, error) {
-	if s.st.BestAPIVersion() < 6 {
-		// ExposeInfo() was introduced in FirewallerAPIV6.
-		return false, nil, errors.NotImplementedf("ExposeInfo() (need V6+)")
-	}
-
 	var results params.ExposeInfoResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},

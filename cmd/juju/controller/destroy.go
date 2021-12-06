@@ -127,7 +127,6 @@ Continue? (y/N):`[1:]
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ModelConfig() (map[string]interface{}, error)
 	HostedModelConfigs() ([]controllerapi.HostedConfig, error)
 	CloudSpec(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -202,48 +201,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
 	defer api.Close()
-
-	if api.BestAPIVersion() < 4 {
-		// Versions before 4 support only destroying the storage,
-		// and will not raise an error if there is storage in the
-		// controller. Force the user to specify up-front.
-		if c.releaseStorage {
-			return errors.New("this juju controller only supports destroying storage")
-		}
-		if !c.destroyStorage {
-			models, err := api.AllModels()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			var anyStorage bool
-			for _, model := range models {
-				hasStorage, err := c.modelHasStorage(model.Name)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if hasStorage {
-					anyStorage = true
-					break
-				}
-			}
-			if anyStorage {
-				return errors.Errorf(`cannot destroy controller %q
-
-Destroying this controller will destroy the storage,
-but you have not indicated that you want to do that.
-
-Please run the the command again with --destroy-storage
-to confirm that you want to destroy the storage along
-with the controller.
-
-If instead you want to keep the storage, you must first
-upgrade the controller to version 2.3 or greater.
-
-`, controllerName)
-			}
-			c.destroyStorage = true
-		}
-	}
 
 	// Obtain controller environ so we can clean up afterwards.
 	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)

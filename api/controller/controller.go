@@ -166,16 +166,6 @@ type DestroyControllerParams struct {
 // DestroyController puts the controller model into a "dying" state,
 // and removes all non-manager machine instances.
 func (c *Client) DestroyController(args DestroyControllerParams) error {
-	if c.BestAPIVersion() < 4 {
-		if args.DestroyStorage == nil || !*args.DestroyStorage {
-			return errors.New("this Juju controller requires DestroyStorage to be true")
-		}
-		args.DestroyStorage = nil
-	}
-	if c.BestAPIVersion() < 11 && args.Force != nil && *args.Force {
-		return errors.New("this Juju controller does not support force destroy")
-	}
-
 	return c.facade.FacadeCall("DestroyController", params.DestroyControllerArgs{
 		DestroyModels:  args.DestroyModels,
 		DestroyStorage: args.DestroyStorage,
@@ -290,9 +280,6 @@ func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 // settings that aren't passed will be left with their previous
 // values.
 func (c *Client) ConfigSet(values map[string]interface{}) error {
-	if c.BestAPIVersion() < 5 {
-		return errors.Errorf("this controller version doesn't support updating controller config")
-	}
 	return errors.Trace(
 		c.facade.FacadeCall("ConfigSet", params.ControllerConfigSet{Config: values}, nil),
 	)

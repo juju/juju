@@ -219,7 +219,6 @@ type ModelConfigAPI interface {
 
 type MachineManagerAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	BestAPIVersion() int
 	Close() error
 }
 
@@ -283,10 +282,6 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer machineManager.Close()
-
-	if len(c.Disks) > 0 && machineManager.BestAPIVersion() < 1 {
-		return errors.New("cannot add machines with disks: not supported by the API server")
-	}
 
 	logger.Infof("load config")
 	modelConfigClient, err := c.getModelConfigAPI()

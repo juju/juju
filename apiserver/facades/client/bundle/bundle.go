@@ -36,37 +36,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// APIv1 provides the Bundle API facade for version 1.
-type APIv1 struct {
-	*APIv2
-}
-
-// APIv2 provides the Bundle API facade for version 2.
-type APIv2 struct {
-	*APIv3
-}
-
-// APIv3 provides the Bundle API facade for version 3. It is otherwise
-// identical to V2 with the exception that the V3 ExportBundle implementation
-// also exposes the the current trust status for each application.
-type APIv3 struct {
-	*APIv4
-}
-
-// APIv4 provides the Bundle API facade for version 4. It is otherwise
-// identical to V3 with the exception that the V4 now has GetChangesAsMap, which
-// returns the same data as GetChanges, but with better args data.
-type APIv4 struct {
-	*APIv5
-}
-
-// APIv5 provides the Bundle API facade for version 5. It is otherwise
-// identical to V4 with the exception that the V5 adds an arg to export
-// bundle to control what is exported..
-type APIv5 struct {
-	*APIv6
-}
-
 // APIv6 provides the Bundle API facade for version 6. It is otherwise
 // identical to V5 with the exception that the V6 adds the support for
 // multi-part yaml handling to GetChanges and GetChangesMapArgs.
@@ -80,57 +49,6 @@ type BundleAPI struct {
 	backend    Backend
 	authorizer facade.Authorizer
 	modelTag   names.ModelTag
-}
-
-// NewFacadeV1 provides the signature required for facade registration
-// version 1.
-func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
-	api, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &APIv1{api}, nil
-}
-
-// NewFacadeV2 provides the signature required for facade registration
-// for version 2.
-func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
-	api, err := NewFacadeV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
-
-// NewFacadeV3 provides the signature required for facade registration
-// for version 3.
-func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
-	api, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewFacadeV4 provides the signature required for facade registration
-// for version 4.
-func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
-	api, err := NewFacadeV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv4{api}, nil
-}
-
-// NewFacadeV5 provides the signature required for facade registration
-// for version 5.
-func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
-	api, err := NewFacadeV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv5{api}, nil
 }
 
 // NewFacadeV6 provides the signature required for facade registration
@@ -172,21 +90,6 @@ func NewBundleAPI(
 	}, nil
 }
 
-// NewBundleAPIv1 returns the new Bundle APIv1 facade.
-// Deprecated:this only exists to support the deprecated
-// client.GetBundleChanges() API.
-func NewBundleAPIv1(
-	st Backend,
-	auth facade.Authorizer,
-	tag names.ModelTag,
-) (*APIv1, error) {
-	api, err := NewBundleAPI(st, auth, tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv1{&APIv2{&APIv3{&APIv4{&APIv5{&APIv6{api}}}}}}, nil
-}
-
 func (b *BundleAPI) checkCanRead() error {
 	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
 	if err != nil {
@@ -207,32 +110,10 @@ type validators struct {
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
-// V1 GetChanges did not support device.
-func (b *APIv1) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	return b.doGetChanges(args, 1)
-}
-
-// GetChanges returns the list of changes required to deploy the given bundle
-// data. The changes are sorted by requirements, so that they can be applied in
-// order.
-// GetChanges has been superseded in favour of GetChangesMapArgs. It's
-// preferable to use that new method to add new functionality and move clients
-// away from this one.
-func (b *APIv5) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	return b.doGetChanges(args, 5)
-}
-
-// GetChanges returns the list of changes required to deploy the given bundle
-// data. The changes are sorted by requirements, so that they can be applied in
-// order.
 // GetChanges has been superseded in favour of GetChangesMapArgs. It's
 // preferable to use that new method to add new functionality and move clients
 // away from this one.
 func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	return b.doGetChanges(args, 6)
-}
-
-func (b *BundleAPI) doGetChanges(args params.BundleChangesParams, version int) (params.BundleChangesResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -248,26 +129,8 @@ func (b *BundleAPI) doGetChanges(args params.BundleChangesParams, version int) (
 		},
 	}
 
-	expandOverlays := version > 5
-
-	mapFn := mapBundleChanges
-
-	if version == 1 {
-		mapFn = mapBundleChangesV1
-		vs.verifyDevices = nil // device verification is not supported for V1 facades
-	}
-
-	return b.getBundleChanges(args, vs, expandOverlays, mapFn)
-}
-
-func (b *BundleAPI) getBundleChanges(
-	args params.BundleChangesParams,
-	vs validators,
-	expandOverlays bool,
-	postProcess func([]bundlechanges.Change, *params.BundleChangesResults) error,
-) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
-	changes, validationErrors, err := b.doGetBundleChanges(args, vs, expandOverlays)
+	changes, validationErrors, err := b.doGetBundleChanges(args, vs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -278,22 +141,9 @@ func (b *BundleAPI) getBundleChanges(
 		}
 		return results, nil
 	}
-	err = postProcess(changes, &results)
+	err = mapBundleChanges(changes, &results)
 	return results, errors.Trace(err)
 
-}
-
-func mapBundleChangesV1(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
-	results.Changes = make([]*params.BundleChange, len(changes))
-	for i, c := range changes {
-		results.Changes[i] = &params.BundleChange{
-			Id:       c.Id(),
-			Method:   c.Method(),
-			Args:     c.GUIArgs(),
-			Requires: c.Requires(),
-		}
-	}
-	return nil
 }
 
 func mapBundleChanges(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
@@ -319,16 +169,9 @@ func mapBundleChanges(changes []bundlechanges.Change, results *params.BundleChan
 func (b *BundleAPI) doGetBundleChanges(
 	args params.BundleChangesParams,
 	vs validators,
-	expandOverlays bool,
 ) ([]bundlechanges.Change, []error, error) {
-	var data *charm.BundleData
-	var err error
-	if expandOverlays {
-		dataSource, _ := charm.StreamBundleDataSource(strings.NewReader(args.BundleDataYAML), args.BundleURL)
-		data, err = charm.ReadAndMergeBundleData(dataSource)
-	} else {
-		data, err = charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
-	}
+	dataSource, _ := charm.StreamBundleDataSource(strings.NewReader(args.BundleDataYAML), args.BundleURL)
+	data, err := charm.ReadAndMergeBundleData(dataSource)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot read bundle YAML")
 	}
@@ -355,27 +198,11 @@ func (b *BundleAPI) doGetBundleChanges(
 	return changes, nil, nil
 }
 
-// GetChangesMapArgs is not in V3 API or less.
-// Mask the new method from V3 API or less.
-func (u *APIv3) GetChangesMapArgs() (_, _ struct{}) { return }
-
-// GetChangesMapArgs returns the list of changes required to deploy the given
-// bundle data. The changes are sorted by requirements, so that they can be
-// applied in order.
-// V4 GetChangesMapArgs is not supported on anything less than v4
-func (b *APIv5) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
-	return b.doGetChangesMapArgs(args, false)
-}
-
 // GetChangesMapArgs returns the list of changes required to deploy the given
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
 // V4 GetChangesMapArgs is not supported on anything less than v4
 func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
-	return b.doGetChangesMapArgs(args, true)
-}
-
-func (b *BundleAPI) doGetChangesMapArgs(args params.BundleChangesParams, expandOverlays bool) (params.BundleChangesMapArgsResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -390,7 +217,7 @@ func (b *BundleAPI) doGetChangesMapArgs(args params.BundleChangesParams, expandO
 			return err
 		},
 	}
-	return b.doGetBundleChangesMapArgs(args, vs, expandOverlays, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
+	return b.doGetBundleChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
 		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
 		for i, c := range changes {
 			args, err := c.Args()
@@ -412,11 +239,10 @@ func (b *BundleAPI) doGetChangesMapArgs(args params.BundleChangesParams, expandO
 func (b *BundleAPI) doGetBundleChangesMapArgs(
 	args params.BundleChangesParams,
 	vs validators,
-	expandOverlays bool,
 	postProcess func([]bundlechanges.Change, *params.BundleChangesMapArgsResults) error,
 ) (params.BundleChangesMapArgsResults, error) {
 	var results params.BundleChangesMapArgsResults
-	changes, validationErrors, err := b.doGetBundleChanges(args, vs, expandOverlays)
+	changes, validationErrors, err := b.doGetBundleChanges(args, vs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -429,11 +255,6 @@ func (b *BundleAPI) doGetBundleChangesMapArgs(
 	}
 	err = postProcess(changes, &results)
 	return results, err
-}
-
-// ExportBundle v4 did not have any parameters.
-func (b *APIv4) ExportBundle() (params.StringResult, error) {
-	return b.APIv5.ExportBundle(params.ExportBundleParams{})
 }
 
 // ExportBundle exports the current model configuration as bundle.
@@ -527,10 +348,6 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 		Relations:    bd.Relations,
 	}
 }
-
-// ExportBundle is not in V1 API.
-// Mask the new method from V1 API.
-func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
 func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
 	cfg := model.Config()

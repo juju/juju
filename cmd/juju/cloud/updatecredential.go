@@ -144,7 +144,6 @@ type CredentialAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	AddCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
 	UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
-	BestAPIVersion() int
 	Close() error
 }
 
