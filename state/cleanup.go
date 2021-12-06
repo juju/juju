@@ -117,27 +117,18 @@ func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...int
 	}
 }
 
-func (st *State) cancelCleanupOps(kind cleanupKind, prefix string) ([]txn.Op, error) {
-	if prefix == "" {
-		return nil, nil
-	}
+func (st *State) cancelCleanupOps(kind cleanupKind, pattern bson.DocElem) ([]txn.Op, error) {
 	col, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	var docs []cleanupDoc
 	err := col.Find(
 		bson.D{
-			{
-				Name: "prefix", Value: bson.D{
-					{Name: "$regex", Value: fmt.Sprintf("^%s", prefix)},
-				},
-			},
-			{
-				Name: "kind", Value: kind,
-			},
+			pattern,
+			{Name: "kind", Value: kind},
 		},
 	).All(&docs)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get %q cleanups docs with prefix %q", kind, prefix)
+		return nil, errors.Annotatef(err, "cannot get %q cleanups docs with pattern %v", kind, pattern)
 	}
 	var ops []txn.Op
 	for _, doc := range docs {
@@ -196,7 +187,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupForceDestroyedRelation:
 			err = st.cleanupForceDestroyedRelation(doc.Prefix)
 		case cleanupCharm:
-			err = st.cleanupCharm(doc.Prefix, args)
+			err = st.cleanupCharm(doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(doc.Prefix, args)
 		case cleanupForceApplication:
@@ -785,64 +776,10 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 	return nil
 }
 
-func (st *State) cancelCleanupForceDestroyedUnit(appName string) error {
-	if appName == "" {
-		return nil
-	}
-	shouldCancel := func() (bool, error) {
-		app, err := st.Application(appName)
-		if errors.IsNotFound(err) {
-			return true, nil
-		}
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		units, err := app.AllUnits()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		return len(units) == 0, nil
-	}
-	if should, err := shouldCancel(); err != nil {
-		return errors.Trace(err)
-	} else if !should {
-		// We probably should not return an error to fail current main cleanup.
-		return nil
-	}
-	// Cancel unit cleanups.
-	ops, err := st.cancelCleanupOps(cleanupForceDestroyedUnit, appName)
-	if err != nil {
-		return errors.Annotatef(err, "can not get %q cancelCleanupOps for %q", cleanupForceDestroyedUnit, appName)
-	}
-	if len(ops) == 0 {
-		return nil
-	}
-	if err := st.db().RunTransaction(ops); err != nil {
-		return errors.Annotatef(err, "cannot cancel %q cleanup for %q", cleanupForceDestroyedUnit, appName)
-	}
-	return nil
-}
-
 // cleanupCharm is speculative: it can abort without error for many
 // reasons, because it's triggered somewhat over-enthusiastically for
 // simplicity's sake.
-func (st *State) cleanupCharm(charmURL string, cleanupArgs []bson.Raw) (err error) {
-	switch n := len(cleanupArgs); n {
-	case 0:
-	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	case 1:
-		// We do this here in the very last step of app removal process.
-		var appName string
-		if err := cleanupArgs[0].Unmarshal(&appName); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'appName'")
-		}
-		if err := st.cancelCleanupForceDestroyedUnit(appName); err != nil {
-			return errors.Annotatef(err, "can not cancel %q for %q", cleanupForceDestroyedUnit, appName)
-		}
-	default:
-		return errors.Errorf("expected 0 or 1 argument, got %d", n)
-	}
-
+func (st *State) cleanupCharm(charmURL string) error {
 	curl, err := charm.ParseURL(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "invalid charm URL %v", charmURL)

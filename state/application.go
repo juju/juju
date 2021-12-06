@@ -515,7 +515,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		if op.app.doc.HasResources && !op.CleanupIgnoringResources {
 			if op.Force {
 				// We need to wait longer than normal for any k8s resources to be fully removed
-				// since it can take a while for the cluster to terminate rnning pods etc.
+				// since it can take a while for the cluster to terminate running pods etc.
 				logger.Debugf("scheduling forced application %q cleanup", op.app.doc.Name)
 				deadline := op.app.st.stateClock.Now().Add(2 * op.MaxWait)
 				cleanupOp := newCleanupAtOp(deadline, cleanupForceApplication, op.app.doc.Name, op.MaxWait)
@@ -714,6 +714,19 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
 	)
+	// No unit exists now, so cancel the cleanupForceDestroyedUnit docs to avoid new units of later deployment
+	// get removed accidentally because we re-use unit numbers for sidecar applications.
+	cancelCleanupOps, err := a.st.cancelCleanupOps(cleanupForceDestroyedUnit,
+		bson.DocElem{
+			Name: "prefix", Value: bson.D{
+				{Name: "$regex", Value: fmt.Sprintf("^%s/[0-9]+$", name)},
+			},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, cancelCleanupOps...)
 	return ops, nil
 }
 
