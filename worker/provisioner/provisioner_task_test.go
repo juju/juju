@@ -45,6 +45,8 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 )
 
+const numProvisionWorkersForTesting = 4
+
 type ProvisionerTaskSuite struct {
 	testing.IsolationSuite
 
@@ -116,6 +118,7 @@ func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
 		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
+		numProvisionWorkersForTesting,
 	)
 	workertest.CheckAlive(c, task)
 	workertest.CleanKill(c, task)
@@ -135,6 +138,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
+		numProvisionWorkersForTesting,
 	)
 	defer workertest.CleanKill(c, task)
 
@@ -190,6 +194,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		provisioner.NewRetryStrategy(0*time.Second, 1),
+		numProvisionWorkersForTesting,
 	)
 
 	m0 := &testMachine{
@@ -244,14 +249,8 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 			zoneLock.Unlock()
 		})
 	}
-	broker.EXPECT().StopInstances(s.callCtx, gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
-		for _, id := range ids {
-			expectedIds.Remove(fmt.Sprintf("%s", id))
-		}
-		c.Assert(expectedIds.Size(), gc.Equals, 0)
-	})
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, expectedIds.Values()...)
 
 	shortAttempt := &utils.AttemptStrategy{
@@ -338,8 +337,7 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
-	task := s.newProvisionerTaskWithBroker(c, broker, nil)
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	s.sendModelMachinesChange(c, "0")
 
@@ -367,8 +365,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az9")
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
 
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
-	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForWorkerSetup(c, "worker not set up")
 
@@ -417,9 +414,8 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	s.sendModelMachinesChange(c, "0")
 
@@ -453,7 +449,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc
 		}),
 	)
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	m0 := &testMachine{
 		id:          "0",
@@ -501,13 +497,12 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	}, nil).Do(func(_ ...interface{}) {
 		go func() { started <- struct{}{} }()
 	})
-	broker.EXPECT().StopInstances(s.callCtx, []instance.Id{"0"})
 
 	// Another machine from the same distribution group is already in az1,
 	// so we expect the machine to be created in az2.
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az1"},
-	})
+	}, numProvisionWorkersForTesting)
 
 	s.sendModelMachinesChange(c, "0")
 	select {
@@ -544,7 +539,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 	// so we expect the machine to be created in az2.
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az1"},
-	})
+	}, numProvisionWorkersForTesting)
 
 	m0 := &testMachine{
 		id:          "0",
@@ -589,7 +584,7 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az2"},
 		names.NewMachineTag("1"): {"az3"},
-	})
+	}, numProvisionWorkersForTesting)
 
 	m0 := &testMachine{
 		id:          "0",
@@ -621,12 +616,184 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az1"},
-	})
+	}, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForWorkerSetup(c, "worker not set up")
 
 	err := workertest.CheckKill(c, task)
 	c.Assert(err, gc.ErrorMatches, "failed to process updated machines: .* boom")
+}
+
+func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// m0 is a machine that should be terminated.
+	i0 := &testInstance{id: "zero"}
+	m0 := &testMachine{
+		id:       "0",
+		life:     life.Dead,
+		instance: i0,
+	}
+
+	broker := s.setUpZonedEnviron(ctrl, m0)
+
+	// This is a complex scenario. Here is how everything is set up:
+	//
+	// We will register an event processed callback as a synchronization
+	// point.
+	//
+	// The first machine change event will trigger a StopInstance call
+	// against the broker. While in that call (i.e. the machine is still
+	// being stopped from the provisioner's perspective), we will trigger
+	// another machine change event for the same machine and wait until it
+	// has been processed and the event processed callback invoked.
+	//
+	// Then, doneCh which instructs the test to perform a CleanKill for
+	// the worker and make sure that no errors got reported.
+	//
+	// This verifies that machines being stopped are ignored when processing
+	// machine changes concurrently.
+
+	doneCh := make(chan struct{})
+	barrier := make(chan struct{}, 1)
+	var barrierCb = func(evt string) {
+		if evt == "processed-machines" {
+			barrier <- struct{}{}
+		}
+	}
+
+	// StopInstances should only be called once for m0.
+	broker.EXPECT().StopInstances(s.callCtx, gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
+		c.Assert(len(ids), gc.Equals, 1)
+		c.Assert(ids[0], gc.DeepEquals, instance.Id("0"))
+
+		// While one of the pool workers is executing this code, we
+		// will wait until the machine change event gets processed
+		// and the main loop is ready to process the next event.
+		<-barrier
+
+		// Trigger another change while machine 0 is still being stopped
+		// and wait until the event has been processed by the provisioner
+		// main loop before returning
+		s.sendModelMachinesChange(c, "0")
+		<-barrier
+		close(doneCh)
+	})
+
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, barrierCb)
+
+	s.sendModelMachinesChange(c, "0")
+
+	// This ensures that the worker pool within the provisioner gets cleanly
+	// shutdown and that any pending requests are processed.
+	<-doneCh
+	workertest.CleanKill(c, task)
+}
+
+func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// m0 is a machine that should be started.
+	m0 := &testMachine{
+		id:          "0",
+		life:        life.Alive,
+		constraints: "zones=az1",
+	}
+
+	broker := s.setUpZonedEnviron(ctrl, m0)
+
+	// This is a complex scenario to ensure the provisioner works as expected
+	// when the equivalent of "juju add-machine; juju remove-machine 0" is
+	// executed. Here is how everything is set up:
+	//
+	// We will register an event processed callback as a synchronization
+	// point.
+	//
+	// Machine 0 is alive but not yes started. Processing the first machine
+	// change will trigger a StartInstance call against the broker.  While
+	// in that call (i.e. the machine is still being started from the
+	// provisioner's perspective), we will set the machine as dead, queue a
+	// change event for the same machine and wait until it has been
+	// processed and the event processed callback invoked.
+	//
+	// The change event for the dead machine should not immediately trigger
+	// a StopInstance call but rather the provisioner will detect that the
+	// machine is still being started and defer the stopping of the machine
+	// until the machine gets started (immediately when StartInstance
+	// returns).
+	//
+	// Finally, doneCh which instructs the test to perform a CleanKill for
+	// the worker and make sure that no errors got reported.
+
+	doneCh := make(chan struct{})
+	barrier := make(chan struct{}, 1)
+	var barrierCb = func(evt string) {
+		if evt == "processed-machines" {
+			barrier <- struct{}{}
+		}
+	}
+
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
+	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil).AnyTimes()
+	gomock.InOrder(
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
+			Instance: &testInstance{id: "instance-0"},
+		}, nil).Do(func(ctx, params interface{}) {
+			// While one of the pool workers is executing this code, we
+			// will wait until the machine change event gets processed
+			// and the main loop is ready to process the next event.
+			<-barrier
+
+			// While the machine is still starting, flag it as dead,
+			// trigger another change and wait for it to be processed.
+			// We expect that the defer stop flag is going to be set for
+			// the machine and a StopInstance call to be issued once we
+			// return.
+			m0.life = life.Dead
+			s.sendModelMachinesChange(c, "0")
+			<-barrier
+		}),
+		broker.EXPECT().StopInstances(s.callCtx, gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
+			c.Assert(len(ids), gc.Equals, 1)
+			c.Assert(ids[0], gc.DeepEquals, instance.Id("0"))
+
+			// Signal the test to shut down the worker.
+			close(doneCh)
+		}),
+	)
+
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, barrierCb)
+
+	// Send change for machine 0
+	s.sendModelMachinesChange(c, "0")
+
+	// This ensures that the worker pool within the provisioner gets cleanly
+	// shutdown and that any pending requests are processed.
+	<-doneCh
+	workertest.CleanKill(c, task)
+}
+
+func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	barrier := make(chan struct{}, 1)
+	var barrierCb = func(evt string) {
+		if evt == "resized-worker-pool" {
+			close(barrier)
+		}
+	}
+
+	broker := s.setUpZonedEnviron(ctrl)
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, barrierCb)
+
+	// Resize the pool
+	task.SetNumProvisionWorkers(numProvisionWorkersForTesting + 1)
+
+	<-barrier
+	workertest.CleanKill(c, task)
 }
 
 // setUpZonedEnviron creates a mock environ with instances based on those set
@@ -660,7 +827,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	}
 
 	exp := broker.EXPECT()
-	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).Times(2)
+	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(2)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(func(_ ...interface{}) {
 		close(s.setupDone)
 	})
@@ -713,12 +880,14 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 	harvestingMethod config.HarvestMode,
 	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
+	numProvisionWorkers int,
 ) provisioner.ProvisionerTask {
 	return s.newProvisionerTaskWithRetry(c,
 		harvestingMethod,
 		distributionGroupFinder,
 		toolsFinder,
 		provisioner.NewRetryStrategy(0*time.Second, 0),
+		numProvisionWorkers,
 	)
 }
 
@@ -728,6 +897,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
 	retryStrategy provisioner.RetryStrategy,
+	numProvisionWorkers int,
 ) provisioner.ProvisionerTask {
 	w, err := provisioner.NewProvisionerTask(
 		coretesting.ControllerTag.Id(),
@@ -744,14 +914,18 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		imagemetadata.ReleasedStream,
 		retryStrategy,
 		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		numProvisionWorkers,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
 
-func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
-	c *gc.C, broker environs.InstanceBroker, distributionGroups map[names.MachineTag][]string,
-) provisioner.ProvisionerTask {
+func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(c *gc.C, broker environs.InstanceBroker, distributionGroups map[names.MachineTag][]string, numProvisionWorkers int) provisioner.ProvisionerTask {
+	return s.newProvisionerTaskWithBrokerAndEventCb(c, broker, distributionGroups, numProvisionWorkers, nil)
+}
+
+func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(c *gc.C, broker environs.InstanceBroker, distributionGroups map[names.MachineTag][]string, numProvisionWorkers int, evtCb func(string)) provisioner.ProvisionerTask {
 	task, err := provisioner.NewProvisionerTask(
 		coretesting.ControllerTag.Id(),
 		names.NewMachineTag("0"),
@@ -767,6 +941,8 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
 		imagemetadata.ReleasedStream,
 		provisioner.NewRetryStrategy(0*time.Second, 0),
 		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		numProvisionWorkers,
+		evtCb,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return task
