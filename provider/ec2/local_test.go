@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/smithy-go"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -81,6 +82,7 @@ type localServer struct {
 	createRootDisks bool
 
 	ec2srv *ec2test.Server
+	iamsrv *ec2test.IAMServer
 	region types.Region
 
 	defaultVPC *types.Vpc
@@ -93,6 +95,10 @@ func (srv *localServer) startServer(c *gc.C) {
 	srv.ec2srv, err = ec2test.NewServer()
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
+	}
+	srv.iamsrv, err = ec2test.NewIAMServer()
+	if err != nil {
+		c.Fatalf("cannot start iam test server: %v", err)
 	}
 	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
 	srv.addSpice()
@@ -138,6 +144,7 @@ func (srv *localServer) addSpice() {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
+	srv.iamsrv.Reset()
 	srv.ec2srv.Reset(false)
 	srv.defaultVPC = nil
 }
@@ -159,13 +166,37 @@ func bootstrapClientFunc(ec2Client ec2.Client) ec2.ClientFunc {
 	}
 }
 
-func bootstrapContextWithClientFunc(c *gc.C, clientFunc ec2.ClientFunc) environs.BootstrapContext {
+func bootstrapIAMClientFunc(iamClient ec2.IAMClient) ec2.IAMClientFunc {
+	return func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.IAMClient, error) {
+		credentialAttrs := spec.Credential.Attributes()
+		accessKey := credentialAttrs["access-key"]
+		secretKey := credentialAttrs["secret-key"]
+		if spec.Region != "test" {
+			return nil, fmt.Errorf("expected region %q, got %q",
+				"test", spec.Region)
+		}
+		if accessKey != "x" || secretKey != "x" {
+			return nil, fmt.Errorf("expected access:secret %q, got %q",
+				"x:x", accessKey+":"+secretKey)
+		}
+		return iamClient, nil
+	}
+}
+
+func bootstrapContextWithClientFunc(
+	c *gc.C,
+	clientFunc ec2.ClientFunc,
+	iamClientFunc ec2.IAMClientFunc,
+) environs.BootstrapContext {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 
 	ctx := stdcontext.TODO()
 	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
 	if clientFunc != nil {
 		ctx = stdcontext.WithValue(ctx, ec2.AWSClientContextKey, clientFunc)
+	}
+	if iamClientFunc != nil {
+		ctx = stdcontext.WithValue(ctx, ec2.AWSIAMClientContextKey, iamClientFunc)
 	}
 	return envtesting.BootstrapContext(ctx, c)
 }
@@ -179,8 +210,10 @@ func bootstrapContextWithClientFunc(c *gc.C, clientFunc ec2.ClientFunc) environs
 type localServerSuite struct {
 	coretesting.BaseSuite
 	jujutest.Tests
-	srv    localServer
-	client ec2.Client
+	srv        localServer
+	client     ec2.Client
+	iamClient  ec2.IAMClient
+	useIAMRole bool
 
 	callCtx context.ProviderCallContext
 }
@@ -228,13 +261,15 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.CloudRegion = aws.ToString(region.RegionName)
 	t.CloudEndpoint = aws.ToString(region.Endpoint)
 	t.client = t.srv.ec2srv
+	t.iamClient = t.srv.iamsrv
 	restoreEC2Patching := patchEC2ForTesting(c, region)
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 
-	t.Tests.BootstrapContext = bootstrapContextWithClientFunc(c, bootstrapClientFunc(t.client))
+	t.Tests.BootstrapContext = bootstrapContextWithClientFunc(c, bootstrapClientFunc(t.client), bootstrapIAMClientFunc(t.iamClient))
 	t.Tests.ProviderCallContext = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
 	t.callCtx = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
+	t.useIAMRole = false
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -523,6 +558,39 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 
 	err := env.Destroy(t.callCtx)
 	c.Assert(errors.Cause(err).Error(), jc.Contains, msg)
+}
+
+func (t *localServerSuite) TestIAMRoleCleanup(c *gc.C) {
+	t.useIAMRole = true
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	env := t.prepareAndBootstrap(c)
+
+	res, err := t.iamClient.ListInstanceProfiles(stdcontext.Background(), &iam.ListInstanceProfilesInput{
+		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(res.InstanceProfiles), gc.Equals, 1)
+
+	res1, err := t.iamClient.ListRoles(stdcontext.Background(), &iam.ListRolesInput{
+		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(res1.Roles), gc.Equals, 1)
+
+	err = env.DestroyController(t.callCtx, t.ControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err = t.iamClient.ListInstanceProfiles(stdcontext.Background(), &iam.ListInstanceProfilesInput{
+		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(res.InstanceProfiles), gc.Equals, 0)
+
+	res1, err = t.iamClient.ListRoles(stdcontext.Background(), &iam.ListRolesInput{
+		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(res1.Roles), gc.Equals, 0)
 }
 
 func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
@@ -1139,9 +1207,19 @@ func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretes
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(config)
 	env := t.PrepareWithParams(c, args)
+
+	constraints := constraints.Value{}
+	controllerConfig := coretesting.FakeControllerConfig()
+	if t.useIAMRole {
+		ir := "auto"
+		constraints.InstanceRole = &ir
+		controllerConfig["controller-name"] = "juju-test"
+	}
+
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
+			BootstrapConstraints:     constraints,
+			ControllerConfig:         controllerConfig,
 			AdminSecret:              testing.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			Placement:                "zone=test-available",

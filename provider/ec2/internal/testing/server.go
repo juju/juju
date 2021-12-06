@@ -49,7 +49,6 @@ type Server struct {
 func NewServer() (*Server, error) {
 	srv := &Server{}
 	srv.Reset(false)
-
 	return srv, nil
 }
 
@@ -99,6 +98,8 @@ func (srv *Server) Reset(withoutZonesOrGroups bool) {
 	srv.volumes = make(map[string]*volume)
 	srv.volumeAttachments = make(map[string]*volumeAttachment)
 	srv.reservations = make(map[string]*reservation)
+
+	srv.instanceProfileAssociations = make(map[string]types.IamInstanceProfileAssociation)
 
 	if !withoutZonesOrGroups {
 		srv.addDefaultZonesAndGroups()

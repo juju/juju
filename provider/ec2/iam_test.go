@@ -31,7 +31,7 @@ func (i *IAMSuite) TestEnsureControllerInstanceProfileFromScratch(c *gc.C) {
 	ip, _, err := ensureControllerInstanceProfile(context.Background(), i.server, "test", "AABBCC")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*ip.InstanceProfileName, gc.Equals, "juju-controller-test")
-	c.Assert(ip.Path, gc.IsNil)
+	c.Assert(*ip.Path, gc.Equals, "/juju/controller/AABBCC/")
 
 	roleOutput, err := i.server.GetRole(context.Background(), &iam.GetRoleInput{
 		RoleName: aws.String("juju-controller-test"),

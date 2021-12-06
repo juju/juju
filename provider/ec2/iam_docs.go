@@ -63,6 +63,7 @@ const (
       "Sid": "JujuIAMActions",
       "Effect": "Allow",
       "Action": [
+	    "iam:AddRoleToInstanceProfile",
         "iam:CreateInstanceProfile",
 		"iam:CreateRole",
 		"iam:DeleteInstanceProfile",
@@ -70,6 +71,9 @@ const (
 		"iam:DeleteRolePolicy",
         "iam:GetInstanceProfile",
 		"iam:GetRole",
+		"iam:ListInstanceProfiles",
+		"iam:ListRolePolicies",
+		"iam:ListRoles",
 		"iam:PassRole",
 		"iam:PutRolePolicy",
 		"iam:RemoveRoleFromInstanceProfile"

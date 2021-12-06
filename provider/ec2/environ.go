@@ -56,6 +56,10 @@ const (
 	// AWSClientContextKey defines a way to change the aws client func within
 	// a context.
 	AWSClientContextKey corecontext.ContextKey = "aws-client-func"
+
+	// AWSIAMClientContextKey defines a way to change the aws iam client func
+	// within a context.
+	AWSIAMClientContextKey corecontext.ContextKey = "aws-iam-client-func"
 )
 
 const (
@@ -1872,6 +1876,31 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 			return errors.Trace(err)
 		}
 	}
+
+	instanceProfiles, err := listInstanceProfilesForController(ctx, e.iamClient, controllerUUID)
+	if err != nil {
+		return errors.Annotatef(err, "listing instance profiles for controller uuid %q", controllerUUID)
+	}
+
+	for _, ip := range instanceProfiles {
+		err := deleteInstanceProfile(ctx, e.iamClient, ip)
+		if err != nil {
+			return errors.Annotatef(err, "deleting instance profile %q for controller uuid %q", *ip.InstanceProfileName, controllerUUID)
+		}
+	}
+
+	roles, err := listRolesForController(ctx, e.iamClient, controllerUUID)
+	if err != nil {
+		return errors.Annotatef(err, "listing roles for controller uuid %q", controllerUUID)
+	}
+
+	for _, role := range roles {
+		err := deleteRole(ctx, e.iamClient, *role.RoleName)
+		if err != nil {
+			return errors.Annotatef(err, "deleting role %q as part of controller uuid %q", *role.RoleName, controllerUUID)
+		}
+	}
+
 	return nil
 }
 
@@ -2651,13 +2680,6 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 	return []string{cidr}, nil
 }
 
-// GetCloudSpec is specificed in the CloudSpecGetter interface
-func (e *environ) GetCloudSpec(ctx stdcontext.Context) (environscloudspec.CloudSpec, error) {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	return e.cloud, nil
-}
-
 // SetCloudSpec is specified in the environs.Environ interface.
 func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	if err := validateCloudSpec(spec); err != nil {
@@ -2691,6 +2713,14 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 		e.ec2ClientFunc = s
 	} else {
 		return errors.Errorf("expected a valid client function type")
+	}
+
+	if value := ctx.Value(AWSIAMClientContextKey); value == nil {
+		e.iamClientFunc = iamClientFunc
+	} else if s, ok := value.(IAMClientFunc); ok {
+		e.iamClientFunc = s
+	} else {
+		return errors.Errorf("expected a valid iam client function type")
 	}
 
 	httpClient := jujuhttp.NewClient(
