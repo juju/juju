@@ -120,8 +120,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.ControllerId(), gc.Equals, "10")
 	config.ControllerId = nil
 	c.Assert(config, jc.DeepEquals, peergrouper.Config{
-		State:        peergrouper.StateShim{s.State},
-		MongoSession: peergrouper.MongoSessionShim{s.State.MongoSession()},
+		State:        peergrouper.StateShim{State: s.State},
+		MongoSession: peergrouper.MongoSessionShim{Session: s.State.MongoSession()},
 		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
 			APIHostPortsSetter: s.State,
 		},
@@ -149,6 +149,15 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
+}
+
+func (s *ManifoldSuite) TestNoStateServingInfoClosesState(c *gc.C) {
+	s.agent.conf.info = nil
+
+	_, err := s.manifold.Start(s.context)
+	c.Assert(err, gc.ErrorMatches, "state serving info missing from agent config")
+
+	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 type stubStateTracker struct {
