@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	// EnqueueTimeout is the timeout for enqueueing an operation. If an
+	// EnqueueDefaultTimeout is the timeout for enqueueing an operation. If an
 	// operation can't be processed in the time, a ErrDeadlineExceeded is
 	// returned.
-	EnqueueTimeout time.Duration = time.Second * 3
+	EnqueueDefaultTimeout time.Duration = time.Second * 3
 
 	// EnqueueExtendTimeout is the timeout for enqueueing an extended operation.
 	// We want a different timeout for extensions as we want to reduce the
@@ -246,7 +246,7 @@ type ringOp struct {
 func makeRingOp(leaseType string, cmd []byte, stop func() <-chan struct{}, done func(error), now time.Time) ringOp {
 	// If we locate a extension in the queue, give it a larger timeout to prevent
 	// excessive lease churning.
-	timeout := EnqueueTimeout
+	timeout := EnqueueDefaultTimeout
 	if leaseType == "extend" {
 		timeout = EnqueueExtendTimeout
 	}
