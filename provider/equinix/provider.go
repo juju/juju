@@ -22,6 +22,8 @@ import (
 	"github.com/packethost/packngo"
 )
 
+var _ environs.CloudEnvironProvider = (*environProvider)(nil)
+
 type environProvider struct {
 	environProviderCredentials
 }
@@ -70,7 +72,13 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	return nil
 }
 
-// Open is specified in the EnvironProvider interface.
+// Open opens the environment and returns it. The configuration must
+// have passed through PrepareConfig at some point in its lifecycle.
+//
+// Open should not perform any expensive operations, such as querying
+// the cloud API, as it will be called frequently.
+//
+// Open is part of the CloudEnvironProvider interface.
 func (p environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
 

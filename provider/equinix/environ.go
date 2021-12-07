@@ -50,6 +50,8 @@ type environConfig struct {
 }
 
 type environ struct {
+	equinixFirewaller
+
 	ecfgMutex     sync.Mutex
 	ecfg          *environConfig
 	name          string
@@ -57,6 +59,11 @@ type environ struct {
 	equinixClient *packngo.Client
 	namespace     instance.Namespace
 }
+
+var _ environs.Environ = (*environ)(nil)
+var _ environs.Firewaller = (*environ)(nil)
+var _ environs.NetworkingEnviron = (*environ)(nil)
+var _ environs.InstanceTagger = (*environ)(nil)
 
 var providerInstance environProvider
 
@@ -70,6 +77,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
+}
+
+// TagInstance implements environs.InstanceTagger.
+func (e *environ) TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error {
+	return e.setTagsForDevice(string(id), tags)
 }
 
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
@@ -543,7 +555,7 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 
 	projectID, ok := e.cloud.Credential.Attributes()["project-id"]
 	if !ok {
-		return nil, fmt.Errorf("project-id not fond as attribute")
+		return nil, fmt.Errorf("project-id not found as attribute")
 	}
 
 	devices, _, err := e.equinixClient.Devices.List(projectID, nil)
@@ -561,6 +573,21 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 	}
 
 	return toReturn, nil
+}
+
+// setTagsForDevice sets the tags for a device.
+func (e *environ) setTagsForDevice(id string, tags map[string]string) error {
+	deviceTags := []string{}
+	for k, v := range tags {
+		deviceTags = append(deviceTags, fmt.Sprintf("%s=%s", k, v))
+	}
+	req := &packngo.DeviceUpdateRequest{
+		Tags: &deviceTags,
+	}
+
+	_, _, err := e.equinixClient.Devices.Update(id, req)
+
+	return errors.Trace(err)
 }
 
 func mapJujuSubnetsToReservationIDs(subnetsToZoneMap []map[network.Id][]string) []string {
