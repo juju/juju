@@ -94,6 +94,7 @@ require (
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
 	github.com/mattn/go-isatty v0.0.14
+	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.4 // indirect
