@@ -586,8 +586,8 @@ github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgk
 github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=
 github.com/juju/webbrowser v1.0.0/go.mod h1:RwVlbBcF91Q4vS+iwlkJ6bZTE3EwlrjbYlM3WMVD6Bc=
-github.com/juju/worker/v3 v3.0.0-20211015025416-7586be9e222a h1:8eJLne7PN7fUv8dCuRNfKkvaI1O+3OSsIV5PTEjBJXU=
-github.com/juju/worker/v3 v3.0.0-20211015025416-7586be9e222a/go.mod h1:U3VTeYTOHxYfc0xVXRFStYqyH/N5CYjLJTYSCIs1lS0=
+github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206 h1:IXYUtS0XZ6eq2NVk85B9hMl1nLwSoaVyZPmkJ5Bat6o=
+github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206/go.mod h1:U3VTeYTOHxYfc0xVXRFStYqyH/N5CYjLJTYSCIs1lS0=
 github.com/juju/xml v0.0.0-20150413131121-eb759a627588/go.mod h1:RnnCV6b9HzujjOLGRpqvZc8INbwtBzZlhbCj5R9F1vw=
 github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07 h1:DH1XYlPV0OOzNOOtByWQ38CTT+t3BRzslUHkvQacqaY=
 github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=

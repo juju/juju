@@ -13,6 +13,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -77,11 +78,13 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 		logger:  logger,
 	}
 	s.config = deployer.ContextConfig{
-		Agent:            s.agent,
-		Clock:            clock.WallClock,
-		Hub:              s.hub,
-		Logger:           logger,
-		UnitEngineConfig: engine.DependencyEngineConfig,
+		Agent:  s.agent,
+		Clock:  clock.WallClock,
+		Hub:    s.hub,
+		Logger: logger,
+		UnitEngineConfig: func() dependency.EngineConfig {
+			return engine.DependencyEngineConfig(dependency.DefaultMetrics())
+		},
 		SetupLogging: func(c *loggo.Context, _ agent.Config) {
 			c.GetLogger("").SetLogLevel(loggo.DEBUG)
 		},
