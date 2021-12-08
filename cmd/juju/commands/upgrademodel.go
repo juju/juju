@@ -368,8 +368,6 @@ func (c *upgradeJujuCommand) getControllerAPI() (ControllerAPI, error) {
 	return apicontroller.NewClient(api), nil
 }
 
-const caasStreamsTimeout = 20 * time.Second
-
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	modelType, err := c.ModelType()
@@ -383,7 +381,6 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.NotSupportedf("--build-agent for k8s model upgrades")
 		}
 		implicitAgentUploadAllowed = false
-		fetchToolsTimeout = caasStreamsTimeout
 	}
 	return c.upgradeModel(ctx, implicitAgentUploadAllowed, fetchToolsTimeout)
 }
@@ -835,7 +832,7 @@ func fetchStreamsVersions(
 
 	select {
 	case <-time.After(timeout):
-		return nil, nil
+		return nil, errors.NewTimeout(nil, fmt.Sprintf("can not fetch available versions in %s", timeout.String()))
 	case err := <-errChan:
 		return nil, err
 	case resultList := <-result:
