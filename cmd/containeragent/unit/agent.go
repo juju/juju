@@ -316,7 +316,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		// and the agent is controlled by the OS to only have one.
 		logger.Errorf("failed to start introspection worker: %v", err)
 	}
-	if err := addons.RegisterEngineMetrics(c.prometheusRegistry, metrics, eng); err != nil {
+	if err := addons.RegisterEngineMetrics(c.prometheusRegistry, metrics, eng, workerMetricsSink); err != nil {
 		// If the dependency engine metrics fail, continue on. This is unlikely
 		// to happen in the real world, but should't stop or bring down an
 		// agent.

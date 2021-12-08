@@ -148,12 +148,14 @@ func (s *registerSuite) TestRegisterEngineMetrics(c *gc.C) {
 	registry.EXPECT().Unregister(collector).Do(func(_ prometheus.Collector) {
 		close(done)
 	})
+	sink := NewMockMetricSink(ctrl)
+	sink.EXPECT().Unregister()
 
 	worker := &dummyWorker{
 		done: make(chan struct{}, 1),
 	}
 
-	err := addons.RegisterEngineMetrics(registry, collector, worker)
+	err := addons.RegisterEngineMetrics(registry, collector, worker, sink)
 	c.Assert(err, jc.ErrorIsNil)
 
 	worker.Kill()

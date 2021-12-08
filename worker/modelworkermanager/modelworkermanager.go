@@ -14,9 +14,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
-	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
@@ -61,7 +61,7 @@ type ModelLogger interface {
 
 // ModelMetrics defines a way to create metrics for a model.
 type ModelMetrics interface {
-	ForModel(names.ModelTag) dependency.Metrics
+	ForModel(names.ModelTag) engine.MetricSink
 }
 
 // NewModelConfig holds the information required by the NewModelWorkerFunc
@@ -72,7 +72,7 @@ type NewModelConfig struct {
 	ModelUUID        string
 	ModelType        state.ModelType
 	ModelLogger      ModelLogger
-	ModelMetrics     dependency.Metrics
+	ModelMetrics     engine.MetricSink
 	Mux              *apiserverhttp.Mux
 	ControllerConfig controller.Config
 }

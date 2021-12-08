@@ -650,7 +650,7 @@ func (a *MachineAgent) makeEngineCreator(
 			// and the agent is controlled by by the OS to only have one.
 			logger.Errorf("failed to start introspection worker: %v", err)
 		}
-		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine); err != nil {
+		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine, controllerMetricsSink); err != nil {
 			// If the dependency engine metrics fail, continue on. This is unlikely
 			// to happen in the real world, but should't stop or bring down an
 			// agent.
@@ -1154,10 +1154,12 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		}
 		return nil, errors.Trace(err)
 	}
+
 	return &modelWorker{
 		Engine:    engine,
 		logger:    cfg.ModelLogger,
 		modelUUID: cfg.ModelUUID,
+		metrics:   cfg.ModelMetrics,
 	}, nil
 }
 
@@ -1179,14 +1181,19 @@ type modelWorker struct {
 	*dependency.Engine
 	logger    modelworkermanager.ModelLogger
 	modelUUID string
+	metrics   engine.MetricSink
 }
 
 // Wait is the last thing that is called on the worker as it is being
 // removed.
 func (m *modelWorker) Wait() error {
 	err := m.Engine.Wait()
+
 	logger.Debugf("closing db logger for %q", m.modelUUID)
-	m.logger.Close()
+	_ = m.logger.Close()
+	// When closing the model, ensure that we also close the metrics with the
+	// logger.
+	_ = m.metrics.Unregister()
 	return err
 }
 

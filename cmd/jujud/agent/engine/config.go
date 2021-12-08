@@ -84,8 +84,15 @@ func NewMetrics() *Collector {
 	}
 }
 
+// MetricSink describes a way to unregister a model metrics collector. This
+// ensures that we correctly tidy up after the removal of a model.
+type MetricSink interface {
+	dependency.Metrics
+	Unregister() bool
+}
+
 // ForModel returns a metrics collector for a given model.
-func (c *Collector) ForModel(model names.ModelTag) dependency.Metrics {
+func (c *Collector) ForModel(model names.ModelTag) MetricSink {
 	return &modelCollector{
 		collector: c,
 		modelUUID: model.Id(),
@@ -114,4 +121,10 @@ type modelCollector struct {
 func (c *modelCollector) RecordStart(worker string) {
 	c.collector.workerStarts.WithLabelValues(worker).Inc()
 	c.collector.modelWorkerStarts.WithLabelValues(c.modelUUID).Inc()
+}
+
+// Unregister removes any associated model worker starts from the sink if
+// the model is removed.
+func (c *modelCollector) Unregister() bool {
+	return c.collector.modelWorkerStarts.DeleteLabelValues(c.modelUUID)
 }

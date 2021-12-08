@@ -123,7 +123,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Authority:    s.authority,
 		ModelUUID:    "foo",
 		ModelType:    state.ModelTypeIAAS,
-		ModelMetrics: dependency.DefaultMetrics(),
+		ModelMetrics: dummyMetricSink{},
 	}
 	mw, err := config.NewModelWorker(modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
