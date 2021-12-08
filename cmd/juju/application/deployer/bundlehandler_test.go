@@ -816,7 +816,6 @@ func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 	}
 	s.setupCharmUnits(chUnits)
 	s.expectAddRelation([]string{"wordpress:db", "mysql:db"})
-	s.expectResolveCharm(nil, 2)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleWithStorage))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1325,17 +1324,19 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {
-				Charm:  "cs:mysql-42",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:mysql-42",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "0"},
 				},
 			},
 			"wordpress": {
-				Charm:  "cs:wordpress-47",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:wordpress-47",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "1"},
 				},
@@ -1383,7 +1384,7 @@ func (s *BundleDeployRepositorySuite) expectResolveCharmWithSeries(series []stri
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			return curl, origin, series, err
-		}).Times(times)
+		}).AnyTimes()
 }
 
 func (s *BundleDeployRepositorySuite) expectResolveCharm(err error, times int) {
