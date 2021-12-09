@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 
@@ -320,6 +321,12 @@ func maas2NetworkInterfaces(
 ) (corenetwork.InterfaceInfos, error) {
 	interfaces := instance.machine.InterfaceSet()
 	infos := make(corenetwork.InterfaceInfos, 0, len(interfaces))
+	bonds := set.NewStrings()
+	for _, iface := range interfaces {
+		if maasInterfaceType(iface.Type()) == typeBond {
+			bonds.Add(iface.Name())
+		}
+	}
 	for i, iface := range interfaces {
 
 		// The below works for all types except bonds and their members.
@@ -329,10 +336,7 @@ func maas2NetworkInterfaces(
 		case typePhysical:
 			nicType = corenetwork.EthernetDevice
 			children := strings.Join(iface.Children(), "")
-			if parentName == "" && len(iface.Children()) == 1 && strings.HasPrefix(children, "bond") {
-				// FIXME: Verify the bond exists, regardless of its name.
-				// This is a bond member, set the parent correctly (from
-				// Juju's perspective) - to the bond itself.
+			if parentName == "" && len(iface.Children()) == 1 && bonds.Contains(children) {
 				parentName = children
 			}
 		case typeBond:
