@@ -87,6 +87,7 @@ type Mongo interface {
 }
 
 type Logger interface {
+	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
 	Warningf(string, ...interface{})
 }
@@ -198,10 +199,10 @@ func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
 		key := expired.Key
 		docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
 
-		// We have an existing lease.Key already in the documents that doesn't
-		// have the same holder.
 		if doc, ok := leaseDocs[docId]; ok && doc.Holder != expired.Holder {
-			t.logger.Warningf("multiple expiries with the same key %q, but different holders %q and %q", key, doc.Holder, expired.Holder)
+			// We have an existing lease.Key already in the documents that
+			// doesn't have the same holder.
+			t.logger.Warningf("ignoring key %q, has existing lease key but different holders %q and %q", key, doc.Holder, expired.Holder)
 			continue
 		}
 
@@ -216,7 +217,7 @@ func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
 		docIds.Add(leaseDoc.DocId)
 	}
 	sortedDocIds := docIds.SortedValues()
-	t.logger.Infof("expiring leases %v", sortedDocIds)
+	t.logger.Debugf("expiring leases %v", sortedDocIds)
 
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		// Bulk get the records, to prevent potato programming.
@@ -239,7 +240,7 @@ func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
 			// Not all documents are represented by the returned records query
 			// from mongo. Report a warning, but continue and expire as much as
 			// possible.
-			t.logger.Warningf("missing expiry documents: %v, unable to do a complete expiry", missing)
+			t.logger.Warningf("we were requested to expire leases that we did not find: %v, continuing to expire remaining documents", missing)
 		}
 
 		ops := make([]txn.Op, 0)
@@ -255,7 +256,7 @@ func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
 			if leaseDoc.Holder != doc.Holder {
 				// The holder for the document has changed. We shouldn't attempt
 				// to remove this document.
-				t.logger.Infof("lease expiry holder %q doesn't match the current lease holder %q, skipping", leaseDoc.Holder, doc.Holder)
+				t.logger.Infof("lease %q is currently held by %q but we were asked to expire it for %q, skipping", leaseDoc.DocId, leaseDoc.Holder, doc.Holder)
 				continue
 			}
 

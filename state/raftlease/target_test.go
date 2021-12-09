@@ -261,6 +261,15 @@ func (s *targetSuite) TestExpiresWithDifferentHolder(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.getRows(c), gc.HasLen, 1)
+
+	// First write should win.
+	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
+		"_id":        "model:leadership#twin1#",
+		"namespace":  "leadership",
+		"model-uuid": "model",
+		"lease":      "twin1",
+		"holder":     "kitamuraA",
+	}})
 }
 
 func (s *targetSuite) TestExpiresWithDuplicateEntries(c *gc.C) {
