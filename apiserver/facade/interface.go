@@ -5,6 +5,7 @@ package facade
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"net/url"
 	"time"
@@ -67,6 +68,13 @@ type RaftContext interface {
 	// It's up to the caller to retry or drop depending on how the retry
 	// algorithm is implemented.
 	ApplyLease(context.Context, []byte) error
+}
+
+// SQLDatabase represents a database for the associated model.
+type SQLDatabase interface {
+	// Txn defines a method for running transactions, dealing with retries,
+	// commit and rollback semantics.
+	Txn(func(*sql.Tx) error) error
 }
 
 // Context exposes useful capabilities to a Facade.
@@ -159,6 +167,8 @@ type Context interface {
 
 	// Raft returns a lease context for managing raft.
 	Raft() RaftContext
+
+	DB() SQLDatabase
 }
 
 // RequestRecorder is implemented by types that can record information about

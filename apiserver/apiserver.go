@@ -305,6 +305,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		leaseManager:        cfg.LeaseManager,
 		controllerConfig:    controllerConfig,
 		raftOpQueue:         cfg.RaftOpQueue,
+		sqlDBGetter:         cfg.SQLDBGetter,
 		logger:              loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
@@ -1029,33 +1030,44 @@ func (srv *Server) serveConn(
 	if modelUUID == "" {
 		resolvedModelUUID = statePool.SystemState().ModelUUID()
 	}
-	var (
-		st *state.PooledState
-		h  *apiHandler
-	)
 
-	st, err := statePool.Get(resolvedModelUUID)
-	if err == nil {
-		defer st.Release()
-		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
-	}
-	if errors.IsNotFound(err) {
-		err = errors.Wrap(err, apiservererrors.UnknownModelError(resolvedModelUUID))
-	}
-
+	// Attempt to get the dqlite database that is unique to the modelUUID.
+	db, err := srv.shared.sqlDBGetter.GetDB(resolvedModelUUID)
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
-	} else {
-		// Set up the admin apis used to accept logins and direct
-		// requests to the relevant business facade.
-		// There may be more than one since we need a new API each
-		// time login changes in a non-backwards compatible way.
-		adminAPIs := make(map[int]interface{})
-		for apiVersion, factory := range adminAPIFactories {
-			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
-		}
-		conn.ServeRoot(newAdminRoot(h, adminAPIs), recorderFactory, serverError)
+		return srv.processConn(ctx, conn)
 	}
+
+	st, err := statePool.Get(resolvedModelUUID)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = errors.Wrap(err, apiservererrors.UnknownModelError(resolvedModelUUID))
+		}
+		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
+		return srv.processConn(ctx, conn)
+	}
+
+	defer st.Release()
+	h, err := newAPIHandler(srv, st.State, db, conn, modelUUID, connectionID, host)
+	if err != nil {
+		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
+		return srv.processConn(ctx, conn)
+	}
+
+	// Set up the admin apis used to accept logins and direct
+	// requests to the relevant business facade.
+	// There may be more than one since we need a new API each
+	// time login changes in a non-backwards compatible way.
+	adminAPIs := make(map[int]interface{})
+	for apiVersion, factory := range adminAPIFactories {
+		adminAPIs[apiVersion] = factory(srv, h, apiObserver)
+	}
+	conn.ServeRoot(newAdminRoot(h, adminAPIs), recorderFactory, serverError)
+
+	return srv.processConn(ctx, conn)
+}
+
+func (srv *Server) processConn(ctx context.Context, conn *rpc.Conn) error {
 	conn.Start(ctx)
 	select {
 	case <-conn.Dead():
