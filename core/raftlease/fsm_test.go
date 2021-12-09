@@ -1025,15 +1025,17 @@ func assertExpired(c *gc.C, resp raftlease.FSMResponse, keys ...lease.Key) {
 	}
 	var target fakeTarget
 	resp.Notify(&target)
-	c.Assert(target.Calls(), gc.HasLen, len(keys))
 	for _, call := range target.Calls() {
-		c.Assert(call.FuncName, gc.Equals, "Expired")
+		c.Assert(call.FuncName, gc.Equals, "Expiries")
 		c.Assert(call.Args, gc.HasLen, 1)
-		key, ok := call.Args[0].(lease.Key)
+
+		paramExpiries, ok := call.Args[0].([]raftlease.Expired)
 		c.Assert(ok, gc.Equals, true)
-		_, found := keySet[key]
-		c.Assert(found, gc.Equals, true)
-		delete(keySet, key)
+		for _, expired := range paramExpiries {
+			_, found := keySet[expired.Key]
+			c.Assert(found, gc.Equals, true)
+			delete(keySet, expired.Key)
+		}
 	}
 }
 
@@ -1052,8 +1054,8 @@ func (t *fakeTarget) Claimed(key lease.Key, holder string) error {
 	return t.NextErr()
 }
 
-func (t *fakeTarget) Expired(key lease.Key) error {
-	t.AddCall("Expired", key)
+func (t *fakeTarget) Expiries(expiries []raftlease.Expired) error {
+	t.AddCall("Expiries", expiries)
 	return t.NextErr()
 }
 
