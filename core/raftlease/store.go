@@ -181,6 +181,10 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 }
 
 func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
+	if err := command.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
 	start := s.config.Clock.Now()
 	defer func() {
 		elapsed := s.config.Clock.Now().Sub(start)

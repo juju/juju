@@ -12,9 +12,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v3"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/raft/queue"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/raft"
 )
 
@@ -25,7 +27,10 @@ type raftMediatorSuite struct {
 var _ = gc.Suite(&raftMediatorSuite{})
 
 func (s *raftMediatorSuite) TestApplyLease(c *gc.C) {
-	cmd := []byte("do it")
+	cmd := raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}
 
 	q := queue.NewOpQueue(clock.WallClock)
 
@@ -39,11 +44,14 @@ func (s *raftMediatorSuite) TestApplyLease(c *gc.C) {
 	err := mediator.ApplyLease(context.Background(), cmd)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.matcheOne(c, results, string(cmd))
+	s.matcheOne(c, results, cmd)
 }
 
 func (s *raftMediatorSuite) TestApplyLeaseError(c *gc.C) {
-	cmd := []byte("do it")
+	cmd := raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}
 
 	q := queue.NewOpQueue(clock.WallClock)
 	results := s.consume(c, q, 1, errors.New("boom"))
@@ -56,11 +64,14 @@ func (s *raftMediatorSuite) TestApplyLeaseError(c *gc.C) {
 	err := mediator.ApplyLease(context.Background(), cmd)
 	c.Assert(err, gc.ErrorMatches, `boom`)
 
-	s.matcheOne(c, results, string(cmd))
+	s.matcheOne(c, results, cmd)
 }
 
 func (s *raftMediatorSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
-	cmd := []byte("do it")
+	cmd := raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}
 
 	q := queue.NewOpQueue(clock.WallClock)
 	results := s.consume(c, q, 1, raft.NewNotLeaderError("10.0.0.0", "1"))
@@ -73,11 +84,14 @@ func (s *raftMediatorSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
 	err := mediator.ApplyLease(context.Background(), cmd)
 	c.Assert(err, gc.ErrorMatches, `not currently the leader, try "1"`)
 
-	s.matcheOne(c, results, string(cmd))
+	s.matcheOne(c, results, cmd)
 }
 
 func (s *raftMediatorSuite) TestApplyLeaseDeadlineExceededError(c *gc.C) {
-	cmd := []byte("do it")
+	cmd := raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}
 
 	deadLineErr := queue.ErrDeadlineExceeded
 	q := queue.NewOpQueue(clock.WallClock)
@@ -93,11 +107,14 @@ func (s *raftMediatorSuite) TestApplyLeaseDeadlineExceededError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
 	c.Assert(apiservererrors.IsDeadlineExceededError(err), jc.IsTrue)
 
-	s.matcheOne(c, results, string(cmd))
+	s.matcheOne(c, results, cmd)
 }
 
 func (s *raftMediatorSuite) TestApplyLeaseContextDoneError(c *gc.C) {
-	cmd := []byte("do it")
+	cmd := raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}
 
 	q := queue.NewOpQueue(clock.WallClock)
 
@@ -117,8 +134,8 @@ func (s *raftMediatorSuite) TestApplyLeaseContextDoneError(c *gc.C) {
 	c.Assert(apiservererrors.IsDeadlineExceededError(err), jc.IsTrue)
 }
 
-func (s *raftMediatorSuite) consume(c *gc.C, q *queue.OpQueue, n int, err error) chan queue.Operation {
-	results := make(chan queue.Operation, n)
+func (s *raftMediatorSuite) consume(c *gc.C, q *queue.OpQueue, n int, err error) chan queue.OutOperation {
+	results := make(chan queue.OutOperation, n)
 	go func() {
 		defer close(results)
 
@@ -140,11 +157,15 @@ func (s *raftMediatorSuite) consume(c *gc.C, q *queue.OpQueue, n int, err error)
 	return results
 }
 
-func (s *raftMediatorSuite) matcheOne(c *gc.C, results chan queue.Operation, cmd string) {
-	var commands []string
+func (s *raftMediatorSuite) matcheOne(c *gc.C, results chan queue.OutOperation, cmd raftlease.Command) {
+	var commands []raftlease.Command
 	for result := range results {
-		commands = append(commands, string(result.Command))
+		var got raftlease.Command
+		err := yaml.Unmarshal(result.Command, &got)
+		c.Assert(err, jc.ErrorIsNil)
+
+		commands = append(commands, got)
 	}
 	c.Assert(len(commands), gc.Equals, 1)
-	c.Assert(commands, gc.DeepEquals, []string{cmd})
+	c.Assert(commands, gc.DeepEquals, []raftlease.Command{cmd})
 }
