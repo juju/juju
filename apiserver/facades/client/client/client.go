@@ -83,21 +83,6 @@ type Client struct {
 	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 }
 
-// ClientV1 serves the (v1) client-specific API methods.
-type ClientV1 struct {
-	*ClientV2
-}
-
-// ClientV2 serves the (v2) client-specific API methods.
-type ClientV2 struct {
-	*ClientV3
-}
-
-// ClientV2 serves the (v2) client-specific API methods.
-type ClientV3 struct {
-	*Client
-}
-
 func (c *Client) checkCanRead() error {
 	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil {
@@ -144,33 +129,6 @@ func (c *Client) checkIsAdmin() error {
 		return apiservererrors.ErrPerm
 	}
 	return nil
-}
-
-// NewFacadeV1 creates a version 1 Client facade to handle API requests.
-func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
-	client, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV1{client}, nil
-}
-
-// NewFacadeV2 creates a version 2 Client facade to handle API requests.
-func NewFacadeV2(ctx facade.Context) (*ClientV2, error) {
-	client, err := NewFacadeV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV2{client}, nil
-}
-
-// NewFacadeV3 creates a version 3 Client facade to handle API requests.
-func NewFacadeV3(ctx facade.Context) (*ClientV3, error) {
-	client, err := NewFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV3{client}, nil
 }
 
 // NewFacade creates a version 4 Client facade to handle API requests.
@@ -807,14 +765,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
-func (c *ClientV3) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.FindToolsResult{}, err
-	}
-	return c.api.toolsFinder.FindTools(args)
-}
-
-// FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (result params.FindToolsResult, err error) {
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
@@ -1031,18 +981,6 @@ func (c *Client) CACert() (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
-}
-
-// FindTools returns a List containing all tools matching the given parameters.
-func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.FindToolsResult{}, err
-	}
-
-	if args.AgentStream != "" {
-		return params.FindToolsResult{}, errors.New("requesting agent-stream not supported by model")
-	}
-	return c.api.toolsFinder.FindTools(args)
 }
 
 // NOTE: this is necessary for the other packages that do upgrade tests.

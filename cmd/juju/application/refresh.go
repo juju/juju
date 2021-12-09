@@ -324,13 +324,8 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Select a suitable default URL schema for charm URLs that don't
-	// provide one depending on whether the current controller supports
-	// charmhub (i.e. it is a 2.9+ controller).
+	// Set a default URL schema for charm URLs that don't provide one.
 	var defaultCharmSchema = charm.CharmHub
-	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
-		defaultCharmSchema = charm.CharmStore
-	}
 
 	// Ensure that the switchURL (if provided) always contains a schema. If
 	// one is missing inject the default value we selected above.
@@ -557,9 +552,9 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	api api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{api: &apiClient{Client: api.Client()}}
-	if api.BestFacadeVersion("Charms") > 2 {
-		adder.charms = &charmsClient{Client: apicharms.NewClient(api)}
+	adder := &charmAdderShim{
+		api:    &apiClient{Client: api.Client()},
+		charms: &charmsClient{Client: apicharms.NewClient(api)},
 	}
 	return adder
 }
@@ -574,24 +569,15 @@ func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 }
 
 func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	if c.charms != nil {
-		return c.charms.AddCharm(curl, origin, force)
-	}
-	return origin, c.api.AddCharm(curl, csparams.Channel(origin.Risk), force)
+	return c.charms.AddCharm(curl, origin, force)
 }
 
 func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
-	if c.charms != nil {
-		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
-	}
-	return origin, c.api.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
+	return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
 }
 
 func (c *charmAdderShim) CheckCharmPlacement(appName string, curl *charm.URL) error {
-	if c.charms != nil {
-		return c.charms.CheckCharmPlacement(appName, curl)
-	}
-	return nil
+	return c.charms.CheckCharmPlacement(appName, curl)
 }
 
 func getCharmStore(

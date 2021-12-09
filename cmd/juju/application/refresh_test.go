@@ -903,10 +903,6 @@ func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
 	return []network.MachineHostPorts{{*hp}}
 }
 
-func (m *mockAPIConnection) BestFacadeVersion(_ string) int {
-	return 0
-}
-
 func (m *mockAPIConnection) ServerVersion() (version.Number, bool) {
 	if m.serverVersion != nil {
 		return *m.serverVersion, true

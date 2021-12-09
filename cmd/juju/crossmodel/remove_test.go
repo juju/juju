@@ -25,7 +25,7 @@ var _ = gc.Suite(&removeSuite{})
 
 func (s *removeSuite) SetUpTest(c *gc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
-	s.mockAPI = &mockRemoveAPI{version: 2}
+	s.mockAPI = &mockRemoveAPI{}
 }
 
 func (s *removeSuite) runRemove(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -104,21 +104,7 @@ func (s *removeSuite) TestRemoveNameOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestOldAPI(c *gc.C) {
-	s.mockAPI.version = 1
-	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y", "--force")
-	c.Assert(err, gc.ErrorMatches, "on this juju controller, remove-offer --force not supported")
-}
-
-func (s *removeSuite) TestOldAPINoForce(c *gc.C) {
-	s.mockAPI.expectedURLs = []string{"fred/model.db2", "mary/model.db2"}
-	s.mockAPI.version = 1
-	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 type mockRemoveAPI struct {
-	version       int
 	msg           string
 	expectedForce bool
 	expectedURLs  []string
@@ -126,10 +112,6 @@ type mockRemoveAPI struct {
 
 func (s mockRemoveAPI) Close() error {
 	return nil
-}
-
-func (s mockRemoveAPI) BestAPIVersion() int {
-	return s.version
 }
 
 func (s mockRemoveAPI) DestroyOffers(force bool, offerURLs ...string) error {

@@ -28,16 +28,16 @@ func (s *restrictControllerSuite) SetUpSuite(c *gc.C) {
 func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "AllModelWatcher", 2, "Next")
 	s.assertMethod(c, "AllModelWatcher", 2, "Stop")
-	s.assertMethod(c, "ModelManager", 2, "CreateModel")
-	s.assertMethod(c, "ModelManager", 2, "ListModels")
-	s.assertMethod(c, "Pinger", 1, "Ping")
-	s.assertMethod(c, "Bundle", 1, "GetChanges")
-	s.assertMethod(c, "HighAvailability", 2, "EnableHA")
-	s.assertMethod(c, "ApplicationOffers", 1, "ApplicationOffers")
+	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "CreateModel")
+	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "ListModels")
+	s.assertMethod(c, "Pinger", pingerFacadeVersion, "Ping")
+	s.assertMethod(c, "Bundle", 6, "GetChanges")
+	s.assertMethod(c, "HighAvailability", highAvailabilityFacadeVersion, "EnableHA")
+	s.assertMethod(c, "ApplicationOffers", 3, "ApplicationOffers")
 }
 
 func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {
-	caller, err := s.root.FindMethod("Client", 1, "FullStatus")
+	caller, err := s.root.FindMethod("Client", clientFacadeVersion, "FullStatus")
 	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for controller API connection`)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)

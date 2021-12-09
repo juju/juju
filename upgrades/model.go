@@ -11,7 +11,7 @@ import (
 // MinMajorUpgradeVersionValue defines the value to identify what the last
 // version should be.
 var MinMajorUpgradeVersionValue = map[int]string{
-	3: "2.8.9",
+	3: "2.9.17",
 }
 
 // MinMajorUpgradeVersion defines the minimum version all models

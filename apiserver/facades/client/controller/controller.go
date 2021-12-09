@@ -60,54 +60,6 @@ type ControllerAPI struct {
 	multiwatcherFactory multiwatcher.Factory
 }
 
-// ControllerAPIv10 provides the v10 controller API. The only difference between
-// this and the v11 is that v10 doesn't support force destroy.
-type ControllerAPIv10 struct {
-	*ControllerAPI
-}
-
-// ControllerAPIv9 provides the v9 controller API. The only difference between
-// this and the v10 is that v9 use the cloudspec api v1
-type ControllerAPIv9 struct {
-	*ControllerAPIv10
-}
-
-// ControllerAPIv8 provides the v8 Controller API. The only difference
-// between this and v9 is that v8 doesn't have the model summary watchers.
-type ControllerAPIv8 struct {
-	*ControllerAPIv9
-}
-
-// ControllerAPIv7 provides the v7 Controller API. The only difference
-// between this and v8 is that v7 doesn't have the ControllerVersion method.
-type ControllerAPIv7 struct {
-	*ControllerAPIv8
-}
-
-// ControllerAPIv6 provides the v6 Controller API. The only difference
-// between this and v7 is that v6 doesn't have the IdentityProviderURL method.
-type ControllerAPIv6 struct {
-	*ControllerAPIv7
-}
-
-// ControllerAPIv5 provides the v5 Controller API. The only difference
-// between this and v6 is that v5 doesn't have the MongoVersion method.
-type ControllerAPIv5 struct {
-	*ControllerAPIv6
-}
-
-// ControllerAPIv4 provides the v4 Controller API. The only difference
-// between this and v5 is that v4 doesn't have the
-// UpdateControllerConfig method.
-type ControllerAPIv4 struct {
-	*ControllerAPIv5
-}
-
-// ControllerAPIv3 provides the v3 Controller API.
-type ControllerAPIv3 struct {
-	*ControllerAPIv4
-}
-
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
 var LatestAPI = NewControllerAPIv11
@@ -133,90 +85,6 @@ func NewControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		factory,
 		controller,
 	)
-}
-
-// NewControllerAPIv10 creates a new ControllerAPIv10.
-func NewControllerAPIv10(ctx facade.Context) (*ControllerAPIv10, error) {
-	v11, err := NewControllerAPIv11(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ControllerAPIv10{v11}, nil
-}
-
-// NewControllerAPIv9 creates a new ControllerAPIv9.
-func NewControllerAPIv9(ctx facade.Context) (*ControllerAPIv9, error) {
-	v10, err := NewControllerAPIv10(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	v10.CloudSpecer = cloudspec.NewCloudSpecV1(
-		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetter(ctx.StatePool()),
-		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
-		common.AuthFuncForTag(model.ModelTag()),
-	)
-	return &ControllerAPIv9{v10}, nil
-}
-
-// NewControllerAPIv8 creates a new ControllerAPIv8.
-func NewControllerAPIv8(ctx facade.Context) (*ControllerAPIv8, error) {
-	v9, err := NewControllerAPIv9(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ControllerAPIv8{v9}, nil
-}
-
-// NewControllerAPIv7 creates a new ControllerAPIv7.
-func NewControllerAPIv7(ctx facade.Context) (*ControllerAPIv7, error) {
-	v8, err := NewControllerAPIv8(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ControllerAPIv7{v8}, nil
-}
-
-// NewControllerAPIv6 creates a new ControllerAPIv6.
-func NewControllerAPIv6(ctx facade.Context) (*ControllerAPIv6, error) {
-	v7, err := NewControllerAPIv7(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ControllerAPIv6{v7}, nil
-}
-
-// NewControllerAPIv5 creates a new ControllerAPIv5.
-func NewControllerAPIv5(ctx facade.Context) (*ControllerAPIv5, error) {
-	v6, err := NewControllerAPIv6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ControllerAPIv5{v6}, nil
-}
-
-// NewControllerAPIv4 creates a new ControllerAPIv4.
-func NewControllerAPIv4(ctx facade.Context) (*ControllerAPIv4, error) {
-	v5, err := NewControllerAPIv5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ControllerAPIv4{v5}, nil
-}
-
-// NewControllerAPIv3 creates a new ControllerAPIv3.
-func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
-	v4, err := NewControllerAPIv4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ControllerAPIv3{v4}, nil
 }
 
 // NewControllerAPI creates a new api server endpoint for operations
@@ -281,9 +149,6 @@ func (c *ControllerAPI) checkIsSuperUser() error {
 	return nil
 }
 
-// ControllerVersion isn't on the v7 API.
-func (c *ControllerAPIv7) ControllerVersion(_, _ struct{}) {}
-
 // ControllerVersion returns the version information associated with this
 // controller binary.
 //
@@ -296,9 +161,6 @@ func (c *ControllerAPI) ControllerVersion() (params.ControllerVersionResults, er
 	}
 	return result, nil
 }
-
-// IdentityProviderURL isn't on the v6 API.
-func (c *ControllerAPIv6) IdentityProviderURL() {}
 
 // IdentityProviderURL returns the URL of the configured external identity
 // provider for this controller or an empty string if no external identity
@@ -319,26 +181,6 @@ func (c *ControllerAPI) IdentityProviderURL() (params.StringResult, error) {
 	}
 	return result, nil
 }
-
-// ModelStatus is a legacy method call to ensure that we preserve
-// backward compatibility.
-// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (c *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	results, err := c.ModelStatusAPI.ModelStatus(req)
-	if err != nil {
-		return params.ModelStatusResults{}, err
-	}
-
-	for _, r := range results.Results {
-		if r.Error != nil {
-			return params.ModelStatusResults{Results: make([]params.ModelStatus, len(req.Entities))}, errors.Trace(r.Error)
-		}
-	}
-	return results, nil
-}
-
-// MongoVersion isn't on the v5 API.
-func (c *ControllerAPIv5) MongoVersion() {}
 
 // MongoVersion allows the introspection of the mongo version per controller
 func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
@@ -633,9 +475,6 @@ func (c *ControllerAPI) WatchAllModelSummaries() (params.SummaryWatcherID, error
 	}, nil
 }
 
-// WatchAllModelSummaries isn't on the v8 API.
-func (c *ControllerAPIv8) WatchAllModelSummaries(_, _ struct{}) {}
-
 // WatchModelSummaries starts watching the summary updates from the cache.
 // Only models that the user has access to are returned.
 func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
@@ -645,9 +484,6 @@ func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
 		WatcherID: c.resources.Register(w),
 	}, nil
 }
-
-// WatchModelSummaries isn't on the v8 API.
-func (c *ControllerAPIv8) WatchModelSummaries(_, _ struct{}) {}
 
 // GetControllerAccess returns the level of access the specified users
 // have on the controller.
@@ -834,13 +670,6 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 	}
 	return nil
 }
-
-// Mask the ConfigSet method from the v4 API. The API reflection code
-// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
-// this removes the method as far as the RPC machinery is concerned.
-
-// ConfigSet isn't on the v4 API.
-func (c *ControllerAPIv4) ConfigSet(_, _ struct{}) {}
 
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information

@@ -112,67 +112,6 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
 }
 
-func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
-	djangoRelationUnitsWatcher := newMockRelationUnitsWatcher()
-	djangoRelationUnitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed:    map[string]watcher.UnitSettings{"django/0": {Version: 1}},
-		AppChanged: map[string]int64{"django": 0},
-	}
-	djangoRelation := newMockRelation(123)
-	djangoRelation.endpointUnitsWatchers["django"] = djangoRelationUnitsWatcher
-	djangoRelation.endpoints = []state.Endpoint{{
-		ApplicationName: "db2",
-	}, {
-		ApplicationName: "django",
-	}}
-
-	s.st.relations["django:db db2:db"] = djangoRelation
-	s.st.applications["django"] = newMockApplication("django")
-
-	// WatchLocalRelationUnits has been removed from the V2 API.
-	api := &remoterelations.APIv1{s.api}
-	results, err := api.WatchLocalRelationUnits(params.Entities{[]params.Entity{
-		{"relation-django:db#db2:db"},
-		{"relation-hadoop:db#db2:db"},
-		{"machine-42"},
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.RelationUnitsWatchResult{{
-		RelationUnitsWatcherId: "1",
-		Changes: params.RelationUnitsChange{
-			Changed: map[string]params.UnitSettings{
-				"django/0": {
-					Version: 1,
-				},
-			},
-			AppChanged: map[string]int64{
-				"django": 0,
-			},
-		},
-	}, {
-		Error: &params.Error{
-			Code:    params.CodeNotFound,
-			Message: `getting relation for "hadoop:db db2:db": relation "hadoop:db db2:db" not found`,
-		},
-	}, {
-		Error: &params.Error{
-			Message: `"machine-42" is not a valid relation tag`,
-		},
-	}})
-
-	s.st.CheckCalls(c, []testing.StubCall{
-		{"KeyRelation", []interface{}{"django:db db2:db"}},
-		{"Application", []interface{}{"db2"}},
-		{"Application", []interface{}{"django"}},
-		{"KeyRelation", []interface{}{"hadoop:db db2:db"}},
-	})
-
-	djangoRelation.CheckCalls(c, []testing.StubCall{
-		{"Endpoints", []interface{}{}},
-		{"WatchUnits", []interface{}{"django"}},
-	})
-}
-
 func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	djangoRelationUnitsWatcher := newMockRelationUnitsWatcher()
 	djangoRelationUnitsWatcher.changes <- watcher.RelationUnitsChange{
@@ -350,24 +289,6 @@ func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"SaveMacaroon", []interface{}{relTag, mac.Id()}},
-	})
-}
-
-func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
-	djangoRelationUnit := newMockRelationUnit()
-	djangoRelationUnit.settings["key"] = "value"
-	db2Relation := newMockRelation(123)
-	db2Relation.units["django/0"] = djangoRelationUnit
-	s.st.relations["db2:db django:db"] = db2Relation
-	s.st.applications["django"] = newMockApplication("django")
-	// RelationUnitSettings has been removed from the V2 API.
-	api := &remoterelations.APIv1{s.api}
-	result, err := api.RelationUnitSettings(params.RelationUnits{
-		RelationUnits: []params.RelationUnit{{Relation: "relation-db2.db#django.db", Unit: "unit-django-0"}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, jc.DeepEquals, []params.SettingsResult{{Settings: params.Settings{"key": "value"}}})
-	s.st.CheckCalls(c, []testing.StubCall{
-		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 }
 

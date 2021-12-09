@@ -151,7 +151,3 @@ func (s *stubFacade) Close() error {
 
 	return nil
 }
-
-func (s *stubFacade) BestAPIVersion() int {
-	return 1
-}

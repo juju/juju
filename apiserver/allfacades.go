@@ -140,43 +140,24 @@ func AllFacades() *facade.Registry {
 
 	reg("Action", 7, action.NewActionAPIV7)
 	reg("ActionPruner", 1, actionpruner.NewAPI)
-	reg("Agent", 2, agent.NewAgentAPIV2)
 	reg("Agent", 3, agent.NewAgentAPIV3)
 	reg("AgentTools", 1, agenttools.NewFacade)
 	reg("Annotations", 2, annotations.NewAPI)
 
 	reg("Application", 13, application.NewFacadeV13)
 
-	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
-	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
-	reg("ApplicationOffers", 3, applicationoffers.NewOffersAPIV3) // Add user to consume offers details  args.
+	reg("ApplicationOffers", 3, applicationoffers.NewOffersAPIV3)
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 3, backups.NewFacadeV3)
 	reg("Block", 2, block.NewAPI)
-	reg("Bundle", 1, bundle.NewFacadeV1)
-	reg("Bundle", 2, bundle.NewFacadeV2)
-	reg("Bundle", 3, bundle.NewFacadeV3)
-	reg("Bundle", 4, bundle.NewFacadeV4)
-	reg("Bundle", 5, bundle.NewFacadeV5)
 	reg("Bundle", 6, bundle.NewFacadeV6)
 	reg("CharmHub", 1, charmhub.NewFacade)
 	reg("CharmDownloader", 1, charmdownloader.NewFacadeV1)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
-	reg("Charms", 2, charms.NewFacadeV2)
-	reg("Charms", 3, charms.NewFacadeV3)
 	reg("Charms", 4, charms.NewFacadeV4)
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
-	reg("Client", 1, client.NewFacadeV1)
-	reg("Client", 2, client.NewFacadeV2)
-	reg("Client", 3, client.NewFacadeV3)
 	reg("Client", 4, client.NewFacade)
-	reg("Cloud", 1, cloud.NewFacadeV1)
-	reg("Cloud", 2, cloud.NewFacadeV2) // adds AddCloud, AddCredentials, CredentialContents, RemoveClouds
-	reg("Cloud", 3, cloud.NewFacadeV3) // changes signature of UpdateCredentials, adds ModifyCloudAccess
-	reg("Cloud", 4, cloud.NewFacadeV4) // adds UpdateCloud
-	reg("Cloud", 5, cloud.NewFacadeV5) // Removes DefaultCloud, handles config in AddCloud
-	reg("Cloud", 6, cloud.NewFacadeV6) // Adds validity to CredentialContent, force for AddCloud
-	reg("Cloud", 7, cloud.NewFacadeV7) // Do not set error if forcing credential update.
+	reg("Cloud", 7, cloud.NewFacadeV7)
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
@@ -184,7 +165,6 @@ func AllFacades() *facade.Registry {
 	reg("CAASFirewallerEmbedded", 1, caasfirewaller.NewStateFacadeSidecar) // TODO(juju3): rename to CAASFirewallerSidecar
 	reg("CAASOperator", 1, caasoperator.NewStateFacade)
 	reg("CAASAdmission", 1, caasadmission.NewStateFacade)
-	reg("CAASAgent", 1, caasagent.NewStateFacadeV1)
 	reg("CAASAgent", 2, caasagent.NewStateFacadeV2)
 	reg("CAASModelOperator", 1, caasmodeloperator.NewAPIFromContext)
 	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
@@ -194,31 +174,17 @@ func AllFacades() *facade.Registry {
 	reg("CAASApplicationProvisioner", 1, caasapplicationprovisioner.NewStateCAASApplicationProvisionerAPI)
 	reg("CAASModelConfigManager", 1, caasmodelconfigmanager.NewFacade)
 
-	reg("Controller", 3, controller.NewControllerAPIv3)
-	reg("Controller", 4, controller.NewControllerAPIv4)
-	reg("Controller", 5, controller.NewControllerAPIv5)
-	reg("Controller", 6, controller.NewControllerAPIv6)
-	reg("Controller", 7, controller.NewControllerAPIv7)
-	reg("Controller", 8, controller.NewControllerAPIv8)
-	reg("Controller", 9, controller.NewControllerAPIv9)
-	reg("Controller", 10, controller.NewControllerAPIv10)
 	reg("Controller", 11, controller.NewControllerAPIv11)
-	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPIV1)
-	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI) // Adds WatchRelationChanges, removes WatchRelationUnits
+	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
 	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
-	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPIv1)
-	reg("CredentialValidator", 2, credentialvalidator.NewCredentialValidatorAPI) // adds WatchModelCredential
+	reg("CredentialValidator", 2, credentialvalidator.NewCredentialValidatorAPI)
 	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
 	reg("FanConfigurer", 1, fanconfigurer.NewFanConfigurerAPI)
-	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)
-	reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
-	reg("Firewaller", 5, firewaller.NewStateFirewallerAPIV5)
-	reg("Firewaller", 6, firewaller.NewStateFirewallerAPIV6)
-	reg("Firewaller", 7, firewaller.NewStateFirewallerAPIV7)
+	reg("Firewaller", 7, firewaller.NewFirewallerAPIV7)
 	reg("FirewallRules", 1, firewallrules.NewFacade)
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
@@ -227,10 +193,8 @@ func AllFacades() *facade.Registry {
 
 	reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
 
-	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)
 
-	reg("InstancePoller", 3, instancepoller.NewFacadeV3)
 	reg("InstancePoller", 4, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
@@ -242,16 +206,11 @@ func AllFacades() *facade.Registry {
 	reg("LogForwarding", 1, logfwd.NewFacade)
 	reg("MachineActions", 1, machineactions.NewExternalFacade)
 
-	reg("MachineManager", 2, machinemanager.NewFacade)
-	reg("MachineManager", 3, machinemanager.NewFacade)   // Adds DestroyMachine and ForceDestroyMachine.
-	reg("MachineManager", 4, machinemanager.NewFacadeV4) // Adds DestroyMachineWithParams.
-	reg("MachineManager", 5, machinemanager.NewFacadeV5) // Adds UpgradeSeriesPrepare, removes UpdateMachineSeries.
-	reg("MachineManager", 6, machinemanager.NewFacadeV6) // DestroyMachinesWithParams gains maxWait.
+	reg("MachineManager", 6, machinemanager.NewFacadeV6)
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
-	reg("Machiner", 5, machine.NewMachinerAPI) // Removes SetProviderNetworkConfig, adds RecordAgentHostAndStartTime.
+	reg("Machiner", 5, machine.NewMachinerAPI)
 
-	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacadeV1)
 	reg("MeterStatus", 2, meterstatus.NewMeterStatusFacade)
 	reg("MetricsAdder", 2, metricsadder.NewMetricsAdderAPI)
 	reg("MetricsDebug", 2, metricsdebug.NewMetricsDebugAPI)
@@ -265,18 +224,8 @@ func AllFacades() *facade.Registry {
 	reg("MigrationTarget", 1, migrationtarget.NewFacade)
 
 	reg("ModelConfig", 2, modelconfig.NewFacadeV2)
-	reg("ModelGeneration", 1, modelgeneration.NewModelGenerationFacade)
-	reg("ModelGeneration", 2, modelgeneration.NewModelGenerationFacadeV2)
-	reg("ModelGeneration", 3, modelgeneration.NewModelGenerationFacadeV3)
 	reg("ModelGeneration", 4, modelgeneration.NewModelGenerationFacadeV4)
-	reg("ModelManager", 2, modelmanager.NewFacadeV2)
-	reg("ModelManager", 3, modelmanager.NewFacadeV3)
-	reg("ModelManager", 4, modelmanager.NewFacadeV4)
-	reg("ModelManager", 5, modelmanager.NewFacadeV5) // Adds ChangeModelCredential
-	reg("ModelManager", 6, modelmanager.NewFacadeV6) // Adds cloud specific default config
-	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
-	reg("ModelManager", 8, modelmanager.NewFacadeV8) // ModelInfo gains credential validity in return.
-	reg("ModelManager", 9, modelmanager.NewFacadeV9) // Adds ValidateModelUpgrade
+	reg("ModelManager", 9, modelmanager.NewFacadeV9)
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)
@@ -287,18 +236,15 @@ func AllFacades() *facade.Registry {
 	)
 
 	reg("Pinger", 1, NewPinger)
-	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11) // Relies on agent-set origin in SetHostMachineNetworkConfig.
+	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11)
 
-	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 
 	reg("RaftLease", 1, raftlease.NewFacadeV1)
 
 	reg("Reboot", 2, reboot.NewRebootAPI)
-	reg("RemoteRelations", 1, remoterelations.NewAPIv1)
-	reg("RemoteRelations", 2, remoterelations.NewAPI) // Adds UpdateControllersForModels and WatchLocalRelationChanges.
+	reg("RemoteRelations", 2, remoterelations.NewAPI)
 
-	reg("Resources", 1, resources.NewFacadeV1)
 	reg("Resources", 2, resources.NewFacadeV2)
 	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
 
@@ -308,44 +254,27 @@ func AllFacades() *facade.Registry {
 	reg("Secrets", 1, secrets.NewSecretsAPI)
 	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
 
-	reg("SSHClient", 1, sshclient.NewFacade)
-	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.
+	reg("SSHClient", 2, sshclient.NewFacade)
 
-	reg("Spaces", 2, spaces.NewAPIv2)
-	reg("Spaces", 3, spaces.NewAPIv3)
-	reg("Spaces", 4, spaces.NewAPIv4)
-	reg("Spaces", 5, spaces.NewAPIv5)
 	reg("Spaces", 6, spaces.NewAPI)
 
 	reg("StatusHistory", 2, statushistory.NewAPI)
 
-	reg("Storage", 3, storage.NewStorageAPIV3)
-	reg("Storage", 4, storage.NewStorageAPIV4) // changes Destroy() method signature.
-	reg("Storage", 5, storage.NewStorageAPIV5) // Update and Delete storage pools and CreatePool bulk calls.
-	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
+	reg("Storage", 6, storage.NewStorageAPI) // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
 
 	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
-	reg("Subnets", 2, subnets.NewAPIv2)
-	reg("Subnets", 3, subnets.NewAPIv3)
 	reg("Subnets", 4, subnets.NewAPI) // Adds SubnetsByCIDR; removes AllSpaces.
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
 	reg("UnitAssigner", 1, unitassigner.New)
 
-	// Deprecated: V16 of the uniter facade retained to allow upgrading from 2.8.9 (LTS).
-	reg("Uniter", 16, uniter.NewUniterAPIV16)
-	reg("Uniter", 17, uniter.NewUniterAPIV17)
 	reg("Uniter", 18, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 
-	reg("UpgradeSeries", 1, upgradeseries.NewAPIv1)
-	reg("UpgradeSeries", 2, upgradeseries.NewAPIv2) // Adds CurrentSeries.
-	reg("UpgradeSeries", 3, upgradeseries.NewAPI)   // Adds SetStatus.
+	reg("UpgradeSeries", 3, upgradeseries.NewAPI)
 
-	reg("UpgradeSteps", 1, upgradesteps.NewFacadeV1)
 	reg("UpgradeSteps", 2, upgradesteps.NewFacadeV2)
-	reg("UserManager", 1, usermanager.NewUserManagerAPI)
-	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
+	reg("UserManager", 2, usermanager.NewUserManagerAPI)
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher

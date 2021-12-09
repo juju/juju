@@ -40,27 +40,13 @@ type CredentialValidatorAPI struct {
 	resources facade.Resources
 }
 
-type CredentialValidatorAPIV1 struct {
-	*CredentialValidatorAPI
-}
-
 var (
 	_ CredentialValidatorV2 = (*CredentialValidatorAPI)(nil)
-	_ CredentialValidatorV1 = (*CredentialValidatorAPIV1)(nil)
 )
 
 // NewCredentialValidatorAPI creates a new CredentialValidator API endpoint on server-side.
 func NewCredentialValidatorAPI(ctx facade.Context) (*CredentialValidatorAPI, error) {
 	return internalNewCredentialValidatorAPI(NewBackend(NewStateShim(ctx.State())), ctx.Resources(), ctx.Auth())
-}
-
-// NewCredentialValidatorAPIv1 creates a new CredentialValidator API endpoint on server-side.
-func NewCredentialValidatorAPIv1(ctx facade.Context) (*CredentialValidatorAPIV1, error) {
-	v2, err := NewCredentialValidatorAPI(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &CredentialValidatorAPIV1{v2}, nil
 }
 
 func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
@@ -123,13 +109,6 @@ func (api *CredentialValidatorAPI) ModelCredential() (params.ModelCredential, er
 		Valid:           c.Valid,
 	}, nil
 }
-
-// Mask out new methods from the old API versions. The API reflection
-// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
-// so this removes the method as far as the RPC machinery is concerned.
-//
-// WatchModelCredential did not exist prior to v2.
-func (*CredentialValidatorAPIV1) WatchModelCredential(_, _ struct{}) {}
 
 // WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
 func (api *CredentialValidatorAPI) WatchModelCredential() (params.NotifyWatchResult, error) {

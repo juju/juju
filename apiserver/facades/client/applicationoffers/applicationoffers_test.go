@@ -30,7 +30,7 @@ import (
 
 type applicationOffersSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIV2
+	api *applicationoffers.OffersAPI
 }
 
 var _ = gc.Suite(&applicationOffersSuite{})
@@ -59,12 +59,12 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV1, err := applicationoffers.CreateOffersAPI(
+	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
+	s.api = api
 }
 
 func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
@@ -1136,7 +1136,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 
 type consumeSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIV3
+	api *applicationoffers.OffersAPI
 }
 
 var _ = gc.Suite(&consumeSuite{})
@@ -1158,12 +1158,12 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV1, err := applicationoffers.CreateOffersAPI(
+	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &applicationoffers.OffersAPIV3{&applicationoffers.OffersAPIV2{OffersAPI: apiV1}}
+	s.api = api
 }
 
 func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
@@ -1425,10 +1425,6 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 			AvailabilityZones: []string{"az1"},
 		}},
 	})
-}
-
-func (s *consumeSuite) TestDestroyOffersNoForceV1(c *gc.C) {
-	s.assertDestroyOffersNoForce(c, s.api.OffersAPI)
 }
 
 func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {

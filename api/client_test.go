@@ -30,7 +30,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
@@ -852,17 +851,4 @@ type closeWatcher struct {
 func (c *closeWatcher) Close() error {
 	c.closed = true
 	return nil
-}
-
-type IsolatedClientSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&IsolatedClientSuite{})
-
-func (s *IsolatedClientSuite) TestFindAllErrorsOnOlderController(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 1}
-	client := api.APIClient(apiCaller)
-	_, err := client.FindTools(0, 0, "", "", "proposed")
-	c.Assert(err, gc.ErrorMatches, "passing agent-stream not supported by the controller")
 }

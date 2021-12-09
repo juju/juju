@@ -36,7 +36,6 @@ func NewStatusHistoryCommand() cmd.Command {
 // HistoryAPI is the API surface for the show-status-log command.
 type HistoryAPI interface {
 	StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
-	BestAPIVersion() int
 	Close() error
 }
 
@@ -197,9 +196,6 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	var tag names.Tag
 	switch kind {
 	case status.KindModel:
-		if apiclient.BestAPIVersion() < 3 {
-			return errors.Errorf("model status history not supported on this version of Juju")
-		}
 		_, details, err := c.ModelDetails()
 		if err != nil {
 			return errors.Trace(err)

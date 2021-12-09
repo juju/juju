@@ -44,19 +44,15 @@ type sshMachine struct {
 	apiAddr         string
 	knownHostsPath  string
 	hostChecker     jujussh.ReachableChecker
-	forceAPIv1      bool
 
 	statusAPIGetter func() (StatusAPI, error)
 }
-
-const jujuSSHClientForceAPIv1 = "JUJU_SSHCLIENT_API_V1"
 
 type statusClient interface {
 	Status(patterns []string) (*params.FullStatus, error)
 }
 
 type sshAPIClient interface {
-	BestAPIVersion() int
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
 	AllAddresses(target string) ([]string, error)
@@ -184,9 +180,6 @@ func (c *sshMachine) initRun(mc ModelCommand) (err error) {
 		return errors.Trace(err)
 	}
 
-	// Used mostly for testing, but useful for debugging and/or
-	// backwards-compatibility with some scripts.
-	c.forceAPIv1 = os.Getenv(jujuSSHClientForceAPIv1) != ""
 	return nil
 }
 
@@ -463,10 +456,7 @@ func (c *sshMachine) resolveTarget(target string) (*resolvedTarget, error) {
 	}
 
 	getAddress := c.reachableAddressGetter
-	if c.apiClient.BestAPIVersion() < 2 || c.forceAPIv1 {
-		logger.Debugf("using legacy SSHClient API v1: no support for AllAddresses()")
-		getAddress = c.legacyAddressGetter
-	} else if c.proxy {
+	if c.proxy {
 		// Ideally a reachability scan would be done from the
 		// controller's perspective but that isn't possible yet, so
 		// fall back to the legacy mode (i.e. use the instance's

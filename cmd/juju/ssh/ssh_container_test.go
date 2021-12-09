@@ -351,8 +351,6 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	gomock.InOrder(
-		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
-			Return(2),
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
 				{Result: &params.ModelInfo{
@@ -382,18 +380,6 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 	c.Assert(execC, gc.DeepEquals, s.execClient)
 }
 
-func (s *sshContainerSuite) TestGetExecClientNotSupportedAPIVersion(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
-			Return(1),
-	)
-	_, err := s.sshC.GetExecClient()
-	c.Assert(err, gc.ErrorMatches, `credential content lookup on the controller in Juju v1 not supported`)
-}
-
 func (s *sshContainerSuite) TestGetExecClientFailedInvalidCredential(c *gc.C) {
 	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
@@ -403,8 +389,6 @@ func (s *sshContainerSuite) TestGetExecClientFailedInvalidCredential(c *gc.C) {
 
 	notValid := false
 	gomock.InOrder(
-		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
-			Return(2),
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
 				{Result: &params.ModelInfo{CloudCredentialTag: "cloudcred-microk8s_admin_microk8s"}},
@@ -433,8 +417,6 @@ func (s *sshContainerSuite) TestGetExecClientFailedForNonCAASCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	gomock.InOrder(
-		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
-			Return(2),
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
 				{Result: &params.ModelInfo{CloudCredentialTag: "cloudcred-microk8s_admin_microk8s"}},

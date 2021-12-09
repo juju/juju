@@ -182,7 +182,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesInvalidIds(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
-func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(c *gc.C, v int, maxWait *time.Duration) (*machinemanager.Client, []params.DestroyMachineResult) {
+func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(c *gc.C, maxWait *time.Duration) (*machinemanager.Client, []params.DestroyMachineResult) {
 	expectedResults := []params.DestroyMachineResult{{
 		Error: &params.Error{Message: "boo"},
 	}, {
@@ -193,57 +193,35 @@ func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(c *gc.C, v i
 		},
 	}}
 	client := machinemanager.NewClient(
-		basetesting.BestVersionCaller{
-			BestVersion: v,
-			APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "DestroyMachineWithParams")
-				c.Assert(version, gc.Equals, v)
-				c.Assert(a, jc.DeepEquals, params.DestroyMachinesParams{
-					Keep:  true,
-					Force: true,
-					MachineTags: []string{
-						"machine-0",
-						"machine-0-lxd-1",
-					},
-					MaxWait: maxWait,
-				})
-				c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
-				out := response.(*params.DestroyMachineResults)
-				*out = params.DestroyMachineResults{Results: expectedResults}
-				return nil
-			})})
+		basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "DestroyMachineWithParams")
+			c.Assert(a, jc.DeepEquals, params.DestroyMachinesParams{
+				Keep:  true,
+				Force: true,
+				MachineTags: []string{
+					"machine-0",
+					"machine-0-lxd-1",
+				},
+				MaxWait: maxWait,
+			})
+			c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
+			out := response.(*params.DestroyMachineResults)
+			*out = params.DestroyMachineResults{Results: expectedResults}
+			return nil
+		}))
 	return client, expectedResults
-}
-
-func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsV5NoWait(c *gc.C) {
-	// MaxWait will be ignored in all versions < 6, so expect the argument
-	// to apiserver to always be nl.
-	client, expected := s.clientToTestDestroyMachinesWithParams(c, 5, (*time.Duration)(nil))
-	noWait := 0 * time.Second
-	results, err := client.DestroyMachinesWithParams(true, true, &noWait, "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
-}
-
-func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsV5NilWait(c *gc.C) {
-	// MaxWait will be ignored in all versions < 6, so expect the argument
-	// to apiserver to always be nl.
-	client, expected := s.clientToTestDestroyMachinesWithParams(c, 5, (*time.Duration)(nil))
-	results, err := client.DestroyMachinesWithParams(true, true, (*time.Duration)(nil), "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
 }
 
 func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNoWait(c *gc.C) {
 	noWait := 0 * time.Second
-	client, expected := s.clientToTestDestroyMachinesWithParams(c, 6, &noWait)
+	client, expected := s.clientToTestDestroyMachinesWithParams(c, &noWait)
 	results, err := client.DestroyMachinesWithParams(true, true, &noWait, "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
 func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNilWait(c *gc.C) {
-	client, expected := s.clientToTestDestroyMachinesWithParams(c, 6, (*time.Duration)(nil))
+	client, expected := s.clientToTestDestroyMachinesWithParams(c, (*time.Duration)(nil))
 	results, err := client.DestroyMachinesWithParams(true, true, (*time.Duration)(nil), "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)

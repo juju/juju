@@ -314,14 +314,6 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 
 // DumpModel returns the serialized database agnostic model representation.
 func (c *Client) DumpModel(model names.ModelTag, simplified bool) (map[string]interface{}, error) {
-	if bestVer := c.BestAPIVersion(); bestVer < 3 {
-		logger.Debugf("calling older dump model on v%d", bestVer)
-		if simplified {
-			logger.Warningf("simplified dump-model not available, server too old")
-		}
-		return c.dumpModelV2(model)
-	}
-
 	var results params.StringResults
 	entities := params.DumpModelRequest{
 		Entities:   []params.Entity{{Tag: model.String()}},
@@ -349,26 +341,6 @@ func (c *Client) DumpModel(model names.ModelTag, simplified bool) (map[string]in
 	return asMap, nil
 }
 
-func (c *Client) dumpModelV2(model names.ModelTag) (map[string]interface{}, error) {
-	var results params.MapResults
-	entities := params.Entities{
-		Entities: []params.Entity{{Tag: model.String()}},
-	}
-
-	err := c.facade.FacadeCall("DumpModels", entities, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if count := len(results.Results); count != 1 {
-		return nil, errors.Errorf("unexpected result count: %d", count)
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return result.Result, nil
-}
-
 // DumpModelDB returns all relevant mongo documents for the model.
 func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, error) {
 	var results params.MapResults
@@ -394,24 +366,14 @@ func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, erro
 // cause the model's resources to be cleaned up, after which the model will
 // be removed.
 func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout time.Duration) error {
-	var args interface{}
-	if c.BestAPIVersion() < 4 {
-		if destroyStorage == nil || !*destroyStorage {
-			return errors.New("this Juju controller requires destroyStorage to be true")
-		}
-		args = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
-	} else {
-		arg := params.DestroyModelParams{
-			ModelTag:       tag.String(),
-			DestroyStorage: destroyStorage,
-		}
-		if c.BestAPIVersion() > 6 {
-			arg.Force = force
-			arg.MaxWait = maxWait
-			arg.Timeout = &timeout
-		}
-		args = params.DestroyModelsParams{Models: []params.DestroyModelParams{arg}}
+	arg := params.DestroyModelParams{
+		ModelTag:       tag.String(),
+		DestroyStorage: destroyStorage,
+		Force:          force,
+		MaxWait:        maxWait,
+		Timeout:        &timeout,
 	}
+	args := params.DestroyModelsParams{Models: []params.DestroyModelParams{arg}}
 	var results params.ErrorResults
 	if err := c.facade.FacadeCall("DestroyModels", args, &results); err != nil {
 		return errors.Trace(err)
@@ -481,13 +443,6 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 // ModelDefaults returns the default values for various sources used when
 // creating a new model on the specified cloud.
 func (c *Client) ModelDefaults(cloud string) (config.ModelDefaultAttributes, error) {
-	if c.BestAPIVersion() < 6 {
-		if cloud != "" {
-			return nil, errors.Errorf("model defaults for cloud %s not supported for this version of Juju", cloud)
-		}
-		return c.legacyModelDefaults()
-	}
-
 	results := params.ModelDefaultsResults{}
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag(cloud).String()}},
@@ -502,28 +457,6 @@ func (c *Client) ModelDefaults(cloud string) (config.ModelDefaultAttributes, err
 	result := results.Results[0]
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
-	}
-	values := make(config.ModelDefaultAttributes)
-	for name, val := range result.Config {
-		setting := config.AttributeDefaultValues{
-			Default:    val.Default,
-			Controller: val.Controller,
-		}
-		for _, region := range val.Regions {
-			setting.Regions = append(setting.Regions, config.RegionDefaultValue{
-				Name:  region.RegionName,
-				Value: region.Value})
-		}
-		values[name] = setting
-	}
-	return values, nil
-}
-
-func (c *Client) legacyModelDefaults() (config.ModelDefaultAttributes, error) {
-	result := params.ModelDefaultsResult{}
-	err := c.facade.FacadeCall("ModelDefaults", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 	values := make(config.ModelDefaultAttributes)
 	for name, val := range result.Config {
@@ -585,10 +518,6 @@ func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error 
 
 // ChangeModelCredential replaces cloud credential for a given model with the provided one.
 func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.CloudCredentialTag) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 5 {
-		return errors.NotImplementedf("ChangeModelCredential in version %v", bestVer)
-	}
-
 	var out params.ErrorResults
 	in := params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
@@ -606,10 +535,6 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 // ValidateModelUpgrade checks to see if it's possible to upgrade a model,
 // before actually attempting to do the real model-upgrade.
 func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 9 {
-		return errors.NotImplementedf("ValidateModelUpgrade in version %v", bestVer)
-	}
-
 	args := params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: model.String(),

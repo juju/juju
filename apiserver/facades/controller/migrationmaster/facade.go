@@ -63,7 +63,7 @@ func NewMigrationMasterFacadeV2(ctx facade.Context) (*APIV2, error) {
 	return &APIV2{v3}, nil
 }
 
-// NewMigrationMasterFacadeV2 exists to provide the required signature for API
+// NewMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func NewMigrationMasterFacade(ctx facade.Context) (*API, error) {
 	controllerState := ctx.StatePool().SystemState()

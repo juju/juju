@@ -50,16 +50,11 @@ type fakeAPI struct {
 	err                error
 	env                map[string]interface{}
 	statusCallCount    int
-	bestAPIVersion     int
 	modelInfoErr       []*params.Error
 	modelStatusPayload []base.ModelStatus
 }
 
 func (f *fakeAPI) Close() error { return nil }
-
-func (f *fakeAPI) BestAPIVersion() int {
-	return f.bestAPIVersion
-}
 
 func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool, force *bool, maxWait *time.Duration, timeout time.Duration) error {
 	f.MethodCall(f, "DestroyModel", tag, destroyStorage, force, maxWait, timeout)
@@ -106,8 +101,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &jutesting.Stub{}
 	s.api = &fakeAPI{
-		Stub:           s.stub,
-		bestAPIVersion: 4,
+		Stub: s.stub,
 	}
 	s.configAPI = &fakeConfigAPI{}
 	s.storageAPI = &mockStorageAPI{Stub: s.stub}
@@ -338,34 +332,6 @@ option instead. The storage can then be imported
 into another Juju model.
 
 `)
-}
-
-func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
-	s.api.bestAPIVersion = 3
-	s.storageAPI.storage = []params.StorageDetails{{}}
-
-	_, err := s.runDestroyCommand(c, "test2", "-y")
-	c.Assert(err, gc.ErrorMatches, `cannot destroy model "test2"
-
-Destroying this model will destroy the storage, but you
-have not indicated that you want to do that.
-
-Please run the the command again with --destroy-storage
-to confirm that you want to destroy the storage along
-with the model.
-
-If instead you want to keep the storage, you must first
-upgrade the controller to version 2.3 or greater.
-
-`)
-}
-
-func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecifiedOldControllerNoStorage(c *gc.C) {
-	s.api.bestAPIVersion = 3
-	s.storageAPI.storage = nil // no storage in model
-
-	_, err := s.runDestroyCommand(c, "test2", "-y")
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) resetModel(c *gc.C) {

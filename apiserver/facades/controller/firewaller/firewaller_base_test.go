@@ -5,16 +5,15 @@ package firewaller_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -84,11 +83,16 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 
 func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 	c *gc.C,
-	factory func(_ *state.State, _ facade.Resources, _ facade.Authorizer) error,
+	factory func(_ facade.Context) error,
 ) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
-	err := factory(s.State, s.resources, anAuthorizer)
+	ctx := facadetest.Context{
+		Auth_:      anAuthorizer,
+		Resources_: s.resources,
+		State_:     s.State,
+	}
+	err := factory(ctx)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -204,43 +208,6 @@ func (s *firewallerBaseSuite) testWatchModelMachines(
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0", "1", "2"},
-	}
-	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
-	c.Assert(got.Changes, jc.SameContents, want.Changes)
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
-	wc.AssertNoChange()
-}
-
-func (s *firewallerBaseSuite) testWatchSubnets(
-	c *gc.C,
-	watchSubnetTags []names.SubnetTag,
-	expSubnetIDs []string,
-	facade interface {
-		WatchSubnets(params.Entities) (params.StringsWatchResult, error)
-	},
-) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	entities := params.Entities{
-		Entities: make([]params.Entity, len(watchSubnetTags)),
-	}
-	for i, tag := range watchSubnetTags {
-		entities.Entities[i].Tag = tag.String()
-	}
-
-	got, err := facade.WatchSubnets(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	want := params.StringsWatchResult{
-		StringsWatcherId: "1",
-		Changes:          expSubnetIDs,
 	}
 	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
@@ -372,62 +339,6 @@ func (s *firewallerBaseSuite) testWatchUnits(
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
-}
-
-func (s *firewallerBaseSuite) testGetExposeInfo(
-	c *gc.C,
-	facade interface {
-		GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error)
-	},
-) {
-	// Set the application to exposed first.
-	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
-		"": {
-			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
-			ExposeToCIDRs:    []string{"10.0.0.0/0"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.application.Tag().String()},
-	}})
-	result, err := facade.GetExposeInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
-		Results: []params.ExposeInfoResult{
-			{
-				Exposed: true,
-				ExposedEndpoints: map[string]params.ExposedEndpoint{
-					"": {
-						ExposeToSpaces: []string{network.AlphaSpaceId},
-						ExposeToCIDRs:  []string{"10.0.0.0/0"},
-					},
-				},
-			},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(`application "bar"`)},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Now reset the exposed flag for the application and check again.
-	err = s.application.ClearExposed()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args = params.Entities{Entities: []params.Entity{
-		{Tag: s.application.Tag().String()},
-	}}
-	result, err = facade.GetExposeInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
-		Results: []params.ExposeInfoResult{
-			{Exposed: false},
-		},
-	})
 }
 
 func (s *firewallerBaseSuite) testGetAssignedMachine(

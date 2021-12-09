@@ -27,25 +27,13 @@ var scpTests = []struct {
 	about       string
 	args        []string
 	hostChecker jujussh.ReachableChecker
-	forceAPIv1  bool
 	expected    argsSpec
 	error       string
 }{
 	{
-		about:       "scp from machine 0 to current dir (api v1)",
-		args:        []string{"0:foo", "."},
-		hostChecker: validAddresses("0.private", "0.public"),
-		forceAPIv1:  true,
-		expected: argsSpec{
-			args:            "ubuntu@0.public:foo .",
-			hostKeyChecking: "yes",
-			knownHosts:      "0",
-		},
-	}, {
-		about:       "scp from machine 0 to current dir (api v2)",
+		about:       "scp from machine 0 to current dir",
 		args:        []string{"0:foo", "."},
 		hostChecker: validAddresses("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
-		forceAPIv1:  false,
 		expected: argsSpec{
 			argsMatch:       `ubuntu@0.(public|private|1\.2\.3):foo \.`, // can be any of the 3
 			hostKeyChecking: "yes",
@@ -195,17 +183,6 @@ var scpTests = []struct {
 		hostChecker: validAddresses("0.public"),
 		error:       `can't determine host keys for all targets: consider --no-host-key-checks`,
 	}, {
-		about:       "scp with arbitrary host name and an entity, --no-host-key-checks, --proxy (api v1)",
-		args:        []string{"--no-host-key-checks", "--proxy", "some.host:foo", "0:"},
-		hostChecker: validAddresses("some.host", "0.private"),
-		forceAPIv1:  true,
-		expected: argsSpec{
-			args:            "some.host:foo ubuntu@0.private:",
-			hostKeyChecking: "no",
-			withProxy:       true,
-			knownHosts:      "null",
-		},
-	}, {
 		about: "scp with no arguments",
 		args:  nil,
 		error: `at least two arguments required`,
@@ -219,7 +196,6 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 
 		s.setHostChecker(t.hostChecker)
-		s.setForceAPIv1(t.forceAPIv1)
 
 		ctx, err := cmdtesting.RunCommand(c, NewSCPCommand(s.hostChecker), t.args...)
 		if t.error != "" {

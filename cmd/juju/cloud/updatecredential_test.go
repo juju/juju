@@ -45,7 +45,7 @@ func (s *updateCredentialSuite) SetUpTest(c *gc.C) {
 		},
 		CurrentControllerName: "controller",
 	}
-	s.api = &fakeUpdateCredentialAPI{v: 5}
+	s.api = &fakeUpdateCredentialAPI{}
 	s.testCommand = cloud.NewUpdateCredentialCommandForTest(s.store, s.api)
 }
 
@@ -618,7 +618,6 @@ Use ‘juju set-credential’ to change credential for these models.
 }
 
 type fakeUpdateCredentialAPI struct {
-	v                       int
 	updateCloudsCredentials func(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
 	addCloudsCredentials    func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
 	clouds                  func() (map[names.CloudTag]jujucloud.Cloud, error)
@@ -626,10 +625,6 @@ type fakeUpdateCredentialAPI struct {
 
 func (f *fakeUpdateCredentialAPI) Close() error {
 	return nil
-}
-
-func (f *fakeUpdateCredentialAPI) BestAPIVersion() int {
-	return f.v
 }
 
 func (f *fakeUpdateCredentialAPI) UpdateCloudsCredentials(c map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {

@@ -258,7 +258,7 @@ func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
 	c.Check(allVersions, gc.Not(gc.HasLen), 0)
 	// For sanity checking, ensure that we have a v2 of the Client facade
 	c.Assert(allVersions["Client"], gc.Not(gc.HasLen), 0)
-	c.Check(allVersions["Client"][0], gc.Equals, 1)
+	c.Check(allVersions["Client"][0], gc.Equals, 4)
 }
 
 func (s *stateSuite) TestAllFacadeVersionsSafeFromMutation(c *gc.C) {

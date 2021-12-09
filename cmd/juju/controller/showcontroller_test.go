@@ -45,10 +45,9 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
 			},
 		},
-		modelTypes:     map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
-		units:          map[string]int{"def": 4},
-		access:         permission.SuperuserAccess,
-		bestAPIVersion: 8,
+		modelTypes: map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
+		units:      map[string]int{"def": 4},
+		access:     permission.SuperuserAccess,
 		controllerVersion: apicontroller.ControllerVersion{
 			Version:   "999.99.99",
 			GitCommit: "badf00d0badf00d0badf00d0badf00d0badf00d0",
@@ -320,49 +319,6 @@ mark-test-prodstack:
 `[1:]
 
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
-}
-
-func (s *ShowControllerSuite) TestShowOneControllerWithAPIVersionTooLow(c *gc.C) {
-	s.fakeController = &fakeController{
-		machines:       map[string][]base.Machine{},
-		access:         permission.SuperuserAccess,
-		bestAPIVersion: 1,
-	}
-
-	s.controllersYaml = `controllers:
-  mallards:
-    uuid: this-is-another-uuid
-    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
-    cloud: mallards
-    agent-version: 999.99.99
-    ca-cert: this-is-another-ca-cert
-`
-	s.createTestClientStore(c)
-
-	s.expectedOutput = `
-mallards:
-  details:
-    controller-uuid: this-is-another-uuid
-    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
-    cloud: mallards
-    controller-model-version: 999.99.99
-    ca-cert: this-is-another-ca-cert
-  models:
-    controller:
-      model-uuid: abc
-      machine-count: 2
-      core-count: 4
-    my-model:
-      model-uuid: def
-      machine-count: 2
-      core-count: 4
-  current-model: admin/my-model
-  account:
-    user: admin
-    access: superuser
-`[1:]
-
-	s.assertShowController(c, "mallards")
 }
 
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
@@ -639,7 +595,6 @@ type fakeController struct {
 	units             map[string]int
 	modelTypes        map[string]model.ModelType
 	access            permission.Access
-	bestAPIVersion    int
 	identityURL       string
 	controllerVersion apicontroller.ControllerVersion
 }
@@ -667,9 +622,6 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 }
 
 func (c *fakeController) MongoVersion() (string, error) {
-	if c.bestAPIVersion < 3 {
-		return "", errors.NotSupportedf("requires APIVersion >= 3")
-	}
 	return "3.5.12", nil
 }
 

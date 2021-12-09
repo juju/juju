@@ -299,7 +299,7 @@ func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
 	}
 	err = s.client.SetModelAgentVersion(args)
 	c.Assert(err, gc.ErrorMatches, `
-these models must first be upgraded to at least 2.8.9 before upgrading the controller:
+these models must first be upgraded to at least 2.9.17 before upgrading the controller:
  -admin/controller`[1:])
 }
 
@@ -1506,7 +1506,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 			Nonce:      "nonce",
 		}},
 	}
-	err := s.APIState.APICall("Client", 1, "", "AddMachines", args, &results)
+	err := s.APIState.APICall("Client", 4, "", "AddMachines", args, &results)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Machines, gc.HasLen, 1)
 }

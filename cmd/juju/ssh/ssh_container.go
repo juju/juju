@@ -52,7 +52,6 @@ type sshContainer struct {
 type CloudCredentialAPI interface {
 	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
 	CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
-	BestAPIVersion() int
 	Close() error
 }
 
@@ -361,10 +360,6 @@ func (c *sshContainer) expandSCPArg(arg string) (o k8sexec.FileResource, err err
 }
 
 func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
-	if v := c.cloudCredentialAPI.BestAPIVersion(); v < 2 {
-		return nil, errors.NotSupportedf("credential content lookup on the controller in Juju v%d", v)
-	}
-
 	modelTag := names.NewModelTag(c.modelUUID)
 	mInfoResults, err := c.modelAPI.ModelInfo([]names.ModelTag{modelTag})
 	if err != nil {

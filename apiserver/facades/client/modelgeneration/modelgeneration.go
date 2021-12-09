@@ -29,18 +29,6 @@ type API struct {
 	modelCache        ModelCache
 }
 
-type APIV3 struct {
-	*API
-}
-
-type APIV2 struct {
-	*APIV3
-}
-
-type APIV1 struct {
-	*APIV2
-}
-
 // NewModelGenerationFacadeV4 provides the signature required for facade registration.
 func NewModelGenerationFacadeV4(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
@@ -54,32 +42,6 @@ func NewModelGenerationFacadeV4(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
-}
-
-// NewModelGenerationFacadeV3 provides the signature required for facade registration.
-func NewModelGenerationFacadeV3(ctx facade.Context) (*APIV3, error) {
-	v4, err := NewModelGenerationFacadeV4(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &APIV3{v4}, nil
-
-} // NewModelGenerationFacadeV2 provides the signature required for facade registration.
-func NewModelGenerationFacadeV2(ctx facade.Context) (*APIV2, error) {
-	v3, err := NewModelGenerationFacadeV3(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &APIV2{v3}, nil
-}
-
-// NewModelGenerationFacade provides the signature required for facade registration.
-func NewModelGenerationFacade(ctx facade.Context) (*APIV1, error) {
-	v2, err := NewModelGenerationFacadeV2(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &APIV1{v2}, nil
 }
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
@@ -137,14 +99,6 @@ func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 		result.Error = apiservererrors.ServerError(api.model.AddBranch(arg.BranchName, api.apiUser.Name()))
 	}
 	return result, nil
-}
-
-// TrackBranch marks the input units and/or applications as tracking the input
-// branch, causing them to realise changes made under that branch.
-func (api *APIV2) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
-	// For backwards compatibility, ensure we always set the NumUnits to 0
-	arg.NumUnits = 0
-	return api.API.TrackBranch(arg)
 }
 
 // TrackBranch marks the input units and/or applications as tracking the input

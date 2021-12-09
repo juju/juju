@@ -314,7 +314,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	controller, err := controller.NewControllerAPIv4(
+	controller, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     st,
 			StatePool_: s.StatePool,
@@ -344,7 +344,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	defer st.Close()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
-	controller, err := controller.NewControllerAPIv4(
+	controller, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     st,
 			Resources_: common.NewResources(),
@@ -923,7 +923,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv4(
+	endpoint, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -955,42 +955,6 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	c.Assert(*results.Results[1].Error, gc.DeepEquals, params.Error{
 		Message: "permission denied", Code: "unauthorized access",
 	})
-}
-
-func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
-	api, err := controller.NewControllerAPIv3(
-		facadetest.Context{
-			State_:     s.State,
-			StatePool_: s.StatePool,
-			Resources_: s.resources,
-			Auth_:      s.authorizer,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that we err out immediately if a model errs.
-	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: "bad-tag",
-	}, {
-		Tag: s.Model.ModelTag().String(),
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we err out if a model errs even if some firsts in collection pass.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.Model.ModelTag().String(),
-	}, {
-		Tag: "bad-tag",
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we return successfully if no errors.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.Model.ModelTag().String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
 }
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
@@ -1045,7 +1009,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv5(
+	endpoint, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,

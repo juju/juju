@@ -790,18 +790,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	charmAPIClient := apicharms.NewClient(apiRoot)
 	charmAdapter := c.NewResolver(charmAPIClient, csRepoFn, downloadClientFn)
 
-	// Check whether the controller includes charmhub support. If not,
-	// assume that the default schema for charms URL without one is
-	// charm.Charmstore. Otherwise use charm.Charmhub.
-	//
-	// This ensures that we don't break backwards compatibility when using
-	// a 2.9 client and run "juju deploy X" against a 2.8 controller.
-	defaultCharmSchema := charm.CharmHub
-	if charmAPIClient.BestAPIVersion() < 3 {
-		defaultCharmSchema = charm.CharmStore
-	}
-
-	factory, cfg := c.getDeployerFactory(defaultCharmSchema)
+	factory, cfg := c.getDeployerFactory(charm.CharmHub)
 	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)
 	if err != nil {
 		return errors.Trace(err)

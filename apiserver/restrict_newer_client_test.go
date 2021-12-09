@@ -36,11 +36,11 @@ func (r *restrictNewerClientSuite) TestOldClientAllowedMethods(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(caller, gc.NotNil)
 	}
-	checkAllowed("Client", "FullStatus", 1)
-	checkAllowed("Pinger", "Ping", 1)
+	checkAllowed("Client", "FullStatus", clientFacadeVersion)
+	checkAllowed("Pinger", "Ping", pingerFacadeVersion)
 	// Worker calls for migrations.
 	checkAllowed("MigrationTarget", "Prechecks", 1)
-	checkAllowed("UserManager", "UserInfo", 1)
+	checkAllowed("UserManager", "UserInfo", userManagerFacadeVersion)
 }
 
 func (r *restrictNewerClientSuite) TestNewClientAllowedMethods(c *gc.C) {
@@ -51,18 +51,18 @@ func (r *restrictNewerClientSuite) TestNewClientAllowedMethods(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(caller, gc.NotNil)
 	}
-	checkAllowed("Client", "FullStatus", 1)
-	checkAllowed("Pinger", "Ping", 1)
+	checkAllowed("Client", "FullStatus", clientFacadeVersion)
+	checkAllowed("Pinger", "Ping", pingerFacadeVersion)
 	// For migrations.
 	checkAllowed("MigrationTarget", "Prechecks", 1)
-	checkAllowed("UserManager", "UserInfo", 1)
+	checkAllowed("UserManager", "UserInfo", userManagerFacadeVersion)
 	// For upgrades.
-	checkAllowed("Client", "SetModelAgentVersion", 1)
+	checkAllowed("Client", "SetModelAgentVersion", clientFacadeVersion)
 }
 
 func (r *restrictNewerClientSuite) TestOldClientDisallowedMethod(c *gc.C) {
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.olderVersion)
-	caller, err := root.FindMethod("Client", 1, "SetModelAgentVersion")
+	caller, err := root.FindMethod("Client", clientFacadeVersion, "SetModelAgentVersion")
 	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
 	c.Assert(caller, gc.IsNil)
 }
@@ -70,7 +70,7 @@ func (r *restrictNewerClientSuite) TestOldClientDisallowedMethod(c *gc.C) {
 func (r *restrictNewerClientSuite) TestReallyOldClientDisallowedMethod(c *gc.C) {
 	r.olderVersion.Major--
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.olderVersion)
-	caller, err := root.FindMethod("Client", 1, "FullStatus")
+	caller, err := root.FindMethod("Client", clientFacadeVersion, "FullStatus")
 	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
 	c.Assert(caller, gc.IsNil)
 }
@@ -78,14 +78,14 @@ func (r *restrictNewerClientSuite) TestReallyOldClientDisallowedMethod(c *gc.C) 
 func (r *restrictNewerClientSuite) TestReallyNewClientDisallowedMethod(c *gc.C) {
 	r.olderVersion.Major = jujuversion.Current.Major + 2
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.olderVersion)
-	caller, err := root.FindMethod("Client", 1, "FullStatus")
+	caller, err := root.FindMethod("Client", clientFacadeVersion, "FullStatus")
 	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
 	c.Assert(caller, gc.IsNil)
 }
 
 func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.olderVersion)
-	caller, err := root.FindMethod("Client", 1, "ModelSet")
+	caller, err := root.FindMethod("Client", clientFacadeVersion, "ModelSet")
 	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
 	c.Assert(caller, gc.IsNil)
 }
@@ -99,7 +99,7 @@ func (r *restrictNewerClientSuite) TestAgentAllowedMethod(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(caller, gc.NotNil)
 	}
-	checkAllowed("Uniter", "CurrentModel", 17)
+	checkAllowed("Uniter", "CurrentModel", 18)
 }
 
 func (r *restrictNewerClientSuite) TestReallyOldAgentDisallowedMethod(c *gc.C) {

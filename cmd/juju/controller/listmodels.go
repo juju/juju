@@ -38,7 +38,13 @@ type ModelManagerAPI interface {
 	ListModels(user string) ([]base.UserModel, error)
 	ListModelSummaries(user string, all bool) ([]base.UserModelSummary, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
-	BestAPIVersion() int
+}
+
+// ModelsSysAPI defines the methods on the controller manager API that the
+// list models command calls.
+type ModelsSysAPI interface {
+	Close() error
+	AllModels() ([]base.UserModel, error)
 }
 
 // modelsCommand returns the list of all the models the
@@ -118,17 +124,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer modelmanagerAPI.Close()
 
-	var haveModels bool
-	if modelmanagerAPI.BestAPIVersion() > 3 {
-		haveModels, err = c.getModelSummaries(ctx, modelmanagerAPI, now)
-		if err != nil {
-			// This is needed to provide a consistent behavior with previous
-			// 'models' implementation.
-			err = errors.Annotate(err, "cannot list models")
-		}
-	} else {
-		haveModels, err = c.oldModelsCommandBehaviour(ctx, modelmanagerAPI, now)
-	}
+	haveModels, err := c.getModelSummaries(ctx, modelmanagerAPI, now)
 	if err != nil {
 		ctx.Infof(err.Error())
 		return err
@@ -356,15 +352,28 @@ type modelsRunValues struct {
 	hasUnitsCount    bool
 }
 
+// ModelSet contains the set of models known to the client,
+// and UUID of the current model.
+// (anastasiamac 2017-23-11) This is old, pre juju 2.3 implementation.
+type ModelSet struct {
+	Models []common.ModelInfo `yaml:"models" json:"models"`
+
+	// CurrentModel is the name of the current model, qualified for the
+	// user for which we're listing models. i.e. for the user admin,
+	// and the model admin/foo, this field will contain "foo"; for
+	// bob and the same model, the field will contain "admin/foo".
+	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
+
+	// CurrentModelQualified is the fully qualified name for the current
+	// model, i.e. having the format $owner/$model.
+	CurrentModelQualified string `yaml:"-" json:"-"`
+}
+
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error {
 	summariesSet, ok := value.(ModelSummarySet)
 	if !ok {
-		modelSet, k := value.(ModelSet)
-		if !k {
-			return errors.Errorf("expected value of type ModelSummarySet or ModelSet, got %T", value)
-		}
-		return c.tabularSet(writer, modelSet)
+		return errors.Errorf("expected value of type ModelSummarySet, got %T", value)
 	}
 	return c.tabularSummaries(writer, summariesSet)
 }

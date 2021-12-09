@@ -294,10 +294,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 
 // FindTools returns a List containing all tools matching the specified parameters.
 func (c *Client) FindTools(majorVersion, minorVersion int, osType, arch, agentStream string) (result params.FindToolsResult, err error) {
-	if c.facade.BestAPIVersion() == 1 && agentStream != "" {
-		return params.FindToolsResult{}, errors.New(
-			"passing agent-stream not supported by the controller")
-	}
 	args := params.FindToolsParams{
 		MajorVersion: majorVersion,
 		MinorVersion: minorVersion,

@@ -28,7 +28,7 @@ type ProxyUpdaterSuite struct {
 	state      *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     *proxyupdater.APIv2
+	facade     *proxyupdater.API
 	tag        names.MachineTag
 }
 
@@ -51,10 +51,10 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.state.SetUp(c)
 	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
 
-	api, err := proxyupdater.NewAPIBase(s.state, s.state, s.resources, s.authorizer)
+	api, err := proxyupdater.NewAPIV2(s.state, s.state, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
-	s.facade = &proxyupdater.APIv2{api}
+	s.facade = api
 
 	// Shouldn't have any calls yet
 	apiservertesting.CheckMethodCalls(c, s.state.Stub)
@@ -94,26 +94,6 @@ func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
 	return entities
 }
 
-func (s *ProxyUpdaterSuite) TestProxyConfigV1(c *gc.C) {
-	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
-	v1 := &proxyupdater.APIv1{s.facade}
-	cfg := v1.ProxyConfig(s.oneEntity())
-
-	s.state.Stub.CheckCallNames(c,
-		"ModelConfig",
-		"APIHostPortsForAgents",
-	)
-
-	noProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
-
-	r := params.ProxyConfigResultV1{
-		ProxySettings: params.ProxyConfig{
-			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: noProxy},
-		APTProxySettings: params.ProxyConfig{
-			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
-	}
-	c.Assert(cfg.Results[0], jc.DeepEquals, r)
-}
 func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
 	s.state.SetModelConfig(coretesting.Attrs{
 		"apt-mirror": "http://mirror",

@@ -42,9 +42,7 @@ var _ = gc.Suite(&diffSuite{})
 func (s *diffSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.apiRoot = &mockAPIRoot{
-		responses:                 makeAPIResponses(),
-		bestFacadeVersion:         make(map[string]int),
-		bestFacadeVersionFallback: 42,
+		responses: makeAPIResponses(),
 	}
 	s.charmStore = &mockCharmStore{}
 	s.modelClient = &mockModelClient{
@@ -331,32 +329,6 @@ machines:
 `[1:])
 }
 
-func (s *diffSuite) TestCharmHubBundleWithInvalidController(c *gc.C) {
-	s.apiRoot = &mockAPIRoot{
-		responses: makeAPIResponses(),
-		bestFacadeVersion: map[string]int{
-			"Charms": 1,
-		},
-		bestFacadeVersionFallback: 42,
-	}
-
-	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmHubBundle))
-	c.Assert(err, jc.ErrorIsNil)
-	s.charmStore.url = &charm.URL{
-		Schema: "ch",
-		Name:   "my-bundle",
-		Series: "bundle",
-	}
-	s.charmStore.bundle = &mockBundle{data: bundleData}
-
-	_, err = s.runDiffBundleWithCharmAdapter(c, nil, func() (application.ModelConstraintsClient, error) {
-		return s.modelClient, nil
-	}, "my-bundle")
-	c.Assert(err, gc.ErrorMatches, `
-Current controller version is not compatible with CharmHub bundles.
-Consider using a CharmStore bundle instead.`[1:])
-}
-
 func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 	rels := []params.RelationStatus{
 		{
@@ -367,9 +339,7 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 		},
 	}
 	s.apiRoot = &mockAPIRoot{
-		responses:                 makeAPIResponsesWithRelations(rels),
-		bestFacadeVersion:         make(map[string]int),
-		bestFacadeVersionFallback: 42,
+		responses: makeAPIResponsesWithRelations(rels),
 	}
 
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, withMissingRelationEndpoints))
@@ -489,9 +459,7 @@ applications:
 		c.Logf("test %d: %s", i, spec.descr)
 
 		s.apiRoot = &mockAPIRoot{
-			responses:                 makeAPIResponsesWithExposedEndpoints(spec.modelExposedEndpoints),
-			bestFacadeVersion:         make(map[string]int),
-			bestFacadeVersionFallback: 42,
+			responses: makeAPIResponsesWithExposedEndpoints(spec.modelExposedEndpoints),
 		}
 
 		ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, spec.bundle))
@@ -668,18 +636,13 @@ func (b *mockBundle) ContainsOverlays() bool  { return false }
 type mockAPIRoot struct {
 	base.APICallCloser
 
-	stub                      jujutesting.Stub
-	responses                 map[string]interface{}
-	bestFacadeVersion         map[string]int
-	bestFacadeVersionFallback int
+	stub      jujutesting.Stub
+	responses map[string]interface{}
 }
 
 func (r *mockAPIRoot) BestFacadeVersion(name string) int {
 	r.stub.AddCall("BestFacadeVersion", name)
-	if version, ok := r.bestFacadeVersion[name]; ok {
-		return version
-	}
-	return r.bestFacadeVersionFallback
+	return 42
 }
 
 func (r *mockAPIRoot) APICall(objType string, version int, id, request string, params, response interface{}) error {

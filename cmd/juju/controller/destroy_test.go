@@ -63,17 +63,12 @@ type baseDestroySuite struct {
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	gitjujutesting.Stub
-	cloud          environscloudspec.CloudSpec
-	env            map[string]interface{}
-	blocks         []params.ModelBlockInfo
-	envStatus      map[string]base.ModelStatus
-	allModels      []base.UserModel
-	hostedConfig   []apicontroller.HostedConfig
-	bestAPIVersion int
-}
-
-func (f *fakeDestroyAPI) BestAPIVersion() int {
-	return f.bestAPIVersion
+	cloud        environscloudspec.CloudSpec
+	env          map[string]interface{}
+	blocks       []params.ModelBlockInfo
+	envStatus    map[string]base.ModelStatus
+	allModels    []base.UserModel
+	hostedConfig []apicontroller.HostedConfig
 }
 
 func (f *fakeDestroyAPI) Close() error {
@@ -175,9 +170,8 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
-		cloud:          dummy.SampleCloudSpec(),
-		envStatus:      map[string]base.ModelStatus{},
-		bestAPIVersion: 4,
+		cloud:     dummy.SampleCloudSpec(),
+		envStatus: map[string]base.ModelStatus{},
 	}
 	s.apierror = nil
 
@@ -407,34 +401,6 @@ option instead. The storage can then be imported
 into another Juju model.
 
 `)
-}
-
-func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
-	s.api.bestAPIVersion = 3
-	s.storageAPI.storage = []params.StorageDetails{{}}
-
-	_, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, gc.ErrorMatches, `cannot destroy controller "test1"
-
-Destroying this controller will destroy the storage,
-but you have not indicated that you want to do that.
-
-Please run the the command again with --destroy-storage
-to confirm that you want to destroy the storage along
-with the controller.
-
-If instead you want to keep the storage, you must first
-upgrade the controller to version 2.3 or greater.
-
-`)
-}
-
-func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldControllerNoStorage(c *gc.C) {
-	s.api.bestAPIVersion = 3
-	s.storageAPI.storage = nil // no storage
-
-	_, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {

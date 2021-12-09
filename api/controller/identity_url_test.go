@@ -14,23 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func (s *Suite) TestIdentityProviderURLPriorV7(c *gc.C) {
-	called := false
-	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 6,
-		APICallerFunc: func(objType string, version int, id, request string, a, response interface{}) error {
-			called = true
-			c.Assert(request, gc.Equals, "IdentityProviderURL")
-			return nil
-		},
-	}
-
-	client := controller.NewClient(apiCaller)
-	_, err := client.IdentityProviderURL()
-	c.Assert(err, gc.ErrorMatches, "IdentityProviderURL not supported by this version of Juju not supported")
-	c.Assert(called, jc.IsFalse)
-}
-
 func (s *Suite) TestIdentityProviderURLCallError(c *gc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 7,

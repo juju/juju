@@ -51,11 +51,6 @@ type CrossModelRelationsAPI struct {
 	offerStatusWatcher    offerStatusWatcherFunc
 }
 
-// CrossModelRelationsAPIV1 has WatchRelationUnits rather than WatchRelationChanges.
-type CrossModelRelationsAPIV1 struct {
-	*CrossModelRelationsAPI
-}
-
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
@@ -83,16 +78,6 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,
 	)
-}
-
-// NewStateCrossModelRelationsAPIV1 creates a new server-side
-// CrossModelRelations v1 API facade backed by state.
-func NewStateCrossModelRelationsAPIV1(ctx facade.Context) (*CrossModelRelationsAPIV1, error) {
-	api, err := NewStateCrossModelRelationsAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &CrossModelRelationsAPIV1{api}, nil
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -345,41 +330,6 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	}, nil
 }
 
-// WatchRelationUnits starts a RelationUnitsWatcher for watching the
-// relation units involved in each specified relation, and returns the
-// watcher IDs and initial values, or an error if the relation units
-// could not be watched.  WatchRelationUnits is only supported on the
-// v1 API - later versions provide WatchRelationChanges instead.
-func (api *CrossModelRelationsAPIV1) WatchRelationUnits(remoteRelationArgs params.RemoteEntityArgs) (params.RelationUnitsWatchResults, error) {
-	results := params.RelationUnitsWatchResults{
-		Results: make([]params.RelationUnitsWatchResult, len(remoteRelationArgs.Args)),
-	}
-	for i, arg := range remoteRelationArgs.Args {
-		relationTag, err := api.st.GetRemoteEntity(arg.Token)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag.(names.RelationTag))
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		changes, ok := <-w.Changes()
-		if !ok {
-			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
-			continue
-		}
-		results.Results[i].RelationUnitsWatcherId = api.resources.Register(w)
-		results.Results[i].Changes = changes
-	}
-	return results, nil
-}
-
 // WatchRelationChanges starts a RemoteRelationChangesWatcher for each
 // specified relation, returning the watcher IDs and initial values,
 // or an error if the remote relations couldn't be watched.
@@ -442,45 +392,6 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 
 		results.Results[i].RemoteRelationWatcherId = api.resources.Register(w)
 		results.Results[i].Changes = changes
-	}
-	return results, nil
-}
-
-// Mask out new methods from the old API versions. The API reflection
-// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
-// so this removes the method as far as the RPC machinery is concerned.
-//
-// WatchRelationChanges doesn't exist before the v2 API.
-func (api *CrossModelRelationsAPIV1) WatchRelationChanges(_, _ struct{}) {}
-
-// RelationUnitSettings returns the relation unit settings for the
-// given relation units. (Removed in v2 of the API, the events
-// returned by WatchRelationChanges include the full settings.)
-func (api *CrossModelRelationsAPIV1) RelationUnitSettings(relationUnits params.RemoteRelationUnits) (params.SettingsResults, error) {
-	results := params.SettingsResults{
-		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
-	}
-	for i, arg := range relationUnits.RelationUnits {
-		relationTag, err := api.st.GetRemoteEntity(arg.RelationToken)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		ru := params.RelationUnit{
-			Relation: relationTag.String(),
-			Unit:     arg.Unit,
-		}
-		settings, err := commoncrossmodel.RelationUnitSettings(api.st, ru)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].Settings = settings
 	}
 	return results, nil
 }

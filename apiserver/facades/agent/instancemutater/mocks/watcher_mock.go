@@ -5,34 +5,35 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockNotifyWatcher is a mock of NotifyWatcher interface
+// MockNotifyWatcher is a mock of NotifyWatcher interface.
 type MockNotifyWatcher struct {
 	ctrl     *gomock.Controller
 	recorder *MockNotifyWatcherMockRecorder
 }
 
-// MockNotifyWatcherMockRecorder is the mock recorder for MockNotifyWatcher
+// MockNotifyWatcherMockRecorder is the mock recorder for MockNotifyWatcher.
 type MockNotifyWatcherMockRecorder struct {
 	mock *MockNotifyWatcher
 }
 
-// NewMockNotifyWatcher creates a new mock instance
+// NewMockNotifyWatcher creates a new mock instance.
 func NewMockNotifyWatcher(ctrl *gomock.Controller) *MockNotifyWatcher {
 	mock := &MockNotifyWatcher{ctrl: ctrl}
 	mock.recorder = &MockNotifyWatcherMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNotifyWatcher) EXPECT() *MockNotifyWatcherMockRecorder {
 	return m.recorder
 }
 
-// Changes mocks base method
+// Changes mocks base method.
 func (m *MockNotifyWatcher) Changes() <-chan struct{} {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
@@ -40,25 +41,25 @@ func (m *MockNotifyWatcher) Changes() <-chan struct{} {
 	return ret0
 }
 
-// Changes indicates an expected call of Changes
+// Changes indicates an expected call of Changes.
 func (mr *MockNotifyWatcherMockRecorder) Changes() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockNotifyWatcher)(nil).Changes))
 }
 
-// Kill mocks base method
+// Kill mocks base method.
 func (m *MockNotifyWatcher) Kill() {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Kill")
 }
 
-// Kill indicates an expected call of Kill
+// Kill indicates an expected call of Kill.
 func (mr *MockNotifyWatcherMockRecorder) Kill() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockNotifyWatcher)(nil).Kill))
 }
 
-// Stop mocks base method
+// Stop mocks base method.
 func (m *MockNotifyWatcher) Stop() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop")
@@ -66,13 +67,13 @@ func (m *MockNotifyWatcher) Stop() error {
 	return ret0
 }
 
-// Stop indicates an expected call of Stop
+// Stop indicates an expected call of Stop.
 func (mr *MockNotifyWatcherMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockNotifyWatcher)(nil).Stop))
 }
 
-// Wait mocks base method
+// Wait mocks base method.
 func (m *MockNotifyWatcher) Wait() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Wait")
@@ -80,36 +81,36 @@ func (m *MockNotifyWatcher) Wait() error {
 	return ret0
 }
 
-// Wait indicates an expected call of Wait
+// Wait indicates an expected call of Wait.
 func (mr *MockNotifyWatcherMockRecorder) Wait() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockNotifyWatcher)(nil).Wait))
 }
 
-// MockStringsWatcher is a mock of StringsWatcher interface
+// MockStringsWatcher is a mock of StringsWatcher interface.
 type MockStringsWatcher struct {
 	ctrl     *gomock.Controller
 	recorder *MockStringsWatcherMockRecorder
 }
 
-// MockStringsWatcherMockRecorder is the mock recorder for MockStringsWatcher
+// MockStringsWatcherMockRecorder is the mock recorder for MockStringsWatcher.
 type MockStringsWatcherMockRecorder struct {
 	mock *MockStringsWatcher
 }
 
-// NewMockStringsWatcher creates a new mock instance
+// NewMockStringsWatcher creates a new mock instance.
 func NewMockStringsWatcher(ctrl *gomock.Controller) *MockStringsWatcher {
 	mock := &MockStringsWatcher{ctrl: ctrl}
 	mock.recorder = &MockStringsWatcherMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStringsWatcher) EXPECT() *MockStringsWatcherMockRecorder {
 	return m.recorder
 }
 
-// Changes mocks base method
+// Changes mocks base method.
 func (m *MockStringsWatcher) Changes() <-chan []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
@@ -117,25 +118,25 @@ func (m *MockStringsWatcher) Changes() <-chan []string {
 	return ret0
 }
 
-// Changes indicates an expected call of Changes
+// Changes indicates an expected call of Changes.
 func (mr *MockStringsWatcherMockRecorder) Changes() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockStringsWatcher)(nil).Changes))
 }
 
-// Kill mocks base method
+// Kill mocks base method.
 func (m *MockStringsWatcher) Kill() {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Kill")
 }
 
-// Kill indicates an expected call of Kill
+// Kill indicates an expected call of Kill.
 func (mr *MockStringsWatcherMockRecorder) Kill() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockStringsWatcher)(nil).Kill))
 }
 
-// Stop mocks base method
+// Stop mocks base method.
 func (m *MockStringsWatcher) Stop() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop")
@@ -143,13 +144,13 @@ func (m *MockStringsWatcher) Stop() error {
 	return ret0
 }
 
-// Stop indicates an expected call of Stop
+// Stop indicates an expected call of Stop.
 func (mr *MockStringsWatcherMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockStringsWatcher)(nil).Stop))
 }
 
-// Wait mocks base method
+// Wait mocks base method.
 func (m *MockStringsWatcher) Wait() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Wait")
@@ -157,7 +158,7 @@ func (m *MockStringsWatcher) Wait() error {
 	return ret0
 }
 
-// Wait indicates an expected call of Wait
+// Wait indicates an expected call of Wait.
 func (mr *MockStringsWatcherMockRecorder) Wait() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockStringsWatcher)(nil).Wait))

@@ -949,7 +949,7 @@
     },
     {
         "Name": "Agent",
-        "Description": "AgentAPIV3 implements the version 3 of the API provided to an agent.",
+        "Description": "AgentAPI implements the version 3 of the API provided to an agent.",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
@@ -4059,7 +4059,7 @@
     },
     {
         "Name": "ApplicationOffers",
-        "Description": "OffersAPIV3 implements the cross model interface V3.",
+        "Description": "OffersAPI implements the cross model interface and is the concrete\nimplementation of the api end point.",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
@@ -16060,18 +16060,6 @@
                     },
                     "description": "FullStatus gives the information needed for juju status over the api"
                 },
-                "GetBundleChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/BundleChangesParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/BundleChangesResults"
-                        }
-                    },
-                    "description": "GetBundleChanges returns the list of changes required to deploy the given\nbundle data. The changes are sorted by requirements, so that they can be\napplied in order.\nDeprecated: clients should use the GetChanges endpoint on the Bundle facade.\nNote: any new feature in the future like devices will never be supported here."
-                },
                 "GetModelConstraints": {
                     "type": "object",
                     "properties": {
@@ -16721,71 +16709,6 @@
                         "created",
                         "created-by"
                     ]
-                },
-                "BundleChange": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": true
-                            }
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "method": {
-                            "type": "string"
-                        },
-                        "requires": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "id",
-                        "method",
-                        "args",
-                        "requires"
-                    ]
-                },
-                "BundleChangesParams": {
-                    "type": "object",
-                    "properties": {
-                        "bundleURL": {
-                            "type": "string"
-                        },
-                        "yaml": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "yaml",
-                        "bundleURL"
-                    ]
-                },
-                "BundleChangesResults": {
-                    "type": "object",
-                    "properties": {
-                        "changes": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/BundleChange"
-                            }
-                        },
-                        "errors": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "BytesResult": {
                     "type": "object",
@@ -23263,7 +23186,7 @@
     },
     {
         "Name": "Firewaller",
-        "Description": "FirewallerAPIV7 provides access to the Firewaller v7 API facade.",
+        "Description": "FirewallerAPI provides access to the Firewaller API facade.",
         "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
@@ -27801,7 +27724,7 @@
     },
     {
         "Name": "MachineManager",
-        "Description": "MachineManagerAPIV6 defines the Version 6 of Machine Manager API.\nChanges input parameters to DestroyMachineWithParams and ForceDestroyMachine.",
+        "Description": "MachineManagerAPI provides access to the MachineManager API facade.",
         "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
@@ -36919,7 +36842,7 @@
     },
     {
         "Name": "ProxyUpdater",
-        "Description": "APIv2 provides the ProxyUpdater version 2 facade.",
+        "Description": "API provides the ProxyUpdater version 2 facade.",
         "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
@@ -44850,7 +44773,7 @@
     },
     {
         "Name": "Uniter",
-        "Description": "UniterAPI implements the latest version (v18) of the Uniter API, which\naugments the payload of the CommitHookChanges API call and introduces\nthe OpenedMachinePortRanges call as a replacement for AllMachinePorts.",
+        "Description": "UniterAPI implements the latest version (v18) of the Uniter API.",
         "Version": 18,
         "AvailableTo": [
             "controller-machine-agent",

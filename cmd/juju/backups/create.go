@@ -109,7 +109,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	client, apiVersion, err := c.NewGetAPI()
+	client, err := c.NewGetAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -119,7 +119,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		ctx.Warningf(downloadWarning)
 	}
 
-	metadataResult, copyFrom, err := c.create(client, apiVersion)
+	metadataResult, copyFrom, err := c.create(client)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -169,16 +169,12 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom st
 	return nil
 }
 
-func (c *createCommand) create(client APIClient, apiVersion int) (*params.BackupsMetadataResult, string, error) {
+func (c *createCommand) create(client APIClient) (*params.BackupsMetadataResult, string, error) {
 	result, err := client.Create(c.Notes, c.NoDownload)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	copyFrom := result.ID
-
-	if apiVersion >= 2 {
-		copyFrom = result.Filename
-	}
+	copyFrom := result.Filename
 
 	return result, copyFrom, err
 }
