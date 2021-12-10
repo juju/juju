@@ -68,10 +68,10 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		ConfigType:    corenetwork.ConfigStatic,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24"))},
+			corenetwork.NewMachineAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")).AsProviderAddress()},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   corenetwork.NewProviderAddress("0.1.2.1"),
+		GatewayAddress:   corenetwork.NewMachineAddress("0.1.2.1").AsProviderAddress(),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		MTU:              8317,
 	}, {
@@ -79,10 +79,10 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		ConfigType:    corenetwork.ConfigStatic,
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("0.2.2.4", corenetwork.WithCIDR("0.2.2.0/24"))},
+			corenetwork.NewMachineAddress("0.2.2.4", corenetwork.WithCIDR("0.2.2.0/24")).AsProviderAddress()},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   corenetwork.NewProviderAddress("0.2.2.1"),
+		GatewayAddress:   corenetwork.NewMachineAddress("0.2.2.1").AsProviderAddress(),
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Routes: []corenetwork.Route{{
 			DestinationCIDR: "0.5.6.0/24",
@@ -110,8 +110,8 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		MACAddress:    "aa:bb:cc:dd:ee:f5",
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("2001:db8::dead:beef", corenetwork.WithCIDR("2001:db8::/64"))},
-		GatewayAddress: corenetwork.NewProviderAddress("2001:db8::dead:f00"),
+			corenetwork.NewMachineAddress("2001:db8::dead:beef", corenetwork.WithCIDR("2001:db8::/64")).AsProviderAddress()},
+		GatewayAddress: corenetwork.NewMachineAddress("2001:db8::dead:f00").AsProviderAddress(),
 	}}
 
 	for _, version := range []string{

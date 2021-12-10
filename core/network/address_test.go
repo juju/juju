@@ -747,7 +747,7 @@ func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
 
-	addr = network.NewProviderAddress("8.8.8.8", network.WithScope(network.ScopePublic))
+	addr = network.NewMachineAddress("8.8.8.8", network.WithScope(network.ScopePublic)).AsProviderAddress()
 	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsFalse)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
@@ -812,7 +812,7 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddresses(c *gc.C) {
 	addrs := network.ProviderAddresses{
 		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
 		network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
-		network.NewProviderAddress("3.4.5.6"),
+		network.NewMachineAddress("3.4.5.6").AsProviderAddress(),
 	}
 
 	exp := network.NewSpaceAddresses("1.2.3.4", "2.3.4.5", "3.4.5.6")
@@ -838,7 +838,7 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	exp := network.ProviderAddresses{
 		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
 		network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
-		network.NewProviderAddress("3.4.5.6"),
+		network.NewMachineAddress("3.4.5.6").AsProviderAddress(),
 	}
 	// Only the first address in the lookup has a provider ID.
 	exp[0].ProviderSpaceID = "p1"

@@ -25,9 +25,9 @@ func (s *nicSuite) SetUpTest(_ *gc.C) {
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
-		{Addresses: network.ProviderAddresses{network.NewProviderAddress("0.1.2.3")}},
+		{Addresses: network.ProviderAddresses{network.NewMachineAddress("0.1.2.3").AsProviderAddress()}},
 		{DNSServers: network.NewProviderAddresses("1.1.1.1", "2.2.2.2")},
-		{GatewayAddress: network.NewProviderAddress("4.3.2.1")},
+		{GatewayAddress: network.NewMachineAddress("4.3.2.1").AsProviderAddress()},
 		{AvailabilityZones: []string{"foo", "bar"}},
 		{Routes: []network.Route{{
 			DestinationCIDR: "0.1.2.3/24",
@@ -60,9 +60,9 @@ func (s *nicSuite) TestIsVLAN(c *gc.C) {
 func (s *nicSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
 	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
-	c.Check(s.info[4].Addresses, jc.DeepEquals, network.ProviderAddresses{network.NewProviderAddress("0.1.2.3")})
+	c.Check(s.info[4].Addresses, jc.DeepEquals, network.ProviderAddresses{network.NewMachineAddress("0.1.2.3").AsProviderAddress()})
 	c.Check(s.info[5].DNSServers, jc.DeepEquals, network.NewProviderAddresses("1.1.1.1", "2.2.2.2"))
-	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewProviderAddress("4.3.2.1"))
+	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewMachineAddress("4.3.2.1").AsProviderAddress())
 	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
 	c.Check(s.info[8].Routes, jc.DeepEquals, []network.Route{{
 		DestinationCIDR: "0.1.2.3/24",

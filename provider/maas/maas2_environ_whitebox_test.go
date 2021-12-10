@@ -1086,7 +1086,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1218,7 +1218,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1315,7 +1315,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1461,11 +1461,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:9b:ff",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}, {
 		MACAddress:    "52:54:00:70:9b:f4",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("192.168.1.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("192.168.1.0/24")).AsProviderAddress()},
 		InterfaceName: "eth1",
 	}}
 	expected := network.InterfaceInfos{{
@@ -1583,7 +1583,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	env = suite.makeEnviron(c, nil)
 	prepared := network.InterfaceInfos{{
 		InterfaceName: "eth0",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
@@ -1619,7 +1619,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(
 	env = suite.makeEnviron(c, nil)
 	prepared := network.InterfaceInfos{{
 		InterfaceName: "eth0",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		MACAddress:    "DEADBEEF",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1763,12 +1763,12 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	prepared := network.InterfaceInfos{
 		{
 			InterfaceName: "eth0",
-			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+			Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 			MACAddress:    "DEADBEEF",
 		},
 		{
 			InterfaceName: "eth1",
-			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.20.0/24"))},
+			Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.20.0/24")).AsProviderAddress()},
 			MACAddress:    "DEADBEEE",
 		},
 	}
@@ -1821,12 +1821,12 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 	prepared := network.InterfaceInfos{
 		{
 			InterfaceName: "eth0",
-			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+			Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 			MACAddress:    "DEADBEEF",
 		},
 		{
 			InterfaceName: "eth1",
-			Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.20.0/24"))},
+			Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.20.0/24")).AsProviderAddress()},
 			MACAddress:    "DEADBEEE",
 		},
 	}
@@ -1942,7 +1942,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:9b:ff",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")
@@ -2140,11 +2140,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 
 	prepared := network.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:88:aa",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("10.20.19.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}, {
 		MACAddress:    "53:54:00:70:88:bb",
-		Addresses:     network.ProviderAddresses{network.NewProviderAddress("", network.WithCIDR("192.168.1.0/24"))},
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("192.168.1.0/24")).AsProviderAddress()},
 		InterfaceName: "eth1",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")

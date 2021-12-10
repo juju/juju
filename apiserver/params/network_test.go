@@ -260,9 +260,9 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 	pAddrs := network.ProviderAddresses{
-		network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")),
-		network.NewProviderAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)),
-		network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic), network.WithConfigType("dhcp")),
+		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")).AsProviderAddress(),
+		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)).AsProviderAddress(),
+		network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic), network.WithConfigType("dhcp")).AsProviderAddress(),
 	}
 	pAddrs[0].SpaceName = "test-space"
 	pAddrs[0].ProviderSpaceID = "666"
@@ -290,17 +290,17 @@ func (s *NetworkSuite) TestProviderHostPortConversion(c *gc.C) {
 	pHPs := []network.ProviderHostPorts{
 		{
 			{
-				ProviderAddress: network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+				ProviderAddress: network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 				NetPort:         1234,
 			},
 			{
-				ProviderAddress: network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
+				ProviderAddress: network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 				NetPort:         2345,
 			},
 		},
 		{
 			{
-				ProviderAddress: network.NewProviderAddress("3.4.5.6", network.WithScope(network.ScopeCloudLocal)),
+				ProviderAddress: network.NewMachineAddress("3.4.5.6", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 				NetPort:         3456,
 			},
 		},

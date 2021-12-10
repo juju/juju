@@ -417,12 +417,6 @@ func (a ProviderAddress) String() string {
 	return buf.String()
 }
 
-// NewProviderAddress creates a new ProviderAddress,
-// applying any supplied options to the result.
-func NewProviderAddress(value string, options ...func(AddressMutator)) ProviderAddress {
-	return ProviderAddress{MachineAddress: NewMachineAddress(value, options...)}
-}
-
 // ProviderAddresses is a slice of ProviderAddress
 // supporting conversion to SpaceAddresses.
 type ProviderAddresses []ProviderAddress
@@ -432,7 +426,7 @@ type ProviderAddresses []ProviderAddress
 func NewProviderAddresses(inAddresses ...string) (outAddresses ProviderAddresses) {
 	outAddresses = make(ProviderAddresses, len(inAddresses))
 	for i, address := range inAddresses {
-		outAddresses[i] = NewProviderAddress(address)
+		outAddresses[i] = NewMachineAddress(address).AsProviderAddress()
 	}
 	return outAddresses
 }

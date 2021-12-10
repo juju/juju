@@ -260,7 +260,7 @@ func maasObjectNetworkInterfaces(
 				// present in the original code. Do we need to revisit
 				// this in the future and append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress, corenetwork.WithConfigType(configType)),
+					corenetwork.NewMachineAddress(link.IPAddress, corenetwork.WithConfigType(configType)).AsProviderAddress(),
 				}
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID))
 			}
@@ -385,7 +385,7 @@ func maas2NetworkInterfaces(
 				// NOTE(achilleasa): the original code used a last-write-wins
 				// policy. Do we need to append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress(), corenetwork.WithConfigType(configType)),
+					corenetwork.NewMachineAddress(link.IPAddress(), corenetwork.WithConfigType(configType)).AsProviderAddress(),
 				}
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID()))
 			}

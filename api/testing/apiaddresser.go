@@ -60,9 +60,9 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectServerAddrs := []network.ProviderHostPorts{
-		{network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.24"), NetPort: 999}},
-		{network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example.com"), NetPort: 1234}},
-		{network.ProviderHostPort{ProviderAddress: network.NewProviderAddress(ipv6Addr.Value), NetPort: 999}},
+		{network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("0.1.2.24").AsProviderAddress(), NetPort: 999}},
+		{network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("example.com").AsProviderAddress(), NetPort: 1234}},
+		{network.ProviderHostPort{ProviderAddress: network.NewMachineAddress(ipv6Addr.Value).AsProviderAddress(), NetPort: 999}},
 	}
 	expectServerAddrs[2][0].Scope = network.ScopeCloudLocal
 

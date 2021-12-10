@@ -151,16 +151,16 @@ func (*HostPortSuite) TestParseProviderHostPortsSuccess(c *gc.C) {
 		expect: []network.ProviderHostPort{},
 	}, {
 		args:   []string{"1.2.3.4:42"},
-		expect: []network.ProviderHostPort{{network.NewProviderAddress("1.2.3.4"), 42}},
+		expect: []network.ProviderHostPort{{network.NewMachineAddress("1.2.3.4").AsProviderAddress(), 42}},
 	}, {
 		args:   []string{"[fc00::1]:1234"},
-		expect: []network.ProviderHostPort{{network.NewProviderAddress("fc00::1"), 1234}},
+		expect: []network.ProviderHostPort{{network.NewMachineAddress("fc00::1").AsProviderAddress(), 1234}},
 	}, {
 		args: []string{"[fc00::1]:1234", "127.0.0.1:4321", "example.com:42"},
 		expect: []network.ProviderHostPort{
-			{network.NewProviderAddress("fc00::1"), 1234},
-			{network.NewProviderAddress("127.0.0.1"), 4321},
-			{network.NewProviderAddress("example.com"), 42},
+			{network.NewMachineAddress("fc00::1").AsProviderAddress(), 1234},
+			{network.NewMachineAddress("127.0.0.1").AsProviderAddress(), 4321},
+			{network.NewMachineAddress("example.com").AsProviderAddress(), 42},
 		},
 	}} {
 		c.Logf("test %d: args %v", i, test.args)
@@ -523,7 +523,7 @@ func (s *HostPortSuite) TestSpaceHostPortsToProviderHostPorts(c *gc.C) {
 			NetPort:         1234,
 		},
 		{
-			ProviderAddress: network.NewProviderAddress("3.4.5.6"),
+			ProviderAddress: network.NewMachineAddress("3.4.5.6").AsProviderAddress(),
 			NetPort:         1234,
 		},
 	}

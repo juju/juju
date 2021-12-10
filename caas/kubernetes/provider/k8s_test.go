@@ -3105,8 +3105,8 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
-				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
-				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
+				network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+				network.NewMachineAddress("host.com.au", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 			},
 		},
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
@@ -3196,8 +3196,8 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
-				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
-				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
+				network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+				network.NewMachineAddress("host.com.au", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 			},
 			Scale:      k8sutils.IntPtr(2),
 			Generation: pointer.Int64Ptr(1),
@@ -3288,8 +3288,8 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
-				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
-				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
+				network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+				network.NewMachineAddress("host.com.au", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 			},
 			Scale:      k8sutils.IntPtr(2),
 			Generation: pointer.Int64Ptr(1),
@@ -3352,8 +3352,8 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
-				network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
-				network.NewProviderAddress("host.com.au", network.WithScope(network.ScopePublic)),
+				network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+				network.NewMachineAddress("host.com.au", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 			},
 			Scale:      k8sutils.IntPtr(2),
 			Generation: pointer.Int64Ptr(1),

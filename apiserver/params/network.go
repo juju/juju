@@ -304,7 +304,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
 			DNSSearchDomains:    v.DNSSearchDomains,
-			GatewayAddress:      network.NewProviderAddress(v.GatewayAddress),
+			GatewayAddress:      network.NewMachineAddress(v.GatewayAddress).AsProviderAddress(),
 			Routes:              routes,
 			IsDefaultGateway:    v.IsDefaultGateway,
 			VirtualPortType:     network.VirtualPortType(v.VirtualPortType),
@@ -334,11 +334,11 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			// 2) For even older clients that do not populate Addresses.
 			if v.Address != "" {
 				result[i].Addresses = network.ProviderAddresses{
-					network.NewProviderAddress(
+					network.NewMachineAddress(
 						v.Address,
 						network.WithCIDR(v.CIDR),
 						network.WithConfigType(configType),
-					),
+					).AsProviderAddress(),
 				}
 			}
 		}

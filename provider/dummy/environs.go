@@ -1480,16 +1480,16 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []ins
 				Disabled:         i == 2,
 				NoAutoStart:      i%2 != 0,
 				Addresses: network.ProviderAddresses{
-					network.NewProviderAddress(
+					network.NewMachineAddress(
 						fmt.Sprintf("0.%d.0.%d", (i+1)*10+idIndex, estate.maxAddr+2),
 						network.WithCIDR(fmt.Sprintf("0.%d.0.0/24", (i+1)*10)),
 						network.WithConfigType(network.ConfigDHCP),
-					),
+					).AsProviderAddress(),
 				},
 				DNSServers: network.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-				GatewayAddress: network.NewProviderAddress(
+				GatewayAddress: network.NewMachineAddress(
 					fmt.Sprintf("0.%d.0.1", (i+1)*10+idIndex),
-				),
+				).AsProviderAddress(),
 				Origin: network.OriginProvider,
 			}
 		}

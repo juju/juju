@@ -104,9 +104,9 @@ var fakeInterfaceInfo = corenetwork.InterfaceInfo{
 	MACAddress:    "aa:bb:cc:dd:ee:ff",
 	InterfaceName: "dummy0",
 	Addresses: corenetwork.ProviderAddresses{
-		corenetwork.NewProviderAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")),
+		corenetwork.NewMachineAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")).AsProviderAddress(),
 	},
-	GatewayAddress: corenetwork.NewProviderAddress("0.1.2.1"),
+	GatewayAddress: corenetwork.NewMachineAddress("0.1.2.1").AsProviderAddress(),
 	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
 	// detected and the latter populated by parsing the fake resolv.conf created
 	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
