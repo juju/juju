@@ -1327,6 +1327,8 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 		imagemetadata.ReleasedStream,
 		retryStrategy,
 		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		numProvisionWorkersForTesting,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

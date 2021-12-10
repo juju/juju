@@ -108,8 +108,8 @@ func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
-	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
+	f.BoolVar(&c.Force, "force", false, "Completely remove an unit and all its dependencies")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through unit removal without waiting for each individual step to complete")
 	c.fs = f
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
@@ -103,4 +104,19 @@ func NewPrometheusRegistry() (*prometheus.Registry, error) {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
+}
+
+// RegisterEngineMetrics registers the metrics sink on a prometheus registerer,
+// ensuring that we cleanup when the worker has stopped.
+func RegisterEngineMetrics(registry prometheus.Registerer, metrics prometheus.Collector, worker worker.Worker, sink engine.MetricSink) error {
+	if err := registry.Register(metrics); err != nil {
+		return errors.Annotatef(err, "failed to register engine metrics")
+	}
+
+	go func() {
+		_ = worker.Wait()
+		_ = sink.Unregister()
+		_ = registry.Unregister(metrics)
+	}()
+	return nil
 }

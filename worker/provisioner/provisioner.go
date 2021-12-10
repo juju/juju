@@ -177,6 +177,8 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		modelCfg.ImageStream(),
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 		p.callContextFunc,
+		modelCfg.NumProvisionWorkers(),
+		nil, // event callback is currently only being used by tests
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -264,6 +266,7 @@ func (p *environProvisioner) loop() error {
 				return errors.Annotate(err, "loaded invalid model configuration")
 			}
 			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
+			task.SetNumProvisionWorkers(modelConfig.NumProvisionWorkers())
 		}
 	}
 }

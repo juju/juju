@@ -56,6 +56,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		MuxName:        "mux",
 		NewWorker:      s.newWorker,
 		NewModelWorker: s.newModelWorker,
+		ModelMetrics:   dummyModelMetrics{},
 		Logger:         loggo.GetLogger("test"),
 	})
 }
@@ -119,9 +120,10 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 
 	c.Assert(config.NewModelWorker, gc.NotNil)
 	modelConfig := modelworkermanager.NewModelConfig{
-		Authority: s.authority,
-		ModelUUID: "foo",
-		ModelType: state.ModelTypeIAAS,
+		Authority:    s.authority,
+		ModelUUID:    "foo",
+		ModelType:    state.ModelTypeIAAS,
+		ModelMetrics: dummyMetricSink{},
 	}
 	mw, err := config.NewModelWorker(modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,6 +135,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
 		Authority:    s.authority,
 		ModelWatcher: s.State,
+		ModelMetrics: dummyModelMetrics{},
 		Mux:          mux,
 		Controller:   modelworkermanager.StatePoolController{s.StatePool},
 		ErrorDelay:   jworker.RestartDelay,

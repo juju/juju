@@ -84,8 +84,8 @@ func (c *removeSaasCommand) Init(args []string) error {
 
 func (c *removeSaasCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
+	f.BoolVar(&c.Force, "force", false, "Completely remove a SAAS and all its dependencies")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through SAAS removal without waiting for each individual step to complete")
 	c.fs = f
 }
 

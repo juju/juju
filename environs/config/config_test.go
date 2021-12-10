@@ -348,6 +348,16 @@ var configTests = []configTest{
 		}),
 		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
+		about: fmt.Sprintf(
+			"%s: %d",
+			"num-provision-workers",
+			42,
+		),
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"num-provision-workers": "42",
+		}),
+	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
 		attrs:       minimalConfigAttrs,
@@ -493,7 +503,9 @@ var configTests = []configTest{
 			"syslog-client-cert": testing.CACert,
 			"syslog-client-key":  testing.CAKey,
 		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: x509: malformed certificate`,
+		// NOTE(achilleasa): TLS parsing errors have changed in go 1.17
+		// hence the alternative in the regex.
+		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: (?:asn1: syntax error: data truncated|x509: malformed certificate)`,
 	}, {
 		about:       "invalid syslog cert",
 		useDefaults: config.UseDefaults,
@@ -504,7 +516,9 @@ var configTests = []configTest{
 			"syslog-client-cert": invalidCACert,
 			"syslog-client-key":  testing.CAKey,
 		}),
-		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: x509: malformed certificate`,
+		// NOTE(achilleasa): TLS parsing errors have changed in go 1.17
+		// hence the alternative in the regex.
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (?:asn1: syntax error: data truncated|x509: malformed certificate)`,
 	}, {
 		about:       "invalid syslog key",
 		useDefaults: config.UseDefaults,

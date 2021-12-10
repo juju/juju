@@ -34,14 +34,14 @@ type remoteApplicationWorker struct {
 
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
-	offerUUID             string
-	applicationName       string // name of the remote application proxy in the local model
-	localModelUUID        string // uuid of the model hosting the local application
-	remoteModelUUID       string // uuid of the model hosting the remote offer
-	isConsumerProxy       bool
-	consumeVersion        int
-	localRelationChanges  chan RelationUnitChangeEvent
-	remoteRelationChanges chan RelationUnitChangeEvent
+	offerUUID                 string
+	applicationName           string // name of the remote application proxy in the local model
+	localModelUUID            string // uuid of the model hosting the local application
+	remoteModelUUID           string // uuid of the model hosting the remote offer
+	isConsumerProxy           bool
+	consumeVersion            int
+	localRelationUnitChanges  chan RelationUnitChangeEvent
+	remoteRelationUnitChanges chan RelationUnitChangeEvent
 
 	// relations is stored here for the engine report.
 	relations map[string]*relation
@@ -125,10 +125,20 @@ func (w *remoteApplicationWorker) remoteOfferRemoved() error {
 	return nil
 }
 
+// isNotFound allows either type of not found error
+// to be correctly handled.
+// TODO(wallyworld) - remove when all api facades are fixed
+func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.IsNotFound(err) || params.IsCodeNotFound(err)
+}
+
 func (w *remoteApplicationWorker) loop() (err error) {
 	// Watch for changes to any remote relations to this application.
 	relationsWatcher, err := w.localModelFacade.WatchRemoteApplicationRelations(w.applicationName)
-	if err != nil && params.IsCodeNotFound(err) {
+	if err != nil && isNotFound(err) {
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "watching relations for remote application %q", w.applicationName)
@@ -159,7 +169,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		offerStatusWatcher, err = w.remoteModelFacade.WatchOfferStatus(arg)
 		if err != nil {
 			w.checkOfferPermissionDenied(err, "", "")
-			if params.IsCodeNotFound(err) {
+			if isNotFound(err) {
 				return w.remoteOfferRemoved()
 			}
 			return errors.Annotate(err, "watching status for offer")
@@ -190,22 +200,25 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			for i, result := range results {
 				key := change[i]
 				if err := w.relationChanged(key, result); err != nil {
-					if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
-						// Relation has been deleted, cleanup will occur
-						// via additional events arriving.
-						w.logger.Debugf("relation %q changed but has been removed: %v", key, err)
+					if isNotFound(err) {
+						// Relation has been deleted, so ensure relevant workers are stopped.
+						w.logger.Debugf("relation %q changed but has been removed", key)
+						err2 := w.localRelationChanged(key, nil)
+						if err2 != nil {
+							return errors.Annotatef(err2, "cleaning up removed local relation %q", key)
+						}
 						continue
 					}
 					return errors.Annotatef(err, "handling change for relation %q", key)
 				}
 			}
-		case change := <-w.localRelationChanges:
+		case change := <-w.localRelationUnitChanges:
 			w.logger.Debugf("local relation units changed -> publishing: %#v", change)
 			// TODO(babbageclunk): add macaroons to event here instead
 			// of in the relation units worker.
 			if err := w.remoteModelFacade.PublishRelationChange(change.RemoteRelationChangeEvent); err != nil {
 				w.checkOfferPermissionDenied(err, change.ApplicationToken, change.RelationToken)
-				if params.IsCodeNotFound(err) || params.IsCodeCannotEnterScope(err) {
+				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf("relation %v changed but remote side already removed", change.Tag.Id())
 					continue
 				}
@@ -214,10 +227,10 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			if err := w.localRelationChanged(change.Tag.Id(), change.UnitCount); err != nil {
 				return errors.Annotatef(err, "processing local relation change for %v", change.Tag.Id())
 			}
-		case change := <-w.remoteRelationChanges:
+		case change := <-w.remoteRelationUnitChanges:
 			w.logger.Debugf("remote relation units changed -> consuming: %#v", change)
 			if err := w.localModelFacade.ConsumeRemoteRelationChange(change.RemoteRelationChangeEvent); err != nil {
-				if params.IsCodeNotFound(err) || params.IsCodeCannotEnterScope(err) {
+				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf("relation %v changed but local side already removed", change.Tag.Id())
 					continue
 				}
@@ -300,7 +313,7 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 		}
 		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
 			w.checkOfferPermissionDenied(err, r.applicationToken, r.relationToken)
-			if params.IsCodeNotFound(err) {
+			if isNotFound(err) {
 				w.logger.Debugf("relation %v dying but remote side already removed", key)
 				return nil
 			}
@@ -380,7 +393,7 @@ func (w *remoteApplicationWorker) localRelationChanged(key string, unitCount *in
 	if !ok {
 		return nil
 	}
-	if !relation.localDead {
+	if !relation.localDead && unitCount != nil {
 		return nil
 	}
 	if unitCount != nil && *unitCount > 1 {
@@ -417,7 +430,7 @@ func (w *remoteApplicationWorker) relationChanged(key string, localRelation para
 	defer w.mu.Unlock()
 
 	defer func() {
-		if err == nil || !params.IsCodeNotFound(err) {
+		if err == nil || !isNotFound(err) {
 			return
 		}
 		if err2 := w.processLocalRelationRemoved(key, w.relations); err2 != nil {
@@ -473,7 +486,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 		relationTag,
 		mac,
 		localRelationUnitsWatcher,
-		w.localRelationChanges,
+		w.localRelationUnitChanges,
 		w.logger,
 		"local",
 	)
@@ -499,7 +512,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 		relationTag,
 		mac,
 		remoteRelationUnitsWatcher,
-		w.remoteRelationChanges,
+		w.remoteRelationUnitChanges,
 		w.logger,
 		"remote",
 	)
@@ -554,7 +567,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 			remoteAppToken,
 			relationToken,
 			remoteRelationsWatcher,
-			w.remoteRelationChanges,
+			w.remoteRelationUnitChanges,
 			w.logger,
 		)
 		if err != nil {
