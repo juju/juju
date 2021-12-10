@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/upgrade"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/tools"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -1327,7 +1328,7 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	return relations, nil
 }
 
-// unitAppName returns the name of the Application, given a Units name.
+// unitAppName returns the name of the Application, given a Unit's name.
 func unitAppName(unitName string) string {
 	unitParts := strings.Split(unitName, "/")
 	return unitParts[0]
@@ -2897,13 +2898,34 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 	coll, closer := st.db().GetRawCollection(unitsC)
 	defer closer()
 
-	// Load all the units into a map by full ID.
-	units := make(map[string]*unitDoc)
+	// unitDoc28 represents the unit document as at Juju version 2.8,
+	// to which this upgrade step applies.
+	// Later, in version 2.9.23, CharmURL was stored as *string
+	// instead of *charm.URL.
+	type unitDoc28 struct {
+		DocID                  string `bson:"_id"`
+		Name                   string `bson:"name"`
+		ModelUUID              string `bson:"model-uuid"`
+		Application            string
+		Series                 string
+		CharmURL               *charm.URL
+		Principal              string
+		Subordinates           []string
+		StorageAttachmentCount int `bson:"storageattachmentcount"`
+		MachineId              string
+		Resolved               ResolvedMode
+		Tools                  *tools.Tools `bson:",omitempty"`
+		Life                   Life
+		PasswordHash           string
+	}
 
-	var doc unitDoc
+	// Load all the units into a map by full ID.
+	units := make(map[string]*unitDoc28)
+
+	var doc unitDoc28
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		// Make a copy of the unitDoc and put the copy
+		// Make a copy of the doc and put the copy
 		// into the map.
 		unit := doc
 		units[unit.DocID] = &unit
