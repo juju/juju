@@ -1054,6 +1054,50 @@ type LeaseOperation struct {
 	Command string `json:"command"`
 }
 
+// LeaseOperationsV2 is used to send raft operational messages between
+// controllers.
+type LeaseOperationsV2 struct {
+	Operations []LeaseOperationCommand `json:"commands"`
+}
+
+// LeaseOperationCommand is used to send raft operational messages between
+// controllers.
+type LeaseOperationCommand struct {
+	// Version of the command format in case it changes,
+	// and we need to handle multiple formats.
+	Version int `json:"version"`
+
+	// Operation is one of claim, extend, expire or setTime.
+	Operation string `json:"operation"`
+
+	// Namespace is the kind of lease.
+	Namespace string `json:"namespace,omitempty"`
+
+	// ModelUUID identifies the model the lease belongs to.
+	ModelUUID string `json:"model-uuid,omitempty"`
+
+	// Lease is the name of the lease the command affects.
+	Lease string `json:"lease,omitempty"`
+
+	// Holder is the name of the party claiming or extending the
+	// lease.
+	Holder string `json:"holder,omitempty"`
+
+	// Duration is how long the lease should last.
+	Duration time.Duration `json:"duration,omitempty"`
+
+	// OldTime is the previous time for time updates (to avoid
+	// applying stale ones).
+	OldTime time.Time `json:"old-time,omitempty"`
+
+	// NewTime is the time to store as the global time.
+	NewTime time.Time `json:"new-time,omitempty"`
+
+	// PinEntity is a tag representing an entity concerned
+	// with a pin or unpin operation.
+	PinEntity string `json:"pin-entity,omitempty"`
+}
+
 // ExportBundleParams holds parameters for exporting Bundles.
 type ExportBundleParams struct {
 	IncludeCharmDefaults bool `json:"include-charm-defaults,omitempty"`

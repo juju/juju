@@ -547,6 +547,21 @@ func (c *destroyCommandBase) getControllerEnviron(
 	return env, nil
 }
 
+func (c *destroyCommandBase) getControllerCloudSpecFromStore(
+	ctx *cmd.Context,
+	store jujuclient.ClientStore,
+	controllerName string,
+) (environscloudspec.CloudSpec, error) {
+	_, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
+		ctx, store, environs.GlobalProviderRegistry(),
+	)(controllerName)
+	if err != nil {
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
+	}
+
+	return params.Cloud, nil
+}
+
 func (c *destroyCommandBase) getControllerEnvironFromStore(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,

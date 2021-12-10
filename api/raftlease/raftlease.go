@@ -14,13 +14,13 @@ import (
 
 const facadeName = "RaftLease"
 
-// API provides access to the pubsub API.
+// API provides access to the raft lease API.
 type API struct {
 	facade base.FacadeCaller
 	caller base.APICaller
 }
 
-// NewAPI creates a new client-side pubsub API.
+// NewAPI creates a new client-side raft lease API.
 func NewAPI(caller base.APICaller) *API {
 	facadeCaller := base.NewFacadeCaller(caller, facadeName)
 	return &API{
@@ -32,12 +32,10 @@ func NewAPI(caller base.APICaller) *API {
 // ApplyLease attempts to apply a lease against the given controller. If the
 // controller is not the leader, then an error to redirect to a new leader will
 // be given.
-func (api *API) ApplyLease(command string) error {
+func (api *API) ApplyLease(command params.LeaseOperationCommand) error {
 	var results params.ErrorResults
-	err := api.facade.FacadeCall("ApplyLease", params.LeaseOperations{
-		Operations: []params.LeaseOperation{{
-			Command: command,
-		}},
+	err := api.facade.FacadeCall("ApplyLease", params.LeaseOperationsV2{
+		Operations: []params.LeaseOperationCommand{command},
 	}, &results)
 	if err != nil {
 		return errors.Trace(apiservererrors.RestoreError(err))

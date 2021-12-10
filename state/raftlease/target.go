@@ -6,6 +6,7 @@ package raftlease
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
@@ -86,7 +87,9 @@ type Mongo interface {
 }
 
 type Logger interface {
+	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
+	Warningf(string, ...interface{})
 }
 
 // NewNotifyTarget returns something that can be used to report lease
@@ -113,7 +116,7 @@ type notifyTarget struct {
 func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder string) ([]txn.Op, error) {
 	existingDoc, err := getRecord(coll, docId)
 	switch {
-	case err == mgo.ErrNotFound:
+	case errors.Cause(err) == mgo.ErrNotFound:
 		doc, err := newLeaseHolderDoc(
 			key.Namespace,
 			key.ModelUUID,
@@ -174,33 +177,110 @@ func (t *notifyTarget) Claimed(key lease.Key, holder string) error {
 	return errors.Annotatef(err, "%q for %q in db", docId, holder)
 }
 
-// Expired is part of raftlease.NotifyTarget.
-func (t *notifyTarget) Expired(key lease.Key) error {
+type leaseDoc struct {
+	Key    lease.Key
+	DocId  string
+	Holder string
+}
+
+// Expiries is part of raftlease.NotifyTarget.
+func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
+	if len(expiries) == 0 {
+		return nil
+	}
+
 	coll, closer := t.mongo.GetCollection(t.collection)
 	defer closer()
 
-	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	t.logger.Infof("expiring lease %q", docId)
+	// Cache all the document idents up front, incase we have to retry the
+	// transaction again. Also this serves as a de-duping process.
+	leaseDocs := make(map[string]leaseDoc)
+	for _, expired := range expiries {
+		key := expired.Key
+		docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+
+		if doc, ok := leaseDocs[docId]; ok && doc.Holder != expired.Holder {
+			// We have an existing lease.Key already in the documents that
+			// doesn't have the same holder.
+			t.logger.Warningf("ignoring key %q, has existing lease key but different holders %q and %q", key, doc.Holder, expired.Holder)
+			continue
+		}
+
+		leaseDocs[docId] = leaseDoc{
+			Key:    key,
+			DocId:  docId,
+			Holder: expired.Holder,
+		}
+	}
+	docIds := set.NewStrings()
+	for _, leaseDoc := range leaseDocs {
+		docIds.Add(leaseDoc.DocId)
+	}
+	sortedDocIds := docIds.SortedValues()
+	t.logger.Debugf("expiring leases %v", sortedDocIds)
 
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
-		existingDoc, err := getRecord(coll, docId)
-		if err == mgo.ErrNotFound {
+		// Bulk get the records, to prevent potato programming.
+		existingDocs, err := getRecords(coll, sortedDocIds)
+		if errors.Cause(err) == mgo.ErrNotFound {
+			t.logger.Warningf("unable to expire %v, no documents found", sortedDocIds)
 			return nil, jujutxn.ErrNoOperations
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return []txn.Op{{
-			C:  t.collection,
-			Id: docId,
-			Assert: bson.M{
-				fieldHolder: existingDoc.Holder,
-			},
-			Remove: true,
-		}}, nil
-	})
 
-	return errors.Annotatef(err, "%q in db", docId)
+		// Ensure that we have all the docIds represented in the existingDocs
+		// and that we haven't missed any.
+		existingDocsSet := set.NewStrings()
+		for _, doc := range existingDocs {
+			existingDocsSet.Add(doc.Id)
+		}
+		if missing := docIds.Difference(existingDocsSet); len(missing) > 0 {
+			// Not all documents are represented by the returned records query
+			// from mongo. Report a warning, but continue and expire as much as
+			// possible.
+			t.logger.Warningf("we were requested to expire leases that we did not find: %v, continuing to expire remaining documents", missing)
+		}
+
+		ops := make([]txn.Op, 0)
+		for _, doc := range existingDocs {
+			leaseDoc, ok := leaseDocs[doc.Id]
+			if !ok {
+				// This should never happen, we have an existing document, that
+				// doesn't have a leaseDoc.
+				t.logger.Warningf("missing lease document for existing document %q", doc.Id)
+				continue
+			}
+
+			if leaseDoc.Holder != doc.Holder {
+				// The holder for the document has changed. We shouldn't attempt
+				// to remove this document.
+				t.logger.Infof("lease %q is currently held by %q but we were asked to expire it for %q, skipping", leaseDoc.DocId, leaseDoc.Holder, doc.Holder)
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:  t.collection,
+				Id: doc.Id,
+				Assert: bson.M{
+					// Ensure that the lease holder is the same holder as the
+					// one we where told to expire. This should prevent the
+					// race of removing a lease that might have been changed to
+					// another holder, before the batch remove.
+					fieldHolder: leaseDoc.Holder,
+				},
+				Remove: true,
+			})
+		}
+
+		return ops, nil
+	})
+	if err == nil {
+		return nil
+	}
+
+	return errors.Annotatef(err, "%v in db", docIds.SortedValues())
 }
 
 // MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified
@@ -247,11 +327,22 @@ func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
 
 func getRecord(coll mongo.Collection, docId string) (leaseHolderDoc, error) {
 	var doc leaseHolderDoc
-	err := coll.FindId(docId).One(&doc)
-	if err != nil {
-		return leaseHolderDoc{}, err
+	if err := coll.FindId(docId).One(&doc); err != nil {
+		return leaseHolderDoc{}, errors.Trace(err)
 	}
 	return doc, nil
+}
+
+func getRecords(coll mongo.Collection, docIds []string) ([]leaseHolderDoc, error) {
+	var docs []leaseHolderDoc
+	if err := coll.Find(bson.M{
+		"_id": bson.M{
+			"$in": docIds,
+		},
+	}).Sort("_id").All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
 }
 
 // LeaseHolders returns a map of each lease and the holder in the

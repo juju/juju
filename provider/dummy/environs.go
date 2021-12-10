@@ -993,6 +993,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			queue := queue.NewOpQueue(clock.WallClock)
+
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:           statePool,
 				Controller:          estate.controller,
@@ -1021,7 +1023,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return true
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
-				RaftOpQueue:      queue.NewOpQueue(clock.WallClock),
+				RaftOpQueue:      queue,
 			})
 			if err != nil {
 				panic(err)
@@ -1033,7 +1035,14 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			abort := make(chan struct{})
 			go stateAuthenticator.Maintain(abort)
 			go func(apiServer *apiserver.Server) {
-				defer close(abort)
+				defer func() {
+					close(abort)
+
+					// Ensure we correctly kill the raft op queue when the api
+					// server goes down.
+					queue.Kill(nil)
+					_ = queue.Wait()
+				}()
 				_ = apiServer.Wait()
 			}(estate.apiServer)
 		}

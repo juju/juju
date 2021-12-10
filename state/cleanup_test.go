@@ -614,6 +614,46 @@ func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy", ch)
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+	c.Assert(app.UnitCount(), gc.Equals, 1)
+	s.assertDoesNotNeedCleanup(c)
+
+	// app `dummyfoo` and its units should not be impacted after app `dummy` was destroyed.
+	appfoo := s.AddTestingApplication(c, "dummyfoo", ch)
+	unitfoo, err := appfoo.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appfoo.Refresh(), jc.ErrorIsNil)
+	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
+	s.assertDoesNotNeedCleanup(c)
+
+	s.State.ScheduleForceCleanup(state.CleanupForceDestroyedUnit, unit.Name(), 1*time.Minute)
+	s.State.ScheduleForceCleanup(state.CleanupForceRemoveUnit, unit.Name(), 1*time.Minute)
+	s.State.ScheduleForceCleanup(state.CleanupForceApplication, app.Name(), 1*time.Minute)
+	s.assertNeedsCleanup(c)
+
+	op := app.DestroyOperation()
+	op.DestroyStorage = false
+	op.Force = true
+	op.MaxWait = 1 * time.Minute
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNeedsCleanup(c)
+	s.assertCleanupCount(c, 3)
+
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	c.Assert(unitfoo.Refresh(), jc.ErrorIsNil)
+	c.Assert(appfoo.Refresh(), jc.ErrorIsNil)
+	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
+}
+
 func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

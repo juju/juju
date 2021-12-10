@@ -277,6 +277,10 @@ type ManifoldsConfig struct {
 	// restarting the agent itself. The same architecture is also applied to
 	// pubsub. Monitoring might be useful to detect this in the future.
 	RaftOpQueue *queue.OpQueue
+
+	// DependencyEngineMetrics creates a set of metrics for a model, so it's
+	// possible to know the lifecycle of the workers in the dependency engine.
+	DependencyEngineMetrics modelworkermanager.ModelMetrics
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -725,6 +729,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MuxName:        httpServerArgsName,
 			NewWorker:      modelworkermanager.New,
 			NewModelWorker: config.NewModelWorker,
+			ModelMetrics:   config.DependencyEngineMetrics,
 			Logger:         loggo.GetLogger("juju.workers.modelworkermanager"),
 		})),
 

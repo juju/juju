@@ -516,7 +516,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		if op.app.doc.HasResources && !op.CleanupIgnoringResources {
 			if op.Force {
 				// We need to wait longer than normal for any k8s resources to be fully removed
-				// since it can take a while for the cluster to terminate rnning pods etc.
+				// since it can take a while for the cluster to terminate running pods etc.
 				logger.Debugf("scheduling forced application %q cleanup", op.app.doc.Name)
 				deadline := op.app.st.stateClock.Now().Add(2 * op.MaxWait)
 				cleanupOp := newCleanupAtOp(deadline, cleanupForceApplication, op.app.doc.Name, op.MaxWait)
@@ -715,7 +715,44 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
 	)
-	return ops, nil
+
+	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return append(ops, cancelCleanupOps...), nil
+}
+
+func (a *Application) cancelScheduledCleanupOps() ([]txn.Op, error) {
+	appOrUnitPattern := bson.DocElem{
+		Name: "prefix", Value: bson.D{
+			{Name: "$regex", Value: fmt.Sprintf("^%s(/[0-9]+)*$", a.Name())},
+		},
+	}
+	// No unit and app exists now, so cancel the below scheduled cleanup docs to avoid new resources of later deployment
+	// getting removed accidentally because we re-use unit numbers for sidecar applications.
+	cancelCleanupOpsArgs := []cancelCleanupOpsArg{
+		{cleanupForceDestroyedUnit, appOrUnitPattern},
+		{cleanupForceRemoveUnit, appOrUnitPattern},
+		{cleanupForceApplication, appOrUnitPattern},
+	}
+	relations, err := a.Relations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, rel := range relations {
+		cancelCleanupOpsArgs = append(cancelCleanupOpsArgs, cancelCleanupOpsArg{
+			cleanupForceDestroyedRelation,
+			bson.DocElem{
+				Name: "prefix", Value: relationKey(rel.Endpoints())},
+		})
+	}
+
+	cancelCleanupOps, err := a.st.cancelCleanupOps(cancelCleanupOpsArgs...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cancelCleanupOps, nil
 }
 
 // IsExposed returns whether this application is exposed. The explicitly open

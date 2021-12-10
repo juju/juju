@@ -1096,3 +1096,13 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	}
 	return nil
 }
+
+var (
+	CleanupForceDestroyedUnit = cleanupForceDestroyedUnit
+	CleanupForceRemoveUnit    = cleanupForceRemoveUnit
+	CleanupForceApplication   = cleanupForceApplication
+)
+
+func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
+	st.scheduleForceCleanup(kind, name, maxWait)
+}

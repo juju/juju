@@ -21,6 +21,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -146,9 +147,15 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
 
+	controllerCloudSpec, err := c.getControllerCloudSpecFromStore(ctx, store, controllerName)
+	if err != nil {
+		logger.Debugf("unable to get controller %q cloud spec from local store", controllerName)
+		controllerCloudSpec = cloudspec.CloudSpec{}
+	}
+
 	uuid := controllerEnviron.Config().UUID()
 	if err := c.WaitForModels(ctx, api, uuid); err != nil {
-		c.DirectDestroyRemaining(ctx, api)
+		c.DirectDestroyRemaining(ctx, api, controllerCloudSpec)
 	}
 	return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 }
@@ -181,7 +188,11 @@ func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destro
 
 // DirectDestroyRemaining will attempt to directly destroy any remaining
 // models that have machines left.
-func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyControllerAPI) {
+func (c *killCommand) DirectDestroyRemaining(
+	ctx *cmd.Context,
+	api destroyControllerAPI,
+	controllerCloudSpec cloudspec.CloudSpec) {
+
 	hasErrors := false
 	hostedConfig, err := api.HostedModelConfigs()
 	if err != nil {
@@ -219,10 +230,17 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 			hasErrors = true
 			continue
 		}
+
+		modelCloudSpec, err := transformModelCloudSpecForInstanceRoles(model.Name, model.CloudSpec, controllerCloudSpec)
+		if err != nil {
+			logger.Errorf("could not kill %s directly: %v", model.Name, err)
+			continue
+		}
+
 		if cloudProvider, ok := p.(environs.EnvironProvider); ok {
 			openParams := environs.OpenParams{
 				ControllerUUID: ctrlUUID,
-				Cloud:          model.CloudSpec,
+				Cloud:          modelCloudSpec,
 				Config:         cfg,
 			}
 			var env environs.CloudDestroyer
@@ -250,6 +268,26 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 	} else {
 		ctx.Infof("All hosted models destroyed, cleaning up controller machines")
 	}
+}
+
+// transformModelCloudSpecForInstanceRoles is a temporary hack for dealing ec2
+// instance role credentials for cleaning up AWS resources client side as we
+// can't use the instance role credentials from the client. A better solution
+// exists but requires a significant refactor.
+// tlm 9/12/2021
+func transformModelCloudSpecForInstanceRoles(
+	modelName string,
+	modelCloudSpec cloudspec.CloudSpec,
+	controllerCloudSpec cloudspec.CloudSpec,
+) (cloudspec.CloudSpec, error) {
+	if modelCloudSpec.Type == "ec2" && modelCloudSpec.Credential.AuthType() == cloud.InstanceRoleAuthType {
+		if modelCloudSpec.Type != controllerCloudSpec.Type ||
+			modelCloudSpec.Name != controllerCloudSpec.Name {
+			return modelCloudSpec, errors.NotSupportedf("model %q uses instance profile credentials, can't destroy model. It will have to be cleaned up manually", modelName)
+		}
+		return controllerCloudSpec, nil
+	}
+	return modelCloudSpec, nil
 }
 
 func (c *killCommand) credentialAPIFunctionForModel(modelName string) newCredentialAPIFunc {

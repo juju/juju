@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20211124224737-13a5e875b6a1
+	github.com/canonical/pebble v0.0.0-20211208232418-4d9bc7c18005
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -88,7 +88,7 @@ require (
 	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
 	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.0.0-20211015025416-7586be9e222a
+	github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
