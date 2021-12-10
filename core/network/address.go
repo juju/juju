@@ -287,6 +287,18 @@ func (a MachineAddress) ValueWithMask() (string, error) {
 	return ipNet.String(), nil
 }
 
+// AsProviderAddress is used to construct a ProviderAddress out
+// out of a MachineAddress
+func (a MachineAddress) AsProviderAddress(options ...func(mutator ProviderAddressMutator)) ProviderAddress {
+	addr := ProviderAddress{MachineAddress: a}
+
+	for _, option := range options {
+		option(&addr)
+	}
+
+	return addr
+}
+
 // NewMachineAddress creates a new MachineAddress,
 // applying any supplied options to the result.
 func NewMachineAddress(value string, options ...func(AddressMutator)) MachineAddress {
@@ -411,15 +423,6 @@ func NewProviderAddress(value string, options ...func(AddressMutator)) ProviderA
 	return ProviderAddress{MachineAddress: NewMachineAddress(value, options...)}
 }
 
-// NewProviderAddressInSpace creates a new ProviderAddress,
-// associating it with the given space name.
-func NewProviderAddressInSpace(spaceName string, value string, options ...func(AddressMutator)) ProviderAddress {
-	return ProviderAddress{
-		MachineAddress: NewMachineAddress(value, options...),
-		SpaceName:      SpaceName(spaceName),
-	}
-}
-
 // ProviderAddresses is a slice of ProviderAddress
 // supporting conversion to SpaceAddresses.
 type ProviderAddresses []ProviderAddress
@@ -439,7 +442,7 @@ func NewProviderAddresses(inAddresses ...string) (outAddresses ProviderAddresses
 func NewProviderAddressesInSpace(spaceName string, inAddresses ...string) (outAddresses ProviderAddresses) {
 	outAddresses = make(ProviderAddresses, len(inAddresses))
 	for i, address := range inAddresses {
-		outAddresses[i] = NewProviderAddressInSpace(spaceName, address)
+		outAddresses[i] = NewMachineAddress(address).AsProviderAddress(WithSpaceName(spaceName))
 	}
 	return outAddresses
 }

@@ -515,11 +515,11 @@ func (s *HostPortSuite) TestSpaceHostPortsToProviderHostPorts(c *gc.C) {
 
 	exp := network.ProviderHostPorts{
 		{
-			ProviderAddress: network.NewProviderAddressInSpace("space-one", "1.2.3.4"),
+			ProviderAddress: network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
 			NetPort:         1234,
 		},
 		{
-			ProviderAddress: network.NewProviderAddressInSpace("space-two", "2.3.4.5"),
+			ProviderAddress: network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
 			NetPort:         1234,
 		},
 		{
