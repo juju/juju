@@ -264,7 +264,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
 			return &caas.Service{
 				Id:        "deadbeef",
-				Addresses: network.NewProviderAddresses("10.6.6.6"),
+				Addresses: network.NewMachineAddresses([]string{"10.6.6.6"}).AsProviderAddresses(),
 			}, nil
 		}),
 		tc.unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{
@@ -377,7 +377,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
 			return &caas.Service{
 				Id:        "deadbeef",
-				Addresses: network.NewProviderAddresses("10.6.6.6"),
+				Addresses: network.NewMachineAddresses([]string{"10.6.6.6"}).AsProviderAddresses(),
 			}, nil
 		}),
 		tc.unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{

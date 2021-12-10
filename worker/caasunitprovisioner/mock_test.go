@@ -68,7 +68,10 @@ func (m *mockServiceBroker) GetService(appName string, mode caas.DeploymentMode,
 	m.MethodCall(m, "GetService", appName, mode)
 	scale := 4
 	return &caas.Service{
-		Id: "id", Scale: &scale, Addresses: network.NewProviderAddresses("10.0.0.1"), Status: m.serviceStatus,
+		Id:        "id",
+		Scale:     &scale,
+		Addresses: network.NewMachineAddresses([]string{"10.0.0.1"}).AsProviderAddresses(),
+		Status:    m.serviceStatus,
 	}, m.NextErr()
 }
 

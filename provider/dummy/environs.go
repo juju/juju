@@ -838,7 +838,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	series := config.PreferredSeries(e.Config())
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
-		addresses:    network.NewProviderAddresses("localhost"),
+		addresses:    network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(),
 		machineId:    agent.BootstrapControllerId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1216,7 +1216,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	// Add the addresses we want to see in the machine doc. This means both
 	// IPv4 and IPv6 loopback, as well as the DNS name.
-	addrs := network.NewProviderAddresses(idString+".dns", "127.0.0.1", "::1")
+	addrs := network.NewMachineAddresses([]string{idString + ".dns", "127.0.0.1", "::1"}).AsProviderAddresses()
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
@@ -1486,7 +1486,7 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []ins
 						network.WithConfigType(network.ConfigDHCP),
 					).AsProviderAddress(),
 				},
-				DNSServers: network.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+				DNSServers: network.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
 				GatewayAddress: network.NewMachineAddress(
 					fmt.Sprintf("0.%d.0.1", (i+1)*10+idIndex),
 				).AsProviderAddress(),

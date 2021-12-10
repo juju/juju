@@ -142,8 +142,8 @@ func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
 	})
 }
 
-func (s *AddressSuite) TestNewProviderAddressesInSpace(c *gc.C) {
-	addrs := network.NewProviderAddressesInSpace("bar", "0.2.3.4", "fc00::1")
+func (s *AddressSuite) TestAsProviderAddresses(c *gc.C) {
+	addrs := network.NewMachineAddresses([]string{"0.2.3.4", "fc00::1"}).AsProviderAddresses(network.WithSpaceName("bar"))
 	c.Check(addrs, jc.DeepEquals, network.ProviderAddresses{{
 		MachineAddress: network.MachineAddress{
 			Value: "0.2.3.4",

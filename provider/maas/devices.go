@@ -248,8 +248,9 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 				).AsProviderAddress(corenetwork.WithSpaceName(link.Subnet.Space))
 			}
 			if len(link.Subnet.DNSServers) > 0 {
-				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(
-					link.Subnet.Space, link.Subnet.DNSServers...)
+				nicInfo.DNSServers = corenetwork.NewMachineAddresses(
+					link.Subnet.DNSServers,
+				).AsProviderAddresses(corenetwork.WithSpaceName(link.Subnet.Space))
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)
@@ -338,7 +339,9 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 				).AsProviderAddress(corenetwork.WithSpaceName(subnet.Space()))
 			}
 			if len(subnet.DNSServers()) > 0 {
-				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(subnet.Space(), subnet.DNSServers()...)
+				nicInfo.DNSServers = corenetwork.NewMachineAddresses(
+					subnet.DNSServers(),
+				).AsProviderAddresses(corenetwork.WithSpaceName(subnet.Space()))
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)

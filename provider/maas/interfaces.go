@@ -296,7 +296,7 @@ func maasObjectNetworkInterfaces(
 			}
 
 			gwAddr := corenetwork.NewMachineAddress(sub.GatewayIP).AsProviderAddress(corenetwork.WithSpaceName(space))
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers...)
+			nicInfo.DNSServers = corenetwork.NewMachineAddresses(sub.DNSServers).AsProviderAddresses(corenetwork.WithSpaceName(space))
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {
@@ -421,7 +421,7 @@ func maas2NetworkInterfaces(
 			}
 
 			gwAddr := corenetwork.NewMachineAddress(sub.Gateway()).AsProviderAddress(corenetwork.WithSpaceName(space))
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers()...)
+			nicInfo.DNSServers = corenetwork.NewMachineAddresses(sub.DNSServers()).AsProviderAddresses(corenetwork.WithSpaceName(space))
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {

@@ -302,7 +302,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
-			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
+			DNSServers:          network.NewMachineAddresses(v.DNSServers).AsProviderAddresses(),
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      network.NewMachineAddress(v.GatewayAddress).AsProviderAddress(),
 			Routes:              routes,

@@ -69,7 +69,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewMachineAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")).AsProviderAddress()},
-		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
+		DNSServers:       corenetwork.NewMachineAddresses([]string{"ns1.invalid", "ns2.invalid"}).AsProviderAddresses(),
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewMachineAddress("0.1.2.1").AsProviderAddress(),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
@@ -80,7 +80,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewMachineAddress("0.2.2.4", corenetwork.WithCIDR("0.2.2.0/24")).AsProviderAddress()},
-		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
+		DNSServers:       corenetwork.NewMachineAddresses([]string{"ns1.invalid", "ns2.invalid"}).AsProviderAddresses(),
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewMachineAddress("0.2.2.1").AsProviderAddress(),
 		MACAddress:       "aa:bb:cc:dd:ee:f1",

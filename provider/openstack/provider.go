@@ -1492,7 +1492,7 @@ func (e *Environ) networksForInstance(
 		netInfo[i] = network.InterfaceInfo{
 			InterfaceName: fmt.Sprintf("eth%d", i),
 			MACAddress:    port.MACAddress,
-			Addresses:     network.NewProviderAddresses(ips...),
+			Addresses:     network.NewMachineAddresses(ips).AsProviderAddresses(),
 			ConfigType:    network.ConfigDHCP,
 			Origin:        network.OriginProvider,
 		}

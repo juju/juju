@@ -252,7 +252,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"0.10.0.2", corenetwork.WithCIDR("0.10.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
 		GatewayAddress: corenetwork.NewMachineAddress("0.10.0.1").AsProviderAddress(),
 		Origin:         corenetwork.OriginProvider,
 	}, {
@@ -268,7 +268,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"0.20.0.2", corenetwork.WithCIDR("0.20.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
 		GatewayAddress: corenetwork.NewMachineAddress("0.20.0.1").AsProviderAddress(),
 		Origin:         corenetwork.OriginProvider,
 	}, {
@@ -284,7 +284,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"0.30.0.2", corenetwork.WithCIDR("0.30.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
 		GatewayAddress: corenetwork.NewMachineAddress("0.30.0.1").AsProviderAddress(),
 		Origin:         corenetwork.OriginProvider,
 	}}
