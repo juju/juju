@@ -29,6 +29,7 @@ const (
 )
 
 const (
+	metricLogReadLabelSuccess    = "success"
 	metricLogReadLabelError      = "error"
 	metricLogReadLabelDisconnect = "disconnect"
 )
@@ -332,6 +333,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 				_ = socket.WriteMessage(gorillaws.CloseMessage, []byte{})
 				return
 			}
+			h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelSuccess).Inc()
 
 			// Rate-limit receipt of log messages. We rate-limit
 			// each connection individually to prevent one noisy
