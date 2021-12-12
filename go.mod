@@ -158,3 +158,5 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
+
+replace github.com/canonical/pebble => github.com/benhoyt/pebble v0.0.0-20211130045920-54504598a68e
