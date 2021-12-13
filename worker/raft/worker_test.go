@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
@@ -28,7 +29,7 @@ type workerFixture struct {
 	fsm        *raft.SimpleFSM
 	config     raft.Config
 	queue      *queue.OpQueue
-	operations chan []queue.Operation
+	operations chan []queue.OutOperation
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -36,7 +37,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 
 	s.fsm = &raft.SimpleFSM{}
 	s.queue = queue.NewOpQueue(clock.WallClock)
-	s.operations = make(chan []queue.Operation)
+	s.operations = make(chan []queue.OutOperation)
 
 	s.config = raft.Config{
 		FSM:          s.fsm,
@@ -54,10 +55,10 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 }
 
 type testLeaseApplier struct {
-	operations chan []queue.Operation
+	operations chan []queue.OutOperation
 }
 
-func (a testLeaseApplier) ApplyOperation(ops []queue.Operation, _ time.Duration) {
+func (a testLeaseApplier) ApplyOperation(ops []queue.OutOperation, _ time.Duration) {
 	a.operations <- ops
 }
 
@@ -400,9 +401,12 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 // the operation was processed. That's up to the apply test suite.
 
 func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
-	cmd := []byte("do it")
+	cmd := raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}
 
-	results := make(chan []queue.Operation)
+	results := make(chan []queue.OutOperation)
 	go func() {
 		defer close(results)
 
@@ -416,7 +420,7 @@ func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
 	s.waitLeader(c)
 
 	done := make(chan error)
-	s.queue.Enqueue(queue.Operation{
+	err := s.queue.Enqueue(queue.InOperation{
 		Command: cmd,
 		Done: func(err error) {
 			go func() {
@@ -424,6 +428,7 @@ func (s *WorkerSuite) TestApplyOperation(c *gc.C) {
 			}()
 		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	var amount int
 loop:
@@ -431,7 +436,12 @@ loop:
 		select {
 		case ops := <-results:
 			c.Assert(len(ops), gc.Equals, 1)
-			c.Assert(ops[0].Command, gc.DeepEquals, cmd)
+
+			op := ops[0].Command
+			var got raftlease.Command
+			err := yaml.Unmarshal(op, &got)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(got, gc.DeepEquals, cmd)
 
 			amount++
 			break loop

@@ -165,7 +165,7 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 	}
 
 	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{
-		Agent:                  agent.APIHostPortsSetter{m},
+		Agent:                  agent.APIHostPortsSetter{Agent: m},
 		AgentConfigChanged:     m.configChangedVal,
 		NewContainerBrokerFunc: caas.New,
 		Port:                   port,
@@ -176,7 +176,9 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 		UpgradeStepsLock:       m.upgradeComplete,
 	})
 
-	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
+	// TODO (stickupkid): There is no prometheus registry at this level, we
+	// should work out the best way to get it into here.
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(dependency.DefaultMetrics()))
 	if err != nil {
 		return nil, err
 	}

@@ -150,7 +150,10 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 			continue
 		}
 
-		newProviderAddrs, err := mapNetworkConfigsToProviderAddresses(arg.Configs, spaceInfos)
+		configs := arg.Configs
+		logger.Tracef("provider network config for machine %q: %+v", machine.Id(), configs)
+
+		newProviderAddrs, err := mapNetworkConfigsToProviderAddresses(configs, spaceInfos)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -173,7 +176,7 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
-		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(arg.Configs)); err != nil {
+		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
 			logger.Errorf(
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
 					"waiting until next instance-poller run to retry", machine.Id(), err)

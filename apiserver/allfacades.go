@@ -324,6 +324,7 @@ func AllFacades() *facade.Registry {
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 
 	reg("RaftLease", 1, raftlease.NewFacadeV1)
+	reg("RaftLease", 2, raftlease.NewFacadeV2)
 
 	reg("Reboot", 2, reboot.NewRebootAPI)
 	reg("RemoteRelations", 1, remoterelations.NewAPIv1)

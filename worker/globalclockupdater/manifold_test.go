@@ -238,8 +238,7 @@ func (noopTarget) Claimed(lease.Key, string) error {
 	return nil
 }
 
-// Expired will be called when an existing lease has expired. Not
-// allowed to return an error because this is purely advisory.
-func (noopTarget) Expired(lease.Key) error {
+// Expired will be called when a set if existing leases have expired.
+func (noopTarget) Expiries([]raftlease.Expired) error {
 	return nil
 }

@@ -195,7 +195,10 @@ func (f *FSM) revoke(key lease.Key, holder string) *response {
 	if len(entries) == 0 {
 		delete(f.groups, groupKeyFor(key))
 	}
-	return &response{expired: []lease.Key{key}}
+	return &response{expired: []Expired{{
+		Key:    key,
+		Holder: holder,
+	}}}
 }
 
 func (f *FSM) pin(key lease.Key, entity string) *response {
@@ -224,14 +227,17 @@ func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 // removeExpired deletes leases that have expired and
 // returns a collection of the deleted lease keys.
 // Pinned leases are not deleted.
-func (f *FSM) removeExpired(newTime time.Time) []lease.Key {
-	var expired []lease.Key
+func (f *FSM) removeExpired(newTime time.Time) []Expired {
+	var expired []Expired
 	for gKey, entries := range f.groups {
 		for key, entry := range entries {
 			expiry := entry.start.Add(entry.duration)
 			if expiry.Before(newTime) && !f.isPinned(key) {
 				delete(entries, key)
-				expired = append(expired, key)
+				expired = append(expired, Expired{
+					Key:    key,
+					Holder: entry.holder,
+				})
 			}
 		}
 		if len(entries) == 0 {
@@ -365,12 +371,19 @@ type entry struct {
 
 var _ FSMResponse = (*response)(nil)
 
+// Expired holds the expiry for a given lease. It includes the information about
+// the current existing holder.
+type Expired struct {
+	Key    lease.Key
+	Holder string
+}
+
 // response stores what happened as a result of applying a command.
 type response struct {
 	err     error
 	claimer string
 	claimed lease.Key
-	expired []lease.Key
+	expired []Expired
 }
 
 // Error is part of FSMResponse.
@@ -388,9 +401,10 @@ func (r *response) Notify(target NotifyTarget) error {
 			errs = append(errs, errors.Annotatef(err, "claim lease"))
 		}
 	}
-	for _, expiredKey := range r.expired {
-		if err := target.Expired(expiredKey); err != nil {
-			errs = append(errs, errors.Annotatef(err, "expire lease"))
+	// One call expiries when we have some expired keys.
+	if len(r.expired) > 0 {
+		if err := target.Expiries(r.expired); err != nil {
+			errs = append(errs, errors.Annotatef(err, "expirying leases"))
 		}
 	}
 	if errs == nil {
