@@ -1,13 +1,13 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backups_test
+package backups
 
 import (
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
 	backupstesting "github.com/juju/juju/state/backups/testing"
@@ -20,30 +20,22 @@ type createSuite struct {
 var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) TestCreate(c *gc.C) {
-	cleanup := backups.PatchClientFacadeCall(s.client,
-		func(req string, paramsIn interface{}, resp interface{}) error {
-			c.Check(req, gc.Equals, "Create")
+	defer s.setupMocks(c).Finish()
 
-			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsCreateArgs{})
-			p := paramsIn.(params.BackupsCreateArgs)
-			c.Check(p.Notes, gc.Equals, "important")
-			c.Check(p.KeepCopy, jc.IsFalse)
-			c.Check(p.NoDownload, jc.IsFalse)
+	arg := params.BackupsCreateArgs{
+		Notes:      "important",
+		NoDownload: true,
+	}
+	meta := backupstesting.NewMetadata()
+	result := apiserverbackups.CreateResult(meta, "test-filename")
+	result.Notes = arg.Notes
 
-			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				*result = apiserverbackups.CreateResult(s.Meta, "test-filename")
-				result.Notes = p.Notes
-			} else {
-				c.Fatalf("wrong output structure")
-			}
-			return nil
-		},
-	)
-	defer cleanup()
+	s.facade.EXPECT().FacadeCall("Create", arg, gomock.Any()).SetArg(2, result)
 
-	result, err := s.client.Create("important", false, false)
+	client := s.newClient()
+	got, err := client.Create("important", true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Log(result)
-	meta := backupstesting.UpdateNotes(s.Meta, "important")
-	s.checkMetadataResult(c, result, meta)
+	c.Log(got)
+	resultMeta := backupstesting.UpdateNotes(meta, "important")
+	s.checkMetadataResult(c, got, resultMeta)
 }

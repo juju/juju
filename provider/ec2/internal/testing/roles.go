@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -109,6 +110,52 @@ func (i *IAMServer) GetRole(
 	return &iam.GetRoleOutput{
 		Role: role,
 	}, nil
+}
+
+func (i *IAMServer) ListRoles(
+	ctx context.Context,
+	input *iam.ListRolesInput,
+	opts ...func(*iam.Options),
+) (*iam.ListRolesOutput, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	rval := &iam.ListRolesOutput{
+		Roles:       []types.Role{},
+		IsTruncated: false,
+	}
+
+	for _, role := range i.roles {
+		if strings.HasPrefix(*role.Path, *input.PathPrefix) {
+			rval.Roles = append(rval.Roles, *role)
+		}
+	}
+
+	return rval, nil
+}
+
+func (i *IAMServer) ListRolePolicies(
+	ctx context.Context,
+	input *iam.ListRolePoliciesInput,
+	opts ...func(*iam.Options),
+) (*iam.ListRolePoliciesOutput, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	_, exists := i.roles[*input.RoleName]
+	if !exists {
+		return nil, apiError("InvalidRole.NotFound", "role not found")
+	}
+
+	rval := &iam.ListRolePoliciesOutput{
+		PolicyNames: []string{},
+		IsTruncated: false,
+	}
+	if policy, exists := i.roleInlinePolicy[*input.RoleName]; exists {
+		rval.PolicyNames = []string{*policy.PolicyName}
+	}
+
+	return rval, nil
 }
 
 func (i *IAMServer) PutRolePolicy(

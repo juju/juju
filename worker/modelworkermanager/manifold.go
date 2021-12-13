@@ -33,6 +33,7 @@ type ManifoldConfig struct {
 	MuxName        string
 	NewWorker      func(Config) (worker.Worker, error)
 	NewModelWorker NewModelWorkerFunc
+	ModelMetrics   ModelMetrics
 	Logger         Logger
 }
 
@@ -55,6 +56,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewModelWorker == nil {
 		return errors.NotValidf("nil NewModelWorker")
+	}
+	if config.ModelMetrics == nil {
+		return errors.NotValidf("nil ModelMetrics")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -112,6 +116,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Logger:         config.Logger,
 		MachineID:      machineID,
 		ModelWatcher:   statePool.SystemState(),
+		ModelMetrics:   config.ModelMetrics,
 		Mux:            mux,
 		Controller:     StatePoolController{statePool},
 		NewModelWorker: config.NewModelWorker,

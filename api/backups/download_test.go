@@ -1,19 +1,17 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backups_test
+package backups
 
 import (
+	"context"
 	"io/ioutil"
-	"strings"
+	"net/http"
+	"net/http/httptest"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/testing"
+	"gopkg.in/httprequest.v1"
 )
 
 type downloadSuite struct {
@@ -22,36 +20,26 @@ type downloadSuite struct {
 
 var _ = gc.Suite(&downloadSuite{})
 
-func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
-	db := struct {
-		*state.State
-		*state.Model
-	}{s.State, s.Model}
-	store := backups.NewStorage(db)
-	defer store.Close()
-	backupsState := backups.NewBackups(store)
+func (s *downloadSuite) TestDownload(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	r := strings.NewReader("<compressed archive data>")
-	meta, err := backups.NewMetadataState(db, "0", "xenial")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta.CACert, gc.Equals, testing.CACert)
-	c.Assert(meta.CAPrivateKey, gc.Equals, testing.CAKey)
-	// The Add method requires the length to be set
-	// otherwise the content is assumed to have length 0.
-	meta.Raw.Size = int64(r.Len())
-	id, err := backupsState.Add(r, meta)
-	c.Assert(err, jc.ErrorIsNil)
-	resultArchive, err := s.client.Download(id)
-	c.Assert(err, jc.ErrorIsNil)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.URL.String(), gc.Equals, "/backups")
+		_, err := w.Write([]byte("success"))
+		c.Assert(err, jc.ErrorIsNil)
+	}))
+	defer srv.Close()
+	httpClient := &httprequest.Client{BaseURL: srv.URL}
 
-	resultData, err := ioutil.ReadAll(resultArchive)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(resultData), gc.Equals, "<compressed archive data>")
-}
+	s.apiCaller.EXPECT().HTTPClient().Return(httpClient, nil)
+	s.apiCaller.EXPECT().Context().Return(context.TODO())
 
-func (s *downloadSuite) TestFailedRequest(c *gc.C) {
-	resultArchive, err := s.client.Download("unknown")
-	c.Assert(err, gc.ErrorMatches, `.*backup metadata "unknown" not found$`)
-	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
-	c.Assert(resultArchive, gc.Equals, nil)
+	client := s.newClient()
+	rdr, err := client.Download("/path/to/backup")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = rdr.Close() }()
+
+	data, err := ioutil.ReadAll(rdr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, "success")
 }

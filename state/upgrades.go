@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/upgrade"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/tools"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -1327,7 +1328,7 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	return relations, nil
 }
 
-// unitAppName returns the name of the Application, given a Units name.
+// unitAppName returns the name of the Application, given a Unit's name.
 func unitAppName(unitName string) string {
 	unitParts := strings.Split(unitName, "/")
 	return unitParts[0]
@@ -2897,13 +2898,34 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 	coll, closer := st.db().GetRawCollection(unitsC)
 	defer closer()
 
-	// Load all the units into a map by full ID.
-	units := make(map[string]*unitDoc)
+	// unitDoc28 represents the unit document as at Juju version 2.8,
+	// to which this upgrade step applies.
+	// Later, in version 2.9.23, CharmURL was stored as *string
+	// instead of *charm.URL.
+	type unitDoc28 struct {
+		DocID                  string `bson:"_id"`
+		Name                   string `bson:"name"`
+		ModelUUID              string `bson:"model-uuid"`
+		Application            string
+		Series                 string
+		CharmURL               *charm.URL
+		Principal              string
+		Subordinates           []string
+		StorageAttachmentCount int `bson:"storageattachmentcount"`
+		MachineId              string
+		Resolved               ResolvedMode
+		Tools                  *tools.Tools `bson:",omitempty"`
+		Life                   Life
+		PasswordHash           string
+	}
 
-	var doc unitDoc
+	// Load all the units into a map by full ID.
+	units := make(map[string]*unitDoc28)
+
+	var doc unitDoc28
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		// Make a copy of the unitDoc and put the copy
+		// Make a copy of the doc and put the copy
 		// into the map.
 		unit := doc
 		units[unit.DocID] = &unit
@@ -2912,7 +2934,7 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 		return errors.Trace(err)
 	}
 
-	// Iterate through he map and find any subordinates.
+	// Iterate through the map and find any subordinates.
 	// For the subordinates, look up the principal and get their
 	// machine ID. If there is a machine ID (CAAS models won't have one),
 	// we create and operation to set the machine ID on the subordinate.
@@ -3869,5 +3891,45 @@ func CleanupDeadAssignUnits(pool *StatePool) error {
 			return errors.Trace(st.db().RunTransaction(ops))
 		}
 		return nil
+	}))
+}
+
+// RemoveOrphanedLinkLayerDevices removes link-layer devices and addresses
+// that have no corresponding machine in the model.
+// This situation could occur in the past for force-destroyed machines.
+func RemoveOrphanedLinkLayerDevices(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		machines, mCloser := st.db().GetCollection(machinesC)
+		defer mCloser()
+		iter := machines.Find(nil).Iter()
+
+		machineIDs := set.NewStrings()
+		var mDoc struct {
+			ID string `bson:"machineid"`
+		}
+		for iter.Next(&mDoc) {
+			machineIDs.Add(mDoc.ID)
+		}
+
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		linkLayerDevices, lldCloser := st.db().GetCollection(linkLayerDevicesC)
+		defer lldCloser()
+		iter = linkLayerDevices.Find(nil).Iter()
+
+		var devDoc linkLayerDeviceDoc
+		for iter.Next(&devDoc) {
+			if machineIDs.Contains(devDoc.MachineID) {
+				continue
+			}
+			if err := newLinkLayerDevice(st, devDoc).Remove(); err != nil {
+				_ = iter.Close()
+				return errors.Trace(err)
+			}
+		}
+
+		return errors.Trace(iter.Close())
 	}))
 }

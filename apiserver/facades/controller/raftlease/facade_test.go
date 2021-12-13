@@ -5,6 +5,7 @@ package raftlease
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/golang/mock/gomock"
@@ -14,29 +15,58 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/raftlease"
 )
 
 type RaftLeaseSuite struct {
 	testing.IsolationSuite
 
-	auth *MockAuthorizer
-	raft *MockRaftContext
+	context *MockContext
+	auth    *MockAuthorizer
+	raft    *MockRaftContext
 }
 
 var _ = gc.Suite(&RaftLeaseSuite{})
 
-func (s *RaftLeaseSuite) TestApplyLease(c *gc.C) {
+func (s *RaftLeaseSuite) TestApplyLeaseV1(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.auth.EXPECT().AuthController().Return(true)
-	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it")).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}).Return(nil)
 
-	facade, err := NewFacade(s.auth, s.raft)
+	facade, err := NewFacadeV1(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
 		Operations: []params.LeaseOperation{{
-			Command: "do it",
+			Command: MustCreateStringCommand(c, "singular-worker"),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: make([]params.ErrorResult, 1),
+	})
+}
+
+func (s *RaftLeaseSuite) TestApplyLeaseV2(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.auth.EXPECT().AuthController().Return(true)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker",
+	}).Return(nil)
+
+	facade, err := NewFacadeV2(s.context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := facade.ApplyLease(context.Background(), params.LeaseOperationsV2{
+		Operations: []params.LeaseOperationCommand{{
+			Operation: "claim",
+			Lease:     "singular-worker",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,19 +79,28 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.auth.EXPECT().AuthController().Return(true)
-	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 0")).Return(nil)
-	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 1")).Return(apiservererrors.NewNotLeaderError("10.0.0.8", "1"))
+	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker-0",
+	}).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker-1",
+	}).Return(apiservererrors.NewNotLeaderError("10.0.0.8", "1"))
 
-	facade, err := NewFacade(s.auth, s.raft)
+	facade, err := NewFacadeV2(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
-		Operations: []params.LeaseOperation{{
-			Command: "do it 0",
+	results, err := facade.ApplyLease(context.Background(), params.LeaseOperationsV2{
+		Operations: []params.LeaseOperationCommand{{
+			Operation: "claim",
+			Lease:     "singular-worker-0",
 		}, {
-			Command: "do it 1",
+			Operation: "claim",
+			Lease:     "singular-worker-1",
 		}, {
-			Command: "do it 2",
+			Operation: "claim",
+			Lease:     "singular-worker-2",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,20 +127,32 @@ func (s *RaftLeaseSuite) TestApplyLeaseError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.auth.EXPECT().AuthController().Return(true)
-	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 0")).Return(nil)
-	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 1")).Return(errors.New("boom"))
-	s.raft.EXPECT().ApplyLease(gomock.Any(), []byte("do it 2")).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker-0",
+	}).Return(nil)
+	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker-1",
+	}).Return(errors.New("boom"))
+	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
+		Operation: "claim",
+		Lease:     "singular-worker-2",
+	}).Return(nil)
 
-	facade, err := NewFacade(s.auth, s.raft)
+	facade, err := NewFacade(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
-		Operations: []params.LeaseOperation{{
-			Command: "do it 0",
+	results, err := facade.ApplyLease(context.Background(), params.LeaseOperationsV2{
+		Operations: []params.LeaseOperationCommand{{
+			Operation: "claim",
+			Lease:     "singular-worker-0",
 		}, {
-			Command: "do it 1",
+			Operation: "claim",
+			Lease:     "singular-worker-1",
 		}, {
-			Command: "do it 2",
+			Operation: "claim",
+			Lease:     "singular-worker-2",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,12 +168,21 @@ func (s *RaftLeaseSuite) TestApplyLeaseError(c *gc.C) {
 	})
 }
 
-func (s *RaftLeaseSuite) TestApplyLeaseAuthFailure(c *gc.C) {
+func (s *RaftLeaseSuite) TestApplyLeaseAuthFailureV1(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.auth.EXPECT().AuthController().Return(false)
 
-	_, err := NewFacade(s.auth, s.raft)
+	_, err := NewFacadeV1(s.context)
+	c.Assert(err, gc.ErrorMatches, `permission denied`)
+}
+
+func (s *RaftLeaseSuite) TestApplyLeaseAuthFailureV2(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.auth.EXPECT().AuthController().Return(false)
+
+	_, err := NewFacadeV2(s.context)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
@@ -132,5 +192,20 @@ func (s *RaftLeaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.auth = NewMockAuthorizer(ctrl)
 	s.raft = NewMockRaftContext(ctrl)
 
+	s.context = NewMockContext(ctrl)
+	s.context.EXPECT().Auth().Return(s.auth).AnyTimes()
+	s.context.EXPECT().Raft().Return(s.raft).AnyTimes()
+
 	return ctrl
+}
+
+func MustCreateStringCommand(c *gc.C, lease string) string {
+	cmd := params.LeaseOperationCommand{
+		Operation: "claim",
+		Lease:     lease,
+	}
+	bytes, err := json.Marshal(cmd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return string(bytes)
 }

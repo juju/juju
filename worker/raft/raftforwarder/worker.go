@@ -31,6 +31,7 @@ type Logger interface {
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 

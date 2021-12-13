@@ -49,6 +49,10 @@ func (s *ManifoldSuite) makeManifold() dependency.Manifold {
 	})
 }
 
+func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	s.stub.ResetCalls()
+}
+
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
 	manifold := s.makeManifold()
 	c.Check(manifold.Inputs, jc.SameContents, []string{"agent", "api-caller", "environ"})

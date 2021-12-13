@@ -75,6 +75,10 @@ const (
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
+	// NumProvisionWorkersKey is the key for the number of provisioner
+	// workers settings.
+	NumProvisionWorkersKey = "num-provision-workers"
+
 	// AgentStreamKey stores the key for this setting.
 	AgentStreamKey = "agent-stream"
 
@@ -487,6 +491,7 @@ var defaultConfigValues = map[string]interface{}{
 
 	"default-series":              jujuversion.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
+	NumProvisionWorkersKey:        16,
 	ResourceTagsKey:               "",
 	"logging-config":              "",
 	AutomaticallyRetryHooks:       true,
@@ -1300,6 +1305,12 @@ func (c *Config) ProvisionerHarvestMode() HarvestMode {
 	}
 }
 
+// NumProvisionWorkers returns the number of provisioner workers to use.
+func (c *Config) NumProvisionWorkers() int {
+	value, _ := c.defined[NumProvisionWorkersKey].(int)
+	return value
+}
+
 // ImageStream returns the simplestreams stream
 // used to identify which image ids to search
 // when starting an instance.
@@ -1626,6 +1637,7 @@ var alwaysOptional = schema.Defaults{
 	"firewall-mode":               schema.Omit,
 	"logging-config":              schema.Omit,
 	ProvisionerHarvestModeKey:     schema.Omit,
+	NumProvisionWorkersKey:        schema.Omit,
 	HTTPProxyKey:                  schema.Omit,
 	HTTPSProxyKey:                 schema.Omit,
 	FTPProxyKey:                   schema.Omit,
@@ -2046,6 +2058,11 @@ global or per instance security groups.`,
 		Description: "What to do with unknown machines. See https://jujucharms.com/stable/config-general#juju-lifecycle-and-harvesting (default destroyed)",
 		Type:        environschema.Tstring,
 		Values:      []interface{}{"all", "none", "unknown", "destroyed"},
+		Group:       environschema.EnvironGroup,
+	},
+	NumProvisionWorkersKey: {
+		Description: "The number of provisioning workers to use per model",
+		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
 	"proxy-ssh": {

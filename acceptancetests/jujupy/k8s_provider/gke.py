@@ -178,6 +178,10 @@ class GKE(Base):
                     max_node_count=3,
                 ),
             )],
+            network=f"projects/{self.default_params['project_id']}/global/networks/with-subnets",
+            ip_allocation_policy=dict(
+                use_ip_aliases=True,
+            ),
         )
         logger.info('creating cluster -> %s', cluster)
         r = self.driver.create_cluster(

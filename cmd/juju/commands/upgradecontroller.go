@@ -53,7 +53,6 @@ type upgradeControllerCommand struct {
 	modelcmd.ControllerCommandBase
 	baseUpgradeCommand
 
-	rawArgs       []string
 	jujuClientAPI ClientAPI
 }
 
@@ -128,6 +127,7 @@ func (c *upgradeControllerCommand) upgradeController(ctx *cmd.Context, controlle
 	if c.AssumeYes {
 		args = append(args, "--yes")
 	}
+	args = append(args, "--timeout", c.timeout.String())
 	code := cmd.Main(wrapped, ctx, args)
 	if code == 0 {
 		return nil

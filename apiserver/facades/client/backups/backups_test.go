@@ -4,9 +4,6 @@
 package backups_test
 
 import (
-	"io"
-	"io/ioutil"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -81,8 +78,8 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 		fake.Error = errors.Errorf(err)
 	}
 	s.PatchValue(backupsAPI.NewBackups,
-		func(backupsAPI.Backend) (backups.Backups, io.Closer) {
-			return &fake, ioutil.NopCloser(nil)
+		func() backups.Backups {
+			return &fake
 		},
 	)
 	return &fake

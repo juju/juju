@@ -113,6 +113,25 @@ func (i *IAMServer) GetInstanceProfile(
 	}, nil
 }
 
+func (i *IAMServer) ListInstanceProfiles(
+	ctx context.Context,
+	input *iam.ListInstanceProfilesInput,
+	opts ...func(*iam.Options),
+) (*iam.ListInstanceProfilesOutput, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	rval := &iam.ListInstanceProfilesOutput{
+		InstanceProfiles: []types.InstanceProfile{},
+		IsTruncated:      false,
+	}
+	for _, v := range i.instanceProfiles {
+		rval.InstanceProfiles = append(rval.InstanceProfiles, *v)
+	}
+
+	return rval, nil
+}
+
 func (i *IAMServer) RemoveRoleFromInstanceProfile(
 	ctx context.Context,
 	input *iam.RemoveRoleFromInstanceProfileInput,
@@ -132,7 +151,7 @@ func (i *IAMServer) RemoveRoleFromInstanceProfile(
 		return nil, apiError("InvalidInstanceProfile.NoRole", "Instance profile has no role attached")
 	}
 
-	if *ip.Roles[1].RoleName != *input.RoleName {
+	if *ip.Roles[0].RoleName != *input.RoleName {
 		return nil, apiError(
 			"InvalidInstanceProfile.Role",
 			"role %s is not attached to instance profile", *ip.Roles[1].RoleName)

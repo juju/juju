@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2/filestorage"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/controller"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -137,8 +139,14 @@ func NewMetadata() *Metadata {
 	}
 }
 
+type backend interface {
+	ModelTag() names.ModelTag
+	ControllerConfig() (controller.Config, error)
+	StateServingInfo() (controller.StateServingInfo, error)
+}
+
 // NewMetadataState composes a new backup metadata based on the current Juju state.
-func NewMetadataState(db DB, machine, series string) (*Metadata, error) {
+func NewMetadataState(db backend, machine, series string) (*Metadata, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.

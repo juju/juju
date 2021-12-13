@@ -184,6 +184,10 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		case float64:
 			modelInfo.Config[config.NetBondReconfigureDelayKey] = int(val)
 		}
+		switch val := modelInfo.Config[config.NumProvisionWorkersKey].(type) {
+		case float64:
+			modelInfo.Config[config.NumProvisionWorkersKey] = int(val)
+		}
 
 		expectedStatus := params.StatusInfo{
 			Current: status.Status,

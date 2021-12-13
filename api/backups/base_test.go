@@ -1,35 +1,41 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backups_test
+package backups
 
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/backups"
+	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/apiserver/params"
-	jujutesting "github.com/juju/juju/juju/testing"
 	stbackups "github.com/juju/juju/state/backups"
-	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type baseSuite struct {
-	jujutesting.JujuConnSuite
-	Meta    *stbackups.Metadata
-	Storage *backupstesting.FakeStorage
+	testing.IsolationSuite
 
-	client *backups.Client
+	facade    *mocks.MockFacadeCaller
+	apiCaller *mocks.MockAPICallCloser
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.Meta = backupstesting.NewMetadata()
-	s.Storage = &backupstesting.FakeStorage{}
-	client, err := backups.NewClient(s.APIState)
-	c.Assert(err, gc.IsNil)
-	s.client = client
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.facade = mocks.NewMockFacadeCaller(ctrl)
+	s.apiCaller = mocks.NewMockAPICallCloser(ctrl)
+
+	return ctrl
+}
+
+func (s *baseSuite) newClient() *Client {
+	return &Client{
+		facade: s.facade,
+		st:     s.apiCaller,
+	}
 }
 
 func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata) {

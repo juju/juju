@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -24,16 +25,16 @@ const (
 )
 
 const createDoc = `
-This command requests that Juju creates a backup of its state and prints the
-backup's unique ID.  You may provide a note to associate with the backup.
+This command requests that Juju creates a backup of its state.
+You may provide a note to associate with the backup.
 
-By default, the backup archive and associated metadata are downloaded 
-without keeping a copy remotely on the controller.
+By default, the backup archive and associated metadata are downloaded.
 
 Use --no-download to avoid getting a local copy of the backup downloaded 
-at the end of the backup process.
-
-Use --keep-copy option to store a copy of backup remotely on the controller.
+at the end of the backup process. In this case it is recommended that the
+model config attribute "backup-dir" be set to point to a path where the
+backup archives should be stored long term. This could be a remotely mounted
+filesystem; the same path must exist on each controller if using HA.
 
 Use --verbose to see extra information about backup.
 
@@ -42,9 +43,6 @@ To access remote backups stored on the controller, see 'juju download-backup'.
 Examples:
     juju create-backup 
     juju create-backup --no-download
-    juju create-backup --no-download --keep-copy=false // ignores --keep-copy
-    juju create-backup --keep-copy
-    juju create-backup --verbose
 
 See also:
     backups
@@ -65,8 +63,6 @@ type createCommand struct {
 	Filename string
 	// Notes is the custom message to associated with the new backup.
 	Notes string
-	// KeepCopy means the backup archive should be stored in the controller db.
-	KeepCopy bool
 }
 
 // Info implements Command.Info.
@@ -83,7 +79,6 @@ func (c *createCommand) Info() *cmd.Info {
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive, implies keep-copy")
-	f.BoolVar(&c.KeepCopy, "keep-copy", false, "Keep a copy of the archive on the controller")
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
 	c.fs = f
 }
@@ -92,21 +87,6 @@ func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *createCommand) Init(args []string) error {
 	if err := c.CommandBase.Init(args); err != nil {
 		return err
-	}
-	// If user specifies that a download is not desired (i.e. no-download == true),
-	// and they have EXPLICITLY not wanted to store a remote backup file copy
-	// (i.e keep-copy == false), then there is no point for us to proceed as
-	// all the backup will not be stored anywhere.
-	if c.NoDownload {
-		keepCopySet := false
-		c.fs.Visit(func(flag *gnuflag.Flag) {
-			if flag.Name == "keep-copy" {
-				keepCopySet = true
-			}
-		})
-		if keepCopySet && !c.KeepCopy {
-			return errors.Errorf("--no-download cannot be set when --keep-copy is not: the backup will not be created")
-		}
 	}
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
@@ -135,17 +115,8 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if apiVersion < 2 {
-		if c.KeepCopy {
-			return errors.New("--keep-copy is not supported by this controller")
-		}
-		// for API v1, keepCopy is the default and only choice, so set it here
-		c.KeepCopy = true
-	}
-
 	if c.NoDownload {
 		ctx.Warningf(downloadWarning)
-		c.KeepCopy = true
 	}
 
 	metadataResult, copyFrom, err := c.create(client, apiVersion)
@@ -157,14 +128,9 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintln(ctx.Stdout, c.metadata(metadataResult))
 	}
 
-	if c.KeepCopy {
-		ctx.Infof("Remote backup stored on the controller as %v.", metadataResult.ID)
+	if c.NoDownload {
+		ctx.Infof("Remote backup stored on the controller as %v", metadataResult.Filename)
 	} else {
-		ctx.Infof("Remote backup was not created.")
-	}
-
-	// Handle download.
-	if !c.NoDownload {
 		filename := c.decideFilename(ctx, c.Filename, metadataResult.Started)
 		if err := c.download(ctx, client, copyFrom, filename); err != nil {
 			return errors.Trace(err)
@@ -199,12 +165,12 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom st
 	if err != nil {
 		return errors.Annotatef(err, "while copying to local archive file %v", archiveFilename)
 	}
-	ctx.Infof("Downloaded to %v.", archiveFilename)
+	ctx.Infof("Downloaded to %v", archiveFilename)
 	return nil
 }
 
 func (c *createCommand) create(client APIClient, apiVersion int) (*params.BackupsMetadataResult, string, error) {
-	result, err := client.Create(c.Notes, c.KeepCopy, c.NoDownload)
+	result, err := client.Create(c.Notes, c.NoDownload)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

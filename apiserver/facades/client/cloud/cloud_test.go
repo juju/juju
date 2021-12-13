@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	_ "github.com/juju/juju/provider/dummy"

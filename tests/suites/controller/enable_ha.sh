@@ -25,6 +25,51 @@ wait_for_controller_machines() {
 	fi
 }
 
+wait_for_controller_machines_tear_down() {
+	amount=${1}
+
+	attempt=0
+	# shellcheck disable=SC2143
+	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
+		echo "[+] (attempt ${attempt}) polling started machines during ha tear down"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+
+		if [[ ${attempt} -gt 25 ]]; then
+			echo "enable-ha failed waiting for only 1 started machine"
+			exit 1
+		fi
+	done
+
+	attempt=0
+	# shellcheck disable=SC2143
+	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "stopped") | .current' | wc -l | grep 0)" ]]; do
+		echo "[+] (attempt ${attempt}) polling stopped machines during ha tear down"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+
+		if [[ ${attempt} -gt 25 ]]; then
+			echo "enable-ha failed waiting for machines to tear down"
+			exit 1
+		fi
+	done
+
+	if [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "error") | .current' | wc -l)" -gt 0 ]]; then
+		echo "machine in controller model with error during ha tear down"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+		exit 1
+	fi
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling machines')"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+
+		sleep "${SHORT_TIMEOUT}"
+	fi
+}
+
 wait_for_ha() {
 	amount=${1}
 
@@ -69,7 +114,7 @@ run_enable_ha() {
 	juju remove-machine -m controller 1
 	juju remove-machine -m controller 2
 
-	wait_for_controller_machines 1
+	wait_for_controller_machines_tear_down 1
 
 	# Ensure that we have no ha enabled machines.
 	juju show-controller --format=json | jq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0

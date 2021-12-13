@@ -26,8 +26,6 @@ import (
 
 type CAASUnitInitSuite struct {
 	coretesting.BaseSuite
-
-	rootDir string
 }
 
 var _ = gc.Suite(&CAASUnitInitSuite{})
@@ -199,7 +197,7 @@ func (s *CAASUnitInitSuite) TestWaitPID(c *gc.C) {
 		waitForPID(pid)
 	}()
 	select {
-	case _, _ = <-waitChan:
+	case <-waitChan:
 	case <-time.After(testing.LongWait):
 		c.Errorf("waited too long for waitForPID")
 	}
