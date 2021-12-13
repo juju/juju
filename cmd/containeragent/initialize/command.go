@@ -47,7 +47,7 @@ type ApplicationAPI interface {
 func New() cmd.Command {
 	return &initCommand{
 		config:           defaultConfig,
-		identity:         defaultIdentity,
+		identity:         identityFromK8sMetadata,
 		fileReaderWriter: utils.NewFileReaderWriter(),
 		environment:      utils.NewEnvironment(),
 	}

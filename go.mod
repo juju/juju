@@ -140,8 +140,6 @@ require (
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
-require github.com/aws/aws-sdk-go v1.40.46
-
 require (
 	cloud.google.com/go v0.56.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
