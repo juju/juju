@@ -211,11 +211,8 @@ class Base(object):
             raise Exception("RBAC is NOT required but it's enabled in the cluster")
 
     def check_rbac_enable(self, timeout=10):
-        cmd = ['/bin/sh', '-c']
-        cmd.append(
-            f'{" ".join(self._kubectl_bin)} auth can-i create pods --as=poorguy'
-        )
-        output = self.sh(*cmd, timeout=timeout)
+        cmd = [f'{" ".join(self._kubectl_bin)} auth can-i create pods --as=poorguy']
+        output = self.sh(*cmd, timeout=timeout, no_check=True)
         logger.info('checking RBAC by run "%s" -> %s', ' '.join(cmd), output)
         return 'no' in [item.strip() for item in output.split()]
 
@@ -234,9 +231,11 @@ class Base(object):
         cm['data'] = data
         self.kubectl_apply(json.dumps(cm))
 
-    def sh(self, *args, shell=False, ignore_quote=False, timeout=None):
+    def sh(self, *args, shell=False, ignore_quote=False, timeout=None, no_check=False):
         args = [quote(str(arg)) if shell and not ignore_quote else str(arg) for arg in args]
         logger.debug('sh -> %s', ' '.join(args))
+        if no_check:
+            return subprocess.getoutput(' '.join(args))
         return subprocess.check_output(
             # cmd should be a list of str.
             args,
