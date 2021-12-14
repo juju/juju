@@ -12,11 +12,12 @@ run_model_metrics() {
 	juju deploy juju-qa-test
 	juju deploy ntp
 	juju relate ntp focal
-	juju relate ntp:juju-info juju-qa-test:juju-info
 
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
 	wait_for "focal" "$(idle_condition "focal" 0)"
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "focal" 0)"
+
+	juju relate ntp:juju-info juju-qa-test:juju-info
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test" 1)"
 
 	juju model-config -m controller logging-config="'<root>=INFO;#charmhub=TRACE'"
