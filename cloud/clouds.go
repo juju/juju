@@ -288,8 +288,6 @@ type region struct {
 const (
 	// CloudTypeKubernetes is the kubernetes cloud type.
 	CloudTypeKubernetes = "kubernetes"
-	// CloudTypeECS is the ECS cloud type.
-	CloudTypeECS = "ecs"
 )
 
 // DefaultCloudRegion is the name of the default region that Juju creates for clouds that do not define a region.
@@ -297,7 +295,6 @@ const DefaultCloudRegion = "default"
 
 var caasCloudTypes = map[string]bool{
 	CloudTypeKubernetes: true,
-	CloudTypeECS:        true,
 }
 
 // CloudIsCAAS checks if cloud is a CAAS cloud.
