@@ -133,11 +133,22 @@ func (o *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 
 // ServerReply is part of the rpc.Observer interface.
 func (o *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+	// The following reduces the number permutations around the cardinality.
+	// All errors will be reported as "error" to remove this issue of exploding
+	// out of quantiles.
+	//
+	// error_code of "" rather than "success" is to keep backwards compatible
+	// with the existing grafana implementations.
+	errorCode := ""
+	if hdr.ErrorCode != "" {
+		errorCode = "error"
+	}
+
 	labels := prometheus.Labels{
 		MetricLabelFacade:    req.Type,
 		MetricLabelVersion:   strconv.Itoa(req.Version),
 		MetricLabelMethod:    req.Action,
-		MetricLabelErrorCode: hdr.ErrorCode,
+		MetricLabelErrorCode: errorCode,
 	}
 	duration := o.clock.Now().Sub(o.requestStart)
 	o.metrics.apiRequestDuration.With(labels).Observe(duration.Seconds())
