@@ -305,6 +305,10 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 	}
 }
 
+func int64Ptr(a int64) *int64 {
+	return &a
+}
+
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
@@ -428,6 +432,19 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
+	secretControllerAppConfig := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "juju-controller-test-application-config",
+			Namespace:   s.namespace,
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
+		},
+		Type: core.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"JUJU_K8S_UNIT_PASSWORD": []byte(controllerStacker.GetControllerUnitAgentPassword()),
+		},
+	}
+
 	secretCAASImageRepoData, err := s.controllerCfg.CAASImageRepo().SecretData()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -455,8 +472,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Data: map[string]string{
-			"bootstrap-params": string(bootstrapParamsContent),
-			"agent.conf":       controllerStacker.GetAgentConfigContent(c),
+			"bootstrap-params":           string(bootstrapParamsContent),
+			"controller-agent.conf":      controllerStacker.GetControllerAgentConfigContent(c),
+			"controller-unit-agent.conf": controllerStacker.GetControllerUnitAgentConfigContent(c),
 		},
 	}
 
@@ -508,10 +526,15 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
-					RestartPolicy:                core.RestartPolicyAlways,
 					ServiceAccountName:           "controller",
 					AutomountServiceAccountToken: pointer.BoolPtr(true),
 					Volumes: []core.Volume{
+						{
+							Name: "charm-data",
+							VolumeSource: core.VolumeSource{
+								EmptyDir: &core.EmptyDirVolumeSource{},
+							},
+						},
 						{
 							Name: "juju-controller-test-server-pem",
 							VolumeSource: core.VolumeSource{
@@ -553,8 +576,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
 					{
-						Key:  "agent.conf",
-						Path: "template-agent.conf",
+						Key:  "controller-agent.conf",
+						Path: "controller-agent.conf",
+					}, {
+						Key:  "controller-unit-agent.conf",
+						Path: "controller-unit-agent.conf",
 					},
 				},
 			},
@@ -595,6 +621,102 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	statefulSetSpec.Spec.Template.Spec.Containers = []core.Container{
 		{
+			Name:            "charm",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Image:           "jujusolutions/charm-base:ubuntu-20.04",
+			WorkingDir:      "/var/lib/juju",
+			Command:         []string{"/charm/bin/containeragent"},
+			Args: []string{
+				"unit",
+				"--data-dir", "/var/lib/juju",
+				"--charm-modified-version", "0",
+				"--append-env", "PATH=$PATH:/charm/bin",
+				"--show-log",
+			},
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceMemory: resource.MustParse("4000Mi"),
+				},
+			},
+			Env: []core.EnvVar{
+				{
+					Name:  "JUJU_CONTAINER_NAMES",
+					Value: "",
+				},
+				{
+					Name:  "HTTP_PROBE_PORT",
+					Value: "3856",
+				},
+				{
+					Name:  osenv.JujuFeatureFlagEnvKey,
+					Value: "developer-mode",
+				},
+			},
+			SecurityContext: &core.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
+			LivenessProbe: &core.Probe{
+				Handler: core.Handler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/liveness",
+						Port: intstr.Parse("3856"),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			ReadinessProbe: &core.Probe{
+				Handler: core.Handler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/readiness",
+						Port: intstr.Parse("3856"),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			StartupProbe: &core.Probe{
+				Handler: core.Handler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/startup",
+						Port: intstr.Parse("3856"),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			VolumeMounts: []core.VolumeMount{
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/bin",
+					SubPath:   "charm/bin",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/var/lib/juju",
+					SubPath:   "var/lib/juju",
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/containers",
+					SubPath:   "charm/containers",
+				},
+				{
+					Name:      "juju-controller-test-agent-conf",
+					MountPath: "/var/lib/juju/template-agent.conf",
+					SubPath:   "controller-unit-agent.conf",
+				},
+			},
+		},
+		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           "test-account/juju-db:4.4",
@@ -631,11 +753,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				PeriodSeconds:       10,
 				SuccessThreshold:    1,
 				TimeoutSeconds:      5,
-			},
-			Resources: core.ResourceRequirements{
-				Limits: core.ResourceList{
-					core.ResourceMemory: resource.MustParse("4000Mi"),
-				},
 			},
 			VolumeMounts: []core.VolumeMount{
 				{
@@ -686,11 +803,13 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
-			Resources: core.ResourceRequirements{
-				Limits: core.ResourceList{
-					core.ResourceMemory: resource.MustParse("4000Mi"),
+			EnvFrom: []core.EnvFromSource{{
+				SecretRef: &core.SecretEnvSource{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: "juju-controller-test-application-config",
+					},
 				},
-			},
+			}},
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      "storage",
@@ -699,7 +818,7 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 				{
 					Name:      "juju-controller-test-agent-conf",
 					MountPath: "/var/lib/juju/agents/controller-0/template-agent.conf",
-					SubPath:   "template-agent.conf",
+					SubPath:   "controller-agent.conf",
 				},
 				{
 					Name:      "juju-controller-test-server-pem",
@@ -722,6 +841,60 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 			},
 		},
 	}
+	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
+		Name:            "charm-init",
+		ImagePullPolicy: core.PullIfNotPresent,
+		Image:           "test-account/jujud-operator:3.0-beta1.666",
+		WorkingDir:      "/var/lib/juju",
+		Command:         []string{"/opt/containeragent"},
+		Args:            []string{"init", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},
+		Env: []core.EnvVar{
+			{
+				Name:  "JUJU_CONTAINER_NAMES",
+				Value: "",
+			},
+			{
+				Name: "JUJU_K8S_POD_NAME",
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name: "JUJU_K8S_POD_UUID",
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{
+						FieldPath: "metadata.uid",
+					},
+				},
+			},
+		},
+		EnvFrom: []core.EnvFromSource{
+			{
+				SecretRef: &core.SecretEnvSource{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: "controller-application-config",
+					},
+				},
+			},
+		},
+		VolumeMounts: []core.VolumeMount{
+			{
+				Name:      "charm-data",
+				MountPath: "/var/lib/juju",
+				SubPath:   "var/lib/juju",
+			}, {
+				Name:      "charm-data",
+				MountPath: "/charm/bin",
+				SubPath:   "charm/bin",
+			}, {
+				Name:      "charm-data",
+				MountPath: "/charm/containers",
+				SubPath:   "charm/containers",
+			},
+		},
+	}}
 
 	controllerServiceAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
@@ -859,6 +1032,10 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 		secret, err = s.mockSecrets.Get(context.Background(), "juju-image-pull-secret", v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(secret, gc.DeepEquals, secretCAASImageRepo)
+
+		secret, err = s.mockSecrets.Get(context.Background(), "juju-controller-test-application-config", v1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(secret, gc.DeepEquals, secretControllerAppConfig)
 
 		configmap, err := s.mockConfigMaps.Get(context.Background(), "juju-controller-test-configmap", v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)

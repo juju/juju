@@ -11,6 +11,7 @@ import (
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version/v2"
+	v1 "k8s.io/api/core/v1"
 )
 
 // MockApplication is a mock of Application interface.
@@ -34,6 +35,21 @@ func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
+}
+
+// ApplicationPodSpec mocks base method.
+func (m *MockApplication) ApplicationPodSpec(arg0 caas.ApplicationConfig) (*v1.PodSpec, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationPodSpec", arg0)
+	ret0, _ := ret[0].(*v1.PodSpec)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationPodSpec indicates an expected call of ApplicationPodSpec.
+func (mr *MockApplicationMockRecorder) ApplicationPodSpec(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationPodSpec", reflect.TypeOf((*MockApplication)(nil).ApplicationPodSpec), arg0)
 }
 
 // Delete mocks base method.

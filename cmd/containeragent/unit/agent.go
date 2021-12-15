@@ -189,7 +189,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 	if err := c.ensureToolSymlinks(srcDir, dataDir, unitTag); err != nil {
 		return errors.Annotate(err, "ensuring agent tool symlinks")
 	}
-	containerNames := c.environment.Getenv("JUJU_CONTAINER_NAMES")
+	containerNames := c.environment.Getenv(k8sconstants.EnvJujuContainerNames)
 	if len(containerNames) > 0 {
 		c.containerNames = strings.Split(containerNames, ",")
 	}

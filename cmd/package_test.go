@@ -72,7 +72,7 @@ var allowedCalls = map[string]set.Strings{
 	// signmetadata is not a whitelisted embedded CLI command.
 	"plugins/juju-metadata/signmetadata.go": set.NewStrings("os.Open"),
 	// containeragent needs to ensure jujud symlinks.
-	"containeragent/utils/filesystem.go": set.NewStrings("os.Symlink", "os.OpenFile", "os.RemoveAll"),
+	"containeragent/utils/filesystem.go": set.NewStrings("os.Stat", "os.Symlink", "os.OpenFile", "os.RemoveAll"),
 }
 
 var ignoredPackages = set.NewStrings(

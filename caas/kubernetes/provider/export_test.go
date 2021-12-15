@@ -60,17 +60,29 @@ type (
 
 type ControllerStackerForTest interface {
 	controllerStacker
-	GetAgentConfigContent(*gc.C) string
+	GetControllerAgentConfigContent(*gc.C) string
+	GetControllerUnitAgentConfigContent(*gc.C) string
+	GetControllerUnitAgentPassword() string
 	GetSharedSecretAndSSLKey(*gc.C) (string, string)
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 	SetContext(ctx environs.BootstrapContext)
 }
 
-func (cs *controllerStack) GetAgentConfigContent(c *gc.C) string {
+func (cs *controllerStack) GetControllerAgentConfigContent(c *gc.C) string {
 	agentCfg, err := cs.agentConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 	return string(agentCfg)
+}
+
+func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *gc.C) string {
+	agentCfg, err := cs.unitAgentConfig.Render()
+	c.Assert(err, jc.ErrorIsNil)
+	return string(agentCfg)
+}
+
+func (cs *controllerStack) GetControllerUnitAgentPassword() string {
+	return cs.unitAgentConfig.OldPassword()
 }
 
 func (cs *controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {

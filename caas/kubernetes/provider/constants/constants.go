@@ -37,6 +37,14 @@ const (
 	// TemplateFileNameAgentConf is the template agent.conf file name.
 	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
 
+	// ControllerAgentConfigFilename is the agent conf filename
+	// for the controller agent for the api server.
+	ControllerAgentConfigFilename = "controller-agent.conf"
+
+	// ControllerUnitAgentConfigFilename is the agent conf filename
+	// for the controller unit agent which runs the charm.
+	ControllerUnitAgentConfigFilename = "controller-unit-agent.conf"
+
 	// CAASProviderType is the provider type for k8s.
 	CAASProviderType = "kubernetes"
 

@@ -705,6 +705,9 @@ to create a new model to deploy %sworkloads.
 	}
 
 	isCAASController = jujucloud.CloudIsCAAS(cloud)
+	if isCAASController && c.ControllerCharmPath != "" {
+		return errors.NotSupportedf("deploying a local controller charm on a k8s controller")
+	}
 	if !isCAASController {
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||

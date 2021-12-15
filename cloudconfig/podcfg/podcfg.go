@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
@@ -119,6 +120,36 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.Config.MongoMemoryProfile()),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
+}
+
+// UnitAgentConfig returns the agent config file for the controller unit charm.
+// This is created a bootstrap time.
+func (cfg *ControllerPodConfig) UnitAgentConfig() (agent.ConfigSetterWriter, error) {
+	password, err := utils.RandomPassword()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	configParams := agent.AgentConfigParams{
+		Paths: agent.Paths{
+			DataDir:         cfg.DataDir,
+			LogDir:          cfg.LogDir,
+			MetricsSpoolDir: cfg.MetricsSpoolDir,
+		},
+		Tag:               names.NewUnitTag("controller/" + cfg.ControllerId),
+		UpgradedToVersion: cfg.JujuVersion,
+		Password:          password,
+		APIAddresses:      cfg.APIHostAddrs(),
+		CACert:            cfg.APIInfo.CACert,
+		Values:            cfg.AgentEnvironment,
+		Controller:        cfg.ControllerTag,
+		Model:             cfg.APIInfo.ModelTag,
+	}
+	conf, err := agent.NewAgentConfig(configParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conf.SetPassword(password)
+	return conf, nil
 }
 
 // APIHostAddrs returns a list of api server addresses.

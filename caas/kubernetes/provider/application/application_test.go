@@ -412,7 +412,7 @@ func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
 	c.Assert(statefulSets.Items, gc.IsNil)
 }
 
-func getPodSpec(c *gc.C) corev1.PodSpec {
+func getPodSpec() corev1.PodSpec {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
 		ServiceAccountName:           "gitlab",
@@ -695,7 +695,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
 							Annotations: map[string]string{"juju.is/version": "1.1.1"},
 						},
-						Spec: getPodSpec(c),
+						Spec: getPodSpec(),
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
@@ -748,7 +748,7 @@ func (s *applicationSuite) TestEnsureUntrusted(c *gc.C) {
 func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
-	podSpec := getPodSpec(c)
+	podSpec := getPodSpec()
 	podSpec.ImagePullSecrets = append(
 		[]corev1.LocalObjectReference{
 			{Name: constants.CAASImageRepoSecretName},
@@ -874,7 +874,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 				},
 			})
 
-			podSpec := getPodSpec(c)
+			podSpec := getPodSpec()
 			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
 				Name: "gitlab-database-appuuid",
 				VolumeSource: corev1.VolumeSource{
@@ -947,7 +947,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 				},
 			})
 
-			podSpec := getPodSpec(c)
+			podSpec := getPodSpec()
 			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
 				Name: "gitlab-database-appuuid",
 				VolumeSource: corev1.VolumeSource{
@@ -1905,7 +1905,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
 	for i := 0; i < 4; i++ {
-		podSpec := getPodSpec(c)
+		podSpec := getPodSpec()
 		podSpec.Volumes = append(podSpec.Volumes,
 			corev1.Volume{
 				Name: "gitlab-database-appuuid",
@@ -2228,7 +2228,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 				},
 			})
 
-			ps := getPodSpec(c)
+			ps := getPodSpec()
 			ps.NodeSelector = map[string]string{
 				"kubernetes.io/arch": "arm64",
 			}
