@@ -13,6 +13,7 @@ import (
 
 // FileReaderWriter provides methods for reading a file or writing to a file.
 type FileReaderWriter interface {
+	Stat(filename string) (os.FileInfo, error)
 	ReadFile(filename string) ([]byte, error)
 	WriteFile(filename string, data []byte, perm os.FileMode) error
 
@@ -32,6 +33,10 @@ func NewFileReaderWriter() FileReaderWriter {
 type fileReaderWriter struct{}
 
 var _ FileReaderWriter = (*fileReaderWriter)(nil)
+
+func (fileReaderWriter) Stat(filename string) (os.FileInfo, error) {
+	return os.Stat(filename)
+}
 
 func (fileReaderWriter) ReadFile(filename string) ([]byte, error) {
 	return ioutil.ReadFile(filename)

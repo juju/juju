@@ -94,7 +94,7 @@ func (c ConfigAttributes) Get(attrName string, defaultValue interface{}) interfa
 	return defaultValue
 }
 
-// GetInt gets the specified bool attribute.
+// GetBool gets the specified bool attribute.
 func (c ConfigAttributes) GetBool(attrName string, defaultValue bool) bool {
 	if val, ok := c[attrName]; ok {
 		return val.(bool)

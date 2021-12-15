@@ -8,6 +8,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -133,4 +134,25 @@ func (*podcfgSuite) TestFinishControllerPodConfig(c *gc.C) {
 		"PROVIDER_TYPE": "kubernetes",
 		"foo":           "bar",
 	})
+}
+
+func (*podcfgSuite) TestUnitAgentConfig(c *gc.C) {
+	cfg := testing.FakeControllerConfig()
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		cfg,
+		"controller-1",
+		"kubernetes",
+		constraints.Value{},
+	)
+	podConfig.APIInfo = &api.Info{
+		ModelTag: testing.ModelTag,
+		CACert:   testing.CACert,
+	}
+	podConfig.JujuVersion = version.MustParse("6.6.6")
+	c.Assert(err, jc.ErrorIsNil)
+	agentCfg, err := podConfig.UnitAgentConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo, ok := agentCfg.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentCfg.OldPassword(), gc.Equals, apiInfo.Password)
 }

@@ -6,6 +6,7 @@ package initialize
 import (
 	"context"
 	"io"
+	"os"
 	"path"
 
 	"github.com/juju/cmd/v3"
@@ -88,8 +89,22 @@ func (c *initCommand) Init(args []string) error {
 	return c.CommandBase.Init(args)
 }
 
-func (c *initCommand) Run(ctx *cmd.Context) error {
+func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("starting containeragent init command")
+
+	defer func() {
+		if err == nil {
+			err = c.copyBinaries()
+		}
+	}()
+
+	// If the agent conf already exists, no need to do the unit introduction.
+	// TODO(wallyworld) - we may need to revisit this when we support stateless workloads.
+	templateConfigPath := path.Join(c.dataDir, k8sconstants.TemplateFileNameAgentConf)
+	_, err = c.fileReaderWriter.Stat(templateConfigPath)
+	if err == nil || !os.IsNotExist(err) {
+		return errors.Trace(err)
+	}
 
 	applicationAPI, err := c.getApplicationAPI()
 	if err != nil {
@@ -110,7 +125,6 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	templateConfigPath := path.Join(c.dataDir, k8sconstants.TemplateFileNameAgentConf)
 	if err = c.fileReaderWriter.WriteFile(templateConfigPath, unitConfig.AgentConf, 0644); err != nil {
 		return errors.Trace(err)
 	}
@@ -118,7 +132,10 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	if err = c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
+	return nil
+}
 
+func (c *initCommand) copyBinaries() error {
 	eg, _ := errgroup.WithContext(context.Background())
 	doCopy := func(src string, dst string) {
 		eg.Go(func() error {

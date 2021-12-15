@@ -175,6 +175,7 @@ type BootstrapParams struct {
 	// ControllerCharmPath is a local controller charm archive.
 	ControllerCharmPath string
 
+	// ControllerCharmRisk is used when fetching the charmhub controller charm.
 	ControllerCharmRisk string
 
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
@@ -852,6 +853,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
 	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
+	pcfg.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
 	return nil
 }
 

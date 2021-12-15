@@ -6752,11 +6752,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
-			Limits: core.ResourceList{
+			Requests: core.ResourceList{
 				"memory": resource.MustParse("64Mi"),
 				"cpu":    resource.MustParse("500m"),
 			},
 		}
+		break
 	}
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 	ociImageSecret := s.getOCIImageSecret(c, nil)

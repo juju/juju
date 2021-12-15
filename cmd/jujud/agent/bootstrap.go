@@ -160,10 +160,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
 
+	var controllerUnitPassword string
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
 			return errors.Trace(err)
 		}
+		controllerUnitPassword = os.Getenv(k8sconstants.EnvJujuK8sUnitPassword)
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
@@ -368,7 +370,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Deploy and set up the controller charm and application.
-	if err := c.deployControllerCharm(st, args.ControllerCharmRisk); err != nil {
+	if err := c.deployControllerCharm(st, args.BootstrapMachineConstraints, args.ControllerCharmRisk, isCAAS, controllerUnitPassword); err != nil {
 		return errors.Annotate(err, "cannot deploy controller application")
 	}
 

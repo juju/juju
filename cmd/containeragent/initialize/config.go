@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
@@ -134,8 +135,8 @@ func defaultConfig() agent.Config {
 type identityFunc func() (identity, error)
 
 func identityFromK8sMetadata() (identity, error) {
-	podName := os.Getenv("JUJU_K8S_POD_NAME")
-	podUUID := os.Getenv("JUJU_K8S_POD_UUID")
+	podName := os.Getenv(k8sconstants.EnvJujuK8sPodName)
+	podUUID := os.Getenv(k8sconstants.EnvJujuK8sPodUUID)
 	if podName == "" || podUUID == "" {
 		return identity{}, errors.New("unable to extract pod name and UUID from environment")
 	}
