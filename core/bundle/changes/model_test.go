@@ -322,7 +322,7 @@ func (s *inferMachineMapSuite) parseBundle(c *gc.C, bundle string) *charm.Bundle
 }
 
 func (s *inferMachineMapSuite) TestInferMachineMapEmptyModel(c *gc.C) {
-	model := &Model{}
+	model := &Model{logger: loggo.GetLogger("bundlechanges")}
 	model.InferMachineMap(s.data)
 	// MachineMap is empty and not nil.
 	c.Assert(model.MachineMap, gc.HasLen, 0)
@@ -334,6 +334,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapSuppliedMapping(c *gc.C) {
 		"4": "0", "8": "2",
 	}
 	model := &Model{
+		logger:     loggo.GetLogger("bundlechanges"),
 		MachineMap: userSpecifiedMap,
 	}
 	// If the user specified a mapping for those machines, use those.

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -2137,17 +2138,19 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {
-				Charm:  "cs:mysql-42",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:mysql-42",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "0"},
 				},
 			},
 			"wordpress": {
-				Charm:  "cs:wordpress-47",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:wordpress-47",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "1"},
 				},
@@ -2203,17 +2206,19 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"django": {
-				Charm:  "cs:django",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:django",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"django/0": {Machine: "1"},
 				},
 			},
 			"mem": {
-				Charm:  "cs:mem-47",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:mem-47",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mem/0": {Machine: "0"},
 				},
@@ -2237,9 +2242,10 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"django": {
-				Charm:  "cs:django-42",
-				Scale:  1,
-				Series: "xenial",
+				Charm:        "cs:django-42",
+				Scale:        1,
+				Series:       "xenial",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"django/0": {Machine: "0"},
 					"django/1": {Machine: "1"},
@@ -2604,4 +2610,182 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
+}
+
+type BundleHandlerMakeModelSuite struct {
+	testing.IsolationSuite
+
+	deployerAPI *mocks.MockDeployerAPI
+}
+
+var _ = gc.Suite(&BundleHandlerMakeModelSuite{})
+
+func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+
+	handler := &bundleHandler{
+		deployAPI:          s.deployerAPI,
+		defaultCharmSchema: charm.CharmHub,
+	}
+
+	err := handler.makeModel(false, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *gc.C) {
+	// An old controller is pre juju 2.9
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+
+	handler := &bundleHandler{
+		deployAPI:          s.deployerAPI,
+		defaultCharmSchema: charm.CharmStore,
+	}
+
+	err := handler.makeModel(false, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *gc.C) {
+	// An old controller is pre juju 2.9
+	defer s.setupMocks(c).Finish()
+	s.expectDeployerAPIStatusWordpressBundle()
+	s.expectApplicationInfo(c)
+	s.expectEmptyModelRepresentation()
+	s.expectDeployerAPIModelGet(c)
+
+	handler := &bundleHandler{
+		deployAPI:          s.deployerAPI,
+		defaultCharmSchema: charm.CharmStore,
+		unitStatus:         make(map[string]string),
+	}
+
+	err := handler.makeModel(false, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	app := handler.model.GetApplication("mysql")
+	c.Assert(app.Channel, gc.Equals, "stable")
+	app = handler.model.GetApplication("wordpress")
+	c.Assert(app.Channel, gc.Equals, "candidate")
+}
+
+func (s *BundleHandlerMakeModelSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
+	return ctrl
+}
+
+func (s *BundleHandlerMakeModelSuite) expectEmptyModelToStart(c *gc.C) {
+	// setup for empty current model
+	// bundleHandler.makeModel()
+	s.expectDeployerAPIEmptyStatus()
+	s.expectEmptyModelRepresentation()
+	s.expectDeployerAPIModelGet(c)
+}
+
+func (s *BundleHandlerMakeModelSuite) expectEmptyModelRepresentation() {
+	// BuildModelRepresentation is tested in bundle pkg.
+	// Setup as if an empty model
+	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetConstraints(gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().GetConfig(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().Sequences().Return(nil, errors.NotSupportedf("sequences for test"))
+}
+
+func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
+	status := &params.FullStatus{}
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+}
+
+func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *gc.C) {
+	minimal := map[string]interface{}{
+		"name":            "test",
+		"type":            "manual",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
+		"firewall-mode":   "instance",
+		// While the ca-cert bits aren't entirely minimal, they avoid the need
+		// to set up a fake home.
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
+	}
+	cfg, err := config.New(true, minimal)
+	c.Assert(err, jc.ErrorIsNil)
+	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
+}
+
+func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
+	status := &params.FullStatus{
+		Model: params.ModelStatusInfo{},
+		Machines: map[string]params.MachineStatus{
+			"0": {Series: "bionic"},
+			"1": {Series: "bionic"},
+		},
+		Applications: map[string]params.ApplicationStatus{
+			"mysql": {
+				Charm:  "cs:mysql-42",
+				Scale:  1,
+				Series: "bionic",
+				Units: map[string]params.UnitStatus{
+					"mysql/0": {Machine: "0"},
+				},
+			},
+			"wordpress": {
+				Charm:  "cs:wordpress-47",
+				Scale:  1,
+				Series: "bionic",
+				Units: map[string]params.UnitStatus{
+					"mysql/0": {Machine: "1"},
+				},
+			},
+		},
+		RemoteApplications: nil,
+		Offers:             nil,
+		Relations: []params.RelationStatus{
+			{
+				Endpoints: []params.EndpointStatus{
+					{ApplicationName: "wordpress", Name: "db", Role: "requirer"},
+					{ApplicationName: "mysql", Name: "db", Role: "provider"},
+				},
+			},
+		},
+		ControllerTimestamp: nil,
+		Branches:            nil,
+	}
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+}
+
+func (s *BundleHandlerMakeModelSuite) expectApplicationInfo(c *gc.C) {
+	s.deployerAPI.EXPECT().ApplicationsInfo(applicationInfoMatcher{c: c}).DoAndReturn(
+		func(args []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
+			// args content ensured by applicationInfoMatcher
+			info := make([]params.ApplicationInfoResult, 2)
+			for i, arg := range args {
+				if arg == names.NewApplicationTag("mysql") {
+					info[i] = params.ApplicationInfoResult{Result: &params.ApplicationResult{Channel: "stable"}}
+				}
+				if arg == names.NewApplicationTag("wordpress") {
+					info[i] = params.ApplicationInfoResult{Result: &params.ApplicationResult{Channel: "candidate"}}
+				}
+			}
+			return info, nil
+		})
+}
+
+type applicationInfoMatcher struct {
+	c *gc.C
+}
+
+func (m applicationInfoMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.([]names.ApplicationTag)
+	m.c.Assert(ok, jc.IsTrue)
+	m.c.Assert(obtained, jc.SameContents, []names.ApplicationTag{
+		names.NewApplicationTag("mysql"),
+		names.NewApplicationTag("wordpress"),
+	})
+	return true
+}
+
+func (m applicationInfoMatcher) String() string {
+	return "Match ApplicationInfo args"
 }
