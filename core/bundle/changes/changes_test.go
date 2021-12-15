@@ -4070,7 +4070,9 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 		"deploy application django-two from charm-store using django",
 		`set constraints for django-one to "arch=amd64 cpu-cores=4 cpu-power=42"`,
 	}
-	s.checkBundleExistingModelWithConstraintsParser(c, bundleContent, existingModel, expectedChanges, constraintParser)
+	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(string, string, string, string, int) (string, int, error) {
+		return "stable", 4, nil
+	})
 }
 
 func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
@@ -4110,7 +4112,9 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 		`set constraints for django-one to "arch=amd64 cpu-cores=4 cpu-power=42"`,
 		"upload charm django from charm-store with architecture=amd64",
 	}
-	s.checkBundleExistingModelWithConstraintsParser(c, bundleContent, existingModel, expectedChanges, constraintParser)
+	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(string, string, string, string, int) (string, int, error) {
+		return "stable", 4, nil
+	})
 }
 
 func (s *changesSuite) TestAppsWithSeriesAndArchConstraints(c *gc.C) {
