@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"runtime"
 	"sort"
 	"time"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/agent"
-	"github.com/juju/juju/worker/introspection/pprof"
 )
 
 var logger = loggo.GetLogger("juju.worker.introspection")
