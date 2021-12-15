@@ -2206,17 +2206,19 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"django": {
-				Charm:  "cs:django",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:django",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"django/0": {Machine: "1"},
 				},
 			},
 			"mem": {
-				Charm:  "cs:mem-47",
-				Scale:  1,
-				Series: "bionic",
+				Charm:        "cs:mem-47",
+				Scale:        1,
+				Series:       "bionic",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mem/0": {Machine: "0"},
 				},
@@ -2240,9 +2242,10 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"django": {
-				Charm:  "cs:django-42",
-				Scale:  1,
-				Series: "xenial",
+				Charm:        "cs:django-42",
+				Scale:        1,
+				Series:       "xenial",
+				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"django/0": {Machine: "0"},
 					"django/1": {Machine: "1"},
