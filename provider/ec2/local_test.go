@@ -593,6 +593,16 @@ func (t *localServerSuite) TestIAMRoleCleanup(c *gc.C) {
 	c.Assert(len(res1.Roles), gc.Equals, 0)
 }
 
+func (t *localServerSuite) TestIAMRolePermissionProblems(c *gc.C) {
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	t.srv.iamsrv.ProducePermissionError(true)
+	defer t.srv.iamsrv.ProducePermissionError(false)
+	env := t.prepareAndBootstrap(c)
+
+	err := env.DestroyController(t.callCtx, t.ControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
