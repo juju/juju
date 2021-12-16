@@ -359,7 +359,11 @@ func listInstanceProfilesForController(
 		})
 
 		if err != nil {
-			return nil, errors.Annotatef(
+			var opHTTPErr *awshttp.ResponseError
+			if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == http.StatusForbidden {
+				return rval, errors.Unauthorizedf("listing instance profiles for controllerUUID %s", controllerUUID)
+			}
+			return rval, errors.Annotatef(
 				err,
 				"listing roles with controller prefix %q",
 				controllerPath(controllerUUID))
@@ -390,7 +394,13 @@ func listRolesForController(
 		})
 
 		if err != nil {
-			return nil, errors.Annotatef(
+			var opHTTPErr *awshttp.ResponseError
+			if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == http.StatusForbidden {
+				return rval, errors.Unauthorizedf(
+					"listing roles for controllerUUID %s",
+					controllerUUID)
+			}
+			return rval, errors.Annotatef(
 				err,
 				"listing roles with controller prefix %q",
 				controllerPath(controllerUUID))
