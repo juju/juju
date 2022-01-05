@@ -912,7 +912,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	netCfg.EXPECT().AddNetworkConfig(network.InterfaceInfos{{
 		InterfaceName: "eth0",
 		MACAddress:    "mac-address",
-		Addresses:     network.NewProviderAddresses("10.10.10.1"),
+		Addresses:     network.NewMachineAddresses([]string{"10.10.10.1"}).AsProviderAddresses(),
 		ConfigType:    network.ConfigDHCP,
 		Origin:        network.OriginProvider,
 	}}).Return(nil)

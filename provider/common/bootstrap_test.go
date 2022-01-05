@@ -576,7 +576,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	var innerInstanceConfig *instancecfg.InstanceConfig
 	inst := &mockInstance{
 		id:        checkInstanceId,
-		addresses: network.NewProviderAddresses("testing.invalid"),
+		addresses: network.NewMachineAddresses([]string{"testing.invalid"}).AsProviderAddresses(),
 	}
 	startInstance := func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
@@ -683,7 +683,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	var innerInstanceConfig *instancecfg.InstanceConfig
 	inst := &mockInstance{
 		id:        "i-success",
-		addresses: network.NewProviderAddresses("testing.invalid"),
+		addresses: network.NewMachineAddresses([]string{"testing.invalid"}).AsProviderAddresses(),
 	}
 	startInstance := func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
@@ -839,7 +839,7 @@ type neverOpensPort struct {
 }
 
 func (n *neverOpensPort) Addresses(ctx envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
-	return network.NewProviderAddresses(n.addr), nil
+	return network.NewMachineAddresses([]string{n.addr}).AsProviderAddresses(), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -873,7 +873,7 @@ func (c *cancelOnDial) Addresses(ctx envcontext.ProviderCallContext) (network.Pr
 			c.cancel = nil
 		}
 	}
-	return network.NewProviderAddresses(c.name), nil
+	return network.NewMachineAddresses([]string{c.name}).AsProviderAddresses(), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -908,7 +908,7 @@ func (ac *addressesChange) Status(ctx envcontext.ProviderCallContext) instance.S
 }
 
 func (ac *addressesChange) Addresses(ctx envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
-	return network.NewProviderAddresses(ac.addrs[0]...), nil
+	return network.NewMachineAddresses(ac.addrs[0]).AsProviderAddresses(), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {

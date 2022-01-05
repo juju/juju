@@ -390,7 +390,7 @@ func getAddressesForMongo(
 	args instancecfg.StateInitializationParams,
 ) (network.ProviderAddresses, error) {
 	if isCAAS {
-		return network.NewProviderAddresses("localhost"), nil
+		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
 	}
 
 	instanceLister, ok := env.(environs.InstanceLister)

@@ -72,3 +72,24 @@ func WithConfigType(configType AddressConfigType) func(AddressMutator) {
 		a.SetConfigType(configType)
 	}
 }
+
+// ProviderAddressMutator describes setter methods for a ProviderAddress
+type ProviderAddressMutator interface {
+	AddressMutator
+
+	SetSpaceName(string)
+}
+
+// SetSpaceName (ProviderAddressMutator) sets the input
+// space name on the provider address receiver
+func (a *ProviderAddress) SetSpaceName(spaceName string) {
+	a.SpaceName = SpaceName(spaceName)
+}
+
+// WithSpaceName returns a functional option that can
+// be used to set the input space name on a provider address.
+func WithSpaceName(space string) func(ProviderAddressMutator) {
+	return func(a ProviderAddressMutator) {
+		a.SetSpaceName(space)
+	}
+}
