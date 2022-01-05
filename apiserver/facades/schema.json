@@ -4321,8 +4321,8 @@
     },
     {
         "Name": "ApplicationOffers",
-        "Description": "OffersAPIV3 implements the cross model interface V3.",
-        "Version": 3,
+        "Description": "OffersAPIV4 implements the cross model interface V4.",
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -4451,6 +4451,9 @@
                             "type": "string"
                         },
                         "offer-name": {
+                            "type": "string"
+                        },
+                        "owner-tag": {
                             "type": "string"
                         }
                     },

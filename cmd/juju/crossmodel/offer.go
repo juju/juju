@@ -151,8 +151,13 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 	if c.OfferName == "" {
 		c.OfferName = c.Application
 	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	loggedInUser := accountDetails.User
 	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
-	results, err := api.Offer(modelDetails.ModelUUID, c.Application, c.Endpoints, c.OfferName, "")
+	results, err := api.Offer(modelDetails.ModelUUID, c.Application, c.Endpoints, loggedInUser, c.OfferName, "")
 	if err != nil {
 		return err
 	}
@@ -173,7 +178,7 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(modelUUID, application string, endpoints []string, offerName string, desc string) ([]params.ErrorResult, error)
+	Offer(modelUUID, application string, endpoints []string, owner, offerName, desc string) ([]params.ErrorResult, error)
 }
 
 // applicationParse is used to split an application string
