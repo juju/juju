@@ -893,6 +893,11 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 				MountPath: "/charm/containers",
 				SubPath:   "charm/containers",
 			},
+			{
+				Name:      "juju-controller-test-agent-conf",
+				MountPath: "/var/lib/juju/template-agent.conf",
+				SubPath:   "controller-unit-agent.conf",
+			},
 		},
 	}}
 

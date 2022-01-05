@@ -1482,18 +1482,26 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 	}
 	spec.Containers = append(spec.Containers, containers...)
 
-	for i, ct := range spec.Containers {
-		if ct.Name != "charm" {
+	agentConfigMount := core.VolumeMount{
+		Name: c.resourceNameVolAgentConf,
+		MountPath: c.pathJoin(
+			c.pcfg.DataDir,
+			constants.TemplateFileNameAgentConf,
+		),
+		SubPath: constants.ControllerUnitAgentConfigFilename,
+	}
+	for i, ct := range spec.InitContainers {
+		if ct.Name != constants.ApplicationInitContainer {
 			continue
 		}
-		ct.VolumeMounts = append(ct.VolumeMounts, core.VolumeMount{
-			Name: c.resourceNameVolAgentConf,
-			MountPath: c.pathJoin(
-				c.pcfg.DataDir,
-				constants.TemplateFileNameAgentConf,
-			),
-			SubPath: constants.ControllerUnitAgentConfigFilename,
-		})
+		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+		spec.InitContainers[i] = ct
+	}
+	for i, ct := range spec.Containers {
+		if ct.Name != constants.ApplicationCharmContainer {
+			continue
+		}
+		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
 		spec.Containers[i] = ct
 	}
 	return spec, nil
