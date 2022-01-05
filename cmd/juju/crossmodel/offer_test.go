@@ -133,7 +133,7 @@ func (s *mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s *mockOfferAPI) Offer(modelUUID, application string, endpoints []string, offerName, desc string) ([]params.ErrorResult, error) {
+func (s *mockOfferAPI) Offer(modelUUID, application string, endpoints []string, owner, offerName, desc string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}
@@ -141,6 +141,9 @@ func (s *mockOfferAPI) Offer(modelUUID, application string, endpoints []string, 
 	if s.errData {
 		result[0].Error = apiservererrors.ServerError(errors.New("failed"))
 		return result, nil
+	}
+	if owner != "bob" {
+		return nil, errors.Errorf("unexpected offer owner %q", owner)
 	}
 	s.modelUUID = modelUUID
 	if offerName == "" {

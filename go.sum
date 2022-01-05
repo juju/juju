@@ -508,8 +508,8 @@ github.com/juju/postgrestest v1.1.0/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSw
 github.com/juju/proxy v0.0.0-20180516023828-df38202e4713/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
 github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258 h1:oQ4i531nGh54FPEkAA5j1rbXPANQjUw84FM9O7EsNOo=
 github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258/go.mod h1:8eZt3fxDIlRXkEkf4N4PCNSZzryF6NxULBg07OjDofA=
-github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b h1:EwjCZIeRDkUzIM7hFFmq339tBZA5NBXIzOUXM6KR3U8=
-github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b/go.mod h1:+fw+MJGVa006M85prHvwS9pQrCjkkaaH8Ds1wvEMpXQ=
+github.com/juju/pubsub/v2 v2.0.0-20220104155641-7af8a09f58f0 h1:Nfb7iOD5//l9mHDNy+lCwk7cxpGCI59/5vrnzUj13UE=
+github.com/juju/pubsub/v2 v2.0.0-20220104155641-7af8a09f58f0/go.mod h1:oT9CqPokoWAc+VUWl9/hGlsSTg51P7+I4tQL4M8zCRI=
 github.com/juju/qthttptest v0.0.1/go.mod h1://LCf/Ls22/rPw2u1yWukUJvYtfPY4nYpWUl2uZhryo=
 github.com/juju/qthttptest v0.1.1 h1:JPju5P5CDMCy8jmBJV2wGLjDItUsx2KKL514EfOYueM=
 github.com/juju/qthttptest v0.1.1/go.mod h1:aTlAv8TYaflIiTDIQYzxnl1QdPjAg8Q8qJMErpKy6A4=

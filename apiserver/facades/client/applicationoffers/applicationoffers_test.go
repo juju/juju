@@ -75,13 +75,14 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		OfferName:       "offer-test",
 		ApplicationName: applicationName,
 		Endpoints:       map[string]string{"db": "db"},
+		OwnerTag:        "user-fred",
 	}
 	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one}}
 	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 		c.Assert(offer.OfferName, gc.Equals, one.OfferName)
 		c.Assert(offer.ApplicationName, gc.Equals, one.ApplicationName)
 		c.Assert(offer.ApplicationDescription, gc.Equals, "A pretty popular blog engine")
-		c.Assert(offer.Owner, gc.Equals, "admin")
+		c.Assert(offer.Owner, gc.Equals, "fred")
 		c.Assert(offer.HasRead, gc.DeepEquals, []string{"everyone@external"})
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}

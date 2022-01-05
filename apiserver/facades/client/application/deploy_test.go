@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -489,12 +488,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 	charm, err := testing.PutCharm(s.State, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Enable controller flag so we can enforce "assumes" blocks
-	ctrlCfg := coretesting.FakeControllerConfig()
-	ctrlCfg[controller.Features] = []interface{}{
-		feature.CharmAssumes,
-	}
-	var f = fakeDeployer{controllerCfg: &ctrlCfg}
+	var f = fakeDeployer{}
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -515,12 +509,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 	charm, err := testing.PutCharm(s.State, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Enable controller flag so we can enforce "assumes" blocks
-	ctrlCfg := coretesting.FakeControllerConfig()
-	ctrlCfg[controller.Features] = []interface{}{
-		feature.CharmAssumes,
-	}
-	var f = fakeDeployer{controllerCfg: &ctrlCfg}
+	var f = fakeDeployer{}
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

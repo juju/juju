@@ -124,6 +124,7 @@ type AddApplicationOffer struct {
 	ApplicationName        string            `json:"application-name"`
 	ApplicationDescription string            `json:"application-description"`
 	Endpoints              map[string]string `json:"endpoints"`
+	OwnerTag               string            `json:"owner-tag,omitempty"`
 }
 
 // DestroyApplicationOffers holds parameters for the DestroyOffers call.

@@ -32,7 +32,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -103,19 +102,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 	s.st.controllerModel = controllerModel
 
-	// TODO(achilleasa): as the supported features reporting is behind a
-	// flag we need to set it here so we can test the actual code. This
-	// should be removed once the feature goes live.
-	ctrlCfg := coretesting.FakeControllerConfig()
-	ctrlCfg[controller.Features] = []interface{}{
-		feature.CharmAssumes,
-	}
 	s.ctlrSt = &mockState{
 		model:           controllerModel,
 		controllerModel: controllerModel,
-		controllerCfg:   &ctrlCfg,
 	}
-	s.st.controllerCfg = &ctrlCfg
 
 	s.st.model = &mockModel{
 		owner:          names.NewUserTag("bob@local"),
@@ -278,7 +268,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ControllerNodes", nil},
 		{"HAPrimaryMachine", nil},
 		{"LatestMigration", nil},
-		{"ControllerConfig", nil},
 		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
 }

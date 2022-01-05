@@ -1449,7 +1449,7 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	}
 
 	p := change.Params
-	result, err := h.deployAPI.Offer(h.targetModelUUID, p.Application, p.Endpoints, p.OfferName, "")
+	result, err := h.deployAPI.Offer(h.targetModelUUID, p.Application, p.Endpoints, h.accountUser, p.OfferName, "")
 	if err == nil && len(result) > 0 && result[0].Error != nil {
 		err = result[0].Error
 	}

@@ -67,8 +67,8 @@ func createOffersAPI(
 	return api, nil
 }
 
-// NewOffersAPIV3 returns a new application offers OffersAPIV3 facade.
-func NewOffersAPIV3(ctx facade.Context) (*OffersAPI, error) {
+// NewOffersAPIV4 returns a new application offers OffersAPIV4 facade.
+func NewOffersAPIV4(ctx facade.Context) (*OffersAPI, error) {
 	environFromModel := func(modelUUID string) (environs.Environ, error) {
 		st, err := ctx.StatePool().Get(modelUUID)
 		if err != nil {
@@ -109,7 +109,7 @@ func NewOffersAPIV3(ctx facade.Context) (*OffersAPI, error) {
 func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(all.Offers))
 
-	user := api.Authorizer.GetAuthTag().(names.UserTag)
+	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
 	for i, one := range all.Offers {
 		modelTag, err := names.ParseModelTag(one.ModelTag)
 		if err != nil {
@@ -123,12 +123,21 @@ func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResult
 		}
 		defer releaser()
 
-		if err := api.checkAdmin(user, backend); err != nil {
+		if err := api.checkAdmin(apiUser, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		applicationOfferParams, err := api.makeAddOfferArgsFromParams(user, backend, one)
+		owner := apiUser
+		// The V4 version of the api includes the offer owner in the params.
+		if one.OwnerTag != "" {
+			var err error
+			if owner, err = names.ParseUserTag(one.OwnerTag); err != nil {
+				result[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		applicationOfferParams, err := api.makeAddOfferArgsFromParams(owner, backend, one)
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
