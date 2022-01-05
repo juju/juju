@@ -51,7 +51,6 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	unitContainerName            = "charm"
 	charmVolumeName              = "charm-data"
 	agentProbeInitialDelay int32 = 30
 	agentProbePeriod       int32 = 10
@@ -174,7 +173,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	var handleVolumeMount handleVolumeMountFunc = func(storageName string, m corev1.VolumeMount) error {
 		for i := range podSpec.Containers {
 			name := podSpec.Containers[i].Name
-			if name == unitContainerName {
+			if name == constants.ApplicationCharmContainer {
 				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
 				continue
 			}
@@ -742,7 +741,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 	updatePodSpec := func(spec *corev1.PodSpec, containerPorts []corev1.ContainerPort) {
 		for i, c := range spec.Containers {
 			ps := containerPorts
-			if c.Name != unitContainerName {
+			if c.Name != constants.ApplicationCharmContainer {
 				spec.Containers[i].Ports = ps
 			}
 		}
@@ -1218,7 +1217,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		})
 	}
 	containerSpecs := []corev1.Container{{
-		Name:            unitContainerName,
+		Name:            constants.ApplicationCharmContainer,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImagePath,
 		WorkingDir:      jujuDataDir,
@@ -1349,7 +1348,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		ServiceAccountName:           a.serviceAccountName(),
 		ImagePullSecrets:             imagePullSecrets,
 		InitContainers: []corev1.Container{{
-			Name:            "charm-init",
+			Name:            constants.ApplicationInitContainer,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
