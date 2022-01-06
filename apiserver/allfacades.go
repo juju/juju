@@ -146,7 +146,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Application", 13, application.NewFacadeV13)
 
-	reg("ApplicationOffers", 3, applicationoffers.NewOffersAPIV3)
+	reg("ApplicationOffers", 4, applicationoffers.NewOffersAPIV4)
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 3, backups.NewFacadeV3)
 	reg("Block", 2, block.NewAPI)

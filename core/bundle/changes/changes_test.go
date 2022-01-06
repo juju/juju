@@ -5655,6 +5655,29 @@ func (s *changesSuite) TestNoPossibleTargets(c *gc.C) {
 	})
 }
 
+func (s *changesSuite) TestRedeploymentOfBundleWithLocalCharms(c *gc.C) {
+	bundleContent := `
+        applications:
+          haproxy:
+            charm: "local:haproxy-0"
+        `
+	existingModel := &bundlechanges.Model{
+		Applications: map[string]*bundlechanges.Application{
+			"haproxy": {
+				Name:     "haproxy",
+				Charm:    "local:haproxy-0",
+				Revision: 42,
+				// NOTE: local charms are not associated with a
+				// channel as this information is not available
+				// at deploy time.
+			},
+		},
+	}
+
+	// No changes expected.
+	s.checkBundleExistingModel(c, bundleContent, existingModel, nil)
+}
+
 func (s *changesSuite) checkBundle(c *gc.C, bundleContent string, expectedChanges []string) {
 	s.checkBundleImpl(c, bundleContent, nil, expectedChanges, "", nil, nil)
 }

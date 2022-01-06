@@ -32,7 +32,7 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Offer prepares application's endpoints for consumption.
-func (c *Client) Offer(modelUUID, application string, endpoints []string, offerName string, desc string) ([]params.ErrorResult, error) {
+func (c *Client) Offer(modelUUID, application string, endpoints []string, owner, offerName, desc string) ([]params.ErrorResult, error) {
 	// TODO(wallyworld) - support endpoint aliases
 	ep := make(map[string]string)
 	for _, name := range endpoints {
@@ -45,6 +45,7 @@ func (c *Client) Offer(modelUUID, application string, endpoints []string, offerN
 			ApplicationDescription: desc,
 			Endpoints:              ep,
 			OfferName:              offerName,
+			OwnerTag:               names.NewUserTag(owner).String(),
 		},
 	}
 	out := params.ErrorResults{}

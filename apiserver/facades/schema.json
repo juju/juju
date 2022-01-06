@@ -4060,7 +4060,7 @@
     {
         "Name": "ApplicationOffers",
         "Description": "OffersAPI implements the cross model interface and is the concrete\nimplementation of the api end point.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -4189,6 +4189,9 @@
                             "type": "string"
                         },
                         "offer-name": {
+                            "type": "string"
+                        },
+                        "owner-tag": {
                             "type": "string"
                         }
                     },

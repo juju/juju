@@ -1878,7 +1878,9 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 	}
 
 	instanceProfiles, err := listInstanceProfilesForController(ctx, e.iamClient, controllerUUID)
-	if err != nil {
+	if errors.IsUnauthorized(err) {
+		logger.Warningf("unable to list Instance Profiles for deletion, Instance Profiles may have to be manually cleaned up for controller %q", controllerUUID)
+	} else if err != nil {
 		return errors.Annotatef(err, "listing instance profiles for controller uuid %q", controllerUUID)
 	}
 
@@ -1890,7 +1892,9 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 	}
 
 	roles, err := listRolesForController(ctx, e.iamClient, controllerUUID)
-	if err != nil {
+	if errors.IsUnauthorized(err) {
+		logger.Warningf("unable to list Roles for deletion, Roles may have to be manually cleaned up for controller %q", controllerUUID)
+	} else if err != nil {
 		return errors.Annotatef(err, "listing roles for controller uuid %q", controllerUUID)
 	}
 

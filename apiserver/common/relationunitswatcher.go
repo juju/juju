@@ -26,7 +26,7 @@ type RelationUnitsWatcher interface {
 	Err() error
 }
 
-// NewRelationUnitsWatcherFromState wraps a state-level
+// RelationUnitsWatcherFromState wraps a state-level
 // RelationUnitsWatcher in an equivalent apiserver-level one, taking
 // responsibility for the source watcher's lifetime.
 func RelationUnitsWatcherFromState(source state.RelationUnitsWatcher) (RelationUnitsWatcher, error) {

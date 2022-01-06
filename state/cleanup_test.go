@@ -18,6 +18,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -303,6 +304,92 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 
 	// Now we should have all the cleanups done
 	s.assertDoesNotNeedCleanup(c)
+}
+
+func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
+	wordpressEps := []charm.Relation{
+		{
+			Interface: "mysql",
+			Name:      "database",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "t0",
+		Endpoints:   wordpressEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	units := make([]*state.Unit, 3)
+	for i := range units {
+		unit, err := mysql.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		units[i] = unit
+	}
+
+	eps, err := s.State.InferEndpoints("remote-wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApp.Refresh(), jc.ErrorIsNil)
+	c.Assert(mysql.Refresh(), jc.ErrorIsNil)
+
+	// Prevent short circuit of offer removal.
+	ru, err := rel.Unit(units[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	offers := state.NewApplicationOffers(s.State)
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"database": "server"},
+		Owner:           s.Owner.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		OfferUUID:       offer.OfferUUID,
+		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
+		Username:        s.Owner.Name(),
+		SourceModelUUID: s.State.ModelUUID(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertDoesNotNeedCleanup(c)
+
+	// Destroy the model and check the application and units are
+	// unaffected, but a cleanup for the application has been scheduled,
+	// and the offer has been removed.
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.Life(), gc.Equals, state.Dying)
+	for _, unit := range units {
+		err = unit.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(unit.Life(), gc.Equals, state.Alive)
+	}
+
+	s.assertCleanupCount(c, 2)
+
+	allOffers, err := offers.ListOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allOffers, gc.HasLen, 0)
+	wordpress, err := s.State.RemoteApplication("remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Life(), gc.Equals, state.Dying)
 }
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
