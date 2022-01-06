@@ -150,6 +150,14 @@ const (
 	// If the user needs more information, perhaps debug-log isn't the right source.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
+	// AgentLogfileMaxSize is the maximum file size in MB of each
+	// agent/controller log file.
+	AgentLogfileMaxSize = "agent-logfile-max-size"
+
+	// AgentLogfileMaxBackups is the number of old agent/controller log files
+	// to keep (compressed).
+	AgentLogfileMaxBackups = "agent-logfile-max-backups"
+
 	// ModelLogfileMaxSize is the maximum size of the log file written out by the
 	// controller on behalf of workers running for a model.
 	ModelLogfileMaxSize = "model-logfile-max-size"
@@ -299,6 +307,14 @@ const (
 	// DefaultMaxPruneTxnPasses is the default number of
 	// batches we will process. (deprecated)
 	DefaultMaxPruneTxnPasses = 100
+
+	// DefaultAgentLogfileMaxSize is the maximum file size in MB of each
+	// agent/controller log file.
+	DefaultAgentLogfileMaxSize = 300
+
+	// DefaultAgentLogfileMaxBackups is the number of old agent/controller log
+	// files to keep (compressed).
+	DefaultAgentLogfileMaxBackups = 2
 
 	// DefaultModelLogfileMaxSize is the maximum file size in MB of
 	// the log file written out by the controller on behalf of workers
@@ -752,6 +768,18 @@ func (c Config) NUMACtlPreference() bool {
 func (c Config) AllowModelAccess() bool {
 	value, _ := c[AllowModelAccessKey].(bool)
 	return value
+}
+
+// AgentLogfileMaxSizeMB is the maximum file size in MB of each
+// agent/controller log file.
+func (c Config) AgentLogfileMaxSizeMB() int {
+	return c.sizeMBOrDefault(AgentLogfileMaxSize, DefaultAgentLogfileMaxSize)
+}
+
+// AgentLogfileMaxBackups is the number of old agent/controller log files to
+// keep (compressed).
+func (c Config) AgentLogfileMaxBackups() int {
+	return c.intOrDefault(AgentLogfileMaxBackups, DefaultAgentLogfileMaxBackups)
 }
 
 // ModelLogfileMaxBackups is the number of old model log files to keep (compressed).
