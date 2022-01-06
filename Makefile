@@ -10,13 +10,13 @@ GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 
 CGO_ENABLED=1
-CGO_CFLAGS=-I$(GOPATH)/deps/raft/include/ -I$(GOPATH)/deps/dqlite/include/
-CGO_LDFLAGS=-L$(GOPATH)/deps/raft/.libs -L$(GOPATH)/deps/dqlite/.libs/
-LD_LIBRARY_PATH=$(GOPATH)/deps/raft/.libs/:$(GOPATH)/deps/dqlite/.libs/
+CGO_CFLAGS=-I$(GOPATH)/deps/raft/include/ -I$(GOPATH)/deps/dqlite/include/ -I$(GOPATH)/deps/sqlite/
+CGO_LDFLAGS=-L$(GOPATH)/deps/raft/.libs -L$(GOPATH)/deps/dqlite/.libs/ -L$(GOPATH)/deps/sqlite/.libs/ -L$(GOPATH)/deps/libuv/.libs -L$(GOPATH)/deps/lz4/lib -luv -lraft -ldqlite -llz4
+LD_LIBRARY_PATH=$(GOPATH)/deps/dqlite/.libs/:$(GOPATH)/deps/sqlite/.libs/
 CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
-BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
+BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
 # bin_platform_paths takes a juju binary to be built and the platform that it
 # is to be built for and returns a list of paths for that binary to be output.
@@ -123,7 +123,7 @@ ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-    LINK_FLAGS = -ldflags "-s -w  -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    LINK_FLAGS = -ldflags "-extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
 define DEPENDENCIES
@@ -300,7 +300,7 @@ clean:
 go-install:
 ## go-install: Install Juju binaries without updating dependencies
 	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
@@ -324,6 +324,9 @@ simplify:
 	gofmt -w -l -s .
 
 .PHONY: rebuild-schema
+ifdef IGNORE_SCHEMA
+rebuild-schema:
+else
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
@@ -332,6 +335,7 @@ ifdef SCHEMA_PATH
 else
 	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
 		./apiserver/facades/schema.json
+endif
 endif
 
 .PHONY: install-snap-dependencies
