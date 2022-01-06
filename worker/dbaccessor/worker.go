@@ -6,19 +6,18 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	dqApp "github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/utils"
 
-	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/worker/v3/catacomb"
 )
 
@@ -36,26 +35,22 @@ type Hub interface {
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	AgentMachineID string
-	DataDir        string
-	Hub            Hub
-	Clock          clock.Clock
-	Logger         Logger
+	DQLiteAddrs []string
+	DataDir     string
+	Clock       clock.Clock
+	Logger      Logger
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
-	if c.AgentMachineID == "" {
-		return errors.NotValidf("missing agent machine ID")
+	if len(c.DQLiteAddrs) == 0 {
+		return errors.NotValidf("missing dqlite cluster addresses")
 	}
 	if c.DataDir == "" {
 		return errors.NotValidf("missing data dir")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing clock")
-	}
-	if c.Hub == nil {
-		return errors.NotValidf("missing hub")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
@@ -66,9 +61,6 @@ func (c *WorkerConfig) Validate() error {
 type dbWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
-
-	unsubServerDetailsFn func()
-	apiServerChangesCh   chan apiserver.Details
 
 	mu            sync.RWMutex
 	dqliteApp     *dqApp.App
@@ -83,30 +75,9 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 	}
 
 	w := &dbWorker{
-		cfg:                cfg,
-		dbHandles:          make(map[string]*sql.DB),
-		apiServerChangesCh: make(chan apiserver.Details, 1),
-		dqliteReadyCh:      make(chan struct{}),
-	}
-
-	// Subscribe for server information
-	w.unsubServerDetailsFn, err = w.cfg.Hub.Subscribe(
-		apiserver.DetailsTopic,
-		func(topic string, details apiserver.Details, err error) {
-			if err != nil { // This should never happen.
-				w.cfg.Logger.Errorf("subscriber callback error: %v", err)
-				return
-			}
-
-			select {
-			case <-w.catacomb.Dying():
-			case w.apiServerChangesCh <- details:
-				// enqueued for processing by main loop.
-			}
-		},
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
+		cfg:           cfg,
+		dbHandles:     make(map[string]*sql.DB),
+		dqliteReadyCh: make(chan struct{}),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -121,7 +92,6 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 
 func (w *dbWorker) loop() (err error) {
 	defer func() {
-		w.unsubServerDetailsFn()
 		w.mu.Lock()
 		if w.dqliteApp != nil {
 			if hErr := w.dqliteApp.Handover(context.TODO()); hErr != nil {
@@ -144,13 +114,7 @@ func (w *dbWorker) loop() (err error) {
 		w.mu.Unlock()
 	}()
 
-	// Request a snapshot of the current server details.
-	detailsRequest := apiserver.DetailsRequest{
-		Requester: "db-accessor",
-		LocalOnly: true,
-	}
-
-	if _, err := w.cfg.Hub.Publish(apiserver.DetailsRequestTopic, detailsRequest); err != nil {
+	if err := w.initializeDqlite(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -158,18 +122,6 @@ func (w *dbWorker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case details := <-w.apiServerChangesCh:
-			if len(details.Servers) == 0 {
-				w.cfg.Logger.Warningf("received empty API server list; publishing new details request")
-				if _, err := w.cfg.Hub.Publish(apiserver.DetailsRequestTopic, detailsRequest); err != nil {
-					return errors.Trace(err)
-				}
-				continue
-			}
-
-			if err := w.updateDqliteClusterMembers(details); err != nil {
-				return errors.Trace(err)
-			}
 		}
 	}
 }
@@ -237,9 +189,7 @@ func (w *dbWorker) GetExistingDB(modelUUID string) (*sql.DB, error) {
 	return nil, errors.NotFoundf("database for model %q", modelUUID)
 }
 
-func (w *dbWorker) updateDqliteClusterMembers(details apiserver.Details) error {
-	w.cfg.Logger.Tracef("updateDqliteClusterMembers: %#v", details)
-
+func (w *dbWorker) initializeDqlite() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -248,56 +198,17 @@ func (w *dbWorker) updateDqliteClusterMembers(details apiserver.Details) error {
 		return nil
 	}
 
-	if err := w.initializeDqlite(details); err != nil {
-		return errors.Annotatef(err, "initializing dqlite application")
-	}
-
-	// At this point we have a functioning dqlite cluster so we don't need
-	// to listen for future peer changes. New peers can join the cluster
-	// and announced to us simply by connecting to any of the already
-	// established DB endpoints.
-	w.unsubServerDetailsFn()
-
-	w.cfg.Logger.Tracef("updateDqliteClusterMembers: processed all changes")
-	return nil
-}
-
-func (w *dbWorker) initializeDqlite(details apiserver.Details) error {
-	// Split the server list into a local peer and a list of remote peers
-	// to connect to. If this is the initial (bootstrapping) node of the
-	// cluster, the remote peer list will be empty.
-	var localPeer apiserver.APIServer
-	var remotePeers []string
-	for id, apiServer := range details.Servers {
-		target := names.NewControllerAgentTag(id).Id()
-		if target == w.cfg.AgentMachineID {
-			localPeer = apiServer
-			continue
-		}
-
-		// Calculate the dqlite endpoint address from the remote API address.
-		remoteAddr, err := dqliteAddressForServer(apiServer)
-		if err != nil {
-			return errors.Annotatef(err, "generating remote address for dqlite endpoint")
-		}
-		remotePeers = append(remotePeers, remoteAddr)
-	}
-
-	if localPeer.ID == "" {
-		return errors.Errorf("unable to locate local address for controller")
+	localAddr, peerAddrs, err := detectLocalDQliteAddr(w.cfg.DQLiteAddrs)
+	if err != nil {
+		return errors.Annotatef(err, "detecting local dqlite address")
 	}
 
 	if err := os.MkdirAll(w.cfg.DataDir, 0700); err != nil {
 		return errors.Annotatef(err, "creating directory for dqlite data")
 	}
 
-	localAddr, err := dqliteAddressForServer(localPeer)
-	if err != nil {
-		return errors.Annotatef(err, "generating remote address for dqlite endpoint")
-	}
-
-	w.cfg.Logger.Infof("initializing dqlite application with local address %q and peer addresses %v", localAddr, remotePeers)
-	if w.dqliteApp, err = dqApp.New(w.cfg.DataDir, dqApp.WithAddress(localAddr), dqApp.WithCluster(remotePeers)); err != nil {
+	w.cfg.Logger.Infof("initializing dqlite application with local address %q and peer addresses %v", localAddr, peerAddrs)
+	if w.dqliteApp, err = dqApp.New(w.cfg.DataDir, dqApp.WithAddress(localAddr), dqApp.WithCluster(peerAddrs)); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -324,25 +235,82 @@ func (w *dbWorker) initializeDqlite(details apiserver.Details) error {
 	return nil
 }
 
-func dqliteAddressForServer(apiServer apiserver.APIServer) (string, error) {
-	var apiAddress string
-	if apiServer.InternalAddress != "" { // always prefer internal addresses
-		apiAddress = apiServer.InternalAddress
-	} else if len(apiServer.Addresses) != 0 {
-		apiAddress = apiServer.Addresses[0]
-	} else {
-		return "", errors.Errorf("no usable addresses for %q", apiServer.ID)
+func detectLocalDQliteAddr(dqliteAddrs []string) (localAddr string, peerAddrs []string, err error) {
+	if len(dqliteAddrs) == 0 {
+		return "", nil, errors.Errorf("no available dqlite addresses")
 	}
 
-	tokens := strings.Split(apiAddress, ":")
-	if len(tokens) != 2 {
-		return "", errors.NotValidf("API address %q", apiAddress)
-	}
+	// The dqlite address list is generated and validated by the manifold
+	// code so we can safely assume that they include a port section.
+	listenAddr := dqliteAddrs[0][strings.IndexRune(dqliteAddrs[0], ':'):]
 
-	apiPort, err := strconv.Atoi(tokens[1])
+	// Since the address list may contain VIPs (i.e. IPs not visible to the
+	// machine) or FAN addresses, we will create a TCP socket that listens
+	// on the dqlite port on all addresses and try connecting to each
+	// provided dqliteAddrs until we reach the server.
+	nonceUUID, err := utils.NewUUID()
 	if err != nil {
-		return "", errors.Annotatef(err, "parsing port component of API address %q", apiAddress)
+		return "", nil, errors.Trace(err)
+	}
+	nonce := nonceUUID.String()
+
+	l, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return "", nil, errors.Annotatef(err, "creating TCP listener for detecting local dqlite address")
+	}
+	defer func() { _ = l.Close() }()
+	go serveNonce(l, nonce)
+
+	// Try to read the nonce from each of the provided addresses in parallel
+	var wg sync.WaitGroup
+	wg.Add(len(dqliteAddrs))
+	for _, addr := range dqliteAddrs {
+		go func(addr string) {
+			defer wg.Done()
+			if maybeReadNonce(addr, nonce) {
+				localAddr = addr
+			}
+		}(addr)
+	}
+	wg.Wait()
+
+	if localAddr == "" {
+		return "", nil, errors.Annotatef(err, "unable to detect local dqlite address")
 	}
 
-	return fmt.Sprintf("%s:%d", tokens[0], apiPort-1), nil
+	for _, addr := range dqliteAddrs {
+		if addr == localAddr {
+			continue
+		}
+
+		peerAddrs = append(peerAddrs, addr)
+	}
+
+	return localAddr, peerAddrs, nil
+}
+
+func serveNonce(l net.Listener, nonce string) {
+	for {
+		s, err := l.Accept()
+		if err != nil {
+			return
+		}
+
+		_, _ = s.Write([]byte(nonce))
+		_ = s.Close()
+	}
+}
+
+func maybeReadNonce(addr string, expNonce string) bool {
+	conn, err := net.DialTimeout("tcp", addr, time.Second)
+	if err != nil {
+		return false // assume non-reachable
+	}
+	defer func() { _ = conn.Close() }()
+
+	nonceBuf := make([]byte, len(expNonce))
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	n, _ := conn.Read(nonceBuf)
+
+	return n == len(expNonce) && string(nonceBuf[:n]) == expNonce
 }

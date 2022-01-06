@@ -4,11 +4,13 @@
 package dbaccessor
 
 import (
+	"fmt"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
@@ -27,10 +29,9 @@ type Logger interface {
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	AgentName      string
-	CentralHubName string
-	Clock          clock.Clock
-	Logger         Logger
+	AgentName string
+	Clock     clock.Clock
+	Logger    Logger
 }
 
 // Manifold returns a dependency manifold that runs the dbaccessor
@@ -38,7 +39,6 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.CentralHubName,
 			config.AgentName,
 		},
 		Output: dbAccessorOutput,
@@ -49,18 +49,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			agentConfig := agent.CurrentConfig()
 
-			// Get the hub.
-			var hub *pubsub.StructuredHub
-			if err := context.Get(config.CentralHubName, &hub); err != nil {
-				return nil, err
+			apiAddrs, err := agentConfig.APIAddresses()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			dqliteAddrs, err := mapAPIAddresses(apiAddrs)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
 
 			cfg := WorkerConfig{
-				AgentMachineID: agentConfig.Tag().Id(),
-				DataDir:        filepath.Join(agentConfig.DataDir(), "dqlite"),
-				Hub:            hub,
-				Clock:          config.Clock,
-				Logger:         config.Logger,
+				DQLiteAddrs: dqliteAddrs,
+				DataDir:     filepath.Join(agentConfig.DataDir(), "dqlite"),
+				Clock:       config.Clock,
+				Logger:      config.Logger,
 			}
 
 			w, err := NewWorker(cfg)
@@ -89,4 +92,25 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 		return errors.Errorf("expected output of *dbaccessor.DBGetter, got %T", out)
 	}
 	return nil
+}
+
+// mapAPIAddresses converts a slice of controller API addresses to a slice of
+// dqlite cluster addresses
+func mapAPIAddresses(apiAddrs []string) ([]string, error) {
+	var dqliteAddrs []string
+	for _, apiAddr := range apiAddrs {
+		tokens := strings.Split(apiAddr, ":")
+		if len(tokens) != 2 {
+			return nil, errors.NotValidf("API address %q", apiAddr)
+		}
+
+		apiPort, err := strconv.Atoi(tokens[1])
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing port component of API address %q", apiAddr)
+		}
+
+		dqliteAddrs = append(dqliteAddrs, fmt.Sprintf("%s:%d", tokens[0], apiPort-1))
+	}
+
+	return dqliteAddrs, nil
 }
