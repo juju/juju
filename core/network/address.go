@@ -404,8 +404,24 @@ func isIPv6UniqueLocalAddress(addrType AddressType, ip net.IP) bool {
 // address resides.
 type ProviderAddress struct {
 	MachineAddress
-	SpaceName       SpaceName
+
+	// SpaceName is the space in which this address resides
+	SpaceName SpaceName
+
+	// ProviderSpaceID is the provider's ID for the space this address is in
 	ProviderSpaceID Id
+
+	// ProviderID is the ID of this address's provider
+	ProviderID Id
+
+	// ProviderSubnetID is the provider's ID for the subnet this address is in
+	ProviderSubnetID Id
+
+	// ProviderVLANID is the provider's ID for the VLAN this address is in
+	ProviderVLANID Id
+
+	// VLANTag is the tag associated with this address's VLAN
+	VLANTag int
 }
 
 // GoString implements fmt.GoStringer.
