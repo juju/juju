@@ -13,22 +13,11 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/openstack"
 )
-
-type firewallerFactory struct {
-}
-
-var _ openstack.FirewallerFactory = (*firewallerFactory)(nil)
-
-// GetFirewaller implements FirewallerFactory
-func (f *firewallerFactory) GetFirewaller(env environs.Environ) openstack.Firewaller {
-	return &equinixFirewaller{}
-}
 
 type equinixFirewaller struct{}
 
-var _ openstack.Firewaller = (*equinixFirewaller)(nil)
+var _ environs.Firewaller = (*equinixFirewaller)(nil)
 
 // OpenPorts is not supported.
 func (c *equinixFirewaller) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
