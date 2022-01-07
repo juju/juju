@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -15,6 +16,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/version"
 	"github.com/juju/schema"
 
 	"github.com/packethost/packngo"
@@ -123,6 +125,8 @@ var equinixClient = func(spec environscloudspec.CloudSpec) *packngo.Client {
 	httpClient := http.DefaultClient
 
 	c := packngo.NewClientWithAuth("juju", apiToken, httpClient)
+	userAgent := fmt.Sprintf("Juju/%s %s", version.Current.String(), c.UserAgent)
+	c.UserAgent = strings.TrimSpace(userAgent)
 
 	return c
 }
