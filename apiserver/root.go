@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -49,6 +50,7 @@ type objectKey struct {
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
 	state     *state.State
+	db        *sql.DB
 	model     *state.Model
 	rpcConn   *rpc.Conn
 	resources *common.Resources
@@ -73,7 +75,7 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newAPIHandler returns a new apiHandler.
-func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
+func newAPIHandler(srv *Server, st *state.State, db *sql.DB, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
 	m, err := st.Model()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -91,6 +93,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 
 	r := &apiHandler{
 		state:        st,
+		db:           db,
 		model:        m,
 		resources:    common.NewResources(),
 		shared:       srv.shared,
@@ -135,6 +138,11 @@ func (r *apiHandler) Resources() *common.Resources {
 // State returns the underlying state.
 func (r *apiHandler) State() *state.State {
 	return r.state
+}
+
+// DB returns the model database.
+func (r *apiHandler) DB() *sql.DB {
+	return r.db
 }
 
 // SharedContext returns the server shared context.
@@ -192,6 +200,7 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 type apiRoot struct {
 	clock           clock.Clock
 	state           *state.State
+	db              *sql.DB
 	shared          *sharedServerContext
 	facades         *facade.Registry
 	resources       *common.Resources
@@ -204,6 +213,8 @@ type apiRoot struct {
 type apiRootHandler interface {
 	// State returns the underlying state.
 	State() *state.State
+	// DB returns the database associated with the model.
+	DB() *sql.DB
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
@@ -222,6 +233,7 @@ func newAPIRoot(clock clock.Clock,
 	r := &apiRoot{
 		clock:           clock,
 		state:           st,
+		db:              root.DB(),
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
@@ -612,6 +624,15 @@ func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 func (ctx *facadeContext) Raft() facade.RaftContext {
 	return &raftMediator{
 		queue:  ctx.r.shared.raftOpQueue,
+		logger: ctx.r.shared.logger,
+		clock:  ctx.r.clock,
+	}
+}
+
+// DB returns the database associated with the model.
+func (ctx *facadeContext) DB() facade.SQLDatabase {
+	return &dbMediator{
+		db:     ctx.r.db,
 		logger: ctx.r.shared.logger,
 		clock:  ctx.r.clock,
 	}
