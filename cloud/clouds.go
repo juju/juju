@@ -267,7 +267,9 @@ type cloud struct {
 // as a yaml.MapSlice.
 //
 // When marshalling, we populate the Slice field only. This is
-// necessary for us to control the order of map items.
+// necessary for us to control the order of map items, because the
+// type yaml.MapSlice preserves the order of the keys when encoding
+// and decoding.
 //
 // When unmarshalling, we populate both Map and Slice. Map is
 // populated to simplify conversion to Region objects. Slice
@@ -399,6 +401,15 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	var metadata cloudSet
 	if err := yaml.Unmarshal(data, &metadata); err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
+	}
+	// If we have a yaml that starts without a 'clouds:' key at
+	// top (e.g. list-clouds output), then try to accommodate
+	if len(metadata.Clouds) == 0 && string(data[:7]) != "clouds:" {
+		var metadataClouds map[string]*cloud
+		if errSecTry := yaml.Unmarshal(data, &metadataClouds); errSecTry != nil {
+			return nil, errors.Annotate(errSecTry, "cannot unmarshal yaml cloud metadata")
+		}
+		metadata.Clouds = metadataClouds
 	}
 
 	// Translate to the exported type. For each cloud, we store
