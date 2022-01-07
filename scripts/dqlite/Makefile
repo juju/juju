@@ -132,10 +132,11 @@ bootstrap:
 		       ./configure --disable-shared
 		make
 		cd ../
-
-		# Collect .a files
+		
 		rm -Rf juju-dqlite-static-lib-deps
 		mkdir juju-dqlite-static-lib-deps
+
+		# Collect .a files
 		# NOTE: for some strange reason we *also* require the libuv and
 		# liblz4 .so files for the final juju link step even though the
 		# resulting artifact is statically linked.
@@ -145,6 +146,13 @@ bootstrap:
 		cp raft/.libs/*.a juju-dqlite-static-lib-deps/
 		cp sqlite/.libs/*.a juju-dqlite-static-lib-deps/
 		cp dqlite/.libs/*.a juju-dqlite-static-lib-deps/
+
+		# Collect required headers
+		mkdir juju-dqlite-static-lib-deps/include
+		cp -r raft/include/* juju-dqlite-static-lib-deps/include
+		cp -r sqlite/*.h juju-dqlite-static-lib-deps/include
+		cp -r dqlite/include/* juju-dqlite-static-lib-deps/include
+
 		tar cjvf juju-dqlite-static-lib-deps.tar.bz2 juju-dqlite-static-lib-deps
 	EOF
 

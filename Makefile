@@ -9,11 +9,11 @@ GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 
-DEPS_DIR ?= $(PROJECT_DIR)/_deps
+DEPS_DIR ?= $(PROJECT_DIR)/_deps/juju-dqlite-static-lib-deps
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
-CGO_CFLAGS=-I$(GOPATH)/deps/raft/include/ -I$(GOPATH)/deps/dqlite/include/ -I$(GOPATH)/deps/sqlite/
+CGO_CFLAGS=-I$(DEPS_DIR)/include
 CGO_LDFLAGS=-L$(DEPS_DIR) -luv -lraft -ldqlite -llz4 -lsqlite3
 LD_LIBRARY_PATH=$(DEPS_DIR)
 CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
