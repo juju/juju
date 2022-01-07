@@ -9,19 +9,17 @@ GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 
-CGO_ENABLED=1
-CGO_CFLAGS=-I$(GOPATH)/deps/raft/include/ -I$(GOPATH)/deps/dqlite/include/ -I$(GOPATH)/deps/sqlite/
-CGO_LDFLAGS=-L$(GOPATH)/deps/raft/.libs -L$(GOPATH)/deps/dqlite/.libs/ -L$(GOPATH)/deps/sqlite/.libs/ -L$(GOPATH)/deps/libuv/.libs -L$(GOPATH)/deps/lz4/lib -luv -lraft -ldqlite -llz4
-LD_LIBRARY_PATH=$(GOPATH)/deps/dqlite/.libs/:$(GOPATH)/deps/sqlite/.libs/
-CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-
+DEPS_DIR ?= $(PROJECT_DIR)/_deps
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
+CGO_CFLAGS=-I$(GOPATH)/deps/raft/include/ -I$(GOPATH)/deps/dqlite/include/ -I$(GOPATH)/deps/sqlite/
+CGO_LDFLAGS=-L$(DEPS_DIR) -luv -lraft -ldqlite -llz4 -lsqlite3
+LD_LIBRARY_PATH=$(DEPS_DIR)
+CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+
 define MAIN_PACKAGES
   github.com/juju/juju/cmd/juju
-  github.com/juju/juju/cmd/jujuc
-  github.com/juju/juju/cmd/jujud
   github.com/juju/juju/cmd/containeragent
   github.com/juju/juju/cmd/plugins/juju-metadata
   github.com/juju/juju/cmd/plugins/juju-wait-for
@@ -30,6 +28,11 @@ endef
 ifeq ($(GOOS),linux)
 	MAIN_PACKAGES += github.com/canonical/pebble/cmd/pebble
 endif
+
+define CGO_MAIN_PACKAGES
+  github.com/juju/juju/cmd/jujuc
+  github.com/juju/juju/cmd/jujud
+endef
 
 # Allow the tests to take longer on restricted platforms.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
@@ -74,6 +77,8 @@ JUJU_BUILD_NUMBER ?=
 # CI should set this to vendor
 JUJU_GOMOD_MODE ?= mod
 
+CGO_LINK_FLAGS = -ldflags "-linkmode 'external' -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
@@ -86,7 +91,7 @@ ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang
 else
 	COMPILE_FLAGS =
 endif
-    LINK_FLAGS = -ldflags "-extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    LINK_FLAGS = -ldflags "-s -w -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
 define DEPENDENCIES
@@ -104,13 +109,13 @@ help:
 	@echo "Usage: \n"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
-build: rebuild-schema go-build
+build: rebuild-schema go-build cgo-go-build
 ## build: Create Juju binaries
 
-release-build: go-build
+release-build: go-build cgo-go-build
 ## release-build: Construct Juju binaries, without building schema
 
-release-install: go-install
+release-install: go-install cgo-go-install
 ## release-install: Install Juju binaries
 
 pre-check:
@@ -142,13 +147,24 @@ clean:
 
 go-install:
 ## go-install: Install Juju binaries without updating dependencies
-	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
-	@mkdir -p ${BIN_DIR} #@echo 'CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	@mkdir -p ${BIN_DIR}
+	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+
+cgo-go-install:
+## go-install: Install Juju binaries without updating dependencies
+	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $$CGO_MAIN_PACKAGES'
+	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $(strip $(CGO_MAIN_PACKAGES))
+
+cgo-go-build:
+## go-build: Build Juju binaries without updating dependencies
+	@mkdir -p ${BIN_DIR} #@echo 'CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $$CGO_MAIN_PACKAGES'
+	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $(strip $(CGO_MAIN_PACKAGES))
 
 vendor-dependencies:
 ## vendor-dependencies: updates vendored dependencies
