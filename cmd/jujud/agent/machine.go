@@ -229,12 +229,15 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 	if !a.logToStdErr {
 		// the context's stderr is set as the loggo writer in github.com/juju/cmd/v3/logging.go
-		a.ctx.Stderr = &lumberjack.Logger{
-			Filename:   agent.LogFilename(config),
-			MaxSize:    300, // megabytes
-			MaxBackups: 2,
+		ljLogger := &lumberjack.Logger{
+			Filename:   agent.LogFilename(config), // eg: "/var/log/juju/machine-0.log"
+			MaxSize:    config.AgentLogfileMaxSizeMB(),
+			MaxBackups: config.AgentLogfileMaxBackups(),
 			Compress:   true,
 		}
+		logger.Debugf("created rotating logger at %q with max size %d MB and max backups %d",
+			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
+		a.ctx.Stderr = ljLogger
 	}
 
 	return nil

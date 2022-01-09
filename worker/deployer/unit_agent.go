@@ -256,15 +256,16 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 		// fails.
 		a.logger.Errorf("unable to prime %s (proceeding anyway): %v", logFilename, err)
 	}
-	// TODO: allow model-config for number of backups and logfile max size.
-	writer := &lumberjack.Logger{
-		Filename:   logFilename,
-		MaxSize:    300, // megabytes
-		MaxBackups: 2,
+	ljLogger := &lumberjack.Logger{
+		Filename:   logFilename, // eg: "/var/log/juju/unit-mysql-0.log"
+		MaxSize:    a.CurrentConfig().ModelLogfileMaxSizeMB(),
+		MaxBackups: a.CurrentConfig().ModelLogfileMaxBackups(),
 		Compress:   true,
 	}
+	a.logger.Debugf("created rotating logger at %q with max size %d MB and max backups %d",
+		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	if err := loggingContext.AddWriter(
-		"file", loggo.NewSimpleWriter(writer, loggo.DefaultFormatter)); err != nil {
+		"file", loggo.NewSimpleWriter(ljLogger, loggo.DefaultFormatter)); err != nil {
 		a.logger.Errorf("unable to configure file logging for unit %q: %v", a.name, err)
 	}
 
