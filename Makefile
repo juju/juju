@@ -307,7 +307,7 @@ static-analysis:
 .PHONY: install-dependencies
 .PHONY: check-deps
 
-.PHONY: musl-ensure-symlink musl-preflight deps
+.PHONY: musl-ensure-symlink musl-preflight dqlite-deps dqlite-deps-push
 musl-ensure-symlink:
 	@test -d /usr/local/musl/$(d) || echo "Please run 'sudo ln -s $(s) /usr/local/musl/$(d)'"
 
@@ -317,8 +317,20 @@ musl-preflight:
 	@$(MAKE) -s musl-ensure-symlink d=include/asm-generic s=/usr/include/asm-generic
 	@$(MAKE) -s musl-ensure-symlink d=include/linux s=/usr/include/linux
 
-deps: musl-preflight
+dqlite-deps: musl-preflight
 	@mkdir -p ./_deps
+ifeq ($(DQLITE_BUILD_SOURCE),true)
 	$(MAKE) -C ./scripts/dqlite clean deps
 	rm -rf ./_deps/juju-dqlite-static-lib-deps
 	tar xjf ./scripts/dqlite/juju-dqlite-static-lib-deps.tar.bz2 -C ./_deps
+else
+	rm -rf ./_deps/juju-dqlite-static-lib-deps
+	aws s3 cp s3://dqlite-static-libs/latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ./_deps
+endif
+
+dqlite-deps-preflight:
+	@test -f ./scripts/dqlite/juju-dqlite-static-lib-deps.tar.bz2 >/dev/null
+
+dqlite-deps-push: dqlite-deps-preflight
+	aws s3 cp --acl public-read ./scripts/dqlite/juju-dqlite-static-lib-deps.tar.bz2 s3://dqlite-static-libs/$(shell date -u +"%Y-%m-%d")-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2
+	aws s3 cp --acl public-read s3://dqlite-static-libs/$(shell date -u +"%Y-%m-%d")-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 s3://dqlite-static-libs/latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2
