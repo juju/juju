@@ -307,39 +307,18 @@ static-analysis:
 .PHONY: install-dependencies
 .PHONY: check-deps
 
+.PHONY: musl-ensure-symlink musl-preflight deps
+musl-ensure-symlink:
+	@test -d /usr/local/musl/$(d) || echo "Please run 'sudo ln -s $(s) /usr/local/musl/$(d)'"
 
-RAFT_PATH=$(GOPATH)/deps/raft
-DQLITE_PATH=$(GOPATH)/deps/dqlite
+musl-preflight:
+	@which musl-gcc >/dev/null
+	@$(MAKE) -s musl-ensure-symlink d=include/asm s=/usr/include/x86_64-linux-gnu/asm
+	@$(MAKE) -s musl-ensure-symlink d=include/asm-generic s=/usr/include/asm-generic
+	@$(MAKE) -s musl-ensure-symlink d=include/linux s=/usr/include/linux
 
-.PHONY: deps
-deps:
-	@if [ ! -e "$(RAFT_PATH)" ]; then \
-		git clone --depth=1 "https://github.com/canonical/raft" "$(RAFT_PATH)"; \
-	elif [ -e "$(RAFT_PATH)/.git" ]; then \
-		cd "$(RAFT_PATH)"; git pull; \
-	fi
-
-	cd "$(RAFT_PATH)" && \
-		autoreconf -i && \
-		./configure && \
-		make
-
-	# dqlite
-	@if [ ! -e "$(DQLITE_PATH)" ]; then \
-		git clone --depth=1 "https://github.com/canonical/dqlite" "$(DQLITE_PATH)"; \
-	elif [ -e "$(DQLITE_PATH)/.git" ]; then \
-		cd "$(DQLITE_PATH)"; git pull; \
-	fi
-
-	cd "$(DQLITE_PATH)" && \
-		autoreconf -i && \
-		PKG_CONFIG_PATH="$(RAFT_PATH)" ./configure && \
-		make CFLAGS="-I$(RAFT_PATH)/include/" LDFLAGS="-L$(RAFT_PATH)/.libs/"
-
-	# environment
-	@echo ""
-	@echo "Please set the following in your environment (possibly ~/.bashrc)"
-	@echo "export CGO_CFLAGS=\"-I$(RAFT_PATH)/include/ -I$(DQLITE_PATH)/include/\""
-	@echo "export CGO_LDFLAGS=\"-L$(RAFT_PATH)/.libs -L$(DQLITE_PATH)/.libs/\""
-	@echo "export LD_LIBRARY_PATH=\"$(RAFT_PATH)/.libs/:$(DQLITE_PATH)/.libs/\""
-	@echo "export CGO_LDFLAGS_ALLOW=\"(-Wl,-wrap,pthread_create)|(-Wl,-z,now)\""
+deps: musl-preflight
+	@mkdir -p ./_deps
+	$(MAKE) -C ./scripts/dqlite clean deps
+	rm -rf ./_deps/juju-dqlite-static-lib-deps
+	tar xjf ./scripts/dqlite/juju-dqlite-static-lib-deps.tar.bz2 -C ./_deps

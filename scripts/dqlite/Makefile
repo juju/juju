@@ -5,9 +5,9 @@ BOX=lib-build-server
 BOX_IMAGE=ubuntu:18.04
 JUJU_CONTROLLER_BOX ?= $(shell juju status -m controller | grep juju- | head -1 | awk '{print $$4}')
 
-.PHONY: bootstrap install-deps-on-controller build-and-install-jujud
+.PHONY: deps install-deps-on-controller build-and-install-jujud
 
-bootstrap:
+deps:
 	@echo "Starting ${BOX_IMAGE}"
 	@lxc launch ubuntu:18.04 ${BOX}
 
@@ -19,10 +19,13 @@ bootstrap:
 		#!/bin/bash
 		set -e
 
+		# TODO: Make this script idempotent, so that it checks for the
+		# existence of repositories, requiring only a pull and not a full clone.
+
 		# Setup build env
 		apt-get update
 		apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install \
-		gcc automake libtool make gettext autopoint pkg-config tclsh tcl libsqlite3-dev
+			gcc automake libtool make gettext autopoint pkg-config tclsh tcl libsqlite3-dev
 
 		mkdir build
 		cd build
@@ -164,6 +167,9 @@ bootstrap:
 
 	@echo "Pulling lib archive"
 	@lxc file pull ${BOX}/root/build/juju-dqlite-static-lib-deps.tar.bz2 juju-dqlite-static-lib-deps.tar.bz2
+
+clean:
+	lxc delete -f ${BOX}
 
 install-deps-on-controller:
 	@echo "[+] Installing dqlite dependencies to controller: ${JUJU_CONTROLLER_BOX}"
