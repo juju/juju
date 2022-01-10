@@ -287,7 +287,7 @@ func detectLocalDQliteAddr(dqliteAddrs []string) (localAddr string, peerAddrs []
 	// the channel. For now just use the first one we see.
 	close(localAddrCh)
 	addr, ok := <-localAddrCh
-	if !ok {
+	if !ok || addr == "" {
 		return "", nil, errors.Annotatef(err, "unable to detect local dqlite address")
 	}
 	localAddr = addr
