@@ -171,33 +171,10 @@ deps:
 clean:
 	lxc delete -f ${BOX}
 
-install-deps-on-controller:
-	@echo "[+] Installing dqlite dependencies to controller: ${JUJU_CONTROLLER_BOX}"
-	lxc exec -t ${JUJU_CONTROLLER_BOX} -- add-apt-repository -y ppa:dqlite/dev
-	lxc exec -t ${JUJU_CONTROLLER_BOX} -- apt-get update
-	lxc exec -t ${JUJU_CONTROLLER_BOX} -- apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install libuv1-dev libsqlite3-dev libdqlite-dev rlwrap socat
+install-repl-deps-on-controller:
+	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- which rlwrap &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install rlwrap
+	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- which socat &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install socat
 
-stop-jujud:
-	@echo
-	@echo "[+] Stopping jujud-machine service on controller: ${JUJU_CONTROLLER_BOX}"
-	@lxc exec ${JUJU_CONTROLLER_BOX} -- bash -c 'systemctl stop $$(ls /etc/systemd/system/jujud-mach*.service | cut -d"/" -f5)'
-
-build-and-install-jujud:
-	@echo "[+] Building jujud on ${BOX}"
-	@lxc exec -t ${BOX} -- bash /root/build-juju.sh
-
-	@echo
-	@echo "[+] Stopping jujud-machine service on controller: ${JUJU_CONTROLLER_BOX}"
-	@lxc exec ${JUJU_CONTROLLER_BOX} -- bash -c 'systemctl stop $$(ls /etc/systemd/system/jujud-mach*.service | cut -d"/" -f5)'
-
-	@echo "[+] Pushing jujud to controller: ${JUJU_CONTROLLER_BOX}"
-	@lxc file pull ${BOX}/tmp/jujubuild/linux_amd64/bin/jujud /tmp/jujud
-	@lxc exec ${JUJU_CONTROLLER_BOX} -- bash -c 'rm -rf /var/lib/juju/tools/$$(ls /var/lib/juju/tools | grep machine-)/jujud'
-	lxc file push /tmp/jujud ${JUJU_CONTROLLER_BOX}/var/lib/juju/tools/`lxc exec ${JUJU_CONTROLLER_BOX} -- bash -c 'ls /var/lib/juju/tools | grep machine-'`/jujud
-
-	@echo "[+] Starting jujud-machine service on controller: ${JUJU_CONTROLLER_BOX}"
-	@lxc exec ${JUJU_CONTROLLER_BOX} -- bash -c 'systemctl start $$(ls /etc/systemd/system/jujud-mach*.service | cut -d"/" -f5)'
-
-dqlite-repl:
+dqlite-repl: install-repl-deps-on-controller
 	@echo "[+] Connecting to REPL interface on controller: ${JUJU_CONTROLLER_BOX}"
 	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- rlwrap -H /root/.dqlite_repl.history socat - /var/lib/juju/dqlite/juju.sock
