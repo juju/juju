@@ -40,21 +40,23 @@ type appWorker struct {
 	logger     Logger
 	unitFacade CAASUnitProvisionerFacade
 
-	name        string
-	modelTag    names.ModelTag
-	changes     chan struct{}
-	password    string
-	lastApplied caas.ApplicationConfig
+	name                string
+	modelTag            names.ModelTag
+	changes             chan struct{}
+	password            string
+	lastApplied         caas.ApplicationConfig
+	shutDownCleanUpFunc func()
 }
 
 type AppWorkerConfig struct {
-	Name       string
-	Facade     CAASProvisionerFacade
-	Broker     CAASBroker
-	ModelTag   names.ModelTag
-	Clock      clock.Clock
-	Logger     Logger
-	UnitFacade CAASUnitProvisionerFacade
+	Name                string
+	Facade              CAASProvisionerFacade
+	Broker              CAASBroker
+	ModelTag            names.ModelTag
+	Clock               clock.Clock
+	Logger              Logger
+	UnitFacade          CAASUnitProvisionerFacade
+	ShutDownCleanUpFunc func()
 }
 
 type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
@@ -64,14 +66,15 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			name:       config.Name,
-			facade:     config.Facade,
-			broker:     config.Broker,
-			modelTag:   config.ModelTag,
-			clock:      config.Clock,
-			logger:     config.Logger,
-			changes:    changes,
-			unitFacade: config.UnitFacade,
+			name:                config.Name,
+			facade:              config.Facade,
+			broker:              config.Broker,
+			modelTag:            config.ModelTag,
+			clock:               config.Clock,
+			logger:              config.Logger,
+			changes:             changes,
+			unitFacade:          config.UnitFacade,
+			shutDownCleanUpFunc: config.ShutDownCleanUpFunc,
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Site: &a.catacomb,
@@ -82,7 +85,10 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 }
 
 func (a *appWorker) Notify() {
-	a.changes <- struct{}{}
+	select {
+	case a.changes <- struct{}{}:
+	case <-a.catacomb.Dying():
+	}
 }
 
 func (a *appWorker) Kill() {
@@ -93,7 +99,18 @@ func (a *appWorker) Wait() error {
 	return a.catacomb.Wait()
 }
 
-func (a *appWorker) loop() error {
+func (a *appWorker) loop() (err error) {
+	defer func() {
+		select {
+		case <-a.catacomb.Dying():
+		default:
+			if err == nil {
+				// Stop and remove myself from runner.
+				a.shutDownCleanUpFunc()
+			}
+		}
+	}()
+
 	shouldExit, err := a.verifyCharmUpgraded()
 	if err != nil {
 		return errors.Trace(err)
