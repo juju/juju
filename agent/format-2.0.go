@@ -49,6 +49,11 @@ type format_2_0Serialization struct {
 	LoggingConfig string            `yaml:"loggingconfig,omitempty"`
 	Values        map[string]string `yaml:"values"`
 
+	AgentLogfileMaxSizeMB  int `yaml:"agent-logfile-max-size"`
+	AgentLogfileMaxBackups int `yaml:"agent-logfile-max-backups"`
+	ModelLogfileMaxSizeMB  int `yaml:"model-logfile-max-size"`
+	ModelLogfileMaxBackups int `yaml:"model-logfile-max-backups"`
+
 	// Only controller machines have these next items set.
 	ControllerCert           string `yaml:"controllercert,omitempty"`
 	ControllerKey            string `yaml:"controllerkey,omitempty"`
@@ -99,16 +104,22 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			LogDir:           format.LogDir,
 			MetricsSpoolDir:  format.MetricsSpoolDir,
 		}),
-		jobs:                     format.Jobs,
-		upgradedToVersion:        *format.UpgradedToVersion,
-		nonce:                    format.Nonce,
-		controller:               controllerTag,
-		model:                    modelTag,
-		caCert:                   format.CACert,
-		statePassword:            format.StatePassword,
-		oldPassword:              format.OldPassword,
-		loggingConfig:            format.LoggingConfig,
-		values:                   format.Values,
+		jobs:              format.Jobs,
+		upgradedToVersion: *format.UpgradedToVersion,
+		nonce:             format.Nonce,
+		controller:        controllerTag,
+		model:             modelTag,
+		caCert:            format.CACert,
+		statePassword:     format.StatePassword,
+		oldPassword:       format.OldPassword,
+		loggingConfig:     format.LoggingConfig,
+		values:            format.Values,
+
+		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
+		agentLogfileMaxBackups: format.AgentLogfileMaxBackups,
+		modelLogfileMaxSizeMB:  format.ModelLogfileMaxSizeMB,
+		modelLogfileMaxBackups: format.ModelLogfileMaxBackups,
+
 		nonSyncedWritesToRaftLog: format.NonSyncedWritesToRaftLog,
 	}
 	if len(format.APIAddresses) > 0 {
@@ -183,6 +194,11 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		OldPassword:       config.oldPassword,
 		LoggingConfig:     config.loggingConfig,
 		Values:            config.values,
+
+		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,
+		AgentLogfileMaxBackups: config.agentLogfileMaxBackups,
+		ModelLogfileMaxSizeMB:  config.modelLogfileMaxSizeMB,
+		ModelLogfileMaxBackups: config.modelLogfileMaxBackups,
 
 		NonSyncedWritesToRaftLog: config.nonSyncedWritesToRaftLog,
 	}
