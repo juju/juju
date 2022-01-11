@@ -235,7 +235,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 			MaxBackups: config.AgentLogfileMaxBackups(),
 			Compress:   true,
 		}
-		logger.Debugf("created rotating logger at %q with max size %d MB and max backups %d",
+		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 		a.ctx.Stderr = ljLogger
 	}
@@ -1106,12 +1106,15 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		if err := paths.PrimeLogFile(logFilename); err != nil {
 			return nil, errors.Annotate(err, "unable to prime log file")
 		}
-		writer = &lumberjack.Logger{
+		ljLogger := &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),
 			MaxBackups: cfg.ControllerConfig.ModelLogfileMaxBackups(),
 			Compress:   true,
 		}
+		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
+		writer = ljLogger
 	}
 	if err := loggingContext.AddWriter(
 		"file", loggo.NewSimpleWriter(writer, loggo.DefaultFormatter)); err != nil {

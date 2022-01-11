@@ -23,7 +23,7 @@ func NewFileWriter(logPath string, maxSizeMB, maxBackups int) (io.WriteCloser, e
 		MaxBackups: maxBackups,
 		Compress:   true,
 	}
-	logger.Debugf("created rotating logger at %q with max size %d MB and max backups %d",
+	logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
 		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	return ljLogger, nil
 }

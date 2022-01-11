@@ -262,7 +262,7 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 		MaxBackups: a.CurrentConfig().ModelLogfileMaxBackups(),
 		Compress:   true,
 	}
-	a.logger.Debugf("created rotating logger at %q with max size %d MB and max backups %d",
+	a.logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
 		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	if err := loggingContext.AddWriter(
 		"file", loggo.NewSimpleWriter(ljLogger, loggo.DefaultFormatter)); err != nil {
