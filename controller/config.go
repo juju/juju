@@ -383,6 +383,8 @@ var (
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		AgentLogfileMaxBackups,
+		AgentLogfileMaxSize,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
 		ModelLogsSize,
@@ -435,8 +437,10 @@ var (
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
-		ModelLogfileMaxBackups,
-		ModelLogfileMaxSize,
+		// TODO: allow update? AgentLogfileMaxBackups,
+		// TODO: allow update? AgentLogfileMaxSize,
+		ModelLogfileMaxBackups, // TODO: support update for worker/deployer/unit_agent.go case
+		ModelLogfileMaxSize,    // TODO: support update for worker/deployer/unit_agent.go case
 		ModelLogsSize,
 		MongoMemoryProfile,
 		PruneTxnQueryCount,
@@ -1032,6 +1036,21 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[AgentLogfileMaxBackups].(int); ok {
+		if v < 0 {
+			return errors.NotValidf("negative %s", AgentLogfileMaxBackups)
+		}
+	}
+	if v, ok := c[AgentLogfileMaxSize].(string); ok {
+		mb, err := utils.ParseSize(v)
+		if err != nil {
+			return errors.Annotatef(err, "invalid %s in configuration", AgentLogfileMaxSize)
+		}
+		if mb < 1 {
+			return errors.NotValidf("%s less than 1 MB", AgentLogfileMaxSize)
+		}
+	}
+
 	if v, ok := c[ModelLogfileMaxBackups].(int); ok {
 		if v < 0 {
 			return errors.NotValidf("negative %s", ModelLogfileMaxBackups)
@@ -1244,6 +1263,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:            schema.String(),
 	MaxPruneTxnBatchSize:     schema.ForceInt(),
 	MaxPruneTxnPasses:        schema.ForceInt(),
+	AgentLogfileMaxBackups:   schema.ForceInt(),
+	AgentLogfileMaxSize:      schema.String(),
 	ModelLogfileMaxBackups:   schema.ForceInt(),
 	ModelLogfileMaxSize:      schema.String(),
 	ModelLogsSize:            schema.String(),
@@ -1286,6 +1307,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:            fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:     DefaultMaxPruneTxnBatchSize,
 	MaxPruneTxnPasses:        DefaultMaxPruneTxnPasses,
+	AgentLogfileMaxBackups:   DefaultAgentLogfileMaxBackups,
+	AgentLogfileMaxSize:      fmt.Sprintf("%vM", DefaultAgentLogfileMaxSize),
 	ModelLogfileMaxBackups:   DefaultModelLogfileMaxBackups,
 	ModelLogfileMaxSize:      fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
 	ModelLogsSize:            fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
@@ -1408,6 +1431,14 @@ they don't have any access rights to the controller itself`,
 	MaxPruneTxnPasses: {
 		Type:        environschema.Tint,
 		Description: `(deprecated) The maximum number of batches processed when pruning`,
+	},
+	AgentLogfileMaxBackups: {
+		Type:        environschema.Tint,
+		Description: "The number of old agent log files to keep (compressed)",
+	},
+	AgentLogfileMaxSize: {
+		Type:        environschema.Tstring,
+		Description: `The maximum size of the agent log file`,
 	},
 	ModelLogfileMaxBackups: {
 		Type:        environschema.Tint,
