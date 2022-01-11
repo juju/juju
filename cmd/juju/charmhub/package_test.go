@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/api_mock.go github.com/juju/juju/cmd/juju/charmhub DownloadCommandAPI,InfoCommandAPI,FindCommandAPI,ModelConfigClient,ModelConfigGetter,CharmHubClient
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/api_mock.go github.com/juju/juju/cmd/juju/charmhub CharmHubClient
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/os_mock.go github.com/juju/juju/cmd/juju/charmhub OSEnviron
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/fsys_mock.go github.com/juju/juju/cmd/modelcmd Filesystem,ReadSeekCloser
 
