@@ -103,6 +103,7 @@ func (a *appWorker) loop() (err error) {
 	defer func() {
 		select {
 		case <-a.catacomb.Dying():
+			// Destroying model.
 		default:
 			if err == nil {
 				// Stop and remove myself from runner.

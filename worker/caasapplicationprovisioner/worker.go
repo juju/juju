@@ -211,8 +211,13 @@ func (p *provisioner) loop() error {
 }
 
 func (p *provisioner) shutDownAppWorker(appName string) {
-	if err := p.runner.StopAndRemoveWorker(appName, p.catacomb.Dying()); err != nil && !errors.IsNotFound(err) {
-		p.logger.Warningf("stopping app worker %q: %v", appName, err)
+	err := p.runner.StopAndRemoveWorker(appName, p.catacomb.Dying())
+	if errors.IsNotFound(err) {
+		return
 	}
-	p.logger.Debugf("removing app worker %q", appName)
+	if err != nil {
+		p.logger.Warningf("stopping app worker %q: %v", appName, err)
+		return
+	}
+	p.logger.Debugf("removed app worker %q", appName)
 }
