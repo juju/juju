@@ -199,7 +199,9 @@ func (w *dbWorker) initializeDqlite() error {
 		return nil
 	}
 
-	localAddr, peerAddrs, err := detectLocalDQliteAddr(w.cfg.DQLiteAddrs)
+	localAddr, peerAddrs, err := detectLocalDQliteAddr(w.cfg.DQLiteAddrs, func(addr string) network.MachineAddress {
+		return network.NewMachineAddress(addr)
+	})
 	if err != nil {
 		return errors.Annotatef(err, "detecting local dqlite address")
 	}
@@ -236,7 +238,9 @@ func (w *dbWorker) initializeDqlite() error {
 	return nil
 }
 
-func detectLocalDQliteAddr(dqliteAddrs []string) (localAddr string, peerAddrs []string, err error) {
+type machAddressFactory func(string) network.MachineAddress
+
+func detectLocalDQliteAddr(dqliteAddrs []string, addrFactory machAddressFactory) (localAddr string, peerAddrs []string, err error) {
 	if len(dqliteAddrs) == 0 {
 		return "", nil, errors.Errorf("no available dqlite addresses")
 	}
@@ -268,7 +272,7 @@ func detectLocalDQliteAddr(dqliteAddrs []string) (localAddr string, peerAddrs []
 
 	for _, addr := range dqliteAddrs {
 		// We should only make dqlite available on cloud-local addresses.
-		machAddr := network.NewMachineAddress(addr)
+		machAddr := addrFactory(addr)
 		if machAddr.Scope != network.ScopeCloudLocal {
 			continue
 		}
