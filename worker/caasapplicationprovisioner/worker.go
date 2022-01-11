@@ -70,6 +70,14 @@ type CAASBroker interface {
 	Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error)
 }
 
+// Runner exposes functionalities of a worker.Runner.
+type Runner interface {
+	Worker(id string, abort <-chan struct{}) (worker.Worker, error)
+	StartWorker(id string, startFunc func() (worker.Worker, error)) error
+	StopAndRemoveWorker(id string, abort <-chan struct{}) error
+	worker.Worker
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
 	Facade       CAASProvisionerFacade
@@ -83,7 +91,7 @@ type Config struct {
 
 type provisioner struct {
 	catacomb     catacomb.Catacomb
-	runner       *worker.Runner
+	runner       Runner
 	facade       CAASProvisionerFacade
 	broker       CAASBroker
 	clock        clock.Clock
@@ -95,6 +103,19 @@ type provisioner struct {
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
 func NewProvisionerWorker(config Config) (worker.Worker, error) {
+	return newProvisionerWorker(config,
+		worker.NewRunner(worker.RunnerParams{
+			Clock:        config.Clock,
+			IsFatal:      func(error) bool { return false },
+			RestartDelay: 3 * time.Second,
+			Logger:       config.Logger.Child("runner"),
+		}),
+	)
+}
+
+func newProvisionerWorker(
+	config Config, runner Runner,
+) (worker.Worker, error) {
 	p := &provisioner{
 		facade:       config.Facade,
 		broker:       config.Broker,
@@ -102,13 +123,8 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 		clock:        config.Clock,
 		logger:       config.Logger,
 		newAppWorker: config.NewAppWorker,
-		runner: worker.NewRunner(worker.RunnerParams{
-			Clock:        config.Clock,
-			IsFatal:      func(error) bool { return false },
-			RestartDelay: 3 * time.Second,
-			Logger:       config.Logger.Child("runner"),
-		}),
-		unitFacade: config.UnitFacade,
+		runner:       runner,
+		unitFacade:   config.UnitFacade,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
