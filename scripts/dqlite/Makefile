@@ -1,20 +1,34 @@
 SHELL = bash
 .ONESHELL:
 
-BOX=lib-build-server
-BOX_IMAGE=ubuntu:18.04
-JUJU_CONTROLLER_BOX ?= $(shell juju status -m controller | grep juju- | head -1 | awk '{print $$4}')
+JUJU_PROJECT_PATH=$(GOPATH)/src/github.com/juju/juju
 
-.PHONY: deps install-deps-on-controller build-and-install-jujud
+DQLITE_BUILD_IMAGE=ubuntu:18.04
+DQLITE_BUILD_CONTAINER=lib-build-server
 
-deps:
-	@echo "Starting ${BOX_IMAGE}"
-	@lxc launch ubuntu:18.04 ${BOX}
+DQLITE_ARCHIVE_DEPS_PATH=${JUJU_PROJECT_PATH}/scripts/dqlite
+DQLITE_ARCHIVE_NAME=dqlite-deps
+DQLITE_ARCHIVE_PATH=${DQLITE_ARCHIVE_DEPS_PATH}/${DQLITE_ARCHIVE_NAME}.tar.bz2
 
-	@echo "Waiting for ${BOX} to become ready (get IP etc.)"
-	@lxc exec ${BOX} -- bash -c 'while [ "$$(systemctl is-system-running 2>/dev/null)" != "running" ] && [ "$$(systemctl is-system-running 2>/dev/null)" != "degraded" ]; do :; done'
+DQLITE_S3_BUCKET=s3://dqlite-static-libs
+DQLITE_S3_ARCHIVE_NAME=$(shell date -u +"%Y-%m-%d")-dqlite-deps-$(shell uname -m).tar.bz2
+DQLITE_S3_ARCHIVE_PATH=${DQLITE_S3_BUCKET}/${DQLITE_S3_ARCHIVE_NAME}
 
-	@echo "Preparing provisioning script: /tmp/setup-build-farm.sh"
+DQLITE_EXTRACTED_DEPS_PATH=${JUJU_PROJECT_PATH}/_deps
+DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH=${DQLITE_EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps
+
+.PHONY: install-deps-on-controller build-and-install-jujud
+
+${DQLITE_ARCHIVE_PATH}:
+	@lxc delete -f ${DQLITE_BUILD_CONTAINER} &>/dev/null || true
+
+	@echo "DQLITE: Creating build box using ${DQLITE_BUILD_IMAGE}"
+	@lxc launch ubuntu:18.04 ${DQLITE_BUILD_CONTAINER}
+
+	@echo "DQLITE: Waiting for ${DQLITE_BUILD_CONTAINER} to become ready..."
+	@lxc exec ${DQLITE_BUILD_CONTAINER} -- bash -c 'while [ "$$(systemctl is-system-running 2>/dev/null)" != "running" ] && [ "$$(systemctl is-system-running 2>/dev/null)" != "degraded" ]; do :; done'
+
+	@echo "DQLITE: Preparing provisioning script: /tmp/setup-build-farm.sh"
 	@cat <<- 'EOF' >/tmp/setup-build-farm.sh
 		#!/bin/bash
 		set -e
@@ -159,22 +173,73 @@ deps:
 		tar cjvf juju-dqlite-static-lib-deps.tar.bz2 juju-dqlite-static-lib-deps
 	EOF
 
-	@echo "Pushing provisioning script to ${BOX}"
-	@lxc file push /tmp/setup-build-farm.sh ${BOX}/root/setup-build-farm.sh
+	@echo "DQLITE: Pushing provisioning script to ${DQLITE_BUILD_CONTAINER}"
+	@lxc file push /tmp/setup-build-farm.sh ${DQLITE_BUILD_CONTAINER}/root/setup-build-farm.sh
 
-	@echo "Executing provisioning script"
-	@lxc exec -t ${BOX} bash /root/setup-build-farm.sh
+	@echo "DQLITE: Executing provisioning script"
+	@lxc exec -t ${DQLITE_BUILD_CONTAINER} bash /root/setup-build-farm.sh
 
-	@echo "Pulling lib archive"
-	@lxc file pull ${BOX}/root/build/juju-dqlite-static-lib-deps.tar.bz2 juju-dqlite-static-lib-deps.tar.bz2
+	@echo "DQLITE: Pulling lib archive"
+	@lxc file pull ${DQLITE_BUILD_CONTAINER}/root/build/juju-dqlite-static-lib-deps.tar.bz2 $@
+	@lxc delete -f $(DQLITE_BUILD_CONTAINER)
 
-clean:
-	lxc delete -f ${BOX}
+dqlite-deps-push: ${DQLITE_ARCHIVE_PATH}
+	@echo "DQLITE: Pushing ${DQLITE_S3_ARCHIVE_PATH} to s3"
+	aws s3 cp --acl public-read $< ${DQLITE_S3_ARCHIVE_PATH}
+	@echo "DQLITE: Pushing latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 to s3"
+	aws s3 cp --acl public-read ${DQLITE_S3_ARCHIVE_PATH} ${DQLITE_S3_BUCKET}/latest-dqlite-deps-$(shell uname -m).tar.bz2
 
-install-repl-deps-on-controller:
+dqlite-deps-pull:
+	@echo "DQLITE: Cleaning up deps path"
+	@mkdir -p ${DQLITE_EXTRACTED_DEPS_PATH}
+	@rm -rf ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
+	@echo "DQLITE: Pulling latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 from s3"
+	aws s3 cp s3://dqlite-static-libs/latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
+
+dqlite-deps-check:
+	@if [ ! -d ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} ]; then \
+		$(MAKE) -s dqlite-deps-pull; \
+	fi
+
+################################################################################
+# musl
+################################################################################
+
+.PHONY: musl-ensure-symlink musl-check
+musl-ensure-symlink:
+	@test -d /usr/local/musl/$(d) || echo "Please run 'sudo ln -s $(s) /usr/local/musl/$(d)'"
+
+musl-check:
+	@PATH=${PATH}:/usr/local/musl/bin which musl-gcc >/dev/null || echo "Please run 'sudo make musl-install'"
+	# @$(MAKE) -s musl-ensure-symlink d=include/asm s=/usr/include/$(shell uname -m)-linux-gnu/asm
+	# @$(MAKE) -s musl-ensure-symlink d=include/asm-generic s=/usr/include/asm-generic
+	@$(MAKE) -s musl-ensure-symlink d=include/linux s=/usr/include/linux
+
+musl-install:
+	wget https://musl.libc.org/releases/musl-1.2.2.tar.gz -O- | tar xf - -C /tmp/musls/musl-1.2.2.tar.gz
+	cd /tmp/musls/musl-1.2.2.tar.gz
+	./configure
+	make install
+
+	cd ..
+	# Setup symlinks so we can access additional headers that 
+	# don't ship with muscl but are needed for our builds
+	# ln -s /usr/include/$(shell uname -m)-linux-gnu/asm /usr/local/musl/include/asm
+	# ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
+	ln -s /usr/include/linux /usr/local/musl/include/linux
+
+################################################################################
+# REPL
+#
+# Accessing the dqlite repl on a given controller for debugging purposes.
+################################################################################
+
+JUJU_CONTROLLER_BOX ?= $(shell juju status -m controller | grep juju- | head -1 | awk '{print $$4}')
+
+juju-dqlite-repl-deps-on-controller:
 	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- which rlwrap &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install rlwrap
 	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- which socat &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install socat
 
-dqlite-repl: install-repl-deps-on-controller
+juju-dqlite-repl: juju-dqlite-repl-deps-on-controller
 	@echo "[+] Connecting to REPL interface on controller: ${JUJU_CONTROLLER_BOX}"
 	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- rlwrap -H /root/.dqlite_repl.history socat - /var/lib/juju/dqlite/juju.sock

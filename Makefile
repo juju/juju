@@ -1,3 +1,5 @@
+include scripts/dqlite/Makefile
+
 #
 # Makefile for juju-core.
 #
@@ -9,14 +11,8 @@ GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 
-DEPS_DIR ?= $(PROJECT_DIR)/_deps/juju-dqlite-static-lib-deps
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
-
-CGO_CFLAGS=-I$(DEPS_DIR)/include
-CGO_LDFLAGS=-L$(DEPS_DIR) -luv -lraft -ldqlite -llz4 -lsqlite3
-LD_LIBRARY_PATH=$(DEPS_DIR)
-CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
 define MAIN_PACKAGES
   github.com/juju/juju/cmd/juju
@@ -67,7 +63,6 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 # Build tags passed to go install/build.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
 BUILD_TAGS ?=
-REQUIRED_BUILD_TAGS = libsqlite3
 
 # Build number passed in must be a monotonic int representing
 # the build.
@@ -76,8 +71,6 @@ JUJU_BUILD_NUMBER ?=
 # Build flag passed to go -mod
 # CI should set this to vendor
 JUJU_GOMOD_MODE ?= mod
-
-CGO_LINK_FLAGS = -ldflags "-linkmode 'external' -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
@@ -156,15 +149,28 @@ go-build:
 	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
 	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
+cgo-go-op: dqlite-deps-check
+	PATH=${PATH}:/usr/local/musl/bin \
+		CC="musl-gcc" \
+		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
+		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+		CGO_ENABLED=1 \
+		go $o $d \
+			-mod=${JUJU_GOMOD_MODE} \
+			-tags "libsqlite3 ${BUILD_TAGS}" \
+			${COMPILE_FLAGS} \
+			-ldflags "-linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
+			-v $(strip $(CGO_MAIN_PACKAGES))
+
 cgo-go-install:
 ## go-install: Install Juju binaries without updating dependencies
-	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $$CGO_MAIN_PACKAGES'
-	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $(strip $(CGO_MAIN_PACKAGES))
+	$(MAKE) cgo-go-op o=install d=
 
 cgo-go-build:
 ## go-build: Build Juju binaries without updating dependencies
-	@mkdir -p ${BIN_DIR} #@echo 'CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $$CGO_MAIN_PACKAGES'
-	CC="$(CC)" LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) CGO_ENABLED=1 go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(COMPILE_FLAGS) $(CGO_LINK_FLAGS) -v $(strip $(CGO_MAIN_PACKAGES))
+	$(MAKE) cgo-go-op o=build d="-o ${BIN_DIR}"
 
 vendor-dependencies:
 ## vendor-dependencies: updates vendored dependencies
@@ -269,8 +275,7 @@ operator-image: image-check-build
 
 push-operator-image: operator-image
 ## push-operator-image: Push up the newly built operator image via docker
-	@:$(if $(value JUJU_BUILD_NUMBER),, $(error Undefined JUJU_BUILD_NUMBER))
-	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
+	@:$(if $(value {),,}$(error Undefined {))}	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
 
 push-release-operator-image: operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
@@ -306,31 +311,3 @@ static-analysis:
 .PHONY: clean format simplify test run-tests
 .PHONY: install-dependencies
 .PHONY: check-deps
-
-.PHONY: musl-ensure-symlink musl-preflight dqlite-deps dqlite-deps-push
-musl-ensure-symlink:
-	@test -d /usr/local/musl/$(d) || echo "Please run 'sudo ln -s $(s) /usr/local/musl/$(d)'"
-
-musl-preflight:
-	@which musl-gcc >/dev/null
-	@$(MAKE) -s musl-ensure-symlink d=include/asm s=/usr/include/x86_64-linux-gnu/asm
-	@$(MAKE) -s musl-ensure-symlink d=include/asm-generic s=/usr/include/asm-generic
-	@$(MAKE) -s musl-ensure-symlink d=include/linux s=/usr/include/linux
-
-dqlite-deps: musl-preflight
-	@mkdir -p ./_deps
-ifeq ($(DQLITE_BUILD_SOURCE),true)
-	$(MAKE) -C ./scripts/dqlite clean deps
-	rm -rf ./_deps/juju-dqlite-static-lib-deps
-	tar xjf ./scripts/dqlite/juju-dqlite-static-lib-deps.tar.bz2 -C ./_deps
-else
-	rm -rf ./_deps/juju-dqlite-static-lib-deps
-	aws s3 cp s3://dqlite-static-libs/latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ./_deps
-endif
-
-dqlite-deps-preflight:
-	@test -f ./scripts/dqlite/juju-dqlite-static-lib-deps.tar.bz2 >/dev/null
-
-dqlite-deps-push: dqlite-deps-preflight
-	aws s3 cp --acl public-read ./scripts/dqlite/juju-dqlite-static-lib-deps.tar.bz2 s3://dqlite-static-libs/$(shell date -u +"%Y-%m-%d")-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2
-	aws s3 cp --acl public-read s3://dqlite-static-libs/$(shell date -u +"%Y-%m-%d")-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 s3://dqlite-static-libs/latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2
