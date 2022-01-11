@@ -23,7 +23,7 @@ type OpQueueSuite struct {
 
 var _ = gc.Suite(&OpQueueSuite{})
 
-func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
+func (s *OpQueueSuite) TestEnqueueDequeue(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
 	results := consumeN(c, queue, 1)
@@ -117,12 +117,13 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 	c.Assert(count, gc.Equals, 1)
 }
 
-func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
+func (s *OpQueueSuite) TestSynchronousEnqueueImmediateDispatch(c *gc.C) {
 	queue := NewOpQueue(clock.WallClock)
 
-	toEnqueue := 3
+	toEnqueue := 5
 	go func() {
-		// Synchronous enqueues will result in batches of 1.
+		// Synchronous enqueues should result in multiple batches despite
+		// being fewer total ops than the maximum batch size.
 		for i := 0; i < toEnqueue; i++ {
 			err := queue.Enqueue(InOperation{
 				Command: command(opName(i)),
@@ -145,8 +146,7 @@ func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
 	err := queue.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The 3 operations were dispatched in separate batches.
-	c.Assert(len(results), gc.Equals, 3)
+	c.Assert(len(results) > 1, jc.IsTrue)
 }
 
 func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
@@ -155,9 +155,10 @@ func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 	toEnqueue := EnqueueBatchSize * 3
 	for i := 0; i < toEnqueue; i++ {
 		go func(i int) {
-			queue.Enqueue(InOperation{
+			err := queue.Enqueue(InOperation{
 				Command: command(opName(i)),
 			})
+			c.Assert(err, jc.ErrorIsNil)
 		}(i)
 	}
 
@@ -176,7 +177,8 @@ func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The exact batching that occurs is variable, but as a conservative test,
-	// ensure that we had some factor of batching.
+	// ensure that we had a decent factor of batching - the number of batches
+	// is fewer than 1/3 of the total enqueued operations.
 	c.Check(len(results) > 1, jc.IsTrue)
 	c.Check(len(results) < EnqueueBatchSize, jc.IsTrue)
 }
