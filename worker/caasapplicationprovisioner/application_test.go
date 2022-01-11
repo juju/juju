@@ -62,13 +62,12 @@ type testCase struct {
 	brokerApp  *caasmocks.MockApplication
 	unitFacade *mocks.MockCAASUnitProvisionerFacade
 
-	appScaleChan        chan struct{}
-	notifyReady         chan struct{}
-	appStateChan        chan struct{}
-	appChan             chan struct{}
-	appReplicasChan     chan struct{}
-	appTrustHashChan    chan []string
-	shutDownCleanUpFunc func()
+	appScaleChan     chan struct{}
+	notifyReady      chan struct{}
+	appStateChan     chan struct{}
+	appChan          chan struct{}
+	appReplicasChan  chan struct{}
+	appTrustHashChan chan []string
 }
 
 func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worker.Worker, testCase, *gomock.Controller) {
@@ -81,7 +80,6 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 	tc.broker = mocks.NewMockCAASBroker(ctrl)
 	tc.unitFacade = mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 	tc.brokerApp = caasmocks.NewMockApplication(ctrl)
-	tc.shutDownCleanUpFunc = func() {}
 
 	s.appCharmInfo = &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
@@ -132,14 +130,13 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 
 	startFunc := func(additionalAssertCalls ...*gomock.Call) worker.Worker {
 		config := caasapplicationprovisioner.AppWorkerConfig{
-			Name:                "test",
-			Facade:              tc.facade,
-			Broker:              tc.broker,
-			ModelTag:            s.modelTag,
-			Clock:               tc.clock,
-			Logger:              s.logger,
-			UnitFacade:          tc.unitFacade,
-			ShutDownCleanUpFunc: tc.shutDownCleanUpFunc,
+			Name:       "test",
+			Facade:     tc.facade,
+			Broker:     tc.broker,
+			ModelTag:   s.modelTag,
+			Clock:      tc.clock,
+			Logger:     s.logger,
+			UnitFacade: tc.unitFacade,
 		}
 		expectedCalls := append([]*gomock.Call{},
 			// Verify charm is v2
@@ -845,7 +842,7 @@ func (s *ApplicationWorkerSuite) TestUpgrade(c *gc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, nil, facade, broker, nil, func() {})
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
 
 	s.waitDone(c, done)
 	workertest.DirtyKill(c, appWorker)
@@ -857,17 +854,15 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	facade caasapplicationprovisioner.CAASProvisionerFacade,
 	broker caasapplicationprovisioner.CAASBroker,
 	unitFacade caasapplicationprovisioner.CAASUnitProvisionerFacade,
-	shutDownCleanUpFunc func(),
 ) worker.Worker {
 	config := caasapplicationprovisioner.AppWorkerConfig{
-		Name:                "test",
-		Facade:              facade,
-		Broker:              broker,
-		ModelTag:            s.modelTag,
-		Clock:               clk,
-		Logger:              s.logger,
-		UnitFacade:          unitFacade,
-		ShutDownCleanUpFunc: shutDownCleanUpFunc,
+		Name:       "test",
+		Facade:     facade,
+		Broker:     broker,
+		ModelTag:   s.modelTag,
+		Clock:      clk,
+		Logger:     s.logger,
+		UnitFacade: unitFacade,
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
 	c.Assert(startFunc, gc.NotNil)
@@ -891,11 +886,11 @@ func (s *ApplicationWorkerSuite) TestUpgradeInfoNotFound(c *gc.C) {
 		// Wait till charm is v2
 		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
 		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(appName string) (*charmscommon.CharmInfo, error) {
+			close(done)
 			return nil, errors.NotFoundf("test charm")
 		}),
 	)
-	shutDownCleanUpFunc := func() { close(done) }
-	appWorker := s.startAppWorker(c, nil, facade, broker, nil, shutDownCleanUpFunc)
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -925,7 +920,7 @@ func (s *ApplicationWorkerSuite) TestUpgradeLifeNotFound(c *gc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, nil, facade, broker, nil, func() {})
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -955,7 +950,7 @@ func (s *ApplicationWorkerSuite) TestUpgradeLifeDead(c *gc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, nil, facade, broker, nil, func() {})
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -1003,7 +998,7 @@ func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, nil, func() {})
+	appWorker := s.startAppWorker(c, clk, facade, broker, nil)
 
 	s.waitDone(c, done)
 	workertest.DirtyKill(c, appWorker)

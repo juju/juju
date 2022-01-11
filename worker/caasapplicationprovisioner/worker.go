@@ -195,9 +195,6 @@ func (p *provisioner) loop() error {
 					Clock:      p.clock,
 					Logger:     p.logger.Child(appName),
 					UnitFacade: p.unitFacade,
-					ShutDownCleanUpFunc: func() {
-						go p.shutDownAppWorker(appName)
-					},
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf("starting app worker %q", appName)

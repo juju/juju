@@ -40,23 +40,21 @@ type appWorker struct {
 	logger     Logger
 	unitFacade CAASUnitProvisionerFacade
 
-	name                string
-	modelTag            names.ModelTag
-	changes             chan struct{}
-	password            string
-	lastApplied         caas.ApplicationConfig
-	shutDownCleanUpFunc func()
+	name        string
+	modelTag    names.ModelTag
+	changes     chan struct{}
+	password    string
+	lastApplied caas.ApplicationConfig
 }
 
 type AppWorkerConfig struct {
-	Name                string
-	Facade              CAASProvisionerFacade
-	Broker              CAASBroker
-	ModelTag            names.ModelTag
-	Clock               clock.Clock
-	Logger              Logger
-	UnitFacade          CAASUnitProvisionerFacade
-	ShutDownCleanUpFunc func()
+	Name       string
+	Facade     CAASProvisionerFacade
+	Broker     CAASBroker
+	ModelTag   names.ModelTag
+	Clock      clock.Clock
+	Logger     Logger
+	UnitFacade CAASUnitProvisionerFacade
 }
 
 type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
@@ -66,15 +64,14 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			name:                config.Name,
-			facade:              config.Facade,
-			broker:              config.Broker,
-			modelTag:            config.ModelTag,
-			clock:               config.Clock,
-			logger:              config.Logger,
-			changes:             changes,
-			unitFacade:          config.UnitFacade,
-			shutDownCleanUpFunc: config.ShutDownCleanUpFunc,
+			name:       config.Name,
+			facade:     config.Facade,
+			broker:     config.Broker,
+			modelTag:   config.ModelTag,
+			clock:      config.Clock,
+			logger:     config.Logger,
+			changes:    changes,
+			unitFacade: config.UnitFacade,
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Site: &a.catacomb,
@@ -99,19 +96,7 @@ func (a *appWorker) Wait() error {
 	return a.catacomb.Wait()
 }
 
-func (a *appWorker) loop() (err error) {
-	defer func() {
-		select {
-		case <-a.catacomb.Dying():
-			// Destroying model.
-		default:
-			if err == nil {
-				// Stop and remove myself from runner.
-				a.shutDownCleanUpFunc()
-			}
-		}
-	}()
-
+func (a *appWorker) loop() error {
 	shouldExit, err := a.verifyCharmUpgraded()
 	if err != nil {
 		return errors.Trace(err)
