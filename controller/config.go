@@ -46,7 +46,7 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
-	// Canonical name for the controller
+	// ControllerName is the canonical name for the controller
 	ControllerName = "controller-name"
 
 	// AgentRateLimitMax is the maximum size of the token bucket used to
@@ -283,7 +283,7 @@ const (
 
 	// DefaultJujuDBSnapChannel is the default snap channel for installing
 	// mongo in focal or later.
-	DefaultJujuDBSnapChannel = "4.0/stable"
+	DefaultJujuDBSnapChannel = "4.4/stable"
 
 	// DefaultMaxDebugLogDuration is the default duration that debug-log
 	// commands can run before being terminated by the API server.
@@ -337,7 +337,7 @@ const (
 	// non-synced-writes-to-raft-log value. It is set to false by default.
 	DefaultNonSyncedWritesToRaftLog = false
 
-	// DefaultMigrationMinionMaxWait is the default value for
+	// DefaultMigrationMinionWaitMax is the default value for
 	DefaultMigrationMinionWaitMax = "15m"
 )
 
