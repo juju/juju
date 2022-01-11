@@ -264,7 +264,7 @@ func buildJujus(dir string) error {
 
 	// Build binaries.
 	cmds := [][]string{
-		{"make", "go-build"},
+		{"make", "cgo-go-build"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)

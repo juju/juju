@@ -6,16 +6,17 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	dqApp "github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/utils"
 
 	"github.com/juju/worker/v3/catacomb"
@@ -198,7 +199,9 @@ func (w *dbWorker) initializeDqlite() error {
 		return nil
 	}
 
-	localAddr, peerAddrs, err := detectLocalDQliteAddr(w.cfg.DQLiteAddrs)
+	localAddr, peerAddrs, err := detectLocalDQliteAddr(w.cfg.DQLiteAddrs, func(addr string) network.MachineAddress {
+		return network.NewMachineAddress(addr)
+	})
 	if err != nil {
 		return errors.Annotatef(err, "detecting local dqlite address")
 	}
@@ -235,26 +238,25 @@ func (w *dbWorker) initializeDqlite() error {
 	return nil
 }
 
-func detectLocalDQliteAddr(dqliteAddrs []string) (localAddr string, peerAddrs []string, err error) {
+type machAddressFactory func(string) network.MachineAddress
+
+func detectLocalDQliteAddr(dqliteAddrs []string, addrFactory machAddressFactory) (localAddr string, peerAddrs []string, err error) {
 	if len(dqliteAddrs) == 0 {
 		return "", nil, errors.Errorf("no available dqlite addresses")
 	}
 
-	// The dqlite address list is generated and validated by the manifold
-	// code so we can safely assume that they include a port section.
-	listenAddr := dqliteAddrs[0][strings.IndexRune(dqliteAddrs[0], ':'):]
-
 	// Since the address list may contain VIPs (i.e. IPs not visible to the
-	// machine) or FAN addresses, we will create a TCP socket that listens
-	// on the dqlite port on all addresses and try connecting to each
-	// provided dqliteAddrs until we reach the server.
+	// machine) or FAN addresses, we will create a TCP listener on an
+	// unused port (all addresses) that servers a random nonce. We will
+	// then try to connect to that port on each provided dqlite address
+	// until we reach the server and read back the nonce.
 	nonceUUID, err := utils.NewUUID()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
 	nonce := nonceUUID.String()
 
-	l, err := net.Listen("tcp", listenAddr)
+	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return "", nil, errors.Annotatef(err, "creating TCP listener for detecting local dqlite address")
 	}
@@ -262,21 +264,37 @@ func detectLocalDQliteAddr(dqliteAddrs []string) (localAddr string, peerAddrs []
 	go serveNonce(l, nonce)
 
 	// Try to read the nonce from each of the provided addresses in parallel
-	var wg sync.WaitGroup
-	wg.Add(len(dqliteAddrs))
+	var (
+		wg          sync.WaitGroup
+		noncePort   = l.Addr().(*net.TCPAddr).Port
+		localAddrCh = make(chan string, len(dqliteAddrs))
+	)
+
 	for _, addr := range dqliteAddrs {
+		// We should only make dqlite available on cloud-local addresses.
+		machAddr := addrFactory(addr)
+		if machAddr.Scope != network.ScopeCloudLocal {
+			continue
+		}
+
+		wg.Add(1)
 		go func(addr string) {
 			defer wg.Done()
-			if maybeReadNonce(addr, nonce) {
-				localAddr = addr
+			if maybeReadNonce(addr, noncePort, nonce) {
+				localAddrCh <- addr
 			}
 		}(addr)
 	}
 	wg.Wait()
 
-	if localAddr == "" {
+	// NOTE(achilleasa): there may be more than one addresses available in
+	// the channel. For now just use the first one we see.
+	close(localAddrCh)
+	addr, ok := <-localAddrCh
+	if !ok || addr == "" {
 		return "", nil, errors.Annotatef(err, "unable to detect local dqlite address")
 	}
+	localAddr = addr
 
 	for _, addr := range dqliteAddrs {
 		if addr == localAddr {
@@ -301,8 +319,14 @@ func serveNonce(l net.Listener, nonce string) {
 	}
 }
 
-func maybeReadNonce(addr string, expNonce string) bool {
-	conn, err := net.DialTimeout("tcp", addr, time.Second)
+func maybeReadNonce(dqliteAddr string, noncePort int, expNonce string) bool {
+	dqliteHost, _, err := net.SplitHostPort(dqliteAddr)
+	if err != nil {
+		return false // shouldn't happen
+	}
+
+	nonceAddr := fmt.Sprintf("%s:%d", dqliteHost, noncePort)
+	conn, err := net.DialTimeout("tcp", nonceAddr, time.Second)
 	if err != nil {
 		return false // assume non-reachable
 	}

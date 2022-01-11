@@ -1,4 +1,5 @@
 _build/
+_deps/
 cmd/juju/juju
 cmd/jujud/jujud
 cmd/builddb/builddb
@@ -30,3 +31,4 @@ tests/tmp.*
 *.charm
 *.bundle
 *.log
+*.tar.bz2
