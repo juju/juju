@@ -70,8 +70,14 @@ build_operator_image() {
 }
 
 wait_for_dpkg() {
+    # Just in case, wait for cloud-init.
+    cloud-init status --wait 2> /dev/null || true
     while sudo lsof /var/lib/dpkg/lock-frontend 2> /dev/null; do
         echo "Waiting for dpkg lock..."
+        sleep 10
+    done
+    while sudo lsof /var/lib/apt/lists/lock 2> /dev/null; do
+        echo "Waiting for apt lock..."
         sleep 10
     done
 }
