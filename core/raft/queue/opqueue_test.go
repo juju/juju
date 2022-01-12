@@ -9,12 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/clock"
-	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
+
+	"github.com/juju/juju/core/raftlease"
 )
 
 type OpQueueSuite struct {
@@ -24,7 +25,7 @@ type OpQueueSuite struct {
 var _ = gc.Suite(&OpQueueSuite{})
 
 func (s *OpQueueSuite) TestEnqueueDequeue(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := consumeN(c, queue, 1)
 
@@ -56,7 +57,7 @@ func (s *OpQueueSuite) TestEnqueueDequeue(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	canceled := make(chan struct{}, 1)
 	close(canceled)
@@ -86,7 +87,7 @@ func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := consumeNUntilErr(c, queue, 1, errors.New("boom"))
 
@@ -118,7 +119,7 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestSynchronousEnqueueImmediateDispatch(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	toEnqueue := 5
 	go func() {
@@ -150,7 +151,7 @@ func (s *OpQueueSuite) TestSynchronousEnqueueImmediateDispatch(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	toEnqueue := EnqueueBatchSize * 3
 	for i := 0; i < toEnqueue; i++ {
@@ -184,7 +185,7 @@ func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := make(chan raftlease.Command, 3)
 	go func() {
@@ -264,7 +265,7 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := make(chan raftlease.Command, 2)
 	go func() {
@@ -348,7 +349,7 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := consumeN(c, queue, 10)
 

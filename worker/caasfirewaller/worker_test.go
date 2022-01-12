@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -289,7 +290,7 @@ func (s *WorkerSuite) TestV2CharmSkipProcessing(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	s.lifeGetter.CheckNoCalls(c)
+	s.expectNoLifeGetterCalls(c)
 }
 
 func (s *WorkerSuite) TestCharmNotFound(c *gc.C) {
@@ -303,7 +304,7 @@ func (s *WorkerSuite) TestCharmNotFound(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	s.lifeGetter.CheckNoCalls(c)
+	s.expectNoLifeGetterCalls(c)
 }
 
 func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
@@ -346,4 +347,16 @@ func waitStubCalls(c *gc.C, stub waitStub, names ...string) {
 	}
 	stub.CheckCallNames(c, names...)
 	stub.ResetCalls()
+}
+
+func (s *WorkerSuite) expectNoLifeGetterCalls(c *gc.C) {
+	strategy := utils.AttemptStrategy{
+		Total: coretesting.ShortWait,
+		Delay: 10 * time.Millisecond,
+	}
+	for a := strategy.Start(); a.Next(); {
+		if len(s.lifeGetter.Calls()) > 0 {
+			c.Fatalf("unexpected lifegetter call")
+		}
+	}
 }
