@@ -264,13 +264,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
 			return &caas.Service{
 				Id:        "deadbeef",
-				Addresses: network.NewProviderAddresses("10.6.6.6"),
+				Addresses: network.NewMachineAddresses([]string{"10.6.6.6"}).AsProviderAddresses(),
 			}, nil
 		}),
 		tc.unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{
 			ApplicationTag: "application-test",
 			ProviderId:     "deadbeef",
-			Addresses:      params.FromProviderAddresses(network.NewProviderAddress("10.6.6.6")),
+			Addresses:      params.FromProviderAddresses(network.NewMachineAddress("10.6.6.6").AsProviderAddress()),
 		}).Return(nil),
 		tc.facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 1, []string{"test-0"}, false).
 			DoAndReturn(
@@ -377,13 +377,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
 			return &caas.Service{
 				Id:        "deadbeef",
-				Addresses: network.NewProviderAddresses("10.6.6.6"),
+				Addresses: network.NewMachineAddresses([]string{"10.6.6.6"}).AsProviderAddresses(),
 			}, nil
 		}),
 		tc.unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{
 			ApplicationTag: "application-test",
 			ProviderId:     "deadbeef",
-			Addresses:      params.FromProviderAddresses(network.NewProviderAddress("10.6.6.6")),
+			Addresses:      params.FromProviderAddresses(network.NewMachineAddress("10.6.6.6").AsProviderAddress()),
 		}).Return(nil),
 		tc.facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 0, []string(nil), false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			return nil

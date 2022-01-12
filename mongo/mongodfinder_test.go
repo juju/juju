@@ -219,8 +219,8 @@ func (s *MongodFinderSuite) TestFindJujuMongodbFromSnap(c *gc.C) {
 	c.Check(path, gc.Equals, "/snap/bin/juju-db.mongod")
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         4,
-		Minor:         0,
-		Point:         9,
+		Minor:         4,
+		Point:         10,
 		StorageEngine: mongo.WiredTiger,
 	})
 }
@@ -298,9 +298,9 @@ build environment:
     target_arch: x86_64
 `
 
-// mongodb409Version is the output of 'mongodb --version' from the 4.0/stable snap.
+// mongodb409Version is the output of 'mongodb --version' from the 4.4/stable snap.
 const mongodb409Version = `EXTRA CONTENT
-db version v4.0.9
+db version v4.4.10
 git version: fc525e2d9b0e4bceff5c2201457e564362909765
 OpenSSL version: OpenSSL 1.1.0g  2 Nov 2017
 allocator: tcmalloc

@@ -5,36 +5,37 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	modelcmd "github.com/juju/juju/cmd/modelcmd"
 	os "os"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	modelcmd "github.com/juju/juju/cmd/modelcmd"
 )
 
-// MockFilesystem is a mock of Filesystem interface
+// MockFilesystem is a mock of Filesystem interface.
 type MockFilesystem struct {
 	ctrl     *gomock.Controller
 	recorder *MockFilesystemMockRecorder
 }
 
-// MockFilesystemMockRecorder is the mock recorder for MockFilesystem
+// MockFilesystemMockRecorder is the mock recorder for MockFilesystem.
 type MockFilesystemMockRecorder struct {
 	mock *MockFilesystem
 }
 
-// NewMockFilesystem creates a new mock instance
+// NewMockFilesystem creates a new mock instance.
 func NewMockFilesystem(ctrl *gomock.Controller) *MockFilesystem {
 	mock := &MockFilesystem{ctrl: ctrl}
 	mock.recorder = &MockFilesystemMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFilesystem) EXPECT() *MockFilesystemMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockFilesystem) Create(arg0 string) (*os.File, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0)
@@ -43,13 +44,13 @@ func (m *MockFilesystem) Create(arg0 string) (*os.File, error) {
 	return ret0, ret1
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockFilesystemMockRecorder) Create(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockFilesystem)(nil).Create), arg0)
 }
 
-// Open mocks base method
+// Open mocks base method.
 func (m *MockFilesystem) Open(arg0 string) (modelcmd.ReadSeekCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Open", arg0)
@@ -58,13 +59,13 @@ func (m *MockFilesystem) Open(arg0 string) (modelcmd.ReadSeekCloser, error) {
 	return ret0, ret1
 }
 
-// Open indicates an expected call of Open
+// Open indicates an expected call of Open.
 func (mr *MockFilesystemMockRecorder) Open(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockFilesystem)(nil).Open), arg0)
 }
 
-// OpenFile mocks base method
+// OpenFile mocks base method.
 func (m *MockFilesystem) OpenFile(arg0 string, arg1 int, arg2 os.FileMode) (*os.File, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenFile", arg0, arg1, arg2)
@@ -73,13 +74,13 @@ func (m *MockFilesystem) OpenFile(arg0 string, arg1 int, arg2 os.FileMode) (*os.
 	return ret0, ret1
 }
 
-// OpenFile indicates an expected call of OpenFile
+// OpenFile indicates an expected call of OpenFile.
 func (mr *MockFilesystemMockRecorder) OpenFile(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenFile", reflect.TypeOf((*MockFilesystem)(nil).OpenFile), arg0, arg1, arg2)
 }
 
-// RemoveAll mocks base method
+// RemoveAll mocks base method.
 func (m *MockFilesystem) RemoveAll(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveAll", arg0)
@@ -87,13 +88,13 @@ func (m *MockFilesystem) RemoveAll(arg0 string) error {
 	return ret0
 }
 
-// RemoveAll indicates an expected call of RemoveAll
+// RemoveAll indicates an expected call of RemoveAll.
 func (mr *MockFilesystemMockRecorder) RemoveAll(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAll", reflect.TypeOf((*MockFilesystem)(nil).RemoveAll), arg0)
 }
 
-// Stat mocks base method
+// Stat mocks base method.
 func (m *MockFilesystem) Stat(arg0 string) (os.FileInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stat", arg0)
@@ -102,36 +103,36 @@ func (m *MockFilesystem) Stat(arg0 string) (os.FileInfo, error) {
 	return ret0, ret1
 }
 
-// Stat indicates an expected call of Stat
+// Stat indicates an expected call of Stat.
 func (mr *MockFilesystemMockRecorder) Stat(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockFilesystem)(nil).Stat), arg0)
 }
 
-// MockReadSeekCloser is a mock of ReadSeekCloser interface
+// MockReadSeekCloser is a mock of ReadSeekCloser interface.
 type MockReadSeekCloser struct {
 	ctrl     *gomock.Controller
 	recorder *MockReadSeekCloserMockRecorder
 }
 
-// MockReadSeekCloserMockRecorder is the mock recorder for MockReadSeekCloser
+// MockReadSeekCloserMockRecorder is the mock recorder for MockReadSeekCloser.
 type MockReadSeekCloserMockRecorder struct {
 	mock *MockReadSeekCloser
 }
 
-// NewMockReadSeekCloser creates a new mock instance
+// NewMockReadSeekCloser creates a new mock instance.
 func NewMockReadSeekCloser(ctrl *gomock.Controller) *MockReadSeekCloser {
 	mock := &MockReadSeekCloser{ctrl: ctrl}
 	mock.recorder = &MockReadSeekCloserMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockReadSeekCloser) EXPECT() *MockReadSeekCloserMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockReadSeekCloser) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -139,13 +140,13 @@ func (m *MockReadSeekCloser) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockReadSeekCloserMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockReadSeekCloser)(nil).Close))
 }
 
-// Read mocks base method
+// Read mocks base method.
 func (m *MockReadSeekCloser) Read(arg0 []byte) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Read", arg0)
@@ -154,13 +155,13 @@ func (m *MockReadSeekCloser) Read(arg0 []byte) (int, error) {
 	return ret0, ret1
 }
 
-// Read indicates an expected call of Read
+// Read indicates an expected call of Read.
 func (mr *MockReadSeekCloserMockRecorder) Read(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockReadSeekCloser)(nil).Read), arg0)
 }
 
-// Seek mocks base method
+// Seek mocks base method.
 func (m *MockReadSeekCloser) Seek(arg0 int64, arg1 int) (int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Seek", arg0, arg1)
@@ -169,7 +170,7 @@ func (m *MockReadSeekCloser) Seek(arg0 int64, arg1 int) (int64, error) {
 	return ret0, ret1
 }
 
-// Seek indicates an expected call of Seek
+// Seek indicates an expected call of Seek.
 func (mr *MockReadSeekCloserMockRecorder) Seek(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seek", reflect.TypeOf((*MockReadSeekCloser)(nil).Seek), arg0, arg1)

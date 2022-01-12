@@ -1406,8 +1406,8 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
 	expected := corenetwork.ProviderAddresses{
-		corenetwork.NewProviderAddress("8.0.0.*", corenetwork.WithScope(corenetwork.ScopePublic)),
-		corenetwork.NewProviderAddress("127.0.0.*", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
+		corenetwork.NewMachineAddress("8.0.0.*", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+		corenetwork.NewMachineAddress("127.0.0.*", corenetwork.WithScope(corenetwork.ScopeCloudLocal)).AsProviderAddress(),
 	}
 	expected[0].Type = corenetwork.IPv4Address
 	expected[1].Type = corenetwork.IPv4Address
@@ -1755,19 +1755,19 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 		Disabled:         false,
 		NoAutoStart:      false,
 		InterfaceType:    corenetwork.EthernetDevice,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			addr,
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR(cidr),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		// Each machine is also assigned a shadow IP with the pattern:
 		// 73.37.0.X where X=(provider iface ID + 1)
-		ShadowAddresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		ShadowAddresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			fmt.Sprintf("73.37.0.%d", expIfaceID+1),
 			corenetwork.WithScope(corenetwork.ScopePublic),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		AvailabilityZones: zones,
 		Origin:            corenetwork.OriginProvider,
 	}

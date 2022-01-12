@@ -87,7 +87,7 @@ type CharmDeployAPI interface {
 // OfferAPI represents the methods of the API the deploy command needs
 // for creating offers.
 type OfferAPI interface {
-	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
+	Offer(modelUUID, application string, endpoints []string, owner, offerName, descr string) ([]apiparams.ErrorResult, error)
 	GrantOffer(user, access string, offerURLs ...string) error
 }
 

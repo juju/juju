@@ -75,7 +75,7 @@ jobs:
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "/snap/bin" >> $GITHUB_PATH
 
-    - name: Bootstrap Juju latest/stable
+    - name: Bootstrap Juju
       if: env.RUN_TEST == 'RUN'
       shell: bash
       run: |
@@ -90,6 +90,26 @@ jobs:
       if: env.RUN_TEST == 'RUN'
       uses: actions/checkout@v2
 
+    - name: Deploy some applications
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+
+        juju deploy apache2 --series focal
+
+        juju wait-for application apache2
+
+        attempts=0
+        while ! ./.github/verify-apache2.sh; do
+          sleep 10
+          attempts=$((attempts+1))
+          if [ "$attempts" -eq 5 ]; then
+            echo "Apache health check timed out"
+            exit 0
+          fi
+        done
+
     - name: Build snap
       if: env.RUN_TEST == 'RUN'
       shell: bash
@@ -102,7 +122,7 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo snap install *.snap --dangerous --classic
+        sudo snap install juju*.snap --dangerous --classic
 
     - name: Preflight
       if: env.RUN_TEST == 'RUN'
@@ -141,6 +161,8 @@ jobs:
             juju debug-log --replay --no-tail -m controller
             exit 1
         fi
+
+        ./.github/verify-apache2.sh
 
     - name: Test upgrade model
       if: env.RUN_TEST == 'RUN'
@@ -192,3 +214,5 @@ jobs:
             juju debug-log --replay --no-tail
             exit 1
         fi
+
+        ./.github/verify-apache2.sh

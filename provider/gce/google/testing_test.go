@@ -95,7 +95,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		}},
 	}
 	s.Addresses = []network.ProviderAddress{
-		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 	}
 	s.RawMetadata = compute.Metadata{
 		Items: []*compute.MetadataItems{{

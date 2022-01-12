@@ -260,7 +260,7 @@ func maasObjectNetworkInterfaces(
 				// present in the original code. Do we need to revisit
 				// this in the future and append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress, corenetwork.WithConfigType(configType)),
+					corenetwork.NewMachineAddress(link.IPAddress, corenetwork.WithConfigType(configType)).AsProviderAddress(),
 				}
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID))
 			}
@@ -281,8 +281,9 @@ func maasObjectNetworkInterfaces(
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
-				space, link.IPAddress, corenetwork.WithCIDR(sub.CIDR), corenetwork.WithConfigType(configType))
+			nicInfo.Addresses[0] = corenetwork.NewMachineAddress(
+				link.IPAddress, corenetwork.WithCIDR(sub.CIDR), corenetwork.WithConfigType(configType),
+			).AsProviderAddress(corenetwork.WithSpaceName(space))
 
 			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
@@ -294,8 +295,8 @@ func maasObjectNetworkInterfaces(
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewProviderAddressInSpace(space, sub.GatewayIP)
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers...)
+			gwAddr := corenetwork.NewMachineAddress(sub.GatewayIP).AsProviderAddress(corenetwork.WithSpaceName(space))
+			nicInfo.DNSServers = corenetwork.NewMachineAddresses(sub.DNSServers).AsProviderAddresses(corenetwork.WithSpaceName(space))
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {
@@ -384,7 +385,7 @@ func maas2NetworkInterfaces(
 				// NOTE(achilleasa): the original code used a last-write-wins
 				// policy. Do we need to append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewProviderAddress(link.IPAddress(), corenetwork.WithConfigType(configType)),
+					corenetwork.NewMachineAddress(link.IPAddress(), corenetwork.WithConfigType(configType)).AsProviderAddress(),
 				}
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID()))
 			}
@@ -405,8 +406,9 @@ func maas2NetworkInterfaces(
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(
-				space, link.IPAddress(), corenetwork.WithCIDR(sub.CIDR()), corenetwork.WithConfigType(configType))
+			nicInfo.Addresses[0] = corenetwork.NewMachineAddress(
+				link.IPAddress(), corenetwork.WithCIDR(sub.CIDR()), corenetwork.WithConfigType(configType),
+			).AsProviderAddress(corenetwork.WithSpaceName(space))
 
 			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
@@ -418,8 +420,8 @@ func maas2NetworkInterfaces(
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewProviderAddressInSpace(space, sub.Gateway())
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers()...)
+			gwAddr := corenetwork.NewMachineAddress(sub.Gateway()).AsProviderAddress(corenetwork.WithSpaceName(space))
+			nicInfo.DNSServers = corenetwork.NewMachineAddresses(sub.DNSServers()).AsProviderAddresses(corenetwork.WithSpaceName(space))
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {

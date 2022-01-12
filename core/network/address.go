@@ -287,6 +287,18 @@ func (a MachineAddress) ValueWithMask() (string, error) {
 	return ipNet.String(), nil
 }
 
+// AsProviderAddress is used to construct a ProviderAddress
+// from a MachineAddress
+func (a MachineAddress) AsProviderAddress(options ...func(mutator ProviderAddressMutator)) ProviderAddress {
+	addr := ProviderAddress{MachineAddress: a}
+
+	for _, option := range options {
+		option(&addr)
+	}
+
+	return addr
+}
+
 // NewMachineAddress creates a new MachineAddress,
 // applying any supplied options to the result.
 func NewMachineAddress(value string, options ...func(AddressMutator)) MachineAddress {
@@ -305,6 +317,30 @@ func NewMachineAddress(value string, options ...func(AddressMutator)) MachineAdd
 	}
 
 	return addr
+}
+
+// MachineAddresses is a slice of MachineAddress
+type MachineAddresses []MachineAddress
+
+// AsProviderAddresses is used to construct ProviderAddresses
+// element-wise from MachineAddresses
+func (as MachineAddresses) AsProviderAddresses(options ...func(mutator ProviderAddressMutator)) ProviderAddresses {
+	addrs := make(ProviderAddresses, len(as))
+	for i, addr := range as {
+		addrs[i] = addr.AsProviderAddress(options...)
+	}
+	return addrs
+}
+
+// NewMachineAddresses is a convenience function to create addresses
+// from a variable number of string arguments, applying any supplied
+// options to each address
+func NewMachineAddresses(values []string, options ...func(AddressMutator)) MachineAddresses {
+	addrs := make(MachineAddresses, len(values))
+	for i, value := range values {
+		addrs[i] = NewMachineAddress(value, options...)
+	}
+	return addrs
 }
 
 // deriveScope attempts to derive the network scope from an address'
@@ -368,8 +404,24 @@ func isIPv6UniqueLocalAddress(addrType AddressType, ip net.IP) bool {
 // address resides.
 type ProviderAddress struct {
 	MachineAddress
-	SpaceName       SpaceName
+
+	// SpaceName is the space in which this address resides
+	SpaceName SpaceName
+
+	// ProviderSpaceID is the provider's ID for the space this address is in
 	ProviderSpaceID Id
+
+	// ProviderID is the ID of this address's provider
+	ProviderID Id
+
+	// ProviderSubnetID is the provider's ID for the subnet this address is in
+	ProviderSubnetID Id
+
+	// ProviderVLANID is the provider's ID for the VLAN this address is in
+	ProviderVLANID Id
+
+	// VLANTag is the tag associated with this address's VLAN
+	VLANTag int
 }
 
 // GoString implements fmt.GoStringer.
@@ -405,44 +457,9 @@ func (a ProviderAddress) String() string {
 	return buf.String()
 }
 
-// NewProviderAddress creates a new ProviderAddress,
-// applying any supplied options to the result.
-func NewProviderAddress(value string, options ...func(AddressMutator)) ProviderAddress {
-	return ProviderAddress{MachineAddress: NewMachineAddress(value, options...)}
-}
-
-// NewProviderAddressInSpace creates a new ProviderAddress,
-// associating it with the given space name.
-func NewProviderAddressInSpace(spaceName string, value string, options ...func(AddressMutator)) ProviderAddress {
-	return ProviderAddress{
-		MachineAddress: NewMachineAddress(value, options...),
-		SpaceName:      SpaceName(spaceName),
-	}
-}
-
 // ProviderAddresses is a slice of ProviderAddress
 // supporting conversion to SpaceAddresses.
 type ProviderAddresses []ProviderAddress
-
-// NewProviderAddresses is a convenience function to create addresses
-// from a variable number of string arguments.
-func NewProviderAddresses(inAddresses ...string) (outAddresses ProviderAddresses) {
-	outAddresses = make(ProviderAddresses, len(inAddresses))
-	for i, address := range inAddresses {
-		outAddresses[i] = NewProviderAddress(address)
-	}
-	return outAddresses
-}
-
-// NewProviderAddressesInSpace is a convenience function to create addresses
-// in the same space, from a a variable number of string arguments.
-func NewProviderAddressesInSpace(spaceName string, inAddresses ...string) (outAddresses ProviderAddresses) {
-	outAddresses = make(ProviderAddresses, len(inAddresses))
-	for i, address := range inAddresses {
-		outAddresses[i] = NewProviderAddressInSpace(spaceName, address)
-	}
-	return outAddresses
-}
 
 // ToIPAddresses transforms the ProviderAddresses to a string slice containing
 // their raw IP values.

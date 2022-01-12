@@ -45,6 +45,11 @@ type OffersAPIV3 struct {
 	*OffersAPIV2
 }
 
+// OffersAPIV4 implements the cross model interface V4.
+type OffersAPIV4 struct {
+	*OffersAPIV3
+}
+
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
@@ -77,7 +82,7 @@ func createOffersAPI(
 	return api, nil
 }
 
-// NewOffersAPIV2 returns a new application offers OffersAPIV2 facade.
+// NewOffersAPI returns a new application offers OffersAPI facade.
 func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 	environFromModel := func(modelUUID string) (environs.Environ, error) {
 		st, err := ctx.StatePool().Get(modelUUID)
@@ -133,11 +138,20 @@ func NewOffersAPIV3(ctx facade.Context) (*OffersAPIV3, error) {
 	return &OffersAPIV3{OffersAPIV2: apiV2}, nil
 }
 
+// NewOffersAPIV4 returns a new application offers OffersAPIV4 facade.
+func NewOffersAPIV4(ctx facade.Context) (*OffersAPIV4, error) {
+	apiV3, err := NewOffersAPIV3(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &OffersAPIV4{OffersAPIV3: apiV3}, nil
+}
+
 // Offer makes application endpoints available for consumption at a specified URL.
 func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(all.Offers))
 
-	user := api.Authorizer.GetAuthTag().(names.UserTag)
+	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
 	for i, one := range all.Offers {
 		modelTag, err := names.ParseModelTag(one.ModelTag)
 		if err != nil {
@@ -151,12 +165,21 @@ func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResult
 		}
 		defer releaser()
 
-		if err := api.checkAdmin(user, backend); err != nil {
+		if err := api.checkAdmin(apiUser, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		applicationOfferParams, err := api.makeAddOfferArgsFromParams(user, backend, one)
+		owner := apiUser
+		// The V4 version of the api includes the offer owner in the params.
+		if one.OwnerTag != "" {
+			var err error
+			if owner, err = names.ParseUserTag(one.OwnerTag); err != nil {
+				result[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		applicationOfferParams, err := api.makeAddOfferArgsFromParams(owner, backend, one)
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
