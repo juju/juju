@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasapplicationprovisioner_test
+package caasapplicationprovisioner
 
 import (
 	stdtesting "testing"
@@ -12,3 +12,5 @@ import (
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
+
+var NewProvisionerWorkerForTest = newProvisionerWorker
