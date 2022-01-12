@@ -393,7 +393,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 // Sensible default values are substituted for missing ones.
 // Supported charms depend on the charm/testing package.
 // Currently supported charms:
-//   all-hooks, category, dummy, format2, logging, monitoring, mysql,
+//   all-hooks, category, dummy, logging, monitoring, mysql,
 //   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
 //   varnish-alternative, wordpress.
 // If params is not specified, defaults are used.

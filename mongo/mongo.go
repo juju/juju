@@ -342,7 +342,7 @@ func checkInstalled(svc MongoSnapService) error {
 		return nil
 	}
 	// Do not attempt to svc.Ensure().  It is not implemented
-	// for snap.  Nor is the config between juju-db 4.4.x is
+	// for snap.  Nor is the config between juju-db > 4.4.x
 	// compatible with juju-db 4.0.x, e.g. tlsCertificateKeyFile
 	// etc.
 	running, err := svc.Running()

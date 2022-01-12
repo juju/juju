@@ -608,9 +608,8 @@ func (r *remote) loop() error {
 func (r *remote) connect() bool {
 	stop := make(chan struct{})
 
-	var info *api.Info
 	r.mutex.Lock()
-	info = r.config.APIInfo
+	info := *r.config.APIInfo
 	r.stopConnecting = stop
 	r.mutex.Unlock()
 
@@ -621,7 +620,7 @@ func (r *remote) connect() bool {
 	_ = retry.Call(retry.CallArgs{
 		Func: func() error {
 			r.config.Logger.Debugf("open api to %v", address)
-			conn, err := api.Open(info, api.DialOpts{
+			conn, err := api.Open(&info, api.DialOpts{
 				DialAddressInterval: 50 * time.Millisecond,
 				Timeout:             10 * time.Minute,
 				RetryDelay:          2 * time.Second,

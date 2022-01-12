@@ -121,16 +121,30 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 	}
 }
 
-func (s *AddressSuite) TestNewProviderAddressInSpace(c *gc.C) {
-	addr1 := network.NewProviderAddressInSpace("foo", "0.1.2.3")
-	addr2 := network.NewProviderAddressInSpace("", "2001:db8::123")
+func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
+	addr1 := network.NewMachineAddress("0.1.2.3").AsProviderAddress(
+		network.WithSpaceName("foo"),
+		network.WithProviderSpaceID("3"),
+		network.WithProviderID("523"),
+		network.WithProviderSubnetID("5"),
+		network.WithProviderVLANID("5001"),
+		network.WithVLANTag(50),
+	)
+	addr2 := network.NewMachineAddress("2001:db8::123").AsProviderAddress(
+		network.WithSpaceName(""),
+	)
 	c.Check(addr1, jc.DeepEquals, network.ProviderAddress{
 		MachineAddress: network.MachineAddress{
 			Value: "0.1.2.3",
 			Type:  "ipv4",
 			Scope: "public",
 		},
-		SpaceName: "foo",
+		SpaceName:        "foo",
+		ProviderSpaceID:  "3",
+		ProviderID:       "523",
+		ProviderSubnetID: "5",
+		ProviderVLANID:   "5001",
+		VLANTag:          50,
 	})
 	c.Check(addr2, jc.DeepEquals, network.ProviderAddress{
 		MachineAddress: network.MachineAddress{
@@ -142,22 +156,36 @@ func (s *AddressSuite) TestNewProviderAddressInSpace(c *gc.C) {
 	})
 }
 
-func (s *AddressSuite) TestNewProviderAddressesInSpace(c *gc.C) {
-	addrs := network.NewProviderAddressesInSpace("bar", "0.2.3.4", "fc00::1")
+func (s *AddressSuite) TestAsProviderAddresses(c *gc.C) {
+	addrs := network.NewMachineAddresses([]string{"0.2.3.4", "fc00::1"}).AsProviderAddresses(
+		network.WithSpaceName("bar"),
+		network.WithProviderSpaceID("4"),
+		network.WithProviderSubnetID("6"),
+		network.WithProviderVLANID("5002"),
+		network.WithVLANTag(100),
+	)
 	c.Check(addrs, jc.DeepEquals, network.ProviderAddresses{{
 		MachineAddress: network.MachineAddress{
 			Value: "0.2.3.4",
 			Type:  "ipv4",
 			Scope: "public",
 		},
-		SpaceName: "bar",
+		SpaceName:        "bar",
+		ProviderSpaceID:  "4",
+		ProviderSubnetID: "6",
+		ProviderVLANID:   "5002",
+		VLANTag:          100,
 	}, {
 		MachineAddress: network.MachineAddress{
 			Value: "fc00::1",
 			Type:  "ipv6",
 			Scope: "local-cloud",
 		},
-		SpaceName: "bar",
+		SpaceName:        "bar",
+		ProviderSpaceID:  "4",
+		ProviderSubnetID: "6",
+		ProviderVLANID:   "5002",
+		VLANTag:          100,
 	}})
 }
 
@@ -676,6 +704,54 @@ var stringTests = []struct {
 		ProviderSpaceID: network.Id("3"),
 	},
 	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:       "badlands",
+		ProviderSpaceID: network.Id("3"),
+		ProviderID:      "523",
+	},
+	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:        "badlands",
+		ProviderSpaceID:  network.Id("3"),
+		ProviderSubnetID: "5",
+	},
+	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:       "badlands",
+		ProviderSpaceID: network.Id("3"),
+		ProviderVLANID:  "5001",
+	},
+	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:       "badlands",
+		ProviderSpaceID: network.Id("3"),
+		VLANTag:         50,
+	},
+	str: "public:foo.com@badlands(id:3)",
 }}
 
 func (s *AddressSuite) TestString(c *gc.C) {
@@ -747,7 +823,7 @@ func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
 
-	addr = network.NewProviderAddress("8.8.8.8", network.WithScope(network.ScopePublic))
+	addr = network.NewMachineAddress("8.8.8.8", network.WithScope(network.ScopePublic)).AsProviderAddress()
 	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsFalse)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
@@ -810,9 +886,9 @@ func (s stubLookup) AllSpaceInfos() (network.SpaceInfos, error) {
 func (s *AddressSuite) TestProviderAddressesToSpaceAddresses(c *gc.C) {
 	// Check success.
 	addrs := network.ProviderAddresses{
-		network.NewProviderAddressInSpace("space-one", "1.2.3.4"),
-		network.NewProviderAddressInSpace("space-two", "2.3.4.5"),
-		network.NewProviderAddress("3.4.5.6"),
+		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
+		network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
+		network.NewMachineAddress("3.4.5.6").AsProviderAddress(),
 	}
 
 	exp := network.NewSpaceAddresses("1.2.3.4", "2.3.4.5", "3.4.5.6")
@@ -824,7 +900,7 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddresses(c *gc.C) {
 	c.Check(res, jc.SameContents, exp)
 
 	// Add an address in a space that the lookup will not resolve.
-	addrs = append(addrs, network.NewProviderAddressInSpace("space-denied", "4.5.6.7"))
+	addrs = append(addrs, network.NewMachineAddress("4.5.6.7").AsProviderAddress(network.WithSpaceName("space-denied")))
 	_, err = addrs.ToSpaceAddresses(stubLookup{})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -836,9 +912,9 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	addrs[1].SpaceID = "2"
 
 	exp := network.ProviderAddresses{
-		network.NewProviderAddressInSpace("space-one", "1.2.3.4"),
-		network.NewProviderAddressInSpace("space-two", "2.3.4.5"),
-		network.NewProviderAddress("3.4.5.6"),
+		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
+		network.NewMachineAddress("2.3.4.5").AsProviderAddress(network.WithSpaceName("space-two")),
+		network.NewMachineAddress("3.4.5.6").AsProviderAddress(),
 	}
 	// Only the first address in the lookup has a provider ID.
 	exp[0].ProviderSpaceID = "p1"

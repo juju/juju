@@ -400,7 +400,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
-	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4/stable")
+	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "5.0/stable")
 	c.Assert(conf.NonSyncedWritesToRaftLog(), jc.IsFalse)
 }
 

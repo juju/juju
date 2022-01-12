@@ -5,34 +5,35 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockOSEnviron is a mock of OSEnviron interface
+// MockOSEnviron is a mock of OSEnviron interface.
 type MockOSEnviron struct {
 	ctrl     *gomock.Controller
 	recorder *MockOSEnvironMockRecorder
 }
 
-// MockOSEnvironMockRecorder is the mock recorder for MockOSEnviron
+// MockOSEnvironMockRecorder is the mock recorder for MockOSEnviron.
 type MockOSEnvironMockRecorder struct {
 	mock *MockOSEnviron
 }
 
-// NewMockOSEnviron creates a new mock instance
+// NewMockOSEnviron creates a new mock instance.
 func NewMockOSEnviron(ctrl *gomock.Controller) *MockOSEnviron {
 	mock := &MockOSEnviron{ctrl: ctrl}
 	mock.recorder = &MockOSEnvironMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockOSEnviron) EXPECT() *MockOSEnvironMockRecorder {
 	return m.recorder
 }
 
-// Getenv mocks base method
+// Getenv mocks base method.
 func (m *MockOSEnviron) Getenv(arg0 string) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Getenv", arg0)
@@ -40,13 +41,13 @@ func (m *MockOSEnviron) Getenv(arg0 string) string {
 	return ret0
 }
 
-// Getenv indicates an expected call of Getenv
+// Getenv indicates an expected call of Getenv.
 func (mr *MockOSEnvironMockRecorder) Getenv(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Getenv", reflect.TypeOf((*MockOSEnviron)(nil).Getenv), arg0)
 }
 
-// IsTerminal mocks base method
+// IsTerminal mocks base method.
 func (m *MockOSEnviron) IsTerminal() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsTerminal")
@@ -54,7 +55,7 @@ func (m *MockOSEnviron) IsTerminal() bool {
 	return ret0
 }
 
-// IsTerminal indicates an expected call of IsTerminal
+// IsTerminal indicates an expected call of IsTerminal.
 func (mr *MockOSEnvironMockRecorder) IsTerminal() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsTerminal", reflect.TypeOf((*MockOSEnviron)(nil).IsTerminal))

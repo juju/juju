@@ -113,8 +113,8 @@ centralised enterprise grade management and operations systems.
 Our community hangs out at the [Charmhub discourse](https://discourse.juju.is/)
 which serves as a combination mailing list and web forum. Keep up with the news
 and get a feel for operator engineering and usage there. Get  the Juju CLI on
-Windows, macOS or Linux with the 
-[install instructions](https://juju.is/docs/installing) and 
+Windows, macOS or Linux with the
+[install instructions](https://juju.is/docs/installing) and
 [try the tutorials](https://juju.is/docs/tutorials). All you need is a small
 K8s cluster, or an Ubuntu machine or VM to run MicroK8s.
 
@@ -126,5 +126,5 @@ of commands and usage.
 Follow our [code and contribution guidelines](CONTRIBUTING.md) to learn how
 to make code changes. File bugs in
 [Launchpad](https://bugs.launchpad.net/juju/+filebug) or ask questions on
-our [Freenode IRC channel](https://webchat.freenode.net/#juju), and 
+our [Freenode IRC channel](https://webchat.freenode.net/#juju), and
 [Mattermost](chat.charmhub.io/).

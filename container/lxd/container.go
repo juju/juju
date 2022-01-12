@@ -236,7 +236,7 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 			continue
 		}
 		for _, addr := range net.Addresses {
-			netAddr := corenetwork.NewProviderAddress(addr.Address)
+			netAddr := corenetwork.NewMachineAddress(addr.Address).AsProviderAddress()
 			if netAddr.Scope == corenetwork.ScopeLinkLocal || netAddr.Scope == corenetwork.ScopeMachineLocal {
 				logger.Tracef("ignoring address %q for container %q", addr, name)
 				continue

@@ -146,7 +146,7 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 		if cidr := corenetwork.NetworkCIDRFromIPAndMask(ip, netmask); cidr != "" {
 			addrOpts = append(addrOpts, corenetwork.WithCIDR(cidr))
 		}
-		address := corenetwork.NewProviderAddress(ip.String(), addrOpts...)
+		address := corenetwork.NewMachineAddress(ip.String(), addrOpts...).AsProviderAddress()
 
 		// Filter out link-local addresses as we cannot reliably use them.
 		if address.Scope == corenetwork.ScopeLinkLocal {

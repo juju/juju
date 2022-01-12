@@ -243,7 +243,7 @@ func (s *containerSuite) TestContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []corenetwork.ProviderAddress{
-		corenetwork.NewProviderAddress("10.0.8.173", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
+		corenetwork.NewMachineAddress("10.0.8.173", corenetwork.WithScope(corenetwork.ScopeCloudLocal)).AsProviderAddress(),
 	}
 	c.Check(addrs, gc.DeepEquals, expected)
 }

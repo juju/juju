@@ -938,12 +938,12 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"192.168.0.6", corenetwork.WithCIDR("192.168.0.5/24"), corenetwork.WithConfigType(corenetwork.ConfigStatic),
-		)},
-		DNSServers:       corenetwork.NewProviderAddresses("8.8.8.8"),
+		).AsProviderAddress()},
+		DNSServers:       corenetwork.NewMachineAddresses([]string{"8.8.8.8"}).AsProviderAddresses(),
 		DNSSearchDomains: []string{"mydomain"},
-		GatewayAddress:   corenetwork.NewProviderAddress("192.168.0.1"),
+		GatewayAddress:   corenetwork.NewMachineAddress("192.168.0.1").AsProviderAddress(),
 		Routes: []corenetwork.Route{{
 			DestinationCIDR: "10.0.0.0/16",
 			GatewayIP:       "192.168.0.1",

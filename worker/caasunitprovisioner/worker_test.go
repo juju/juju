@@ -419,7 +419,7 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 			params.UpdateApplicationServiceArg{
 				ApplicationTag: names.NewApplicationTag("gitlab").String(),
 				ProviderId:     "id",
-				Addresses:      params.FromProviderAddresses(network.NewProviderAddresses("10.0.0.1")...),
+				Addresses:      params.FromProviderAddresses(network.NewMachineAddresses([]string{"10.0.0.1"}).AsProviderAddresses()...),
 				Scale:          intPtr(4),
 			},
 		})

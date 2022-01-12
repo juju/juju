@@ -36,10 +36,12 @@ var (
 	_ = gc.Suite(&workerSuite{})
 
 	testAddrs = network.ProviderAddresses{
-		network.NewProviderAddress(
-			"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal)),
-		network.NewProviderAddress(
-			"1.1.1.42", network.WithCIDR("1.1.1.0/24"), network.WithScope(network.ScopePublic)),
+		network.NewMachineAddress(
+			"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal),
+		).AsProviderAddress(),
+		network.NewMachineAddress(
+			"1.1.1.42", network.WithCIDR("1.1.1.0/24"), network.WithScope(network.ScopePublic),
+		).AsProviderAddress(),
 	}
 
 	testNetIfs = network.InterfaceInfos{
@@ -48,12 +50,14 @@ var (
 			InterfaceName: "eth0",
 			MACAddress:    "de:ad:be:ef:00:00",
 			Addresses: network.ProviderAddresses{
-				network.NewProviderAddress(
-					"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal)),
+				network.NewMachineAddress(
+					"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal),
+				).AsProviderAddress(),
 			},
 			ShadowAddresses: network.ProviderAddresses{
-				network.NewProviderAddress(
-					"1.1.1.42", network.WithCIDR("1.1.1.0/24"), network.WithScope(network.ScopePublic)),
+				network.NewMachineAddress(
+					"1.1.1.42", network.WithCIDR("1.1.1.0/24"), network.WithScope(network.ScopePublic),
+				).AsProviderAddress(),
 			},
 		},
 	}
@@ -62,15 +66,17 @@ var (
 		{
 			DeviceIndex: 0,
 			Addresses: network.ProviderAddresses{
-				network.NewProviderAddress(
-					"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal)),
+				network.NewMachineAddress(
+					"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal),
+				).AsProviderAddress(),
 			},
 		},
 		{
 			DeviceIndex: 1,
 			ShadowAddresses: network.ProviderAddresses{
-				network.NewProviderAddress(
-					"1.1.1.42", network.WithCIDR("1.1.1.0/24"), network.WithScope(network.ScopePublic)),
+				network.NewMachineAddress(
+					"1.1.1.42", network.WithCIDR("1.1.1.0/24"), network.WithScope(network.ScopePublic),
+				).AsProviderAddress(),
 			},
 		},
 	}

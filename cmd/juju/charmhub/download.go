@@ -24,12 +24,10 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/version"
 )
 
@@ -54,13 +52,10 @@ See also:
 
 // NewDownloadCommand wraps downloadCommand with sane model settings.
 func NewDownloadCommand() cmd.Command {
-	return modelcmd.Wrap(&downloadCommand{
+	return &downloadCommand{
 		charmHubCommand: newCharmHubCommand(),
 		orderedSeries:   series.SupportedJujuControllerSeries(),
-		CharmHubClientFunc: func(config charmhub.Config, fs charmhub.FileSystem) (DownloadCommandAPI, error) {
-			return charmhub.NewClientWithFileSystem(config, fs)
-		},
-	}, modelcmd.WrapSkipModelInit)
+	}
 }
 
 // downloadCommand supplies the "download" CLI command used for downloading
@@ -68,12 +63,9 @@ func NewDownloadCommand() cmd.Command {
 type downloadCommand struct {
 	*charmHubCommand
 
-	CharmHubClientFunc func(charmhub.Config, charmhub.FileSystem) (DownloadCommandAPI, error)
-
 	out cmd.Output
 
 	channel       string
-	charmHubURL   string
 	charmOrBundle string
 	archivePath   string
 	pipeToStdout  bool
@@ -98,8 +90,9 @@ func (c *downloadCommand) Info() *cmd.Info {
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
-	f.StringVar(&c.charmHubURL, "charmhub-url", "", "override the model config by specifying the Charmhub URL for querying the store")
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 }
 
@@ -125,13 +118,6 @@ func (c *downloadCommand) Init(args []string) error {
 	}
 	c.charmOrBundle = args[0]
 
-	if c.charmHubURL != "" {
-		_, err := url.ParseRequestURI(c.charmHubURL)
-		if err != nil {
-			return errors.Annotatef(err, "unexpected charmhub-url")
-		}
-	}
-
 	return nil
 }
 
@@ -149,42 +135,7 @@ func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) error {
 // Run is the business logic of the download command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
-	var (
-		err         error
-		charmHubURL string
-	)
-	if c.charmHubURL != "" {
-		charmHubURL = c.charmHubURL
-	} else {
-		// This is a horrible workaround for the fact that this command can work
-		// with and without a bootstrapped controller.
-		// To correctly handle the fact that we want to lazily connect to a
-		// controller, we have to grab the model identifier once we know what
-		// we want to do (based on the flags) and then call the init the model
-		// callstack.
-		// The reason this exists is because everything is curated for you, but
-		// when we do need to customize this workflow, it unfortunately gets in
-		// the way.
-		modelIdentifier, _ := c.ModelCommandBase.ModelIdentifier()
-		if err := c.ModelCommandBase.SetModelIdentifier(modelIdentifier, true); err != nil {
-			return errors.Trace(err)
-		}
-
-		if err := c.charmHubCommand.Run(cmdContext); err != nil {
-			return errors.Trace(err)
-		}
-
-		charmHubURL, err = c.getCharmHubURL()
-		if err != nil {
-			if errors.IsNotImplemented(err) {
-				cmdContext.Warningf("juju download not supported with controllers < 2.9")
-				return nil
-			}
-			return errors.Trace(err)
-		}
-	}
-
-	config, err := charmhub.CharmHubConfigFromURL(charmHubURL, downloadLogger{
+	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, downloadLogger{
 		Context: cmdContext,
 	})
 	if err != nil {
@@ -368,40 +319,6 @@ func (c *downloadCommand) calculateHash(path string) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-func (c *downloadCommand) getCharmHubURL() (string, error) {
-	apiRoot, err := c.APIRootFunc()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer func() { _ = apiRoot.Close() }()
-
-	modelConfigClient := c.ModelConfigClientFunc(apiRoot)
-	defer func() { _ = modelConfigClient.Close() }()
-
-	attrs, err := modelConfigClient.ModelGet()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	config, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	charmHubURL, _ := config.CharmHubURL()
-	return charmHubURL, nil
-}
-
-// CharmHubClient defines a charmhub client, used for querying the charmhub
-// store.
-type CharmHubClient interface {
-	// Refresh returns the charm/bundle response for a given configuration.
-	Refresh(context.Context, charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
-
-	// Download defines a client for downloading charms directly.
-	Download(context.Context, *url.URL, string) error
-}
-
 type downloadLogger struct {
 	Context *cmd.Context
 }
@@ -420,8 +337,8 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
 
-func (d downloadLogger) ChildWithLabels(string, ...string) loggo.Logger {
-	return loggo.Logger{}
+func (d downloadLogger) ChildWithLabels(name string, labels ...string) loggo.Logger {
+	return logger.ChildWithLabels(name, labels...)
 }
 
 type stdoutFileSystem struct{}

@@ -183,8 +183,8 @@ WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' 
 
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
-	@echo Installing 4.4 juju-db snap for mongodb
-	@sudo snap install juju-db --channel=4.4/stable
+	@echo Installing 5.0 juju-db snap for mongodb
+	@sudo snap install juju-db --channel=5.0/stable
 	@$(WAIT_FOR_DPKG)
 	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 

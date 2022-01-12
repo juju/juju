@@ -5,55 +5,45 @@ package charmhub
 
 import (
 	"fmt"
+	"net/url"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/environs/config"
 )
 
-// ModelConfigClient represents a model config client for requesting model
-// configurations.
-type ModelConfigClient interface {
-	ModelConfigGetter
-	Close() error
-}
+var logger = loggo.GetLogger("juju.cmd.juju.charmhub")
 
 func newCharmHubCommand() *charmHubCommand {
-	cmd := &charmHubCommand{
+	return &charmHubCommand{
 		arches: arch.AllArches(),
+		CharmHubClientFunc: func(config charmhub.Config, fs charmhub.FileSystem) (CharmHubClient, error) {
+			return charmhub.NewClientWithFileSystem(config, fs)
+		},
 	}
-	cmd.APIRootFunc = func() (base.APICallCloser, error) {
-		return cmd.NewAPIRoot()
-	}
-	cmd.ModelConfigClientFunc = func(api base.APICallCloser) ModelConfigClient {
-		return modelconfig.NewClient(api)
-	}
-	return cmd
 }
 
 type charmHubCommand struct {
-	modelcmd.ModelCommandBase
+	cmd.CommandBase
+	modelcmd.FilesystemCommand
 
-	APIRootFunc           func() (base.APICallCloser, error)
-	ModelConfigClientFunc func(base.APICallCloser) ModelConfigClient
+	arch        string
+	arches      arch.Arches
+	series      string
+	charmHubURL string
 
-	arch   string
-	arches arch.Arches
-	series string
+	CharmHubClientFunc func(charmhub.Config, charmhub.FileSystem) (CharmHubClient, error)
 }
 
 func (c *charmHubCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
-
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
+	f.StringVar(&c.charmHubURL, "charmhub-url", charmhub.CharmHubServerURL, "specify the Charmhub URL for querying the store")
 }
 
 // Init initializes the info command, including validating the provided
@@ -69,42 +59,17 @@ func (c *charmHubCommand) Init(args []string) error {
 		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
 	}
 
-	return nil
-}
-
-func (c *charmHubCommand) Run(ctx *cmd.Context) error {
-	apiRoot, err := c.APIRootFunc()
+	if urlFromEnv := os.Getenv("CHARMHUB_URL"); urlFromEnv != "" {
+		c.charmHubURL = urlFromEnv
+	}
+	if c.charmHubURL == "" {
+		c.charmHubURL = charmhub.CharmHubServerURL
+	}
+	_, err := url.ParseRequestURI(c.charmHubURL)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() { _ = apiRoot.Close() }()
-
-	modelConfigClient := c.ModelConfigClientFunc(apiRoot)
-	defer func() { _ = modelConfigClient.Close() }()
-
-	if err := c.verifySeries(modelConfigClient); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "invalid charmhub-url")
 	}
 
-	return nil
-}
-
-func (c *charmHubCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
-	if c.series != "" {
-		return nil
-	}
-
-	attrs, err := modelConfigClient.ModelGet()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if defaultSeries, explicit := cfg.DefaultSeries(); explicit {
-		c.series = defaultSeries
-	}
 	return nil
 }
 

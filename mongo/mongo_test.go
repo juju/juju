@@ -70,7 +70,7 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v4.4.4'\n")
+	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v5.0.0'\n")
 	jujuMongodPath, err := exec.LookPath("juju-db.mongod")
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&mongo.JujuDbSnapMongodPath, jujuMongodPath)
@@ -286,9 +286,9 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	addresses := network.ProviderAddresses{
-		network.NewProviderAddress("126.0.0.1", network.WithScope(network.ScopeMachineLocal)),
-		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
-		network.NewProviderAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
+		network.NewMachineAddress("126.0.0.1", network.WithScope(network.ScopeMachineLocal)).AsProviderAddress(),
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
+		network.NewMachineAddress("8.8.8.8", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 	}
 
 	address := mongo.SelectPeerAddress(addresses)

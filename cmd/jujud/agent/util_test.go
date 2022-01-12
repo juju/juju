@@ -210,7 +210,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	c.Assert(err, jc.ErrorIsNil)
 	insts, err := s.Environ.Instances(context.NewEmptyCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
-	dummy.SetInstanceAddresses(insts[0], network.NewProviderAddresses("0.1.2.3"))
+	dummy.SetInstanceAddresses(insts[0], network.NewMachineAddresses([]string{"0.1.2.3"}).AsProviderAddresses())
 }
 
 type mockLoopDeviceManager struct {

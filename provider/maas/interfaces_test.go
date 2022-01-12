@@ -20,7 +20,7 @@ var _ = gc.Suite(&interfacesSuite{})
 func newAddressOnSpaceWithId(
 	space string, id network.Id, address string, options ...func(network.AddressMutator),
 ) network.ProviderAddress {
-	newAddress := network.NewProviderAddressInSpace(space, address, options...)
+	newAddress := network.NewMachineAddress(address, options...).AsProviderAddress(network.WithSpaceName(space))
 	newAddress.ProviderSpaceID = id
 	return newAddress
 }
@@ -816,13 +816,18 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-			"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
-		)},
-		DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("default")),
+		},
+		DNSServers: network.NewMachineAddresses([]string{
+			"10.20.19.2",
+			"10.20.19.3",
+		}).AsProviderAddresses(network.WithSpaceName("default")),
 		DNSSearchDomains: nil,
 		MTU:              1500,
-		GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
+		GatewayAddress:   network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("default")),
 		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:       0,
@@ -837,13 +842,18 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-			"default", "10.20.19.104", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
-		)},
-		DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"10.20.19.104", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("default")),
+		},
+		DNSServers: network.NewMachineAddresses([]string{
+			"10.20.19.2",
+			"10.20.19.3",
+		}).AsProviderAddresses(network.WithSpaceName("default")),
 		DNSSearchDomains: nil,
 		MTU:              1500,
-		GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
+		GatewayAddress:   network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("default")),
 		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:         1,
@@ -859,13 +869,15 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:       "802.1q",
 		Disabled:            false,
 		NoAutoStart:         false,
-		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-			"admin", "10.50.19.103", network.WithCIDR("10.50.19.0/24"), network.WithConfigType(network.ConfigStatic),
-		)},
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"10.50.19.103", network.WithCIDR("10.50.19.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("admin")),
+		},
 		DNSServers:       nil,
 		DNSSearchDomains: nil,
 		MTU:              1500,
-		GatewayAddress:   network.NewProviderAddressInSpace("admin", "10.50.19.2"),
+		GatewayAddress:   network.NewMachineAddress("10.50.19.2").AsProviderAddress(network.WithSpaceName("admin")),
 		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:         2,
@@ -881,13 +893,15 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:       "802.1q",
 		Disabled:            false,
 		NoAutoStart:         false,
-		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-			"public", "10.100.19.103", network.WithCIDR("10.100.19.0/24"), network.WithConfigType(network.ConfigStatic),
-		)},
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"10.100.19.103", network.WithCIDR("10.100.19.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("public")),
+		},
 		DNSServers:       nil,
 		DNSSearchDomains: nil,
 		MTU:              1500,
-		GatewayAddress:   network.NewProviderAddressInSpace("public", "10.100.19.2"),
+		GatewayAddress:   network.NewMachineAddress("10.100.19.2").AsProviderAddress(network.WithSpaceName("public")),
 		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:         3,
@@ -925,13 +939,18 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:       "ethernet",
 		Disabled:            false,
 		NoAutoStart:         false,
-		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-			"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
-		)},
-		DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("default")),
+		},
+		DNSServers: network.NewMachineAddresses([]string{
+			"10.20.19.2",
+			"10.20.19.3",
+		}).AsProviderAddresses(network.WithSpaceName("default")),
 		DNSSearchDomains: nil,
 		MTU:              1500,
-		GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
+		GatewayAddress:   network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("default")),
 		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:         4,
@@ -946,13 +965,18 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		InterfaceType:       "ethernet",
 		Disabled:            false,
 		NoAutoStart:         false,
-		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-			"default", "10.20.19.104", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
-		)},
-		DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"10.20.19.104", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("default")),
+		},
+		DNSServers: network.NewMachineAddresses([]string{
+			"10.20.19.2",
+			"10.20.19.3",
+		}).AsProviderAddresses(network.WithSpaceName("default")),
 		DNSSearchDomains: nil,
 		MTU:              1500,
-		GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
+		GatewayAddress:   network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("default")),
 		Origin:           network.OriginProvider,
 	}, {
 		DeviceIndex:       5,
@@ -1030,13 +1054,18 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: network.ProviderAddresses{network.NewProviderAddressInSpace(
-			"default", "10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
-		)},
-		DNSServers:       network.NewProviderAddressesInSpace("default", "10.20.19.2", "10.20.19.3"),
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("default")),
+		},
+		DNSServers: network.NewMachineAddresses([]string{
+			"10.20.19.2",
+			"10.20.19.3",
+		}).AsProviderAddresses(network.WithSpaceName("default")),
 		DNSSearchDomains: nil,
 		MTU:              1500,
-		GatewayAddress:   network.NewProviderAddressInSpace("default", "10.20.19.2"),
+		GatewayAddress:   network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("default")),
 		Origin:           network.OriginProvider,
 	}}
 
