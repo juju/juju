@@ -180,15 +180,10 @@ else
 	@sudo snap install go --channel=1.14/stable --classic
 endif
 
+JUJU_DB_CHANNEL=4.4/stable
 install-mongo-dependencies:
-## install-mongo-dependencies: Install Mongo and its dependencies
-	@echo Adding juju PPA for mongodb
-	@sudo apt-add-repository --yes ppa:juju/stable
-	@sudo apt-get update
-	@echo Installing dependencies
-	@sudo apt-get --yes install  \
-	$(strip $(DEPENDENCIES)) \
-	$(shell apt-cache madison mongodb-server-core juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
+## install-mongo-dependencies: Install the juju-db snap
+	@sudo snap refresh juju-db --channel=${JUJU_DB_CHANNEL} 2> /dev/null; sudo snap install juju-db --channel=${JUJU_DB_CHANNEL} 2> /dev/null
 
 install-dependencies: install-snap-dependencies install-mongo-dependencies
 ## install-dependencies: Install all the dependencies
