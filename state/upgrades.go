@@ -3123,6 +3123,7 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 				upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
 				err = st.db().RunTransaction(ops)
 				if err != nil {
+					_ = iter.Close()
 					return errors.Trace(err)
 				}
 				ops = ops[:0]
@@ -3483,6 +3484,9 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	iter := lldCol.Find(bson.M{"providerid": bson.M{"$exists": true}}).Iter()
 	for iter.Next(&doc) {
 		used.Add(strings.Join([]string{doc.ModelUUID, idType, doc.ProviderID}, ":"))
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 
 	pidCol, pidCloser := st.db().GetRawCollection(providerIDsC)
