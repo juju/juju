@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 
@@ -397,19 +398,57 @@ func ParseOneCloud(data []byte) (Cloud, error) {
 }
 
 // ParseCloudMetadata parses the given yaml bytes into Clouds metadata.
+//
+// The expected regular yaml formal is:
+//
+// clouds:
+//   garage-maas:
+//     type: maas
+//     auth-types: [oauth1]
+//     endpoint: "http://garagemaas"
+//     skip-tls-verify: true`
+//   ...
+//
+// It also accepts a yaml format without the 'clouds' key at the top,
+// e.g.
+//
+// garage-maas:
+//   type: maas
+//   auth-types: [oauth1]
+//   endpoint: "http://garagemaas"
+//   skip-tls-verify: true`
+// ...
+//
 func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	var metadata cloudSet
-	if err := yaml.Unmarshal(data, &metadata); err != nil {
+
+	// Unmarshal with a generic type first
+	yaml_map := make(map[string]interface{})
+	if err := yaml.Unmarshal(data, &yaml_map); err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
-	// If we have a yaml that starts without a 'clouds:' key at
-	// top (e.g. list-clouds output), then try to accommodate
-	if len(metadata.Clouds) == 0 && string(data[:7]) != "clouds:" {
-		var metadataClouds map[string]*cloud
-		if errSecTry := yaml.Unmarshal(data, &metadataClouds); errSecTry != nil {
-			return nil, errors.Annotate(errSecTry, "cannot unmarshal yaml cloud metadata")
+
+	cloudSet_schema := schema.FieldMap(schema.Fields{
+		"clouds": schema.Map(schema.String(), schema.Any()),
+	}, nil)
+
+	// Try to coerce the schema with the 'clouds' keyword, if so,
+	// read directly into a cloudSet, otherwise read it as a map
+	// and construct the cloudSet manually
+	regular_map, _ := cloudSet_schema.Coerce(yaml_map, []string{})
+
+	if regular_map != nil {
+		// Able to coerce, so read directly into the cloudSet
+		if err_cloudSet := yaml.Unmarshal(data, &metadata); err_cloudSet != nil {
+			return nil, errors.Errorf("Invalid cloud metadata %s", yaml_map)
 		}
-		metadata.Clouds = metadataClouds
+	} else {
+		// Unable to coerce cloudSet, try to unmarshal into a map[string]*cloud
+		cloudMap := make(map[string]*cloud)
+		if err_cloudMap := yaml.Unmarshal(data, &cloudMap); err_cloudMap != nil {
+			return nil, errors.Errorf("Invalid cloud metadata %s", yaml_map)
+		}
+		metadata.Clouds = cloudMap
 	}
 
 	// Translate to the exported type. For each cloud, we store
