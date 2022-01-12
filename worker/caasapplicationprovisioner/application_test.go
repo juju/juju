@@ -909,7 +909,6 @@ func (s *ApplicationWorkerSuite) TestUpgradeInfoNotFound(c *gc.C) {
 			return nil, errors.NotFoundf("test charm")
 		}),
 	)
-
 	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
 
 	s.waitDone(c, done)
