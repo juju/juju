@@ -867,7 +867,7 @@ func (st *State) CompletedMigration() (ModelMigration, error) {
 	return mig, errors.Trace(err)
 }
 
-// CompletedMigration returns the most recent migration for the
+// CompletedMigrationForModel returns the most recent migration for the
 // input model UUID if it reached the DONE phase and caused the model
 // to be relocated.
 func (st *State) CompletedMigrationForModel(modelUUID string) (ModelMigration, error) {

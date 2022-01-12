@@ -722,7 +722,7 @@ func (st *State) Branches() ([]*Generation, error) {
 	return branches, nil
 }
 
-// Generations returns all committed branches.
+// CommittedBranches returns all committed branches.
 func (st *State) CommittedBranches() ([]*Generation, error) {
 	col, closer := st.db().GetCollection(generationsC)
 	defer closer()

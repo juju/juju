@@ -120,21 +120,23 @@ func (st *State) modelsToRevert(tag names.CloudCredentialTag) (map[*Model]func()
 	for _, m := range credentialModels {
 		one, closer, err := st.model(m.UUID)
 		if err != nil {
-			// Something has gone wrong with this model... keep going.
+			_ = closer()
 			logger.Warningf("model %v error: %v", m.UUID, err)
 			continue
 		}
 		modelStatus, err := one.Status()
 		if err != nil {
+			_ = closer()
 			return revert, errors.Trace(err)
 		}
-		// We only interested if the models are currently suspended.
+		// We're only interested if the models are currently suspended.
 		if modelStatus.Status == status.Suspended {
 			revert[one] = closer
 			continue
 		}
-		// We still need to close models that did not make the cut.
-		defer func() { _ = closer() }()
+
+		// We're not interested in this model; close its session now.
+		_ = closer()
 	}
 	return revert, nil
 }
