@@ -49,6 +49,7 @@ func (a *noopApp) Close() error {
 	return nil
 }
 
-func isDBAppError(err error) bool {
-	return false
+// Repl returns a Repl worker from the underlying DB.
+func (a *noopApp) Repl(dbGetter DBGetter) (REPL, error) {
+	return nil, errors.NotSupportedf("repl")
 }

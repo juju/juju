@@ -3,6 +3,12 @@
 
 package dbaccessor
 
+import (
+	"crypto/tls"
+
+	"github.com/juju/clock"
+)
+
 // Option can be used to tweak app parameters.
 type Option func(*options)
 
@@ -36,9 +42,45 @@ func WithCluster(cluster []string) Option {
 	}
 }
 
+// WithTLS enables TLS encryption of network traffic.
+//
+// The "listen" parameter must hold the TLS configuration to use when accepting
+// incoming connections clients or application nodes.
+//
+// The "dial" parameter must hold the TLS configuration to use when
+// establishing outgoing connections to other application nodes.
+func WithTLS(listen *tls.Config, dial *tls.Config) Option {
+	return func(options *options) {
+		options.TLS = &tlsSetup{
+			Listen: listen,
+			Dial:   dial,
+		}
+	}
+}
+
+func WithClock(clock clock.Clock) Option {
+	return func(options *options) {
+		options.Clock = clock
+	}
+}
+
+func WithLogger(logger Logger) Option {
+	return func(options *options) {
+		options.Logger = logger
+	}
+}
+
+type tlsSetup struct {
+	Listen *tls.Config
+	Dial   *tls.Config
+}
+
 type options struct {
 	Address string
 	Cluster []string
+	TLS     *tlsSetup
+	Clock   clock.Clock
+	Logger  Logger
 }
 
 func newOptions() *options {

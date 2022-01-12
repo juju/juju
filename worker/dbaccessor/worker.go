@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -98,6 +97,8 @@ type DBApp interface {
 	ID() uint64
 	// Close the application node, releasing all resources it created.
 	Close() error
+	// Repl returns a Repl worker from the underlying DB.
+	Repl(DBGetter) (REPL, error)
 }
 
 type REPL interface {
@@ -264,10 +265,12 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Annotatef(err, "detecting local dqlite address")
 	}
 
-	appOpts := []dqApp.Option{
-		dqApp.WithAddress(localAddr),
-		dqApp.WithCluster(peerAddrs),
-		dqApp.WithTLS(dqServerTLSConf, dqClientTLSConf),
+	appOpts := []Option{
+		WithAddress(localAddr),
+		WithCluster(peerAddrs),
+		WithTLS(dqServerTLSConf, dqClientTLSConf),
+		WithClock(w.cfg.Clock),
+		WithLogger(w.cfg.Logger),
 	}
 
 	// Start dqlite
@@ -288,9 +291,7 @@ func (w *dbWorker) initializeDqlite() error {
 	}
 
 	// Start REPL
-	replSocket := filepath.Join(w.cfg.DataDir, "juju.sock")
-	_ = os.Remove(replSocket)
-	repl, err := newREPL(replSocket, w, w.cfg.Clock, w.cfg.Logger)
+	repl, err := w.dbApp.Repl(w)
 	if err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil
