@@ -33,12 +33,7 @@ func (a *unsupportedApp) Ready(ctx context.Context) error {
 // Handover transfers all responsibilities for this node (such has leadership
 // and voting rights) to another node, if one is available.
 //
-// This method should always be called before invoking Close(), in order to
 // gracefully shutdown a node.
-func (a *unsupportedApp) Handover(ctx context.Context) error {
-	return errors.NotSupportedf("db")
-}
-
 // ID returns the dqlite ID of this application node.
 func (a *unsupportedApp) ID() uint64 {
 	return 0
