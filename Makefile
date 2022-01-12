@@ -161,7 +161,7 @@ cgo-go-op: dqlite-deps-check
 			-mod=${JUJU_GOMOD_MODE} \
 			-tags "libsqlite3 ${BUILD_TAGS}" \
 			${COMPILE_FLAGS} \
-			-ldflags "-linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
+			-ldflags "-s -w -linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
 			-v $(strip $(CGO_MAIN_PACKAGES))
 
 cgo-go-install:

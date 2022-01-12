@@ -47,6 +47,7 @@ type WorkerConfig struct {
 	DataDir           string
 	Clock             clock.Clock
 	Logger            Logger
+	NewApp            func(string, ...Option) (DBApp, error)
 }
 
 // Validate ensures that the config values are valid.
@@ -68,6 +69,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
+	}
+	if c.NewApp == nil {
+		return errors.NotValidf("missing NewApp")
 	}
 	return nil
 }
@@ -272,7 +276,7 @@ func (w *dbWorker) initializeDqlite() error {
 	}
 
 	w.cfg.Logger.Infof("initializing dqlite application with local address %q and peer addresses %v", localAddr, peerAddrs)
-	if w.dbApp, err = NewApp(w.cfg.DataDir, appOpts...); err != nil {
+	if w.dbApp, err = w.cfg.NewApp(w.cfg.DataDir, appOpts...); err != nil {
 		return errors.Trace(err)
 	}
 
