@@ -14,12 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/canonical/go-dqlite/driver"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"github.com/mattn/go-sqlite3"
 )
 
 const readTimeout = 5 * time.Second
@@ -53,7 +51,7 @@ type sqlREPL struct {
 	commands map[string]replCmdDef
 }
 
-func newREPL(pathToSocket string, dbGetter DBGetter, clock clock.Clock, logger Logger) (*sqlREPL, error) {
+func newREPL(pathToSocket string, dbGetter DBGetter, clock clock.Clock, logger Logger) (REPL, error) {
 	l, err := net.Listen("unix", pathToSocket)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating UNIX socket for REPL sessions")
@@ -397,11 +395,7 @@ func isRetriableError(err error) bool {
 		return false
 	}
 
-	if err, ok := err.(driver.Error); ok && err.Code == driver.ErrBusy {
-		return true
-	}
-
-	if err == sqlite3.ErrLocked || err == sqlite3.ErrBusy {
+	if isDBAppError(err) {
 		return true
 	}
 
