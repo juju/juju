@@ -71,7 +71,7 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	// Update foo.bar and see the update reported.
 	err := coll.UpdateId("thing", bson.M{"$set": bson.M{"blah": 42}})
 	c.Assert(err, jc.ErrorIsNil)
-	assertOplog("u", bson.D{{"$set", bson.D{{"blah", 42}}}}, bson.D{{"_id", "thing"}})
+	assertOplog("u", bson.D{{"diff", bson.D{{"i", bson.D{{"blah", 42}}}}}}, bson.D{{"_id", "thing"}})
 
 	// Insert into another collection (shouldn't be reported due to filter).
 	s.insertDoc(c, session, db.C("elsewhere"), bson.M{"_id": "boo"})
