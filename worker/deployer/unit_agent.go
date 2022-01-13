@@ -258,8 +258,8 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 	}
 	ljLogger := &lumberjack.Logger{
 		Filename:   logFilename, // eg: "/var/log/juju/unit-mysql-0.log"
-		MaxSize:    a.CurrentConfig().ModelLogfileMaxSizeMB(),
-		MaxBackups: a.CurrentConfig().ModelLogfileMaxBackups(),
+		MaxSize:    a.CurrentConfig().AgentLogfileMaxSizeMB(),
+		MaxBackups: a.CurrentConfig().AgentLogfileMaxBackups(),
 		Compress:   true,
 	}
 	a.logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
