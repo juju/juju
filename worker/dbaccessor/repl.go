@@ -14,12 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/canonical/go-dqlite/driver"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
-	"github.com/mattn/go-sqlite3"
 )
 
 const readTimeout = 5 * time.Second
@@ -41,10 +39,11 @@ type replCmdDef struct {
 }
 
 type sqlREPL struct {
-	connListener net.Listener
-	dbGetter     DBGetter
-	clock        clock.Clock
-	logger       Logger
+	connListener   net.Listener
+	dbGetter       DBGetter
+	retriableError func(error) bool
+	clock          clock.Clock
+	logger         Logger
 
 	sessionCtx      context.Context
 	sessionCancelFn func()
@@ -53,7 +52,7 @@ type sqlREPL struct {
 	commands map[string]replCmdDef
 }
 
-func newREPL(pathToSocket string, dbGetter DBGetter, clock clock.Clock, logger Logger) (*sqlREPL, error) {
+func newREPL(pathToSocket string, dbGetter DBGetter, retriableError func(error) bool, clock clock.Clock, logger Logger) (REPL, error) {
 	l, err := net.Listen("unix", pathToSocket)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating UNIX socket for REPL sessions")
@@ -66,6 +65,7 @@ func newREPL(pathToSocket string, dbGetter DBGetter, clock clock.Clock, logger L
 	r := &sqlREPL{
 		connListener:    l,
 		dbGetter:        dbGetter,
+		retriableError:  retriableError,
 		clock:           clock,
 		logger:          logger,
 		sessionCtx:      ctx,
@@ -275,7 +275,7 @@ func (r *sqlREPL) handleSQLExecCommand(s *replSession) {
 	// You have been warned!
 	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
 		return s.db.ExecContext(r.sessionCtx, s.cmdParams)
-	})
+	}, r.retriableError)
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)
 		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; check the logs for more details\n")
@@ -299,7 +299,7 @@ func (r *sqlREPL) handleSQLSelectCommand(s *replSession) {
 	// You have been warned!
 	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
 		return s.db.QueryContext(r.sessionCtx, s.cmdParams)
-	})
+	}, r.retriableError)
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)
 		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; check the logs for more details\n")
@@ -352,7 +352,7 @@ const (
 	retryDelay   = time.Millisecond
 )
 
-func withRetry(fn func() error) error {
+func withRetry(fn func() error, retriable func(error) bool) error {
 	for attempt := 0; attempt < maxDBRetries; attempt++ {
 		err := fn()
 		if err == nil {
@@ -364,7 +364,7 @@ func withRetry(fn func() error) error {
 			return sql.ErrNoRows
 		}
 
-		if !isRetriableError(err) {
+		if !retriable(err) {
 			return err
 		}
 
@@ -375,7 +375,7 @@ func withRetry(fn func() error) error {
 	return errors.Errorf("unable to complete request after %d retries", maxDBRetries)
 }
 
-func withRetryWithResult(fn func() (interface{}, error)) (interface{}, error) {
+func withRetryWithResult(fn func() (interface{}, error), retriable func(error) bool) (interface{}, error) {
 	var (
 		res interface{}
 		err error
@@ -384,42 +384,7 @@ func withRetryWithResult(fn func() (interface{}, error)) (interface{}, error) {
 	withRetry(func() error {
 		res, err = fn()
 		return err
-	})
+	}, retriable)
 
 	return res, err
-}
-
-// isRetriableError returns true if the given error might be transient and the
-// interaction can be safely retried.
-func isRetriableError(err error) bool {
-	err = errors.Cause(err)
-	if err == nil {
-		return false
-	}
-
-	if err, ok := err.(driver.Error); ok && err.Code == driver.ErrBusy {
-		return true
-	}
-
-	if err == sqlite3.ErrLocked || err == sqlite3.ErrBusy {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "database is locked") {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "cannot start a transaction within a transaction") {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "bad connection") {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "checkpoint in progress") {
-		return true
-	}
-
-	return false
 }

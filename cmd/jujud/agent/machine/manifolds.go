@@ -751,6 +751,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName: agentName,
 			Clock:     config.Clock,
 			Logger:    loggo.GetLogger("juju.worker.dbaccessor"),
+			NewApp:    dbaccessor.NewApp,
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{

@@ -29,6 +29,7 @@ type ManifoldConfig struct {
 	AgentName string
 	Clock     clock.Clock
 	Logger    Logger
+	NewApp    func(string, ...Option) (DBApp, error)
 }
 
 // Manifold returns a dependency manifold that runs the dbaccessor
@@ -61,6 +62,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DataDir:           filepath.Join(agentConfig.DataDir(), "dqlite"),
 				Clock:             config.Clock,
 				Logger:            config.Logger,
+				NewApp:            config.NewApp,
 			}
 
 			w, err := NewWorker(cfg)

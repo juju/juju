@@ -19,6 +19,7 @@ define MAIN_PACKAGES
   github.com/juju/juju/cmd/containeragent
   github.com/juju/juju/cmd/plugins/juju-metadata
   github.com/juju/juju/cmd/plugins/juju-wait-for
+  github.com/juju/juju/cmd/jujuc
 endef
 
 ifeq ($(GOOS),linux)
@@ -26,7 +27,6 @@ ifeq ($(GOOS),linux)
 endif
 
 define CGO_MAIN_PACKAGES
-  github.com/juju/juju/cmd/jujuc
   github.com/juju/juju/cmd/jujud
 endef
 
@@ -114,7 +114,7 @@ release-install: go-install cgo-go-install
 pre-check:
 ## pre-check: Verify go code via static analysis
 	@echo running pre-test checks
-	@INCLUDE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
+	@CGO_ENABLED=0 INCLUDE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
 
 check: pre-check run-tests
 ## check: Verify Juju code using static analysis and unit tests
@@ -128,7 +128,7 @@ run-tests:
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
-	@TMPDIR=$(TMP) CGO_LDFLAGS_ALLOW=$(CGO_LDFLAGS_ALLOW) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+	@CGO_ENABLED=0 TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS) $(REQUIRED_BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
 install: rebuild-schema go-install
@@ -141,13 +141,13 @@ clean:
 go-install:
 ## go-install: Install Juju binaries without updating dependencies
 	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	@CGO_ENABLED=0 go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
 	@mkdir -p ${BIN_DIR}
 	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	@CGO_ENABLED=0 go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 cgo-go-op: dqlite-deps-check
 	PATH=${PATH}:/usr/local/musl/bin \
@@ -161,7 +161,7 @@ cgo-go-op: dqlite-deps-check
 			-mod=${JUJU_GOMOD_MODE} \
 			-tags "libsqlite3 ${BUILD_TAGS}" \
 			${COMPILE_FLAGS} \
-			-ldflags "-linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
+			-ldflags "-s -w -linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
 			-v $(strip $(CGO_MAIN_PACKAGES))
 
 cgo-go-install:
