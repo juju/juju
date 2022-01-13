@@ -34,6 +34,10 @@ func (a *unsupportedApp) Ready(ctx context.Context) error {
 // and voting rights) to another node, if one is available.
 //
 // gracefully shutdown a node.
+func (a *unsupportedApp) Handover(ctx context.Context) error {
+	return errors.NotSupportedf("db")
+}
+
 // ID returns the dqlite ID of this application node.
 func (a *unsupportedApp) ID() uint64 {
 	return 0
