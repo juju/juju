@@ -146,26 +146,30 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 		return nil, errors.Trace(err)
 	}
 
-	// Guinea Pig broker to hunt for the namespace where a controller lives. We
-	// disregard this one in favour of a new one pinned to the correct
-	// controller namespace when we find it.
-	broker, err := newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
-		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
-		jujuclock.WallClock)
-	if err != nil {
-		return nil, err
+	if args.Config.Name() != environsbootstrap.ControllerModelName {
+		broker, err := newK8sBroker(
+			args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
+			k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
+			jujuclock.WallClock)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return broker, nil
 	}
 
-	if args.Config.Name() != environsbootstrap.ControllerModelName {
-		return broker, nil
+	k8sClient, _, _, err := NewK8sClients(k8sRestConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	ns, err := findControllerNamespace(
-		broker.client(), args.ControllerUUID)
+		k8sClient, args.ControllerUUID)
 	if errors.IsNotFound(err) {
 		// The controller is currently bootstrapping.
-		return broker, nil
+		return newK8sBroker(
+			args.ControllerUUID, k8sRestConfig, args.Config, "",
+			NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
+			utils.RandomPrefix, jujuclock.WallClock)
 	} else if err != nil {
 		return nil, err
 	}
