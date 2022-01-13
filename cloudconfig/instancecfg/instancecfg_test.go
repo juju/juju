@@ -127,8 +127,6 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *gc.C) {
 			Config: controller.Config{
 				"agent-logfile-max-size":    "123MB",
 				"agent-logfile-max-backups": 7,
-				"model-logfile-max-size":    "4321MB",
-				"model-logfile-max-backups": 77,
 			},
 		},
 		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
@@ -138,6 +136,4 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.AgentLogfileMaxSizeMB(), gc.Equals, 123)
 	c.Assert(config.AgentLogfileMaxBackups(), gc.Equals, 7)
-	c.Assert(config.ModelLogfileMaxSizeMB(), gc.Equals, 4321)
-	c.Assert(config.ModelLogfileMaxBackups(), gc.Equals, 77)
 }

@@ -293,14 +293,6 @@ type Config interface {
 	// AgentLogfileMaxBackups returns the number of old agent/controller log
 	// files to keep (compressed).
 	AgentLogfileMaxBackups() int
-
-	// ModelLogfileMaxSizeMB returns the maximum file size in MB of each
-	// model/unit log file.
-	ModelLogfileMaxSizeMB() int
-
-	// ModelLogfileMaxBackups returns the number of old model/unit log
-	// files to keep (compressed).
-	ModelLogfileMaxBackups() int
 }
 
 type configSetterOnly interface {
@@ -432,8 +424,6 @@ type configInternal struct {
 	nonSyncedWritesToRaftLog bool
 	agentLogfileMaxSizeMB    int
 	agentLogfileMaxBackups   int
-	modelLogfileMaxSizeMB    int
-	modelLogfileMaxBackups   int
 }
 
 // AgentConfigParams holds the parameters required to create
@@ -456,8 +446,6 @@ type AgentConfigParams struct {
 	NonSyncedWritesToRaftLog bool
 	AgentLogfileMaxSizeMB    int
 	AgentLogfileMaxBackups   int
-	ModelLogfileMaxSizeMB    int
-	ModelLogfileMaxBackups   int
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -523,8 +511,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		nonSyncedWritesToRaftLog: configParams.NonSyncedWritesToRaftLog,
 		agentLogfileMaxSizeMB:    configParams.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups:   configParams.AgentLogfileMaxBackups,
-		modelLogfileMaxSizeMB:    configParams.ModelLogfileMaxSizeMB,
-		modelLogfileMaxBackups:   configParams.ModelLogfileMaxBackups,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -869,16 +855,6 @@ func (c *configInternal) AgentLogfileMaxSizeMB() int {
 // AgentLogfileMaxBackups implements Config.
 func (c *configInternal) AgentLogfileMaxBackups() int {
 	return c.agentLogfileMaxBackups
-}
-
-// ModelLogfileMaxSizeMB implements Config.
-func (c *configInternal) ModelLogfileMaxSizeMB() int {
-	return c.modelLogfileMaxSizeMB
-}
-
-// ModelLogfileMaxBackups implements Config.
-func (c *configInternal) ModelLogfileMaxBackups() int {
-	return c.modelLogfileMaxBackups
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

@@ -389,8 +389,6 @@ var attributeParams = agent.AgentConfigParams{
 	NonSyncedWritesToRaftLog: false,
 	AgentLogfileMaxSizeMB:    150,
 	AgentLogfileMaxBackups:   4,
-	ModelLogfileMaxSizeMB:    125,
-	ModelLogfileMaxBackups:   3,
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -408,8 +406,6 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.NonSyncedWritesToRaftLog(), jc.IsFalse)
 	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
 	c.Assert(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
-	c.Assert(conf.ModelLogfileMaxSizeMB(), gc.Equals, 125)
-	c.Assert(conf.ModelLogfileMaxBackups(), gc.Equals, 3)
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {

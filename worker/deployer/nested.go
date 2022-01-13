@@ -478,8 +478,6 @@ func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword
 
 			AgentLogfileMaxBackups: c.agentConfig.AgentLogfileMaxBackups(),
 			AgentLogfileMaxSizeMB:  c.agentConfig.AgentLogfileMaxSizeMB(),
-			ModelLogfileMaxBackups: c.agentConfig.ModelLogfileMaxBackups(),
-			ModelLogfileMaxSizeMB:  c.agentConfig.ModelLogfileMaxSizeMB(),
 		})
 	if err != nil {
 		return nil, errors.Trace(err)

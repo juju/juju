@@ -66,8 +66,6 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 			UpgradedToVersion:      jv.Current,
 			AgentLogfileMaxBackups: 7,
 			AgentLogfileMaxSizeMB:  123,
-			ModelLogfileMaxBackups: 77,
-			ModelLogfileMaxSizeMB:  1234,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.Write(), jc.ErrorIsNil)
@@ -182,8 +180,6 @@ func (s *NestedContextSuite) TestDeployUnit(c *gc.C) {
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.Equals, unitName)
 	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxBackups(), gc.Equals, 7)
 	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxSizeMB(), gc.Equals, 123)
-	c.Assert(s.agent.CurrentConfig().ModelLogfileMaxBackups(), gc.Equals, 77)
-	c.Assert(s.agent.CurrentConfig().ModelLogfileMaxSizeMB(), gc.Equals, 1234)
 }
 
 func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {

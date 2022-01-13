@@ -136,14 +136,6 @@ func (c *configFromEnv) AgentLogfileMaxBackups() int {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) ModelLogfileMaxSizeMB() int {
-	panic("not implemented")
-}
-
-func (c *configFromEnv) ModelLogfileMaxBackups() int {
-	panic("not implemented")
-}
-
 type configFunc func() agent.Config
 
 func defaultConfig() agent.Config {
