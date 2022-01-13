@@ -310,7 +310,7 @@ const (
 
 	// DefaultAgentLogfileMaxSize is the maximum file size in MB of each
 	// agent/controller log file.
-	DefaultAgentLogfileMaxSize = 300
+	DefaultAgentLogfileMaxSize = 100
 
 	// DefaultAgentLogfileMaxBackups is the number of old agent/controller log
 	// files to keep (compressed).
