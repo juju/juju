@@ -12,22 +12,22 @@ import (
 	"github.com/juju/errors"
 )
 
-type noopApp struct{}
+type unsupportedApp struct{}
 
 // NewApp creates a new SQLite application.
 func NewApp(dataDir string, options ...Option) (DBApp, error) {
-	return &noopApp{}, errors.NotSupportedf("db")
+	return &unsupportedApp{}, errors.NotSupportedf("db")
 }
 
 // Open the dqlite database with the given name
-func (a *noopApp) Open(ctx context.Context, databaseName string) (*sql.DB, error) {
+func (a *unsupportedApp) Open(ctx context.Context, databaseName string) (*sql.DB, error) {
 	return nil, errors.NotSupportedf("db")
 }
 
 // Ready can be used to wait for a node to complete some initial tasks that are
 // initiated at startup.
-func (a *noopApp) Ready(ctx context.Context) error {
-	return nil
+func (a *unsupportedApp) Ready(ctx context.Context) error {
+	return errors.NotSupportedf("db")
 }
 
 // Handover transfers all responsibilities for this node (such has leadership
@@ -35,21 +35,21 @@ func (a *noopApp) Ready(ctx context.Context) error {
 //
 // This method should always be called before invoking Close(), in order to
 // gracefully shutdown a node.
-func (a *noopApp) Handover(ctx context.Context) error {
-	return nil
+func (a *unsupportedApp) Handover(ctx context.Context) error {
+	return errors.NotSupportedf("db")
 }
 
 // ID returns the dqlite ID of this application node.
-func (a *noopApp) ID() uint64 {
+func (a *unsupportedApp) ID() uint64 {
 	return 0
 }
 
 // Close the application node, releasing all resources it created.
-func (a *noopApp) Close() error {
-	return nil
+func (a *unsupportedApp) Close() error {
+	return errors.NotSupportedf("db")
 }
 
-// Repl returns a Repl worker from the underlying DB.
-func (a *noopApp) Repl(dbGetter DBGetter) (REPL, error) {
+// GetREPL returns a Repl worker from the underlying DB.
+func (a *unsupportedApp) GetREPL(dbGetter DBGetter) (REPL, error) {
 	return nil, errors.NotSupportedf("repl")
 }

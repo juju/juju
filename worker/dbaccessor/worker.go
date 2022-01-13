@@ -97,8 +97,8 @@ type DBApp interface {
 	ID() uint64
 	// Close the application node, releasing all resources it created.
 	Close() error
-	// Repl returns a Repl worker from the underlying DB.
-	Repl(DBGetter) (REPL, error)
+	// GetREPL returns a Repl worker from the underlying DB.
+	GetREPL(DBGetter) (REPL, error)
 }
 
 type REPL interface {
@@ -291,7 +291,7 @@ func (w *dbWorker) initializeDqlite() error {
 	}
 
 	// Start REPL
-	repl, err := w.dbApp.Repl(w)
+	repl, err := w.dbApp.GetREPL(w)
 	if err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil

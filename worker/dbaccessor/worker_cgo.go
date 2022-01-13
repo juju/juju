@@ -85,8 +85,8 @@ func (a *dqliteApp) Close() error {
 	return a.dqliteApp.Close()
 }
 
-// Repl returns a Repl worker from the underlying DB.
-func (a *dqliteApp) Repl(dbGetter DBGetter) (REPL, error) {
+// GetREPL returns a Repl worker from the underlying DB.
+func (a *dqliteApp) GetREPL(dbGetter DBGetter) (REPL, error) {
 	replSocket := filepath.Join(a.dataDir, "juju.sock")
 	_ = os.Remove(replSocket)
 
