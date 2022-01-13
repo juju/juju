@@ -237,9 +237,9 @@ musl-install:
 JUJU_CONTROLLER_BOX ?= $(shell juju status -m controller | grep juju- | head -1 | awk '{print $$4}')
 
 juju-dqlite-repl-deps-on-controller:
-	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- which rlwrap &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install rlwrap
-	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- which socat &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install socat
+	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- bash -c 'which rlwrap &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install rlwrap'
+	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- bash -c 'which socat &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install socat'
 
 juju-dqlite-repl: juju-dqlite-repl-deps-on-controller
 	@echo "[+] Connecting to REPL interface on controller: ${JUJU_CONTROLLER_BOX}"
-	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- rlwrap -H /root/.dqlite_repl.history socat - /var/lib/juju/dqlite/juju.sock
+	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- bash -c 'rlwrap -H /root/.dqlite_repl.history socat - /var/lib/juju/dqlite/juju.sock'
