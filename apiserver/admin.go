@@ -546,5 +546,4 @@ func (r *errRoot) FindMethod(rootName string, version int, methodName string) (r
 	return nil, r.err
 }
 
-func (r *errRoot) Kill() {
-}
+func (r *errRoot) Kill() {}

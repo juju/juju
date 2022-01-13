@@ -91,6 +91,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
+	"github.com/juju/juju/worker/statemanager"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
@@ -715,7 +716,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// can't shutdown properly.
 			RaftTransportName: raftTransportName,
 
-			DBAccessorName: dbAccessorName,
+			StateManagerName: stateManagerName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -752,6 +753,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:     config.Clock,
 			Logger:    loggo.GetLogger("juju.worker.dbaccessor"),
 			NewApp:    dbaccessor.NewApp,
+		})),
+
+		stateManagerName: ifController(statemanager.Manifold(statemanager.ManifoldConfig{
+			DBAccessorName: dbAccessorName,
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
@@ -1163,6 +1168,7 @@ const (
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
 	dbAccessorName                = "db-accessor"
+	stateManagerName              = "state-manager"
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"

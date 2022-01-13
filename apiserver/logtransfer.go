@@ -57,7 +57,10 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.Trace(err)
 	}
 
-	s.dblogger = s.dbloggers.get(st.State)
+	s.dblogger, err = s.dbloggers.get(st.State)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	s.tracker = newLogTracker(st.State)
 	s.releaser = func() {
 		if removed := st.Release(); removed {

@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/statemanager"
 )
 
 var (
@@ -49,13 +49,13 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	db        *sql.DB
-	model     *state.Model
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	shared    *sharedServerContext
-	entity    state.Entity
+	state        *state.State
+	stateManager statemanager.Overlord
+	model        *state.Model
+	rpcConn      *rpc.Conn
+	resources    *common.Resources
+	shared       *sharedServerContext
+	entity       state.Entity
 
 	// An empty modelUUID means that the user has logged in through the
 	// root of the API server rather than the /model/:model-uuid/api
@@ -75,7 +75,7 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newAPIHandler returns a new apiHandler.
-func newAPIHandler(srv *Server, st *state.State, db *sql.DB, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
+func newAPIHandler(srv *Server, st *state.State, stateManager statemanager.Overlord, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
 	m, err := st.Model()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -93,7 +93,7 @@ func newAPIHandler(srv *Server, st *state.State, db *sql.DB, rpcConn *rpc.Conn, 
 
 	r := &apiHandler{
 		state:        st,
-		db:           db,
+		stateManager: stateManager,
 		model:        m,
 		resources:    common.NewResources(),
 		shared:       srv.shared,
@@ -140,9 +140,9 @@ func (r *apiHandler) State() *state.State {
 	return r.state
 }
 
-// DB returns the model database.
-func (r *apiHandler) DB() *sql.DB {
-	return r.db
+// StateManager returns the model StateManager.
+func (r *apiHandler) StateManager() statemanager.Overlord {
+	return r.stateManager
 }
 
 // SharedContext returns the server shared context.
@@ -200,7 +200,7 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 type apiRoot struct {
 	clock           clock.Clock
 	state           *state.State
-	db              *sql.DB
+	stateManager    statemanager.Overlord
 	shared          *sharedServerContext
 	facades         *facade.Registry
 	resources       *common.Resources
@@ -213,8 +213,8 @@ type apiRoot struct {
 type apiRootHandler interface {
 	// State returns the underlying state.
 	State() *state.State
-	// DB returns the database associated with the model.
-	DB() *sql.DB
+	// StateManager returns the StateManager associated with the model.
+	StateManager() statemanager.Overlord
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
@@ -233,7 +233,7 @@ func newAPIRoot(clock clock.Clock,
 	r := &apiRoot{
 		clock:           clock,
 		state:           st,
-		db:              root.DB(),
+		stateManager:    root.StateManager(),
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
@@ -629,12 +629,12 @@ func (ctx *facadeContext) Raft() facade.RaftContext {
 	}
 }
 
-// DB returns the database associated with the model.
-func (ctx *facadeContext) DB() facade.SQLDatabase {
-	return &dbMediator{
-		db:     ctx.r.db,
-		logger: ctx.r.shared.logger,
-		clock:  ctx.r.clock,
+// StateManager returns the StateManager associated with the model.
+func (ctx *facadeContext) StateManager() facade.StateManager {
+	return &stateManagerMediator{
+		stateManager: ctx.r.stateManager,
+		logger:       ctx.r.shared.logger,
+		clock:        ctx.r.clock,
 	}
 }
 

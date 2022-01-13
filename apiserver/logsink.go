@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"database/sql"
 	"io"
 	"net/http"
 	"strings"
@@ -19,6 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/overlord"
+	"github.com/juju/juju/overlord/logstate"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/logdb"
 )
@@ -43,6 +44,11 @@ type recordLogger interface {
 	Log([]state.LogRecord) error
 }
 
+// LogManager defines the log manager for managing logs via the overlord state.
+type LogManager interface {
+	LogManager() overlord.LogManager
+}
+
 // dbloggers contains a map of buffered DB loggers. When one of the
 // logging strategies requires a DB logger, it uses this to get it.
 // When the State corresponding to the DB logger is removed from the
@@ -51,33 +57,38 @@ type dbloggers struct {
 	clock                 clock.Clock
 	dbLoggerBufferSize    int
 	dbLoggerFlushInterval time.Duration
-	sqlDBGetter           SQLDBGetter
+	stateManager          StateManager
 	mu                    sync.Mutex
 	loggers               map[*state.State]*bufferedDbLogger
 }
 
-func (d *dbloggers) get(st *state.State) recordLogger {
+func (d *dbloggers) get(st *state.State) (recordLogger, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.loggers[st]; ok {
-		return l
+		return l, nil
 	}
 	if d.loggers == nil {
 		d.loggers = make(map[*state.State]*bufferedDbLogger)
+	}
+
+	stateManager, err := newStateLogger(d.stateManager)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	dbl := state.NewDbLogger(st)
 	l := &bufferedDbLogger{dbl, logdb.NewBufferedLogger(
 		logdb.NewTeeLogger(
 			dbl,
-			newSQLLogger(d.sqlDBGetter),
+			stateManager,
 		),
 		d.dbLoggerBufferSize,
 		d.dbLoggerFlushInterval,
 		d.clock,
 	)}
 	d.loggers[st] = l
-	return l
+	return l, nil
 }
 
 func (d *dbloggers) remove(st *state.State) {
@@ -150,7 +161,10 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	s.version = ver
 	s.entity = entity.Tag().String()
 	s.filePrefix = st.ModelUUID() + ":"
-	s.dblogger = s.dbloggers.get(st.State)
+	s.dblogger, err = s.dbloggers.get(st.State)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	s.releaser = func() {
 		if removed := st.Release(); removed {
 			s.dbloggers.remove(st.State)
@@ -225,49 +239,35 @@ func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
 	return err
 }
 
-// sqlLogger inserts log entries to an sql.DB instance.
-type sqlLogger struct {
-	db    *sql.DB
-	dbErr error
+// stateLogger inserts log entries via the overlord log manager.
+type stateLogger struct {
+	logger overlord.LogManager
 }
 
-func newSQLLogger(dbGetter SQLDBGetter) *sqlLogger {
-	db, err := dbGetter.GetDB("logs")
-	return &sqlLogger{
-		db:    db,
-		dbErr: err,
-	}
-}
-
-const (
-	sqlInsertLogEntry = "INSERT INTO logs (ts, entity, version, module, location, level, message, labels) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-)
-
-func (l *sqlLogger) Log(records []state.LogRecord) error {
-	if l.dbErr != nil {
-		return l.dbErr
-	}
-
-	tx, err := l.db.Begin()
+func newStateLogger(stateManager StateManager) (*stateLogger, error) {
+	manager, err := stateManager.GetStateManager("logs")
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
+	return &stateLogger{
+		logger: manager.LogManager(),
+	}, nil
+}
 
-	for _, r := range records {
-		if _, err = tx.Exec(sqlInsertLogEntry,
-			r.Time,
-			r.Entity,
-			r.Version.String(),
-			r.Module,
-			r.Location,
-			r.Level,
-			r.Message,
-			strings.Join(r.Labels, ","),
-		); err != nil {
-			_ = tx.Rollback()
-			return errors.Trace(err)
+func (l *stateLogger) Log(records []state.LogRecord) error {
+	lines := make([]logstate.Line, len(records))
+	for i, v := range records {
+		lines[i] = logstate.Line{
+			Time:      v.Time,
+			ModelUUID: v.ModelUUID,
+			Entity:    v.Entity,
+			Version:   v.Version,
+			Level:     v.Level,
+			Module:    v.Module,
+			Location:  v.Location,
+			Message:   v.Message,
+			Labels:    v.Labels,
 		}
 	}
-
-	return errors.Trace(tx.Commit())
+	return l.logger.AppendLines(lines)
 }

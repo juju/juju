@@ -43,7 +43,7 @@ type sharedServerContext struct {
 	presence            presence.Recorder
 	leaseManager        lease.Manager
 	raftOpQueue         Queue
-	sqlDBGetter         SQLDBGetter
+	stateManager        StateManager
 	logger              loggo.Logger
 	cancel              <-chan struct{}
 
@@ -63,7 +63,7 @@ type sharedServerConfig struct {
 	leaseManager        lease.Manager
 	controllerConfig    jujucontroller.Config
 	raftOpQueue         Queue
-	sqlDBGetter         SQLDBGetter
+	stateManager        StateManager
 	logger              loggo.Logger
 }
 
@@ -92,8 +92,8 @@ func (c *sharedServerConfig) validate() error {
 	if c.raftOpQueue == nil {
 		return errors.NotValidf("nil raftOpQueue")
 	}
-	if c.sqlDBGetter == nil {
-		return errors.NotValidf("nil sqlDBGetter")
+	if c.stateManager == nil {
+		return errors.NotValidf("nil stateManager")
 	}
 	return nil
 }
@@ -112,7 +112,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
 		raftOpQueue:         config.raftOpQueue,
-		sqlDBGetter:         config.sqlDBGetter,
+		stateManager:        config.stateManager,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

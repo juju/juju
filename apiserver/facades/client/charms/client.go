@@ -4,7 +4,6 @@
 package charms
 
 import (
-	"database/sql"
 	"strings"
 
 	"github.com/juju/charm/v8"
@@ -32,18 +31,11 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.charms")
 
-type Database interface {
-	// Txn defines a method for running transactions, dealing with retries,
-	// commit and rollback semantics.
-	Txn(func(*sql.Tx) error) error
-}
-
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
 	charmInfoAPI *charmscommon.CharmInfoAPI
 	authorizer   facade.Authorizer
-	db           Database
 	backendState charmsinterfaces.BackendState
 	backendModel charmsinterfaces.BackendModel
 
@@ -143,7 +135,6 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 	return &API{
 		charmInfoAPI: charmInfoAPI,
 		authorizer:   authorizer,
-		db:           ctx.DB(),
 		backendState: newStateShim(st),
 		backendModel: m,
 		newStorage: func(modelUUID string) services.Storage {
@@ -166,7 +157,6 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	st charmsinterfaces.BackendState,
-	db Database,
 	m charmsinterfaces.BackendModel,
 	newStorage func(modelUUID string) services.Storage,
 	repoFactory corecharm.RepositoryFactory,

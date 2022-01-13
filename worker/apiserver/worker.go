@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"database/sql"
 	"net/http"
 
 	"github.com/juju/clock"
@@ -23,11 +22,12 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/statemanager"
 )
 
-// SQLDBGetter provides access to model-scoped SQL databases.
-type SQLDBGetter interface {
-	GetDB(modelUUID string) (*sql.DB, error)
+// StateManager provides access to model-scoped state.
+type StateManager interface {
+	GetStateManager(modelUUID string) (statemanager.Overlord, error)
 }
 
 // Queue is a blocking queue to guard access and to serialize raft applications,
@@ -61,7 +61,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
-	SQLDBGetter                       SQLDBGetter
+	StateManager                      StateManager
 }
 
 // NewServerFunc is the type of function that will be used
@@ -118,6 +118,9 @@ func (config Config) Validate() error {
 	if config.RaftOpQueue == nil {
 		return errors.NotValidf("nil RaftOpQueue")
 	}
+	if config.StateManager == nil {
+		return errors.NotValidf("nil StateManager")
+	}
 	return nil
 }
 
@@ -172,7 +175,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
-		SQLDBGetter:                   config.SQLDBGetter,
+		StateManager:                  config.StateManager,
 	}
 	return config.NewServer(serverConfig)
 }
