@@ -12,13 +12,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/api/sshclient"
@@ -42,6 +41,7 @@ type sshMachine struct {
 	knownHostsPath  string
 	hostChecker     jujussh.ReachableChecker
 	forceAPIv1      bool
+	retryStrategy   retry.CallArgs
 
 	statusAPIGetter func() (StatusAPI, error)
 }
@@ -88,42 +88,8 @@ func (t *resolvedTarget) isAgent() bool {
 	return targetIsAgent(t.entity)
 }
 
-// attemptStarter is an interface corresponding to utils.AttemptStrategy
-//
-// TODO(katco): 2016-08-09: lp:1611427
-type attemptStarter interface {
-	Start() attempt
-}
-
-type attempt interface {
-	Next() bool
-}
-
-// TODO(katco): 2016-08-09: lp:1611427
-type attemptStrategy utils.AttemptStrategy
-
-func (s attemptStrategy) Start() attempt {
-	// TODO(katco): 2016-08-09: lp:1611427
-	return utils.AttemptStrategy(s).Start()
-}
-
-const (
-	// SSHRetryDelay is the time to wait for an SSH connection to be established
-	// to a single endpoint of a target.
-	SSHRetryDelay = 500 * time.Millisecond
-
-	// SSHTimeout is the time to wait for before giving up trying to establish
-	// an SSH connection to a target, after retrying.
-	SSHTimeout = 5 * time.Second
-
-	// SSHPort is the TCP port used for SSH connections.
-	SSHPort = 22
-)
-
-var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
-	Total: SSHTimeout,
-	Delay: SSHRetryDelay,
-}
+// SSHPort is the TCP port used for SSH connections.
+const SSHPort = 22
 
 func (c *sshMachine) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
@@ -161,6 +127,10 @@ func (c *sshMachine) setHostChecker(checker jujussh.ReachableChecker) {
 		checker = defaultReachableChecker()
 	}
 	c.hostChecker = checker
+}
+
+func (c *sshMachine) setRetryStrategy(retryStrategy retry.CallArgs) {
+	c.retryStrategy = retryStrategy
 }
 
 // initRun initializes the API connection if required, and determines
@@ -503,25 +473,32 @@ func (c *sshMachine) resolveWithRetry(target resolvedTarget, getAddress addressG
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
-	var err error
 	out := &target
-	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
+
+	callArgs := c.retryStrategy
+	callArgs.Func = func() error {
+		var err error
 		out.host, err = getAddress(out.entity)
 		if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
 			// Catch issues like passing invalid machine/unit IDs early.
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 
 		if err != nil {
 			logger.Debugf("getting target %q address(es) failed: %v (retrying)", out.entity, err)
-			continue
+			return errors.Trace(err)
 		}
 
 		logger.Debugf("using target %q address %q", out.entity, out.host)
-		return out, nil
+		return nil
 	}
+	err := retry.Call(callArgs)
 
-	return nil, errors.Trace(err)
+	if err != nil {
+		err = retry.LastError(err)
+		return nil, errors.Trace(err)
+	}
+	return out, nil
 }
 
 // legacyAddressGetter returns the preferred public or private address of the

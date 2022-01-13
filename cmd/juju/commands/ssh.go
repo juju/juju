@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -120,15 +123,33 @@ For k8s controller:
 See also: 
     scp`
 
+const (
+	// SSHRetryDelay is the time to wait for an SSH connection to be established
+	// to a single endpoint of a target.
+	SSHRetryDelay = 500 * time.Millisecond
+
+	// SSHTimeout is the time to wait for before giving up trying to establish
+	// an SSH connection to a target, after retrying.
+	SSHTimeout = 5 * time.Second
+)
+
 func newSSHCommand(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
+	retryStrategy retry.CallArgs,
 ) cmd.Command {
 	c := &sshCommand{
-		hostChecker: hostChecker,
-		isTerminal:  isTerminal,
+		hostChecker:   hostChecker,
+		isTerminal:    isTerminal,
+		retryStrategy: retryStrategy,
 	}
 	return modelcmd.Wrap(c)
+}
+
+var defaultSSHRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: SSHTimeout,
+	Delay:       SSHRetryDelay,
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -144,6 +165,8 @@ type sshCommand struct {
 	hostChecker jujussh.ReachableChecker
 	isTerminal  func(interface{}) bool
 	pty         autoBoolValue
+
+	retryStrategy retry.CallArgs
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -176,6 +199,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 	c.provider.setTarget(args[0])
 	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
+	c.provider.setRetryStrategy(c.retryStrategy)
 	return nil
 }
 
@@ -203,6 +227,8 @@ type sshProvider interface {
 
 	getArgs() []string
 	setArgs(Args []string)
+
+	setRetryStrategy(retry.CallArgs)
 }
 
 // Run resolves c.Target to a machine, to the address of a i
