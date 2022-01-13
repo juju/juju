@@ -14,7 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/natefinch/lumberjack.v2"
+	"github.com/juju/lumberjack"
 
 	"github.com/juju/juju/core/paths"
 )

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/natefinch/lumberjack.v2"
+	"github.com/juju/lumberjack"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
