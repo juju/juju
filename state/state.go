@@ -464,15 +464,23 @@ func (st *State) EnsureModelRemoved() error {
 		if info.global {
 			continue
 		}
-		coll, closer := st.db().GetCollection(name)
-		defer closer()
-		n, err := coll.Find(nil).Count()
-		if err != nil {
+
+		if err := func(name string, info CollectionInfo) error {
+			coll, closer := st.db().GetCollection(name)
+			defer closer()
+
+			n, err := coll.Find(nil).Count()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			if n != 0 {
+				found[name] = n
+				foundOrdered = append(foundOrdered, name)
+			}
+			return nil
+		}(name, info); err != nil {
 			return errors.Trace(err)
-		}
-		if n != 0 {
-			found[name] = n
-			foundOrdered = append(foundOrdered, name)
 		}
 	}
 

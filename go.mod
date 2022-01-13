@@ -68,7 +68,7 @@ require (
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
-	github.com/juju/mgo/v2 v2.0.0-20210414025616-e854c672032f
+	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b

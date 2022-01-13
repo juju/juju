@@ -3041,14 +3041,20 @@ func RemoveUnsupportedLinkLayer(pool *StatePool) error {
 	}
 
 	for colName, fieldName := range fieldByCollection {
-		coll, closer := st.db().GetRawCollection(colName)
-		defer closer()
+		err := func(colName string) error {
+			coll, closer := st.db().GetRawCollection(colName)
+			defer closer()
 
-		bulk := coll.Bulk()
-		bulk.Unordered()
-		bulk.RemoveAll(bson.D{{fieldName, bson.D{{"$regex", "^unsupported"}}}})
-		if _, err := bulk.Run(); err != nil {
-			return errors.Annotate(err, `deleting link-layer data for "unsupported" names`)
+			bulk := coll.Bulk()
+			bulk.Unordered()
+			bulk.RemoveAll(bson.D{{fieldName, bson.D{{"$regex", "^unsupported"}}}})
+			if _, err := bulk.Run(); err != nil {
+				return errors.Annotate(err, `deleting link-layer data for "unsupported" names`)
+			}
+			return nil
+		}(colName)
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 
@@ -3123,6 +3129,7 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 				upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
 				err = st.db().RunTransaction(ops)
 				if err != nil {
+					_ = iter.Close()
 					return errors.Trace(err)
 				}
 				ops = ops[:0]
@@ -3483,6 +3490,9 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	iter := lldCol.Find(bson.M{"providerid": bson.M{"$exists": true}}).Iter()
 	for iter.Next(&doc) {
 		used.Add(strings.Join([]string{doc.ModelUUID, idType, doc.ProviderID}, ":"))
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 
 	pidCol, pidCloser := st.db().GetRawCollection(providerIDsC)

@@ -82,7 +82,10 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 }
 
 func (a *appWorker) Notify() {
-	a.changes <- struct{}{}
+	select {
+	case a.changes <- struct{}{}:
+	case <-a.catacomb.Dying():
+	}
 }
 
 func (a *appWorker) Kill() {

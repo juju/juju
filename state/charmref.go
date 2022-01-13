@@ -15,8 +15,8 @@ var errCharmInUse = errors.New("charm in use")
 // to a charm and its per-application settings and storage constraints
 // documents. It will fail if the charm is not Alive.
 func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
-	charms, closer := mb.db().GetCollection(charmsC)
-	defer closer()
+	charms, cCloser := mb.db().GetCollection(charmsC)
+	defer cCloser()
 
 	// If we're migrating. charm document will not be present. But
 	// if we're not migrating, we need to check the charm is alive.
@@ -32,8 +32,8 @@ func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCrea
 		checkOps = []txn.Op{checkOp}
 	}
 
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
+	refcounts, rCloser := mb.db().GetCollection(refcountsC)
+	defer rCloser()
 
 	getIncRefOp := nsRefcounts.CreateOrIncRefOp
 	if !canCreate {
@@ -138,8 +138,8 @@ func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 // charmDestroyOps implements the logic of charm.Destroy.
 func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	db := st.db()
-	charms, closer := db.GetCollection(charmsC)
-	defer closer()
+	charms, cCloser := db.GetCollection(charmsC)
+	defer cCloser()
 
 	charmKey := curl.String()
 	charmOp, err := nsLife.destroyOp(charms, charmKey, nil)
@@ -147,8 +147,8 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 		return nil, errors.Annotate(err, "charm")
 	}
 
-	refcounts, closer := db.GetCollection(refcountsC)
-	defer closer()
+	refcounts, rCloser := db.GetCollection(refcountsC)
+	defer rCloser()
 
 	refcountKey := charmGlobalKey(curl)
 	refcountOp, err := nsRefcounts.RemoveOp(refcounts, refcountKey, 0)

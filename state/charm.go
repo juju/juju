@@ -268,8 +268,8 @@ func insertPendingCharmOps(mb modelBackend, curl *charm.URL) ([]txn.Op, error) {
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
 func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
-	charms, closer := mb.db().GetCollection(charmsC)
-	defer closer()
+	charms, cCloser := mb.db().GetCollection(charmsC)
+	defer cCloser()
 
 	life, err := nsLife.read(charms, cdoc.DocID)
 	if errors.IsNotFound(err) {
@@ -288,8 +288,8 @@ func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 		Insert: cdoc,
 	}
 
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
+	refcounts, rCloser := mb.db().GetCollection(refcountsC)
+	defer rCloser()
 
 	charmKey := charmGlobalKey(cdoc.URL)
 	refOp, required, err := nsRefcounts.LazyCreateOp(refcounts, charmKey)

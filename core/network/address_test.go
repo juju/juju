@@ -122,15 +122,29 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 }
 
 func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
-	addr1 := network.NewMachineAddress("0.1.2.3").AsProviderAddress(network.WithSpaceName("foo"))
-	addr2 := network.NewMachineAddress("2001:db8::123").AsProviderAddress(network.WithSpaceName(""))
+	addr1 := network.NewMachineAddress("0.1.2.3").AsProviderAddress(
+		network.WithSpaceName("foo"),
+		network.WithProviderSpaceID("3"),
+		network.WithProviderID("523"),
+		network.WithProviderSubnetID("5"),
+		network.WithProviderVLANID("5001"),
+		network.WithVLANTag(50),
+	)
+	addr2 := network.NewMachineAddress("2001:db8::123").AsProviderAddress(
+		network.WithSpaceName(""),
+	)
 	c.Check(addr1, jc.DeepEquals, network.ProviderAddress{
 		MachineAddress: network.MachineAddress{
 			Value: "0.1.2.3",
 			Type:  "ipv4",
 			Scope: "public",
 		},
-		SpaceName: "foo",
+		SpaceName:        "foo",
+		ProviderSpaceID:  "3",
+		ProviderID:       "523",
+		ProviderSubnetID: "5",
+		ProviderVLANID:   "5001",
+		VLANTag:          50,
 	})
 	c.Check(addr2, jc.DeepEquals, network.ProviderAddress{
 		MachineAddress: network.MachineAddress{
@@ -143,21 +157,35 @@ func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
 }
 
 func (s *AddressSuite) TestAsProviderAddresses(c *gc.C) {
-	addrs := network.NewMachineAddresses([]string{"0.2.3.4", "fc00::1"}).AsProviderAddresses(network.WithSpaceName("bar"))
+	addrs := network.NewMachineAddresses([]string{"0.2.3.4", "fc00::1"}).AsProviderAddresses(
+		network.WithSpaceName("bar"),
+		network.WithProviderSpaceID("4"),
+		network.WithProviderSubnetID("6"),
+		network.WithProviderVLANID("5002"),
+		network.WithVLANTag(100),
+	)
 	c.Check(addrs, jc.DeepEquals, network.ProviderAddresses{{
 		MachineAddress: network.MachineAddress{
 			Value: "0.2.3.4",
 			Type:  "ipv4",
 			Scope: "public",
 		},
-		SpaceName: "bar",
+		SpaceName:        "bar",
+		ProviderSpaceID:  "4",
+		ProviderSubnetID: "6",
+		ProviderVLANID:   "5002",
+		VLANTag:          100,
 	}, {
 		MachineAddress: network.MachineAddress{
 			Value: "fc00::1",
 			Type:  "ipv6",
 			Scope: "local-cloud",
 		},
-		SpaceName: "bar",
+		SpaceName:        "bar",
+		ProviderSpaceID:  "4",
+		ProviderSubnetID: "6",
+		ProviderVLANID:   "5002",
+		VLANTag:          100,
 	}})
 }
 
@@ -674,6 +702,54 @@ var stringTests = []struct {
 		},
 		SpaceName:       "badlands",
 		ProviderSpaceID: network.Id("3"),
+	},
+	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:       "badlands",
+		ProviderSpaceID: network.Id("3"),
+		ProviderID:      "523",
+	},
+	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:        "badlands",
+		ProviderSpaceID:  network.Id("3"),
+		ProviderSubnetID: "5",
+	},
+	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:       "badlands",
+		ProviderSpaceID: network.Id("3"),
+		ProviderVLANID:  "5001",
+	},
+	str: "public:foo.com@badlands(id:3)",
+}, {
+	addr: network.ProviderAddress{
+		MachineAddress: network.MachineAddress{
+			Type:  network.HostName,
+			Value: "foo.com",
+			Scope: network.ScopePublic,
+		},
+		SpaceName:       "badlands",
+		ProviderSpaceID: network.Id("3"),
+		VLANTag:         50,
 	},
 	str: "public:foo.com@badlands(id:3)",
 }}
