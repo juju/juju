@@ -70,7 +70,7 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v4.4.11'\n")
+	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v6.6.6'\n")
 	jujuMongodPath, err := exec.LookPath("juju-db.mongod")
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&mongo.JujuDbSnapMongodPath, jujuMongodPath)
