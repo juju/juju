@@ -181,7 +181,7 @@ endif
 
 WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
 
-JUJU_DB_CHANNEL=5.0/stable
+JUJU_DB_CHANNEL=4.4/stable
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
 	@echo Installing ${JUJU_DB_CHANNEL} juju-db snap for mongodb

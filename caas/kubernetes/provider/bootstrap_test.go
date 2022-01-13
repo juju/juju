@@ -719,7 +719,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/juju-db:5.0",
+			Image:           "test-account/juju-db:4.4",
 			Command: []string{
 				"/bin/sh",
 			},
