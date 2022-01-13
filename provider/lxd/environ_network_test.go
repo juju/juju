@@ -395,9 +395,9 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 				ProviderId:          "nic-00:16:3e:19:29:cb",
 				ProviderSubnetId:    "subnet-lxdbr0-10.55.158.0/24",
 				ProviderNetworkId:   "net-lxdbr0",
-				Addresses: network.ProviderAddresses{network.NewProviderAddress(
+				Addresses: network.ProviderAddresses{network.NewMachineAddress(
 					"10.55.158.99", network.WithCIDR("10.55.158.0/24"), network.WithConfigType(network.ConfigStatic),
-				)},
+				).AsProviderAddress()},
 			},
 			{
 				DeviceIndex:         1,
@@ -410,9 +410,9 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 				ProviderId:          "nic-00:16:3e:fe:fe:fe",
 				ProviderSubnetId:    "subnet-ovsbr0-10.42.42.0/24",
 				ProviderNetworkId:   "net-ovsbr0",
-				Addresses: network.ProviderAddresses{network.NewProviderAddress(
+				Addresses: network.ProviderAddresses{network.NewMachineAddress(
 					"10.42.42.99", network.WithCIDR("10.42.42.0/24"), network.WithConfigType(network.ConfigStatic),
-				)},
+				).AsProviderAddress()},
 			},
 		},
 	}
@@ -471,9 +471,9 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 				ProviderId:          "nic-00:16:3e:19:29:cb",
 				ProviderSubnetId:    "subnet-lxdbr0-10.55.158.0/24",
 				ProviderNetworkId:   "net-lxdbr0",
-				Addresses: network.ProviderAddresses{network.NewProviderAddress(
+				Addresses: network.ProviderAddresses{network.NewMachineAddress(
 					"10.55.158.99", network.WithCIDR("10.55.158.0/24"), network.WithConfigType(network.ConfigStatic),
-				)},
+				).AsProviderAddress()},
 			},
 		},
 		nil, // slot for second instance is nil as the container was not found

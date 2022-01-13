@@ -163,20 +163,20 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwo
 			if privateIpAddress == nil {
 				continue
 			}
-			addresses = append(addresses, corenetwork.NewProviderAddress(
+			addresses = append(addresses, corenetwork.NewMachineAddress(
 				to.String(privateIpAddress),
 				corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			))
+			).AsProviderAddress())
 		}
 	}
 	for _, pip := range inst.publicIPAddresses {
 		if pip.IPAddress == nil {
 			continue
 		}
-		addresses = append(addresses, corenetwork.NewProviderAddress(
+		addresses = append(addresses, corenetwork.NewMachineAddress(
 			to.String(pip.IPAddress),
 			corenetwork.WithScope(corenetwork.ScopePublic),
-		))
+		).AsProviderAddress())
 	}
 	return addresses, nil
 }

@@ -233,20 +233,24 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			// long-standing last-write-wins behavior that was
 			// present in the original code. Do we need to revisit
 			// this in the future and append link addresses to the list?
-			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
-				link.Subnet.Space,
-				link.IPAddress,
-				corenetwork.WithCIDR(link.Subnet.CIDR),
-				corenetwork.WithConfigType(configType),
-			)}
+			nicInfo.Addresses = corenetwork.ProviderAddresses{
+				corenetwork.NewMachineAddress(
+					link.IPAddress,
+					corenetwork.WithCIDR(link.Subnet.CIDR),
+					corenetwork.WithConfigType(configType),
+				).AsProviderAddress(corenetwork.WithSpaceName(link.Subnet.Space)),
+			}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(link.Subnet.ID))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID))
 			if link.Subnet.GatewayIP != "" {
-				nicInfo.GatewayAddress = corenetwork.NewProviderAddressInSpace(link.Subnet.Space, link.Subnet.GatewayIP)
+				nicInfo.GatewayAddress = corenetwork.NewMachineAddress(
+					link.Subnet.GatewayIP,
+				).AsProviderAddress(corenetwork.WithSpaceName(link.Subnet.Space))
 			}
 			if len(link.Subnet.DNSServers) > 0 {
-				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(
-					link.Subnet.Space, link.Subnet.DNSServers...)
+				nicInfo.DNSServers = corenetwork.NewMachineAddresses(
+					link.Subnet.DNSServers,
+				).AsProviderAddresses(corenetwork.WithSpaceName(link.Subnet.Space))
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)
@@ -320,19 +324,24 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 
 			// NOTE(achilleasa): the original code used a last-write-wins
 			// policy. Do we need to append link addresses to the list?
-			nicInfo.Addresses = corenetwork.ProviderAddresses{corenetwork.NewProviderAddressInSpace(
-				subnet.Space(),
-				link.IPAddress(),
-				corenetwork.WithCIDR(subnet.CIDR()),
-				corenetwork.WithConfigType(configType),
-			)}
+			nicInfo.Addresses = corenetwork.ProviderAddresses{
+				corenetwork.NewMachineAddress(
+					link.IPAddress(),
+					corenetwork.WithCIDR(subnet.CIDR()),
+					corenetwork.WithConfigType(configType),
+				).AsProviderAddress(corenetwork.WithSpaceName(subnet.Space())),
+			}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))
 			if subnet.Gateway() != "" {
-				nicInfo.GatewayAddress = corenetwork.NewProviderAddressInSpace(subnet.Space(), subnet.Gateway())
+				nicInfo.GatewayAddress = corenetwork.NewMachineAddress(
+					subnet.Gateway(),
+				).AsProviderAddress(corenetwork.WithSpaceName(subnet.Space()))
 			}
 			if len(subnet.DNSServers()) > 0 {
-				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(subnet.Space(), subnet.DNSServers()...)
+				nicInfo.DNSServers = corenetwork.NewMachineAddresses(
+					subnet.DNSServers(),
+				).AsProviderAddresses(corenetwork.WithSpaceName(subnet.Space()))
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)

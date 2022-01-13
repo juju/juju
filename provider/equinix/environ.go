@@ -311,6 +311,16 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		)
 	}
 
+	// NOTE(achilleasa): ensure that /etc/hosts entry for the loopback dev
+	// references the juju-assigned hostname before localhost. Otherwise,
+	// running 'hostname -f' would return localhost whereas 'hostname'
+	// returns the juju-assigned host (see LP1956538).
+	if _, err := series.UbuntuSeriesVersion(args.InstanceConfig.Series); err == nil {
+		cloudCfg.AddScripts(
+			`sed -i -e "/127\.0\.0\.1/c\127\.0\.0\.1 $(hostname) localhost" /etc/hosts`,
+		)
+	}
+
 	// NOTE(achilleasa): The following script applies a set of equinix-specific
 	// networking fixes:
 	//

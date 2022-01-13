@@ -233,10 +233,11 @@ func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].Addresses, gc.DeepEquals, network.ProviderAddresses{
-		network.NewProviderAddress(
-			"1.1.1.1", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.0.0.0/8"))})
+		network.NewMachineAddress(
+			"1.1.1.1", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.0.0.0/8"),
+		).AsProviderAddress()})
 	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, network.ProviderAddresses{
-		network.NewProviderAddress("2.2.2.2", network.WithScope(network.ScopePublic))})
+		network.NewMachineAddress("2.2.2.2", network.WithScope(network.ScopePublic)).AsProviderAddress()})
 	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
 	c.Assert(info[0].ProviderId, gc.Equals, network.Id(vnicID))
 	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")

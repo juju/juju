@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/apiserver/facades/client/charmhub"
 	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
@@ -151,7 +150,6 @@ func AllFacades() *facade.Registry {
 	reg("Backups", 3, backups.NewFacadeV3)
 	reg("Block", 2, block.NewAPI)
 	reg("Bundle", 6, bundle.NewFacadeV6)
-	reg("CharmHub", 1, charmhub.NewFacade)
 	reg("CharmDownloader", 1, charmdownloader.NewFacadeV1)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 4, charms.NewFacadeV4)

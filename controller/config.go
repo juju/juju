@@ -46,7 +46,7 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
-	// Canonical name for the controller
+	// ControllerName is the canonical name for the controller
 	ControllerName = "controller-name"
 
 	// AgentRateLimitMax is the maximum size of the token bucket used to
@@ -337,7 +337,7 @@ const (
 	// non-synced-writes-to-raft-log value. It is set to false by default.
 	DefaultNonSyncedWritesToRaftLog = false
 
-	// DefaultMigrationMinionMaxWait is the default value for
+	// DefaultMigrationMinionWaitMax is the default value for
 	DefaultMigrationMinionWaitMax = "15m"
 )
 

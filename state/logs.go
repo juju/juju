@@ -973,15 +973,9 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 		{"scale", humanize.KiByte},
 	}, &result)
 	if err != nil {
-		// TODO(wallyworld) - this is not needed for mongo 4.4
-		if strings.Contains(err.Error(), "not found") {
-			return nil, errors.Wrap(
-				err,
-				errors.NotFoundf("Collection [%s.%s]", coll.Database.Name, coll.Name))
-		}
 		return nil, errors.Trace(err)
 	}
-	// For mongo 4.4, if the collection exists,
+	// For mongo > 4.4, if the collection exists,
 	// there will be a "capped" attribute.
 	_, ok := result["capped"]
 	if !ok {

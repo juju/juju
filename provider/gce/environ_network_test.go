@@ -212,12 +212,12 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}})
 }
@@ -299,12 +299,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}})
 
@@ -320,14 +320,14 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.42",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
+			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
 		Origin: corenetwork.OriginProvider,
 	}, {
@@ -340,12 +340,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.42",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}})
 }
@@ -371,12 +371,12 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}})
 
@@ -418,12 +418,12 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
@@ -435,14 +435,14 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
+			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -481,14 +481,14 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.240.0.2",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.240.0.0/16"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
+			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
@@ -528,12 +528,12 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
@@ -545,14 +545,14 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.4",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)),
+			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
