@@ -437,10 +437,8 @@ var (
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
-		// TODO: allow update? AgentLogfileMaxBackups,
-		// TODO: allow update? AgentLogfileMaxSize,
-		ModelLogfileMaxBackups, // TODO: support update for worker/deployer/unit_agent.go case
-		ModelLogfileMaxSize,    // TODO: support update for worker/deployer/unit_agent.go case
+		ModelLogfileMaxBackups,
+		ModelLogfileMaxSize,
 		ModelLogsSize,
 		MongoMemoryProfile,
 		PruneTxnQueryCount,
