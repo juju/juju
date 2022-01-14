@@ -920,9 +920,10 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	stOffers := state.NewApplicationOffers(s.State)
 	stOffer, err := stOffers.AddOffer(
 		crossmodel.AddApplicationOfferArgs{
-			OfferName:       "my-offer",
-			Owner:           "admin",
-			ApplicationName: application.Name(),
+			OfferName:              "my-offer",
+			Owner:                  "admin",
+			ApplicationDescription: "my app",
+			ApplicationName:        application.Name(),
 			Endpoints: map[string]string{
 				"server": serverSpace.Name(),
 			},
