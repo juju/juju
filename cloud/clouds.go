@@ -423,30 +423,30 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	var metadata cloudSet
 
 	// Unmarshal with a generic type first
-	yaml_map := make(map[string]interface{})
-	if err := yaml.Unmarshal(data, &yaml_map); err != nil {
+	yamlMap := make(map[string]interface{})
+	if err := yaml.Unmarshal(data, &yamlMap); err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
 
-	cloudSet_schema := schema.FieldMap(schema.Fields{
+	cloudsetSchema := schema.FieldMap(schema.Fields{
 		"clouds": schema.Map(schema.String(), schema.Any()),
 	}, nil)
 
 	// Try to coerce the schema with the 'clouds' keyword, if so,
 	// read directly into a cloudSet, otherwise read it as a map
 	// and construct the cloudSet manually
-	regular_map, _ := cloudSet_schema.Coerce(yaml_map, []string{})
+	regularMap, _ := cloudsetSchema.Coerce(yamlMap, []string{})
 
-	if regular_map != nil {
+	if regularMap != nil {
 		// Able to coerce, so read directly into the cloudSet
-		if err_cloudSet := yaml.Unmarshal(data, &metadata); err_cloudSet != nil {
-			return nil, errors.Errorf("Invalid cloud metadata %s", yaml_map)
+		if errCloudSet := yaml.Unmarshal(data, &metadata); errCloudSet != nil {
+			return nil, errors.Errorf("Invalid cloud metadata %s", yamlMap)
 		}
 	} else {
 		// Unable to coerce cloudSet, try to unmarshal into a map[string]*cloud
 		cloudMap := make(map[string]*cloud)
-		if err_cloudMap := yaml.Unmarshal(data, &cloudMap); err_cloudMap != nil {
-			return nil, errors.Errorf("Invalid cloud metadata %s", yaml_map)
+		if errCloudMap := yaml.Unmarshal(data, &cloudMap); errCloudMap != nil {
+			return nil, errors.Errorf("Invalid cloud metadata %s", yamlMap)
 		}
 		metadata.Clouds = cloudMap
 	}
