@@ -27,7 +27,7 @@ import (
 
 // StateManager provides access to model-scoped state.
 type StateManager interface {
-	GetStateManager(modelUUID string) (statemanager.Overlord, error)
+	GetStateManager(string) (statemanager.Overlord, error)
 }
 
 // Queue is a blocking queue to guard access and to serialize raft applications,

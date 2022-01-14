@@ -77,6 +77,8 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/overlord"
+	overlordstate "github.com/juju/juju/overlord/state"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -88,6 +90,7 @@ import (
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/statemanager"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -995,6 +998,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:           statePool,
+				StateManager:        &stubStateManager{},
 				Controller:          estate.controller,
 				MultiwatcherFactory: multiWatcherWorker,
 				Authenticator:       stateAuthenticator,
@@ -2066,4 +2070,14 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+type stubStateManager struct{}
+
+func (*stubStateManager) GetStateManager(ns string) (statemanager.Overlord, error) {
+	stateManager, err := overlord.New(overlordstate.NewState(nil))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stateManager, nil
 }

@@ -18,13 +18,19 @@ type DBAccessor interface {
 }
 
 type StateManager interface {
-	GetStateManager(modelUUID string) (Overlord, error)
+	GetStateManager(namespace string) (Overlord, error)
+}
+
+// Logger represents the logging methods called.
+type Logger interface {
+	Errorf(message string, args ...interface{})
 }
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
 	DBAccessorName string
+	Logger         Logger
 }
 
 // Manifold returns a dependency manifold that runs the statemanager
@@ -43,6 +49,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			cfg := WorkerConfig{
 				DBAccessor: dbAccessor,
+				Logger:     config.Logger,
 			}
 
 			w, err := NewWorker(cfg)

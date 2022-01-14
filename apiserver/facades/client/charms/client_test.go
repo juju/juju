@@ -58,6 +58,7 @@ func (ctx *charmsSuiteContext) Dispose()                                      {}
 func (ctx *charmsSuiteContext) Resources() facade.Resources                   { return common.NewResources() }
 func (ctx *charmsSuiteContext) State() *state.State                           { return ctx.cs.State }
 func (ctx *charmsSuiteContext) StatePool() *state.StatePool                   { return nil }
+func (ctx *charmsSuiteContext) StateManager() facade.StateManager             { return nil }
 func (ctx *charmsSuiteContext) ID() string                                    { return "" }
 func (ctx *charmsSuiteContext) RequestRecorder() facade.RequestRecorder       { return nil }
 func (ctx *charmsSuiteContext) Presence() facade.Presence                     { return nil }

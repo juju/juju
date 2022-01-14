@@ -139,25 +139,28 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 func (w *dbWorker) loop() (err error) {
 	defer func() {
 		w.mu.Lock()
-		if w.dbApp != nil {
-			if hErr := w.dbApp.Handover(context.TODO()); hErr != nil {
-				if err == nil {
-					err = errors.Annotate(err, "gracefully handing over dqlite node responsibilities")
-				} else { // we are exiting with another error; so we just log this.
-					w.cfg.Logger.Errorf("unable to gracefully hand off dqlite node responsibilities: %v", hErr)
-				}
-			}
+		defer w.mu.Unlock()
 
-			if cErr := w.dbApp.Close(); cErr != nil {
-				if err == nil {
-					err = errors.Annotate(cErr, "closing dqlite application instance")
-				} else { // we are exiting with another error; so we just log this.
-					w.cfg.Logger.Errorf("unable to close dqlite application instance: %v", cErr)
-				}
-			}
-			w.dbApp = nil
+		if w.dbApp == nil {
+			return
 		}
-		w.mu.Unlock()
+
+		if hErr := w.dbApp.Handover(context.TODO()); hErr != nil {
+			if err == nil {
+				err = errors.Annotate(err, "gracefully handing over dqlite node responsibilities")
+			} else { // we are exiting with another error; so we just log this.
+				w.cfg.Logger.Errorf("unable to gracefully hand off dqlite node responsibilities: %v", hErr)
+			}
+		}
+
+		if cErr := w.dbApp.Close(); cErr != nil {
+			if err == nil {
+				err = errors.Annotate(cErr, "closing dqlite application instance")
+			} else { // we are exiting with another error; so we just log this.
+				w.cfg.Logger.Errorf("unable to close dqlite application instance: %v", cErr)
+			}
+		}
+		w.dbApp = nil
 	}()
 
 	if err := w.initializeDqlite(); err != nil {

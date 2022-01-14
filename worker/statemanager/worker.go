@@ -4,6 +4,8 @@
 package statemanager
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
@@ -14,6 +16,7 @@ import (
 // Overlord defines the various managers that are available for the whole
 // state.
 type Overlord interface {
+	Stop() error
 	LogManager() overlord.LogManager
 }
 
@@ -21,6 +24,7 @@ type Overlord interface {
 // statemanager worker.
 type WorkerConfig struct {
 	DBAccessor DBAccessor
+	Logger     Logger
 }
 
 // Validate ensures that the config values are valid.
@@ -28,12 +32,18 @@ func (c *WorkerConfig) Validate() error {
 	if c.DBAccessor == nil {
 		return errors.NotValidf("missing DBAccessor")
 	}
+	if c.Logger == nil {
+		return errors.NotValidf("missing Logger")
+	}
 	return nil
 }
 
 type stateManagerWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
+
+	mutex    sync.Mutex
+	managers map[string]Overlord
 }
 
 // NewWorker creates a new state manager worker.
@@ -44,7 +54,8 @@ func NewWorker(cfg WorkerConfig) (*stateManagerWorker, error) {
 	}
 
 	w := &stateManagerWorker{
-		cfg: cfg,
+		cfg:      cfg,
+		managers: make(map[string]Overlord),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -58,6 +69,17 @@ func NewWorker(cfg WorkerConfig) (*stateManagerWorker, error) {
 }
 
 func (w *stateManagerWorker) loop() (err error) {
+	defer func() {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+
+		for ns, mgr := range w.managers {
+			if mErr := mgr.Stop(); mErr != nil {
+				w.cfg.Logger.Errorf("failed to stop manager %q with error %v", ns, mErr)
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -76,12 +98,24 @@ func (w *stateManagerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *stateManagerWorker) GetStateManager(modelUUID string) (Overlord, error) {
-	// TODO (stickupkid): Store the overlord, so that we can manage the managers
-	// when the API server bounces.
-	db, err := w.cfg.DBAccessor.GetDB(modelUUID)
+func (w *stateManagerWorker) GetStateManager(namespace string) (Overlord, error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if mgr, ok := w.managers[namespace]; ok && mgr != nil {
+		return mgr, nil
+	}
+
+	db, err := w.cfg.DBAccessor.GetDB(namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return overlord.New(state.NewState(db))
+	mgr, err := overlord.New(state.NewState(db))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	w.managers[namespace] = mgr
+
+	return mgr, nil
 }
