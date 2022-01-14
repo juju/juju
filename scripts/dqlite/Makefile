@@ -205,7 +205,7 @@ dqlite-deps-check:
 # musl
 ################################################################################
 
-.PHONY: musl-ensure-symlink musl-check
+.PHONY: musl-ensure-symlink musl-check musl-install-if-missing
 musl-ensure-symlink:
 	@test -d /usr/local/musl/$(d) || echo "Please run 'sudo ln -s $(s) /usr/local/musl/$(d)'"
 
@@ -216,17 +216,21 @@ musl-check:
 	@$(MAKE) -s musl-ensure-symlink d=include/linux s=/usr/include/linux
 
 musl-install:
-	wget https://musl.libc.org/releases/musl-1.2.2.tar.gz -O- | tar xf - -C /tmp/musls/musl-1.2.2.tar.gz
-	cd /tmp/musls/musl-1.2.2.tar.gz
+	mkdir -p /tmp/musl
+	wget -q https://musl.libc.org/releases/musl-1.2.2.tar.gz -O - | tar -xzf - -C /tmp/musl
+	cd /tmp/musl/musl-1.2.2
 	./configure
 	make install
 
-	cd ..
+	cd -
 	# Setup symlinks so we can access additional headers that 
 	# don't ship with muscl but are needed for our builds
-	# ln -s /usr/include/$(shell uname -m)-linux-gnu/asm /usr/local/musl/include/asm
-	# ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
+	ln -s /usr/include/$(shell uname -m)-linux-gnu/asm /usr/local/musl/include/asm
+	ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
 	ln -s /usr/include/linux /usr/local/musl/include/linux
+
+musl-install-if-missing:
+	@PATH=${PATH}:/usr/local/musl/bin which musl-gcc >/dev/null || { echo "Installing required musl dependencies"; sudo ${MAKE} musl-install; }
 
 ################################################################################
 # REPL

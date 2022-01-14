@@ -149,7 +149,7 @@ go-build:
 	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
 	@CGO_ENABLED=0 go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
-cgo-go-op: dqlite-deps-check
+cgo-go-op: musl-install-if-missing dqlite-deps-check
 	PATH=${PATH}:/usr/local/musl/bin \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \

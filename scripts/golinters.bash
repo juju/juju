@@ -16,6 +16,11 @@ if [ ! -f "$GOPATH/bin/golangci-lint" ]; then
     exit 1
 fi
 
+SKIP_DIRS=
+if [[ "${CGO_ENABLED}" != "1" ]]; then
+  SKIP_DIRS=--skip-dirs worker/dbaccessor
+fi
+
 $GOPATH/bin/golangci-lint run \
     --disable-all \
     --no-config \
@@ -27,6 +32,7 @@ $GOPATH/bin/golangci-lint run \
     --enable=misspell \
     --enable=unconvert \
     --enable=ineffassign \
+    ${SKIP_DIRS} \
     &> $OUTPUT_FILE
 
 # go through each golangci-lint error and check to see if it's related
