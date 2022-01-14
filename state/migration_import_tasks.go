@@ -6,8 +6,10 @@ import (
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/permission"
 )
 
 // Migration import tasks provide a boundary of isolation between the
@@ -123,6 +125,7 @@ func (i ImportApplicationOffer) Execute(src ApplicationOfferInput,
 		}
 		appOps, err := i.addApplicationOfferOps(src, addApplicationOfferOpsArgs{
 			applicationOfferDoc: appDoc,
+			acl:                 offer.ACL(),
 		})
 		if err != nil {
 			return errors.Trace(err)
@@ -137,6 +140,7 @@ func (i ImportApplicationOffer) Execute(src ApplicationOfferInput,
 
 type addApplicationOfferOpsArgs struct {
 	applicationOfferDoc applicationOfferDoc
+	acl                 map[string]string
 }
 
 func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferInput,
@@ -156,6 +160,11 @@ func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferInput
 			Insert: args.applicationOfferDoc,
 		},
 		incRefOp,
+	}
+	for userName, access := range args.acl {
+		user := names.NewUserTag(userName)
+		ops = append(ops, createPermissionOp(applicationOfferKey(
+			args.applicationOfferDoc.OfferUUID), userGlobalKey(userAccessID(user)), permission.Access(access)))
 	}
 	return ops, nil
 }

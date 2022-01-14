@@ -11,6 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/permission"
 )
 
 type MigrationImportTasksSuite struct{}
@@ -49,7 +51,12 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffers(c *gc.C) {
 		Assert: txn.DocMissing,
 	}
 	runner.Add(runner.applicationOffersRefOp(refOp))
-	runner.Add(runner.transaction(offerDoc, refOp))
+
+	entity.EXPECT().ACL().Return(map[string]string{"fred": "consume"})
+	permissionOp := createPermissionOp(applicationOfferKey(
+		offerUUID.String()), userGlobalKey(userAccessID(names.NewUserTag("fred"))), permission.ConsumeAccess)
+
+	runner.Add(runner.transaction(offerDoc, refOp, permissionOp))
 
 	err = runner.Run(ctrl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,6 +86,7 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffersTransactionFailur
 		},
 	}
 
+	entity.EXPECT().ACL().Return(map[string]string{})
 	runner.Add(runner.applicationOffers(entity))
 	runner.Add(runner.applicationOfferDoc(offerDoc, entity))
 	runner.Add(runner.docID)
@@ -138,7 +146,7 @@ func (s *ImportApplicationOfferRunner) docID(ctrl *gomock.Controller) {
 	s.model.EXPECT().DocID("foo").Return("ao#foo")
 }
 
-func (s *MigrationImportTasksSuite) applicationOffer(ctrl *gomock.Controller) description.ApplicationOffer {
+func (s *MigrationImportTasksSuite) applicationOffer(ctrl *gomock.Controller) *MockApplicationOffer {
 	return NewMockApplicationOffer(ctrl)
 }
 

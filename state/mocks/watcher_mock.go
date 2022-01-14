@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	watcher "github.com/juju/juju/state/watcher"
-	reflect "reflect"
 )
 
-// MockBaseWatcher is a mock of BaseWatcher interface
+// MockBaseWatcher is a mock of BaseWatcher interface.
 type MockBaseWatcher struct {
 	ctrl     *gomock.Controller
 	recorder *MockBaseWatcherMockRecorder
 }
 
-// MockBaseWatcherMockRecorder is the mock recorder for MockBaseWatcher
+// MockBaseWatcherMockRecorder is the mock recorder for MockBaseWatcher.
 type MockBaseWatcherMockRecorder struct {
 	mock *MockBaseWatcher
 }
 
-// NewMockBaseWatcher creates a new mock instance
+// NewMockBaseWatcher creates a new mock instance.
 func NewMockBaseWatcher(ctrl *gomock.Controller) *MockBaseWatcher {
 	mock := &MockBaseWatcher{ctrl: ctrl}
 	mock.recorder = &MockBaseWatcherMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBaseWatcher) EXPECT() *MockBaseWatcherMockRecorder {
 	return m.recorder
 }
 
-// Dead mocks base method
+// Dead mocks base method.
 func (m *MockBaseWatcher) Dead() <-chan struct{} {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dead")
@@ -41,13 +42,13 @@ func (m *MockBaseWatcher) Dead() <-chan struct{} {
 	return ret0
 }
 
-// Dead indicates an expected call of Dead
+// Dead indicates an expected call of Dead.
 func (mr *MockBaseWatcherMockRecorder) Dead() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dead", reflect.TypeOf((*MockBaseWatcher)(nil).Dead))
 }
 
-// Err mocks base method
+// Err mocks base method.
 func (m *MockBaseWatcher) Err() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Err")
@@ -55,49 +56,49 @@ func (m *MockBaseWatcher) Err() error {
 	return ret0
 }
 
-// Err indicates an expected call of Err
+// Err indicates an expected call of Err.
 func (mr *MockBaseWatcherMockRecorder) Err() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockBaseWatcher)(nil).Err))
 }
 
-// Kill mocks base method
+// Kill mocks base method.
 func (m *MockBaseWatcher) Kill() {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Kill")
 }
 
-// Kill indicates an expected call of Kill
+// Kill indicates an expected call of Kill.
 func (mr *MockBaseWatcherMockRecorder) Kill() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockBaseWatcher)(nil).Kill))
 }
 
-// Unwatch mocks base method
+// Unwatch mocks base method.
 func (m *MockBaseWatcher) Unwatch(arg0 string, arg1 interface{}, arg2 chan<- watcher.Change) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Unwatch", arg0, arg1, arg2)
 }
 
-// Unwatch indicates an expected call of Unwatch
+// Unwatch indicates an expected call of Unwatch.
 func (mr *MockBaseWatcherMockRecorder) Unwatch(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unwatch", reflect.TypeOf((*MockBaseWatcher)(nil).Unwatch), arg0, arg1, arg2)
 }
 
-// UnwatchCollection mocks base method
+// UnwatchCollection mocks base method.
 func (m *MockBaseWatcher) UnwatchCollection(arg0 string, arg1 chan<- watcher.Change) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UnwatchCollection", arg0, arg1)
 }
 
-// UnwatchCollection indicates an expected call of UnwatchCollection
+// UnwatchCollection indicates an expected call of UnwatchCollection.
 func (mr *MockBaseWatcherMockRecorder) UnwatchCollection(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnwatchCollection", reflect.TypeOf((*MockBaseWatcher)(nil).UnwatchCollection), arg0, arg1)
 }
 
-// Wait mocks base method
+// Wait mocks base method.
 func (m *MockBaseWatcher) Wait() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Wait")
@@ -105,49 +106,49 @@ func (m *MockBaseWatcher) Wait() error {
 	return ret0
 }
 
-// Wait indicates an expected call of Wait
+// Wait indicates an expected call of Wait.
 func (mr *MockBaseWatcherMockRecorder) Wait() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockBaseWatcher)(nil).Wait))
 }
 
-// Watch mocks base method
+// Watch mocks base method.
 func (m *MockBaseWatcher) Watch(arg0 string, arg1 interface{}, arg2 chan<- watcher.Change) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Watch", arg0, arg1, arg2)
 }
 
-// Watch indicates an expected call of Watch
+// Watch indicates an expected call of Watch.
 func (mr *MockBaseWatcherMockRecorder) Watch(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockBaseWatcher)(nil).Watch), arg0, arg1, arg2)
 }
 
-// WatchCollection mocks base method
+// WatchCollection mocks base method.
 func (m *MockBaseWatcher) WatchCollection(arg0 string, arg1 chan<- watcher.Change) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "WatchCollection", arg0, arg1)
 }
 
-// WatchCollection indicates an expected call of WatchCollection
+// WatchCollection indicates an expected call of WatchCollection.
 func (mr *MockBaseWatcherMockRecorder) WatchCollection(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCollection", reflect.TypeOf((*MockBaseWatcher)(nil).WatchCollection), arg0, arg1)
 }
 
-// WatchCollectionWithFilter mocks base method
+// WatchCollectionWithFilter mocks base method.
 func (m *MockBaseWatcher) WatchCollectionWithFilter(arg0 string, arg1 chan<- watcher.Change, arg2 func(interface{}) bool) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "WatchCollectionWithFilter", arg0, arg1, arg2)
 }
 
-// WatchCollectionWithFilter indicates an expected call of WatchCollectionWithFilter
+// WatchCollectionWithFilter indicates an expected call of WatchCollectionWithFilter.
 func (mr *MockBaseWatcherMockRecorder) WatchCollectionWithFilter(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCollectionWithFilter", reflect.TypeOf((*MockBaseWatcher)(nil).WatchCollectionWithFilter), arg0, arg1, arg2)
 }
 
-// WatchMulti mocks base method
+// WatchMulti mocks base method.
 func (m *MockBaseWatcher) WatchMulti(arg0 string, arg1 []interface{}, arg2 chan<- watcher.Change) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchMulti", arg0, arg1, arg2)
@@ -155,7 +156,7 @@ func (m *MockBaseWatcher) WatchMulti(arg0 string, arg1 []interface{}, arg2 chan<
 	return ret0
 }
 
-// WatchMulti indicates an expected call of WatchMulti
+// WatchMulti indicates an expected call of WatchMulti.
 func (mr *MockBaseWatcherMockRecorder) WatchMulti(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMulti", reflect.TypeOf((*MockBaseWatcher)(nil).WatchMulti), arg0, arg1, arg2)
