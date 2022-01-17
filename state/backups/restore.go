@@ -12,21 +12,16 @@ import (
 	"os"
 	"strconv"
 	"text/template"
-	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
@@ -111,47 +106,6 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 		return errors.Annotatef(err, "cannot update machine %s instance information", newMachineId)
 	}
 	return nil
-}
-
-var mongoDefaultDialOpts = mongo.DefaultDialOpts
-var environsGetNewPolicyFunc = stateenvirons.GetNewPolicyFunc
-
-// connectToDB tries to connect to the newly restored controller.
-func connectToDB(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.StatePool, error) {
-	// We need to retry here to allow mongo to come up on the restored controller.
-	// The connection might succeed due to the mongo dial retries but there may still
-	// be a problem issuing database commands.
-	var (
-		pool *state.StatePool
-		err  error
-	)
-	const (
-		newStateConnDelay       = 15 * time.Second
-		newStateConnMinAttempts = 8
-	)
-	// TODO(katco): 2016-08-09: lp:1611427
-	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
-
-	session, err := mongo.DialWithInfo(*info, mongoDefaultDialOpts())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer session.Close()
-
-	for a := attempt.Start(); a.Next(); {
-		pool, err = state.OpenStatePool(state.OpenParams{
-			Clock:              clock.WallClock,
-			ControllerTag:      controllerTag,
-			ControllerModelTag: modelTag,
-			MongoSession:       session,
-			NewPolicy:          environsGetNewPolicyFunc(),
-		})
-		if err == nil {
-			return pool, nil
-		}
-		logger.Errorf("cannot open state, retrying: %v", err)
-	}
-	return nil, errors.Annotate(err, "cannot open state")
 }
 
 // agentAddressAndRelationsTemplate is the template used to replace the api server data
