@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -2800,10 +2801,21 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
+			doc := bson.M{
+				"model-uuid": modelUUID,
+			}
+			id := "arbitraryid"
+			// We need a "real" application and offer.
+			if collName == "applicationOffers" {
+				doc["application-name"] = "foo"
+			} else if collName == "applications" {
+				doc["name"] = "foo"
+				id = "foo"
+			}
 			ops = append(ops, mgotxn.Op{
 				C:      collName,
-				Id:     state.DocID(st, "arbitraryid"),
-				Insert: bson.M{"model-uuid": modelUUID},
+				Id:     state.DocID(st, id),
+				Insert: doc,
 			})
 		}
 	}
@@ -3057,6 +3069,50 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsRemovesOfferPermissions(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	s.createOffer(c)
+
+	coll, closer := state.GetRawCollection(s.State, "permissions")
+	defer closer()
+	cnt, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cnt, gc.Equals, 8)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cnt, err = coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	// 2 model permissions deleted.
+	// 2 offer permissions deleted.
+	c.Assert(cnt, gc.Equals, 4)
+}
+
+func (s *StateSuite) createOffer(c *gc.C) {
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	offerArgs := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              eps,
+		Owner:                  owner.Name(),
+		HasRead:                []string{"everyone@external"},
+	}
+	_, err := sd.AddOffer(offerArgs)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
