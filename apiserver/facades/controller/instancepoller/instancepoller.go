@@ -174,6 +174,19 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		result.Results[i].Modified = modified
 		result.Results[i].Addresses = params.FromProviderAddresses(newProviderAddrs...)
 
+		// If the input network configuration has addresses on devices without
+		// names or hardware addresses, it ws probably created by the
+		// instance-poller worker using fakeInterfacesFromInstanceAddrs.
+		// If this is the case we don't want to attempt an update of link-layer
+		// devices - we've done what we need to do above by updating addresses
+		// in the machines collection.
+		// TODO (manadart 2022-01-17): If we implement NetworkInterfaces for
+		// all providers, we can remove the fallback method in the worker,
+		// and this contingency.
+		if !containsDeviceConfig(configs) {
+			continue
+		}
+
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
 		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
@@ -192,6 +205,17 @@ func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.S
 	}
 
 	return true, m.SetProviderAddresses(newSpaceAddrs...)
+}
+
+// containsDeviceConfig returns true if the incoming configuration has devices
+// with names or hardware addresses.
+func containsDeviceConfig(configs []params.NetworkConfig) bool {
+	for _, cfg := range configs {
+		if !(cfg.InterfaceName == "" && cfg.MACAddress == "") {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.InterfaceInfos) error {
