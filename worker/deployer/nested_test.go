@@ -366,8 +366,12 @@ func (s *NestedContextSuite) deployThreeUnits(c *gc.C, ctx deployer.Context) {
 	for {
 		units := report["units"].(map[string]interface{})
 		workers := units["workers"].(map[string]interface{})
+
+		first := workers["first/0"].(map[string]interface{})
+		second := workers["second/0"].(map[string]interface{})
 		third := workers["third/0"].(map[string]interface{})
-		if third["state"] == "started" {
+
+		if first["state"] == "started" && second["state"] == "started" && third["state"] == "started" {
 			break
 		}
 		select {
