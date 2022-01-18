@@ -1,6 +1,0 @@
-#!/bin/bash
-set -eux
-
-status-set active "Starting" || true
-service squid restart || service squid start
-status-set active "Started" || true
