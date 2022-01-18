@@ -245,9 +245,7 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
 		"cpu-checker",
-		// TODO(axw) 2014-07-02 #1277359
 		"tmux",
-		// TODO(wpk) 2017-07-23 maybe we should do it in fanconfigurer?
 		"ubuntu-fan",
 	}
 
