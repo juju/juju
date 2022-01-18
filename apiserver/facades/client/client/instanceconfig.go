@@ -110,6 +110,13 @@ func InstanceConfig(ctrlSt *state.State, st *state.State, machineId, nonce, data
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")
 	}
+
+	icfg.Controller = &instancecfg.ControllerConfig{}
+	icfg.Controller.Config = make(map[string]interface{})
+	for k, v := range controllerConfig {
+		icfg.Controller.Config[k] = v
+	}
+
 	if dataDir != "" {
 		icfg.DataDir = dataDir
 	}

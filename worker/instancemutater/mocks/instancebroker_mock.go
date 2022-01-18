@@ -5,37 +5,38 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	watcher "github.com/juju/juju/core/watcher"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
 )
 
-// MockInstanceMutaterAPI is a mock of InstanceMutaterAPI interface
+// MockInstanceMutaterAPI is a mock of InstanceMutaterAPI interface.
 type MockInstanceMutaterAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockInstanceMutaterAPIMockRecorder
 }
 
-// MockInstanceMutaterAPIMockRecorder is the mock recorder for MockInstanceMutaterAPI
+// MockInstanceMutaterAPIMockRecorder is the mock recorder for MockInstanceMutaterAPI.
 type MockInstanceMutaterAPIMockRecorder struct {
 	mock *MockInstanceMutaterAPI
 }
 
-// NewMockInstanceMutaterAPI creates a new mock instance
+// NewMockInstanceMutaterAPI creates a new mock instance.
 func NewMockInstanceMutaterAPI(ctrl *gomock.Controller) *MockInstanceMutaterAPI {
 	mock := &MockInstanceMutaterAPI{ctrl: ctrl}
 	mock.recorder = &MockInstanceMutaterAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInstanceMutaterAPI) EXPECT() *MockInstanceMutaterAPIMockRecorder {
 	return m.recorder
 }
 
-// Machine mocks base method
+// Machine mocks base method.
 func (m *MockInstanceMutaterAPI) Machine(arg0 names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
@@ -44,13 +45,13 @@ func (m *MockInstanceMutaterAPI) Machine(arg0 names.MachineTag) (instancemutater
 	return ret0, ret1
 }
 
-// Machine indicates an expected call of Machine
+// Machine indicates an expected call of Machine.
 func (mr *MockInstanceMutaterAPIMockRecorder) Machine(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).Machine), arg0)
 }
 
-// WatchMachines mocks base method
+// WatchMachines mocks base method.
 func (m *MockInstanceMutaterAPI) WatchMachines() (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchMachines")
@@ -59,7 +60,7 @@ func (m *MockInstanceMutaterAPI) WatchMachines() (watcher.StringsWatcher, error)
 	return ret0, ret1
 }
 
-// WatchMachines indicates an expected call of WatchMachines
+// WatchMachines indicates an expected call of WatchMachines.
 func (mr *MockInstanceMutaterAPIMockRecorder) WatchMachines() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachines", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).WatchMachines))

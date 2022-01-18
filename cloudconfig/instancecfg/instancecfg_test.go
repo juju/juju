@@ -4,11 +4,14 @@
 package instancecfg_test
 
 import (
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
@@ -110,4 +113,27 @@ func (*instancecfgSuite) TestGUITools(c *gc.C) {
 		DataDir: "/path/to/datadir/",
 	}
 	c.Assert(icfg.GUITools(), gc.Equals, "/path/to/datadir/gui")
+}
+
+func (*instancecfgSuite) TestAgentConfigLogParams(c *gc.C) {
+	icfg := instancecfg.InstanceConfig{
+		APIInfo: &api.Info{
+			Addrs:    []string{"1.2.3.4:4321"},
+			CACert:   "cert",
+			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
+			Password: "secret123",
+		},
+		Controller: &instancecfg.ControllerConfig{
+			Config: controller.Config{
+				"agent-logfile-max-size":    "123MB",
+				"agent-logfile-max-backups": 7,
+			},
+		},
+		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
+		DataDir:       "/path/to/datadir/",
+	}
+	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), version.MustParse("1.2.3"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config.AgentLogfileMaxSizeMB(), gc.Equals, 123)
+	c.Assert(config.AgentLogfileMaxBackups(), gc.Equals, 7)
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/lumberjack"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -200,7 +200,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	c.Check(l.MaxAge, gc.Equals, 0)
 	c.Check(l.MaxBackups, gc.Equals, 2)
 	c.Check(l.Filename, gc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
-	c.Check(l.MaxSize, gc.Equals, 300)
+	c.Check(l.MaxSize, gc.Equals, 100)
 }
 
 func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {

@@ -475,6 +475,9 @@ func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword
 			APIAddresses:      apiAddresses,
 			CACert:            c.agentConfig.CACert(),
 			UpgradedToVersion: c.agentConfig.UpgradedToVersion(),
+
+			AgentLogfileMaxBackups: c.agentConfig.AgentLogfileMaxBackups(),
+			AgentLogfileMaxSizeMB:  c.agentConfig.AgentLogfileMaxSizeMB(),
 		})
 	if err != nil {
 		return nil, errors.Trace(err)

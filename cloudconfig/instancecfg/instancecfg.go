@@ -478,6 +478,10 @@ func (cfg *InstanceConfig) AgentConfig(
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
 	}
+	if cfg.Controller != nil {
+		configParams.AgentLogfileMaxBackups = cfg.Controller.Config.AgentLogfileMaxBackups()
+		configParams.AgentLogfileMaxSizeMB = cfg.Controller.Config.AgentLogfileMaxSizeMB()
+	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}

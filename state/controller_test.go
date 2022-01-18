@@ -61,6 +61,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MaxAgentStateSize,
 		controller.NonSyncedWritesToRaftLog,
 		controller.MigrationMinionWaitMax,
+		controller.AgentLogfileMaxBackups,
+		controller.AgentLogfileMaxSize,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

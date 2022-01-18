@@ -56,14 +56,16 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 				LogDir:          c.MkDir(),
 				MetricsSpoolDir: c.MkDir(),
 			},
-			Tag:               machine,
-			Password:          "sekrit",
-			Nonce:             "unused",
-			Controller:        jt.ControllerTag,
-			Model:             jt.ModelTag,
-			APIAddresses:      []string{"a1:123", "a2:123"},
-			CACert:            "fake CACert",
-			UpgradedToVersion: jv.Current,
+			Tag:                    machine,
+			Password:               "sekrit",
+			Nonce:                  "unused",
+			Controller:             jt.ControllerTag,
+			Model:                  jt.ModelTag,
+			APIAddresses:           []string{"a1:123", "a2:123"},
+			CACert:                 "fake CACert",
+			UpgradedToVersion:      jv.Current,
+			AgentLogfileMaxBackups: 7,
+			AgentLogfileMaxSizeMB:  123,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.Write(), jc.ErrorIsNil)
@@ -176,6 +178,8 @@ func (s *NestedContextSuite) TestDeployUnit(c *gc.C) {
 
 	// Unit written into the config value as deployed units.
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.Equals, unitName)
+	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxBackups(), gc.Equals, 7)
+	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxSizeMB(), gc.Equals, 123)
 }
 
 func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
