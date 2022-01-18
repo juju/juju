@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
@@ -25,9 +26,10 @@ import (
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
+func newDebugHooksCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {
 	c := new(debugHooksCommand)
 	c.hostChecker = hostChecker
+	c.retryStrategy = retryStrategy
 	return modelcmd.Wrap(c)
 }
 

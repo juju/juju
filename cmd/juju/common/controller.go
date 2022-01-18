@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
@@ -74,12 +75,6 @@ func WaitForAgentInitialisation(
 	isCAASController bool,
 	controllerName string,
 ) (err error) {
-	// TODO(katco): 2016-08-09: lp:1611427
-	attempts := utils.AttemptStrategy{
-		Min:   bootstrapReadyPollCount,
-		Delay: bootstrapReadyPollDelay,
-	}
-
 	// Make a best effort to find the new controller address so we can print it.
 	addressInfo := ""
 	controller, err := c.ClientStore().ControllerByName(controllerName)
@@ -91,57 +86,73 @@ func WaitForAgentInitialisation(
 	}
 
 	ctx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
-	apiAttempts := 1
-	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
-		err = tryAPI(c)
-		if err == nil {
-			msg := fmt.Sprintf("\nBootstrap complete, controller %q is now available", controllerName)
-			if isCAASController {
-				msg += fmt.Sprintf(" in namespace %q", caasprovider.DecideControllerNamespace(controllerName))
-			} else {
-				msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
+	apiAttempts := 0
+	stop := make(chan struct{}, 1)
+	defer close(stop)
+	err = retry.Call(retry.CallArgs{
+		Clock:    clock.WallClock,
+		Attempts: bootstrapReadyPollCount,
+		Delay:    bootstrapReadyPollDelay,
+		Stop:     stop,
+		Func: func() error {
+			apiAttempts++
+
+			retryErr := tryAPI(c)
+			if retryErr == nil {
+				msg := fmt.Sprintf("\nBootstrap complete, controller %q is now available", controllerName)
+				if isCAASController {
+					msg += fmt.Sprintf(" in namespace %q", caasprovider.DecideControllerNamespace(controllerName))
+				} else {
+					msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
+				}
+				ctx.Infof(msg)
+				return nil
 			}
-			ctx.Infof(msg)
-			break
-		}
 
-		// Check whether context is cancelled after each attempt (as context
-		// isn't fully threaded through yet).
-		select {
-		case <-ctx.Context().Done():
-			return errors.Annotatef(err, "contacting controller (cancelled)")
-		default:
-		}
+			// Check whether context is cancelled after each attempt (as context
+			// isn't fully threaded through yet).
+			select {
+			case <-ctx.Context().Done():
+				stop <- struct{}{}
+				return errors.Annotatef(err, "contacting controller (cancelled)")
+			default:
+			}
 
-		// As the API server is coming up, it goes through a number of steps.
-		// Initially the upgrade steps run, but the api server allows some
-		// calls to be processed during the upgrade, but not the list blocks.
-		// Logins are also blocked during space discovery.
-		// It is also possible that the underlying database causes connections
-		// to be dropped as it is initialising, or reconfiguring. These can
-		// lead to EOF or "connection is shut down" error messages. We skip
-		// these too, hoping that things come back up before the end of the
-		// retry poll count.
-		errorMessage := errors.Cause(err).Error()
-		switch {
-		case errors.Cause(err) == io.EOF,
-			strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
-			strings.HasSuffix(errorMessage, "connection refused"),
-			strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
-			strings.HasSuffix(errorMessage, "connection is shut down"),
-			strings.HasSuffix(errorMessage, "i/o timeout"),
-			strings.HasSuffix(errorMessage, "network is unreachable"),
-			strings.HasSuffix(errorMessage, "deadline exceeded"),
-			strings.HasSuffix(errorMessage, "no api connection available"):
-			ctx.Verbosef("Still waiting for API to become available: %v", err)
-			continue
-		case params.ErrCode(err) == params.CodeUpgradeInProgress:
-			ctx.Verbosef("Still waiting for API to become available: %v", err)
-			continue
-		}
-		break
+			// As the API server is coming up, it goes through a number of steps.
+			// Initially the upgrade steps run, but the api server allows some
+			// calls to be processed during the upgrade, but not the list blocks.
+			// Logins are also blocked during space discovery.
+			// It is also possible that the underlying database causes connections
+			// to be dropped as it is initialising, or reconfiguring. These can
+			// lead to EOF or "connection is shut down" error messages. We skip
+			// these too, hoping that things come back up before the end of the
+			// retry poll count.
+			errorMessage := errors.Cause(retryErr).Error()
+			switch {
+			case errors.Cause(retryErr) == io.EOF,
+				strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
+				strings.HasSuffix(errorMessage, "connection refused"),
+				strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
+				strings.HasSuffix(errorMessage, "connection is shut down"),
+				strings.HasSuffix(errorMessage, "i/o timeout"),
+				strings.HasSuffix(errorMessage, "network is unreachable"),
+				strings.HasSuffix(errorMessage, "deadline exceeded"),
+				strings.HasSuffix(errorMessage, "no api connection available"):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case params.ErrCode(retryErr) == params.CodeUpgradeInProgress:
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			}
+			stop <- struct{}{}
+			return retryErr
+		},
+	})
+	if err != nil {
+		err = retry.LastError(err)
+		return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
 	}
-	return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
+	return nil
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
