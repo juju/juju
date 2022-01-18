@@ -181,6 +181,11 @@ func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
 	return w, errors.Trace(err)
 }
 
+// GetDetails returns the current unit details as a change type.
+func (u *Unit) GetDetails() UnitChange {
+	return u.details.copy()
+}
+
 func (u *Unit) setDetails(details UnitChange) {
 	var newSubordinate bool
 

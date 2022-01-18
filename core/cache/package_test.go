@@ -78,7 +78,7 @@ func (s *BaseSuite) New(c *gc.C) (*Controller, <-chan interface{}) {
 func (s *BaseSuite) CaptureEvents(c *gc.C) <-chan interface{} {
 	events := make(chan interface{})
 	s.Config.Notify = func(change interface{}) {
-		send := false
+		var send bool
 		switch change.(type) {
 		case ControllerConfigChange,
 			ModelChange, RemoveModel,

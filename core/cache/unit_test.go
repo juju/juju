@@ -109,6 +109,18 @@ func (s *UnitSuite) TestConfigSettingsDefaultsOnly(c *gc.C) {
 	c.Assert(cfg, gc.DeepEquals, expected)
 }
 
+func (s *UnitSuite) TestUnitGetDetailsReturnsValidChangeType(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateCharm(charmChange, s.Manager)
+	m.UpdateApplication(appChange, s.Manager)
+	m.UpdateUnit(unitChange, s.Manager)
+
+	u, err := m.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(u.GetDetails(), gc.DeepEquals, unitChange)
+}
+
 var unitChange = cache.UnitChange{
 	ModelUUID:                "model-uuid",
 	Name:                     "application-name/0",

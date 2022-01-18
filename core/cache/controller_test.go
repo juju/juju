@@ -556,3 +556,28 @@ func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.PredicateString
 	c.Assert(err, jc.ErrorIsNil)
 	return w, events
 }
+
+func (s *ControllerSuite) TestSyncModelChangeAddUnit(c *gc.C) {
+	controller, events := s.New(c)
+	s.ProcessChange(c, modelChange, events)
+	s.ProcessChange(c, appChange, events)
+	s.ProcessChange(c, unitChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := mod.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	details := unit.GetDetails()
+	details.CharmURL = "cs:meshuggah"
+
+	err = cache.SyncModelChange(mod, details)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err = mod.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(unit.CharmURL(), gc.Equals, "cs:meshuggah")
+	c.Assert(unit.GetDetails(), jc.DeepEquals, details)
+}

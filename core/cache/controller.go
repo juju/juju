@@ -135,6 +135,46 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 	return c, nil
 }
 
+func (c *Controller) consumeChange(change interface{}) error {
+	var err error
+
+	switch ch := change.(type) {
+	case ControllerConfigChange:
+		c.configMu.Lock()
+		c.config = ch.Config
+		c.configMu.Unlock()
+	case ModelChange:
+		c.updateModel(ch)
+	case RemoveModel:
+		err = c.removeModel(ch)
+	case ApplicationChange:
+		c.updateApplication(ch)
+	case RemoveApplication:
+		err = c.removeApplication(ch)
+	case CharmChange:
+		c.updateCharm(ch)
+	case RemoveCharm:
+		err = c.removeCharm(ch)
+	case MachineChange:
+		c.updateMachine(ch)
+	case RemoveMachine:
+		err = c.removeMachine(ch)
+	case UnitChange:
+		c.updateUnit(ch)
+	case RemoveUnit:
+		err = c.removeUnit(ch)
+	case RelationChange:
+		c.updateRelation(ch)
+	case RemoveRelation:
+		err = c.removeRelation(ch)
+	case BranchChange:
+		c.updateBranch(ch)
+	case RemoveBranch:
+		err = c.removeBranch(ch)
+	}
+	return errors.Trace(err)
+}
+
 func (c *Controller) loop() error {
 	idle := &time.Timer{}
 	if c.idleFunc != nil {
@@ -151,48 +191,12 @@ func (c *Controller) loop() error {
 			c.idleFunc()
 			idle.Reset(IdleTime)
 		case change := <-c.changes:
-			var err error
-
-			switch ch := change.(type) {
-			case ControllerConfigChange:
-				c.configMu.Lock()
-				c.config = ch.Config
-				c.configMu.Unlock()
-			case ModelChange:
-				c.updateModel(ch)
-			case RemoveModel:
-				err = c.removeModel(ch)
-			case ApplicationChange:
-				c.updateApplication(ch)
-			case RemoveApplication:
-				err = c.removeApplication(ch)
-			case CharmChange:
-				c.updateCharm(ch)
-			case RemoveCharm:
-				err = c.removeCharm(ch)
-			case MachineChange:
-				c.updateMachine(ch)
-			case RemoveMachine:
-				err = c.removeMachine(ch)
-			case UnitChange:
-				c.updateUnit(ch)
-			case RemoveUnit:
-				err = c.removeUnit(ch)
-			case RelationChange:
-				c.updateRelation(ch)
-			case RemoveRelation:
-				err = c.removeRelation(ch)
-			case BranchChange:
-				c.updateBranch(ch)
-			case RemoveBranch:
-				err = c.removeBranch(ch)
+			if err := c.consumeChange(change); err != nil {
+				logger.Errorf("processing cache change: %s", err.Error())
 			}
+
 			if c.notify != nil {
 				c.notify(change)
-			}
-
-			if err != nil {
-				logger.Errorf("processing cache change: %s", err.Error())
 			}
 
 			if c.idleFunc != nil {
@@ -318,7 +322,7 @@ func (c *Controller) modelWatcher(uuid string) ModelWatcher {
 	c.modelsMu.Lock()
 	defer c.modelsMu.Unlock()
 
-	model, _ := c.models[uuid]
+	model := c.models[uuid]
 	return newModelWatcher(uuid, c.hub, model)
 }
 
@@ -432,6 +436,7 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 	model, found := c.models[modelUUID]
 	if !found {
 		model = newModel(modelConfig{
+			controller:   c,
 			initializing: c.isInitializing,
 			metrics:      c.metrics,
 			hub:          newPubSubHub(),
@@ -477,4 +482,12 @@ func newPubSubHub() *pubsub.SimpleHub {
 		// TODO: (thumper) add a get child method to loggers.
 		Logger: loggo.GetLogger("juju.core.cache.hub"),
 	})
+}
+
+// SyncModelChange attempts to sync a change through the cache. It uses a change
+// type to update the underlying type.
+// To prevent exposing internal state, exposing the function at a package level
+// allows calling internal functions.
+func SyncModelChange(model *Model, change interface{}) error {
+	return model.controller.consumeChange(change)
 }

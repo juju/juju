@@ -1011,7 +1011,7 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				}
 				if err == nil {
 					// Wait for the change to propagate to the cache controller.
-					err = u.waitForCacheCharmURL(unit.Name(), curl.String())
+					err = u.waitForCacheCharmURL(unit, curl.String())
 				}
 			}
 		}
@@ -1020,13 +1020,13 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 	return result, nil
 }
 
-func (u *UniterAPI) waitForCacheCharmURL(unit, curl string) error {
+func (u *UniterAPI) waitForCacheCharmURL(unit *state.Unit, curl string) error {
 	// One minute is excessively long, but the cache may need to refresh.
 	// In any normal operation, this should be sub-second, although if no changes
 	// were happening recently, it could be theoretically up to five seconds.
 	timeout := u.clock.After(time.Minute)
 	cancel := make(chan struct{})
-	done := u.cacheModel.WaitForUnit(unit, func(u *cache.Unit) bool {
+	done := u.cacheModel.WaitForUnit(unit.Name(), func(u *cache.Unit) bool {
 		return u.CharmURL() == curl
 	}, cancel)
 
@@ -1039,7 +1039,25 @@ func (u *UniterAPI) waitForCacheCharmURL(unit, curl string) error {
 		return errors.Timeoutf("apiserver stopping, unit change %s.CharmURL to %q", unit, curl)
 	case <-timeout:
 		close(cancel)
-		return errors.Timeoutf("unit change %s.CharmURL to %q", unit, curl)
+
+		// Ensure that the model cache has the unit in question. If the unit
+		// isn't found, then return immediately, as there isn't a way to repair
+		// that.
+		cachedUnit, err := u.cacheModel.Unit(unit.Name())
+		if errors.IsNotFound(err) {
+			return errors.NotFoundf("expected to find unit in the model cache; unit %s", unit)
+		}
+
+		// If the unit is in the model cache, then sync the cache now. There
+		// currently isn't a way to sync the cache, without restarting the
+		// agents, so this is the current work around.
+		//
+		// TBH: The model cache should be deleted. At no point should the code
+		// at this level know about a "cache".
+		change := cachedUnit.GetDetails()
+		change.CharmURL = curl
+
+		return cache.SyncModelChange(u.cacheModel, change)
 	}
 }
 

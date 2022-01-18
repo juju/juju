@@ -33,6 +33,7 @@ const (
 )
 
 type modelConfig struct {
+	controller   *Controller
 	initializing func() bool
 	metrics      *ControllerGauges
 	hub          *pubsub.SimpleHub
@@ -46,6 +47,7 @@ func newModel(config modelConfig) *Model {
 		Resident:      config.res,
 		metrics:       config.metrics,
 		hub:           config.hub,
+		controller:    config.controller,
 		controllerHub: config.chub,
 		applications:  make(map[string]*Application),
 		charms:        make(map[string]*Charm),
@@ -67,6 +69,7 @@ type Model struct {
 	initializing  func() bool
 	metrics       *ControllerGauges
 	hub           *pubsub.SimpleHub
+	controller    *Controller
 	controllerHub *pubsub.SimpleHub
 	mu            sync.Mutex
 
