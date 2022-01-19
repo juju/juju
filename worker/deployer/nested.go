@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -202,6 +203,17 @@ func (c *nestedContext) startUnitRequest(topic string, data interface{}) {
 	}
 	response := message.StartStopResponse{}
 	for _, unitName := range units.Names {
+		if unitAgent, ok := c.units[unitName]; ok && !unitAgent.running() {
+			// Start over with a new agent, we do not know how long it's been lost.
+			newAgent, err := c.newUnitAgent(unitName)
+			if err != nil {
+				response[unitName] = fmt.Sprintf("unable to get new unit agent: %v", err)
+				c.errors[unitName] = err
+				continue
+			}
+			c.units[unitName] = newAgent
+		}
+
 		if err := c.startUnit(unitName); err != nil {
 			response[unitName] = err.Error()
 		} else {

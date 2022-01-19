@@ -209,6 +209,10 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 }
 
 func (s *NestedContextSuite) TestErrTerminateAgentFromAgentWorker(c *gc.C) {
+	_ = s.errTerminateAgentFromAgentWorker(c)
+}
+
+func (s *NestedContextSuite) errTerminateAgentFromAgentWorker(c *gc.C) deployer.Context {
 	s.workers.workerError = jworker.ErrTerminateAgent
 	ctx := s.newContext(c)
 	unitName := "something/0"
@@ -230,6 +234,7 @@ func (s *NestedContextSuite) TestErrTerminateAgentFromAgentWorker(c *gc.C) {
 			"workers": map[string]interface{}{},
 		},
 	})
+	return ctx
 }
 
 func (s *NestedContextSuite) waitForStoppedCount(c *gc.C, ctx deployer.Context, length int) map[string]interface{} {
@@ -311,6 +316,43 @@ func (s *NestedContextSuite) TestStopStartUnits(c *gc.C) {
 
 	report = ctx.Report()
 	c.Assert(report["stopped"], jc.DeepEquals, []string{"second/0"})
+}
+
+func (s *NestedContextSuite) TestStartUnitAgent(c *gc.C) {
+	ctx := s.errTerminateAgentFromAgentWorker(c)
+	s.workers.workerError = nil
+
+	handledBothCalls := make(chan struct{})
+	count := 0
+	unsub := s.hub.Subscribe(message.StartUnitResponseTopic, func(_ string, data interface{}) {
+		c.Check(data, jc.DeepEquals, message.StartStopResponse{
+			"something/0": "started",
+			"unknown/2":   `unit "unknown/2" not found`,
+		})
+		count++
+		if count == 2 {
+			close(handledBothCalls)
+		}
+	})
+
+	// Start one back up again.
+	done := s.hub.Publish(message.StartUnitTopic, message.Units{
+		Names: []string{"something/0", "unknown/2"},
+	})
+	s.waitForEventHandled(c, pubsub.Wait(done))
+	// Wait for unit to start.
+	s.workers.waitForStart(c, "something/0")
+
+	// Called again gets the same results.
+	done = s.hub.Publish(message.StartUnitTopic, message.Units{
+		Names: []string{"something/0", "unknown/2"},
+	})
+	s.waitForEventHandled(c, pubsub.Wait(done))
+	s.waitForEventHandled(c, handledBothCalls)
+	unsub()
+
+	report := ctx.Report()
+	c.Assert(report["stopped"], gc.IsNil)
 }
 
 func (s *NestedContextSuite) TestUnitStatus(c *gc.C) {
