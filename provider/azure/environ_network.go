@@ -217,8 +217,7 @@ func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[strin
 			// NOTE(achilleasa): azure does not seem to include
 			// shadow IPs (or any public IP for that matter) when
 			// querying network interfaces. If we do encounter a
-			// public IP make sure we include it both as an address
-			// and as a shadow IP.
+			// public IP make sure we include it as a shadow IP.
 			if ipConf.PublicIPAddress != nil && ipConf.PublicIPAddress.PublicIPAddressPropertiesFormat != nil && ipConf.PublicIPAddress.IPAddress != nil {
 				var cfgMethod = network.ConfigDHCP
 				if ipConf.PublicIPAddress.PublicIPAllocationMethod == azurenetwork.Static {
@@ -232,14 +231,12 @@ func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[strin
 				).AsProviderAddress()
 
 				// If this a primary address make sure it appears
-				// at the top of the address lists.
+				// at the top of the shadow address list.
 				if isPrimary {
 					ni.ShadowAddresses = append(network.ProviderAddresses{providerAddr}, ni.ShadowAddresses...)
-					ni.Addresses = append(network.ProviderAddresses{providerAddr}, ni.Addresses...)
 					ni.ConfigType = cfgMethod
 				} else {
 					ni.ShadowAddresses = append(ni.ShadowAddresses, providerAddr)
-					ni.Addresses = append(ni.Addresses, providerAddr)
 				}
 			}
 

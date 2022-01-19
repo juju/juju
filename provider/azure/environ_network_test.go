@@ -186,13 +186,7 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 	c.Assert(nic1.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
 	c.Assert(nic1.Origin, gc.Equals, corenetwork.OriginProvider)
 	c.Assert(nic1.MACAddress, gc.Equals, "ba:d0:c0:ff:ee:42")
-	c.Assert(nic1.Addresses, gc.DeepEquals, corenetwork.ProviderAddresses{
-		corenetwork.NewMachineAddress(
-			"1.2.3.4",
-			corenetwork.WithScope(corenetwork.ScopePublic),
-			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress(),
-	})
+	c.Assert(nic1.Addresses, gc.HasLen, 0)
 	c.Assert(nic1.ShadowAddresses, gc.DeepEquals, corenetwork.ProviderAddresses{
 		corenetwork.NewMachineAddress(
 			"1.2.3.4",
