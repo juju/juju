@@ -524,7 +524,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
-		info.CharmURL = *u.CharmURL
+		info.CharmURL = u.CharmURL.String()
 	}
 
 	// Construct a unit for the purpose of retrieving other fields as necessary.

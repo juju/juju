@@ -678,8 +678,8 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		}}
 	}
 
-	chURL, err := params.Unit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	chURL, ok := params.Unit.CharmURL()
+	c.Assert(ok, gc.Equals, true)
 
 	metric, err := factory.st.AddMetrics(
 		state.BatchParam{

@@ -103,7 +103,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	if s.unit != nil {
 		s.unit.EXPECT().ApplicationName().Return("postgresql").AnyTimes()
 		s.unit.EXPECT().Application().Return(s.app, nil).AnyTimes()
-		s.unit.EXPECT().CharmURL().Return(curl, nil).AnyTimes()
+		s.unit.EXPECT().CharmURL().Return(curl, false).AnyTimes()
 	} else {
 		s.app.EXPECT().CharmURL().Return(curl, false).AnyTimes()
 	}

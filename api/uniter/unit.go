@@ -503,6 +503,9 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
 var ErrNoCharmURLSet = errors.New("unit has no charm url set")
 
 // CharmURL returns the charm URL this unit is currently using.
+//
+// NOTE: This differs from state.Unit.CharmURL() by returning
+// an error instead of a bool, because it needs to make an API call.
 func (u *Unit) CharmURL() (*charm.URL, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
