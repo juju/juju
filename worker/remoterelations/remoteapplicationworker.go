@@ -4,6 +4,7 @@
 package remoterelations
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -154,6 +155,10 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	)
 	if !w.isConsumerProxy {
 		if err := w.newRemoteRelationsFacadeWithRedirect(); err != nil {
+			msg := fmt.Sprintf("cannot connect to external controller: %v", err.Error())
+			if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Error, msg); err != nil {
+				return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+			}
 			return errors.Trace(err)
 		}
 		defer func() { _ = w.remoteModelFacade.Close() }()
