@@ -1,0 +1,219 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state
+
+import (
+	"math/rand"
+	"sync"
+	"time"
+
+	"github.com/juju/errors"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
+	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/wrench"
+)
+
+type stateWorker struct {
+	catacomb     catacomb.Catacomb
+	stTracker    StateTracker
+	pingInterval time.Duration
+	setStatePool func(*state.StatePool)
+	cleanupOnce  sync.Once
+}
+
+func (w *stateWorker) loop() error {
+	pool, err := w.stTracker.Use()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() { _ = w.stTracker.Done() }()
+
+	systemState := pool.SystemState()
+
+	w.setStatePool(pool)
+	defer w.setStatePool(nil)
+
+	modelWatcher := systemState.WatchModelLives()
+	_ = w.catacomb.Add(modelWatcher)
+
+	wrenchTimer := time.NewTimer(30 * time.Second)
+	defer wrenchTimer.Stop()
+
+	modelStateWorkers := make(map[string]worker.Worker)
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+
+		case modelUUIDs := <-modelWatcher.Changes():
+			for _, modelUUID := range modelUUIDs {
+				if err := w.processModelLifeChange(
+					modelUUID,
+					modelStateWorkers,
+					pool,
+				); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		// Useful for tracking down some bugs that occur when
+		// mongo is overloaded.
+		case <-wrenchTimer.C:
+			if wrench.IsActive("state-worker", "io-timeout") {
+				return errors.Errorf("wrench simulating i/o timeout!")
+			}
+			wrenchTimer.Reset(30 * time.Second)
+		}
+	}
+}
+
+// Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
+// what is going on at runtime.
+func (w *stateWorker) Report() map[string]interface{} {
+	return w.stTracker.Report()
+}
+
+func (w *stateWorker) processModelLifeChange(
+	modelUUID string,
+	modelStateWorkers map[string]worker.Worker,
+	pool *state.StatePool,
+) error {
+	remove := func() {
+		if w, ok := modelStateWorkers[modelUUID]; ok {
+			w.Kill()
+			delete(modelStateWorkers, modelUUID)
+		}
+		_, _ = pool.Remove(modelUUID)
+	}
+
+	model, hp, err := pool.GetModel(modelUUID)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Model has been removed from state.
+			logger.Debugf("model %q removed from state", modelUUID)
+			remove()
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	defer hp.Release()
+
+	if model.Life() == state.Dead {
+		// Model is Dead, and will soon be removed from state.
+		logger.Debugf("model %q is dead", modelUUID)
+		remove()
+		return nil
+	}
+
+	if modelStateWorkers[modelUUID] == nil {
+		mw := newModelStateWorker(pool, modelUUID, w.pingInterval)
+		modelStateWorkers[modelUUID] = mw
+		_ = w.catacomb.Add(mw)
+	}
+
+	return nil
+}
+
+// Kill is part of the worker.Worker interface.
+func (w *stateWorker) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *stateWorker) Wait() error {
+	err := w.catacomb.Wait()
+	w.cleanupOnce.Do(func() {
+		// Make sure the worker has exited before closing state.
+		if err := w.stTracker.Done(); err != nil {
+			logger.Warningf("error releasing state: %v", err)
+		}
+	})
+	return err
+}
+
+type modelStateWorker struct {
+	tomb         tomb.Tomb
+	pool         *state.StatePool
+	modelUUID    string
+	pingInterval time.Duration
+}
+
+func newModelStateWorker(
+	pool *state.StatePool,
+	modelUUID string,
+	pingInterval time.Duration,
+) worker.Worker {
+	w := &modelStateWorker{
+		pool:         pool,
+		modelUUID:    modelUUID,
+		pingInterval: pingInterval,
+	}
+	w.tomb.Go(w.loop)
+	return w
+}
+
+func (w *modelStateWorker) loop() error {
+	st, err := w.pool.Get(w.modelUUID)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Ignore not found error here, because the pooledState has already
+			// been removed.
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	defer func() {
+		st.Release()
+		_, _ = w.pool.Remove(w.modelUUID)
+	}()
+
+	// Jitter the interval so that each model doesn't attempt to connect to
+	// mongo at potentially the same time.
+	interval := w.pingInterval + jitter(time.Millisecond*200)
+
+	// If the state ping fails, attempt to retry the ping, before returning.
+	var pingErr error
+	for attempt := 0; attempt < 5; {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-time.After(interval):
+			if pingErr = st.Ping(); pingErr != nil {
+				// Reduce the next ping interval to fail early in case mongo
+				// has actually died. This should prevent the worst case
+				// scenario of a large initial ping interval.
+				interval = maxDuration(interval/2, time.Second)
+				attempt++
+				continue
+			}
+			interval = w.pingInterval
+			attempt = 0
+		}
+	}
+
+	return errors.Annotate(pingErr, "state ping failed")
+}
+
+// Kill is part of the worker.Worker interface.
+func (w *modelStateWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *modelStateWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func maxDuration(a, b time.Duration) time.Duration {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func jitter(amount time.Duration) time.Duration {
+	return time.Duration((rand.Float64() - 0.5) * float64(amount))
+}
