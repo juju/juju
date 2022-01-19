@@ -6,6 +6,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/juju/errors"
 )
@@ -307,4 +308,12 @@ type ProviderInterfaceInfo struct {
 	// contents of this field depend on the NIC type (a MAC address for an
 	// ethernet device, a GUID for an infiniband device etc.)
 	HardwareAddress string
+}
+
+// NormalizeMACAddress replaces dashes with colons and lowercases the MAC
+// address provided as input.
+func NormalizeMACAddress(mac string) string {
+	return strings.ToLower(
+		strings.Replace(mac, "-", ":", -1),
+	)
 }
