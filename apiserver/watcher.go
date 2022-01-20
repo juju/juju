@@ -153,7 +153,9 @@ func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
 	}, err
 }
 
-type allWatcherDeltaTranslater struct{}
+type allWatcherDeltaTranslater struct {
+	DeltaTranslater
+}
 
 func newAllWatcherDeltaTranslater() DeltaTranslater {
 	return &allWatcherDeltaTranslater{}

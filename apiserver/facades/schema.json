@@ -1715,8 +1715,8 @@
     },
     {
         "Name": "AllModelWatcher",
-        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
-        "Version": 2,
+        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher for version 2.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
+        "Version": 3,
         "AvailableTo": [
             "controller-user"
         ],
@@ -1775,8 +1775,8 @@
     },
     {
         "Name": "AllWatcher",
-        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
-        "Version": 1,
+        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher for version 2.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
+        "Version": 2,
         "AvailableTo": [
             "model-user"
         ],
