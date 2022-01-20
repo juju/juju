@@ -392,12 +392,14 @@ func AllFacades() *facade.Registry {
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
 
-	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
+	regRaw("AllWatcher", 1, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
+	regRaw("AllWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
 	// but they are get under separate names as it possible the may
 	// diverge in the future (especially in terms of authorisation
 	// checks).
-	regRaw("AllModelWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
+	regRaw("AllModelWatcher", 2, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
+	regRaw("AllModelWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	regRaw("NotifyWatcher", 1, newNotifyWatcher, reflect.TypeOf((*srvNotifyWatcher)(nil)))
 	regRaw("StringsWatcher", 1, newStringsWatcher, reflect.TypeOf((*srvStringsWatcher)(nil)))
 	regRaw("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))

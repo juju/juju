@@ -24,9 +24,92 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NewAllWatcher returns a new API server endpoint for interacting
-// with a watcher created by the WatchAll and WatchAllModels API calls.
-func NewAllWatcher(context facade.Context) (facade.Facade, error) {
+type watcherCommon struct {
+	id         string
+	resources  facade.Resources
+	dispose    func()
+	controller *cache.Controller
+}
+
+func newWatcherCommon(context facade.Context) watcherCommon {
+	return watcherCommon{
+		context.ID(),
+		context.Resources(),
+		context.Dispose,
+		context.Controller(),
+	}
+}
+
+// Stop stops the watcher.
+func (w *watcherCommon) Stop() error {
+	w.dispose()
+	return w.resources.Stop(w.id)
+}
+
+// SrvAllWatcherV1 defines the API methods on a state.Multiwatcher for version 1.
+type SrvAllWatcherV1 struct {
+	*SrvAllWatcher
+}
+
+// SrvAllWatcher defines the API methods on a state.Multiwatcher for version 2.
+// which watches any changes to the state. Each client has its own
+// current set of watchers, stored in resources. It is used by both
+// the AllWatcher and AllModelWatcher facades.
+type SrvAllWatcher struct {
+	watcherCommon
+	watcher multiwatcher.Watcher
+}
+
+// NewAllWatcherV1 is a wrapper that creates a V1 AllWatcher API.
+func NewAllWatcherV1(context facade.Context) (facade.Facade, error) {
+	api, err := newAllWatcher(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SrvAllWatcherV1{api}, nil
+}
+
+// Next will return the current state of everything on the first call
+// and subsequent calls will
+func (aw *SrvAllWatcherV1) Next() (params.AllWatcherNextResults, error) {
+	deltas, err := aw.watcher.Next()
+	return params.AllWatcherNextResults{
+		Deltas: translate(newAllWatcherDeltaTranslaterV1(), deltas),
+	}, err
+}
+
+type allWatcherDeltaTranslaterV1 struct {
+	DeltaTranslater
+}
+
+func newAllWatcherDeltaTranslaterV1() DeltaTranslater {
+	return &allWatcherDeltaTranslaterV1{
+		newAllWatcherDeltaTranslater(),
+	}
+}
+
+func (aw allWatcherDeltaTranslaterV1) TranslateAction(info multiwatcher.EntityInfo) params.EntityInfo {
+	orig, ok := info.(*multiwatcher.ActionInfo)
+	if !ok {
+		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
+		return nil
+	}
+	return &params.ActionInfo{
+		ModelUUID:  orig.ModelUUID,
+		Id:         orig.ID,
+		Receiver:   orig.Receiver,
+		Name:       orig.Name,
+		Parameters: orig.Parameters,
+		Status:     orig.Status,
+		Message:    orig.Message,
+		Results:    orig.Results,
+		Enqueued:   orig.Enqueued,
+		Started:    orig.Started,
+		Completed:  orig.Completed,
+	}
+}
+
+func newAllWatcher(context facade.Context) (*SrvAllWatcher, error) {
 	id := context.ID()
 	auth := context.Auth()
 	resources := context.Resources()
@@ -55,35 +138,10 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 	}, nil
 }
 
-type watcherCommon struct {
-	id         string
-	resources  facade.Resources
-	dispose    func()
-	controller *cache.Controller
-}
-
-func newWatcherCommon(context facade.Context) watcherCommon {
-	return watcherCommon{
-		context.ID(),
-		context.Resources(),
-		context.Dispose,
-		context.Controller(),
-	}
-}
-
-// Stop stops the watcher.
-func (w *watcherCommon) Stop() error {
-	w.dispose()
-	return w.resources.Stop(w.id)
-}
-
-// SrvAllWatcher defines the API methods on a state.Multiwatcher.
-// which watches any changes to the state. Each client has its own
-// current set of watchers, stored in resources. It is used by both
-// the AllWatcher and AllModelWatcher facades.
-type SrvAllWatcher struct {
-	watcherCommon
-	watcher multiwatcher.Watcher
+// NewAllWatcher returns a new API server endpoint for interacting
+// with a watcher created by the WatchAll and WatchAllModels API calls.
+func NewAllWatcher(context facade.Context) (facade.Facade, error) {
+	return newAllWatcher(context)
 }
 
 // Next will return the current state of everything on the first call
@@ -91,41 +149,65 @@ type SrvAllWatcher struct {
 func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
 	deltas, err := aw.watcher.Next()
 	return params.AllWatcherNextResults{
-		Deltas: aw.translate(deltas),
+		Deltas: translate(newAllWatcherDeltaTranslater(), deltas),
 	}, err
 }
 
-func (aw *SrvAllWatcher) translate(deltas []multiwatcher.Delta) []params.Delta {
+type allWatcherDeltaTranslater struct{}
+
+func newAllWatcherDeltaTranslater() DeltaTranslater {
+	return &allWatcherDeltaTranslater{}
+}
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deltatranslater_mock.go github.com/juju/juju/apiserver DeltaTranslater
+
+// DeltaTranslater defines methods for translating multiwatcher.EntityInfo to params.EntityInfo.
+type DeltaTranslater interface {
+	TranslateModel(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateApplication(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateRemoteApplication(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateMachine(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateUnit(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateCharm(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateRelation(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateBranch(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateAnnotation(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateBlock(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateAction(multiwatcher.EntityInfo) params.EntityInfo
+	TranslateApplicationOffer(multiwatcher.EntityInfo) params.EntityInfo
+}
+
+func translate(dt DeltaTranslater, deltas []multiwatcher.Delta) []params.Delta {
 	response := make([]params.Delta, 0, len(deltas))
 	for _, delta := range deltas {
 		id := delta.Entity.EntityID()
 		var converted params.EntityInfo
 		switch id.Kind {
 		case multiwatcher.ModelKind:
-			converted = aw.translateModel(delta.Entity)
+			converted = dt.TranslateModel(delta.Entity)
 		case multiwatcher.ApplicationKind:
-			converted = aw.translateApplication(delta.Entity)
+			converted = dt.TranslateApplication(delta.Entity)
 		case multiwatcher.RemoteApplicationKind:
-			converted = aw.translateRemoteApplication(delta.Entity)
+			converted = dt.TranslateRemoteApplication(delta.Entity)
 		case multiwatcher.MachineKind:
-			converted = aw.translateMachine(delta.Entity)
+			converted = dt.TranslateMachine(delta.Entity)
 		case multiwatcher.UnitKind:
-			converted = aw.translateUnit(delta.Entity)
+			converted = dt.TranslateUnit(delta.Entity)
 		case multiwatcher.CharmKind:
-			converted = aw.translateCharm(delta.Entity)
+			converted = dt.TranslateCharm(delta.Entity)
 		case multiwatcher.RelationKind:
-			converted = aw.translateRelation(delta.Entity)
+			converted = dt.TranslateRelation(delta.Entity)
 		case multiwatcher.BranchKind:
-			converted = aw.translateBranch(delta.Entity)
+			converted = dt.TranslateBranch(delta.Entity)
 		case multiwatcher.AnnotationKind: // THIS SEEMS WEIRD
 			// FIXME: annotations should be part of the underlying entity.
-			converted = aw.translateAnnotation(delta.Entity)
+			converted = dt.TranslateAnnotation(delta.Entity)
 		case multiwatcher.BlockKind:
-			converted = aw.translateBlock(delta.Entity)
+			converted = dt.TranslateBlock(delta.Entity)
 		case multiwatcher.ActionKind:
-			converted = aw.translateAction(delta.Entity)
+			converted = dt.TranslateAction(delta.Entity)
 		case multiwatcher.ApplicationOfferKind:
-			converted = aw.translateApplicationOffer(delta.Entity)
+			converted = dt.TranslateApplicationOffer(delta.Entity)
 		default:
 			// converted stays nil
 		}
@@ -141,7 +223,7 @@ func (aw *SrvAllWatcher) translate(deltas []multiwatcher.Delta) []params.Delta {
 	return response
 }
 
-func (aw *SrvAllWatcher) translateModel(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateModel(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.ModelInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -164,7 +246,7 @@ func (aw *SrvAllWatcher) translateModel(info multiwatcher.EntityInfo) params.Ent
 	}
 }
 
-func (aw *SrvAllWatcher) translateStatus(info multiwatcher.StatusInfo) params.StatusInfo {
+func (aw allWatcherDeltaTranslater) translateStatus(info multiwatcher.StatusInfo) params.StatusInfo {
 	return params.StatusInfo{
 		Err:     info.Err, // CHECK THIS
 		Current: info.Current,
@@ -175,7 +257,7 @@ func (aw *SrvAllWatcher) translateStatus(info multiwatcher.StatusInfo) params.St
 	}
 }
 
-func (aw *SrvAllWatcher) translateApplication(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateApplication(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.ApplicationInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -208,7 +290,7 @@ func (aw *SrvAllWatcher) translateApplication(info multiwatcher.EntityInfo) para
 	}
 }
 
-func (aw *SrvAllWatcher) translateMachine(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateMachine(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.MachineInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -237,7 +319,7 @@ func (aw *SrvAllWatcher) translateMachine(info multiwatcher.EntityInfo) params.E
 	}
 }
 
-func (aw *SrvAllWatcher) translateAddresses(addresses []network.ProviderAddress) []params.Address {
+func (aw allWatcherDeltaTranslater) translateAddresses(addresses []network.ProviderAddress) []params.Address {
 	if addresses == nil {
 		return nil
 	}
@@ -254,7 +336,7 @@ func (aw *SrvAllWatcher) translateAddresses(addresses []network.ProviderAddress)
 	return result
 }
 
-func (aw *SrvAllWatcher) translateCharm(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateCharm(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.CharmInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -270,7 +352,7 @@ func (aw *SrvAllWatcher) translateCharm(info multiwatcher.EntityInfo) params.Ent
 	}
 }
 
-func (aw *SrvAllWatcher) translateProfile(profile *multiwatcher.Profile) *params.Profile {
+func (aw allWatcherDeltaTranslater) translateProfile(profile *multiwatcher.Profile) *params.Profile {
 	if profile == nil {
 		return nil
 	}
@@ -281,7 +363,7 @@ func (aw *SrvAllWatcher) translateProfile(profile *multiwatcher.Profile) *params
 	}
 }
 
-func (aw *SrvAllWatcher) translateRemoteApplication(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateRemoteApplication(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.RemoteApplicationUpdate)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -297,7 +379,7 @@ func (aw *SrvAllWatcher) translateRemoteApplication(info multiwatcher.EntityInfo
 	}
 }
 
-func (aw *SrvAllWatcher) translateApplicationOffer(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateApplicationOffer(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.ApplicationOfferInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -314,7 +396,7 @@ func (aw *SrvAllWatcher) translateApplicationOffer(info multiwatcher.EntityInfo)
 	}
 }
 
-func (aw *SrvAllWatcher) translateUnit(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateUnit(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.UnitInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -342,7 +424,7 @@ func (aw *SrvAllWatcher) translateUnit(info multiwatcher.EntityInfo) params.Enti
 	}
 }
 
-func (aw *SrvAllWatcher) mapRangesIntoPorts(portRanges []params.PortRange) []params.Port {
+func (aw allWatcherDeltaTranslater) mapRangesIntoPorts(portRanges []params.PortRange) []params.Port {
 	if portRanges == nil {
 		return nil
 	}
@@ -362,7 +444,7 @@ func (aw *SrvAllWatcher) mapRangesIntoPorts(portRanges []params.PortRange) []par
 // a list of unique port ranges. This method ignores subnet IDs and is provided
 // for backwards compatibility with pre 2.9 clients that assume that open-ports
 // applies to all subnets.
-func (aw *SrvAllWatcher) translatePortRanges(portsByEndpoint network.GroupedPortRanges) []params.PortRange {
+func (aw allWatcherDeltaTranslater) translatePortRanges(portsByEndpoint network.GroupedPortRanges) []params.PortRange {
 	if portsByEndpoint == nil {
 		return nil
 	}
@@ -378,28 +460,26 @@ func (aw *SrvAllWatcher) translatePortRanges(portsByEndpoint network.GroupedPort
 	return result
 }
 
-func (aw *SrvAllWatcher) translateAction(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateAction(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.ActionInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
 		return nil
 	}
 	return &params.ActionInfo{
-		ModelUUID:  orig.ModelUUID,
-		Id:         orig.ID,
-		Receiver:   orig.Receiver,
-		Name:       orig.Name,
-		Parameters: orig.Parameters,
-		Status:     orig.Status,
-		Message:    orig.Message,
-		Results:    orig.Results,
-		Enqueued:   orig.Enqueued,
-		Started:    orig.Started,
-		Completed:  orig.Completed,
+		ModelUUID: orig.ModelUUID,
+		Id:        orig.ID,
+		Receiver:  orig.Receiver,
+		Name:      orig.Name,
+		Status:    orig.Status,
+		Message:   orig.Message,
+		Enqueued:  orig.Enqueued,
+		Started:   orig.Started,
+		Completed: orig.Completed,
 	}
 }
 
-func (aw *SrvAllWatcher) translateRelation(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateRelation(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.RelationInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -413,7 +493,7 @@ func (aw *SrvAllWatcher) translateRelation(info multiwatcher.EntityInfo) params.
 	}
 }
 
-func (aw *SrvAllWatcher) translateEndpoints(eps []multiwatcher.Endpoint) []params.Endpoint {
+func (aw allWatcherDeltaTranslater) translateEndpoints(eps []multiwatcher.Endpoint) []params.Endpoint {
 	if eps == nil {
 		return nil
 	}
@@ -434,7 +514,7 @@ func (aw *SrvAllWatcher) translateEndpoints(eps []multiwatcher.Endpoint) []param
 	return result
 }
 
-func (aw *SrvAllWatcher) translateAnnotation(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateAnnotation(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.AnnotationInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -447,7 +527,7 @@ func (aw *SrvAllWatcher) translateAnnotation(info multiwatcher.EntityInfo) param
 	}
 }
 
-func (aw *SrvAllWatcher) translateBlock(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateBlock(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.BlockInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -462,7 +542,7 @@ func (aw *SrvAllWatcher) translateBlock(info multiwatcher.EntityInfo) params.Ent
 	}
 }
 
-func (aw *SrvAllWatcher) translateBranch(info multiwatcher.EntityInfo) params.EntityInfo {
+func (aw allWatcherDeltaTranslater) TranslateBranch(info multiwatcher.EntityInfo) params.EntityInfo {
 	orig, ok := info.(*multiwatcher.BranchInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
@@ -482,7 +562,7 @@ func (aw *SrvAllWatcher) translateBranch(info multiwatcher.EntityInfo) params.En
 	}
 }
 
-func (aw *SrvAllWatcher) translateBranchConfig(config map[string][]multiwatcher.ItemChange) map[string][]params.ItemChange {
+func (aw allWatcherDeltaTranslater) translateBranchConfig(config map[string][]multiwatcher.ItemChange) map[string][]params.ItemChange {
 	if config == nil {
 		return nil
 	}
