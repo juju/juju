@@ -139,6 +139,21 @@ func (mr *MockHookUnitMockRecorder) NetworkInfo(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockHookUnit)(nil).NetworkInfo), arg0, arg1)
 }
 
+// PublicAddress mocks base method.
+func (m *MockHookUnit) PublicAddress() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublicAddress")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PublicAddress indicates an expected call of PublicAddress.
+func (mr *MockHookUnitMockRecorder) PublicAddress() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublicAddress", reflect.TypeOf((*MockHookUnit)(nil).PublicAddress))
+}
+
 // RequestReboot mocks base method.
 func (m *MockHookUnit) RequestReboot() error {
 	m.ctrl.T.Helper()
