@@ -186,8 +186,8 @@ func (w *dbWorker) Wait() error {
 }
 
 // GetDB returns a sql.DB handle for the dqlite-backed database that contains
-// the data for the specified model UUID.
-func (w *dbWorker) GetDB(modelUUID string) (*sql.DB, error) {
+// the data for the specified namespace.
+func (w *dbWorker) GetDB(namespace string) (*sql.DB, error) {
 	select {
 	case <-w.dbReadyCh:
 		// dqlite has been initialized
@@ -199,27 +199,26 @@ func (w *dbWorker) GetDB(modelUUID string) (*sql.DB, error) {
 	defer w.mu.Unlock()
 
 	// Check if a DB handle has already been created and cached.
-	if cachedDB := w.dbHandles[modelUUID]; cachedDB != nil {
+	if cachedDB := w.dbHandles[namespace]; cachedDB != nil {
 		return cachedDB, nil
 	}
 
 	// Create and cache DB instance.
-	db, err := w.dbApp.Open(context.TODO(), modelUUID)
+	db, err := w.dbApp.Open(context.TODO(), namespace)
 	if err != nil {
-		return nil, errors.Annotatef(err, "acccessing DB for model %q", modelUUID)
+		return nil, errors.Annotatef(err, "acccessing DB for namespace %q", namespace)
 	}
-	if err := ensureDBSchema(modelUUID, db); err != nil {
-		return nil, errors.Annotatef(err, "acccessing DB for model %q", modelUUID)
+	if err := ensureDBSchema(namespace, db); err != nil {
+		return nil, errors.Annotatef(err, "acccessing DB for namespace %q", namespace)
 	}
-	w.dbHandles[modelUUID] = db
-
+	w.dbHandles[namespace] = db
 	return db, nil
 }
 
 // GetExistingDB returns a sql.DB handle for the dqlite-backed database that
-// contains the data for the specified model UUID or a NotFound error if the
+// contains the data for the specified namespace or a NotFound error if the
 // DB is not known.
-func (w *dbWorker) GetExistingDB(modelUUID string) (*sql.DB, error) {
+func (w *dbWorker) GetExistingDB(namespace string) (*sql.DB, error) {
 	select {
 	case <-w.dbReadyCh:
 		// dqlite has been initialized
@@ -231,11 +230,11 @@ func (w *dbWorker) GetExistingDB(modelUUID string) (*sql.DB, error) {
 	defer w.mu.Unlock()
 
 	// Check if a DB handle has already been created and cached.
-	if cachedDB := w.dbHandles[modelUUID]; cachedDB != nil {
+	if cachedDB := w.dbHandles[namespace]; cachedDB != nil {
 		return cachedDB, nil
 	}
 
-	return nil, errors.NotFoundf("database for model %q", modelUUID)
+	return nil, errors.NotFoundf("database for model %q", namespace)
 }
 
 func (w *dbWorker) initializeDqlite() error {

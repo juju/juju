@@ -757,6 +757,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		stateManagerName: ifController(statemanager.Manifold(statemanager.ManifoldConfig{
 			DBAccessorName: dbAccessorName,
+			Logger:         loggo.GetLogger("juju.worker.statemanager"),
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -269,5 +270,9 @@ func (l *stateLogger) Log(records []state.LogRecord) error {
 			Labels:    v.Labels,
 		}
 	}
-	return l.logger.AppendLines(lines)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	return l.logger.AppendLines(ctx, lines)
 }

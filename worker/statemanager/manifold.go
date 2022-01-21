@@ -7,9 +7,11 @@ import (
 	"database/sql"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+
+	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/dbaccessor"
 )
 
 type DBAccessor interface {
@@ -42,7 +44,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Output: stateManagerOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			var dbAccessor DBAccessor
+			var dbAccessor dbaccessor.DBGetter
 			if err := context.Get(config.DBAccessorName, &dbAccessor); err != nil {
 				return nil, err
 			}

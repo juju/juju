@@ -4,8 +4,10 @@
 package logstate
 
 import (
+	"context"
 	"database/sql"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,17 +21,42 @@ type State interface {
 
 type LogManager struct {
 	state State
+
+	mutex      sync.Mutex
+	statements map[string]*sql.Stmt
 }
 
 func NewManager(s State) *LogManager {
-	return &LogManager{
-		state: s,
+	mgr := &LogManager{
+		state:      s,
+		statements: make(map[string]*sql.Stmt),
 	}
+	return mgr
+}
+
+func (m *LogManager) StartUp(ctx context.Context) error {
+	db := m.state.DB()
+	stmt, err := db.PrepareContext(ctx, sqlInsertLogEntry)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.statements[sqlInsertLogEntry] = stmt
+
+	return nil
 }
 
 func (m *LogManager) Ensure() error {
-	// TODO: (stickupkid) - Prepare all the queries, so they become faster when
-	// executing.
+	return nil
+}
+
+func (m *LogManager) Stop() error {
+	for _, stmt := range m.statements {
+		_ = stmt.Close()
+	}
 	return nil
 }
 
@@ -46,15 +73,12 @@ type Line struct {
 	Labels    []string
 }
 
-func (m *LogManager) AppendLines(lines []Line) error {
-	stmt, err := m.state.DB().Prepare(sqlInsertLogEntry)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+// AppendLines appends the log lines to the given log manager.
+func (m *LogManager) AppendLines(ctx context.Context, lines []Line) error {
+	stmt := m.getStatement(sqlInsertLogEntry)
 	for _, r := range lines {
-		if _, err = stmt.Exec(sqlInsertLogEntry,
-			r.Time,
+		_, err := stmt.ExecContext(ctx,
+			r.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
 			r.Entity,
 			r.Version.String(),
 			r.Module,
@@ -62,12 +86,23 @@ func (m *LogManager) AppendLines(lines []Line) error {
 			r.Level,
 			r.Message,
 			strings.Join(r.Labels, ","),
-		); err != nil {
+		)
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
-
 	return nil
+}
+
+func (m *LogManager) getStatement(key string) *sql.Stmt {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	stmt, ok := m.statements[key]
+
+	if !ok {
+		panic("missing SQL statement")
+	}
+	return stmt
 }
 
 const (

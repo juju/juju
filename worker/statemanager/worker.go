@@ -4,7 +4,9 @@
 package statemanager
 
 import (
+	"context"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
@@ -16,7 +18,9 @@ import (
 // Overlord defines the various managers that are available for the whole
 // state.
 type Overlord interface {
+	StartUp(context.Context) error
 	Stop() error
+
 	LogManager() overlord.LogManager
 }
 
@@ -102,20 +106,32 @@ func (w *stateManagerWorker) GetStateManager(namespace string) (Overlord, error)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	if mgr, ok := w.managers[namespace]; ok && mgr != nil {
-		return mgr, nil
+		return mgr, errors.Annotatef(mgr.StartUp(ctx), "state manager startup failure for %q", namespace)
 	}
 
 	db, err := w.cfg.DBAccessor.GetDB(namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mgr, err := overlord.New(state.NewState(db))
+
+	st := state.NewState(db)
+
+	var mgr Overlord
+	switch namespace {
+	case "logs":
+		mgr, err = overlord.NewLogOverlord(st)
+	default:
+		mgr, err = overlord.NewModelOverlord(st)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w.managers[namespace] = mgr
 
-	return mgr, nil
+	return mgr, errors.Annotatef(mgr.StartUp(ctx), "state manager startup failure for %q", namespace)
 }

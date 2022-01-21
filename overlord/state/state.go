@@ -3,7 +3,9 @@
 
 package state
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 type State struct {
 	db *sql.DB

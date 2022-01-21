@@ -4,9 +4,10 @@
 package overlord
 
 import (
-	"gopkg.in/tomb.v2"
+	"context"
 
 	"github.com/juju/juju/overlord/logstate"
+	"gopkg.in/tomb.v2"
 )
 
 // Overlord is the central manager of the system, keeping track
@@ -14,23 +15,25 @@ import (
 type Overlord struct {
 	stateEng *StateEngine
 	tomb     *tomb.Tomb
-	// Managers
-	logMgr LogManager
+	started  bool
 }
 
-// New creates a new Overlord with all its state managers.
-// It can be provided with an optional restart.Handler.
-func New(s State) (*Overlord, error) {
-	o := &Overlord{
-		tomb: new(tomb.Tomb),
+func newOverlord(s State) *Overlord {
+	return &Overlord{
+		tomb:     new(tomb.Tomb),
+		stateEng: NewStateEngine(s),
 	}
+}
 
-	o.stateEng = NewStateEngine(s)
+// StartUp proceeds to run any expensive Overlord or managers initialization.
+// After this is done once it is a noop.
+func (o *Overlord) StartUp(ctx context.Context) error {
+	if o.started {
+		return nil
+	}
+	o.started = true
 
-	o.logMgr = logstate.NewManager(s)
-	o.stateEng.AddManager(o.logMgr)
-
-	return o, nil
+	return o.stateEng.StartUp(ctx)
 }
 
 // Stop stops the ensure loop and the managers under the StateEngine.
@@ -51,8 +54,45 @@ func (o *Overlord) StateEngine() *StateEngine {
 	return o.stateEng
 }
 
-// LogManager returns the log manager responsible for logging under the
-// overlord.
 func (o *Overlord) LogManager() LogManager {
+	return nil
+}
+
+// LogOverlord is an overlord that handles the logs database. As the logs
+// database is separete from the models database, we have a special logging
+// overlord that correctly handles just that case.
+type LogOverlord struct {
+	*Overlord
+	logMgr LogManager
+}
+
+// NewLogOverlord creates a new Overlord that manages logging with all the
+// correct state managers.
+func NewLogOverlord(s State) (*LogOverlord, error) {
+	o := &LogOverlord{
+		Overlord: newOverlord(s),
+	}
+
+	o.logMgr = logstate.NewManager(s)
+	o.stateEng.AddManager(o.logMgr)
+
+	return o, nil
+}
+
+func (o *LogOverlord) LogManager() LogManager {
 	return o.logMgr
+}
+
+type ModelOverlord struct {
+	*Overlord
+}
+
+// NewModelOverlord creates a new Overlord that manages models with all the
+// correct state managers.
+func NewModelOverlord(s State) (*ModelOverlord, error) {
+	o := &ModelOverlord{
+		Overlord: newOverlord(s),
+	}
+
+	return o, nil
 }

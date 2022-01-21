@@ -4,8 +4,11 @@
 package overlord
 
 import (
+	"context"
 	"database/sql"
 	"sync"
+
+	"github.com/juju/errors"
 )
 
 // StateManager is implemented by types responsible for observing
@@ -21,6 +24,13 @@ type StateManager interface {
 type StateWaiter interface {
 	// Wait asks manager to wait for all running activities to finish.
 	Wait()
+}
+
+// StateStarterUp is optionally implemented by StateManager that have expensive
+// initialization to perform before the main Overlord loop.
+type StateStarterUp interface {
+	// StartUp asks manager to perform any expensive initialization.
+	StartUp(context.Context) error
 }
 
 // StateStopper is optionally implemented by StateManagers that have
@@ -44,6 +54,7 @@ type State interface {
 // solely via the state.
 type StateEngine struct {
 	state   State
+	started bool
 	stopped bool
 	// managers in use
 	mutex    sync.Mutex
@@ -63,6 +74,26 @@ func (se *StateEngine) AddManager(m StateManager) {
 	defer se.mutex.Unlock()
 
 	se.managers = append(se.managers, m)
+}
+
+// StartUp asks all managers to perform any expensive initialization.
+// It is a noop after the first invocation.
+func (se *StateEngine) StartUp(ctx context.Context) error {
+	se.mutex.Lock()
+	defer se.mutex.Unlock()
+	if se.started {
+		return nil
+	}
+
+	se.started = true
+	for _, m := range se.managers {
+		if starterUp, ok := m.(StateStarterUp); ok {
+			if err := starterUp.StartUp(ctx); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
 }
 
 // Wait waits for all managers current activities.
