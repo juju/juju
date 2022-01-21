@@ -167,15 +167,40 @@ func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 func (m *Model) Report() map[string]interface{} {
 	defer m.doLocked()()
 
+	applications := make(map[string]interface{}, len(m.applications))
+	for name, app := range m.applications {
+		applications[name] = app.Report()
+	}
+
+	charms := make(map[string]interface{}, len(m.charms))
+	for name, charm := range m.charms {
+		charms[name] = charm.Report()
+	}
+
+	machines := make(map[string]interface{}, len(m.machines))
+	for id, machine := range m.machines {
+		machines[id] = machine.Report()
+	}
+
+	units := make(map[string]interface{}, len(m.units))
+	for name, unit := range m.units {
+		units[name] = unit.Report()
+	}
+
+	relations := make(map[string]interface{}, len(m.relations))
+	for id, relation := range m.relations {
+		relations[id] = relation.Report()
+	}
+
 	return map[string]interface{}{
-		"name":              m.details.Owner + "/" + m.details.Name,
-		"life":              m.details.Life,
-		"application-count": len(m.applications),
-		"charm-count":       len(m.charms),
-		"machine-count":     len(m.machines),
-		"unit-count":        len(m.units),
-		"relation-count":    len(m.relations),
-		"branch-count":      len(m.branches),
+		"name":         m.details.Owner + "/" + m.details.Name,
+		"life":         string(m.details.Life),
+		"applications": applications,
+		"charms":       charms,
+		"machines":     machines,
+		"units":        units,
+		"relations":    relations,
+		"branch-count": len(m.branches),
 	}
 }
 

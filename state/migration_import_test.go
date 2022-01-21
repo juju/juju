@@ -920,9 +920,10 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	stOffers := state.NewApplicationOffers(s.State)
 	stOffer, err := stOffers.AddOffer(
 		crossmodel.AddApplicationOfferArgs{
-			OfferName:       "my-offer",
-			Owner:           "admin",
-			ApplicationName: application.Name(),
+			OfferName:              "my-offer",
+			Owner:                  "admin",
+			ApplicationDescription: "my app",
+			ApplicationName:        application.Name(),
 			Endpoints: map[string]string{
 				"server": serverSpace.Name(),
 			},
@@ -944,7 +945,22 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	c.Assert(exportedOffers, gc.HasLen, 1)
 	exported := exportedOffers[0]
 
-	_, newSt := s.importModel(c, s.State)
+	_, newSt := s.importModel(c, s.State, func(_ map[string]interface{}) {
+		// Application offer permissions are keyed on the offer uuid
+		// rather than a model uuid.
+		// If we import and the permissions still exist, the txn will fail
+		// as imports all assume any records do not already exist.
+		err = s.State.RemoveOfferAccess(
+			names.NewApplicationOfferTag("my-offer"),
+			fooUser.UserTag(),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveOfferAccess(
+			names.NewApplicationOfferTag("my-offer"),
+			names.NewUserTag("admin"),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	})
 
 	// The following is required because we don't add charms during an import,
 	// these are added at a later date. When constructing an application offer,

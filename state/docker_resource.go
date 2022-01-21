@@ -50,7 +50,7 @@ func NewDockerMetadataStorage(st *State) DockerMetadataStorage {
 	}
 }
 
-// Save creates a new record the a Docker resource.
+// Save creates a new record for a Docker resource.
 func (dr *dockerMetadataStorage) Save(resourceID string, drInfo resources.DockerImageDetails) error {
 	doc := dockerMetadataDoc{
 		Id:           resourceID,

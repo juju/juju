@@ -265,6 +265,22 @@ func (op *RemoveOfferOperation) Done(err error) error {
 			op.AddError(errors.Errorf("error finalising removal of consuming proxy %q: %v", remoteProxyOp.app.Name(), err))
 		}
 	}
+	// Now the offer is removed, delete any user permissions.
+	userPerms, err := op.offerStore.st.GetOfferUsers(op.offer.OfferUUID)
+	if err != nil {
+		op.AddError(errors.Errorf("error removing offer permissions: %v", err))
+		return nil
+	}
+	var removeOps []txn.Op
+	for userName := range userPerms {
+		user := names.NewUserTag(userName)
+		removeOps = append(removeOps,
+			removePermissionOp(applicationOfferKey(op.offer.OfferUUID), userGlobalKey(userAccessID(user))))
+	}
+	err = op.offerStore.st.db().RunTransaction(removeOps)
+	if err != nil {
+		op.AddError(errors.Errorf("error removing offer permissions: %v", err))
+	}
 	return nil
 }
 

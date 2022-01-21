@@ -760,6 +760,8 @@ oldpassword: bletch
 values:
   AGENT_SERVICE_NAME: jujud-machine-10
   PROVIDER_TYPE: dummy
+agent-logfile-max-size: 0
+agent-logfile-max-backups: 0
 
 "@
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-windows-amd64

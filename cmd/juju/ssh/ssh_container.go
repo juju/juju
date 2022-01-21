@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
@@ -99,6 +100,8 @@ func (c *sshContainer) getArgs() []string {
 func (c *sshContainer) setArgs(args []string) {
 	c.args = args
 }
+
+func (c *sshContainer) setRetryStrategy(_ retry.CallArgs) {}
 
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.

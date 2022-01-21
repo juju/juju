@@ -14,7 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/natefinch/lumberjack.v2"
+	"github.com/juju/lumberjack"
 
 	"github.com/juju/juju/core/paths"
 )
@@ -195,13 +195,16 @@ func NewLogFile(logDir string, maxSize, maxBackups int) AuditLog {
 		logger.Errorf("Unable to prime %s (proceeding anyway): %v", logPath, err)
 	}
 
+	ljLogger := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    maxSize,
+		MaxBackups: maxBackups,
+		Compress:   true,
+	}
+	logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	return &auditLogFile{
-		fileLogger: &lumberjack.Logger{
-			Filename:   logPath,
-			MaxSize:    maxSize,
-			MaxBackups: maxBackups,
-			Compress:   true,
-		},
+		fileLogger: ljLogger,
 	}
 }
 

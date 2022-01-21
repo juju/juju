@@ -287,7 +287,7 @@ func (c *bootstrapCommand) configDetails() map[string]interface{} {
 	if modelCgf, err := cmdmodel.ConfigDetails(); err == nil {
 		addAll(modelCgf)
 	}
-	if controllerCgf, err := cmdcontroller.ConfigDetails(); err == nil {
+	if controllerCgf, err := cmdcontroller.ConfigDetailsAll(); err == nil {
 		addAll(controllerCgf)
 	}
 	for key, attr := range bootstrap.BootstrapConfigSchema {

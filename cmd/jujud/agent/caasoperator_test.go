@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/agent"
+	"github.com/juju/lumberjack"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/voyeur"
@@ -19,8 +19,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"

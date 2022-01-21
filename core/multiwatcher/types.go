@@ -653,9 +653,7 @@ func (i *BranchInfo) Clone() EntityInfo {
 		clone.AssignedUnits = map[string][]string{}
 		for k, units := range i.AssignedUnits {
 			cUnits := make([]string, len(units))
-			for i, u := range units {
-				cUnits[i] = u
-			}
+			copy(cUnits, units)
 			clone.AssignedUnits[k] = cUnits
 		}
 	}
@@ -663,9 +661,7 @@ func (i *BranchInfo) Clone() EntityInfo {
 		clone.Config = map[string][]ItemChange{}
 		for k, itemChanges := range i.Config {
 			cItems := make([]ItemChange, len(itemChanges))
-			for i, c := range itemChanges {
-				cItems[i] = c
-			}
+			copy(cItems, itemChanges)
 			clone.Config[k] = cItems
 		}
 	}

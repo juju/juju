@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
+	"github.com/juju/lumberjack"
 	"github.com/juju/mutex"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/paths"
@@ -203,6 +203,8 @@ func (c *lock) writeLogEntry() {
 		MaxBackups: 5,
 		Compress:   true,
 	}
+	c.logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+		writer.Filename, writer.MaxSize, writer.MaxBackups)
 	defer func() { _ = writer.Close() }()
 
 	if c.startMessage != "" {

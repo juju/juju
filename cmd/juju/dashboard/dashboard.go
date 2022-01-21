@@ -34,7 +34,7 @@ func NewDashboardCommand() cmd.Command {
 	d.newAPIFunc = func() (ControllerAPI, bool, error) {
 		return d.newControllerAPI()
 	}
-	d.embeddedSSHCmd = ssh.NewSSHCommand(nil, nil)
+	d.embeddedSSHCmd = ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy)
 	return modelcmd.Wrap(d)
 }
 
