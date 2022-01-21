@@ -1003,14 +1003,20 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
+			loggo.GetLogger("*** unit api ***").Criticalf("get unit for tag %v: err: %v", tag, err)
 			if err == nil {
 				var curl *charm.URL
 				curl, err = charm.ParseURL(entity.CharmURL)
+				loggo.GetLogger("*** unit api ***").Criticalf("parsing entity url: %v err: %v", entity.CharmURL, err)
 				if err == nil {
+					// ignore the error for this.
+					unitURL, _ := unit.CharmURL()
+					loggo.GetLogger("*** unit api ***").Criticalf("setting unit charm URL: %v from: %v", curl.String(), unitURL)
 					err = unit.SetCharmURL(curl)
 				}
 				if err == nil {
 					// Wait for the change to propagate to the cache controller.
+					loggo.GetLogger("*** unit api ***").Criticalf("waiting for cache charm URL: %v unit: %v", curl.String(), unit.Name())
 					err = u.waitForCacheCharmURL(unit.Name(), curl.String())
 				}
 			}
@@ -1027,6 +1033,7 @@ func (u *UniterAPI) waitForCacheCharmURL(unit, curl string) error {
 	timeout := u.clock.After(time.Minute)
 	cancel := make(chan struct{})
 	done := u.cacheModel.WaitForUnit(unit, func(u *cache.Unit) bool {
+		loggo.GetLogger("*** unit api ***").Criticalf("wait for unit: %v with unit url: %v and new url: %v", unit, u.CharmURL(), curl)
 		return u.CharmURL() == curl
 	}, cancel)
 

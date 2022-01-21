@@ -526,6 +526,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	if u.CharmURL != nil {
 		info.CharmURL = *u.CharmURL
 	}
+	loggo.GetLogger("*** allwatcher ***").Criticalf("unit charm url: %v info charm url: %v", u.CharmURL, info.CharmURL)
 
 	// Construct a unit for the purpose of retrieving other fields as necessary.
 	modelType, err := ctx.modelType()
@@ -582,6 +583,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	}
 	info.PublicAddress = publicAddress
 	info.PrivateAddress = privateAddress
+	loggo.GetLogger("*** allwatcher ***").Criticalf("unit processed: %v", info)
 	ctx.store.Update(info)
 	return nil
 }

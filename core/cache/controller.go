@@ -175,6 +175,7 @@ func (c *Controller) loop() error {
 			case RemoveMachine:
 				err = c.removeMachine(ch)
 			case UnitChange:
+				loggo.GetLogger("*** cache ***").Criticalf("unit change: %v", ch)
 				c.updateUnit(ch)
 			case RemoveUnit:
 				err = c.removeUnit(ch)

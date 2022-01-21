@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/kr/pretty"
@@ -378,6 +379,7 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 	case multiwatcher.MachineKind:
 		return c.translateMachine(d)
 	case multiwatcher.UnitKind:
+		loggo.GetLogger("*** cache worker ***").Criticalf("translate unit: %v", d.Entity)
 		return c.translateUnit(d)
 	case multiwatcher.RelationKind:
 		return c.translateRelation(d)
