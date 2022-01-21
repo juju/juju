@@ -71,12 +71,12 @@ func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
 			Current: status.Active,
 		}},
 		Expected: query.NewString("active"),
-        }, {
-                Field: "workload-message",
-                UnitInfo: &params.UnitInfo{WorkloadStatus: params.StatusInfo{
-                        Message: "unit is ready",
-                }},
-                Expected: query.NewString("unit is ready"),
+	}, {
+		Field: "workload-message",
+		UnitInfo: &params.UnitInfo{WorkloadStatus: params.StatusInfo{
+			Message: "unit is ready",
+		}},
+		Expected: query.NewString("unit is ready"),
 	}, {
 		Field: "agent-status",
 		UnitInfo: &params.UnitInfo{AgentStatus: params.StatusInfo{
