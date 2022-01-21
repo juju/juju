@@ -46,23 +46,25 @@ func (w *watcherCommon) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-// SrvAllWatcherV1 defines the API methods on a state.Multiwatcher for version 1.
+// SrvAllWatcherV1 defines the API methods on a state.Multiwatcher.
 type SrvAllWatcherV1 struct {
 	*SrvAllWatcher
 }
 
-// SrvAllWatcher defines the API methods on a state.Multiwatcher for version 2.
+// SrvAllWatcher defines the API methods on a state.Multiwatcher.
 // which watches any changes to the state. Each client has its own
 // current set of watchers, stored in resources. It is used by both
 // the AllWatcher and AllModelWatcher facades.
 type SrvAllWatcher struct {
 	watcherCommon
 	watcher multiwatcher.Watcher
+
+	deltaTranslater DeltaTranslater
 }
 
 // NewAllWatcherV1 is a wrapper that creates a V1 AllWatcher API.
 func NewAllWatcherV1(context facade.Context) (facade.Facade, error) {
-	api, err := newAllWatcher(context)
+	api, err := newAllWatcher(context, newAllWatcherDeltaTranslaterV1())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +76,7 @@ func NewAllWatcherV1(context facade.Context) (facade.Facade, error) {
 func (aw *SrvAllWatcherV1) Next() (params.AllWatcherNextResults, error) {
 	deltas, err := aw.watcher.Next()
 	return params.AllWatcherNextResults{
-		Deltas: translate(newAllWatcherDeltaTranslaterV1(), deltas),
+		Deltas: translate(aw.deltaTranslater, deltas),
 	}, err
 }
 
@@ -109,7 +111,7 @@ func (aw allWatcherDeltaTranslaterV1) TranslateAction(info multiwatcher.EntityIn
 	}
 }
 
-func newAllWatcher(context facade.Context) (*SrvAllWatcher, error) {
+func newAllWatcher(context facade.Context, deltaTranslater DeltaTranslater) (*SrvAllWatcher, error) {
 	id := context.ID()
 	auth := context.Auth()
 	resources := context.Resources()
@@ -133,15 +135,16 @@ func newAllWatcher(context facade.Context) (*SrvAllWatcher, error) {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	return &SrvAllWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
+		watcherCommon:   newWatcherCommon(context),
+		watcher:         watcher,
+		deltaTranslater: deltaTranslater,
 	}, nil
 }
 
 // NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
 func NewAllWatcher(context facade.Context) (facade.Facade, error) {
-	return newAllWatcher(context)
+	return newAllWatcher(context, newAllWatcherDeltaTranslater())
 }
 
 // Next will return the current state of everything on the first call
@@ -149,7 +152,7 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
 	deltas, err := aw.watcher.Next()
 	return params.AllWatcherNextResults{
-		Deltas: translate(newAllWatcherDeltaTranslater(), deltas),
+		Deltas: translate(aw.deltaTranslater, deltas),
 	}, err
 }
 
@@ -160,8 +163,6 @@ type allWatcherDeltaTranslater struct {
 func newAllWatcherDeltaTranslater() DeltaTranslater {
 	return &allWatcherDeltaTranslater{}
 }
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deltatranslater_mock.go github.com/juju/juju/apiserver DeltaTranslater
 
 // DeltaTranslater defines methods for translating multiwatcher.EntityInfo to params.EntityInfo.
 type DeltaTranslater interface {

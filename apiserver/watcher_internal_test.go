@@ -22,8 +22,15 @@ type allWatcherSuite struct {
 
 var _ = gc.Suite(&allWatcherSuite{})
 
-func (s *allWatcherSuite) TestTranslateApplicationWithStatus(c *gc.C) {
-	t := newAllWatcherDeltaTranslater()
+func (s *allWatcherSuite) TestTranslateApplicationWithStatusV1(c *gc.C) {
+	s.assertTranslateApplicationWithStatus(c, newAllWatcherDeltaTranslaterV1())
+}
+
+func (s *allWatcherSuite) TestTranslateApplicationWithStatusV2(c *gc.C) {
+	s.assertTranslateApplicationWithStatus(c, newAllWatcherDeltaTranslater())
+}
+
+func (s *allWatcherSuite) assertTranslateApplicationWithStatus(c *gc.C, t DeltaTranslater) {
 	input := &multiwatcher.ApplicationInfo{
 		ModelUUID: testing.ModelTag.Id(),
 		Name:      "test-app",
