@@ -235,8 +235,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var stateManager statemanager.StateManager
-	if err := context.Get(config.StateManagerName, &stateManager); err != nil {
+	var stateManagerProvider statemanager.StateManagerProvider
+	if err := context.Get(config.StateManagerName, &stateManagerProvider); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -259,7 +259,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
 		RaftOpQueue:                       config.RaftOpQueue,
-		StateManager:                      stateManager,
+		StateManagerProvider:              stateManagerProvider,
 	})
 	if err != nil {
 		_ = stTracker.Done()

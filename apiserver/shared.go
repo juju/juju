@@ -36,16 +36,16 @@ type SharedHub interface {
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool           *state.StatePool
-	controller          *cache.Controller
-	multiwatcherFactory multiwatcher.Factory
-	centralHub          SharedHub
-	presence            presence.Recorder
-	leaseManager        lease.Manager
-	raftOpQueue         Queue
-	stateManager        StateManager
-	logger              loggo.Logger
-	cancel              <-chan struct{}
+	statePool            *state.StatePool
+	controller           *cache.Controller
+	multiwatcherFactory  multiwatcher.Factory
+	centralHub           SharedHub
+	presence             presence.Recorder
+	leaseManager         lease.Manager
+	raftOpQueue          Queue
+	stateManagerProvider StateManagerProvider
+	logger               loggo.Logger
+	cancel               <-chan struct{}
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -55,16 +55,16 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	statePool           *state.StatePool
-	controller          *cache.Controller
-	multiwatcherFactory multiwatcher.Factory
-	centralHub          SharedHub
-	presence            presence.Recorder
-	leaseManager        lease.Manager
-	controllerConfig    jujucontroller.Config
-	raftOpQueue         Queue
-	stateManager        StateManager
-	logger              loggo.Logger
+	statePool            *state.StatePool
+	controller           *cache.Controller
+	multiwatcherFactory  multiwatcher.Factory
+	centralHub           SharedHub
+	presence             presence.Recorder
+	leaseManager         lease.Manager
+	controllerConfig     jujucontroller.Config
+	raftOpQueue          Queue
+	stateManagerProvider StateManagerProvider
+	logger               loggo.Logger
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -92,8 +92,8 @@ func (c *sharedServerConfig) validate() error {
 	if c.raftOpQueue == nil {
 		return errors.NotValidf("nil raftOpQueue")
 	}
-	if c.stateManager == nil {
-		return errors.NotValidf("nil stateManager")
+	if c.stateManagerProvider == nil {
+		return errors.NotValidf("nil stateManagerProvider")
 	}
 	return nil
 }
@@ -103,16 +103,16 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		return nil, errors.Trace(err)
 	}
 	ctx := &sharedServerContext{
-		statePool:           config.statePool,
-		controller:          config.controller,
-		multiwatcherFactory: config.multiwatcherFactory,
-		centralHub:          config.centralHub,
-		presence:            config.presence,
-		leaseManager:        config.leaseManager,
-		logger:              config.logger,
-		controllerConfig:    config.controllerConfig,
-		raftOpQueue:         config.raftOpQueue,
-		stateManager:        config.stateManager,
+		statePool:            config.statePool,
+		controller:           config.controller,
+		multiwatcherFactory:  config.multiwatcherFactory,
+		centralHub:           config.centralHub,
+		presence:             config.presence,
+		leaseManager:         config.leaseManager,
+		logger:               config.logger,
+		controllerConfig:     config.controllerConfig,
+		raftOpQueue:          config.raftOpQueue,
+		stateManagerProvider: config.stateManagerProvider,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

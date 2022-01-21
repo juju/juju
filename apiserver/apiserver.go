@@ -59,8 +59,8 @@ var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
-// StateManager provides access to model-scoped state.
-type StateManager interface {
+// StateManagerProvider provides access to a namespaced state.
+type StateManagerProvider interface {
 	GetStateManager(string) (statemanager.Overlord, error)
 }
 
@@ -205,8 +205,8 @@ type ServerConfig struct {
 	// instance.
 	RaftOpQueue Queue
 
-	// StateManager provides access to model-scoped state.
-	StateManager StateManager
+	// StateManagerProvider provides access to a namespaced-scoped state.
+	StateManagerProvider StateManagerProvider
 }
 
 // Validate validates the API server configuration.
@@ -258,8 +258,8 @@ func (c ServerConfig) Validate() error {
 	if c.RaftOpQueue == nil {
 		return errors.NotValidf("missing RaftOpQueue")
 	}
-	if c.StateManager == nil {
-		return errors.NotValidf("missing StateManager")
+	if c.StateManagerProvider == nil {
+		return errors.NotValidf("missing StateManagerProvider")
 	}
 	return nil
 }
@@ -297,16 +297,16 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
-		statePool:           cfg.StatePool,
-		controller:          cfg.Controller,
-		multiwatcherFactory: cfg.MultiwatcherFactory,
-		centralHub:          cfg.Hub,
-		presence:            cfg.Presence,
-		leaseManager:        cfg.LeaseManager,
-		controllerConfig:    controllerConfig,
-		raftOpQueue:         cfg.RaftOpQueue,
-		stateManager:        cfg.StateManager,
-		logger:              loggo.GetLogger("juju.apiserver"),
+		statePool:            cfg.StatePool,
+		controller:           cfg.Controller,
+		multiwatcherFactory:  cfg.MultiwatcherFactory,
+		centralHub:           cfg.Hub,
+		presence:             cfg.Presence,
+		leaseManager:         cfg.LeaseManager,
+		controllerConfig:     controllerConfig,
+		raftOpQueue:          cfg.RaftOpQueue,
+		stateManagerProvider: cfg.StateManagerProvider,
+		logger:               loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -338,7 +338,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
-			stateManager:          cfg.StateManager,
+			stateManagerProvider:  cfg.StateManagerProvider,
 		},
 		metricsCollector:    cfg.MetricsCollector,
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
@@ -1032,7 +1032,7 @@ func (srv *Server) serveConn(
 	}
 
 	// Attempt to get the state manager that is unique to the modelUUID.
-	stateManager, err := srv.shared.stateManager.GetStateManager(resolvedModelUUID)
+	stateManager, err := srv.shared.stateManagerProvider.GetStateManager(resolvedModelUUID)
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 		return srv.processConn(ctx, conn)

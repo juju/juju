@@ -491,6 +491,20 @@ func (mr *MockContextMockRecorder) State() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockContext)(nil).State))
 }
 
+// StateManager mocks base method.
+func (m *MockContext) StateManager() facade.StateManager {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StateManager")
+	ret0, _ := ret[0].(facade.StateManager)
+	return ret0
+}
+
+// StateManager indicates an expected call of StateManager.
+func (mr *MockContextMockRecorder) StateManager() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateManager", reflect.TypeOf((*MockContext)(nil).StateManager))
+}
+
 // StatePool mocks base method.
 func (m *MockContext) StatePool() *state.StatePool {
 	m.ctrl.T.Helper()

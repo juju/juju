@@ -58,7 +58,7 @@ type dbloggers struct {
 	clock                 clock.Clock
 	dbLoggerBufferSize    int
 	dbLoggerFlushInterval time.Duration
-	stateManager          StateManager
+	stateManagerProvider  StateManagerProvider
 	mu                    sync.Mutex
 	loggers               map[*state.State]*bufferedDbLogger
 }
@@ -73,7 +73,7 @@ func (d *dbloggers) get(st *state.State) (recordLogger, error) {
 		d.loggers = make(map[*state.State]*bufferedDbLogger)
 	}
 
-	stateManager, err := newStateLogger(d.stateManager)
+	stateManager, err := newStateLogger(d.stateManagerProvider)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -245,8 +245,8 @@ type stateLogger struct {
 	logger overlord.LogManager
 }
 
-func newStateLogger(stateManager StateManager) (*stateLogger, error) {
-	manager, err := stateManager.GetStateManager("logs")
+func newStateLogger(provider StateManagerProvider) (*stateLogger, error) {
+	manager, err := provider.GetStateManager("logs")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

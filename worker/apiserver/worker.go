@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/worker/statemanager"
 )
 
-// StateManager provides access to model-scoped state.
-type StateManager interface {
+// StateManagerProvider provides access to a namespaced-scoped state.
+type StateManagerProvider interface {
 	GetStateManager(string) (statemanager.Overlord, error)
 }
 
@@ -61,7 +61,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
-	StateManager                      StateManager
+	StateManagerProvider              StateManagerProvider
 }
 
 // NewServerFunc is the type of function that will be used
@@ -118,8 +118,8 @@ func (config Config) Validate() error {
 	if config.RaftOpQueue == nil {
 		return errors.NotValidf("nil RaftOpQueue")
 	}
-	if config.StateManager == nil {
-		return errors.NotValidf("nil StateManager")
+	if config.StateManagerProvider == nil {
+		return errors.NotValidf("nil StateManagerProvider")
 	}
 	return nil
 }
@@ -175,7 +175,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
-		StateManager:                  config.StateManager,
+		StateManagerProvider:          config.StateManagerProvider,
 	}
 	return config.NewServer(serverConfig)
 }

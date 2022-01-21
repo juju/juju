@@ -19,7 +19,7 @@ type DBAccessor interface {
 	GetExistingDB(modelUUID string) (*sql.DB, error)
 }
 
-type StateManager interface {
+type StateManagerProvider interface {
 	GetStateManager(namespace string) (Overlord, error)
 }
 
@@ -73,11 +73,11 @@ func stateManagerOutput(in worker.Worker, out interface{}) error {
 	}
 
 	switch out := out.(type) {
-	case *StateManager:
-		var target StateManager = w
+	case *StateManagerProvider:
+		var target StateManagerProvider = w
 		*out = target
 	default:
-		return errors.Errorf("expected output of *statemanager.StateManager, got %T", out)
+		return errors.Errorf("expected output of *statemanager.StateManagerProvider, got %T", out)
 	}
 	return nil
 }

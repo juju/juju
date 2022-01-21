@@ -997,20 +997,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			}
 
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
-				StatePool:           statePool,
-				StateManager:        &stubStateManager{},
-				Controller:          estate.controller,
-				MultiwatcherFactory: multiWatcherWorker,
-				Authenticator:       stateAuthenticator,
-				Clock:               clock.WallClock,
-				GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },
-				Tag:                 machineTag,
-				DataDir:             DataDir,
-				LogDir:              LogDir,
-				Mux:                 estate.mux,
-				Hub:                 estate.hub,
-				Presence:            estate.presence,
-				LeaseManager:        estate.leaseManager,
+				StatePool:            statePool,
+				StateManagerProvider: &stubStateManagerProvider{},
+				Controller:           estate.controller,
+				MultiwatcherFactory:  multiWatcherWorker,
+				Authenticator:        stateAuthenticator,
+				Clock:                clock.WallClock,
+				GetAuditConfig:       func() auditlog.Config { return auditlog.Config{} },
+				Tag:                  machineTag,
+				DataDir:              DataDir,
+				LogDir:               LogDir,
+				Mux:                  estate.mux,
+				Hub:                  estate.hub,
+				Presence:             estate.presence,
+				LeaseManager:         estate.leaseManager,
 				NewObserver: func() observer.Observer {
 					logger := loggo.GetLogger("juju.apiserver")
 					ctx := observer.RequestObserverContext{
@@ -2072,10 +2072,10 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }
 
-type stubStateManager struct{}
+type stubStateManagerProvider struct{}
 
-func (*stubStateManager) GetStateManager(ns string) (statemanager.Overlord, error) {
-	stateManager, err := overlord.New(overlordstate.NewState(nil))
+func (*stubStateManagerProvider) GetStateManager(ns string) (statemanager.Overlord, error) {
+	stateManager, err := overlord.NewModelOverlord(overlordstate.NewState(nil))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
