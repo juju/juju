@@ -357,13 +357,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			return errors.Trace(err)
 		}
 
-		// Calling these last, because there's a potential race: they're not guaranteed
-		// to be set in time to be needed for a hook. If they're not, we just leave them
-		// unset as we always have; this isn't great but it's about behaviour preservation.
-		ctx.publicAddress, err = f.unit.PublicAddress()
-		if err != nil && !params.IsCodeNoAddressSet(err) {
-			f.logger.Warningf("cannot get legacy public address for %v: %v", f.unit.Name(), err)
-		}
 		ctx.privateAddress, err = f.unit.PrivateAddress()
 		if err != nil && !params.IsCodeNoAddressSet(err) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
