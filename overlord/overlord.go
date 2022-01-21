@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/juju/overlord/logstate"
+	"github.com/juju/juju/overlord/schema"
+	"github.com/juju/juju/overlord/schema/updates"
 	"gopkg.in/tomb.v2"
 )
 
@@ -15,14 +17,22 @@ import (
 type Overlord struct {
 	stateEng *StateEngine
 	tomb     *tomb.Tomb
-	started  bool
+	// managers
+	started   bool
+	schemaMgr *schema.SchemaManager
 }
 
-func newOverlord(s State) *Overlord {
-	return &Overlord{
+func newOverlord(s State, sch *schema.Schema) *Overlord {
+	o := &Overlord{
 		tomb:     new(tomb.Tomb),
 		stateEng: NewStateEngine(s),
 	}
+
+	// Ensure we register the new schema manager first.
+	o.schemaMgr = schema.NewManager(s, sch)
+	o.stateEng.AddManager(o.schemaMgr)
+
+	return o
 }
 
 // StartUp proceeds to run any expensive Overlord or managers initialization.
@@ -70,7 +80,7 @@ type LogOverlord struct {
 // correct state managers.
 func NewLogOverlord(s State) (*LogOverlord, error) {
 	o := &LogOverlord{
-		Overlord: newOverlord(s),
+		Overlord: newOverlord(s, updates.LogSchema()),
 	}
 
 	o.logMgr = logstate.NewManager(s)
@@ -91,7 +101,7 @@ type ModelOverlord struct {
 // correct state managers.
 func NewModelOverlord(s State) (*ModelOverlord, error) {
 	o := &ModelOverlord{
-		Overlord: newOverlord(s),
+		Overlord: newOverlord(s, updates.ModelSchema()),
 	}
 
 	return o, nil

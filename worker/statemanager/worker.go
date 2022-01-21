@@ -20,6 +20,7 @@ import (
 type Overlord interface {
 	StartUp(context.Context) error
 	Stop() error
+	State() overlord.State
 
 	LogManager() overlord.LogManager
 }

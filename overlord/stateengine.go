@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/overlord/state"
 )
 
 // StateManager is implemented by types responsible for observing
@@ -44,6 +45,7 @@ type StateStopper interface {
 
 type State interface {
 	DB() *sql.DB
+	BeginTx(context.Context) (state.TxnRunner, error)
 }
 
 // StateEngine controls the dispatching of state changes to state managers.

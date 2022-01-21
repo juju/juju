@@ -208,9 +208,6 @@ func (w *dbWorker) GetDB(namespace string) (*sql.DB, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "acccessing DB for namespace %q", namespace)
 	}
-	if err := ensureDBSchema(namespace, db); err != nil {
-		return nil, errors.Annotatef(err, "acccessing DB for namespace %q", namespace)
-	}
 	w.dbHandles[namespace] = db
 	return db, nil
 }

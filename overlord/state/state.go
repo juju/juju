@@ -62,7 +62,8 @@ type Txn interface {
 	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
 }
 type TxnRunner interface {
-	WithTxn(func(Txn) error) error
+	WithTxn(func(context.Context, Txn) error) error
+	Commit() error
 }
 
 func (s *State) BeginTx(ctx context.Context) (TxnRunner, error) {
@@ -72,18 +73,22 @@ func (s *State) BeginTx(ctx context.Context) (TxnRunner, error) {
 	}
 
 	return &txnRunner{
-		tx: tx,
+		tx:  tx,
+		ctx: ctx,
 	}, nil
 }
 
 // txnRunner creates a type for executing transactions and ensuring rollback
 // symantics are employed.
 type txnRunner struct {
-	tx *sql.Tx
+	tx  *sql.Tx
+	ctx context.Context
 }
 
-func (t *txnRunner) WithTxn(fn func(Txn) error) error {
-	if err := fn(t.tx); err != nil {
+// WIthTxn runs the function in a given transaction context. The transaction
+// isn't committed until the commit method is called.
+func (t *txnRunner) WithTxn(fn func(context.Context, Txn) error) error {
+	if err := fn(t.ctx, t.tx); err != nil {
 		_ = t.tx.Rollback()
 		return errors.Trace(err)
 	}
