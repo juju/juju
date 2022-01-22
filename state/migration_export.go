@@ -454,6 +454,16 @@ func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, erro
 }
 
 func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
+	// For machines that are assigned a displayName, we need to
+	// get their displayName from the instance (provisioner keeps
+	// it in db.instanceData (see state.Machine.SetProvisioned)
+	instData, found := instances[machine.doc.Id]
+
+	machineDisplayName := ""
+	if found {
+		machineDisplayName = instData.DisplayName
+	}
+
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
@@ -461,6 +471,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		Placement:     machine.doc.Placement,
 		Series:        machine.doc.Series,
 		ContainerType: machine.doc.ContainerType,
+		DisplayName:   machineDisplayName,
 	}
 
 	if supported, ok := machine.SupportedContainers(); ok {
@@ -493,7 +504,6 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	// We fully expect the machine to have tools set, and that there is
 	// some instance data.
 	if !e.cfg.SkipInstanceData {
-		instData, found := instances[machine.doc.Id]
 		if !found && !e.cfg.IgnoreIncompleteModel {
 			return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 		}

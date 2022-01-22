@@ -148,6 +148,10 @@ type machineDoc struct {
 
 	// Hostname records the machine's hostname as reported by the machine agent.
 	Hostname string `bson:"hostname,omitempty"`
+
+	// DisplayName records the machine's display-name (currently
+	// only OCI and MAAS providers use this)
+	DisplayName string `bson:"display-name,omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {

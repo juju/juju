@@ -568,10 +568,11 @@ func (i *importer) machinePortsOp(m description.Machine) txn.Op {
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
 	doc := &instanceData{
-		DocID:      mdoc.DocID,
-		MachineId:  mdoc.Id,
-		InstanceId: instance.Id(inst.InstanceId()),
-		ModelUUID:  mdoc.ModelUUID,
+		DocID:       mdoc.DocID,
+		DisplayName: mdoc.DisplayName,
+		MachineId:   mdoc.Id,
+		InstanceId:  instance.Id(inst.InstanceId()),
+		ModelUUID:   mdoc.ModelUUID,
 	}
 
 	if arch := inst.Architecture(); arch != "" {
@@ -650,6 +651,7 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		SupportedContainersKnown: supportedSet,
 		SupportedContainers:      supportedContainers,
 		Placement:                m.Placement(),
+		DisplayName:              m.DisplayName(),
 	}, nil
 }
 
