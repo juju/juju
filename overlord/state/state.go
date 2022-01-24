@@ -27,6 +27,16 @@ func (s *State) DB() *sql.DB {
 	return s.db
 }
 
+// PrepareStatement creates a prepared statement for later queries or
+// executions.
+// Multiple queries or executions may be run concurrently from the
+// returned statement.
+// The caller must call the statement's Close method
+// when the statement is no longer needed.
+func (s *State) PrepareStatement(ctx context.Context, query string) (*sql.Stmt, error) {
+	return s.db.PrepareContext(ctx, query)
+}
+
 type Txn interface {
 	// PrepareContext creates a prepared statement for use within a transaction.
 	//
@@ -61,74 +71,88 @@ type Txn interface {
 	// QueryContext executes a query that returns rows, typically a SELECT.
 	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
 }
-type TxnRunner interface {
-	WithTxn(func(context.Context, Txn) error) error
+
+// TxnBuilder allows the building of a series of functions that will be called
+// during a transaction commit. Only upon commit is the transaction constructed
+// and the function called.
+// The functions in the txn builder maybe called multiple times depending on
+// how many retries are employed.
+type TxnBuilder interface {
+	Run(func(context.Context, Txn) error)
 	Commit() error
 }
 
-func (s *State) BeginTx(ctx context.Context) (TxnRunner, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+// Run is a convince function for running one shot transactions, which correctly
+// handles the rollback semantics and retries where available.
+// The run function maybe called multiple times if the transaction is being
+// retried.
+func (s *State) Run(fn func(context.Context, Txn) error) error {
+	txn, err := s.CreateTxn(context.Background())
 	if err != nil {
-		// Nested transactions are not supported, if we get an error during the
-		// begin transaction phase, attempt to rollback both transactions, so
-		// that they can correctly start again.
-		if tx != nil {
-			_, _ = tx.Exec("ROLLBACK")
-		}
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	return &txnRunner{
-		tx:  tx,
+	txn.Run(fn)
+
+	return txn.Commit()
+}
+
+// CreateTxn creates a transaction builder. The transaction builder accumulates
+// a series of functions that can be executed on a given commit.
+func (s *State) CreateTxn(ctx context.Context) (TxnBuilder, error) {
+	return &txnBuilder{
+		db:  s.DB(),
 		ctx: ctx,
 	}, nil
 }
 
-// txnRunner creates a type for executing transactions and ensuring rollback
+// txnBuilder creates a type for executing transactions and ensuring rollback
 // symantics are employed.
-type txnRunner struct {
-	tx  *sql.Tx
-	ctx context.Context
+type txnBuilder struct {
+	db        *sql.DB
+	ctx       context.Context
+	runnables []func(context.Context, Txn) error
 }
 
-// Context returns the underlying TxnRunner context.
-func (t *txnRunner) Context() context.Context {
+// Context returns the underlying TxnBuilder context.
+func (t *txnBuilder) Context() context.Context {
 	return t.ctx
 }
 
-// WIthTxn runs the function in a given transaction context. The transaction
+// Run adds a function to a given transaction context. The transaction
 // isn't committed until the commit method is called.
-func (t *txnRunner) WithTxn(fn func(context.Context, Txn) error) error {
-	if err := fn(t.ctx, t.tx); err != nil {
-		_ = t.tx.Rollback()
-		return errors.Trace(err)
-	}
-	return nil
+// The run function maybe called multiple times if the transaction is being
+// retried.
+func (t *txnBuilder) Run(fn func(context.Context, Txn) error) {
+	t.runnables = append(t.runnables, fn)
 }
 
-// // Commit commits the transaction.
-func (t *txnRunner) Commit() error {
-	return t.tx.Commit()
-}
+// Commit commits the transaction.
+func (t *txnBuilder) Commit() error {
+	return withRetry(func() error {
+		// Ensure that we don't attempt to retry if the context has been
+		// cancelled or errored out.
+		if err := t.ctx.Err(); err != nil {
+			return errors.Trace(err)
+		}
 
-// TxnState provides a way to get transactions from the given state.
-type TxnState interface {
-	BeginTx(context.Context) (TxnRunner, error)
-}
-
-// WithTxn is a convince function for running a transaction, which correctly
-// handles the rollback semantics and retries where available.
-func WithTxn(s TxnState, fn func(context.Context, Txn) error) error {
-	return WithRetry(func() error {
-		txn, err := s.BeginTx(context.Background())
+		tx, err := t.db.BeginTx(t.ctx, nil)
 		if err != nil {
+			// Nested transactions are not supported, if we get an error during
+			// the begin transaction phase, attempt to rollback both
+			// transactions, so that they can correctly start again.
+			if tx != nil {
+				_, _ = tx.Exec("ROLLBACK")
+			}
 			return errors.Trace(err)
 		}
-
-		if err := txn.WithTxn(fn); err != nil {
-			return errors.Trace(err)
+		// TODO (stickupkid): We should wrap this transaction, so it's possible
+		// to abort a transaction within a run function.
+		for _, fn := range t.runnables {
+			if err := fn(t.ctx, tx); err != nil {
+				return errors.Trace(err)
+			}
 		}
-
-		return txn.Commit()
+		return tx.Commit()
 	})
 }

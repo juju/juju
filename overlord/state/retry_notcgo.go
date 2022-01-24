@@ -5,8 +5,8 @@
 
 package state
 
-// IsErrorRetryable returns true if the given error might be transient and the
+// isErrorRetryable returns true if the given error might be transient and the
 // interaction can be safely retried.
-func IsErrorRetryable(err error) bool {
+func isErrorRetryable(err error) bool {
 	return false
 }

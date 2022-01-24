@@ -77,17 +77,17 @@ func (c *WorkerConfig) Validate() error {
 type DBApp interface {
 	// Open the dqlite database with the given name
 	Open(context.Context, string) (*sql.DB, error)
-	// Ready can be used to wait for a node to complete some initial tasks that are
-	// initiated at startup. For example a brand new node will attempt to join the
-	// cluster, a restarted node will check if it should assume some particular
-	// role, etc.
+	// Ready can be used to wait for a node to complete some initial tasks that
+	// are initiated at startup. For example a brand new node will attempt to
+	// join the cluster, a restarted node will check if it should assume some
+	// particular role, etc.
 	//
-	// If this method returns without error it means that those initial tasks have
-	// succeeded and follow-up operations like Open() are more likely to succeeed
-	// quickly.
+	// If this method returns without error it means that those initial tasks
+	// have succeeded and follow-up operations like Open() are more likely to
+	// succeed quickly.
 	Ready(context.Context) error
-	// Handover transfers all responsibilities for this node (such has leadership
-	// and voting rights) to another node, if one is available.
+	// Handover transfers all responsibilities for this node (such has
+	// leadership and voting rights) to another node, if one is available.
 	//
 	// This method should always be called before invoking Close(), in order to
 	// gracefully shutdown a node.
@@ -295,7 +295,9 @@ func (w *dbWorker) initializeDqlite() error {
 		w.dbApp = nil
 		return errors.Annotatef(err, "starting dqlite REPL")
 	}
-	w.catacomb.Add(repl)
+	if err := w.catacomb.Add(repl); err != nil {
+		return errors.Trace(err)
+	}
 
 	w.cfg.Logger.Infof("initialized dqlite application (ID: %v)", w.dbApp.ID())
 	close(w.dbReadyCh) // start accepting GetDB() requests.
@@ -438,7 +440,9 @@ func maybeReadNonce(nonceAddr string, expNonce string) bool {
 	defer func() { _ = conn.Close() }()
 
 	nonceBuf := make([]byte, len(expNonce))
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		return false
+	}
 	n, _ := conn.Read(nonceBuf)
 
 	return n == len(expNonce) && string(nonceBuf[:n]) == expNonce

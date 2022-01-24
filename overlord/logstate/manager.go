@@ -6,7 +6,6 @@ package logstate
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +17,7 @@ import (
 )
 
 type State interface {
-	DB() *sql.DB
+	PrepareStatement(context.Context, string) (*sql.Stmt, error)
 }
 
 type LogManager struct {
@@ -38,8 +37,7 @@ func NewManager(s State) *LogManager {
 
 // StartUp the LogManager preparing the statements required for appending lines.
 func (m *LogManager) StartUp(ctx context.Context) error {
-	db := m.state.DB()
-	stmt, err := db.PrepareContext(ctx, sqlInsertLogEntry)
+	stmt, err := m.state.PrepareStatement(ctx, sqlInsertLogEntry)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -57,9 +55,13 @@ func (m *LogManager) Ensure() error {
 }
 
 func (m *LogManager) Stop() error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	for _, stmt := range m.statements {
 		_ = stmt.Close()
 	}
+	m.statements = nil
 	return nil
 }
 
@@ -81,7 +83,12 @@ type Line struct {
 
 // AppendLines appends the log lines to the given log manager.
 func (m *LogManager) AppendLines(txn state.Txn, lines []Line) error {
-	stmt := m.getStatement(txn, sqlInsertLogEntry)
+	stmt, err := m.getStatement(txn, sqlInsertLogEntry)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer stmt.Close()
+
 	for _, r := range lines {
 		_, err := stmt.ExecContext(context.Background(),
 			r.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
@@ -100,7 +107,7 @@ func (m *LogManager) AppendLines(txn state.Txn, lines []Line) error {
 	return nil
 }
 
-func (m *LogManager) getStatement(txn state.Txn, key string) *sql.Stmt {
+func (m *LogManager) getStatement(txn state.Txn, key string) (*sql.Stmt, error) {
 	m.mutex.Lock()
 	stmt, ok := m.statements[key]
 	if !ok {
@@ -108,12 +115,12 @@ func (m *LogManager) getStatement(txn state.Txn, key string) *sql.Stmt {
 
 		// The following should never happen in production and is classified as
 		// a programmatic error that should be picked up in tests.
-		panic(fmt.Sprintf("missing SQL statement: %s", key))
+		return nil, errors.Errorf("missing SQL statement: %s", key)
 	}
 	m.mutex.Unlock()
 	// Return a transaction-specific prepared statement from an existing
 	// prepared statement.
-	return txn.StmtContext(context.Background(), stmt)
+	return txn.StmtContext(context.Background(), stmt), nil
 }
 
 const (

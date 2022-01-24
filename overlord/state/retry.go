@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 )
@@ -23,17 +24,20 @@ var strategy = retry.CallArgs{
 		}
 
 		// If the error is not retryable then we should consider it fatal.
-		return !IsErrorRetryable(err)
+		return !isErrorRetryable(err)
 	},
 	// Allow the retry strategy to back-off with some jitter to prevent
 	// contention.
 	BackoffFunc: retry.ExpBackoff(time.Millisecond*20, time.Millisecond*200, 2.0, true),
 	Attempts:    maxRetries,
+	// TODO (stickupkid): Allow injection of the wall clock.
+	Clock: clock.WallClock,
+	Delay: time.Millisecond * 10,
 }
 
-// WithRetry wraps a function that wraps database calls, and retries it in
+// withRetry wraps a function that wraps database calls, and retries it in
 // case a transient dqlite/sqlite error is hit.
-func WithRetry(fn func() error) error {
+func withRetry(fn func() error) error {
 	args := strategy
 	args.Func = fn
 	return retry.Call(args)

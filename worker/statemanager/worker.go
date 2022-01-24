@@ -103,6 +103,10 @@ func (w *stateManagerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// GetStateManager returns a overlord state for a given namespace. Each overlord
+// will manage the lifecycle of events and changes for that namespace. Currently
+// each model has it's own namespace, so that each model doesn't pollute another
+// namespace.
 func (w *stateManagerWorker) GetStateManager(namespace string) (Overlord, error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()

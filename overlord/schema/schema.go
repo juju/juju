@@ -53,12 +53,7 @@ func (s *Schema) Add(update Update) {
 func (s *Schema) Ensure(st State) (int, error) {
 	var current int
 
-	runner, err := st.BeginTx(context.TODO())
-	if err != nil {
-		return -1, errors.Trace(err)
-	}
-
-	err = runner.WithTxn(func(ctx context.Context, t state.Txn) error {
+	err := st.Run(func(ctx context.Context, t state.Txn) error {
 		err := ensureSchemaTableExists(ctx, t)
 		if err != nil {
 			return errors.Trace(err)
@@ -77,9 +72,6 @@ func (s *Schema) Ensure(st State) (int, error) {
 		return nil
 	})
 	if err != nil {
-		return -1, errors.Trace(err)
-	}
-	if err := runner.Commit(); err != nil {
 		return -1, errors.Trace(err)
 	}
 	return current, nil

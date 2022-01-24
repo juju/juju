@@ -5,6 +5,7 @@ package overlord
 
 import (
 	"context"
+	"sync"
 
 	"github.com/juju/juju/overlord/logstate"
 	"github.com/juju/juju/overlord/schema"
@@ -18,6 +19,7 @@ type Overlord struct {
 	stateEng *StateEngine
 	tomb     *tomb.Tomb
 	// managers
+	mutex     sync.Mutex
 	started   bool
 	schemaMgr *schema.SchemaManager
 }
@@ -38,6 +40,11 @@ func newOverlord(s State, sch *schema.Schema) *Overlord {
 // StartUp proceeds to run any expensive Overlord or managers initialization.
 // After this is done once it is a noop.
 func (o *Overlord) StartUp(ctx context.Context) error {
+	// Use the mutex to prevent multiple calls to startup causing the engine
+	// to startup.
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
 	if o.started {
 		return nil
 	}
@@ -69,7 +76,7 @@ func (o *Overlord) LogManager() LogManager {
 }
 
 // LogOverlord is an overlord that handles the logs database. As the logs
-// database is separete from the models database, we have a special logging
+// database is separate from the models database, we have a special logging
 // overlord that correctly handles just that case.
 type LogOverlord struct {
 	*Overlord

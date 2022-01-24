@@ -13,9 +13,9 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// IsErrorRetryable returns true if the given error might be transient and the
+// isErrorRetryable returns true if the given error might be transient and the
 // interaction can be safely retried.
-func IsErrorRetryable(err error) bool {
+func isErrorRetryable(err error) bool {
 	err = errors.Cause(err)
 	if err == nil {
 		return false

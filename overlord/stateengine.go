@@ -43,9 +43,11 @@ type StateStopper interface {
 	Stop()
 }
 
+// State represents a type for interacting with the backend.
 type State interface {
-	DB() *sql.DB
-	BeginTx(context.Context) (state.TxnRunner, error)
+	PrepareStatement(context.Context, string) (*sql.Stmt, error)
+	Run(func(context.Context, state.Txn) error) error
+	CreateTxn(context.Context) (state.TxnBuilder, error)
 }
 
 // StateEngine controls the dispatching of state changes to state managers.

@@ -5,15 +5,18 @@ package schema
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/overlord/state"
 )
 
 type State interface {
-	DB() *sql.DB
-	BeginTx(context.Context) (state.TxnRunner, error)
+	// Run is a convince function for running one shot transactions, which
+	// correctly handles the rollback semantics and retries where available.
+	Run(func(context.Context, state.Txn) error) error
+	// CreateTxn creates a transaction builder. The transaction builder
+	// accumulates a series of functions that can be executed on a given commit.
+	CreateTxn(context.Context) (state.TxnBuilder, error)
 }
 
 type SchemaManager struct {
