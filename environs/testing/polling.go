@@ -92,7 +92,7 @@ func PatchAttemptStrategies(strategies ...*utils.AttemptStrategy) func() {
 	return internalPatchAttemptStrategies(combinedStrategies)
 }
 
-// TODO(jack-w-shaw): 2022-01-21: Implemnting funcs for both 'AttemptStrategy'
+// TODO(jack-w-shaw): 2022-01-21: Implementing funcs for both 'AttemptStrategy'
 // patching and 'RetryStrategy' patching whilst lp:1611427 is in progress
 //
 // Remove AttemptStrategy patching when they are no longer in use i.e. when
@@ -130,10 +130,14 @@ func restoreRetryStrategies(strategies []savedRetryStrategy) {
 	}
 }
 
-func PatchRetryStrategies(strategies ...*retry.CallArgs) func() {
+func internalPatchRetryStrategies(strategies []*retry.CallArgs) func() {
 	snapshot := saveRetryStrategies(strategies)
 	for _, strategy := range strategies {
 		*strategy = impatientRetryStrategy
 	}
 	return func() { restoreRetryStrategies(snapshot) }
+}
+
+func PatchRetryStrategies(strategies ...*retry.CallArgs) func() {
+	return internalPatchRetryStrategies(strategies)
 }
