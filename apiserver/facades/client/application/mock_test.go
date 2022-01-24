@@ -314,16 +314,17 @@ func (m *mockApplication) MergeBindings(bindings *state.Bindings, force bool) er
 
 type mockRemoteApplication struct {
 	jtesting.Stub
-	name           string
-	life           state.Life
-	sourceModelTag names.ModelTag
-	endpoints      []state.Endpoint
-	bindings       map[string]string
-	spaces         []state.RemoteSpace
-	offerUUID      string
-	offerURL       string
-	status         status.Status
-	mac            *macaroon.Macaroon
+	name                 string
+	life                 state.Life
+	sourceControllerUUID string
+	sourceModelTag       names.ModelTag
+	endpoints            []state.Endpoint
+	bindings             map[string]string
+	spaces               []state.RemoteSpace
+	offerUUID            string
+	offerURL             string
+	status               status.Status
+	mac                  *macaroon.Macaroon
 }
 
 func (m *mockRemoteApplication) Name() string {
@@ -734,13 +735,14 @@ func (m *mockBackend) AddRemoteApplication(args state.AddRemoteApplicationParams
 		return nil, err
 	}
 	app := &mockRemoteApplication{
-		name:           args.Name,
-		sourceModelTag: args.SourceModel,
-		offerUUID:      args.OfferUUID,
-		offerURL:       args.URL,
-		bindings:       args.Bindings,
-		mac:            args.Macaroon,
-		status:         status.Active,
+		name:                 args.Name,
+		sourceControllerUUID: args.ExternalControllerUUID,
+		sourceModelTag:       args.SourceModel,
+		offerUUID:            args.OfferUUID,
+		offerURL:             args.URL,
+		bindings:             args.Bindings,
+		mac:                  args.Macaroon,
+		status:               status.Active,
 	}
 	for _, ep := range args.Endpoints {
 		app.endpoints = append(app.endpoints, state.Endpoint{

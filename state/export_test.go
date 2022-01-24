@@ -175,6 +175,14 @@ func ApplicationOffersRefCount(st *State, appName string) (int, error) {
 	return nsRefcounts.read(refcounts, key)
 }
 
+func ControllerRefCount(st *State, controllerUUID string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := externalControllerRefCountKey(controllerUUID)
+	return nsRefcounts.read(refcounts, key)
+}
+
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }

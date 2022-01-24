@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc"
 )
 
 var logger = loggo.GetLogger("juju.worker.externalcontrollerupdater")
@@ -112,6 +113,7 @@ func (w *updaterWorker) loop() error {
 	}
 	_ = w.catacomb.Add(watcher)
 
+	watchers := names.NewSet()
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -135,7 +137,6 @@ func (w *updaterWorker) loop() error {
 				tags[i] = names.NewControllerTag(id)
 			}
 
-			watchers := names.NewSet()
 			for _, tag := range tags {
 				// We're informed when an external controller
 				// is added or removed, so treat as a toggle.
@@ -188,13 +189,20 @@ func (w *controllerWatcher) Kill() {
 
 // Wait is part of the worker.Worker interface.
 func (w *controllerWatcher) Wait() error {
-	return w.catacomb.Wait()
+	err := w.catacomb.Wait()
+	if errors.Cause(err) == rpc.ErrShutdown {
+		// RPC shutdown errors need to be ignored.
+		return nil
+	}
+	return err
 }
 
 func (w *controllerWatcher) loop() error {
 	// We get the API info from the local controller initially.
 	info, err := w.externalControllerInfo(w.tag.Id())
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return errors.Annotate(err, "getting cached external controller info")
 	}
 	logger.Debugf("controller info for controller %q: %v", w.tag.Id(), info)
@@ -203,7 +211,7 @@ func (w *controllerWatcher) loop() error {
 	var client ExternalControllerWatcherClientCloser
 	defer func() {
 		if client != nil {
-			client.Close()
+			_ = client.Close()
 		}
 	}()
 
@@ -214,13 +222,11 @@ func (w *controllerWatcher) loop() error {
 				CACert: info.CACert,
 				Tag:    names.NewUserTag(api.AnonymousUsername),
 			}
-			client, err = w.newExternalControllerWatcherClient(apiInfo)
-			if err != nil {
-				return errors.Annotate(err, "getting external controller client")
-			}
-			nw, err = client.WatchControllerInfo()
-			if err != nil {
-				return errors.Annotate(err, "watching external controller")
+			client, nw, err = w.connectAndWatch(apiInfo, w.catacomb.Dying())
+			if err == w.catacomb.ErrDying() {
+				return err
+			} else if err != nil {
+				return errors.Trace(err)
 			}
 			_ = w.catacomb.Add(nw)
 		}
@@ -263,5 +269,38 @@ func (w *controllerWatcher) loop() error {
 			client = nil
 			nw = nil
 		}
+	}
+}
+
+// connectAndWatch connects to the specified controller and watches for changes.
+// It aborts if signalled, which prevents the watcher loop from blocking any shutdown
+// of the watcher the may be requested by the parent worker.
+func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info, abort <-chan struct{}) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, error) {
+	type result struct {
+		client ExternalControllerWatcherClientCloser
+		nw     watcher.NotifyWatcher
+	}
+	donec := make(chan result, 1)
+	errc := make(chan error, 1)
+	go func() {
+		client, err := w.newExternalControllerWatcherClient(apiInfo)
+		if err != nil {
+			errc <- errors.Annotate(err, "getting external controller client")
+			return
+		}
+		nw, err := client.WatchControllerInfo()
+		if err != nil {
+			errc <- errors.Annotate(err, "watching external controller")
+			return
+		}
+		donec <- result{client, nw}
+	}()
+	select {
+	case <-abort:
+		return nil, nil, w.catacomb.ErrDying()
+	case err := <-errc:
+		return nil, nil, errors.Trace(err)
+	case r := <-donec:
+		return r.client, r.nw, nil
 	}
 }
