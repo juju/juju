@@ -21,8 +21,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/overlord"
 	"github.com/juju/juju/overlord/logstate"
+	overlordstate "github.com/juju/juju/overlord/state"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/logdb"
+	"github.com/juju/juju/worker/statemanager"
 )
 
 const (
@@ -242,7 +244,8 @@ func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
 
 // stateLogger inserts log entries via the overlord log manager.
 type stateLogger struct {
-	logger overlord.LogManager
+	manager statemanager.Overlord
+	logger  overlord.LogManager
 }
 
 func newStateLogger(provider StateManagerProvider) (*stateLogger, error) {
@@ -251,7 +254,8 @@ func newStateLogger(provider StateManagerProvider) (*stateLogger, error) {
 		return nil, errors.Trace(err)
 	}
 	return &stateLogger{
-		logger: manager.LogManager(),
+		manager: manager,
+		logger:  manager.LogManager(),
 	}, nil
 }
 
@@ -271,8 +275,9 @@ func (l *stateLogger) Log(records []state.LogRecord) error {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
-	return l.logger.AppendLines(ctx, lines)
+	// Commit the log records in one transaction, effectively batching.
+	err := overlordstate.WithTxn(l.manager.State(), func(ctx context.Context, txn overlordstate.Txn) error {
+		return l.logger.AppendLines(txn, lines)
+	})
+	return errors.Trace(err)
 }

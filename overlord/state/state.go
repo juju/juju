@@ -69,6 +69,12 @@ type TxnRunner interface {
 func (s *State) BeginTx(ctx context.Context) (TxnRunner, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		// Nested transactions are not supported, if we get an error during the
+		// begin transaction phase, attempt to rollback both transactions, so
+		// that they can correctly start again.
+		if tx != nil {
+			_, _ = tx.Exec("ROLLBACK")
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -85,6 +91,11 @@ type txnRunner struct {
 	ctx context.Context
 }
 
+// Context returns the underlying TxnRunner context.
+func (t *txnRunner) Context() context.Context {
+	return t.ctx
+}
+
 // WIthTxn runs the function in a given transaction context. The transaction
 // isn't committed until the commit method is called.
 func (t *txnRunner) WithTxn(fn func(context.Context, Txn) error) error {
@@ -95,6 +106,29 @@ func (t *txnRunner) WithTxn(fn func(context.Context, Txn) error) error {
 	return nil
 }
 
+// // Commit commits the transaction.
 func (t *txnRunner) Commit() error {
 	return t.tx.Commit()
+}
+
+// TxnState provides a way to get transactions from the given state.
+type TxnState interface {
+	BeginTx(context.Context) (TxnRunner, error)
+}
+
+// WithTxn is a convince function for running a transaction, which correctly
+// handles the rollback semantics and retries where available.
+func WithTxn(s TxnState, fn func(context.Context, Txn) error) error {
+	return WithRetry(func() error {
+		txn, err := s.BeginTx(context.Background())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := txn.WithTxn(fn); err != nil {
+			return errors.Trace(err)
+		}
+
+		return txn.Commit()
+	})
 }

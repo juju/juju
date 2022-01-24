@@ -6,11 +6,13 @@ package logstate
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/overlord/state"
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 )
@@ -34,6 +36,7 @@ func NewManager(s State) *LogManager {
 	return mgr
 }
 
+// StartUp the LogManager preparing the statements required for appending lines.
 func (m *LogManager) StartUp(ctx context.Context) error {
 	db := m.state.DB()
 	stmt, err := db.PrepareContext(ctx, sqlInsertLogEntry)
@@ -60,6 +63,9 @@ func (m *LogManager) Stop() error {
 	return nil
 }
 
+// Line defines a log line that is normalized to the logstate. It prevents
+// writing types from external packages into the database (see charm.Charm as
+// an example).
 type Line struct {
 	ID        int64
 	Time      time.Time
@@ -74,10 +80,10 @@ type Line struct {
 }
 
 // AppendLines appends the log lines to the given log manager.
-func (m *LogManager) AppendLines(ctx context.Context, lines []Line) error {
-	stmt := m.getStatement(sqlInsertLogEntry)
+func (m *LogManager) AppendLines(txn state.Txn, lines []Line) error {
+	stmt := m.getStatement(txn, sqlInsertLogEntry)
 	for _, r := range lines {
-		_, err := stmt.ExecContext(ctx,
+		_, err := stmt.ExecContext(context.Background(),
 			r.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
 			r.Entity,
 			r.Version.String(),
@@ -94,15 +100,20 @@ func (m *LogManager) AppendLines(ctx context.Context, lines []Line) error {
 	return nil
 }
 
-func (m *LogManager) getStatement(key string) *sql.Stmt {
+func (m *LogManager) getStatement(txn state.Txn, key string) *sql.Stmt {
 	m.mutex.Lock()
-	defer m.mutex.Unlock()
 	stmt, ok := m.statements[key]
-
 	if !ok {
-		panic("missing SQL statement")
+		m.mutex.Unlock()
+
+		// The following should never happen in production and is classified as
+		// a programmatic error that should be picked up in tests.
+		panic(fmt.Sprintf("missing SQL statement: %s", key))
 	}
-	return stmt
+	m.mutex.Unlock()
+	// Return a transaction-specific prepared statement from an existing
+	// prepared statement.
+	return txn.StmtContext(context.Background(), stmt)
 }
 
 const (

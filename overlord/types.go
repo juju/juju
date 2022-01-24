@@ -4,12 +4,11 @@
 package overlord
 
 import (
-	"context"
-
 	"github.com/juju/juju/overlord/logstate"
+	"github.com/juju/juju/overlord/state"
 )
 
 type LogManager interface {
 	StateManager
-	AppendLines(context.Context, []logstate.Line) error
+	AppendLines(state.Txn, []logstate.Line) error
 }
