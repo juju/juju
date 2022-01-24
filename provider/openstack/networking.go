@@ -15,7 +15,9 @@ import (
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 )
 
 type networkingBase struct {
@@ -467,6 +469,105 @@ func noNetConfigMsg(err error) string {
 		err.Error())
 }
 
-func (n *NeutronNetworking) NetworkInterfaces(ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("neutron network interfaces")
+// NetworkInterfaces implements environs.NetworkingEnviron. It returns back
+// a slice where the i_th element contains the list of network interfaces
+// for the i_th provided instance ID.
+//
+// If none of the provided instance IDs exist, ErrNoInstances will be returned.
+// If only a subset of the instance IDs exist, the result will contain a nil
+// value for the missing instances and a ErrPartialInstances error will be
+// returned.
+func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+	allSubnets, err := n.Subnets(instance.UnknownId, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing subnets")
+	}
+	subnetIDToCIDR := make(map[string]string)
+	for _, sub := range allSubnets {
+		subnetIDToCIDR[sub.ProviderId.String()] = sub.CIDR
+	}
+
+	// Unfortunately the client does not support filter by anything other
+	// than tags so we need to grab everything and apply the filter here.
+	neutronClient := n.neutron()
+	allInstPorts, err := neutronClient.ListPortsV2()
+	if err != nil {
+		return nil, errors.Annotate(err, "listing ports")
+	}
+
+	// Group ports by device ID
+	instIfaceMap := make(map[instance.Id][]neutron.PortV2)
+	for _, instPort := range allInstPorts {
+		devID := instance.Id(instPort.DeviceId)
+		instIfaceMap[devID] = append(instIfaceMap[devID], instPort)
+	}
+
+	var (
+		res        = make([]corenetwork.InterfaceInfos, len(instanceIDs))
+		matchCount int
+	)
+
+	for resIdx, instID := range instanceIDs {
+		ifaceList, found := instIfaceMap[instID]
+		if !found {
+			continue
+		}
+
+		matchCount++
+		res[resIdx] = mapInterfaceList(ifaceList, subnetIDToCIDR)
+	}
+
+	if matchCount == 0 {
+		return nil, environs.ErrNoInstances
+	} else if matchCount < len(instanceIDs) {
+		return res, environs.ErrPartialInstances
+	}
+
+	return res, nil
+}
+
+func mapInterfaceList(in []neutron.PortV2, subnetIDToCIDR map[string]string) network.InterfaceInfos {
+	var out = make(corenetwork.InterfaceInfos, len(in))
+
+	for idx, osIf := range in {
+		ni := corenetwork.InterfaceInfo{
+			DeviceIndex:       idx,
+			ProviderId:        corenetwork.Id(osIf.Id),
+			ProviderNetworkId: corenetwork.Id(osIf.NetworkId),
+			InterfaceName:     osIf.Name, // NOTE(achilleasa): on microstack this is always empty.
+			Disabled:          osIf.Status != "ACTIVE",
+			NoAutoStart:       false,
+			InterfaceType:     corenetwork.EthernetDevice,
+			Origin:            corenetwork.OriginProvider,
+			MACAddress:        corenetwork.NormalizeMACAddress(osIf.MACAddress),
+		}
+
+		for i, ipConf := range osIf.FixedIPs {
+			addrOpts := []func(corenetwork.AddressMutator){
+				// openstack assigns IPs from a configured pool.
+				corenetwork.WithConfigType(corenetwork.ConfigStatic),
+			}
+
+			if subnetCIDR := subnetIDToCIDR[ipConf.SubnetID]; subnetCIDR != "" {
+				addrOpts = append(addrOpts, corenetwork.WithCIDR(subnetCIDR))
+			}
+
+			providerAddr := corenetwork.NewMachineAddress(
+				ipConf.IPAddress,
+				addrOpts...,
+			).AsProviderAddress()
+
+			ni.Addresses = append(ni.Addresses, providerAddr)
+
+			// If this is the first address, populate additional NIC details
+			if i == 0 {
+				ni.ConfigType = corenetwork.ConfigStatic
+				ni.ProviderSubnetId = corenetwork.Id(ipConf.SubnetID)
+			}
+		}
+
+		out[idx] = ni
+	}
+
+	return out
 }
