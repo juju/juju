@@ -145,7 +145,7 @@ require (
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
 
-replace github.com/juju/description/v3 => github.com/cderici/description/machine-display-name
+replace github.com/juju/description/v3 => github.com/cderici/description/v3 v3.0.0-20220124185649-54214b3dc18e
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07
 

@@ -121,6 +121,8 @@ github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac h1:X5YRFJiteUM3rajAB
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
 github.com/canonical/pebble v0.0.0-20220105032148-3a48156fcbf0 h1:Bzr3QOteZ+bPUxFGjgA3jkYnERpeFfbgGaLsH9g7qm8=
 github.com/canonical/pebble v0.0.0-20220105032148-3a48156fcbf0/go.mod h1:+0rQ57rhB9pciKKaE/QlwPL4R8mujv+24D81KGYRlV0=
+github.com/cderici/description/v3 v3.0.0-20220124185649-54214b3dc18e h1:9EImXjK5XtCYBbFRPeOA0OCYwzp0BlPQhfApecY7zjI=
+github.com/cderici/description/v3 v3.0.0-20220124185649-54214b3dc18e/go.mod h1:l94w+OBJ7b3BAfIInxoX6FHxzERxBtLh9FNABsGNO2U=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
