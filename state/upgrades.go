@@ -3943,3 +3943,95 @@ func RemoveOrphanedLinkLayerDevices(pool *StatePool) error {
 		return errors.Trace(iter.Close())
 	}))
 }
+
+// UpdateExternalControllerInfo sets the source controller UUID for any
+// consumer side remote apps whose offer is hosted in another controller.
+func UpdateExternalControllerInfo(pool *StatePool) error {
+	// First remove any orphaned external controllers which are not
+	// referenced by any SAAS application. This is global operation
+	// so do it using the system state.
+	st := pool.SystemState()
+	extControllers, cCloser := st.db().GetCollection(externalControllersC)
+	defer cCloser()
+	iter := extControllers.Find(nil).Iter()
+
+	var extControllerDoc struct {
+		DocID  string   `bson:"_id"`
+		Models []string `bson:"models"`
+	}
+
+	// Load all external controllers and then remove the ones
+	// in use to know which ones are orphaned.
+	orphanedControllers := set.NewStrings()
+	modelControllers := make(map[string]string) // Used below to update applications.
+	for iter.Next(&extControllerDoc) {
+		orphanedControllers.Add(extControllerDoc.DocID)
+		for _, modelUUID := range extControllerDoc.Models {
+			modelControllers[modelUUID] = extControllerDoc.DocID
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	err := errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		remoteApps, rCloser := st.db().GetCollection(remoteApplicationsC)
+		defer rCloser()
+		iter = remoteApps.Find(bson.D{{"is-consumer-proxy", false}}).Iter()
+
+		var appDoc struct {
+			DocID                string `bson:"_id"`
+			SourceControllerUUID string `bson:"source-controller-uuid"`
+			SourceModelUUID      string `bson:"source-model-uuid"`
+		}
+
+		var ops []txn.Op
+		for iter.Next(&appDoc) {
+			if appDoc.SourceControllerUUID != "" {
+				orphanedControllers.Remove(appDoc.SourceControllerUUID)
+				continue
+			}
+			controllerUUID, ok := modelControllers[appDoc.SourceModelUUID]
+			if !ok {
+				continue
+			}
+			orphanedControllers.Remove(controllerUUID)
+			ops = append(ops, txn.Op{
+				C:  remoteApplicationsC,
+				Id: appDoc.DocID,
+				Update: bson.D{{"$set", bson.D{{
+					"source-controller-uuid", controllerUUID}},
+				}},
+			})
+			incRefOp, err := incExternalControllersRefOp(st, controllerUUID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, incRefOp)
+		}
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		if len(ops) > 0 {
+			err := st.db().RunTransaction(ops)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return nil
+	}))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if orphanedControllers.Size() > 0 {
+		_, err := extControllers.Writeable().RemoveAll(bson.D{
+			{"_id", bson.D{{"$in", orphanedControllers.Values()}}},
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}

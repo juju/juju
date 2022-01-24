@@ -93,12 +93,8 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersCalled(c *g
 	s.updater.Stub.CheckCallNames(c, "WatchExternalControllers")
 }
 
-func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllers(c *gc.C) {
+func (s *ExternalControllerUpdaterSuite) assertWatchExternalControllersStart(c *gc.C) {
 	s.updater.watcher.changes <- []string{coretesting.ControllerTag.Id()}
-
-	w, err := externalcontrollerupdater.New(&s.updater, s.newWatcher, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
 
 	// Cause three notifications. Only the first notification is
 	// accompanied by API address changes, so there should be only
@@ -155,6 +151,50 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllers(c *gc.C) {
 		)
 		return
 	}
+	c.Fatal("time out waiting for worker api calls")
+
+	s.updater.Stub.CheckNoCalls(c)
+}
+
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllers(c *gc.C) {
+	w, err := externalcontrollerupdater.New(&s.updater, s.newWatcher, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.assertWatchExternalControllersStart(c)
+}
+
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStop(c *gc.C) {
+	w, err := externalcontrollerupdater.New(&s.updater, s.newWatcher, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.assertWatchExternalControllersStart(c)
+
+	s.updater.Stub.ResetCalls()
+	s.watcher.Stub.ResetCalls()
+
+	s.updater.watcher.changes <- []string{coretesting.ControllerTag.Id()}
+
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if len(s.watcher.Stub.Calls()) < 1 {
+			continue
+		}
+		s.watcher.Stub.CheckCallNames(c,
+			"Close",
+		)
+		return
+	}
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if len(s.updater.Stub.Calls()) < 1 {
+			continue
+		}
+		s.updater.Stub.CheckCallNames(c,
+			"Close",
+		)
+		return
+	}
+
 	c.Fatal("time out waiting for worker api calls")
 }
 

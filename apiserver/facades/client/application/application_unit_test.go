@@ -1644,11 +1644,12 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
-		name:           "hosted-mysql",
-		sourceModelTag: coretesting.ModelTag,
-		status:         status.Active,
-		offerUUID:      "hosted-mysql-uuid",
-		offerURL:       "othermodel.hosted-mysql",
+		name:                 "hosted-mysql",
+		sourceControllerUUID: controllerUUID,
+		sourceModelTag:       coretesting.ModelTag,
+		status:               status.Active,
+		offerUUID:            "hosted-mysql-uuid",
+		offerURL:             "othermodel.hosted-mysql",
 		endpoints: []state.Endpoint{
 			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
 		mac: mac,
