@@ -4,7 +4,12 @@
 package testing
 
 import (
+	"time"
+
 	"github.com/juju/utils/v3"
+
+	"github.com/juju/clock"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/common"
@@ -85,4 +90,50 @@ func PatchAttemptStrategies(strategies ...*utils.AttemptStrategy) func() {
 		&environs.AddressesRefreshAttempt,
 	)
 	return internalPatchAttemptStrategies(combinedStrategies)
+}
+
+// TODO(jack-w-shaw): 2022-01-21: Implemnting funcs for both 'AttemptStrategy'
+// patching and 'RetryStrategy' patching whilst lp:1611427 is in progress
+//
+// Remove AttemptStrategy patching when they are no longer in use i.e. when
+// lp issue is resolved
+
+var impatientRetryStrategy = retry.CallArgs{
+	Clock:    clock.WallClock,
+	Delay:    time.Millisecond,
+	Attempts: 3,
+}
+
+type savedRetryStrategy struct {
+	address  *retry.CallArgs
+	original retry.CallArgs
+}
+
+func (saved savedRetryStrategy) restore() {
+	*saved.address = saved.original
+}
+
+func saveRetryStrategies(strategies []*retry.CallArgs) []savedRetryStrategy {
+	savedStrategies := make([]savedRetryStrategy, len(strategies))
+	for index, strategy := range strategies {
+		savedStrategies[index] = savedRetryStrategy{
+			address:  strategy,
+			original: *strategy,
+		}
+	}
+	return savedStrategies
+}
+
+func restoreRetryStrategies(strategies []savedRetryStrategy) {
+	for _, saved := range strategies {
+		saved.restore()
+	}
+}
+
+func PatchRetryStrategies(strategies ...*retry.CallArgs) func() {
+	snapshot := saveRetryStrategies(strategies)
+	for _, strategy := range strategies {
+		*strategy = impatientRetryStrategy
+	}
+	return func() { restoreRetryStrategies(snapshot) }
 }
