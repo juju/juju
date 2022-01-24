@@ -426,3 +426,69 @@ func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *gc.C) {
 		},
 	})
 }
+
+func (s *NetworkSuite) TestNetworkConfigFromInterfaceMACNormalization(c *gc.C) {
+	in := network.InterfaceInfos{
+		{
+			// All-caps and dashes
+			MACAddress: "00-AA-BB-CC-DD",
+		},
+		{
+			// All-caps and colons
+			MACAddress: "00:AA:BB:CC:DD",
+		},
+		{
+			// Already normalized
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+	}
+
+	got := params.NetworkConfigFromInterfaceInfo(in)
+	c.Assert(got, gc.DeepEquals, []params.NetworkConfig{
+		{
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+		{
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+		{
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+	})
+}
+func (s *NetworkSuite) TestInterfaceFromNetworkConfigMACNormalization(c *gc.C) {
+	cfg := []params.NetworkConfig{
+		{
+			// All-caps and dashes
+			MACAddress:     "AA-BB-CC-DD-EE-FF",
+			GatewayAddress: "192.168.0.254",
+		},
+		{
+			// All-caps and colons
+			MACAddress:     "AA:BB:CC:DD:EE:FF",
+			GatewayAddress: "192.168.0.254",
+		},
+		{
+			// Already normalized
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: "192.168.0.254",
+		},
+	}
+
+	got := params.InterfaceInfoFromNetworkConfig(cfg)
+	gwAddr := network.NewMachineAddress("192.168.0.254").AsProviderAddress()
+	c.Assert(got, gc.DeepEquals, network.InterfaceInfos{
+		{
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: gwAddr,
+		},
+		{
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: gwAddr,
+		},
+		{
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: gwAddr,
+		},
+	})
+}

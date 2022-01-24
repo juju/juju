@@ -325,6 +325,10 @@ type MachineAddresses []MachineAddress
 // AsProviderAddresses is used to construct ProviderAddresses
 // element-wise from MachineAddresses
 func (as MachineAddresses) AsProviderAddresses(options ...func(mutator ProviderAddressMutator)) ProviderAddresses {
+	if len(as) == 0 {
+		return nil
+	}
+
 	addrs := make(ProviderAddresses, len(as))
 	for i, addr := range as {
 		addrs[i] = addr.AsProviderAddress(options...)
@@ -336,6 +340,10 @@ func (as MachineAddresses) AsProviderAddresses(options ...func(mutator ProviderA
 // from a variable number of string arguments, applying any supplied
 // options to each address
 func NewMachineAddresses(values []string, options ...func(AddressMutator)) MachineAddresses {
+	if len(values) == 0 {
+		return nil
+	}
+
 	addrs := make(MachineAddresses, len(values))
 	for i, value := range values {
 		addrs[i] = NewMachineAddress(value, options...)
