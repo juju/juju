@@ -322,7 +322,8 @@ func (e *Environ) Create(ctx envcontext.ProviderCallContext, params environs.Cre
 
 // AdoptResources implements environs.Environ.
 func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
-	return nil
+	// TODO(cderici): implement AdoptResources for oci
+	return errors.NotImplementedf("AdoptResources")
 }
 
 // ConstraintsValidator implements environs.Environ.
