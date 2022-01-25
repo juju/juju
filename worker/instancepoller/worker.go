@@ -368,11 +368,11 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		// the exception of "manual" which we don't care about in this
 		// context) implement the NetworkInterfaces method.
 		//
-		// This check is left in as a warning for folks working on new
-		// providers in the future to make sure this feature is implemented.
+		// This error is meant as a hint to folks working on new
+		// providers in the future to ensure that they implement this
+		// method.
 		if errors.IsNotSupported(errors.Cause(err)) {
-			u.config.Logger.Warningf("substrate does not implement the required NetworkInterfaces method")
-			return nil
+			return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
 		}
 
 		return errors.Annotate(err, "enumerating network interface list for instances")
