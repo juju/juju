@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -316,6 +316,32 @@ func (u *Unit) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
 	if agentHash == u.doc.PasswordHash {
 		return true
+	}
+	// Increased error logging for LP: 1956975 agent lost due to ErrBadCreds.
+	// Usually found 1-3 months after it happened.  It would be helpful to have
+	// additional data we can go back and find.
+	if agentHash == "" {
+		logger.Errorf("%q invalid password, provided agent hash empty", u.Name())
+		return false
+	}
+	if u.doc.PasswordHash == "" {
+		logger.Errorf("%q invalid password, doc password hash empty", u.Name())
+		return false
+	}
+	app, err := u.Application()
+	if err != nil {
+		logger.Errorf("%q invalid password, error getting application: %s", u.Name(), err.Error())
+		return false
+	}
+	units, err := app.AllUnits()
+	if err != nil {
+		logger.Errorf("%q invalid password, error getting all units: %s", app.Name(), err.Error())
+		return false
+	}
+	for _, unit := range units {
+		if u.Name() != unit.Name() && agentHash == unit.doc.PasswordHash {
+			logger.Errorf("%q invalid password, provided agent hash matches %q password hash", u.Name(), unit.Name())
+		}
 	}
 	return false
 }
