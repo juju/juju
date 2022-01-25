@@ -33,17 +33,21 @@ func (s *LimiterSuite) TestNoLimits(c *gc.C) {
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
+	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
 	for i := 0; i < totalToAcquire; i++ {
+		started.Add(1)
 		finished.Add(1)
 		go func() {
 			defer finished.Done()
+			started.Done()
 			limiter.Acquire("app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
 		}()
 	}
+	started.Wait()
 
 	done := make(chan bool)
 	go func() {
@@ -88,17 +92,21 @@ func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
+	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
 	for i := 0; i < totalToAcquire; i++ {
+		started.Add(1)
 		finished.Add(1)
 		go func() {
 			defer finished.Done()
+			started.Done()
 			limiter.Acquire("app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
 		}()
 	}
+	started.Wait()
 
 	done := make(chan bool)
 	go func() {
@@ -152,8 +160,10 @@ func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
+	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
 	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
+		started.Add(1)
 		finished.Add(1)
 		uuid := "app1"
 		if i >= totalToAcquirePerApplication {
@@ -161,12 +171,14 @@ func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
 		}
 		go func(uui string) {
 			defer finished.Done()
+			started.Done()
 			limiter.Acquire(uuid)
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release(uuid)
 		}(uuid)
 	}
+	started.Wait()
 
 	done := make(chan bool)
 	go func() {
@@ -222,8 +234,10 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
+	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
 	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
+		started.Add(1)
 		finished.Add(1)
 		uuid := "app1"
 		if i >= 2*totalToAcquirePerApplication {
@@ -233,12 +247,14 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
 		}
 		go func(uui string) {
 			defer finished.Done()
+			started.Done()
 			limiter.Acquire(uuid)
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release(uuid)
 		}(uuid)
 	}
+	started.Wait()
 
 	done := make(chan bool)
 	go func() {

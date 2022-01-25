@@ -5,6 +5,7 @@ package resourceadapters
 
 import (
 	"sync"
+	"time"
 )
 
 // ResourceDownloadLock is used to limit the number of concurrent
@@ -43,8 +44,9 @@ type resourceDownloadLimiter struct {
 // Acquire implements ResourceDownloadLock.
 func (r *resourceDownloadLimiter) Acquire(appName string) {
 	if r.globalLock != nil {
-		logger.Debugf("acquire global resource download lock, current downloads = %d", len(r.globalLock))
+		start := time.Now()
 		r.globalLock <- struct{}{}
+		logger.Debugf("acquire global resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
 	}
 	if r.applicationLimit <= 0 {
 		return
@@ -57,15 +59,15 @@ func (r *resourceDownloadLimiter) Acquire(appName string) {
 		r.applicationLocks[appName] = lock
 	}
 	r.mu.Unlock()
-	logger.Debugf("acquire application resource download lock, current downloads = %d", len(lock))
+	start := time.Now()
 	lock <- struct{}{}
+	logger.Debugf("acquire app resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
 }
 
 // Release implements ResourceDownloadLock.
 func (r *resourceDownloadLimiter) Release(appName string) {
 	if r.globalLock != nil {
 		<-r.globalLock
-		logger.Debugf("release global resource download lock, current downloads = %d", len(r.globalLock))
 	}
 	if r.applicationLimit <= 0 {
 		return
@@ -77,7 +79,6 @@ func (r *resourceDownloadLimiter) Release(appName string) {
 	if !ok {
 		return
 	}
-	logger.Debugf("release global resource download lock, current downloads = %d", len(lock))
 	<-lock
 	if len(lock) == 0 {
 		delete(r.applicationLocks, appName)

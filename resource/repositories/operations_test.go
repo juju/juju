@@ -13,10 +13,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
@@ -117,9 +116,7 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 		Repository: er,
 		Name:       "company-icon",
 		CharmID:    repositories.CharmID{URL: charm.MustParseURL("cs:gitlab")},
-		Done: func() {
-			done.Done()
-		},
+		Done:       done.Done,
 	}
 
 	start := sync.WaitGroup{}
