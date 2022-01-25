@@ -376,6 +376,18 @@ var newConfigTests = []struct {
 			controller.MigrationMinionWaitMax: "15",
 		},
 		expectError: `migration-agent-wait-time value "15" must be a valid duration`,
+	}, {
+		about: "application-resource-download-limit cannot be negative",
+		config: controller.Config{
+			controller.ApplicationResourceDownloadLimit: "-42",
+		},
+		expectError: `negative application-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
+	}, {
+		about: "controller-resource-download-limit cannot be negative",
+		config: controller.Config{
+			controller.ControllerResourceDownloadLimit: "-42",
+		},
+		expectError: `negative controller-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
 	}, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -400,6 +412,20 @@ func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 20)
+}
+
+func (s *ConfigSuite) TestResourceDownloadLimits(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"application-resource-download-limit": "42",
+			"controller-resource-download-limit":  "666",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.ApplicationResourceDownloadLimit(), gc.Equals, 42)
+	c.Assert(cfg.ControllerResourceDownloadLimit(), gc.Equals, 666)
 }
 
 func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
@@ -793,6 +819,8 @@ func (s *ConfigSuite) TestDefaults(c *gc.C) {
 	c.Assert(cfg.AgentLogfileMaxSizeMB(), gc.Equals, controller.DefaultAgentLogfileMaxSize)
 	c.Assert(cfg.ModelLogfileMaxBackups(), gc.Equals, controller.DefaultModelLogfileMaxBackups)
 	c.Assert(cfg.ModelLogfileMaxSizeMB(), gc.Equals, controller.DefaultModelLogfileMaxSize)
+	c.Assert(cfg.ApplicationResourceDownloadLimit(), gc.Equals, controller.DefaultApplicationResourceDownloadLimit)
+	c.Assert(cfg.ControllerResourceDownloadLimit(), gc.Equals, controller.DefaultControllerResourceDownloadLimit)
 }
 
 func (s *ConfigSuite) TestAgentLogfile(c *gc.C) {
