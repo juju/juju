@@ -346,6 +346,12 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newInstID, gc.Equals, oldInstID)
 
+	oldInstDisplayName, err := oldMachine.DisplayName()
+	c.Assert(err, jc.ErrorIsNil)
+	newInstDisplayName, err := oldMachine.DisplayName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newInstDisplayName, gc.Equals, oldInstDisplayName)
+
 	oldStatus, err = oldMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	newStatus, err = newMachine.InstanceStatus()
@@ -357,6 +363,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	// Add a machine with an LXC container.
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=bunyan")
 	source := "bunyan"
+	displayName := "test-display-name"
 
 	addr := network.NewSpaceAddress("1.1.1.1")
 	addr.SpaceID = "9"
@@ -366,7 +373,8 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 		Characteristics: &instance.HardwareCharacteristics{
 			RootDiskSource: &source,
 		},
-		Addresses: network.SpaceAddresses{addr},
+		DisplayName: displayName,
+		Addresses:   network.SpaceAddresses{addr},
 	})
 	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
