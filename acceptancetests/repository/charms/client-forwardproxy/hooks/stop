@@ -1,6 +1,0 @@
-#!/bin/bash
-set -eux
-
-status-set maintenance "Stopping" || true
-service ufw disable || true
-status-set maintenance "Stopped" || true

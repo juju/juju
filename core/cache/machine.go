@@ -37,6 +37,26 @@ type Machine struct {
 	configHash string
 }
 
+// Report returns information that is used in the dependency engine report.
+func (m *Machine) Report() map[string]interface{} {
+	details := m.details
+
+	addresses := make([]string, len(details.Addresses))
+	for k, address := range details.Addresses {
+		addresses[k] = address.String()
+	}
+
+	return map[string]interface{}{
+		"instance-id":        details.InstanceId,
+		"config":             details.Config,
+		"series":             details.Series,
+		"is-manual":          details.IsManual,
+		"hw-characteristics": details.HardwareCharacteristics,
+		"charm-profiles":     details.CharmProfiles,
+		"addresses":          addresses,
+	}
+}
+
 // Note that these property accessors are not lock-protected.
 // They are intended for calling from external packages that have retrieved a
 // deep copy from the cache.

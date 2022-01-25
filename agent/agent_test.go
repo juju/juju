@@ -387,6 +387,8 @@ var attributeParams = agent.AgentConfigParams{
 	Model:                    testing.ModelTag,
 	JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
 	NonSyncedWritesToRaftLog: false,
+	AgentLogfileMaxSizeMB:    150,
+	AgentLogfileMaxBackups:   4,
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -402,6 +404,8 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
 	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "5.0/stable")
 	c.Assert(conf.NonSyncedWritesToRaftLog(), jc.IsFalse)
+	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
+	c.Assert(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {

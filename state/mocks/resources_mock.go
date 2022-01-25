@@ -5,40 +5,41 @@
 package mocks
 
 import (
+	io "io"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/charm/v9/resource"
 	resource0 "github.com/juju/juju/resource"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v2/txn"
-	io "io"
-	reflect "reflect"
-	time "time"
 )
 
-// MockResources is a mock of Resources interface
+// MockResources is a mock of Resources interface.
 type MockResources struct {
 	ctrl     *gomock.Controller
 	recorder *MockResourcesMockRecorder
 }
 
-// MockResourcesMockRecorder is the mock recorder for MockResources
+// MockResourcesMockRecorder is the mock recorder for MockResources.
 type MockResourcesMockRecorder struct {
 	mock *MockResources
 }
 
-// NewMockResources creates a new mock instance
+// NewMockResources creates a new mock instance.
 func NewMockResources(ctrl *gomock.Controller) *MockResources {
 	mock := &MockResources{ctrl: ctrl}
 	mock.recorder = &MockResourcesMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResources) EXPECT() *MockResourcesMockRecorder {
 	return m.recorder
 }
 
-// AddPendingResource mocks base method
+// AddPendingResource mocks base method.
 func (m *MockResources) AddPendingResource(arg0, arg1 string, arg2 resource.Resource) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddPendingResource", arg0, arg1, arg2)
@@ -47,13 +48,13 @@ func (m *MockResources) AddPendingResource(arg0, arg1 string, arg2 resource.Reso
 	return ret0, ret1
 }
 
-// AddPendingResource indicates an expected call of AddPendingResource
+// AddPendingResource indicates an expected call of AddPendingResource.
 func (mr *MockResourcesMockRecorder) AddPendingResource(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPendingResource", reflect.TypeOf((*MockResources)(nil).AddPendingResource), arg0, arg1, arg2)
 }
 
-// GetPendingResource mocks base method
+// GetPendingResource mocks base method.
 func (m *MockResources) GetPendingResource(arg0, arg1, arg2 string) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPendingResource", arg0, arg1, arg2)
@@ -62,13 +63,13 @@ func (m *MockResources) GetPendingResource(arg0, arg1, arg2 string) (resource0.R
 	return ret0, ret1
 }
 
-// GetPendingResource indicates an expected call of GetPendingResource
+// GetPendingResource indicates an expected call of GetPendingResource.
 func (mr *MockResourcesMockRecorder) GetPendingResource(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingResource", reflect.TypeOf((*MockResources)(nil).GetPendingResource), arg0, arg1, arg2)
 }
 
-// GetResource mocks base method
+// GetResource mocks base method.
 func (m *MockResources) GetResource(arg0, arg1 string) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResource", arg0, arg1)
@@ -77,13 +78,13 @@ func (m *MockResources) GetResource(arg0, arg1 string) (resource0.Resource, erro
 	return ret0, ret1
 }
 
-// GetResource indicates an expected call of GetResource
+// GetResource indicates an expected call of GetResource.
 func (mr *MockResourcesMockRecorder) GetResource(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResource", reflect.TypeOf((*MockResources)(nil).GetResource), arg0, arg1)
 }
 
-// ListPendingResources mocks base method
+// ListPendingResources mocks base method.
 func (m *MockResources) ListPendingResources(arg0 string) ([]resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListPendingResources", arg0)
@@ -92,13 +93,13 @@ func (m *MockResources) ListPendingResources(arg0 string) ([]resource0.Resource,
 	return ret0, ret1
 }
 
-// ListPendingResources indicates an expected call of ListPendingResources
+// ListPendingResources indicates an expected call of ListPendingResources.
 func (mr *MockResourcesMockRecorder) ListPendingResources(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingResources", reflect.TypeOf((*MockResources)(nil).ListPendingResources), arg0)
 }
 
-// ListResources mocks base method
+// ListResources mocks base method.
 func (m *MockResources) ListResources(arg0 string) (resource0.ApplicationResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListResources", arg0)
@@ -107,13 +108,13 @@ func (m *MockResources) ListResources(arg0 string) (resource0.ApplicationResourc
 	return ret0, ret1
 }
 
-// ListResources indicates an expected call of ListResources
+// ListResources indicates an expected call of ListResources.
 func (mr *MockResourcesMockRecorder) ListResources(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResources", reflect.TypeOf((*MockResources)(nil).ListResources), arg0)
 }
 
-// NewResolvePendingResourcesOps mocks base method
+// NewResolvePendingResourcesOps mocks base method.
 func (m *MockResources) NewResolvePendingResourcesOps(arg0 string, arg1 map[string]string) ([]txn.Op, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewResolvePendingResourcesOps", arg0, arg1)
@@ -122,13 +123,13 @@ func (m *MockResources) NewResolvePendingResourcesOps(arg0 string, arg1 map[stri
 	return ret0, ret1
 }
 
-// NewResolvePendingResourcesOps indicates an expected call of NewResolvePendingResourcesOps
+// NewResolvePendingResourcesOps indicates an expected call of NewResolvePendingResourcesOps.
 func (mr *MockResourcesMockRecorder) NewResolvePendingResourcesOps(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewResolvePendingResourcesOps", reflect.TypeOf((*MockResources)(nil).NewResolvePendingResourcesOps), arg0, arg1)
 }
 
-// OpenResource mocks base method
+// OpenResource mocks base method.
 func (m *MockResources) OpenResource(arg0, arg1 string) (resource0.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenResource", arg0, arg1)
@@ -138,13 +139,13 @@ func (m *MockResources) OpenResource(arg0, arg1 string) (resource0.Resource, io.
 	return ret0, ret1, ret2
 }
 
-// OpenResource indicates an expected call of OpenResource
+// OpenResource indicates an expected call of OpenResource.
 func (mr *MockResourcesMockRecorder) OpenResource(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResource", reflect.TypeOf((*MockResources)(nil).OpenResource), arg0, arg1)
 }
 
-// OpenResourceForUniter mocks base method
+// OpenResourceForUniter mocks base method.
 func (m *MockResources) OpenResourceForUniter(arg0 resource0.Unit, arg1 string) (resource0.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenResourceForUniter", arg0, arg1)
@@ -154,13 +155,13 @@ func (m *MockResources) OpenResourceForUniter(arg0 resource0.Unit, arg1 string) 
 	return ret0, ret1, ret2
 }
 
-// OpenResourceForUniter indicates an expected call of OpenResourceForUniter
+// OpenResourceForUniter indicates an expected call of OpenResourceForUniter.
 func (mr *MockResourcesMockRecorder) OpenResourceForUniter(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResourceForUniter", reflect.TypeOf((*MockResources)(nil).OpenResourceForUniter), arg0, arg1)
 }
 
-// RemovePendingAppResources mocks base method
+// RemovePendingAppResources mocks base method.
 func (m *MockResources) RemovePendingAppResources(arg0 string, arg1 map[string]string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemovePendingAppResources", arg0, arg1)
@@ -168,13 +169,13 @@ func (m *MockResources) RemovePendingAppResources(arg0 string, arg1 map[string]s
 	return ret0
 }
 
-// RemovePendingAppResources indicates an expected call of RemovePendingAppResources
+// RemovePendingAppResources indicates an expected call of RemovePendingAppResources.
 func (mr *MockResourcesMockRecorder) RemovePendingAppResources(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingAppResources", reflect.TypeOf((*MockResources)(nil).RemovePendingAppResources), arg0, arg1)
 }
 
-// SetCharmStoreResources mocks base method
+// SetCharmStoreResources mocks base method.
 func (m *MockResources) SetCharmStoreResources(arg0 string, arg1 []resource.Resource, arg2 time.Time) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetCharmStoreResources", arg0, arg1, arg2)
@@ -182,13 +183,13 @@ func (m *MockResources) SetCharmStoreResources(arg0 string, arg1 []resource.Reso
 	return ret0
 }
 
-// SetCharmStoreResources indicates an expected call of SetCharmStoreResources
+// SetCharmStoreResources indicates an expected call of SetCharmStoreResources.
 func (mr *MockResourcesMockRecorder) SetCharmStoreResources(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmStoreResources", reflect.TypeOf((*MockResources)(nil).SetCharmStoreResources), arg0, arg1, arg2)
 }
 
-// SetResource mocks base method
+// SetResource mocks base method.
 func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetResource", arg0, arg1, arg2, arg3, arg4)
@@ -197,13 +198,13 @@ func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, a
 	return ret0, ret1
 }
 
-// SetResource indicates an expected call of SetResource
+// SetResource indicates an expected call of SetResource.
 func (mr *MockResourcesMockRecorder) SetResource(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResource", reflect.TypeOf((*MockResources)(nil).SetResource), arg0, arg1, arg2, arg3, arg4)
 }
 
-// SetUnitResource mocks base method
+// SetUnitResource mocks base method.
 func (m *MockResources) SetUnitResource(arg0, arg1 string, arg2 resource.Resource) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitResource", arg0, arg1, arg2)
@@ -212,13 +213,13 @@ func (m *MockResources) SetUnitResource(arg0, arg1 string, arg2 resource.Resourc
 	return ret0, ret1
 }
 
-// SetUnitResource indicates an expected call of SetUnitResource
+// SetUnitResource indicates an expected call of SetUnitResource.
 func (mr *MockResourcesMockRecorder) SetUnitResource(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitResource", reflect.TypeOf((*MockResources)(nil).SetUnitResource), arg0, arg1, arg2)
 }
 
-// UpdatePendingResource mocks base method
+// UpdatePendingResource mocks base method.
 func (m *MockResources) UpdatePendingResource(arg0, arg1, arg2 string, arg3 resource.Resource, arg4 io.Reader) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePendingResource", arg0, arg1, arg2, arg3, arg4)
@@ -227,7 +228,7 @@ func (m *MockResources) UpdatePendingResource(arg0, arg1, arg2 string, arg3 reso
 	return ret0, ret1
 }
 
-// UpdatePendingResource indicates an expected call of UpdatePendingResource
+// UpdatePendingResource indicates an expected call of UpdatePendingResource.
 func (mr *MockResourcesMockRecorder) UpdatePendingResource(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePendingResource", reflect.TypeOf((*MockResources)(nil).UpdatePendingResource), arg0, arg1, arg2, arg3, arg4)

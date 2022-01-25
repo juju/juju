@@ -218,8 +218,10 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 			"10.0.2.1:17070",
 			"52.7.1.1:17070",
 		},
-		"oldpassword": "ignore",
-		"values":      nil,
+		"oldpassword":               "ignore",
+		"values":                    nil,
+		"agent-logfile-max-backups": 0,
+		"agent-logfile-max-size":    0,
 	})
 }
 

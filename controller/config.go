@@ -150,6 +150,14 @@ const (
 	// If the user needs more information, perhaps debug-log isn't the right source.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
+	// AgentLogfileMaxSize is the maximum file size in MB of each
+	// agent/controller log file.
+	AgentLogfileMaxSize = "agent-logfile-max-size"
+
+	// AgentLogfileMaxBackups is the number of old agent/controller log files
+	// to keep (compressed).
+	AgentLogfileMaxBackups = "agent-logfile-max-backups"
+
 	// ModelLogfileMaxSize is the maximum size of the log file written out by the
 	// controller on behalf of workers running for a model.
 	ModelLogfileMaxSize = "model-logfile-max-size"
@@ -300,6 +308,14 @@ const (
 	// batches we will process. (deprecated)
 	DefaultMaxPruneTxnPasses = 100
 
+	// DefaultAgentLogfileMaxSize is the maximum file size in MB of each
+	// agent/controller log file.
+	DefaultAgentLogfileMaxSize = 100
+
+	// DefaultAgentLogfileMaxBackups is the number of old agent/controller log
+	// files to keep (compressed).
+	DefaultAgentLogfileMaxBackups = 2
+
 	// DefaultModelLogfileMaxSize is the maximum file size in MB of
 	// the log file written out by the controller on behalf of workers
 	// running for a model.
@@ -367,6 +383,8 @@ var (
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		AgentLogfileMaxBackups,
+		AgentLogfileMaxSize,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
 		ModelLogsSize,
@@ -754,6 +772,18 @@ func (c Config) AllowModelAccess() bool {
 	return value
 }
 
+// AgentLogfileMaxSizeMB is the maximum file size in MB of each
+// agent/controller log file.
+func (c Config) AgentLogfileMaxSizeMB() int {
+	return c.sizeMBOrDefault(AgentLogfileMaxSize, DefaultAgentLogfileMaxSize)
+}
+
+// AgentLogfileMaxBackups is the number of old agent/controller log files to
+// keep (compressed).
+func (c Config) AgentLogfileMaxBackups() int {
+	return c.intOrDefault(AgentLogfileMaxBackups, DefaultAgentLogfileMaxBackups)
+}
+
 // ModelLogfileMaxBackups is the number of old model log files to keep (compressed).
 func (c Config) ModelLogfileMaxBackups() int {
 	return c.intOrDefault(ModelLogfileMaxBackups, DefaultModelLogfileMaxBackups)
@@ -1004,6 +1034,21 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[AgentLogfileMaxBackups].(int); ok {
+		if v < 0 {
+			return errors.NotValidf("negative %s", AgentLogfileMaxBackups)
+		}
+	}
+	if v, ok := c[AgentLogfileMaxSize].(string); ok {
+		mb, err := utils.ParseSize(v)
+		if err != nil {
+			return errors.Annotatef(err, "invalid %s in configuration", AgentLogfileMaxSize)
+		}
+		if mb < 1 {
+			return errors.NotValidf("%s less than 1 MB", AgentLogfileMaxSize)
+		}
+	}
+
 	if v, ok := c[ModelLogfileMaxBackups].(int); ok {
 		if v < 0 {
 			return errors.NotValidf("negative %s", ModelLogfileMaxBackups)
@@ -1216,6 +1261,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:            schema.String(),
 	MaxPruneTxnBatchSize:     schema.ForceInt(),
 	MaxPruneTxnPasses:        schema.ForceInt(),
+	AgentLogfileMaxBackups:   schema.ForceInt(),
+	AgentLogfileMaxSize:      schema.String(),
 	ModelLogfileMaxBackups:   schema.ForceInt(),
 	ModelLogfileMaxSize:      schema.String(),
 	ModelLogsSize:            schema.String(),
@@ -1258,6 +1305,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:            fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:     DefaultMaxPruneTxnBatchSize,
 	MaxPruneTxnPasses:        DefaultMaxPruneTxnPasses,
+	AgentLogfileMaxBackups:   DefaultAgentLogfileMaxBackups,
+	AgentLogfileMaxSize:      fmt.Sprintf("%vM", DefaultAgentLogfileMaxSize),
 	ModelLogfileMaxBackups:   DefaultModelLogfileMaxBackups,
 	ModelLogfileMaxSize:      fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
 	ModelLogsSize:            fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
@@ -1380,6 +1429,14 @@ they don't have any access rights to the controller itself`,
 	MaxPruneTxnPasses: {
 		Type:        environschema.Tint,
 		Description: `(deprecated) The maximum number of batches processed when pruning`,
+	},
+	AgentLogfileMaxBackups: {
+		Type:        environschema.Tint,
+		Description: "The number of old agent log files to keep (compressed)",
+	},
+	AgentLogfileMaxSize: {
+		Type:        environschema.Tstring,
+		Description: `The maximum size of the agent log file`,
 	},
 	ModelLogfileMaxBackups: {
 		Type:        environschema.Tint,

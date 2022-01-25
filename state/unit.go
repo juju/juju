@@ -1457,12 +1457,12 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		return errors.Errorf("cannot set nil charm url")
 	}
 
-	db, closer := u.st.newDB()
-	defer closer()
-	units, closer := db.GetCollection(unitsC)
-	defer closer()
-	charms, closer := db.GetCollection(charmsC)
-	defer closer()
+	db, dbCloser := u.st.newDB()
+	defer dbCloser()
+	units, uCloser := db.GetCollection(unitsC)
+	defer uCloser()
+	charms, cCloser := db.GetCollection(charmsC)
+	defer cCloser()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -2411,16 +2411,16 @@ var hasNoContainersTerm = bson.DocElem{
 // findCleanMachineQuery returns a Mongo query to find clean (and maybe empty)
 // machines with characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
-	db, closer := u.st.newDB()
-	defer closer()
+	db, dbCloser := u.st.newDB()
+	defer dbCloser()
 
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
 	// If we need empty machines, first build up a list of machine ids which
 	// have containers so we can exclude those.
 	if requireEmpty {
-		containerRefsCollection, closer := db.GetCollection(containerRefsC)
-		defer closer()
+		containerRefsCollection, cCloser := db.GetCollection(containerRefsC)
+		defer cCloser()
 
 		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
@@ -2503,8 +2503,8 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		suitableTerms = append(suitableTerms, bson.DocElem{"availzone", bson.D{{"$in", *cons.Zones}}})
 	}
 	if len(suitableTerms) > 0 {
-		instanceDataCollection, closer := db.GetCollection(instanceDataC)
-		defer closer()
+		instanceDataCollection, iCloser := db.GetCollection(instanceDataC)
+		defer iCloser()
 
 		var suitableInstanceData []instanceData
 		err := instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)

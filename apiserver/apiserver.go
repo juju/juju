@@ -360,7 +360,11 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			WriteCloser: os.Stdout,
 		}
 	} else {
-		srv.logSinkWriter, err = logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
+		srv.logSinkWriter, err = logsink.NewFileWriter(
+			filepath.Join(srv.logDir, "logsink.log"),
+			controllerConfig.AgentLogfileMaxSizeMB(),
+			controllerConfig.AgentLogfileMaxBackups(),
+		)
 		if err != nil {
 			return nil, errors.Annotate(err, "creating logsink writer")
 		}

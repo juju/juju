@@ -46,6 +46,21 @@ type Application struct {
 	hashCache  *hashCache
 }
 
+// Report returns information that is used in the dependency engine report.
+func (a *Application) Report() map[string]interface{} {
+	details := a.details
+
+	return map[string]interface{}{
+		"exposed":          details.Exposed,
+		"charm-url":        details.CharmURL,
+		"min-units":        details.MinUnits,
+		"constraints":      details.Constraints.String(),
+		"config":           details.Config,
+		"subordinate":      details.Subordinate,
+		"workload-version": details.WorkloadVersion,
+	}
+}
+
 // Note that these property accessors are not lock-protected.
 // They are intended for calling from external packages that have retrieved a
 // deep copy from the cache.

@@ -305,6 +305,14 @@ func (f FakeConfig) Value(key string) string {
 	return f.values[key]
 }
 
+func (f FakeConfig) AgentLogfileMaxSizeMB() int {
+	return 100
+}
+
+func (f FakeConfig) AgentLogfileMaxBackups() int {
+	return 2
+}
+
 type FakeAgentConfig struct {
 	agentconf.AgentConf
 	values map[string]string

@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -172,7 +171,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		isTerminal := func(stdin interface{}) bool {
 			return t.isTerminal
 		}
-		cmd := NewSSHCommand(t.hostChecker, isTerminal)
+		cmd := NewSSHCommand(t.hostChecker, isTerminal, baseTestingRetryStrategy)
 
 		ctx, err := cmdtesting.RunCommand(c, cmd, t.args...)
 		if t.expectedErr != "" {
@@ -193,7 +192,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"proxy-ssh": true}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), "0")
+	ctx, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs := argsSpec{
@@ -202,6 +201,11 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 		withProxy:       true,
 		args:            "ubuntu@0.private", // as set by setAddresses()
 	}
+	expectedArgs.check(c, cmdtesting.Stdout(ctx))
+
+	ctx, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), "0")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
@@ -241,20 +245,11 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	m := s.Factory.MakeMachine(c, nil)
 	s.setKeys(c, m)
 
-	called := 0
-	attemptStarter := &callbackAttemptStarter{next: func() bool {
-		called++
-		return called < 2
-	}}
-	restorer := testing.PatchValue(&sshHostFromTargetAttemptStrategy, attemptStarter)
-	defer restorer.Restore()
-
 	// Ensure that the ssh command waits for a public (private with proxy=true)
 	// address, or the attempt strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	_, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), args...)
+	_, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), args...)
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
-	c.Assert(called, gc.Equals, 2)
 
 	if proxy {
 		s.setHostChecker(nil) // not used when proxy=true
@@ -262,18 +257,15 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		s.setHostChecker(validAddresses("0.private", "0.public"))
 	}
 
-	called = 0
-	attemptStarter.next = func() bool {
-		called++
-		if called > 1 {
+	retryStrategy := baseTestingRetryStrategy
+	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
+		if attempt > 1 {
 			s.setAddresses(c, m)
 		}
-		return true
 	}
 
-	_, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil), args...)
+	_, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, retryStrategy), args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, gc.Equals, 2)
 }
 
 func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
@@ -315,20 +307,4 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
 	}, "wormhole/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "wormhole/1", gc.Commentf("expected leader to resolve to wormhole/1 for subordinate application"))
-}
-
-type callbackAttemptStarter struct {
-	next func() bool
-}
-
-func (s *callbackAttemptStarter) Start() attempt {
-	return callbackAttempt{next: s.next}
-}
-
-type callbackAttempt struct {
-	next func() bool
-}
-
-func (a callbackAttempt) Next() bool {
-	return a.next()
 }

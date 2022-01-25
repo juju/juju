@@ -185,11 +185,11 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() error {
-	watcher, err := u.config.Facade.WatchModelMachines()
+	watch, err := u.config.Facade.WatchModelMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.catacomb.Add(watcher); err != nil {
+	if err := u.catacomb.Add(watch); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -204,7 +204,7 @@ func (u *updaterWorker) loop() error {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
-		case ids, ok := <-watcher.Changes():
+		case ids, ok := <-watch.Changes():
 			if !ok {
 				return errors.New("machines watcher closed")
 			}
@@ -235,7 +235,7 @@ func (u *updaterWorker) loop() error {
 
 func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
-	// and remove it from its poll group if it now dead.
+	// and remove it from its poll group if it is now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
 		var isDead bool
 		if err := entry.m.Refresh(); err != nil {
@@ -415,7 +415,7 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 
 // processProviderInfo updates an entry's machine status and set of provider
 // addresses based on the information collected from the provider. It returns
-// back the *instance* status and the number of provider addresses currently
+// the *instance* status and the number of provider addresses currently
 // known for the machine.
 func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerIfaceList network.InterfaceInfos) (status.Status, int, error) {
 	curStatus, err := entry.m.InstanceStatus()
@@ -469,7 +469,7 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 // using either the provider interface list or falling back to the collected
 // instance information.
 //
-// The call returns back the count of provider addresses for the machine.
+// The call returns the count of provider addresses for the machine.
 func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo instances.Instance, providerIfaceList network.InterfaceInfos) (int, error) {
 	// If the provider does not support NetworkInterfaces, we will get an
 	// empty providerIfaceList; if that's the case, populate a minimal
@@ -514,7 +514,7 @@ func fakeInterfacesFromInstanceAddrs(addrs []network.ProviderAddress) network.In
 
 func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *pollGroupEntry, curProviderStatus, curMachineStatus status.Status, providerAddrCount int) {
 	if curProviderStatus == status.Allocating || curProviderStatus == status.Pending {
-		// Keep the machine in the short poll group until it settles
+		// Keep the machine in the short poll group until it settles.
 		entry.bumpShortPollInterval(u.config.Clock)
 		return
 	}

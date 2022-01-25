@@ -8,8 +8,11 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -21,6 +24,12 @@ var _ = gc.Suite(&DebugHooksSuite{})
 
 type DebugHooksSuite struct {
 	SSHMachineSuite
+}
+
+var baseTestingRetryStrategy = retry.CallArgs{
+	Clock:    clock.WallClock,
+	Attempts: 5,
+	Delay:    time.Millisecond,
 }
 
 var debugHooksTests = []struct {
@@ -109,7 +118,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 
 		s.setHostChecker(t.hostChecker)
 
-		ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker, baseTestingRetryStrategy), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.error))
 		} else {
@@ -127,7 +136,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 	}
 	s.setupModel(c)
 	s.setHostChecker(validAddresses("0.public"))
-	ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker),
+	ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker, baseTestingRetryStrategy),
 		"mysql/0", "install", "start")
 	c.Check(err, jc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")

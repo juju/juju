@@ -102,15 +102,7 @@ jobs:
 
         juju wait-for application apache2
 
-        attempts=0
-        while ! ./.github/verify-apache2.sh; do
-          sleep 10
-          attempts=$((attempts+1))
-          if [ "$attempts" -eq 5 ]; then
-            echo "Apache health check timed out"
-            exit 0
-          fi
-        done
+        ./.github/verify-apache2.sh 5
 
     - name: Build snap
       if: env.RUN_TEST == 'RUN'
@@ -164,7 +156,7 @@ jobs:
             exit 1
         fi
 
-        ./.github/verify-apache2.sh
+        ./.github/verify-apache2.sh 3
 
     - name: Test upgrade model
       if: env.RUN_TEST == 'RUN'
@@ -217,4 +209,4 @@ jobs:
             exit 1
         fi
 
-        ./.github/verify-apache2.sh
+        ./.github/verify-apache2.sh 3

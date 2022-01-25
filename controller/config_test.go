@@ -262,6 +262,18 @@ var newConfigTests = []struct {
 		},
 		expectError: `max-debug-log-duration cannot be zero`,
 	}, {
+		about: "agent-logfile-max-backups not valid",
+		config: controller.Config{
+			controller.AgentLogfileMaxBackups: -1,
+		},
+		expectError: `negative agent-logfile-max-backups not valid`,
+	}, {
+		about: "agent-logfile-max-size not valid",
+		config: controller.Config{
+			controller.AgentLogfileMaxSize: "0",
+		},
+		expectError: `agent-logfile-max-size less than 1 MB not valid`,
+	}, {
 		about: "model-logfile-max-backups not valid",
 		config: controller.Config{
 			controller.ModelLogfileMaxBackups: -1,
@@ -777,8 +789,35 @@ func (s *ConfigSuite) TestDefaults(c *gc.C) {
 	c.Assert(cfg.AgentRateLimitMax(), gc.Equals, controller.DefaultAgentRateLimitMax)
 	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, controller.DefaultAgentRateLimitRate)
 	c.Assert(cfg.MaxDebugLogDuration(), gc.Equals, controller.DefaultMaxDebugLogDuration)
+	c.Assert(cfg.AgentLogfileMaxBackups(), gc.Equals, controller.DefaultAgentLogfileMaxBackups)
+	c.Assert(cfg.AgentLogfileMaxSizeMB(), gc.Equals, controller.DefaultAgentLogfileMaxSize)
 	c.Assert(cfg.ModelLogfileMaxBackups(), gc.Equals, controller.DefaultModelLogfileMaxBackups)
 	c.Assert(cfg.ModelLogfileMaxSizeMB(), gc.Equals, controller.DefaultModelLogfileMaxSize)
+}
+
+func (s *ConfigSuite) TestAgentLogfile(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"agent-logfile-max-size":    "35M",
+			"agent-logfile-max-backups": "17",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AgentLogfileMaxBackups(), gc.Equals, 17)
+	c.Assert(cfg.AgentLogfileMaxSizeMB(), gc.Equals, 35)
+}
+
+func (s *ConfigSuite) TestAgentLogfileBackupErr(c *gc.C) {
+	_, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"agent-logfile-max-backups": "two",
+		},
+	)
+	c.Assert(err.Error(), gc.Equals, `agent-logfile-max-backups: expected number, got string("two")`)
 }
 
 func (s *ConfigSuite) TestModelLogfile(c *gc.C) {

@@ -18,30 +18,30 @@ import (
 	version "github.com/juju/version/v2"
 )
 
-// MockAgent is a mock of Agent interface
+// MockAgent is a mock of Agent interface.
 type MockAgent struct {
 	ctrl     *gomock.Controller
 	recorder *MockAgentMockRecorder
 }
 
-// MockAgentMockRecorder is the mock recorder for MockAgent
+// MockAgentMockRecorder is the mock recorder for MockAgent.
 type MockAgentMockRecorder struct {
 	mock *MockAgent
 }
 
-// NewMockAgent creates a new mock instance
+// NewMockAgent creates a new mock instance.
 func NewMockAgent(ctrl *gomock.Controller) *MockAgent {
 	mock := &MockAgent{ctrl: ctrl}
 	mock.recorder = &MockAgentMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgent) EXPECT() *MockAgentMockRecorder {
 	return m.recorder
 }
 
-// ChangeConfig mocks base method
+// ChangeConfig mocks base method.
 func (m *MockAgent) ChangeConfig(arg0 agent.ConfigMutator) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeConfig", arg0)
@@ -49,13 +49,13 @@ func (m *MockAgent) ChangeConfig(arg0 agent.ConfigMutator) error {
 	return ret0
 }
 
-// ChangeConfig indicates an expected call of ChangeConfig
+// ChangeConfig indicates an expected call of ChangeConfig.
 func (mr *MockAgentMockRecorder) ChangeConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeConfig", reflect.TypeOf((*MockAgent)(nil).ChangeConfig), arg0)
 }
 
-// CurrentConfig mocks base method
+// CurrentConfig mocks base method.
 func (m *MockAgent) CurrentConfig() agent.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CurrentConfig")
@@ -63,36 +63,36 @@ func (m *MockAgent) CurrentConfig() agent.Config {
 	return ret0
 }
 
-// CurrentConfig indicates an expected call of CurrentConfig
+// CurrentConfig indicates an expected call of CurrentConfig.
 func (mr *MockAgentMockRecorder) CurrentConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentConfig", reflect.TypeOf((*MockAgent)(nil).CurrentConfig))
 }
 
-// MockConfig is a mock of Config interface
+// MockConfig is a mock of Config interface.
 type MockConfig struct {
 	ctrl     *gomock.Controller
 	recorder *MockConfigMockRecorder
 }
 
-// MockConfigMockRecorder is the mock recorder for MockConfig
+// MockConfigMockRecorder is the mock recorder for MockConfig.
 type MockConfigMockRecorder struct {
 	mock *MockConfig
 }
 
-// NewMockConfig creates a new mock instance
+// NewMockConfig creates a new mock instance.
 func NewMockConfig(ctrl *gomock.Controller) *MockConfig {
 	mock := &MockConfig{ctrl: ctrl}
 	mock.recorder = &MockConfigMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConfig) EXPECT() *MockConfigMockRecorder {
 	return m.recorder
 }
 
-// APIAddresses mocks base method
+// APIAddresses mocks base method.
 func (m *MockConfig) APIAddresses() ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "APIAddresses")
@@ -101,13 +101,13 @@ func (m *MockConfig) APIAddresses() ([]string, error) {
 	return ret0, ret1
 }
 
-// APIAddresses indicates an expected call of APIAddresses
+// APIAddresses indicates an expected call of APIAddresses.
 func (mr *MockConfigMockRecorder) APIAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIAddresses", reflect.TypeOf((*MockConfig)(nil).APIAddresses))
 }
 
-// APIInfo mocks base method
+// APIInfo mocks base method.
 func (m *MockConfig) APIInfo() (*api.Info, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "APIInfo")
@@ -116,13 +116,41 @@ func (m *MockConfig) APIInfo() (*api.Info, bool) {
 	return ret0, ret1
 }
 
-// APIInfo indicates an expected call of APIInfo
+// APIInfo indicates an expected call of APIInfo.
 func (mr *MockConfigMockRecorder) APIInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIInfo", reflect.TypeOf((*MockConfig)(nil).APIInfo))
 }
 
-// CACert mocks base method
+// AgentLogfileMaxBackups mocks base method.
+func (m *MockConfig) AgentLogfileMaxBackups() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentLogfileMaxBackups")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// AgentLogfileMaxBackups indicates an expected call of AgentLogfileMaxBackups.
+func (mr *MockConfigMockRecorder) AgentLogfileMaxBackups() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxBackups", reflect.TypeOf((*MockConfig)(nil).AgentLogfileMaxBackups))
+}
+
+// AgentLogfileMaxSizeMB mocks base method.
+func (m *MockConfig) AgentLogfileMaxSizeMB() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentLogfileMaxSizeMB")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// AgentLogfileMaxSizeMB indicates an expected call of AgentLogfileMaxSizeMB.
+func (mr *MockConfigMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfig)(nil).AgentLogfileMaxSizeMB))
+}
+
+// CACert mocks base method.
 func (m *MockConfig) CACert() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CACert")
@@ -130,13 +158,13 @@ func (m *MockConfig) CACert() string {
 	return ret0
 }
 
-// CACert indicates an expected call of CACert
+// CACert indicates an expected call of CACert.
 func (mr *MockConfigMockRecorder) CACert() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CACert", reflect.TypeOf((*MockConfig)(nil).CACert))
 }
 
-// Controller mocks base method
+// Controller mocks base method.
 func (m *MockConfig) Controller() names.ControllerTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Controller")
@@ -144,13 +172,13 @@ func (m *MockConfig) Controller() names.ControllerTag {
 	return ret0
 }
 
-// Controller indicates an expected call of Controller
+// Controller indicates an expected call of Controller.
 func (mr *MockConfigMockRecorder) Controller() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Controller", reflect.TypeOf((*MockConfig)(nil).Controller))
 }
 
-// DataDir mocks base method
+// DataDir mocks base method.
 func (m *MockConfig) DataDir() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DataDir")
@@ -158,13 +186,13 @@ func (m *MockConfig) DataDir() string {
 	return ret0
 }
 
-// DataDir indicates an expected call of DataDir
+// DataDir indicates an expected call of DataDir.
 func (mr *MockConfigMockRecorder) DataDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DataDir", reflect.TypeOf((*MockConfig)(nil).DataDir))
 }
 
-// Dir mocks base method
+// Dir mocks base method.
 func (m *MockConfig) Dir() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dir")
@@ -172,13 +200,13 @@ func (m *MockConfig) Dir() string {
 	return ret0
 }
 
-// Dir indicates an expected call of Dir
+// Dir indicates an expected call of Dir.
 func (mr *MockConfigMockRecorder) Dir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dir", reflect.TypeOf((*MockConfig)(nil).Dir))
 }
 
-// Jobs mocks base method
+// Jobs mocks base method.
 func (m *MockConfig) Jobs() []model.MachineJob {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Jobs")
@@ -186,13 +214,13 @@ func (m *MockConfig) Jobs() []model.MachineJob {
 	return ret0
 }
 
-// Jobs indicates an expected call of Jobs
+// Jobs indicates an expected call of Jobs.
 func (mr *MockConfigMockRecorder) Jobs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockConfig)(nil).Jobs))
 }
 
-// JujuDBSnapChannel mocks base method
+// JujuDBSnapChannel mocks base method.
 func (m *MockConfig) JujuDBSnapChannel() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
@@ -200,13 +228,13 @@ func (m *MockConfig) JujuDBSnapChannel() string {
 	return ret0
 }
 
-// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
+// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel.
 func (mr *MockConfigMockRecorder) JujuDBSnapChannel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfig)(nil).JujuDBSnapChannel))
 }
 
-// LogDir mocks base method
+// LogDir mocks base method.
 func (m *MockConfig) LogDir() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogDir")
@@ -214,13 +242,13 @@ func (m *MockConfig) LogDir() string {
 	return ret0
 }
 
-// LogDir indicates an expected call of LogDir
+// LogDir indicates an expected call of LogDir.
 func (mr *MockConfigMockRecorder) LogDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogDir", reflect.TypeOf((*MockConfig)(nil).LogDir))
 }
 
-// LoggingConfig mocks base method
+// LoggingConfig mocks base method.
 func (m *MockConfig) LoggingConfig() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoggingConfig")
@@ -228,13 +256,13 @@ func (m *MockConfig) LoggingConfig() string {
 	return ret0
 }
 
-// LoggingConfig indicates an expected call of LoggingConfig
+// LoggingConfig indicates an expected call of LoggingConfig.
 func (mr *MockConfigMockRecorder) LoggingConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoggingConfig", reflect.TypeOf((*MockConfig)(nil).LoggingConfig))
 }
 
-// MetricsSpoolDir mocks base method
+// MetricsSpoolDir mocks base method.
 func (m *MockConfig) MetricsSpoolDir() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MetricsSpoolDir")
@@ -242,13 +270,13 @@ func (m *MockConfig) MetricsSpoolDir() string {
 	return ret0
 }
 
-// MetricsSpoolDir indicates an expected call of MetricsSpoolDir
+// MetricsSpoolDir indicates an expected call of MetricsSpoolDir.
 func (mr *MockConfigMockRecorder) MetricsSpoolDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MetricsSpoolDir", reflect.TypeOf((*MockConfig)(nil).MetricsSpoolDir))
 }
 
-// Model mocks base method
+// Model mocks base method.
 func (m *MockConfig) Model() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
@@ -256,13 +284,13 @@ func (m *MockConfig) Model() names.ModelTag {
 	return ret0
 }
 
-// Model indicates an expected call of Model
+// Model indicates an expected call of Model.
 func (mr *MockConfigMockRecorder) Model() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockConfig)(nil).Model))
 }
 
-// MongoInfo mocks base method
+// MongoInfo mocks base method.
 func (m *MockConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MongoInfo")
@@ -271,13 +299,13 @@ func (m *MockConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	return ret0, ret1
 }
 
-// MongoInfo indicates an expected call of MongoInfo
+// MongoInfo indicates an expected call of MongoInfo.
 func (mr *MockConfigMockRecorder) MongoInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoInfo", reflect.TypeOf((*MockConfig)(nil).MongoInfo))
 }
 
-// MongoMemoryProfile mocks base method
+// MongoMemoryProfile mocks base method.
 func (m *MockConfig) MongoMemoryProfile() mongo.MemoryProfile {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MongoMemoryProfile")
@@ -285,13 +313,13 @@ func (m *MockConfig) MongoMemoryProfile() mongo.MemoryProfile {
 	return ret0
 }
 
-// MongoMemoryProfile indicates an expected call of MongoMemoryProfile
+// MongoMemoryProfile indicates an expected call of MongoMemoryProfile.
 func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
 }
 
-// NonSyncedWritesToRaftLog mocks base method
+// NonSyncedWritesToRaftLog mocks base method.
 func (m *MockConfig) NonSyncedWritesToRaftLog() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NonSyncedWritesToRaftLog")
@@ -299,13 +327,13 @@ func (m *MockConfig) NonSyncedWritesToRaftLog() bool {
 	return ret0
 }
 
-// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog
+// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog.
 func (mr *MockConfigMockRecorder) NonSyncedWritesToRaftLog() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfig)(nil).NonSyncedWritesToRaftLog))
 }
 
-// Nonce mocks base method
+// Nonce mocks base method.
 func (m *MockConfig) Nonce() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Nonce")
@@ -313,13 +341,13 @@ func (m *MockConfig) Nonce() string {
 	return ret0
 }
 
-// Nonce indicates an expected call of Nonce
+// Nonce indicates an expected call of Nonce.
 func (mr *MockConfigMockRecorder) Nonce() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockConfig)(nil).Nonce))
 }
 
-// OldPassword mocks base method
+// OldPassword mocks base method.
 func (m *MockConfig) OldPassword() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OldPassword")
@@ -327,13 +355,13 @@ func (m *MockConfig) OldPassword() string {
 	return ret0
 }
 
-// OldPassword indicates an expected call of OldPassword
+// OldPassword indicates an expected call of OldPassword.
 func (mr *MockConfigMockRecorder) OldPassword() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OldPassword", reflect.TypeOf((*MockConfig)(nil).OldPassword))
 }
 
-// StateServingInfo mocks base method
+// StateServingInfo mocks base method.
 func (m *MockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateServingInfo")
@@ -342,13 +370,13 @@ func (m *MockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	return ret0, ret1
 }
 
-// StateServingInfo indicates an expected call of StateServingInfo
+// StateServingInfo indicates an expected call of StateServingInfo.
 func (mr *MockConfigMockRecorder) StateServingInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateServingInfo", reflect.TypeOf((*MockConfig)(nil).StateServingInfo))
 }
 
-// SystemIdentityPath mocks base method
+// SystemIdentityPath mocks base method.
 func (m *MockConfig) SystemIdentityPath() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SystemIdentityPath")
@@ -356,13 +384,13 @@ func (m *MockConfig) SystemIdentityPath() string {
 	return ret0
 }
 
-// SystemIdentityPath indicates an expected call of SystemIdentityPath
+// SystemIdentityPath indicates an expected call of SystemIdentityPath.
 func (mr *MockConfigMockRecorder) SystemIdentityPath() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemIdentityPath", reflect.TypeOf((*MockConfig)(nil).SystemIdentityPath))
 }
 
-// Tag mocks base method
+// Tag mocks base method.
 func (m *MockConfig) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
@@ -370,13 +398,13 @@ func (m *MockConfig) Tag() names.Tag {
 	return ret0
 }
 
-// Tag indicates an expected call of Tag
+// Tag indicates an expected call of Tag.
 func (mr *MockConfigMockRecorder) Tag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockConfig)(nil).Tag))
 }
 
-// TransientDataDir mocks base method
+// TransientDataDir mocks base method.
 func (m *MockConfig) TransientDataDir() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransientDataDir")
@@ -384,13 +412,13 @@ func (m *MockConfig) TransientDataDir() string {
 	return ret0
 }
 
-// TransientDataDir indicates an expected call of TransientDataDir
+// TransientDataDir indicates an expected call of TransientDataDir.
 func (mr *MockConfigMockRecorder) TransientDataDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransientDataDir", reflect.TypeOf((*MockConfig)(nil).TransientDataDir))
 }
 
-// UpgradedToVersion mocks base method
+// UpgradedToVersion mocks base method.
 func (m *MockConfig) UpgradedToVersion() version.Number {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradedToVersion")
@@ -398,13 +426,13 @@ func (m *MockConfig) UpgradedToVersion() version.Number {
 	return ret0
 }
 
-// UpgradedToVersion indicates an expected call of UpgradedToVersion
+// UpgradedToVersion indicates an expected call of UpgradedToVersion.
 func (mr *MockConfigMockRecorder) UpgradedToVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradedToVersion", reflect.TypeOf((*MockConfig)(nil).UpgradedToVersion))
 }
 
-// Value mocks base method
+// Value mocks base method.
 func (m *MockConfig) Value(arg0 string) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Value", arg0)
@@ -412,13 +440,13 @@ func (m *MockConfig) Value(arg0 string) string {
 	return ret0
 }
 
-// Value indicates an expected call of Value
+// Value indicates an expected call of Value.
 func (mr *MockConfigMockRecorder) Value(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockConfig)(nil).Value), arg0)
 }
 
-// WriteCommands mocks base method
+// WriteCommands mocks base method.
 func (m *MockConfig) WriteCommands(arg0 shell.Renderer) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteCommands", arg0)
@@ -427,7 +455,7 @@ func (m *MockConfig) WriteCommands(arg0 shell.Renderer) ([]string, error) {
 	return ret0, ret1
 }
 
-// WriteCommands indicates an expected call of WriteCommands
+// WriteCommands indicates an expected call of WriteCommands.
 func (mr *MockConfigMockRecorder) WriteCommands(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteCommands", reflect.TypeOf((*MockConfig)(nil).WriteCommands), arg0)

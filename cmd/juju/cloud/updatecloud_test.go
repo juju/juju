@@ -58,12 +58,12 @@ func (s *updateCloudSuite) TestBadArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["boo"\]`)
 }
 
-func (s *updateCloudSuite) setupCloudFileScenario(c *gc.C, apiFunc func() (cloud.UpdateCloudAPI, error)) (*cloud.UpdateCloudCommand, string) {
-	clouds, err := jujucloud.ParseCloudMetadata([]byte(garageMaasYamlFile))
+func (s *updateCloudSuite) setupCloudFileScenario(c *gc.C, yamlFile string, apiFunc func() (cloud.UpdateCloudAPI, error)) (*cloud.UpdateCloudCommand, string) {
+	clouds, err := jujucloud.ParseCloudMetadata([]byte(yamlFile))
 	c.Assert(err, jc.ErrorIsNil)
 
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ReadCloudData", "mycloud.yaml").Returns(garageMaasYamlFile, nil)
+	fake.Call("ReadCloudData", "mycloud.yaml").Returns(yamlFile, nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 	fake.Call("WritePersonalCloudMetadata", clouds).Returns(nil)
@@ -78,7 +78,7 @@ func (s *updateCloudSuite) createLocalCacheFile(c *gc.C) {
 }
 
 func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
-	command, fileName := s.setupCloudFileScenario(c, func() (cloud.UpdateCloudAPI, error) {
+	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func() (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
 	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client")
@@ -88,7 +88,7 @@ func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
 
 func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
 	s.store.Controllers = nil
-	command, fileName := s.setupCloudFileScenario(c, func() (cloud.UpdateCloudAPI, error) {
+	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func() (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client")
@@ -100,7 +100,28 @@ func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
 }
 
 func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
-	command, fileName := s.setupCloudFileScenario(c, func() (cloud.UpdateCloudAPI, error) {
+	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func() (cloud.UpdateCloudAPI, error) {
+		return s.api, nil
+	})
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "-c", "mycontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "UpdateCloud", "Close")
+	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
+		Name:          "garage-maas",
+		Type:          "maas",
+		Description:   "Metal As A Service",
+		AuthTypes:     jujucloud.AuthTypes{"oauth1"},
+		Endpoint:      "http://garagemaas",
+		SkipTLSVerify: true,
+	})
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on controller "mycontroller" using provided file.`)
+}
+
+func (s *updateCloudSuite) TestUpdateControllerFromFileWithoutCloudsKeyword(c *gc.C) {
+	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFileListCloudOutput, func() (cloud.UpdateCloudAPI, error) {
 		return s.api, nil
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "-c", "mycontroller")
@@ -131,7 +152,7 @@ func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *gc.C) {
 
 func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 	s.createLocalCacheFile(c)
-	command, _ := s.setupCloudFileScenario(c, func() (cloud.UpdateCloudAPI, error) {
+	command, _ := s.setupCloudFileScenario(c, garageMaasYamlFile, func() (cloud.UpdateCloudAPI, error) {
 		return s.api, nil
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "--controller", "mycontroller")

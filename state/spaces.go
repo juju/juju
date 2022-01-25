@@ -90,6 +90,9 @@ func (s *Space) Subnets() ([]*Subnet, error) {
 			subnet := &Subnet{s.st, doc, id}
 			results = append(results, subnet)
 		}
+		if err := childIter.Close(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if err := iter.Close(); err != nil {
 		return nil, errors.Annotatef(err, "cannot fetch subnets")
