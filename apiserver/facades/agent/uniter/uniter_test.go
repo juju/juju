@@ -875,9 +875,9 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	// Set wordpressUnit's charm URL first.
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	curl, err := s.wordpressUnit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ok := s.wordpressUnit.CharmURL()
 	c.Assert(curl, gc.DeepEquals, s.wpCharm.URL())
+	c.Assert(ok, jc.IsTrue)
 
 	// Make sure wordpress application's charm is what we expect.
 	curl, force := s.wordpress.CharmURL()
@@ -901,7 +901,7 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: s.wpCharm.String(), Ok: true},
+			{Result: s.wpCharm.String(), Ok: ok},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: s.wpCharm.String(), Ok: force},
@@ -941,11 +941,10 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	// Verify the charm URL was set.
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-
-	charmURL, err := s.wordpressUnit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	charmURL, needsUpgrade := s.wordpressUnit.CharmURL()
 	c.Assert(charmURL, gc.NotNil)
 	c.Assert(charmURL.String(), gc.Equals, s.wpCharm.String())
+	c.Assert(needsUpgrade, jc.IsTrue)
 }
 
 func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {

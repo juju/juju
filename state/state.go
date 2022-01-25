@@ -1615,7 +1615,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	return results, nil
 }
 
-// AllUnitAssignments returns all staged unit assignments in the model.
+// UnitAssignments returns all staged unit assignments in the model.
 func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 	return st.unitAssignments(nil)
 }

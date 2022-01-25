@@ -77,7 +77,7 @@ type unitDoc struct {
 	ModelUUID              string `bson:"model-uuid"`
 	Application            string
 	Series                 string
-	CharmURL               *string
+	CharmURL               *charm.URL
 	Principal              string
 	Subordinates           []string
 	StorageAttachmentCount int `bson:"storageattachmentcount"`
@@ -146,15 +146,8 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
 	}
 
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// TODO (manadart 2019-02-21) Factor the current generation into this call.
-	// TODO (manadart 2021-12-03) Most places where we are passing a charm URL
-	// could just use its string form.
-	s, err := charmSettingsWithDefaults(u.st, cURL, u.doc.Application, model.GenerationMaster)
+	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application, model.GenerationMaster)
 	if err != nil {
 		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
 	}
@@ -344,7 +337,7 @@ type UpdateUnitOperation struct {
 }
 
 // Build is part of the ModelOperation interface.
-func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
+func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	op.setStatusDocs = make(map[string]statusDoc)
 
 	containerInfo, err := op.unit.cloudContainer()
@@ -1440,13 +1433,11 @@ func (u *Unit) OpenedPortRanges() (UnitPortRanges, error) {
 }
 
 // CharmURL returns the charm URL this unit is currently using.
-func (u *Unit) CharmURL() (*charm.URL, error) {
+func (u *Unit) CharmURL() (*charm.URL, bool) {
 	if u.doc.CharmURL == nil {
-		return nil, nil
+		return nil, false
 	}
-
-	cURL, err := charm.ParseURL(*u.doc.CharmURL)
-	return cURL, errors.Trace(err)
+	return u.doc.CharmURL, true
 }
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
@@ -1504,22 +1495,17 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 				Assert: append(notDeadDoc, differentCharm...),
 				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
 			})
-
-		cURL, err := u.CharmURL()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if cURL != nil {
+		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
 			// Since we can force this now, let's.. There is no point hanging on to the old charm.
 			op := &ForcedOperation{Force: true}
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, cURL, true, op)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true, op)
 			if err != nil {
 				// No need to stop further processing if the old key could not be removed.
-				logger.Errorf("could not remove old charm references for %s: %v", cURL, err)
+				logger.Errorf("could not remove old charm references for %v:%v", u.doc.CharmURL, err)
 			}
 			if len(op.Errors) != 0 {
-				logger.Errorf("could not remove old charm references for %s: %v", cURL, op.Errors)
+				logger.Errorf("could not remove old charm references for %v:%v", u.doc.CharmURL, op.Errors)
 			}
 			ops = append(ops, decOps...)
 		}
@@ -1527,8 +1513,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	}
 	err := u.st.db().Run(buildTxn)
 	if err == nil {
-		curlStr := curl.String()
-		u.doc.CharmURL = &curlStr
+		u.doc.CharmURL = curl
 	}
 	return err
 }
@@ -1536,20 +1521,15 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 // charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
 func (u *Unit) charm() (*Charm, error) {
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if cURL == nil {
+	curl, ok := u.CharmURL()
+	if !ok {
 		app, err := u.Application()
 		if err != nil {
 			return nil, err
 		}
-		cURL = app.doc.CharmURL
+		curl = app.doc.CharmURL
 	}
-
-	ch, err := u.st.Charm(cURL)
+	ch, err := u.st.Charm(curl)
 	return ch, errors.Annotatef(err, "getting charm for %s", u)
 }
 
@@ -1562,7 +1542,7 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 		Id:     u.doc.Name,
 		Assert: bson.D{{"charmurl", u.doc.CharmURL}},
 	}}
-	if u.doc.CharmURL != nil {
+	if _, ok := u.CharmURL(); !ok {
 		appName := u.ApplicationName()
 		ops = append(ops, txn.Op{
 			C:      applicationsC,
@@ -2883,13 +2863,7 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 		}
 		return app.StorageConstraints()
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	key := applicationStorageConstraintsKey(u.doc.Application, cURL)
+	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
 	cons, err := readStorageConstraints(u.st, key)
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -2939,14 +2913,9 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	// relax the restrictions on migrating apps mid-upgrade, this
 	// will need to be more sophisticated, because it might need to
 	// create the settings doc.
-	if charmURL := args.unitDoc.CharmURL; charmURL != nil {
-		cURL, err := charm.ParseURL(*charmURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
+	if curl := args.unitDoc.CharmURL; curl != nil {
 		appName := args.unitDoc.Application
-		charmRefOps, err := appCharmIncRefOps(st, appName, cURL, false)
+		charmRefOps, err := appCharmIncRefOps(st, appName, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
