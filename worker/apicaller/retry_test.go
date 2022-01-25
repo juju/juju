@@ -4,12 +4,15 @@
 package apicaller_test
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -36,6 +39,12 @@ var _ = gc.Suite(&RetryStrategySuite{})
 
 var testEntity = names.NewMachineTag("42")
 
+var strategy = retry.CallArgs{
+	Clock:    clock.WallClock,
+	Delay:    time.Millisecond,
+	Attempts: 3,
+}
+
 func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(
@@ -43,8 +52,6 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 		errNotProvisioned, // first strategy attempt
 		nil,               // success on second strategy attempt
 	)
-	// TODO(katco): 2016-08-09: lp:1611427
-	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
@@ -61,8 +68,6 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *gc.C) {
 		errNotProvisioned, // first strategy attempt
 		nil,               // second strategy attempt
 	)
-	// TODO(katco): 2016-08-09: lp:1611427
-	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
@@ -91,8 +96,6 @@ func checkWaitProvisionedError(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errNotProvisioned,       // second strategy attempt
 		errors.New("splat pow"), // third strategy attempt
 	)
-	// TODO(katco): 2016-08-09: lp:1611427
-	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return connect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
@@ -120,8 +123,6 @@ func checkWaitNeverProvisioned(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errNotProvisioned, // second strategy attempt
 		errNotProvisioned, // third strategy attempt
 	)
-	// TODO(katco): 2016-08-09: lp:1611427
-	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
 		return connect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})

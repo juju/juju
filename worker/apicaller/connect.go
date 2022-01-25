@@ -6,8 +6,10 @@ package apicaller
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/agent"
@@ -22,11 +24,10 @@ var (
 	// retry strategy for "handling" ErrNotProvisioned. It exists
 	// in the name of stability; as the code evolves, it would be
 	// great to see its function moved up a level or two.
-	//
-	// TODO(katco): 2016-08-09: lp:1611427
-	checkProvisionedStrategy = utils.AttemptStrategy{
-		Total: 10 * time.Minute,
-		Delay: 5 * time.Second,
+	checkProvisionedStrategy = retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 10 * time.Minute,
+		Delay:       5 * time.Second,
 	}
 
 	// newConnFacade should similarly move up a level so it can
@@ -141,11 +142,15 @@ func connectFallback(
 	// Yes, it's dumb that this can't be interrupted, and that
 	// it's not configurable without patching.
 	if params.IsCodeNotProvisioned(err) {
-		for a := checkProvisionedStrategy.Start(); a.Next(); {
+		retryStrategy := checkProvisionedStrategy
+		retryStrategy.IsFatalError = func(err error) bool { return !params.IsCodeNotProvisioned(err) }
+		retryStrategy.Func = func() error {
 			tryConnect()
-			if !params.IsCodeNotProvisioned(err) {
-				break
-			}
+			return err
+		}
+		err = retry.Call(retryStrategy)
+		if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+			err = retry.LastError(err)
 		}
 	}
 
