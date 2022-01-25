@@ -17,11 +17,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/repositories"
 	"github.com/juju/juju/resource/repositories/mocks"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type OperationsSuite struct{}
@@ -108,24 +110,28 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 		}),
 	)
 
+	numRequests := 100
+	done := sync.WaitGroup{}
 	args := repositories.GetResourceArgs{
 		Client:     rg,
 		Repository: er,
 		Name:       "company-icon",
 		CharmID:    repositories.CharmID{URL: charm.MustParseURL("cs:gitlab")},
+		Done: func() {
+			done.Done()
+		},
 	}
 
 	start := sync.WaitGroup{}
-	done := sync.WaitGroup{}
-	for i := 0; i < 100; i++ {
+	for i := 0; i < numRequests; i++ {
 		start.Add(1)
 		done.Add(1)
 		go func() {
-			defer done.Done()
 			start.Done()
 			rsc, reader, err := repositories.GetResource(args)
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(reader, gc.NotNil)
+			defer func() { _ = reader.Close() }()
 			c.Check(rsc, gc.DeepEquals, getState.res)
 		}()
 	}
@@ -133,5 +139,45 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 	start.Wait()
 	// This synchronises all the threads to start at the same time.
 	fetchMut.Unlock()
-	done.Wait()
+
+	finished := make(chan bool)
+	go func() {
+		done.Wait()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timeout waiting for resources to be closed")
+	}
+}
+
+func (s *OperationsSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	er := mocks.NewMockEntityRepository(ctrl)
+	rg := mocks.NewMockResourceGetter(ctrl)
+
+	fetchMut := &sync.Mutex{}
+	er.EXPECT().FetchLock(gomock.Any()).AnyTimes().Return(fetchMut)
+	er.EXPECT().OpenResource(gomock.Any()).DoAndReturn(func(name string) (resource.Resource, io.ReadCloser, error) {
+		return resource.Resource{}, io.ReadCloser(nil), errors.NotFoundf("resource")
+	})
+	er.EXPECT().GetResource(gomock.Any()).AnyTimes().DoAndReturn(func(name string) (resource.Resource, error) {
+		return resource.Resource{}, errors.New("boom")
+	})
+	called := false
+	args := repositories.GetResourceArgs{
+		Client:     rg,
+		Repository: er,
+		Name:       "company-icon",
+		CharmID:    repositories.CharmID{URL: charm.MustParseURL("cs:gitlab")},
+		Done: func() {
+			called = true
+		},
+	}
+
+	_, _, err := repositories.GetResource(args)
+	c.Check(err, gc.ErrorMatches, "boom")
+	c.Assert(called, jc.IsTrue)
 }
