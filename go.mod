@@ -56,7 +56,7 @@ require (
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v3 v3.0.0-20210709162012-5f861fa82eab
+	github.com/juju/description/v3 v3.0.0-20220125161928-cc5932c29986
 	github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -144,8 +144,6 @@ require (
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
-
-replace github.com/juju/description/v3 => github.com/cderici/description/v3 v3.0.0-20220124185649-54214b3dc18e
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07
 
