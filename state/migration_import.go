@@ -568,19 +568,16 @@ func (i *importer) machinePortsOp(m description.Machine) txn.Op {
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
 	doc := &instanceData{
-		DocID:      mdoc.DocID,
-		MachineId:  mdoc.Id,
-		InstanceId: instance.Id(inst.InstanceId()),
-		ModelUUID:  mdoc.ModelUUID,
+		DocID:       mdoc.DocID,
+		MachineId:   mdoc.Id,
+		InstanceId:  instance.Id(inst.InstanceId()),
+		DisplayName: inst.DisplayName(),
+		ModelUUID:   mdoc.ModelUUID,
 	}
 
 	if arch := inst.Architecture(); arch != "" {
 		doc.Arch = &arch
 	}
-	if displayName := inst.DisplayName(); displayName != "" {
-		doc.DisplayName = displayName
-	}
-
 	if mem := inst.Memory(); mem != 0 {
 		doc.Mem = &mem
 	}
