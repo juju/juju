@@ -1,7 +1,0 @@
-#!/bin/bash
-
-set -xe
-
-V=$(relation-get v)
-V=${V:-0}
-relation-set v=$(expr $V + 1)

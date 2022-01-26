@@ -1,3 +1,0 @@
-#!/bin/sh
-
-touch "${CHARM_DIR}/db-connected"

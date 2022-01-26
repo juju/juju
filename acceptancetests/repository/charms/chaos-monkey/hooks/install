@@ -1,5 +1,0 @@
-#!/bin/bash -eux
-
-apt-get update
-apt-get install -y python bzr
-${CHARM_DIR}/hooks/extract_chaos_monkey.bash

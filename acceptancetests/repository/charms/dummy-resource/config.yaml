@@ -1,5 +1,0 @@
-options:
-  foo.bar:
-    type: int
-    default: 3
-    description: Number of foo.bars.

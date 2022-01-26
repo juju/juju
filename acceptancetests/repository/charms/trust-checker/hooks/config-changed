@@ -1,2 +1,0 @@
-#!/bin/bash
-credential-get && status-set active "fetched cloud credentials" || status-set blocked "missing credentials access; grant with: juju trust"

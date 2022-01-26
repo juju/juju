@@ -1,9 +1,0 @@
-#!/bin/sh
-
-# Kill the replication
-mysql -uroot -p`cat /var/lib/mysql/mysql.passwd` -e 'STOP SLAVE;'
-mysql -uroot -p`cat /var/lib/mysql/mysql.passwd` -e 'RESET SLAVE;'
-# No longer a slave
-# XXX this may change the server-id .. not sure if thats what we
-# want!
-rm /var/lib/juju/i.am.a.slave

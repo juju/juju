@@ -1,6 +1,0 @@
-# After making changes to this file, to ensure that your sourcedeps are
-# up-to-date do:
-#
-#   make sourcedeps
-
-./build/charm-helpers                   lp:charm-helpers;revno=373

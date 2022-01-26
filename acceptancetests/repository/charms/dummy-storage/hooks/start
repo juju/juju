@@ -1,5 +1,0 @@
-#!/bin/bash
-set -x
-
-juju-log -l INFO "Starting, checking what storage we have."
-juju-log -l INFO "Storage details: $(storage-list)"

@@ -1,3 +1,0 @@
-#!/bin/bash
-mkdir -p /var/run/dummy-sink
-relation-get token > /var/run/dummy-sink/token

@@ -1,3 +1,0 @@
-# crontab for pushing haproxy metrics to statsd
-*/{{ metrics_sample_interval }} * * * * root bash {{ script }} {{ metrics_prefix }} {{ metrics_sample_interval }}min {{ haproxy_hostport }} {{ haproxy_httpauth }} | python -c "import socket, sys; sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); map(lambda line: sock.sendto(line, ('{{ statsd_host }}', {{ statsd_port }})), sys.stdin)"
-
