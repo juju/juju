@@ -6198,6 +6198,81 @@ func (s *upgradesSuite) TestSetContainerAddressOriginToMachine(c *gc.C) {
 	s.assertUpgradedData(c, SetContainerAddressOriginToMachine, upgradedData(col, expected))
 }
 
+func (s *upgradesSuite) TestUpdateCharmOriginAfterSetSeries(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	appColl, appCloser := s.state.db().GetRawCollection(applicationsC)
+	defer appCloser()
+
+	var err error
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("cs:test").String(),
+		"series":     "focal",
+		"charm-origin": bson.M{
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "focal",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app2"),
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("ch:test").String(),
+		"series":     "focal",
+		"charm-origin": bson.M{
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "bionic",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "app1"),
+			"model-uuid": uuid1,
+			"charmurl":   "cs:test",
+			"charm-origin": bson.M{
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "focal",
+				},
+			},
+			"series": "focal",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app2"),
+			"model-uuid": uuid2,
+			"charmurl":   "ch:test",
+			"charm-origin": bson.M{
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "focal",
+				},
+			},
+			"series": "focal",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, UpdateCharmOriginAfterSetSeries,
+		upgradedData(appColl, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

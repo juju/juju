@@ -4113,3 +4113,42 @@ func SetContainerAddressOriginToMachine(pool *StatePool) error {
 	}
 	return st.runRawTransaction(ops)
 }
+
+// UpdateCharmOriginAfterSetSeries updates application's charm origin platform series
+// if it doesn't match the application series.  E.G. after set-series is called.
+func UpdateCharmOriginAfterSetSeries(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, application := range docs {
+
+			appSeries := application.Series
+			if application.CharmOrigin == nil || application.CharmOrigin.Platform == nil {
+				logger.Errorf("%s has no platform in the charm origin", application.Name)
+				continue
+			}
+			if appSeries == application.CharmOrigin.Platform.Series {
+				continue
+			}
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     application.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{
+					"charm-origin.platform.series", appSeries,
+				}}}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
