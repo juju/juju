@@ -126,11 +126,19 @@ func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
 		if c.setSeriesClient.BestAPIVersion() < 5 {
 			return errors.New("setting the application series is not supported by this API server")
 		}
-		return c.updateApplicationSeries()
+		err := c.updateApplicationSeries()
+		if err == nil {
+			// TODO hmlanigan 2022-01-18
+			// Remove warning once improvements to develop are made, where by
+			// upgrade-series downloads the new charm. Or this command is removed.
+			// subordinate
+			ctx.Warningf("To ensure the correct charm binaries are installed when add-unit is next called, please first run `juju refresh` for this application and any related subordinates.")
+		}
+		return err
 	}
 
 	// This should never happen...
-	return errors.New("no application nor machine name specified")
+	return errors.New("no application name specified")
 }
 
 func (c *setSeriesCommand) updateApplicationSeries() error {
