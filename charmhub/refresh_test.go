@@ -189,6 +189,59 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	})
 }
 
+func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+	baseURLPath := path.MakePath(baseURL)
+
+	httpTransport := &metadataTransport{
+		responseBody: `
+{
+  "error-list": [],
+  "results": [
+    {
+        "id": "bar",
+        "instance-key": "instance-key-bar"
+    },
+    {
+      "id": "foo",
+      "instance-key": "instance-key-foo"
+    }
+  ]
+}
+`,
+	}
+
+	headers := http.Header{"User-Agent": []string{"Test Agent 1.0"}}
+	restClient := NewHTTPRESTClient(httpTransport, headers)
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+
+	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config2, err := RefreshOne("instance-key-bar", "bar", 2, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "14.04",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config := RefreshMany(config1, config2)
+
+	response, err := client.Refresh(context.Background(), config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
+
+	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
+		{ID: "foo", InstanceKey: "instance-key-foo"},
+		{ID: "bar", InstanceKey: "instance-key-bar"},
+	})
+}
+
 func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
