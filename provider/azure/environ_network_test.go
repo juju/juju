@@ -110,6 +110,9 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 									},
 									// This is the primary address for the NIC and should appear first in the mapped interface.
 									Primary: to.BoolPtr(true),
+									PublicIPAddress: &network.PublicIPAddress{
+										ID: to.StringPtr("bogus"), // should be ignored
+									},
 								},
 							},
 						},
@@ -118,8 +121,6 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 						"juju-machine-name": to.StringPtr("machine-0"),
 					},
 				},
-				// Azure (at least the SDK version that we are using) does not seem to report public addresses.
-				// This response is meant to exercise the pubic address parsing logic.
 				{
 					ID: to.StringPtr("az-nic-1"),
 					InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
@@ -132,10 +133,7 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 										ID: to.StringPtr("subnet-42"), // should match one of values returned by the Subnets() call
 									},
 									PublicIPAddress: &network.PublicIPAddress{
-										PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
-											PublicIPAllocationMethod: network.Dynamic,
-											IPAddress:                to.StringPtr("1.2.3.4"),
-										},
+										ID: to.StringPtr("az-ip-1"),
 									},
 									Primary: to.BoolPtr(true),
 								},
@@ -144,6 +142,24 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 					},
 					Tags: map[string]*string{
 						"juju-machine-name": to.StringPtr("machine-0"),
+					},
+				},
+			},
+		}),
+		makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{
+			Value: &[]network.PublicIPAddress{
+				{
+					ID: to.StringPtr("az-ip-0"),
+					PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
+						PublicIPAllocationMethod: network.Static,
+						IPAddress:                to.StringPtr("20.30.40.50"),
+					},
+				},
+				{
+					ID: to.StringPtr("az-ip-1"),
+					PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
+						PublicIPAllocationMethod: network.Dynamic,
+						IPAddress:                to.StringPtr("1.2.3.4"),
 					},
 				},
 			},
@@ -178,6 +194,7 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress(),
 	})
+	c.Assert(nic0.ShadowAddresses, gc.HasLen, 0)
 	c.Assert(nic0.ProviderId, gc.Equals, corenetwork.Id("az-nic-0"))
 	c.Assert(nic0.ProviderSubnetId, gc.Equals, corenetwork.Id("subnet-665"), gc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
 	c.Assert(nic0.ConfigType, gc.Equals, corenetwork.ConfigStatic, gc.Commentf("expected NIC to use the config type for the primary NIC address"))
@@ -222,6 +239,7 @@ func (s *environSuite) TestNetworkInterfacesPartialMatch(c *gc.C) {
 				},
 			},
 		}),
+		makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{}),
 	}
 
 	netEnv, ok := environs.SupportsNetworking(env)
