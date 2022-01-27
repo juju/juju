@@ -79,7 +79,7 @@ require (
 	github.com/juju/pubsub/v2 v2.0.0-20220104155641-7af8a09f58f0
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset/v2 v2.0.1-0.20211125220232-7967ce535201
-	github.com/juju/retry v0.0.0-20180821225755-9058e192b216
+	github.com/juju/retry v0.0.0-20210818141810-5526f6f6ff07
 	github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3
 	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
