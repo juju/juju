@@ -4,7 +4,6 @@
 package azure
 
 import (
-	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -68,7 +67,7 @@ func (env *azureEnviron) allProviderSubnets(ctx context.ProviderCallContext) ([]
 
 	subClient := azurenetwork.SubnetsClient{BaseClient: env.network}
 	vnetRG, vnetName := env.networkInfo()
-	subnets, err := subClient.List(stdcontext.Background(), vnetRG, vnetName)
+	subnets, err := subClient.List(ctx, vnetRG, vnetName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -102,7 +101,7 @@ func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.
 
 func (env *azureEnviron) allPublicIPs(ctx context.ProviderCallContext) (map[string]network.ProviderAddress, error) {
 	ipClient := azurenetwork.PublicIPAddressesClient{BaseClient: env.network}
-	ipList, err := ipClient.List(stdcontext.Background(), env.resourceGroup)
+	ipList, err := ipClient.List(ctx, env.resourceGroup)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
