@@ -340,16 +340,11 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newStatus, jc.DeepEquals, oldStatus)
 
-	oldInstID, err := oldMachine.InstanceId()
+	oldInstID, oldInstDisplayName, err := oldMachine.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
-	newInstID, err := newMachine.InstanceId()
+	newInstID, newInstDisplayName, err := newMachine.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newInstID, gc.Equals, oldInstID)
-
-	oldInstDisplayName, err := oldMachine.DisplayName()
-	c.Assert(err, jc.ErrorIsNil)
-	newInstDisplayName, err := oldMachine.DisplayName()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newInstDisplayName, gc.Equals, oldInstDisplayName)
 
 	oldStatus, err = oldMachine.InstanceStatus()

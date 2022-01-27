@@ -279,14 +279,6 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 	return hardwareCharacteristics(instData), nil
 }
 
-func (m *Machine) DisplayName() (string, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if err != nil {
-		return "", err
-	}
-	return instData.DisplayName, nil
-}
-
 func getInstanceData(st *State, id string) (instanceData, error) {
 	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
 	defer closer()
