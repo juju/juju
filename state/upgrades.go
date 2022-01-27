@@ -4013,3 +4013,56 @@ func UpdateExternalControllerInfo(pool *StatePool) error {
 	}
 	return nil
 }
+
+// RemoveInvalidCharmPlaceholders removes invalid charms that have invalid charm
+// urls, that also have placeholder fields set.
+func RemoveInvalidCharmPlaceholders(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		charms, cCloser := st.db().GetCollection(charmsC)
+		defer cCloser()
+
+		// Get all the charm placeholders.
+		docs := make(map[string]string)
+
+		iter := charms.Find(stillPlaceholder).Iter()
+		var cDoc charmDoc
+		for iter.Next(&cDoc) {
+			docs[cDoc.URL.String()] = cDoc.DocID
+		}
+
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		if len(docs) == 0 {
+			return nil
+		}
+
+		apps, aCloser := st.db().GetCollection(applicationsC)
+		defer aCloser()
+
+		var ops []txn.Op
+		for charmURL, id := range docs {
+			amount, err := apps.Find(bson.M{"charmurl": charmURL}).Count()
+			if err != nil {
+				continue
+			}
+			// There is an application reference, we should keep the
+			// placeholder.
+			if amount > 0 {
+				continue
+			}
+			ops = append(ops, txn.Op{
+				C:      charmsC,
+				Id:     id,
+				Remove: true,
+			})
+		}
+
+		if len(ops) == 0 {
+			return nil
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
