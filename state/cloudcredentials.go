@@ -386,7 +386,7 @@ func validateCloudCredentials(
 }
 
 func validateCredentialForCloud(nuage cloud.Cloud, tag names.CloudCredentialTag, credential Credential) error {
-	if tag.Cloud().Id() != nuage.Name {
+	if tag.Cloud().Id() != nuage.Name && nuage.Name != "manual" {
 		return errors.NotValidf("cloud %q", tag.Cloud().Id())
 	}
 
