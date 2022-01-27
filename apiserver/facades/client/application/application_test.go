@@ -850,7 +850,7 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	info := state.CharmInfo{
 		Charm:       charmDir,
 		ID:          curl,
-		StoragePath: "",
+		StoragePath: "/storage/path",
 		SHA256:      ident + "-sha256",
 	}
 	sch, err := s.State.AddCharm(info)

@@ -33,6 +33,7 @@ var (
 	requireValidCredentialModelWorkers = []string{
 		"action-pruner",          // tertiary dependency: will be inactive because migration workers will be inactive
 		"application-scaler",     // tertiary dependency: will be inactive because migration workers will be inactive
+		"charm-downloader",       // tertiary dependency: will be inactive because migration workers will be inactive
 		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
 		"compute-provisioner",
 		"environ-tracker",
@@ -56,6 +57,7 @@ var (
 	aliveModelWorkers = []string{
 		"action-pruner",
 		"application-scaler",
+		"charm-downloader",
 		"charm-revision-updater",
 		"compute-provisioner",
 		"environ-tracker",

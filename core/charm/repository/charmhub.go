@@ -5,8 +5,11 @@ package repository
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/juju/charm/v8"
@@ -335,6 +338,73 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 	}
 
 	return results, nil
+}
+
+// GetEssentialMetadata resolves each provided MetadataRequest and returns back
+// a slice with the results. The results include the minimum set of metadata
+// that is required for deploying each charm.
+func (c *CharmHubRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
+	// Group reqs in batches based on the provided macaroons
+	var urlToReqIdx = make(map[*charm.URL]int)
+	var reqGroups = make(map[string][]corecharm.MetadataRequest)
+	for reqIdx, req := range reqs {
+		urlToReqIdx[req.CharmURL] = reqIdx
+		if len(req.Macaroons) == 0 {
+			reqGroups[""] = append(reqGroups[""], req)
+			continue
+		}
+
+		// Calculate the concatenated signatures for all specified
+		// macaroons, convert them to a hex string and use that as
+		// the map key; this allows us to group together requests that
+		// reference the same set of macaroons.
+		var macSigs []byte
+		for _, mac := range req.Macaroons {
+			macSigs = append(macSigs, mac.Signature()...)
+		}
+		macSig := hex.EncodeToString(macSigs)
+		reqGroups[macSig] = append(reqGroups[macSig], req)
+	}
+
+	// Make a batch request for each group
+	var res = make([]corecharm.EssentialMetadata, len(reqs))
+	for _, reqGroup := range reqGroups {
+		resGroup, err := c.getEssentialMetadataForBatch(reqGroup)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for groupResIdx, groupRes := range resGroup {
+			reqURL := reqGroup[groupResIdx].CharmURL
+			res[urlToReqIdx[reqURL]] = groupRes
+		}
+	}
+
+	return res, nil
+}
+
+func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
+	var res = make([]corecharm.EssentialMetadata, len(reqs))
+	for reqIdx, req := range reqs {
+		tmpFile, err := ioutil.TempFile("", "charm-")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		_ = tmpFile.Close()
+
+		chArchive, resolvedOrigin, err := c.DownloadCharm(req.CharmURL, req.Origin, req.Macaroons, tmpFile.Name())
+		_ = os.Remove(tmpFile.Name())
+		if err != nil {
+			return nil, errors.Annotatef(err, "downloading charm %q", req.CharmURL)
+		}
+
+		res[reqIdx].ResolvedOrigin = resolvedOrigin
+		res[reqIdx].Meta = chArchive.Meta()
+		res[reqIdx].Manifest = chArchive.Manifest()
+		res[reqIdx].Config = chArchive.Config()
+	}
+
+	return res, nil
 }
 
 func (c *CharmHubRepository) refreshOne(charmURL *charm.URL, origin corecharm.Origin, _ macaroon.Slice) (transport.RefreshResponse, error) {

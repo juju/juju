@@ -157,12 +157,15 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 //     2. A unit being removed has a profile and other units
 //        exist on the machine.
 //     3. The LXD profile of an application with a unit on this
-//        machine is added, removed, or exists.
+//        machine is added, removed, or exists. This also includes scenarios
+//        where the charm is being downloaded asynchronously and its metadata
+//        gets updated once the download is complete.
 //     4. The machine's instanceId is changed, indicating it
 //        has been provisioned.
 func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher, error) {
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		appTopic:         applicationCharmURLChange,
+		charmTopic:       modelCharmChanged,
 		provisionedTopic: m.topic(machineProvisioned),
 		unitAddTopic:     modelUnitAdd,
 		unitRemoveTopic:  modelUnitRemove,

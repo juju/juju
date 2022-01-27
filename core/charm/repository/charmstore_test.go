@@ -164,6 +164,49 @@ func (s *charmStoreRepositorySuite) TestGetDownloadURL(c *gc.C) {
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
 }
 
+func (s *charmStoreRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl := charm.MustParseURL("cs:ubuntu-lite")
+	requestedOrigin := corecharm.Origin{
+		Source:  "charm-store",
+		Channel: &charm.Channel{Risk: "edge"},
+	}
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := macaroon.Slice{mac}
+
+	expMeta := new(charm.Meta)
+	expConfig := new(charm.Config)
+
+	repo := NewCharmStoreRepository(s.logger, "store-api-endpoint")
+	repo.clientFactory = func(gotStoreURL string, gotChannel csparams.Channel, gotMacaroons macaroon.Slice) (CharmStoreClient, error) {
+		c.Assert(gotStoreURL, gc.Equals, "store-api-endpoint", gc.Commentf("the provided store API endpoint was not passed to the client factory"))
+		c.Assert(gotChannel, gc.Equals, csparams.Channel("edge"), gc.Commentf("the channel from the provided origin was not passed to the client factory"))
+		c.Assert(gotMacaroons, gc.DeepEquals, macaroons, gc.Commentf("the provided macaroons were not passed to the client factory"))
+		return s.client, nil
+	}
+	s.client.EXPECT().Meta(curl, gomock.Any()).DoAndReturn(
+		func(charmURL *charm.URL, dstIface interface{}) (*charm.URL, error) {
+			dst := dstIface.(*csMetadataResponse)
+			dst.CharmMetadata = expMeta
+			dst.CharmConfig = expConfig
+			return charmURL, nil
+		},
+	)
+
+	gotMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL:  curl,
+		Origin:    requestedOrigin,
+		Macaroons: macaroons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotMeta, gc.HasLen, 1)
+	// NOTE: we use pointer equality checks here.
+	c.Assert(gotMeta[0].Meta, gc.Equals, expMeta)
+	c.Assert(gotMeta[0].Config, gc.Equals, expConfig)
+}
+
 func (s *charmStoreRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = mocks.NewMockCharmStoreClient(ctrl)

@@ -5,6 +5,7 @@ package charms
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -26,6 +27,8 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 )
 
@@ -43,9 +46,11 @@ type API struct {
 	httpClient http.HTTPClient
 
 	newStorage     func(modelUUID string) services.Storage
-	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
-	repoFactory    corecharm.RepositoryFactory
 	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
+	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
+
+	mu          sync.Mutex
+	repoFactory corecharm.RepositoryFactory
 }
 
 type APIv2 struct {
@@ -359,6 +364,26 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
+	ctrlCfg, err := a.backendState.ControllerConfig()
+	if err != nil {
+		return params.CharmOriginResult{}, err
+	}
+
+	// TODO(achilleasa): This escape hatch allows us to test the asynchronous
+	// charm download code-path without breaking the existing deploy logic.
+	//
+	// It will be removed once the new universal deploy facade is into place.
+	if ctrlCfg.Features().Contains(feature.AsynchronousCharmDownloads) {
+		actualOrigin, err := a.queueAsyncCharmDownload(args)
+		if err != nil {
+			return params.CharmOriginResult{}, errors.Trace(err)
+		}
+
+		return params.CharmOriginResult{
+			Origin: convertOrigin(actualOrigin),
+		}, nil
+	}
+
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
 		Logger:         logger,
 		Transport:      a.httpClient,
@@ -383,6 +408,96 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	return params.CharmOriginResult{
 		Origin: convertOrigin(actualOrigin),
 	}, nil
+}
+
+func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.Origin, error) {
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return corecharm.Origin{}, err
+	}
+
+	requestedOrigin := convertParamsOrigin(args.Origin)
+	repo, err := a.getCharmRepository(requestedOrigin.Source)
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+
+	var macaroons macaroon.Slice
+	if args.CharmStoreMacaroon != nil {
+		macaroons = append(macaroons, args.CharmStoreMacaroon)
+	}
+
+	// Check if a charm doc already exists for this charm URL. If so, the
+	// charm has already been queued for download so this is a no-op. We
+	// still need to resolve and return back a suitable origin as charmhub
+	// may refer to the same blob using the same revision in different
+	// channels.
+	//
+	// We need to use GetDownloadURL instead of ResolveWithPreferredChannel
+	// to ensure that the resolved origin has the ID/Hash fields correctly
+	// populated.
+	if _, err := a.backendState.Charm(charmURL); err == nil {
+		_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin, macaroons)
+		return resolvedOrigin, errors.Trace(err)
+	}
+
+	// Fetch the essential metadata that we require to deploy the charm
+	// without downloading the full archive. The remaining metadata will
+	// be populated once the charm gets downloaded.
+	essentialMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL:  charmURL,
+		Origin:    requestedOrigin,
+		Macaroons: macaroons,
+	})
+	if err != nil {
+		return corecharm.Origin{}, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL)
+	}
+	metaRes := essentialMeta[0]
+
+	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
+		Charm:    charmInfoAdapter{metaRes},
+		ID:       charmURL,
+		Macaroon: macaroons,
+	})
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+
+	return metaRes.ResolvedOrigin, nil
+}
+
+// charmInfoAdapter wraps an EssentialMetadata object and implements the
+// charm.Charm interface so it can be passed to state.AddCharm.
+type charmInfoAdapter struct {
+	meta corecharm.EssentialMetadata
+}
+
+func (adapter charmInfoAdapter) Meta() *charm.Meta {
+	return adapter.meta.Meta
+}
+
+func (adapter charmInfoAdapter) Manifest() *charm.Manifest {
+	return adapter.meta.Manifest
+}
+
+func (adapter charmInfoAdapter) Config() *charm.Config {
+	return adapter.meta.Config
+}
+
+func (adapter charmInfoAdapter) LXDProfile() *charm.LXDProfile {
+	return nil // not part of the essential metadata
+}
+
+func (adapter charmInfoAdapter) Metrics() *charm.Metrics {
+	return nil // not part of the essential metadata
+}
+
+func (adapter charmInfoAdapter) Actions() *charm.Actions {
+	return nil // not part of the essential metadata
+}
+
+func (adapter charmInfoAdapter) Revision() int {
+	return 0 // not part of the essential metadata
 }
 
 // ResolveCharms is not available via the V2 API.
@@ -488,6 +603,9 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 }
 
 func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	if a.repoFactory == nil {
 		a.repoFactory = a.newRepoFactory(services.CharmRepoFactoryConfig{
 			Logger:       logger,

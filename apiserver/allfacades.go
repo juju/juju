@@ -85,6 +85,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
@@ -180,6 +181,7 @@ func AllFacades() *facade.Registry {
 	reg("Bundle", 5, bundle.NewFacadeV5)
 	reg("Bundle", 6, bundle.NewFacadeV6)
 	reg("CharmHub", 1, charmhub.NewFacade)
+	reg("CharmDownloader", 1, charmdownloader.NewFacadeV1)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacadeV2)
 	reg("Charms", 3, charms.NewFacadeV3)

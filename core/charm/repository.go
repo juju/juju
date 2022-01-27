@@ -30,6 +30,11 @@ type Repository interface {
 	// this charm.
 	ResolveWithPreferredChannel(*charm.URL, Origin, macaroon.Slice) (*charm.URL, Origin, []string, error)
 
+	// GetEssentialMetadata resolves each provided MetadataRequest and
+	// returns back a slice with the results. The results include the
+	// minimum set of metadata that is required for deploying each charm.
+	GetEssentialMetadata(...MetadataRequest) ([]EssentialMetadata, error)
+
 	// ListResources returns a list of resources associated with a given charm.
 	ListResources(*charm.URL, Origin, macaroon.Slice) ([]charmresource.Resource, error)
 }
@@ -45,4 +50,22 @@ type CharmArchive interface {
 
 	Version() string
 	LXDProfile() *charm.LXDProfile
+}
+
+// MetadataRequest encapsulates the arguments for a charm essential metadata
+// resolution request.
+type MetadataRequest struct {
+	CharmURL  *charm.URL
+	Origin    Origin
+	Macaroons macaroon.Slice
+}
+
+// EssentialMetadata encapsulates the essential metadata required for deploying
+// a particular charm.
+type EssentialMetadata struct {
+	ResolvedOrigin Origin
+
+	Meta     *charm.Meta
+	Manifest *charm.Manifest
+	Config   *charm.Config
 }
