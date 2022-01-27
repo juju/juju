@@ -40,7 +40,6 @@ type CrossModelRelationsAPI struct {
 	fw         firewall.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
-	model      commoncrossmodel.CachedModel
 
 	mu              sync.Mutex
 	authCtxt        *commoncrossmodel.AuthContext
@@ -65,10 +64,6 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 	if err != nil {
 		return nil, err
 	}
-	cachedModel, err := ctx.CachedModel(st.ModelUUID())
-	if err != nil {
-		return nil, err
-	}
 
 	return NewCrossModelRelationsAPI(
 		stateShim{
@@ -77,7 +72,6 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		},
 		firewall.StateShim(st, model),
 		ctx.Resources(), ctx.Auth(),
-		commoncrossmodel.CacheShim{cachedModel},
 		authCtxt.(*commoncrossmodel.AuthContext),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
@@ -101,7 +95,6 @@ func NewCrossModelRelationsAPI(
 	fw firewall.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	model commoncrossmodel.CachedModel,
 	authCtxt *commoncrossmodel.AuthContext,
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
@@ -113,7 +106,6 @@ func NewCrossModelRelationsAPI(
 		fw:                    fw,
 		resources:             resources,
 		authorizer:            authorizer,
-		model:                 model,
 		authCtxt:              authCtxt,
 		egressAddressWatcher:  egressAddressWatcher,
 		relationStatusWatcher: relationStatusWatcher,
@@ -602,7 +594,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		change, err := commoncrossmodel.GetOfferStatusChange(api.model, api.st, arg.OfferUUID, w.OfferName())
+		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID, w.OfferName())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			_ = w.Stop()
