@@ -248,7 +248,7 @@ type stateLogger struct {
 }
 
 func newStateLogger(provider StateManagerProvider) (*stateLogger, error) {
-	manager, err := provider.GetStateManager("logs")
+	manager, err := provider.GetStateManager(overlord.LogNamespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

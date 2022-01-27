@@ -48,7 +48,7 @@ type stateManagerWorker struct {
 	catacomb catacomb.Catacomb
 
 	mutex    sync.Mutex
-	managers map[string]Overlord
+	managers map[overlord.Namespace]Overlord
 }
 
 // NewWorker creates a new state manager worker.
@@ -60,7 +60,7 @@ func NewWorker(cfg WorkerConfig) (*stateManagerWorker, error) {
 
 	w := &stateManagerWorker{
 		cfg:      cfg,
-		managers: make(map[string]Overlord),
+		managers: make(map[overlord.Namespace]Overlord),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -127,7 +127,7 @@ func (w *stateManagerWorker) GetStateManager(namespace string) (Overlord, error)
 
 	var mgr Overlord
 	switch namespace {
-	case "logs":
+	case overlord.LogNamespace:
 		mgr, err = overlord.NewLogOverlord(st)
 	default:
 		mgr, err = overlord.NewModelOverlord(st)

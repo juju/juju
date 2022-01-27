@@ -75,6 +75,14 @@ func (o *Overlord) LogManager() LogManager {
 	return nil
 }
 
+// Namespace represents the database namespaces.
+type Namespace = string
+
+const (
+	LogNamespace   Namespace = "logs"
+	ModelNamespace Namespace = "models"
+)
+
 // LogOverlord is an overlord that handles the logs database. As the logs
 // database is separate from the models database, we have a special logging
 // overlord that correctly handles just that case.
