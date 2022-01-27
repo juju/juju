@@ -24,3 +24,8 @@ func (s *steps2924Suite) TestUpdateExternalControllerInfo(c *gc.C) {
 	step := findStateStep(c, v2924, "update remote application external controller info")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps2924Suite) TestRemoveInvalidCharmPlaceholders(c *gc.C) {
+	step := findStateStep(c, v2924, "remove invalid charm placeholders")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
