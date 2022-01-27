@@ -13,6 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 )
 
 type networkingSuite struct {
@@ -164,6 +166,171 @@ func (s *networkingSuite) TestAllocatePublicIPFailNoNetworkInAZ(c *gc.C) {
 	fip, err := s.runAllocatePublicIP()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(fip, gc.IsNil)
+}
+
+func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
+	defer s.expectNeutronCalls(c).Finish()
+	s.externalNetwork = ""
+	s.expectListSubnets()
+
+	s.neutron.EXPECT().ListPortsV2().Return([]neutron.PortV2{
+		{
+			DeviceId:    "another-instance",
+			DeviceOwner: "compute:nova",
+		},
+		{
+			Id:          "nic-0",
+			DeviceId:    "inst-0",
+			NetworkId:   "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+			DeviceOwner: "compute:nova",
+			MACAddress:  "aa:bb:cc:dd:ee:ff",
+			Status:      "ACTIVE",
+			FixedIPs: []neutron.PortFixedIPsV2{
+				{
+					IPAddress: "192.168.0.2",
+					SubnetID:  "sub-42",
+				},
+				{
+					IPAddress: "10.0.0.2",
+					SubnetID:  "sub-665",
+				},
+			},
+		},
+		{
+			Id:          "nic-1",
+			DeviceId:    "inst-0",
+			NetworkId:   "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+			DeviceOwner: "compute:nova",
+			MACAddress:  "10:20:30:40:50:60",
+			Status:      "N/A",
+			FixedIPs: []neutron.PortFixedIPsV2{
+				{
+					IPAddress: "192.168.0.42",
+					SubnetID:  "sub-42",
+				},
+			},
+		},
+	}, nil)
+
+	nn := &NeutronNetworking{NetworkingBase: s.base}
+
+	res, err := nn.NetworkInterfaces([]instance.Id{"inst-0"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(res, gc.HasLen, 1)
+	c.Assert(res[0], gc.HasLen, 2, gc.Commentf("expected to get 2 NICs for machine-0"))
+
+	nic0 := res[0][0]
+	c.Assert(nic0.InterfaceType, gc.Equals, network.EthernetDevice)
+	c.Assert(nic0.Origin, gc.Equals, network.OriginProvider)
+	c.Assert(nic0.Disabled, jc.IsFalse)
+	c.Assert(nic0.MACAddress, gc.Equals, "aa:bb:cc:dd:ee:ff")
+	c.Assert(nic0.Addresses, gc.DeepEquals, network.ProviderAddresses{
+		network.NewMachineAddress(
+			"192.168.0.2",
+			network.WithCIDR("192.168.0.0/24"),
+			network.WithScope(network.ScopeCloudLocal),
+			network.WithConfigType(network.ConfigStatic),
+		).AsProviderAddress(),
+		network.NewMachineAddress(
+			"10.0.0.2",
+			network.WithCIDR("10.0.0.0/24"),
+			network.WithScope(network.ScopeCloudLocal),
+			network.WithConfigType(network.ConfigStatic),
+		).AsProviderAddress(),
+	})
+	c.Assert(nic0.ProviderId, gc.Equals, network.Id("nic-0"))
+	c.Assert(nic0.ProviderNetworkId, gc.Equals, network.Id("deadbeef-0bad-400d-8000-4b1ddbeefbeef"))
+	c.Assert(nic0.ProviderSubnetId, gc.Equals, network.Id("sub-42"), gc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
+	c.Assert(nic0.ConfigType, gc.Equals, network.ConfigStatic, gc.Commentf("expected NIC to use the config type for the primary NIC address"))
+
+	nic1 := res[0][1]
+	c.Assert(nic1.InterfaceType, gc.Equals, network.EthernetDevice)
+	c.Assert(nic1.Origin, gc.Equals, network.OriginProvider)
+	c.Assert(nic1.Disabled, jc.IsTrue, gc.Commentf("expected device to be listed as disabled"))
+	c.Assert(nic1.MACAddress, gc.Equals, "10:20:30:40:50:60")
+	c.Assert(nic1.Addresses, gc.DeepEquals, network.ProviderAddresses{
+		network.NewMachineAddress(
+			"192.168.0.42",
+			network.WithCIDR("192.168.0.0/24"),
+			network.WithScope(network.ScopeCloudLocal),
+			network.WithConfigType(network.ConfigStatic),
+		).AsProviderAddress(),
+	})
+	c.Assert(nic1.ProviderId, gc.Equals, network.Id("nic-1"))
+	c.Assert(nic1.ProviderNetworkId, gc.Equals, network.Id("deadbeef-0bad-400d-8000-4b1ddbeefbeef"))
+	c.Assert(nic1.ProviderSubnetId, gc.Equals, network.Id("sub-42"), gc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
+}
+
+func (s *networkingSuite) TestNetworkInterfacesPartialMatch(c *gc.C) {
+	defer s.expectNeutronCalls(c).Finish()
+	s.externalNetwork = ""
+	s.expectListSubnets()
+
+	s.neutron.EXPECT().ListPortsV2().Return([]neutron.PortV2{
+		{
+			Id:          "nic-0",
+			DeviceId:    "inst-0",
+			NetworkId:   "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+			DeviceOwner: "compute:nova",
+			MACAddress:  "aa:bb:cc:dd:ee:ff",
+			Status:      "ACTIVE",
+		},
+	}, nil)
+
+	nn := &NeutronNetworking{NetworkingBase: s.base}
+
+	res, err := nn.NetworkInterfaces([]instance.Id{"inst-0", "bogus-0"})
+	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+
+	c.Assert(res, gc.HasLen, 2)
+	c.Assert(res[0], gc.HasLen, 1, gc.Commentf("expected to get 1 NIC for inst-0"))
+	c.Assert(res[1], gc.IsNil, gc.Commentf("expected a nil slice for non-matched machines"))
+}
+
+func (s *networkingSuite) expectNeutronCalls(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.neutron = NewMockNetworkingNeutron(ctrl)
+	s.client = NewMockNetworkingAuthenticatingClient(ctrl)
+	s.ecfg = NewMockNetworkingEnvironConfig(ctrl)
+
+	s.base = NewMockNetworkingBase(ctrl)
+	bExp := s.base.EXPECT()
+	bExp.neutron().Return(s.neutron).AnyTimes()
+	bExp.ecfg().Return(s.ecfg).AnyTimes()
+
+	s.client.EXPECT().TenantId().Return("TenantId").AnyTimes()
+
+	return ctrl
+}
+
+func (s *networkingSuite) expectListSubnets() {
+	s.ecfg.EXPECT().network().Return("int-net")
+
+	s.expectExternalNetwork()
+	s.neutron.EXPECT().ListNetworksV2(gomock.Any()).Return([]neutron.NetworkV2{
+		{
+			Id:                "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+			Name:              "int-net",
+			AvailabilityZones: []string{s.serverAZ},
+		},
+	}, nil)
+	s.neutron.EXPECT().ListSubnetsV2().Return([]neutron.SubnetV2{
+		{
+			Id:        "sub-42",
+			NetworkId: "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+			Cidr:      "192.168.0.0/24",
+		},
+		{
+			Id:        "sub-665",
+			NetworkId: "deadbeef-0bad-400d-8000-4b1ddbeefbeef",
+			Cidr:      "10.0.0.0/24",
+		},
+	}, nil)
+	s.neutron.EXPECT().GetNetworkV2("deadbeef-0bad-400d-8000-4b1ddbeefbeef").Return(&neutron.NetworkV2{
+		AvailabilityZones: []string{"mars"},
+	}, nil).AnyTimes()
 }
 
 func (s *networkingSuite) setupMocks(c *gc.C) *gomock.Controller {

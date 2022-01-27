@@ -221,7 +221,7 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
 		s.setHostChecker(t.hostChecker)
 		s.setForceAPIv1(t.forceAPIv1)
 
-		ctx, err := cmdtesting.RunCommand(c, newSCPCommand(s.hostChecker), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, newSCPCommand(s.hostChecker, baseTestingRetryStrategy), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 		} else {

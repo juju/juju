@@ -102,6 +102,7 @@ type StateBackend interface {
 	MigrateLegacyCrossModelTokens() error
 	CleanupDeadAssignUnits() error
 	RemoveOrphanedLinkLayerDevices() error
+	UpdateExternalControllerInfo() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -442,4 +443,8 @@ func (s stateBackend) CleanupDeadAssignUnits() error {
 
 func (s stateBackend) RemoveOrphanedLinkLayerDevices() error {
 	return state.RemoveOrphanedLinkLayerDevices(s.pool)
+}
+
+func (s stateBackend) UpdateExternalControllerInfo() error {
+	return state.UpdateExternalControllerInfo(s.pool)
 }

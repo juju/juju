@@ -66,6 +66,9 @@ type GetResourceArgs struct {
 
 	// Name is the name of the resource.
 	Name string
+
+	// Done is called when the resource io.Reader is closed.
+	Done func()
 }
 
 func (args GetResourceArgs) validate() error {
@@ -90,10 +93,21 @@ func (args GetResourceArgs) validate() error {
 // If only the resource's details are in the cache (but not the actual
 // file) then the file is read from the charm store. In that case the
 // cache is updated to contain the file too.
-func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error) {
+func GetResource(args GetResourceArgs) (_ resource.Resource, rdr io.ReadCloser, err error) {
 	if err := args.validate(); err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
+
+	defer func() {
+		if err == nil {
+			rdr = &resourceAccess{
+				ReadCloser: rdr,
+				done:       args.Done,
+			}
+		} else {
+			args.Done()
+		}
+	}()
 
 	opRepo := operationsRepository{
 		repo: args.Repository,
@@ -142,4 +156,14 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 	}
 
 	return res, reader, nil
+}
+
+type resourceAccess struct {
+	io.ReadCloser
+	done func()
+}
+
+func (r *resourceAccess) Close() error {
+	defer r.done()
+	return r.ReadCloser.Close()
 }

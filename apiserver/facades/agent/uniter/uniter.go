@@ -959,21 +959,12 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 			var unitOrApplication state.Entity
 			unitOrApplication, err = u.st.FindEntity(tag)
 			if err == nil {
-				var cURL *charm.URL
-				var ok bool
-
-				switch entity := unitOrApplication.(type) {
-				case *state.Application:
-					cURL, ok = entity.CharmURL()
-				case *state.Unit:
-					cURL, err = entity.CharmURL()
-					if cURL != nil {
-						ok = true
-					}
-				}
-
-				if cURL != nil {
-					result.Results[i].Result = cURL.String()
+				charmURLer := unitOrApplication.(interface {
+					CharmURL() (*charm.URL, bool)
+				})
+				curl, ok := charmURLer.CharmURL()
+				if curl != nil {
+					result.Results[i].Result = curl.String()
 					result.Results[i].Ok = ok
 				}
 			}

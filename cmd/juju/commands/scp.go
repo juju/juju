@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/retry"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -108,9 +109,10 @@ See also:
 	ssh
 `
 
-func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
+func newSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {
 	c := new(scpCommand)
 	c.hostChecker = hostChecker
+	c.retryStrategy = retryStrategy
 	return modelcmd.Wrap(c)
 }
 
@@ -126,6 +128,8 @@ type scpCommand struct {
 	provider sshProvider
 
 	hostChecker jujussh.ReachableChecker
+
+	retryStrategy retry.CallArgs
 }
 
 func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -157,6 +161,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 
 	c.provider.setArgs(args)
 	c.provider.setHostChecker(c.hostChecker)
+	c.provider.setRetryStrategy(c.retryStrategy)
 	return nil
 }
 

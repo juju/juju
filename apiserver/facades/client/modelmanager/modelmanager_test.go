@@ -287,7 +287,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerNodes",
 		"HAPrimaryMachine",
 		"LatestMigration",
-		"ControllerConfig",
 	)
 
 	// Check that Model.LastModelConnection is called three times
@@ -460,7 +459,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerNodes",
 		"HAPrimaryMachine",
 		"LatestMigration",
-		"ControllerConfig",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
 

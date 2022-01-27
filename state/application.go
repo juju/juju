@@ -2649,17 +2649,11 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
-		maybeDoFinal := *u.doc.CharmURL != a.doc.CharmURL.String()
-
-		cURL, err := u.CharmURL()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
+		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
 		// When 'force' is set, this call will return both needed operations
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, cURL, maybeDoFinal, op)
+		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if op.FatalError(err) {

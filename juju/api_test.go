@@ -287,8 +287,8 @@ func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *gc.C) {
 			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 				apiConn := testRootAPI{
 					serverAddrs: params.FromProviderHostsPorts([]network.ProviderHostPorts{{
-						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example3"), NetPort: 3333},
-						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example4"), NetPort: 4444},
+						network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("example3").AsProviderAddress(), NetPort: 3333},
+						network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("example4").AsProviderAddress(), NetPort: 4444},
 					}}),
 				}
 				dialed <- ipAddr
@@ -349,8 +349,8 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
 			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 				apiConn := testRootAPI{
 					serverAddrs: params.FromProviderHostsPorts([]network.ProviderHostPorts{{
-						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example3"), NetPort: 3333},
-						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example5"), NetPort: 5555},
+						network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("example3").AsProviderAddress(), NetPort: 3333},
+						network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("example5").AsProviderAddress(), NetPort: 5555},
 					}}),
 				}
 				c.Logf("Dial: %q requested", ipAddr)
@@ -410,15 +410,15 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	serverAddrs := params.FromProviderHostsPorts([]network.ProviderHostPorts{{
-		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.3"), NetPort: 1234},
-		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("2001:db8::1"), NetPort: 1234},
-		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("10.0.0.1"), NetPort: 1234},
-		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("127.0.0.1"), NetPort: 1234},
-		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("169.254.1.1"), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("0.1.2.3").AsProviderAddress(), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("2001:db8::1").AsProviderAddress(), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("10.0.0.1").AsProviderAddress(), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("169.254.1.1").AsProviderAddress(), NetPort: 1234},
 		//Duplicate
-		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.3"), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("0.1.2.3").AsProviderAddress(), NetPort: 1234},
 		//Duplicate host, same IP.
-		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.3"), NetPort: 1235},
+		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("0.1.2.3").AsProviderAddress(), NetPort: 1235},
 	}})
 
 	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{

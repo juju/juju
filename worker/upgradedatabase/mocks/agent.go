@@ -123,6 +123,34 @@ func (mr *MockConfigMockRecorder) APIInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIInfo", reflect.TypeOf((*MockConfig)(nil).APIInfo))
 }
 
+// AgentLogfileMaxBackups mocks base method.
+func (m *MockConfig) AgentLogfileMaxBackups() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentLogfileMaxBackups")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// AgentLogfileMaxBackups indicates an expected call of AgentLogfileMaxBackups.
+func (mr *MockConfigMockRecorder) AgentLogfileMaxBackups() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxBackups", reflect.TypeOf((*MockConfig)(nil).AgentLogfileMaxBackups))
+}
+
+// AgentLogfileMaxSizeMB mocks base method.
+func (m *MockConfig) AgentLogfileMaxSizeMB() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentLogfileMaxSizeMB")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// AgentLogfileMaxSizeMB indicates an expected call of AgentLogfileMaxSizeMB.
+func (mr *MockConfigMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfig)(nil).AgentLogfileMaxSizeMB))
+}
+
 // CACert mocks base method.
 func (m *MockConfig) CACert() string {
 	m.ctrl.T.Helper()
@@ -499,6 +527,34 @@ func (m *MockConfigSetter) APIInfo() (*api.Info, bool) {
 func (mr *MockConfigSetterMockRecorder) APIInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIInfo", reflect.TypeOf((*MockConfigSetter)(nil).APIInfo))
+}
+
+// AgentLogfileMaxBackups mocks base method.
+func (m *MockConfigSetter) AgentLogfileMaxBackups() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentLogfileMaxBackups")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// AgentLogfileMaxBackups indicates an expected call of AgentLogfileMaxBackups.
+func (mr *MockConfigSetterMockRecorder) AgentLogfileMaxBackups() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxBackups", reflect.TypeOf((*MockConfigSetter)(nil).AgentLogfileMaxBackups))
+}
+
+// AgentLogfileMaxSizeMB mocks base method.
+func (m *MockConfigSetter) AgentLogfileMaxSizeMB() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentLogfileMaxSizeMB")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// AgentLogfileMaxSizeMB indicates an expected call of AgentLogfileMaxSizeMB.
+func (mr *MockConfigSetterMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfigSetter)(nil).AgentLogfileMaxSizeMB))
 }
 
 // CACert mocks base method.

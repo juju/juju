@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
@@ -163,8 +163,7 @@ func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.
 	return test()
 }
 
-// TODO(katco): 2016-08-09: lp:1611427
-func strategyTest(stub *testing.Stub, strategy utils.AttemptStrategy, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {
+func strategyTest(stub *testing.Stub, strategy retry.CallArgs, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {
 	unpatch := testing.PatchValue(apicaller.Strategy, strategy)
 	defer unpatch()
 	return test(func(info *api.Info, opts api.DialOpts) (api.Connection, error) {

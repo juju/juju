@@ -71,7 +71,7 @@ the MAAS provider to acquire a particular node by specifying its hostname.
 Manual provisioning
 
 Call add-machine with the address of a network-accessible computer to 
-allocate that machine to the model. You should connect 
+allocate that machine to the model.
 
 Manual provisioning is the process of installing Juju on an existing machine
 and bringing it under Juju's management. The Juju controller must be able to

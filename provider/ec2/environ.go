@@ -1511,22 +1511,22 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 		// "PrivateIPAddress" field. The code below arranges so that
 		// the primary IP is always added first with any additional
 		// private IPs appended after it.
-		Addresses: network.ProviderAddresses{network.NewProviderAddress(
+		Addresses: network.ProviderAddresses{network.NewMachineAddress(
 			privateAddress,
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: network.OriginProvider,
 	}
 
 	for _, privAddr := range iface.PrivateIpAddresses {
 		if ip := aws.ToString(privAddr.Association.PublicIp); ip != "" {
-			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewProviderAddress(
+			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewMachineAddress(
 				ip,
 				network.WithScope(network.ScopePublic),
 				network.WithConfigType(network.ConfigDHCP),
-			))
+			).AsProviderAddress())
 		}
 
 		if aws.ToString(privAddr.PrivateIpAddress) == privateAddress {
@@ -1535,12 +1535,12 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 
 		// An EC2 interface is connected to a single subnet,
 		// so we assume other addresses are in the same subnet.
-		ni.Addresses = append(ni.Addresses, network.NewProviderAddress(
+		ni.Addresses = append(ni.Addresses, network.NewMachineAddress(
 			privateAddress,
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
-		))
+		).AsProviderAddress())
 	}
 
 	return ni
@@ -1878,7 +1878,9 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 	}
 
 	instanceProfiles, err := listInstanceProfilesForController(ctx, e.iamClient, controllerUUID)
-	if err != nil {
+	if errors.IsUnauthorized(err) {
+		logger.Warningf("unable to list Instance Profiles for deletion, Instance Profiles may have to be manually cleaned up for controller %q", controllerUUID)
+	} else if err != nil {
 		return errors.Annotatef(err, "listing instance profiles for controller uuid %q", controllerUUID)
 	}
 
@@ -1890,7 +1892,9 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 	}
 
 	roles, err := listRolesForController(ctx, e.iamClient, controllerUUID)
-	if err != nil {
+	if errors.IsUnauthorized(err) {
+		logger.Warningf("unable to list Roles for deletion, Roles may have to be manually cleaned up for controller %q", controllerUUID)
+	} else if err != nil {
 		return errors.Annotatef(err, "listing roles for controller uuid %q", controllerUUID)
 	}
 

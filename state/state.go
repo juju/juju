@@ -245,6 +245,38 @@ func (st *State) RemoveExportingModelDocs() error {
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	modelUUID := st.ModelUUID()
 
+	// Gather all user permissions for the model.
+	// Do this first because we remove some parent docs below.
+	var permOps []txn.Op
+	permPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
+	}
+	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	permOps = append(permOps, ops...)
+	// Gather all offer permissions for the model.
+	ao := NewApplicationOffers(st)
+	allOffers, err := ao.AllApplicationOffers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, offer := range allOffers {
+		permPattern = bson.M{
+			"_id": bson.M{"$regex": "^" + permissionID(applicationOfferKey(offer.OfferUUID), "")},
+		}
+		ops, err = st.removeInCollectionOps(permissionsC, permPattern)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		permOps = append(permOps, ops...)
+	}
+	err = st.db().RunTransaction(permOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
 		if info.global || info.rawAccess {
@@ -282,19 +314,6 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 
 	// Logs are in a separate database so don't get caught by that loop.
 	_ = removeModelLogs(st.MongoSession(), modelUUID)
-
-	// Remove all user permissions for the model.
-	permPattern := bson.M{
-		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
-	}
-	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = st.db().RunTransaction(ops)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Now remove the model.
 	model, err := st.Model()
@@ -464,15 +483,23 @@ func (st *State) EnsureModelRemoved() error {
 		if info.global {
 			continue
 		}
-		coll, closer := st.db().GetCollection(name)
-		defer closer()
-		n, err := coll.Find(nil).Count()
-		if err != nil {
+
+		if err := func(name string, info CollectionInfo) error {
+			coll, closer := st.db().GetCollection(name)
+			defer closer()
+
+			n, err := coll.Find(nil).Count()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			if n != 0 {
+				found[name] = n
+				foundOrdered = append(foundOrdered, name)
+			}
+			return nil
+		}(name, info); err != nil {
 			return errors.Trace(err)
-		}
-		if n != 0 {
-			found[name] = n
-			foundOrdered = append(foundOrdered, name)
 		}
 	}
 
@@ -1588,7 +1615,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	return results, nil
 }
 
-// AllUnitAssignments returns all staged unit assignments in the model.
+// UnitAssignments returns all staged unit assignments in the model.
 func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 	return st.unitAssignments(nil)
 }

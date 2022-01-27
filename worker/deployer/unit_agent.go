@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/lumberjack"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/voyeur"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -256,15 +256,16 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 		// fails.
 		a.logger.Errorf("unable to prime %s (proceeding anyway): %v", logFilename, err)
 	}
-	// TODO: allow model-config for number of backups and logfile max size.
-	writer := &lumberjack.Logger{
-		Filename:   logFilename,
-		MaxSize:    300, // megabytes
-		MaxBackups: 2,
+	ljLogger := &lumberjack.Logger{
+		Filename:   logFilename, // eg: "/var/log/juju/unit-mysql-0.log"
+		MaxSize:    a.CurrentConfig().AgentLogfileMaxSizeMB(),
+		MaxBackups: a.CurrentConfig().AgentLogfileMaxBackups(),
 		Compress:   true,
 	}
+	a.logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	if err := loggingContext.AddWriter(
-		"file", loggo.NewSimpleWriter(writer, loggo.DefaultFormatter)); err != nil {
+		"file", loggo.NewSimpleWriter(ljLogger, loggo.DefaultFormatter)); err != nil {
 		a.logger.Errorf("unable to configure file logging for unit %q: %v", a.name, err)
 	}
 

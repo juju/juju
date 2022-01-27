@@ -222,18 +222,22 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 		for _, nameserver := range v.DNSServers {
 			dnsServers = append(dnsServers, nameserver.Value)
 		}
-		routes := make([]NetworkRoute, len(v.Routes))
-		for j, route := range v.Routes {
-			routes[j] = NetworkRoute{
-				DestinationCIDR: route.DestinationCIDR,
-				GatewayIP:       route.GatewayIP,
-				Metric:          route.Metric,
+
+		var routes []NetworkRoute
+		if len(v.Routes) != 0 {
+			routes = make([]NetworkRoute, len(v.Routes))
+			for j, route := range v.Routes {
+				routes[j] = NetworkRoute{
+					DestinationCIDR: route.DestinationCIDR,
+					GatewayIP:       route.GatewayIP,
+					Metric:          route.Metric,
+				}
 			}
 		}
 
 		result[i] = NetworkConfig{
 			DeviceIndex:         v.DeviceIndex,
-			MACAddress:          v.MACAddress,
+			MACAddress:          network.NormalizeMACAddress(v.MACAddress),
 			ConfigType:          string(v.ConfigType),
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
@@ -272,12 +276,15 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceInfos {
 	result := make(network.InterfaceInfos, len(configs))
 	for i, v := range configs {
-		routes := make([]network.Route, len(v.Routes))
-		for j, route := range v.Routes {
-			routes[j] = network.Route{
-				DestinationCIDR: route.DestinationCIDR,
-				GatewayIP:       route.GatewayIP,
-				Metric:          route.Metric,
+		var routes []network.Route
+		if len(v.Routes) != 0 {
+			routes = make([]network.Route, len(v.Routes))
+			for j, route := range v.Routes {
+				routes[j] = network.Route{
+					DestinationCIDR: route.DestinationCIDR,
+					GatewayIP:       route.GatewayIP,
+					Metric:          route.Metric,
+				}
 			}
 		}
 
@@ -285,7 +292,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 
 		result[i] = network.InterfaceInfo{
 			DeviceIndex:         v.DeviceIndex,
-			MACAddress:          v.MACAddress,
+			MACAddress:          network.NormalizeMACAddress(v.MACAddress),
 			MTU:                 v.MTU,
 			ProviderId:          network.Id(v.ProviderId),
 			ProviderNetworkId:   network.Id(v.ProviderNetworkId),
@@ -302,9 +309,9 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
-			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
+			DNSServers:          network.NewMachineAddresses(v.DNSServers).AsProviderAddresses(),
 			DNSSearchDomains:    v.DNSSearchDomains,
-			GatewayAddress:      network.NewProviderAddress(v.GatewayAddress),
+			GatewayAddress:      network.NewMachineAddress(v.GatewayAddress).AsProviderAddress(),
 			Routes:              routes,
 			IsDefaultGateway:    v.IsDefaultGateway,
 			VirtualPortType:     network.VirtualPortType(v.VirtualPortType),
@@ -334,11 +341,11 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			// 2) For even older clients that do not populate Addresses.
 			if v.Address != "" {
 				result[i].Addresses = network.ProviderAddresses{
-					network.NewProviderAddress(
+					network.NewMachineAddress(
 						v.Address,
 						network.WithCIDR(v.CIDR),
 						network.WithConfigType(configType),
-					),
+					).AsProviderAddress(),
 				}
 			}
 		}
@@ -497,6 +504,10 @@ func (addr Address) ProviderAddress() network.ProviderAddress {
 // ToProviderAddresses transforms multiple Addresses into a
 // ProviderAddresses collection.
 func ToProviderAddresses(addrs ...Address) network.ProviderAddresses {
+	if len(addrs) == 0 {
+		return nil
+	}
+
 	pAddrs := make([]network.ProviderAddress, len(addrs))
 	for i, addr := range addrs {
 		pAddrs[i] = addr.ProviderAddress()
@@ -507,6 +518,10 @@ func ToProviderAddresses(addrs ...Address) network.ProviderAddresses {
 // FromProviderAddresses transforms multiple ProviderAddresses
 // into a slice of Address.
 func FromProviderAddresses(pAddrs ...network.ProviderAddress) []Address {
+	if len(pAddrs) == 0 {
+		return nil
+	}
+
 	addrs := make([]Address, len(pAddrs))
 	for i, pAddr := range pAddrs {
 		addrs[i] = FromProviderAddress(pAddr)

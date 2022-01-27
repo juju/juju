@@ -524,7 +524,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
-		info.CharmURL = *u.CharmURL
+		info.CharmURL = u.CharmURL.String()
 	}
 
 	// Construct a unit for the purpose of retrieving other fields as necessary.
@@ -1811,33 +1811,39 @@ func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[
 		if c.subsidiary {
 			continue
 		}
-		col, closer := db.GetCollection(c.name)
-		defer closer()
-		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
 
-		// models is a global collection so need to filter on UUID.
-		var filter bson.M
-		if c.name == modelsC {
-			filter = bson.M{"_id": st.ModelUUID()}
-		}
-		query := col.Find(filter)
-		// Units are ordered so we load the subordinates first.
-		if c.name == unitsC {
-			// Subordinates have a principal, so will sort after the
-			// empty string, which is what principal units have.
-			query = query.Sort("principal")
-		}
-		if err := query.All(infoSlicePtr.Interface()); err != nil {
-			return errors.Errorf("cannot get all %s: %v", c.name, err)
-		}
-		infos := infoSlicePtr.Elem()
-		for i := 0; i < infos.Len(); i++ {
-			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
-			ctx.id = info.mongoID()
-			err := info.updated(ctx)
-			if err != nil {
-				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, ctx.id)
+		if err := func(name string) error {
+			col, closer := db.GetCollection(name)
+			defer closer()
+			infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
+
+			// models is a global collection so need to filter on UUID.
+			var filter bson.M
+			if name == modelsC {
+				filter = bson.M{"_id": st.ModelUUID()}
 			}
+			query := col.Find(filter)
+			// Units are ordered so we load the subordinates first.
+			if name == unitsC {
+				// Subordinates have a principal, so will sort after the
+				// empty string, which is what principal units have.
+				query = query.Sort("principal")
+			}
+			if err := query.All(infoSlicePtr.Interface()); err != nil {
+				return errors.Errorf("cannot get all %s: %v", name, err)
+			}
+			infos := infoSlicePtr.Elem()
+			for i := 0; i < infos.Len(); i++ {
+				info := infos.Index(i).Addr().Interface().(backingEntityDoc)
+				ctx.id = info.mongoID()
+				err := info.updated(ctx)
+				if err != nil {
+					return errors.Annotatef(err, "failed to initialise backing for %s:%v", name, ctx.id)
+				}
+			}
+			return nil
+		}(c.name); err != nil {
+			return errors.Trace(err)
 		}
 	}
 

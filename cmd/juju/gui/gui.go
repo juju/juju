@@ -175,7 +175,9 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 		controllerName,
 	)
 
-	signalCh := make(chan os.Signal)
+	// Buffer size of 1 avoids race condition if signal is sent between
+	// signal.Notify call and waiting to receive (and avoids "go vet" error!).
+	signalCh := make(chan os.Signal, 1) // buffer size of 1 avoids race condition
 	signal.Notify(signalCh, os.Interrupt, os.Kill)
 	waitSig := <-signalCh
 

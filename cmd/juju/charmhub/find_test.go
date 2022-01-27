@@ -10,9 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	basemocks "github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/charmhub"
+	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
 	"github.com/juju/juju/core/arch"
 )
@@ -20,8 +19,7 @@ import (
 type findSuite struct {
 	testing.IsolationSuite
 
-	findCommandAPI *mocks.MockFindCommandAPI
-	apiRoot        *basemocks.MockAPICallCloser
+	charmHubAPI *mocks.MockCharmHubClient
 }
 
 var _ = gc.Suite(&findSuite{})
@@ -29,7 +27,8 @@ var _ = gc.Suite(&findSuite{})
 func (s *findSuite) TestInitNoArgs(c *gc.C) {
 	// You can query the find api with no arguments.
 	command := &findCommand{
-		columns: "nbvps",
+		charmHubCommand: s.newCharmHubCommand(),
+		columns:         "nbvps",
 	}
 	err := command.Init([]string{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,7 +36,8 @@ func (s *findSuite) TestInitNoArgs(c *gc.C) {
 
 func (s *findSuite) TestInitSuccess(c *gc.C) {
 	command := &findCommand{
-		columns: "nbvps",
+		charmHubCommand: s.newCharmHubCommand(),
+		columns:         "nbvps",
 	}
 	err := command.Init([]string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,12 +48,7 @@ func (s *findSuite) TestRun(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		APIRootFunc: func() (base.APICallCloser, error) {
-			return s.apiRoot, nil
-		},
-		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
-			return s.findCommandAPI
-		},
+		charmHubCommand: s.newCharmHubCommand(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test"})
@@ -69,12 +64,7 @@ func (s *findSuite) TestRunJSON(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		APIRootFunc: func() (base.APICallCloser, error) {
-			return s.apiRoot, nil
-		},
-		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
-			return s.findCommandAPI
-		},
+		charmHubCommand: s.newCharmHubCommand(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
@@ -83,7 +73,7 @@ func (s *findSuite) TestRunJSON(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"type":"object","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","version":"1.0.3","architectures":["all"],"series":["bionic"],"store-url":"https://someurl.com/wordpress"}]
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"type":"object","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","version":"1.0.3","architectures":["all"],"os":["ubuntu"],"series":["bionic"],"store-url":"https://someurl.com/wordpress"}]
 `)
 }
 
@@ -92,12 +82,7 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		APIRootFunc: func() (base.APICallCloser, error) {
-			return s.apiRoot, nil
-		},
-		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
-			return s.findCommandAPI
-		},
+		charmHubCommand: s.newCharmHubCommand(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "yaml"})
@@ -115,6 +100,8 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
   version: 1.0.3
   architectures:
   - all
+  os:
+  - ubuntu
   series:
   - bionic
   store-url: https://someurl.com/wordpress
@@ -126,12 +113,7 @@ func (s *findSuite) TestRunWithType(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		APIRootFunc: func() (base.APICallCloser, error) {
-			return s.apiRoot, nil
-		},
-		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
-			return s.findCommandAPI
-		},
+		charmHubCommand: s.newCharmHubCommand(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--type", "bundle"})
@@ -147,12 +129,7 @@ func (s *findSuite) TestRunWithNoType(c *gc.C) {
 	s.expectFind()
 
 	command := &findCommand{
-		APIRootFunc: func() (base.APICallCloser, error) {
-			return s.apiRoot, nil
-		},
-		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
-			return s.findCommandAPI
-		},
+		charmHubCommand: s.newCharmHubCommand(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--type", ""})
@@ -166,35 +143,37 @@ func (s *findSuite) TestRunWithNoType(c *gc.C) {
 func (s *findSuite) newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
 		arches: arch.AllArches(),
-		APIRootFunc: func() (base.APICallCloser, error) {
-			return s.apiRoot, nil
+		CharmHubClientFunc: func(charmhub.Config, charmhub.FileSystem) (CharmHubClient, error) {
+			return s.charmHubAPI, nil
 		},
 	}
 }
 
 func (s *findSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
-	s.findCommandAPI = mocks.NewMockFindCommandAPI(ctrl)
-	s.findCommandAPI.EXPECT().Close().AnyTimes()
-
-	s.apiRoot = basemocks.NewMockAPICallCloser(ctrl)
-	s.apiRoot.EXPECT().Close().AnyTimes()
-	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
-
+	s.charmHubAPI = mocks.NewMockCharmHubClient(ctrl)
 	return ctrl
 }
 
 func (s *findSuite) expectFind() {
-	s.findCommandAPI.EXPECT().Find("test", gomock.Any()).Return([]charmhub.FindResponse{{
-		Name:      "wordpress",
-		Type:      "object",
-		ID:        "charmCHARMcharmCHARMcharmCHARM01",
-		Publisher: "Wordress Charmers",
-		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
-		Version:   "1.0.3",
-		Arches:    []string{"all"},
-		Series:    []string{"bionic"},
-		StoreURL:  "https://someurl.com/wordpress",
+	s.charmHubAPI.EXPECT().Find(gomock.Any(), "test", gomock.Any()).Return([]transport.FindResponse{{
+		Name: "wordpress",
+		Type: "object",
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		Entity: transport.Entity{
+			Publisher: map[string]string{"display-name": "Wordress Charmers"},
+			Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
+			StoreURL:  "https://someurl.com/wordpress",
+		},
+		DefaultRelease: transport.FindChannelMap{
+			Revision: transport.FindRevision{
+				Version: "1.0.3",
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		},
 	}}, nil)
 }

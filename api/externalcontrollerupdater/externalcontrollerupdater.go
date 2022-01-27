@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
@@ -39,7 +40,8 @@ func (c *Client) WatchExternalControllers() (watcher.StringsWatcher, error) {
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		err := apiservererrors.RestoreError(result.Error)
+		return nil, errors.Trace(err)
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
@@ -64,7 +66,8 @@ func (c *Client) ExternalControllerInfo(controllerUUID string) (*crossmodel.Cont
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		err := apiservererrors.RestoreError(result.Error)
+		return nil, errors.Trace(err)
 	}
 	return &crossmodel.ControllerInfo{
 		ControllerTag: controllerTag,

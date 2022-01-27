@@ -90,7 +90,7 @@ func (r loggingRequestRecorder) Record(method string, url *url.URL, res *http.Re
 	}
 }
 
-// Record an outgoing request which returned back an error.
+// RecordError records an outgoing request which returned an error.
 func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err error) {
 	if r.logger.IsTraceEnabled() {
 		r.logger.Tracef("request error (method: %q, host: %q, path: %q, err: %s)", method, url.Host, url.Path, err)

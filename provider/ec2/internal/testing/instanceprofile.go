@@ -125,6 +125,19 @@ func (i *IAMServer) ListInstanceProfiles(
 		InstanceProfiles: []types.InstanceProfile{},
 		IsTruncated:      false,
 	}
+
+	if i.producePermissionError {
+		return rval, &awshttp.ResponseError{
+			ResponseError: &smithyhttp.ResponseError{
+				Response: &smithyhttp.Response{
+					&http.Response{
+						StatusCode: http.StatusForbidden,
+					},
+				},
+			},
+		}
+	}
+
 	for _, v := range i.instanceProfiles {
 		rval.InstanceProfiles = append(rval.InstanceProfiles, *v)
 	}

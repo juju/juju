@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v2"
@@ -25,9 +24,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -201,25 +197,6 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	n, err = query.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
-}
-
-func (r *RestoreSuite) TestNewConnection(c *gc.C) {
-	ctlr := statetesting.InitializeWithArgs(c,
-		statetesting.InitializeArgs{
-			Owner: names.NewLocalUserTag("test-admin"),
-			Clock: testclock.NewClock(coretesting.NonZeroTime()),
-		})
-	st := ctlr.SystemState()
-	c.Assert(ctlr.Close(), jc.ErrorIsNil)
-
-	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
-	r.PatchValue(&environsGetNewPolicyFunc, func() state.NewPolicyFunc {
-		return nil
-	})
-
-	newConnection, err := connectToDB(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newConnection.Close(), jc.ErrorIsNil)
 }
 
 func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {

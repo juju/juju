@@ -125,6 +125,18 @@ func (i *IAMServer) ListRoles(
 		IsTruncated: false,
 	}
 
+	if i.producePermissionError {
+		return rval, &awshttp.ResponseError{
+			ResponseError: &smithyhttp.ResponseError{
+				Response: &smithyhttp.Response{
+					&http.Response{
+						StatusCode: http.StatusForbidden,
+					},
+				},
+			},
+		}
+	}
+
 	for _, role := range i.roles {
 		if strings.HasPrefix(*role.Path, *input.PathPrefix) {
 			rval.Roles = append(rval.Roles, *role)

@@ -249,11 +249,11 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"0.10.0.2", corenetwork.WithCIDR("0.10.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: corenetwork.NewProviderAddress("0.10.0.1"),
+		).AsProviderAddress()},
+		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
+		GatewayAddress: corenetwork.NewMachineAddress("0.10.0.1").AsProviderAddress(),
 		Origin:         corenetwork.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth1",
@@ -265,11 +265,11 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Disabled:         false,
 		NoAutoStart:      true,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"0.20.0.2", corenetwork.WithCIDR("0.20.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: corenetwork.NewProviderAddress("0.20.0.1"),
+		).AsProviderAddress()},
+		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
+		GatewayAddress: corenetwork.NewMachineAddress("0.20.0.1").AsProviderAddress(),
 		Origin:         corenetwork.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth2",
@@ -281,11 +281,11 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
 		Disabled:         true,
 		NoAutoStart:      false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"0.30.0.2", corenetwork.WithCIDR("0.30.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		)},
-		DNSServers:     corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: corenetwork.NewProviderAddress("0.30.0.1"),
+		).AsProviderAddress()},
+		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
+		GatewayAddress: corenetwork.NewMachineAddress("0.30.0.1").AsProviderAddress(),
 		Origin:         corenetwork.OriginProvider,
 	}}
 	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{"i-42"})
