@@ -14,12 +14,13 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
+
+	"github.com/juju/juju/core/arch"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -1379,10 +1380,17 @@ func (i *importer) makeCharmOrigin(a description.Application, curl *charm.URL, u
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// Fix the case where `juju set-series` was called before the change to
+		// set the series in the origin's platform as well.
+		// Assumes that UpdateApplicationSeries will not change operating systems.
+		series := p.Series
+		if series != a.Series() {
+			series = a.Series()
+		}
 		platform = &Platform{
 			Architecture: p.Architecture,
 			OS:           p.OS,
-			Series:       p.Series,
+			Series:       series,
 		}
 	} else {
 		// Attempt to fallback to the application charm URL and then the
