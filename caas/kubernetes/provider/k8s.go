@@ -186,10 +186,13 @@ func newK8sBroker(
 		return nil, errors.NotValidf("modelUUID is required")
 	}
 
-	isLegacy, err := utils.IsLegacyModelLabels(
-		namespace, newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
-	if err != nil {
-		return nil, errors.Trace(err)
+	isLegacy := false
+	if namespace != "" {
+		isLegacy, err = utils.IsLegacyModelLabels(
+			namespace, newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	client := &kubernetesClient{
@@ -215,16 +218,24 @@ func newK8sBroker(
 			Add(utils.AnnotationModelUUIDKey(isLegacy), modelUUID),
 		isLegacyLabels: isLegacy,
 	}
-	if err := client.ensureNamespaceAnnotationForControllerUUID(controllerUUID, isLegacy); err != nil {
-		if errors.IsNotFound(err) {
-			return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("namespace %q may already be in use", cfg.Name()))
+	if len(controllerUUID) > 0 {
+		client.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
+	}
+	if namespace != "" {
+		if err := client.ensureNamespaceAnnotationForControllerUUID(controllerUUID, isLegacy); err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("namespace %q may already be in use", cfg.Name()))
+			}
+			return nil, errors.Trace(err)
 		}
-		return nil, errors.Trace(err)
 	}
 	return client, nil
 }
 
 func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(controllerUUID string, isLegacy bool) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	if len(controllerUUID) == 0 {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
 		return nil
@@ -233,8 +244,12 @@ func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(controller
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
+	annotationControllerUUIDKey := utils.AnnotationControllerUUIDKey(isLegacy)
 	if !isLegacy {
-		if ns != nil && !k8sannotations.New(ns.Annotations).HasAll(k.annotations) {
+		// Ignore the controller uuid since it is handled below for model migrations.
+		expected := k.annotations.Copy()
+		expected.Remove(annotationControllerUUIDKey)
+		if ns != nil && !k8sannotations.New(ns.Annotations).HasAll(expected) {
 			// This should never happen unless we changed annotations for a new juju version.
 			// But in this case, we should have already managed to fix it in upgrade steps.
 			return errors.NewNotValid(nil,
@@ -242,8 +257,6 @@ func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(controller
 			)
 		}
 	}
-	annotationControllerUUIDKey := utils.AnnotationControllerUUIDKey(isLegacy)
-	k.annotations.Add(annotationControllerUUIDKey, controllerUUID)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -344,6 +357,9 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 
 // SetCloudSpec is specified in the environs.Environ interface.
 func (k *kubernetesClient) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	k.lock.Lock()
 	defer k.lock.Unlock()
 
@@ -594,6 +610,9 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 // getStorageClass returns a named storage class, first looking for
 // one which is qualified by the current namespace if it's available.
 func (k *kubernetesClient) getStorageClass(name string) (*storagev1.StorageClass, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	storageClasses := k.client().StorageV1().StorageClasses()
 	qualifiedName := constants.QualifiedStorageClassName(k.namespace, name)
 	sc, err := storageClasses.Get(context.TODO(), qualifiedName, v1.GetOptions{})
@@ -608,6 +627,9 @@ func (k *kubernetesClient) getStorageClass(name string) (*storagev1.StorageClass
 
 // GetService returns the service for the specified application.
 func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	services := k.client().CoreV1().Services(k.namespace)
 	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	if mode == caas.ModeOperator {
@@ -1029,6 +1051,9 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	numUnits int,
 	config application.ConfigAttributes,
 ) (err error) {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 
 	if params == nil || len(params.RawK8sSpec) == 0 {
 		return errors.Errorf("missing raw k8s spec")
@@ -1358,6 +1383,9 @@ func validateDeploymentType(deploymentType caas.DeploymentType, params *caas.Ser
 }
 
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	zero := int32(0)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	statefulSet, err := statefulsets.Get(context.TODO(), deploymentName, v1.GetOptions{})
@@ -1858,6 +1886,9 @@ func (k *kubernetesClient) configurePVCForStatelessResource(
 }
 
 func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	deployments := k.client().AppsV1().Deployments(k.namespace)
 	_, err := deployments.Update(context.TODO(), spec, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -1867,6 +1898,9 @@ func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 }
 
 func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().AppsV1().Deployments(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("deployment %q", name)
@@ -1875,6 +1909,9 @@ func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) 
 }
 
 func (k *kubernetesClient) deleteDeployment(name string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().AppsV1().Deployments(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
@@ -1915,6 +1952,9 @@ func getPodManagementPolicy(svc *specs.ServiceSpec) (out apps.PodManagementPolic
 }
 
 func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]string, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	volumesByName := make(map[string]core.Volume)
 	for _, pv := range p.Spec.Volumes {
 		volumesByName[pv.Name] = pv
@@ -2058,6 +2098,9 @@ func (k *kubernetesClient) findDefaultIngressClassResource() (*string, error) {
 
 // ExposeService sets up external access to the specified application.
 func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	logger.Debugf("creating/updating ingress resource for %s", appName)
 
 	host := config.GetString(caas.JujuExternalHostNameKey, "")
@@ -2156,6 +2199,9 @@ func (k *kubernetesClient) applicationSelector(appName string, mode caas.Deploym
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
 func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 
 	pod, err := pods.Get(context.TODO(), podName, v1.GetOptions{})
@@ -2217,6 +2263,9 @@ func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) 
 // If containerName regexp matches empty string, then the first workload container
 // is used.
 func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 	selector := k.applicationSelector(appName, caas.ModeWorkload)
 	logger.Debugf("selecting units %q to watch", selector)
@@ -2305,6 +2354,9 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 // WatchService returns a watcher which notifies when there
 // are changes to the deployment of the specified application.
 func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	// Application may be a statefulset or deployment. It may not have
 	// been set up when the watcher is started so we don't know which it
 	// is ahead of time. So use a multi-watcher to cover both cases.
@@ -2334,6 +2386,9 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(context.TODO(), v1.ListOptions{
 		LabelSelector: k.applicationSelector(appName, mode),
@@ -2420,6 +2475,9 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 }
 
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 	pod, err := pods.Get(context.TODO(), podName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
