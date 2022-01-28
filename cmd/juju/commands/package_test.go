@@ -19,6 +19,9 @@ import (
 // For ssh:
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statusapi_mock.go github.com/juju/juju/cmd/juju/commands StatusAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leaderapi_mock.go github.com/juju/juju/cmd/juju/commands LeaderAPI
+// For upgrademodel:
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/controller_mock.go github.com/    juju/juju/cmd/juju/commands ControllerAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju    /juju/cmd/juju/commands ClientAPI
 
 func init() {
 	if err := all.RegisterForClient(); err != nil {
