@@ -13,5 +13,12 @@ func stateStepsFor2924() []Step {
 				return context.State().UpdateExternalControllerInfo()
 			},
 		},
+		&upgradeStep{
+			description: "remove invalid charm placeholders",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().RemoveInvalidCharmPlaceholders()
+			},
+		},
 	}
 }
