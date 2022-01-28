@@ -69,7 +69,7 @@ require (
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
-	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
+	github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os/v2 v2.1.3

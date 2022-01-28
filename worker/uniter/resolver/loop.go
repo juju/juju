@@ -7,7 +7,7 @@ import (
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/mutex"
+	"github.com/juju/mutex/v2"
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/worker/fortress"
