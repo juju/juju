@@ -1,4 +1,5 @@
 _build/
+_deps/
 cmd/juju/juju
 cmd/jujud/jujud
 cmd/builddb/builddb
