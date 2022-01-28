@@ -26,11 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS-latest is disabled because there is an issue of the tests timing
-        # out. No effort has been done to work out why they currently timeout
-        # on macOS, but we should investigate that to improve our coverage on
-        # other clients.
-        # To turn on macOS, just update the os to include it.
+        # windows tests is disabled because we require a certain version of
+        # mongo (that's actually going away now though), and choclately was
+        # failing to install it correctly.
         # os: [ubuntu-latest, macOS-latest, windows-latest]
         os: [ubuntu-latest, macOS-latest]
 
