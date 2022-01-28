@@ -2180,8 +2180,8 @@ func (ctx *allWatcherContext) entityIDForGlobalKey(key string) (multiwatcher.Ent
 	} else if len(key) < 3 || key[1] != '#' {
 		return multiwatcher.EntityID{}, "", false
 	}
-	// NOTE: we should probably have a single place where we have all the global key functions
-	// so we can check coverage both ways.
+	// NOTE: we should probably have a single place where we have all the
+	// global key functions, so we can check coverage both ways.
 	parts := strings.Split(key, "#")
 	id := parts[1]
 	suffix := strings.Join(parts[2:], "#")
