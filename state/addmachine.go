@@ -283,8 +283,15 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+
+	displayName := mdoc.Hostname
+	if ns, err := instance.NewNamespace(mdoc.ModelUUID); err == nil {
+		displayName = ns.Value(mdoc.Id)
+	}
+
 	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, insertNewContainerRefOp(st, mdoc.Id))
+
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
 			C:      instanceDataC,
@@ -294,6 +301,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 				DocID:          mdoc.DocID,
 				MachineId:      mdoc.Id,
 				InstanceId:     template.InstanceId,
+				DisplayName:    displayName,
 				ModelUUID:      mdoc.ModelUUID,
 				Arch:           template.HardwareCharacteristics.Arch,
 				Mem:            template.HardwareCharacteristics.Mem,
