@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,6 +20,14 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository/mocks"
 	"github.com/juju/juju/testcharms"
+)
+
+var (
+	expRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
 )
 
 type charmHubRepositorySuite struct {
@@ -603,6 +612,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -636,6 +646,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -663,7 +674,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 			Revision:    &revision,
 		}},
 		Context: []transport.RefreshRequestContext{},
-		Fields:  []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -705,6 +716,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 			},
 			TrackingChannel: channel.String(),
 		}},
+		Fields: expRefreshFields,
 	})
 }
 

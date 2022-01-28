@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,7 +27,15 @@ type RefreshSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&RefreshSuite{})
+var (
+	_ = gc.Suite(&RefreshSuite{})
+
+	expRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
+)
 
 func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	ctrl := gomock.NewController(c)
@@ -53,6 +62,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 	}
 
 	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
@@ -91,7 +101,7 @@ func (s *RefreshSuite) TestRefeshConfigValidateSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Channel.*")
 }
 
-func (s *RefreshSuite) TestRefeshConfigValidateName(c *gc.C) {
+func (s *RefreshSuite) TestRefeshConfigVali914dateName(c *gc.C) {
 	err := s.testRefeshConfigValidate(c, RefreshBase{
 		Name:         "all",
 		Channel:      "20.04",
@@ -318,6 +328,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 			InstanceKey: "instance-key-bar",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 		Metrics: map[string]map[string]string{
 			"controller": {"uuid": "controller-uuid"},
 			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
@@ -457,6 +468,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -511,6 +523,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -556,7 +569,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *gc.C) {
 			Name:        &name,
 			Revision:    &revision,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -590,7 +603,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 				{Name: "testme", Revision: 3},
 			},
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -633,6 +646,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -671,6 +685,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -730,7 +745,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
 			ID:          &id,
 			Revision:    &rev,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -757,7 +772,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
 			Name:        &name,
 			Revision:    &rev,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -793,6 +808,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -832,6 +848,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -871,6 +888,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -997,7 +1015,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Name:        &name4,
 			Revision:    &rev4,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
