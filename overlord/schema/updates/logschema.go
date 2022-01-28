@@ -22,18 +22,17 @@ var logUpdates = []schema.Update{
 
 func logUpdateFromV0(tx state.Txn) error {
 	_, err := tx.ExecContext(context.TODO(), `
-	CREATE TABLE IF NOT EXISTS logs(
-		ts DATETIME,
-		entity TEXT,
-		version TEXT,
-		module TEXT,
-		location TEXT,
-		level INTEGER,
-		message TEXT,
-		labels TEXT
-	);
+CREATE TABLE IF NOT EXISTS logs(
+	ts DATETIME,
+	entity TEXT,
+	version TEXT,
+	module TEXT,
+	location TEXT,
+	level INTEGER,
+	message TEXT,
+	labels TEXT
+);
 `,
 	)
-
 	return errors.Trace(err)
 }

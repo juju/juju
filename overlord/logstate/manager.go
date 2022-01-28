@@ -87,7 +87,7 @@ func (m *LogManager) AppendLines(txn state.Txn, lines []Line) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	for _, r := range lines {
 		_, err := stmt.ExecContext(context.Background(),

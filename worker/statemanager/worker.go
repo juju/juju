@@ -23,6 +23,7 @@ type Overlord interface {
 	State() overlord.State
 
 	LogManager() overlord.LogManager
+	ActionManager() overlord.ActionManager
 }
 
 // WorkerConfig encapsulates the configuration options for the

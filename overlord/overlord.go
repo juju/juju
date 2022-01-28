@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/juju/juju/overlord/actionstate"
 	"github.com/juju/juju/overlord/logstate"
 	"github.com/juju/juju/overlord/schema"
 	"github.com/juju/juju/overlord/schema/updates"
@@ -75,6 +76,10 @@ func (o *Overlord) LogManager() LogManager {
 	return nil
 }
 
+func (o *Overlord) ActionManager() ActionManager {
+	return nil
+}
+
 // Namespace represents the database namespaces.
 type Namespace = string
 
@@ -110,6 +115,7 @@ func (o *LogOverlord) LogManager() LogManager {
 
 type ModelOverlord struct {
 	*Overlord
+	actionMgr ActionManager
 }
 
 // NewModelOverlord creates a new Overlord that manages models with all the
@@ -119,5 +125,12 @@ func NewModelOverlord(s State) (*ModelOverlord, error) {
 		Overlord: newOverlord(s, updates.ModelSchema()),
 	}
 
+	o.actionMgr = actionstate.NewManager(s)
+	o.stateEng.AddManager(o.actionMgr)
+
 	return o, nil
+}
+
+func (o *ModelOverlord) ActionManager() ActionManager {
+	return o.actionMgr
 }

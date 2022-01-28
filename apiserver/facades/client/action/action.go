@@ -4,6 +4,8 @@
 package action
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -12,17 +14,22 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/overlord"
+	"github.com/juju/juju/overlord/actionstate"
+	overlordstate "github.com/juju/juju/overlord/state"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
-	state      *state.State
-	model      *state.Model
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	check      *common.BlockChecker
+	state         *state.State
+	overlordState overlord.State
+	actionManager overlord.ActionManager
+	model         *state.Model
+	resources     facade.Resources
+	authorizer    facade.Authorizer
+	check         *common.BlockChecker
 }
 
 // APIv2 provides the Action API facade for version 2.
@@ -88,14 +95,14 @@ func NewActionAPIV5(ctx facade.Context) (*APIv5, error) {
 
 // NewActionAPIV6 returns an initialized ActionAPI for version 6.
 func NewActionAPIV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	api, err := newActionAPI(ctx.State(), ctx.StateManager(), ctx.Resources(), ctx.Auth())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv6{api}, nil
 }
 
-func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
+func newActionAPI(st *state.State, stateManager facade.StateManager, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -106,11 +113,13 @@ func newActionAPI(st *state.State, resources facade.Resources, authorizer facade
 	}
 
 	return &ActionAPI{
-		state:      st,
-		model:      m,
-		resources:  resources,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
+		state:         st,
+		overlordState: stateManager.State(),
+		actionManager: stateManager.ActionManager(),
+		model:         m,
+		resources:     resources,
+		authorizer:    authorizer,
+		check:         common.NewBlockChecker(st),
 	}, nil
 }
 
@@ -179,16 +188,18 @@ func (a *ActionAPI) actions(arg params.Entities, compat bool) (params.ActionResu
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		m, err := a.state.Model()
-		if err != nil {
-			return params.ActionResults{}, errors.Trace(err)
-		}
-		action, err := m.ActionByTag(actionTag)
+
+		var action actionstate.Action
+		err = a.overlordState.Run(func(ctx context.Context, txn overlordstate.Txn) error {
+			var err error
+			action, err = a.actionManager.ActionByTag(txn, actionTag)
+			return errors.Trace(err)
+		})
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		receiverTag, err := names.ActionReceiverTag(action.Receiver())
+		receiverTag, err := names.ActionReceiverTag(action.Receiver)
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
@@ -235,12 +246,7 @@ func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.Ac
 		currentResult := &response.Actions[i]
 		currentResult.Name = name
 
-		m, err := a.state.Model()
-		if err != nil {
-			return params.ActionsByNames{}, errors.Trace(err)
-		}
-
-		actions, err := m.FindActionsByName(name)
+		actions, err := a.model.FindActionsByName(name)
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
@@ -298,12 +304,7 @@ func (a *ActionAPI) cancel(arg params.Entities, compat bool) (params.ActionResul
 			continue
 		}
 
-		m, err := a.state.Model()
-		if err != nil {
-			return params.ActionResults{}, errors.Trace(err)
-		}
-
-		action, err := m.ActionByTag(actionTag)
+		action, err := a.model.ActionByTag(actionTag)
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue

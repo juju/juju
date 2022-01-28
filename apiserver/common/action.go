@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/overlord/actionstate"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -266,26 +267,26 @@ func ConvertActions(ar state.ActionReceiver, fn GetActionsFn, compat bool) ([]pa
 
 // MakeActionResult does the actual type conversion from state.Action
 // to params.ActionResult.
-func MakeActionResult(actionReceiverTag names.Tag, action state.Action, compat bool) params.ActionResult {
-	output, message := action.Results()
+func MakeActionResult(actionReceiverTag names.Tag, action actionstate.Action, compat bool) params.ActionResult {
+	output, message := action.Results
 	if !compat {
 		convertActionOutput(output)
 	}
 	result := params.ActionResult{
 		Action: &params.Action{
 			Receiver:   actionReceiverTag.String(),
-			Tag:        action.ActionTag().String(),
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
+			Tag:        action.ActionTag.String(),
+			Name:       action.Name,
+			Parameters: action.Parameters,
 		},
-		Status:    string(action.Status()),
+		Status:    string(action.Status),
 		Message:   message,
 		Output:    output,
-		Enqueued:  action.Enqueued(),
-		Started:   action.Started(),
-		Completed: action.Completed(),
+		Enqueued:  action.Enqueued,
+		Started:   action.Started,
+		Completed: action.Completed,
 	}
-	for _, m := range action.Messages() {
+	for _, m := range action.Messages {
 		result.Log = append(result.Log, params.ActionMessage{
 			Timestamp: m.Timestamp(),
 			Message:   m.Message(),

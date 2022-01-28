@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/overlord"
 	"github.com/juju/juju/state"
 )
 
@@ -71,6 +72,8 @@ type RaftContext interface {
 
 // StateManager represents a StateManager for the associated model.
 type StateManager interface {
+	State() overlord.State
+	ActionManager() overlord.ActionManager
 }
 
 // Context exposes useful capabilities to a Facade.
