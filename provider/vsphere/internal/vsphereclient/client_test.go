@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
+	"github.com/juju/mutex/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi"
