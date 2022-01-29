@@ -47,6 +47,10 @@ type MachineTemplate struct {
 	// fields must be set appropriately.
 	InstanceId instance.Id
 
+	// DisplayName holds the human readable name for the instance
+	// associated with the machine.
+	DisplayName string
+
 	// HardwareCharacteristics holds the h/w characteristics to
 	// be associated with the machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
@@ -284,14 +288,8 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, errors.Trace(err)
 	}
 
-	displayName := mdoc.Hostname
-	if ns, err := instance.NewNamespace(mdoc.ModelUUID); err == nil {
-		displayName = ns.Value(mdoc.Id)
-	}
-
 	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, insertNewContainerRefOp(st, mdoc.Id))
-
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
 			C:      instanceDataC,
@@ -301,7 +299,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 				DocID:          mdoc.DocID,
 				MachineId:      mdoc.Id,
 				InstanceId:     template.InstanceId,
-				DisplayName:    displayName,
+				DisplayName:    template.DisplayName,
 				ModelUUID:      mdoc.ModelUUID,
 				Arch:           template.HardwareCharacteristics.Arch,
 				Mem:            template.HardwareCharacteristics.Mem,
