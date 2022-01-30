@@ -17,7 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -121,7 +120,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simples
 		Source: ss.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              baseURL,
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 			RequireSigned:        requireSigned,
 		}),
@@ -412,7 +411,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 			Description:          "test",
 			BaseURL:              fmt.Sprintf("%s/signed", s.server.URL),
 			PublicSigningKey:     sstesting.SignedMetadataPublicKey,
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 			RequireSigned:        true,
 		},
@@ -443,7 +442,7 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
 	signedSource := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
 		BaseURL:              fmt.Sprintf("%s/signed", s.server.URL),
-		HostnameVerification: utils.VerifySSLHostnames,
+		HostnameVerification: true,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 		RequireSigned:        true,
 	})

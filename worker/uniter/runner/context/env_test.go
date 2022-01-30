@@ -12,7 +12,7 @@ import (
 	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/keyvalues"
+	"github.com/juju/utils/v3/keyvalues"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

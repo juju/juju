@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2/hash"
-	"github.com/juju/utils/v2/tar"
+	"github.com/juju/utils/v3/hash"
+	"github.com/juju/utils/v3/tar"
 )
 
 // TODO(ericsnow) One concern is files that get out of date by the time

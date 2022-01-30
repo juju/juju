@@ -17,10 +17,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/parallel"
-	"github.com/juju/utils/v2/shell"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/parallel"
+	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v3/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/cloudconfig"

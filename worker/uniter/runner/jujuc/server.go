@@ -21,7 +21,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2/exec"
+	"github.com/juju/utils/v3/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/feature"

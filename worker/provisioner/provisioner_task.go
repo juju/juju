@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"

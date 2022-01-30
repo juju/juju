@@ -33,7 +33,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
@@ -1031,14 +1031,10 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
-	verify := utils.VerifySSLHostnames
-	if !e.Config().SSLHostnameVerification() {
-		verify = utils.NoVerifySSLHostnames
-	}
 	cfg := simplestreams.Config{
 		Description:          "keystone catalog",
 		BaseURL:              serviceURL,
-		HostnameVerification: verify,
+		HostnameVerification: e.Config().SSLHostnameVerification(),
 		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
 		CACertificates:       e.cloudUnlocked.CACertificates,
 	}

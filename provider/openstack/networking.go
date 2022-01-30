@@ -12,7 +12,7 @@ import (
 	"github.com/go-goose/goose/v4/nova"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

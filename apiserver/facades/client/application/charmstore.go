@@ -15,7 +15,7 @@ import (
 	"github.com/juju/charmrepo/v6/csclient"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 

@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/exec"
+	"github.com/juju/utils/v3/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 

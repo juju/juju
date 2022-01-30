@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/downloader"
@@ -53,7 +52,7 @@ func (s *DownloadSuite) URL(c *gc.C, path string) *url.URL {
 	return URL
 }
 
-func (s *DownloadSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
+func (s *DownloadSuite) testDownload(c *gc.C, hostnameVerification bool) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
 	d := downloader.StartDownload(
@@ -72,11 +71,11 @@ func (s *DownloadSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHost
 }
 
 func (s *DownloadSuite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
-	s.testDownload(c, utils.VerifySSLHostnames)
+	s.testDownload(c, true)
 }
 
 func (s *DownloadSuite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
-	s.testDownload(c, utils.NoVerifySSLHostnames)
+	s.testDownload(c, false)
 }
 
 func (s *DownloadSuite) TestDownloadError(c *gc.C) {
@@ -87,7 +86,7 @@ func (s *DownloadSuite) TestDownloadError(c *gc.C) {
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: tmp,
 		},
-		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
+		downloader.NewHTTPBlobOpener(true),
 	)
 	filename, err := d.Wait()
 	c.Assert(filename, gc.Equals, "")
@@ -108,7 +107,7 @@ func (s *DownloadSuite) TestVerifyValid(c *gc.C) {
 				return nil
 			},
 		},
-		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
+		downloader.NewHTTPBlobOpener(true),
 	)
 	filename, err := dl.Wait()
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,7 +129,7 @@ func (s *DownloadSuite) TestVerifyInvalid(c *gc.C) {
 				return invalid
 			},
 		},
-		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
+		downloader.NewHTTPBlobOpener(true),
 	)
 	filename, err := dl.Wait()
 	c.Check(filename, gc.Equals, "")
@@ -150,7 +149,7 @@ func (s *DownloadSuite) TestAbort(c *gc.C) {
 			TargetDir: tmp,
 			Abort:     abort,
 		},
-		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
+		downloader.NewHTTPBlobOpener(true),
 	)
 	filename, err := dl.Wait()
 	c.Check(filename, gc.Equals, "")

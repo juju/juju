@@ -28,8 +28,8 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/parallel"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/parallel"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
@@ -242,8 +242,10 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	// for everything, but it's easier just to leave it in place.
 	bakeryClient.Client.Transport = &hostSwitchingTransport{
 		primaryHost: dialResult.addr,
-		primary:     utils.NewHttpTLSTransport(dialResult.tlsConfig),
-		fallback:    http.DefaultTransport,
+		primary: jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
+			TLSConfig: dialResult.tlsConfig,
+		}),
+		fallback: http.DefaultTransport,
 	}
 
 	// Prefer the SNI hostname or controller name for the cookie URL

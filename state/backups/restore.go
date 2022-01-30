@@ -16,8 +16,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"

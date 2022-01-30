@@ -8,7 +8,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/juju/utils/v2/winrm"
+	"github.com/juju/utils/v3/winrm"
 
 	"github.com/juju/juju/apiserver/params"
 )
