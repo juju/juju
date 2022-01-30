@@ -15,12 +15,29 @@ BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
 define MAIN_PACKAGES
   github.com/juju/juju/cmd/juju
+endef
+
+define CROSS_COMPILE_PACKAGES
   github.com/juju/juju/cmd/jujuc
   github.com/juju/juju/cmd/jujud
   github.com/juju/juju/cmd/containeragent
   github.com/juju/juju/cmd/plugins/juju-metadata
   github.com/juju/juju/cmd/plugins/juju-wait-for
+  github.com/canonical/pebble/cmd/pebble
 endef
+
+#define CROSS_COMPILE_TARGETS
+#	gobuild-${GOHOSTOS}-${GOHOSTARCH}
+#endef
+
+# If we are compiling on darwin let's also build
+ifeq ($(GOOS), darwin)
+	CROSS_COMPILE_TARGETS += gobuild-linux-${GOHOSTARCH}
+endif
+
+ifeq ($(GOHOSTARCH), arm64)
+	CROSS_COMPILE_TARGETS += gobuild-linux-amd64
+endif
 
 ifeq ($(GOOS),linux)
 	MAIN_PACKAGES += github.com/canonical/pebble/cmd/pebble
@@ -139,11 +156,19 @@ go-install:
 	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
 	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
-go-build:
+go-build: $(CROSS_COMPILE_TARGETS)
 ## go-build: Build Juju binaries without updating dependencies
 	@mkdir -p ${BIN_DIR}
 	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
 	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+
+gobuild-%:
+	$(eval OS = $(word 1,$(subst -, ,$*)))
+	$(eval ARCH = $(word 2,$(subst -, ,$*)))
+	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	@@mkdir -p ${BBIN_DIR}
+	@echo 'env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$CROSS_COMPILE_PACKAGES'
+	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(CROSS_COMPILE_PACKAGES))
 
 vendor-dependencies:
 ## vendor-dependencies: updates vendored dependencies
@@ -256,7 +281,10 @@ host-install:
 
 microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
-	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
+	echo ${OPERATOR_IMAGE_PATH}
+	docker save "$(shell ${OPERATOR_IMAGE_PATH})" -o /tmp/juju-operator.tar
+	multipass transfer /tmp/juju-operator.tar microk8s-vm:/tmp
+	microk8s ctr --namespace k8s.io image import /tmp/juju-operator.tar
 
 check-k8s-model:
 ## check-k8s-model: Check if k8s model is present in show-model

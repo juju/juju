@@ -20,7 +20,8 @@ _base_image() {
     IMG_linux_arm64="arm64v8/ubuntu:20.04" \
     IMG_linux_ppc64le="ppc64le/ubuntu:20.04" \
     IMG_linux_s390x="s390x/ubuntu:20.04" \
-    printenv "IMG_$(go env GOOS)_$(go env GOARCH)"
+    #printenv "IMG_$(go env GOOS)_$(go env GOARCH)"
+	echo $IMG_linux_arm64
 }
 
 _juju_version() {
@@ -49,16 +50,19 @@ build_operator_image() {
     rm -rf "${WORKDIR}"
     mkdir -p "${WORKDIR}"
 
+	JUJUD_LINUX_BIN_DIR=_build/linux_arm64/bin
+
     # Populate docker build context
-    cp "${JUJUD_BIN_DIR}/jujud" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/jujuc" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/containeragent" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/pebble" "${WORKDIR}/"
+    cp "${JUJUD_LINUX_BIN_DIR}/jujud" "${WORKDIR}/"
+    cp "${JUJUD_LINUX_BIN_DIR}/jujuc" "${WORKDIR}/"
+    cp "${JUJUD_LINUX_BIN_DIR}/containeragent" "${WORKDIR}/"
+    cp "${JUJUD_LINUX_BIN_DIR}/pebble" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
 
     # Build image. We tar up the build context to support docker snap confinement.
     tar cf - -C "${WORKDIR}" . | "${DOCKER_BIN}" build \
+		--platform linux/arm64 \
         --build-arg BASE_IMAGE=$(_base_image) \
         -t "$(operator_image_path)" - 
     if [ "$(operator_image_path)" != "$(operator_image_release_path)" ]; then
