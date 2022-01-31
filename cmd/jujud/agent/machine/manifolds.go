@@ -274,11 +274,11 @@ type ManifoldsConfig struct {
 	LeaseFSM *raftlease.FSM
 
 	// RaftOpQueue represents a way to apply operations on to the raft
-	// instance from the API. The RaftQueue exists outside of the dependency
+	// instance from the API. The RaftQueue exists outside the dependency
 	// engine to prevent a circular dependency that can not be solved. By
 	// allowing back pressure on a client callee, we can allow for serialized
 	// operations upon the raft leader.
-	// If the queue becomes stalled there is now way to bounce this without
+	// If the queue becomes stalled there is no way to bounce this without
 	// restarting the agent itself. The same architecture is also applied to
 	// pubsub. Monitoring might be useful to detect this in the future.
 	RaftOpQueue *queue.OpQueue
@@ -298,7 +298,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	//  1) to let us retry api connections immediately on password change,
 	//     rather than causing the dependency engine to wait for a while;
 	//  2) to decide how to deal with fatal, non-recoverable errors
-	//     e.g apicaller.ErrConnectImpossible.
+	//     e.g. apicaller.ErrConnectImpossible.
 	connectFilter := func(err error) error {
 		cause := errors.Cause(err)
 		if cause == apicaller.ErrConnectImpossible {
@@ -411,14 +411,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The multiwatcher manifold watches all the changes in the database
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
-		multiwatcherName: ifDatabaseUpgradeComplete(ifController(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
+		// Note: ifDatabaseUpgradeComplete implies running on a controller.
+		multiwatcherName: ifDatabaseUpgradeComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            multiwatcher.NewWorkerShim,
 			NewAllWatcher:        state.NewAllWatcherBacking,
-		}))),
+		})),
 
 		// The model cache initialized gate is used to make sure the api server
 		// isn't created before the model cache has been initialized with the
@@ -432,7 +433,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The modelcache manifold creates a cache.Controller and keeps
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
-		modelCacheName: ifDatabaseUpgradeComplete(ifController(modelcache.Manifold(modelcache.ManifoldConfig{
+		// Note: ifDatabaseUpgradeComplete implies running on a controller.
+		modelCacheName: ifDatabaseUpgradeComplete(modelcache.Manifold(modelcache.ManifoldConfig{
 			StateName:            stateName,
 			CentralHubName:       centralHubName,
 			MultiwatcherName:     multiwatcherName,
@@ -440,7 +442,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            modelcache.NewWorker,
-		}))),
+		})),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
