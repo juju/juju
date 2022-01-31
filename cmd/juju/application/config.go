@@ -59,6 +59,11 @@ argument to the command invocation. For instance:
 
 juju config apache2 servername=example.com lb_balancer_timeout=60
 
+A single setting value may be set via file.  The following example uses
+a file "/tmp/servername" with contents "example.com":
+
+juju config apache2 servername=@/tmp/servername
+
 By default, any configuration changes will be applied to the currently active
 branch. A specific branch can be targeted using the --branch option. Changes
 can be immediately be applied to the model by specifying --branch=master. For
