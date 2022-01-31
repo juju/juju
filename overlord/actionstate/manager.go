@@ -40,7 +40,8 @@ func (m *ActionManager) StartUp(ctx context.Context) error {
 
 	statements := []string{
 		sqlSelectActionByTag,
-		sqlSelectActionLogByID,
+		sqlSelectActionLogsByID,
+		sqlSelectActionResultByID,
 	}
 	for _, statement := range statements {
 		stmt, err := m.state.PrepareStatement(ctx, statement)
@@ -96,7 +97,7 @@ func (m *ActionManager) ActionByTag(txn state.Txn, tag names.ActionTag) (*Action
 		}
 
 		if rows.Next() {
-			return nil, errors.Errorf("expected only one action for tag %v", tag)
+			return nil, errors.Errorf("expected only one action for: %v", tag.Id())
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -114,16 +115,79 @@ func (m *ActionManager) ActionByTag(txn state.Txn, tag names.ActionTag) (*Action
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	action.Results, err = m.getActionResultByID(txn, id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return action, nil
 }
 
 func (m *ActionManager) getActionLogsByID(txn state.Txn, id string) ([]ActionMessage, error) {
-	stmt, err := m.getStatement(txn, sqlSelectActionLogByID)
+	stmt, err := m.getStatement(txn, sqlSelectActionLogsByID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer func() { _ = stmt.Close() }()
+
+	rows, err := txn.QueryContext(context.Background(), id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var messages []ActionMessage
+	for rows.Next() {
+		var message ActionMessage
+		if err := rows.Scan(&message.Message, &message.Timestamp); err != nil {
+			return nil, errors.Trace(err)
+		}
+		messages = append(messages, message)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return messages, nil
+}
+
+func (m *ActionManager) getActionResultByID(txn state.Txn, id string) (map[string]interface{}, error) {
+	stmt, err := m.getStatement(txn, sqlSelectActionResultByID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() { _ = stmt.Close() }()
+
+	rows, err := txn.QueryContext(context.Background(), id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var raw string
+	var result map[string]interface{}
+	for rows.Next() {
+		if err := rows.Scan(&raw); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if rows.Next() {
+			return nil, errors.Errorf("expected only one action result for: %v", id)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Unpack the action result.
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return result, nil
 }
 
 func (m *ActionManager) getStatement(txn state.Txn, key string) (*sql.Stmt, error) {
@@ -158,11 +222,17 @@ SELECT
 FROM actions
 WHERE id=?
 `
-	sqlSelectActionLogByID = `
+	sqlSelectActionLogsByID = `
 SELECT
 	id,
 	output,
 	timestamp
+FROM actions_logs
+WHERE action_id=?
+`
+	sqlSelectActionResultByID = `
+SELECT
+	result_json
 FROM actions_logs
 WHERE action_id=?
 `

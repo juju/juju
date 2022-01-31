@@ -36,18 +36,8 @@ const (
 
 // ActionMessage represents a progress message logged by an action.
 type ActionMessage struct {
-	MessageValue   string
-	TimestampValue time.Time
-}
-
-// Timestamp returns the message timestamp.
-func (m ActionMessage) Timestamp() time.Time {
-	return m.TimestampValue
-}
-
-// Message returns the message string.
-func (m ActionMessage) Message() string {
-	return m.MessageValue
+	Message   string
+	Timestamp time.Time
 }
 
 type Action struct {
