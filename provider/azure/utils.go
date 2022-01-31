@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/errorutils"

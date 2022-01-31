@@ -10,7 +10,7 @@ import (
 	gooseerrors "github.com/go-goose/goose/v4/errors"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

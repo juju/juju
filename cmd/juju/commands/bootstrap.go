@@ -21,8 +21,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/keyvalues"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/keyvalues"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"

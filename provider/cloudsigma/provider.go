@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -32,7 +31,7 @@ func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	dataSourceConfig := simplestreams.Config{
 		Description:          "cloud images",
 		BaseURL:              fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.cloud.Region),
-		HostnameVerification: utils.VerifySSLHostnames,
+		HostnameVerification: true,
 		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
 	}
 	if err := dataSourceConfig.Validate(); err != nil {

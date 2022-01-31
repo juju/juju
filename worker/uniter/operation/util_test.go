@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	utilexec "github.com/juju/utils/v2/exec"
+	utilexec "github.com/juju/utils/v3/exec"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"

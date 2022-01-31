@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -87,14 +86,14 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id0",
 			BaseURL:              "betwixt/releases",
-			HostnameVerification: utils.NoVerifySSLHostnames,
+			HostnameVerification: false,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA}), nil
 	})
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
 		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id1",
 			BaseURL:              "yoink",
-			HostnameVerification: utils.NoVerifySSLHostnames,
+			HostnameVerification: false,
 			Priority:             simplestreams.SPECIFIC_CLOUD_DATA}), nil
 	})
 	// overwrite the one previously registered against id1
@@ -105,7 +104,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 		return factory.NewDataSource(simplestreams.Config{
 			Description:          "id2",
 			BaseURL:              "foobar",
-			HostnameVerification: utils.NoVerifySSLHostnames,
+			HostnameVerification: false,
 			Priority:             simplestreams.CUSTOM_CLOUD_DATA}), nil
 	})
 	defer environs.UnregisterImageDataSourceFunc("id0")

@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -160,7 +159,7 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	ds := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
 		BaseURL:              s.Server.URL,
-		HostnameVerification: utils.NoVerifySSLHostnames,
+		HostnameVerification: false,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 	})
 	url, err := ds.URL("bar")
@@ -180,7 +179,7 @@ func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *gc.C) {
 	ds := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
 		BaseURL:              s.Server.URL,
-		HostnameVerification: utils.NoVerifySSLHostnames,
+		HostnameVerification: false,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 	})
 	httpClient := simplestreams.HttpClient(ds)

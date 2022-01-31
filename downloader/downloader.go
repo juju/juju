@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2"
 )
 
 var logger = loggo.GetLogger("juju.downloader")
@@ -27,7 +26,7 @@ type NewArgs struct {
 	// HostnameVerification is that which should be used for the client.
 	// If it is disableSSLHostnameVerification then a non-validating
 	// client will be used.
-	HostnameVerification utils.SSLHostnameVerification
+	HostnameVerification bool
 }
 
 // New returns a new Downloader for the given args.
