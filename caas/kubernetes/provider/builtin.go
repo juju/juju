@@ -5,6 +5,7 @@ package provider
 
 import (
 	"bytes"
+	"strings"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -76,6 +77,10 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
 		return []byte{}, err
 	}
 	if result.Code != 0 {
+		// TODO - confined snaps can't execute other commands.
+		if strings.HasSuffix(strings.ToLower(string(result.Stderr)), "permission denied") {
+			return []byte{}, errors.NotFoundf("microk8s")
+		}
 		return []byte{}, errors.New(string(result.Stderr))
 	}
 	return result.Stdout, nil
