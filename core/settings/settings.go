@@ -40,7 +40,7 @@ func (c *ItemChange) IsModification() bool {
 	return c.Type == modified
 }
 
-// Is deletion returns true if this change indicates the removal of a
+// IsDeletion returns true if this change indicates the removal of a
 // previously operator-defined setting.
 func (c *ItemChange) IsDeletion() bool {
 	return c.Type == deleted

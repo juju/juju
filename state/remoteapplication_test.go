@@ -9,9 +9,12 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -22,13 +25,22 @@ import (
 
 type remoteApplicationSuite struct {
 	ConnSuite
-	application *state.RemoteApplication
+	application            *state.RemoteApplication
+	externalControllerUUID string
 }
 
 var _ = gc.Suite(&remoteApplicationSuite{})
 
 func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	s.externalControllerUUID = utils.MustNewUUID().String()
+	s.makeRemoteApplication(c, "mysql", "me/model.mysql")
+	rc, err := state.ControllerRefCount(s.State, s.externalControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc, gc.Equals, 1)
+}
+
+func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string) {
 	eps := []charm.Relation{
 		{
 			Interface: "mysql",
@@ -95,14 +107,15 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 	mac, err := newMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "mysql",
-		URL:         "me/model.mysql",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "app-token",
-		Endpoints:   eps,
-		Spaces:      spaces,
-		Bindings:    bindings,
-		Macaroon:    mac,
+		Name:                   name,
+		URL:                    url,
+		ExternalControllerUUID: s.externalControllerUUID,
+		SourceModel:            s.Model.ModelTag(),
+		Token:                  "app-token",
+		Endpoints:              eps,
+		Spaces:                 spaces,
+		Bindings:               bindings,
+		Macaroon:               mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -747,6 +760,51 @@ func (s *remoteApplicationSuite) TestDestroySimple(c *gc.C) {
 	c.Assert(s.application.Life(), gc.Equals, state.Dying)
 	err = s.application.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = state.ControllerRefCount(s.State, s.externalControllerUUID)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+}
+
+func (s *remoteApplicationSuite) TestDestroyRemovesExternalController(c *gc.C) {
+	ec := state.NewExternalControllers(s.State)
+	_, err := ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: names.NewControllerTag(s.externalControllerUUID),
+		Addrs:         []string{"10.0.0.1:17070"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.application.Life(), gc.Equals, state.Dying)
+	err = s.application.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = state.ControllerRefCount(s.State, s.externalControllerUUID)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = ec.Controller(s.externalControllerUUID)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *remoteApplicationSuite) TestDestroyDoesNotRemoveExternalController(c *gc.C) {
+	s.makeRemoteApplication(c, "mariadb", "user/model.mariadb")
+	rc, err := state.ControllerRefCount(s.State, s.externalControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc, gc.Equals, 2)
+
+	ec := state.NewExternalControllers(s.State)
+	_, err = ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: names.NewControllerTag(s.externalControllerUUID),
+		Addrs:         []string{"10.0.0.1:17070"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.application.Life(), gc.Equals, state.Dying)
+	err = s.application.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = ec.Controller(s.externalControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	rc, err = state.ControllerRefCount(s.State, s.externalControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc, gc.Equals, 1)
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {

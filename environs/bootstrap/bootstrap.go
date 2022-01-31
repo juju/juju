@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
+	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
@@ -1093,7 +1093,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 		Description:          "bootstrap metadata",
 		BaseURL:              baseURL,
 		PublicSigningKey:     publicKey,
-		HostnameVerification: utils.NoVerifySSLHostnames,
+		HostnameVerification: false,
 		Priority:             simplestreams.CUSTOM_CLOUD_DATA,
 	}
 	if err := dataSourceConfig.Validate(); err != nil {

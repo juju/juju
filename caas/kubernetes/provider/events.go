@@ -45,6 +45,9 @@ const (
 )
 
 func (k *kubernetesClient) getEvents(objName string, objKind string) ([]core.Event, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	selector := fields.AndSelectors(
 		fields.OneTermEqualSelector("involvedObject.name", objName),
 		fields.OneTermEqualSelector("involvedObject.kind", objKind),
@@ -60,6 +63,9 @@ func (k *kubernetesClient) getEvents(objName string, objKind string) ([]core.Eve
 }
 
 func (k *kubernetesClient) watchEvents(objName string, objKind string) (watcher.NotifyWatcher, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {

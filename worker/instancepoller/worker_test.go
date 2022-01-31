@@ -61,25 +61,6 @@ var (
 			},
 		},
 	}
-
-	testCoercedNetIfs = network.InterfaceInfos{
-		{
-			DeviceIndex: 0,
-			Addresses: network.ProviderAddresses{
-				network.NewMachineAddress(
-					"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal),
-				).AsProviderAddress(),
-			},
-		},
-		{
-			DeviceIndex: 1,
-			ShadowAddresses: network.ProviderAddresses{
-				network.NewMachineAddress(
-					"1.1.1.42", network.WithCIDR("1.1.1.0/24"), network.WithScope(network.ScopePublic),
-				).AsProviderAddress(),
-			},
-		},
-	}
 )
 
 type configSuite struct{}
@@ -462,49 +443,6 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestBatchPollingOfGroupMembersWithProviderNotSupportingNetworkInfo(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	w, mocked := s.startWorker(c, ctrl)
-	defer workertest.CleanKill(c, w)
-	updWorker := w.(*updaterWorker)
-
-	// Add two machines, one that is not yet provisioned and one that is
-	// has a "created" machine status and a "running" instance status.
-	machineTag0 := names.NewMachineTag("0")
-	machine0 := mocks.NewMockMachine(ctrl)
-	machine0.EXPECT().InstanceId().Return(instance.Id(""), apiservererrors.ServerError(errors.NotProvisionedf("not there")))
-	updWorker.appendToShortPollGroup(machineTag0, machine0)
-
-	machineTag1 := names.NewMachineTag("1")
-	machine1 := mocks.NewMockMachine(ctrl)
-	machine1.EXPECT().Life().Return(life.Alive)
-	machine1.EXPECT().InstanceId().Return(instance.Id("b4dc0ffee"), nil)
-	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
-	machine1.EXPECT().Status().Return(params.StatusResult{Status: string(status.Started)}, nil)
-	machine1.EXPECT().SetProviderNetworkConfig(testCoercedNetIfs).Return(testAddrs, false, nil)
-	updWorker.appendToShortPollGroup(machineTag1, machine1)
-
-	machine1Info := mocks.NewMockInstance(ctrl)
-	machine1Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
-	// Since the provider does not support environ.Networking, the worker
-	// will fall-back to fetching the instance addresses and coercing them
-	// into an interface list.
-	machine1Info.EXPECT().Addresses(gomock.Any()).Return(testAddrs, nil)
-
-	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return([]instances.Instance{machine1Info}, nil)
-	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return(
-		nil, errors.NotSupportedf("network interfaces"),
-	)
-
-	// Trigger a poll of the short poll group and wait for the worker loop
-	// to complete.
-	s.assertWorkerCompletesLoop(c, updWorker, func() {
-		mocked.clock.Advance(ShortPoll)
-	})
-}
-
 func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -530,7 +468,7 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 		[]instances.Instance{}, environs.ErrPartialInstances,
 	)
 	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instID}).Return(
-		nil, errors.NotSupportedf("network interfaces"),
+		nil, nil,
 	)
 
 	// Advance the clock to trigger processing of both the short AND long
@@ -566,7 +504,7 @@ func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
 		nil, environs.ErrNoInstances,
 	)
 	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instID}).Return(
-		nil, errors.NotSupportedf("network interfaces"),
+		nil, nil,
 	)
 
 	// Advance the clock to trigger processing of both the short AND long

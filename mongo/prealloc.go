@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 )
 
 var (

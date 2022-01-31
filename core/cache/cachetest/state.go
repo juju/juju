@@ -165,9 +165,9 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 	}
 
 	var charmURL string
-	cURL, err := unit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
-	charmURL = cURL.String()
+	if cURL, ok := unit.CharmURL(); ok {
+		charmURL = cURL.String()
+	}
 
 	pr, err := unit.OpenedPortRanges()
 	if !errors.IsNotAssigned(err) {

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
 	"github.com/juju/lumberjack"
-	"github.com/juju/mutex"
+	"github.com/juju/mutex/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/paths"

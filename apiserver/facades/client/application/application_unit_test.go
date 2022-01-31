@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -1583,11 +1583,12 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
-		name:           "hosted-mysql",
-		sourceModelTag: coretesting.ModelTag,
-		status:         status.Active,
-		offerUUID:      "hosted-mysql-uuid",
-		offerURL:       "othermodel.hosted-mysql",
+		name:                 "hosted-mysql",
+		sourceControllerUUID: controllerUUID,
+		sourceModelTag:       coretesting.ModelTag,
+		status:               status.Active,
+		offerUUID:            "hosted-mysql-uuid",
+		offerURL:             "othermodel.hosted-mysql",
 		endpoints: []state.Endpoint{
 			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
 		mac: mac,

@@ -5,38 +5,37 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
-// MockLXDProfileBackend is a mock of LXDProfileBackend interface.
+// MockLXDProfileBackend is a mock of LXDProfileBackend interface
 type MockLXDProfileBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockLXDProfileBackendMockRecorder
 }
 
-// MockLXDProfileBackendMockRecorder is the mock recorder for MockLXDProfileBackend.
+// MockLXDProfileBackendMockRecorder is the mock recorder for MockLXDProfileBackend
 type MockLXDProfileBackendMockRecorder struct {
 	mock *MockLXDProfileBackend
 }
 
-// NewMockLXDProfileBackend creates a new mock instance.
+// NewMockLXDProfileBackend creates a new mock instance
 func NewMockLXDProfileBackend(ctrl *gomock.Controller) *MockLXDProfileBackend {
 	mock := &MockLXDProfileBackend{ctrl: ctrl}
 	mock.recorder = &MockLXDProfileBackendMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockLXDProfileBackend) EXPECT() *MockLXDProfileBackendMockRecorder {
 	return m.recorder
 }
 
-// Machine mocks base method.
+// Machine mocks base method
 func (m *MockLXDProfileBackend) Machine(arg0 string) (uniter.LXDProfileMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
@@ -45,13 +44,13 @@ func (m *MockLXDProfileBackend) Machine(arg0 string) (uniter.LXDProfileMachine, 
 	return ret0, ret1
 }
 
-// Machine indicates an expected call of Machine.
+// Machine indicates an expected call of Machine
 func (mr *MockLXDProfileBackendMockRecorder) Machine(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockLXDProfileBackend)(nil).Machine), arg0)
 }
 
-// Unit mocks base method.
+// Unit mocks base method
 func (m *MockLXDProfileBackend) Unit(arg0 string) (uniter.LXDProfileUnit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
@@ -60,36 +59,36 @@ func (m *MockLXDProfileBackend) Unit(arg0 string) (uniter.LXDProfileUnit, error)
 	return ret0, ret1
 }
 
-// Unit indicates an expected call of Unit.
+// Unit indicates an expected call of Unit
 func (mr *MockLXDProfileBackendMockRecorder) Unit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockLXDProfileBackend)(nil).Unit), arg0)
 }
 
-// MockLXDProfileMachine is a mock of LXDProfileMachine interface.
+// MockLXDProfileMachine is a mock of LXDProfileMachine interface
 type MockLXDProfileMachine struct {
 	ctrl     *gomock.Controller
 	recorder *MockLXDProfileMachineMockRecorder
 }
 
-// MockLXDProfileMachineMockRecorder is the mock recorder for MockLXDProfileMachine.
+// MockLXDProfileMachineMockRecorder is the mock recorder for MockLXDProfileMachine
 type MockLXDProfileMachineMockRecorder struct {
 	mock *MockLXDProfileMachine
 }
 
-// NewMockLXDProfileMachine creates a new mock instance.
+// NewMockLXDProfileMachine creates a new mock instance
 func NewMockLXDProfileMachine(ctrl *gomock.Controller) *MockLXDProfileMachine {
 	mock := &MockLXDProfileMachine{ctrl: ctrl}
 	mock.recorder = &MockLXDProfileMachineMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockLXDProfileMachine) EXPECT() *MockLXDProfileMachineMockRecorder {
 	return m.recorder
 }
 
-// WatchLXDProfileUpgradeNotifications mocks base method.
+// WatchLXDProfileUpgradeNotifications mocks base method
 func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications", arg0)
@@ -98,36 +97,36 @@ func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string)
 	return ret0, ret1
 }
 
-// WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications.
+// WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications
 func (mr *MockLXDProfileMachineMockRecorder) WatchLXDProfileUpgradeNotifications(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileUpgradeNotifications", reflect.TypeOf((*MockLXDProfileMachine)(nil).WatchLXDProfileUpgradeNotifications), arg0)
 }
 
-// MockLXDProfileUnit is a mock of LXDProfileUnit interface.
+// MockLXDProfileUnit is a mock of LXDProfileUnit interface
 type MockLXDProfileUnit struct {
 	ctrl     *gomock.Controller
 	recorder *MockLXDProfileUnitMockRecorder
 }
 
-// MockLXDProfileUnitMockRecorder is the mock recorder for MockLXDProfileUnit.
+// MockLXDProfileUnitMockRecorder is the mock recorder for MockLXDProfileUnit
 type MockLXDProfileUnitMockRecorder struct {
 	mock *MockLXDProfileUnit
 }
 
-// NewMockLXDProfileUnit creates a new mock instance.
+// NewMockLXDProfileUnit creates a new mock instance
 func NewMockLXDProfileUnit(ctrl *gomock.Controller) *MockLXDProfileUnit {
 	mock := &MockLXDProfileUnit{ctrl: ctrl}
 	mock.recorder = &MockLXDProfileUnitMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockLXDProfileUnit) EXPECT() *MockLXDProfileUnitMockRecorder {
 	return m.recorder
 }
 
-// AssignedMachineId mocks base method.
+// AssignedMachineId mocks base method
 func (m *MockLXDProfileUnit) AssignedMachineId() (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignedMachineId")
@@ -136,13 +135,13 @@ func (m *MockLXDProfileUnit) AssignedMachineId() (string, error) {
 	return ret0, ret1
 }
 
-// AssignedMachineId indicates an expected call of AssignedMachineId.
+// AssignedMachineId indicates an expected call of AssignedMachineId
 func (mr *MockLXDProfileUnitMockRecorder) AssignedMachineId() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachineId", reflect.TypeOf((*MockLXDProfileUnit)(nil).AssignedMachineId))
 }
 
-// Name mocks base method.
+// Name mocks base method
 func (m *MockLXDProfileUnit) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -150,13 +149,13 @@ func (m *MockLXDProfileUnit) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name.
+// Name indicates an expected call of Name
 func (mr *MockLXDProfileUnitMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockLXDProfileUnit)(nil).Name))
 }
 
-// Tag mocks base method.
+// Tag mocks base method
 func (m *MockLXDProfileUnit) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
@@ -164,13 +163,13 @@ func (m *MockLXDProfileUnit) Tag() names.Tag {
 	return ret0
 }
 
-// Tag indicates an expected call of Tag.
+// Tag indicates an expected call of Tag
 func (mr *MockLXDProfileUnitMockRecorder) Tag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockLXDProfileUnit)(nil).Tag))
 }
 
-// WatchLXDProfileUpgradeNotifications mocks base method.
+// WatchLXDProfileUpgradeNotifications mocks base method
 func (m *MockLXDProfileUnit) WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications")
@@ -179,7 +178,7 @@ func (m *MockLXDProfileUnit) WatchLXDProfileUpgradeNotifications() (state.String
 	return ret0, ret1
 }
 
-// WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications.
+// WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications
 func (mr *MockLXDProfileUnitMockRecorder) WatchLXDProfileUpgradeNotifications() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileUpgradeNotifications", reflect.TypeOf((*MockLXDProfileUnit)(nil).WatchLXDProfileUpgradeNotifications))

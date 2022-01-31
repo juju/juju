@@ -14,7 +14,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/exec"
+	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

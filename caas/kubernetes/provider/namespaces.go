@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -124,9 +123,6 @@ func (k *kubernetesClient) createNamespace(name string) error {
 		utils.LabelsJuju))
 
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
-		if errors.IsNotFound(err) {
-			return errors.NewAlreadyExists(nil, fmt.Sprintf("namespace %q may already be in use", name))
-		}
 		return errors.Trace(err)
 	}
 
@@ -138,6 +134,9 @@ func (k *kubernetesClient) createNamespace(name string) error {
 }
 
 func (k *kubernetesClient) deleteNamespace() error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	// deleteNamespace is used as a means to implement Destroy().
 	// All model resources are provisioned in the namespace;
 	// deleting the namespace will also delete those resources.
@@ -165,6 +164,9 @@ func (k *kubernetesClient) deleteNamespace() error {
 // WatchNamespace returns a watcher which notifies when there
 // are changes to current namespace.
 func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
 			o.FieldSelector = fields.OneTermEqualSelector("metadata.name", k.namespace).String()

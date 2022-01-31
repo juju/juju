@@ -404,7 +404,7 @@ func (i *UnitInfo) Clone() EntityInfo {
 	return &clone
 }
 
-// ActionInfo holds the information about a action that is tracked by
+// ActionInfo holds the information about an action that is tracked by
 // multiwatcherStore.
 type ActionInfo struct {
 	ModelUUID      string

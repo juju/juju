@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/docker"
@@ -48,6 +48,17 @@ const (
 
 	// ControllerName is the canonical name for the controller
 	ControllerName = "controller-name"
+
+	// ApplicationResourceDownloadLimit limits the number of concurrent resource download
+	// requests from unit agents which will be served. The limit is per application.
+	// Use a value of 0 to disable the limit.
+	ApplicationResourceDownloadLimit = "application-resource-download-limit"
+
+	// ControllerResourceDownloadLimit limits the number of concurrent resource download
+	// requests from unit agents which will be served. The limit is for the combined total
+	// of all applications on the controller.
+	// Use a value of 0 to disable the limit.
+	ControllerResourceDownloadLimit = "controller-resource-download-limit"
 
 	// AgentRateLimitMax is the maximum size of the token bucket used to
 	// ratelimit the agent connections.
@@ -248,6 +259,14 @@ const (
 
 	// Attribute Defaults
 
+	// DefaultApplicationResourceDownloadLimit allows unlimited
+	// resource download requests initiated by a unit agent per application.
+	DefaultApplicationResourceDownloadLimit = 0
+
+	// DefaultControllerResourceDownloadLimit allows unlimited concurrent resource
+	// download requests initiated by unit agents for any application on the controller.
+	DefaultControllerResourceDownloadLimit = 0
+
 	// DefaultAgentRateLimitMax allows the first 10 agents to connect without
 	// any issue. After that the rate limiting kicks in.
 	DefaultAgentRateLimitMax = 10
@@ -406,6 +425,8 @@ var (
 		MaxAgentStateSize,
 		NonSyncedWritesToRaftLog,
 		MigrationMinionWaitMax,
+		ApplicationResourceDownloadLimit,
+		ControllerResourceDownloadLimit,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -451,6 +472,8 @@ var (
 		MaxAgentStateSize,
 		NonSyncedWritesToRaftLog,
 		MigrationMinionWaitMax,
+		ApplicationResourceDownloadLimit,
+		ControllerResourceDownloadLimit,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -599,6 +622,35 @@ func (c Config) ControllerAPIPort() int {
 	// will be 0, which is what we want here.
 	value, _ := c[ControllerAPIPort].(int)
 	return value
+}
+
+// ApplicationResourceDownloadLimit limits the number of concurrent resource download
+// requests from unit agents which will be served. The limit is per application.
+func (c Config) ApplicationResourceDownloadLimit() int {
+	switch v := c[ApplicationResourceDownloadLimit].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return DefaultApplicationResourceDownloadLimit
+}
+
+// ControllerResourceDownloadLimit limits the number of concurrent resource download
+// requests from unit agents which will be served. The limit is for the combined total
+// of all applications on the controller.
+func (c Config) ControllerResourceDownloadLimit() int {
+	switch v := c[ControllerResourceDownloadLimit].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return DefaultControllerResourceDownloadLimit
 }
 
 // AgentRateLimitMax is the initial size of the token bucket that is used to
@@ -995,6 +1047,16 @@ func Validate(c Config) error {
 		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
+	if v, ok := c[ApplicationResourceDownloadLimit].(int); ok {
+		if v < 0 {
+			return errors.Errorf("negative %s (%d) not valid, use 0 to disable the limit", ApplicationResourceDownloadLimit, v)
+		}
+	}
+	if v, ok := c[ControllerResourceDownloadLimit].(int); ok {
+		if v < 0 {
+			return errors.Errorf("negative %s (%d) not valid, use 0 to disable the limit", ControllerResourceDownloadLimit, v)
+		}
+	}
 	if v, ok := c[AgentRateLimitMax].(int); ok {
 		if v < 0 {
 			return errors.NotValidf("negative %s (%d)", AgentRateLimitMax, v)
@@ -1237,98 +1299,110 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 }
 
 var configChecker = schema.FieldMap(schema.Fields{
-	AgentRateLimitMax:        schema.ForceInt(),
-	AgentRateLimitRate:       schema.TimeDuration(),
-	AuditingEnabled:          schema.Bool(),
-	AuditLogCaptureArgs:      schema.Bool(),
-	AuditLogMaxSize:          schema.String(),
-	AuditLogMaxBackups:       schema.ForceInt(),
-	AuditLogExcludeMethods:   schema.List(schema.String()),
-	APIPort:                  schema.ForceInt(),
-	APIPortOpenDelay:         schema.String(),
-	ControllerAPIPort:        schema.ForceInt(),
-	ControllerName:           schema.String(),
-	StatePort:                schema.ForceInt(),
-	IdentityURL:              schema.String(),
-	IdentityPublicKey:        schema.String(),
-	SetNUMAControlPolicyKey:  schema.Bool(),
-	AutocertURLKey:           schema.String(),
-	AutocertDNSNameKey:       schema.String(),
-	AllowModelAccessKey:      schema.Bool(),
-	MongoMemoryProfile:       schema.String(),
-	JujuDBSnapChannel:        schema.String(),
-	MaxDebugLogDuration:      schema.TimeDuration(),
-	MaxTxnLogSize:            schema.String(),
-	MaxPruneTxnBatchSize:     schema.ForceInt(),
-	MaxPruneTxnPasses:        schema.ForceInt(),
-	AgentLogfileMaxBackups:   schema.ForceInt(),
-	AgentLogfileMaxSize:      schema.String(),
-	ModelLogfileMaxBackups:   schema.ForceInt(),
-	ModelLogfileMaxSize:      schema.String(),
-	ModelLogsSize:            schema.String(),
-	PruneTxnQueryCount:       schema.ForceInt(),
-	PruneTxnSleepTime:        schema.String(),
-	PublicDNSAddress:         schema.String(),
-	JujuHASpace:              schema.String(),
-	JujuManagementSpace:      schema.String(),
-	CAASOperatorImagePath:    schema.String(),
-	CAASImageRepo:            schema.String(),
-	Features:                 schema.List(schema.String()),
-	CharmStoreURL:            schema.String(),
-	MeteringURL:              schema.String(),
-	MaxCharmStateSize:        schema.ForceInt(),
-	MaxAgentStateSize:        schema.ForceInt(),
-	NonSyncedWritesToRaftLog: schema.Bool(),
-	MigrationMinionWaitMax:   schema.String(),
+	AgentRateLimitMax:                schema.ForceInt(),
+	AgentRateLimitRate:               schema.TimeDuration(),
+	AuditingEnabled:                  schema.Bool(),
+	AuditLogCaptureArgs:              schema.Bool(),
+	AuditLogMaxSize:                  schema.String(),
+	AuditLogMaxBackups:               schema.ForceInt(),
+	AuditLogExcludeMethods:           schema.List(schema.String()),
+	APIPort:                          schema.ForceInt(),
+	APIPortOpenDelay:                 schema.String(),
+	ControllerAPIPort:                schema.ForceInt(),
+	ControllerName:                   schema.String(),
+	StatePort:                        schema.ForceInt(),
+	IdentityURL:                      schema.String(),
+	IdentityPublicKey:                schema.String(),
+	SetNUMAControlPolicyKey:          schema.Bool(),
+	AutocertURLKey:                   schema.String(),
+	AutocertDNSNameKey:               schema.String(),
+	AllowModelAccessKey:              schema.Bool(),
+	MongoMemoryProfile:               schema.String(),
+	JujuDBSnapChannel:                schema.String(),
+	MaxDebugLogDuration:              schema.TimeDuration(),
+	MaxTxnLogSize:                    schema.String(),
+	MaxPruneTxnBatchSize:             schema.ForceInt(),
+	MaxPruneTxnPasses:                schema.ForceInt(),
+	AgentLogfileMaxBackups:           schema.ForceInt(),
+	AgentLogfileMaxSize:              schema.String(),
+	ModelLogfileMaxBackups:           schema.ForceInt(),
+	ModelLogfileMaxSize:              schema.String(),
+	ModelLogsSize:                    schema.String(),
+	PruneTxnQueryCount:               schema.ForceInt(),
+	PruneTxnSleepTime:                schema.String(),
+	PublicDNSAddress:                 schema.String(),
+	JujuHASpace:                      schema.String(),
+	JujuManagementSpace:              schema.String(),
+	CAASOperatorImagePath:            schema.String(),
+	CAASImageRepo:                    schema.String(),
+	Features:                         schema.List(schema.String()),
+	CharmStoreURL:                    schema.String(),
+	MeteringURL:                      schema.String(),
+	MaxCharmStateSize:                schema.ForceInt(),
+	MaxAgentStateSize:                schema.ForceInt(),
+	NonSyncedWritesToRaftLog:         schema.Bool(),
+	MigrationMinionWaitMax:           schema.String(),
+	ApplicationResourceDownloadLimit: schema.ForceInt(),
+	ControllerResourceDownloadLimit:  schema.ForceInt(),
 }, schema.Defaults{
-	AgentRateLimitMax:        schema.Omit,
-	AgentRateLimitRate:       schema.Omit,
-	APIPort:                  DefaultAPIPort,
-	APIPortOpenDelay:         DefaultAPIPortOpenDelay,
-	ControllerAPIPort:        schema.Omit,
-	ControllerName:           schema.Omit,
-	AuditingEnabled:          DefaultAuditingEnabled,
-	AuditLogCaptureArgs:      DefaultAuditLogCaptureArgs,
-	AuditLogMaxSize:          fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
-	AuditLogMaxBackups:       DefaultAuditLogMaxBackups,
-	AuditLogExcludeMethods:   DefaultAuditLogExcludeMethods,
-	StatePort:                DefaultStatePort,
-	IdentityURL:              schema.Omit,
-	IdentityPublicKey:        schema.Omit,
-	SetNUMAControlPolicyKey:  DefaultNUMAControlPolicy,
-	AutocertURLKey:           schema.Omit,
-	AutocertDNSNameKey:       schema.Omit,
-	AllowModelAccessKey:      schema.Omit,
-	MongoMemoryProfile:       DefaultMongoMemoryProfile,
-	JujuDBSnapChannel:        DefaultJujuDBSnapChannel,
-	MaxDebugLogDuration:      DefaultMaxDebugLogDuration,
-	MaxTxnLogSize:            fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
-	MaxPruneTxnBatchSize:     DefaultMaxPruneTxnBatchSize,
-	MaxPruneTxnPasses:        DefaultMaxPruneTxnPasses,
-	AgentLogfileMaxBackups:   DefaultAgentLogfileMaxBackups,
-	AgentLogfileMaxSize:      fmt.Sprintf("%vM", DefaultAgentLogfileMaxSize),
-	ModelLogfileMaxBackups:   DefaultModelLogfileMaxBackups,
-	ModelLogfileMaxSize:      fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
-	ModelLogsSize:            fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
-	PruneTxnQueryCount:       DefaultPruneTxnQueryCount,
-	PruneTxnSleepTime:        DefaultPruneTxnSleepTime,
-	PublicDNSAddress:         schema.Omit,
-	JujuHASpace:              schema.Omit,
-	JujuManagementSpace:      schema.Omit,
-	CAASOperatorImagePath:    schema.Omit,
-	CAASImageRepo:            schema.Omit,
-	Features:                 schema.Omit,
-	CharmStoreURL:            csclient.ServerURL,
-	MeteringURL:              romulus.DefaultAPIRoot,
-	MaxCharmStateSize:        DefaultMaxCharmStateSize,
-	MaxAgentStateSize:        DefaultMaxAgentStateSize,
-	NonSyncedWritesToRaftLog: DefaultNonSyncedWritesToRaftLog,
-	MigrationMinionWaitMax:   DefaultMigrationMinionWaitMax,
+	AgentRateLimitMax:                schema.Omit,
+	AgentRateLimitRate:               schema.Omit,
+	APIPort:                          DefaultAPIPort,
+	APIPortOpenDelay:                 DefaultAPIPortOpenDelay,
+	ControllerAPIPort:                schema.Omit,
+	ControllerName:                   schema.Omit,
+	AuditingEnabled:                  DefaultAuditingEnabled,
+	AuditLogCaptureArgs:              DefaultAuditLogCaptureArgs,
+	AuditLogMaxSize:                  fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
+	AuditLogMaxBackups:               DefaultAuditLogMaxBackups,
+	AuditLogExcludeMethods:           DefaultAuditLogExcludeMethods,
+	StatePort:                        DefaultStatePort,
+	IdentityURL:                      schema.Omit,
+	IdentityPublicKey:                schema.Omit,
+	SetNUMAControlPolicyKey:          DefaultNUMAControlPolicy,
+	AutocertURLKey:                   schema.Omit,
+	AutocertDNSNameKey:               schema.Omit,
+	AllowModelAccessKey:              schema.Omit,
+	MongoMemoryProfile:               DefaultMongoMemoryProfile,
+	JujuDBSnapChannel:                DefaultJujuDBSnapChannel,
+	MaxDebugLogDuration:              DefaultMaxDebugLogDuration,
+	MaxTxnLogSize:                    fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
+	MaxPruneTxnBatchSize:             DefaultMaxPruneTxnBatchSize,
+	MaxPruneTxnPasses:                DefaultMaxPruneTxnPasses,
+	AgentLogfileMaxBackups:           DefaultAgentLogfileMaxBackups,
+	AgentLogfileMaxSize:              fmt.Sprintf("%vM", DefaultAgentLogfileMaxSize),
+	ModelLogfileMaxBackups:           DefaultModelLogfileMaxBackups,
+	ModelLogfileMaxSize:              fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
+	ModelLogsSize:                    fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
+	PruneTxnQueryCount:               DefaultPruneTxnQueryCount,
+	PruneTxnSleepTime:                DefaultPruneTxnSleepTime,
+	PublicDNSAddress:                 schema.Omit,
+	JujuHASpace:                      schema.Omit,
+	JujuManagementSpace:              schema.Omit,
+	CAASOperatorImagePath:            schema.Omit,
+	CAASImageRepo:                    schema.Omit,
+	Features:                         schema.Omit,
+	CharmStoreURL:                    csclient.ServerURL,
+	MeteringURL:                      romulus.DefaultAPIRoot,
+	MaxCharmStateSize:                DefaultMaxCharmStateSize,
+	MaxAgentStateSize:                DefaultMaxAgentStateSize,
+	NonSyncedWritesToRaftLog:         DefaultNonSyncedWritesToRaftLog,
+	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
+	ApplicationResourceDownloadLimit: schema.Omit,
+	ControllerResourceDownloadLimit:  schema.Omit,
 })
 
 // ConfigSchema holds information on all the fields defined by
 // the config package.
 var ConfigSchema = environschema.Fields{
+	ApplicationResourceDownloadLimit: {
+		Description: "The maximum number of concurrent resources downloads per application",
+		Type:        environschema.Tint,
+	},
+	ControllerResourceDownloadLimit: {
+		Description: "The maximum number of concurrent resources downloads across all the applications on the controller",
+		Type:        environschema.Tint,
+	},
 	AgentRateLimitMax: {
 		Description: "The maximum size of the token bucket used to ratelimit agent connections",
 		Type:        environschema.Tint,

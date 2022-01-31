@@ -617,7 +617,8 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 
 func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
 	inst := description.CloudInstanceArgs{
-		InstanceId: string(data.InstanceId),
+		InstanceId:  string(data.InstanceId),
+		DisplayName: data.DisplayName,
 	}
 	if data.Arch != nil {
 		inst.Architecture = *data.Arch

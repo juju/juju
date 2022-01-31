@@ -410,7 +410,10 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 			if !op.Force {
 				hasLastRefs = bson.D{{"life", remoteApp.doc.Life}, {"relationcount", remoteApp.doc.RelationCount}}
 			}
-			removeAppOps := remoteApp.removeOps(hasLastRefs)
+			removeAppOps, err := remoteApp.removeOps(hasLastRefs)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			return append(ops, removeAppOps...), nil
 		}
 	}
@@ -633,8 +636,8 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
 		removable = append(removable, shouldRemove...)
 		if err := applications.Find(removable).One(&app.doc); err == nil {
-			removeOps := app.removeOps(hasLastRef)
-			return removeOps, nil
+			removeOps, err := app.removeOps(hasLastRef)
+			return removeOps, errors.Trace(err)
 		} else if err != mgo.ErrNotFound {
 			return nil, err
 		}

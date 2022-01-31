@@ -11,8 +11,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
@@ -123,7 +122,7 @@ func OfficialDataSources(dataSourceFactory simplestreams.DataSourceFactory, stre
 			Description:          "default ubuntu cloud images",
 			BaseURL:              defaultUbuntuURL,
 			PublicSigningKey:     SimplestreamsImagesPublicKey,
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 			RequireSigned:        true,
 		}

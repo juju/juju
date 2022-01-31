@@ -29,11 +29,25 @@ apps:
       # Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
       PATH: "$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH"
     command: bin/juju
+    plugs:
+      - network
+      - ssh-keys
+      - lxd
+      # Needed so that juju can still use the real ~/.local/share/juju.
+      - config-juju
+      # Needed to read lxd config.
+      - config-lxd
+      # Needed to read ~/.kube, ~/.novarc, ~/.aws etc.
+      - cloud-credentials-juju
+      # Needed so that arbitrary cloud/credential yaml files can be read.
+      - home
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
     start-timeout: 1m
     stop-timeout: 35s
+    plugs:
+      - network
 
 parts:
   wrappers:
@@ -103,3 +117,25 @@ plugs:
     interface: content
     content: microk8s
     target: $SNAP_COMMON/.peers
+
+  config-juju:
+    interface: personal-files
+    write:
+      - $HOME/.local/share/juju
+
+  config-lxd:
+    interface: personal-files
+    read:
+      - $HOME/snap/lxd/current/.config/lxc
+      - $HOME/snap/lxd/common/config
+
+  cloud-credentials-juju:
+    interface: personal-files
+    read:
+      - $HOME/.aws
+      - $HOME/.azure
+      - $HOME/.config
+      - $HOME/.kube
+      - $HOME/.maasrc
+      - $HOME/.oci
+      - $HOME/.novarc

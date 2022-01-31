@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -248,7 +247,7 @@ var imagesDataSources = func(ss *simplestreams.Simplestreams, urls ...string) []
 				Description:          "local metadata directory",
 				BaseURL:              "file://" + url,
 				PublicSigningKey:     publicKey,
-				HostnameVerification: utils.VerifySSLHostnames,
+				HostnameVerification: true,
 				Priority:             simplestreams.CUSTOM_CLOUD_DATA,
 			},
 		)

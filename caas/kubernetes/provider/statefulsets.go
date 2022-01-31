@@ -157,6 +157,9 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 }
 
 func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) (*apps.StatefulSet, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().AppsV1().StatefulSets(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("stateful set %q", spec.GetName())
@@ -168,6 +171,9 @@ func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) (*apps.Stat
 }
 
 func (k *kubernetesClient) updateStatefulSet(spec *apps.StatefulSet) (*apps.StatefulSet, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().AppsV1().StatefulSets(k.namespace).Update(context.TODO(), spec, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("stateful set %q", spec.GetName())
@@ -179,6 +185,9 @@ func (k *kubernetesClient) updateStatefulSet(spec *apps.StatefulSet) (*apps.Stat
 }
 
 func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().AppsV1().StatefulSets(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("stateful set %q", name)
@@ -188,6 +197,9 @@ func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error
 
 // deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
@@ -199,6 +211,9 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 
 // deleteStatefulSet deletes all statefulset resources for an application.
 func (k *kubernetesClient) deleteStatefulSets(appName string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),

@@ -12,17 +12,17 @@ import (
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 )
 
 // NewHTTPBlobOpener returns a blob opener func suitable for use with
 // Download. The opener func uses an HTTP client that enforces the
 // provided SSL hostname verification policy.
-func NewHTTPBlobOpener(hostnameVerification utils.SSLHostnameVerification) func(*url.URL) (io.ReadCloser, error) {
+func NewHTTPBlobOpener(hostnameVerification bool) func(*url.URL) (io.ReadCloser, error) {
 	return func(url *url.URL) (io.ReadCloser, error) {
 		// TODO(rog) make the download operation interruptible.
 		client := jujuhttp.NewClient(
-			jujuhttp.WithSkipHostnameVerification(!bool(hostnameVerification)),
+			jujuhttp.WithSkipHostnameVerification(!hostnameVerification),
 		)
 
 		resp, err := client.Get(context.TODO(), url.String())

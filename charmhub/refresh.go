@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/pbkdf2"
 
@@ -133,7 +133,7 @@ func (c *RefreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[
 }
 
 func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) (transport.RequestMetrics, error) {
-	m := make(transport.RequestMetrics, 0)
+	m := make(transport.RequestMetrics)
 	for k, v := range metrics {
 		// verify top level "model" and "controller" keys
 		if k != charmmetrics.Controller && k != charmmetrics.Model {
@@ -162,9 +162,30 @@ func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []tra
 	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Ensure that all the results contain the correct instance keys.
+	if err := ensure(resp.Results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Exit early.
+	if len(resp.Results) <= 1 {
+		return resp.Results, nil
+	}
 
-	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
-	return resp.Results, ensure(resp.Results)
+	// As the results are not expected to be in the correct order, sort them
+	// to prevent others falling into not RTFM!
+	indexes := make(map[string]int, len(req.Actions))
+	for i, action := range req.Actions {
+		indexes[action.InstanceKey] = i
+	}
+	results := make([]transport.RefreshResponse, len(resp.Results))
+	for _, result := range resp.Results {
+		results[indexes[result.InstanceKey]] = result
+	}
+
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(results))
+	}
+	return results, nil
 }
 
 // RefreshOne creates a request config for requesting only one charm.
@@ -249,7 +270,7 @@ func AddConfigMetrics(config RefreshConfig, metrics map[charmmetrics.MetricKey]s
 	if len(metrics) < 1 {
 		return c, nil
 	}
-	c.metrics = make(transport.ContextMetrics, 0)
+	c.metrics = make(transport.ContextMetrics)
 	for k, v := range metrics {
 		c.metrics[k.String()] = v
 	}

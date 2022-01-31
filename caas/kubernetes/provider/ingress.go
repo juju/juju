@@ -101,6 +101,9 @@ func (k *kubernetesClient) ensureIngressResources(
 
 func (k *kubernetesClient) ensureIngressV1beta1(appName string, spec *networkingv1beta1.Ingress, force bool) (func(), error) {
 	cleanUp := func() {}
+	if k.namespace == "" {
+		return cleanUp, errNoNamespace
+	}
 	api := k.client().NetworkingV1beta1().Ingresses(k.namespace)
 	out, err := api.Create(context.TODO(), spec, metav1.CreateOptions{})
 	if err == nil {
@@ -134,6 +137,9 @@ func (k *kubernetesClient) ensureIngressV1beta1(appName string, spec *networking
 
 func (k *kubernetesClient) ensureIngressV1(appName string, spec *networkingv1.Ingress, force bool) (func(), error) {
 	cleanUp := func() {}
+	if k.namespace == "" {
+		return cleanUp, errNoNamespace
+	}
 	api := k.client().NetworkingV1().Ingresses(k.namespace)
 	out, err := api.Create(context.TODO(), spec, metav1.CreateOptions{})
 	if err == nil {
@@ -166,6 +172,9 @@ func (k *kubernetesClient) ensureIngressV1(appName string, spec *networkingv1.In
 }
 
 func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().NetworkingV1().Ingresses(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -174,6 +183,9 @@ func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 }
 
 func (k *kubernetesClient) deleteIngressResources(appName string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().NetworkingV1().Ingresses(k.namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{

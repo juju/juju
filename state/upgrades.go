@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/upgrade"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/tools"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -1329,7 +1328,7 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	return relations, nil
 }
 
-// unitAppName returns the name of the Application, given a Unit's name.
+// unitAppName returns the name of the Application, given a Units name.
 func unitAppName(unitName string) string {
 	unitParts := strings.Split(unitName, "/")
 	return unitParts[0]
@@ -2916,34 +2915,13 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 	coll, closer := st.db().GetRawCollection(unitsC)
 	defer closer()
 
-	// unitDoc28 represents the unit document as at Juju version 2.8,
-	// to which this upgrade step applies.
-	// Later, in version 2.9.23, CharmURL was stored as *string
-	// instead of *charm.URL.
-	type unitDoc28 struct {
-		DocID                  string `bson:"_id"`
-		Name                   string `bson:"name"`
-		ModelUUID              string `bson:"model-uuid"`
-		Application            string
-		Series                 string
-		CharmURL               *charm.URL
-		Principal              string
-		Subordinates           []string
-		StorageAttachmentCount int `bson:"storageattachmentcount"`
-		MachineId              string
-		Resolved               ResolvedMode
-		Tools                  *tools.Tools `bson:",omitempty"`
-		Life                   Life
-		PasswordHash           string
-	}
-
 	// Load all the units into a map by full ID.
-	units := make(map[string]*unitDoc28)
+	units := make(map[string]*unitDoc)
 
-	var doc unitDoc28
+	var doc unitDoc
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		// Make a copy of the doc and put the copy
+		// Make a copy of the unitDoc and put the copy
 		// into the map.
 		unit := doc
 		units[unit.DocID] = &unit
@@ -3959,5 +3937,150 @@ func RemoveOrphanedLinkLayerDevices(pool *StatePool) error {
 		}
 
 		return errors.Trace(iter.Close())
+	}))
+}
+
+// UpdateExternalControllerInfo sets the source controller UUID for any
+// consumer side remote apps whose offer is hosted in another controller.
+func UpdateExternalControllerInfo(pool *StatePool) error {
+	// First remove any orphaned external controllers which are not
+	// referenced by any SAAS application. This is global operation
+	// so do it using the system state.
+	st := pool.SystemState()
+	extControllers, cCloser := st.db().GetCollection(externalControllersC)
+	defer cCloser()
+	iter := extControllers.Find(nil).Iter()
+
+	var extControllerDoc struct {
+		DocID  string   `bson:"_id"`
+		Models []string `bson:"models"`
+	}
+
+	// Load all external controllers and then remove the ones
+	// in use to know which ones are orphaned.
+	orphanedControllers := set.NewStrings()
+	modelControllers := make(map[string]string) // Used below to update applications.
+	for iter.Next(&extControllerDoc) {
+		orphanedControllers.Add(extControllerDoc.DocID)
+		for _, modelUUID := range extControllerDoc.Models {
+			modelControllers[modelUUID] = extControllerDoc.DocID
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	err := errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		remoteApps, rCloser := st.db().GetCollection(remoteApplicationsC)
+		defer rCloser()
+		iter = remoteApps.Find(bson.D{{"is-consumer-proxy", false}}).Iter()
+
+		var appDoc struct {
+			DocID                string `bson:"_id"`
+			SourceControllerUUID string `bson:"source-controller-uuid"`
+			SourceModelUUID      string `bson:"source-model-uuid"`
+		}
+
+		var ops []txn.Op
+		for iter.Next(&appDoc) {
+			if appDoc.SourceControllerUUID != "" {
+				orphanedControllers.Remove(appDoc.SourceControllerUUID)
+				continue
+			}
+			controllerUUID, ok := modelControllers[appDoc.SourceModelUUID]
+			if !ok {
+				continue
+			}
+			orphanedControllers.Remove(controllerUUID)
+			ops = append(ops, txn.Op{
+				C:  remoteApplicationsC,
+				Id: appDoc.DocID,
+				Update: bson.D{{"$set", bson.D{{
+					"source-controller-uuid", controllerUUID}},
+				}},
+			})
+			incRefOp, err := incExternalControllersRefOp(st, controllerUUID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, incRefOp)
+		}
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		if len(ops) > 0 {
+			err := st.db().RunTransaction(ops)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return nil
+	}))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if orphanedControllers.Size() > 0 {
+		_, err := extControllers.Writeable().RemoveAll(bson.D{
+			{"_id", bson.D{{"$in", orphanedControllers.Values()}}},
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// RemoveInvalidCharmPlaceholders removes invalid charms that have invalid charm
+// urls, that also have placeholder fields set.
+func RemoveInvalidCharmPlaceholders(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		charms, cCloser := st.db().GetCollection(charmsC)
+		defer cCloser()
+
+		// Get all the charm placeholders.
+		docs := make(map[string]string)
+
+		iter := charms.Find(stillPlaceholder).Iter()
+		var cDoc charmDoc
+		for iter.Next(&cDoc) {
+			docs[cDoc.URL.String()] = cDoc.DocID
+		}
+
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		if len(docs) == 0 {
+			return nil
+		}
+
+		apps, aCloser := st.db().GetCollection(applicationsC)
+		defer aCloser()
+
+		var ops []txn.Op
+		for charmURL, id := range docs {
+			amount, err := apps.Find(bson.M{"charmurl": charmURL}).Count()
+			if err != nil {
+				continue
+			}
+			// There is an application reference, we should keep the
+			// placeholder.
+			if amount > 0 {
+				continue
+			}
+			ops = append(ops, txn.Op{
+				C:      charmsC,
+				Id:     id,
+				Remove: true,
+			})
+		}
+
+		if len(ops) == 0 {
+			return nil
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }

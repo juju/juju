@@ -333,6 +333,9 @@ func (k *kubernetesClient) EnsureModelOperator(
 // ModelOperator return the model operator config used to create the current
 // model operator for this broker
 func (k *kubernetesClient) ModelOperator() (*caas.ModelOperatorConfig, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	operatorName := modelOperatorName
 	exists, err := k.ModelOperatorExists()
 	if err != nil {
@@ -481,6 +484,9 @@ func (k *kubernetesClient) ModelOperatorExists() (bool, error) {
 }
 
 func (k *kubernetesClient) modelOperatorDeploymentExists(operatorName string) (bool, error) {
+	if k.namespace == "" {
+		return false, errNoNamespace
+	}
 	_, err := k.client().AppsV1().Deployments(k.namespace).
 		Get(context.TODO(), operatorName, meta.GetOptions{})
 

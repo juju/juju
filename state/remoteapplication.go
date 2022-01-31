@@ -33,19 +33,20 @@ type RemoteApplication struct {
 
 // remoteApplicationDoc represents the internal state of a remote application in MongoDB.
 type remoteApplicationDoc struct {
-	DocID           string              `bson:"_id"`
-	Name            string              `bson:"name"`
-	OfferUUID       string              `bson:"offer-uuid"`
-	URL             string              `bson:"url,omitempty"`
-	SourceModelUUID string              `bson:"source-model-uuid"`
-	Endpoints       []remoteEndpointDoc `bson:"endpoints"`
-	Spaces          []remoteSpaceDoc    `bson:"spaces"`
-	Bindings        map[string]string   `bson:"bindings"`
-	Life            Life                `bson:"life"`
-	RelationCount   int                 `bson:"relationcount"`
-	IsConsumerProxy bool                `bson:"is-consumer-proxy"`
-	Version         int                 `bson:"version"`
-	Macaroon        string              `bson:"macaroon,omitempty"`
+	DocID                string              `bson:"_id"`
+	Name                 string              `bson:"name"`
+	OfferUUID            string              `bson:"offer-uuid"`
+	URL                  string              `bson:"url,omitempty"`
+	SourceControllerUUID string              `bson:"source-controller-uuid"`
+	SourceModelUUID      string              `bson:"source-model-uuid"`
+	Endpoints            []remoteEndpointDoc `bson:"endpoints"`
+	Spaces               []remoteSpaceDoc    `bson:"spaces"`
+	Bindings             map[string]string   `bson:"bindings"`
+	Life                 Life                `bson:"life"`
+	RelationCount        int                 `bson:"relationcount"`
+	IsConsumerProxy      bool                `bson:"is-consumer-proxy"`
+	Version              int                 `bson:"version"`
+	Macaroon             string              `bson:"macaroon,omitempty"`
 }
 
 // remoteEndpointDoc represents the internal state of a remote application endpoint in MongoDB.
@@ -449,7 +450,10 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 		if !forceTerminate {
 			hasLastRefs = bson.D{{"life", Alive}, {"relationcount", removeCount}}
 		}
-		removeOps := op.app.removeOps(hasLastRefs)
+		removeOps, err := op.app.removeOps(hasLastRefs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		ops = append(ops, removeOps...)
 		return ops, nil
 	}
@@ -481,7 +485,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 
 // removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
-func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
+func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	r := s.st.RemoteEntities()
 	ops := []txn.Op{
 		{
@@ -494,7 +498,24 @@ func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
 	}
 	tokenOps := r.removeRemoteEntityOps(s.Tag())
 	ops = append(ops, tokenOps...)
-	return ops
+
+	// If this is the last consumed app off an external controller,
+	// also remove the external controller record.
+	if s.doc.SourceControllerUUID != "" {
+		decRefOp, isFinal, err := decExternalControllersRefOp(s.st, s.doc.SourceControllerUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, decRefOp)
+		if isFinal {
+			ops = append(ops, txn.Op{
+				C:      externalControllersC,
+				Id:     s.doc.SourceControllerUUID,
+				Remove: true,
+			})
+		}
+	}
+	return ops, nil
 }
 
 // Status returns the status of the remote application.
@@ -777,6 +798,10 @@ type AddRemoteApplicationParams struct {
 	// with on the hosting model.
 	URL string
 
+	// ExternalControllerUUID, if set, is the UUID of the controller other
+	// than this one, which is hosting the offer.
+	ExternalControllerUUID string
+
 	// SourceModel is the tag of the model to which the remote application belongs.
 	SourceModel names.ModelTag
 
@@ -868,16 +893,17 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	}
 	// Create the application addition operations.
 	appDoc := &remoteApplicationDoc{
-		DocID:           applicationID,
-		Name:            args.Name,
-		OfferUUID:       args.OfferUUID,
-		SourceModelUUID: args.SourceModel.Id(),
-		URL:             args.URL,
-		Bindings:        args.Bindings,
-		Life:            Alive,
-		IsConsumerProxy: args.IsConsumerProxy,
-		Version:         version,
-		Macaroon:        macJSON,
+		DocID:                applicationID,
+		Name:                 args.Name,
+		OfferUUID:            args.OfferUUID,
+		SourceControllerUUID: args.ExternalControllerUUID,
+		SourceModelUUID:      args.SourceModel.Id(),
+		URL:                  args.URL,
+		Bindings:             args.Bindings,
+		Life:                 Alive,
+		IsConsumerProxy:      args.IsConsumerProxy,
+		Version:              version,
+		Macaroon:             macJSON,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {
@@ -959,6 +985,14 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		if args.Token != "" {
 			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
 			ops = append(ops, importRemoteEntityOps...)
+		}
+
+		if args.ExternalControllerUUID != "" {
+			incRefOp, err := incExternalControllersRefOp(st, args.ExternalControllerUUID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, incRefOp)
 		}
 		return ops, nil
 	}

@@ -17,8 +17,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -304,6 +304,7 @@ func (s *MigrationExportSuite) TestMachinesWithRootDiskSourceConstraint(c *gc.C)
 func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.Value) {
 	// Add a machine with an LXC container.
 	source := "vashti"
+	displayName := "test-display-name"
 
 	addr := network.NewSpaceAddress("1.1.1.1")
 	addr.SpaceID = "0"
@@ -313,7 +314,8 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 		Characteristics: &instance.HardwareCharacteristics{
 			RootDiskSource: &source,
 		},
-		Addresses: network.SpaceAddresses{addr},
+		DisplayName: displayName,
+		Addresses:   network.SpaceAddresses{addr},
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 
@@ -365,6 +367,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	inst := exported.Instance()
 	c.Assert(inst.ModificationStatus().Value(), gc.Equals, "idle")
 	c.Assert(inst.RootDiskSource(), gc.Equals, "vashti")
+	c.Assert(inst.DisplayName(), gc.Equals, displayName)
 
 	c.Assert(exported.ProviderAddresses(), gc.HasLen, 1)
 	exAddr := exported.ProviderAddresses()[0]

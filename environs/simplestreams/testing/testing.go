@@ -13,7 +13,6 @@ import (
 
 	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/series"
@@ -809,7 +808,7 @@ func InvalidDataSource(requireSigned bool) simplestreams.DataSource {
 	return factory.NewDataSource(simplestreams.Config{
 		Description:          "invalid",
 		BaseURL:              "file://invalid",
-		HostnameVerification: utils.VerifySSLHostnames,
+		HostnameVerification: true,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 		RequireSigned:        requireSigned})
 }
@@ -819,6 +818,6 @@ func VerifyDefaultCloudDataSource(description, baseURL string) simplestreams.Dat
 	return factory.NewDataSource(simplestreams.Config{
 		Description:          description,
 		BaseURL:              baseURL,
-		HostnameVerification: utils.VerifySSLHostnames,
+		HostnameVerification: true,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA})
 }

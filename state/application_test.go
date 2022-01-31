@@ -17,7 +17,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -2002,8 +2002,8 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// used by app as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	curl, err := u.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ok := u.CharmURL()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
 	assertSettingsRef(c, s.State, appName, oldCh, 2)
 	assertNoSettingsRef(c, s.State, appName, newCh)

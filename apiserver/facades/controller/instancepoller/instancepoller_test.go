@@ -850,19 +850,6 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 		makeSpaceAddress("192.168.0.1", network.ScopeCloudLocal, network.AlphaSpaceId),
 		makeSpaceAddress("1.1.1.42", network.ScopePublic, network.AlphaSpaceId),
 	})
-
-	// The addresses were supplied against devices without names or hardware
-	// addresses. This should cause us to update the machine provider addresses
-	// (verified above), but not to attempt to update link-layer device
-	// addresses.
-	var buildCalled bool
-	for _, call := range s.st.Calls() {
-		if call.FuncName == "ApplyOperation.Build" {
-			buildCalled = true
-			break
-		}
-	}
-	c.Assert(buildCalled, jc.IsFalse)
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {

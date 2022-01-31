@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/juju/os/v2/series"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/context"

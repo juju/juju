@@ -205,6 +205,8 @@ func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewBool(m.UnitInfo.Subordinate), nil
 	case "workload-status":
 		return query.NewString(string(m.UnitInfo.WorkloadStatus.Current)), nil
+	case "workload-message":
+		return query.NewString(m.UnitInfo.WorkloadStatus.Message), nil
 	case "agent-status":
 		return query.NewString(string(m.UnitInfo.AgentStatus.Current)), nil
 	}
