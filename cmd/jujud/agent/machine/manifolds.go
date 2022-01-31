@@ -411,6 +411,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The multiwatcher manifold watches all the changes in the database
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
+		// Note: ifDatabaseUpgradeComplete implies running on a controller.
 		multiwatcherName: ifDatabaseUpgradeComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
 			Clock:                config.Clock,
@@ -432,6 +433,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The modelcache manifold creates a cache.Controller and keeps
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
+		// Note: ifDatabaseUpgradeComplete implies running on a controller.
 		modelCacheName: ifDatabaseUpgradeComplete(modelcache.Manifold(modelcache.ManifoldConfig{
 			StateName:            stateName,
 			CentralHubName:       centralHubName,
