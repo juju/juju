@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-
 	"os"
 	"path/filepath"
 	"regexp"
@@ -122,6 +121,8 @@ type SSHMachineSuite struct {
 	binDir        string
 	hostChecker   jujussh.ReachableChecker
 }
+
+var _ = gc.Suite(&SSHMachineSuite{})
 
 // Commands to patch
 var patchedCommands = []string{"ssh", "scp"}

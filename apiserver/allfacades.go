@@ -343,8 +343,9 @@ func AllFacades() *facade.Registry {
 	reg("Secrets", 1, secrets.NewSecretsAPI)
 	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
 
-	reg("SSHClient", 1, sshclient.NewFacade)
-	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.
+	reg("SSHClient", 1, sshclient.NewFacadeV2)
+	reg("SSHClient", 2, sshclient.NewFacadeV2) // v2 adds AllAddresses() method.
+	reg("SSHClient", 3, sshclient.NewFacade)   // v3 adds Leader() method.
 
 	reg("Spaces", 2, spaces.NewAPIv2)
 	reg("Spaces", 3, spaces.NewAPIv3)

@@ -39999,7 +39999,7 @@
     {
         "Name": "SSHClient",
         "Description": "Facade implements the API required by the sshclient worker.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -40020,6 +40020,18 @@
                         }
                     },
                     "description": "AllAddresses reports all addresses that might have SSH listening for each given\nentity in args. Machines and units are supported as entity types.\nTODO(wpk): 2017-05-17 This is a temporary solution, we should not fetch environ here\nbut get the addresses from state. We will be changing it since we want to have space-aware\nSSH settings."
+                },
+                "Leader": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    },
+                    "description": "Leader returns the unit name of the leader for the given application."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -40220,6 +40232,21 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
                     ]
                 }
             }
