@@ -4,6 +4,8 @@
 package crossmodel
 
 import (
+	"strings"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -191,7 +193,7 @@ type ApplicationOfferResult struct {
 
 func accessForUser(user names.UserTag, users []crossmodel.OfferUserDetails) string {
 	for _, u := range users {
-		if u.UserName == user.Id() {
+		if strings.ToLower(u.UserName) == strings.ToLower(user.Id()) {
 			return string(u.Access)
 		}
 	}
