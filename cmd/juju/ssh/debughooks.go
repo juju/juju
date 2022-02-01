@@ -238,10 +238,7 @@ func (c *debugHooksCommand) commonRun(
 	// If the unit/leader syntax is used, we first need to resolve it into
 	// the unit name that corresponds to the current leader.
 	resolvedTargetName, err := maybeResolveLeaderUnit(
-		c.leaderAPIGetter,
-		func() (StatusAPI, error) {
-			return c.ModelCommandBase.NewAPIClient()
-		}, target)
+		c.leaderAPIGetter, target)
 	if err != nil {
 		return errors.Trace(err)
 	}

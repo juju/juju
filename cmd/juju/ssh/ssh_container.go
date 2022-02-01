@@ -47,7 +47,6 @@ type sshContainer struct {
 	charmsAPI          CharmsAPI
 	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
-	statusAPIGetter    statusAPIGetterFunc
 	leaderAPIGetter    leaderAPIGetterFunc
 }
 
@@ -147,12 +146,6 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		}
 	}
 
-	if c.statusAPIGetter == nil {
-		c.statusAPIGetter = func() (StatusAPI, error) {
-			return mc.NewAPIClient()
-		}
-	}
-
 	if c.charmsAPI == nil {
 		root, err := mc.NewAPIRoot()
 		if err != nil {
@@ -203,7 +196,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	}
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, c.statusAPIGetter, target)
+	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

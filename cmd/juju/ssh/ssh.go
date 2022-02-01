@@ -208,7 +208,6 @@ type ModelCommand interface {
 	NewControllerAPIRoot() (api.Connection, error)
 	ModelDetails() (string, *jujuclient.ModelDetails, error)
 	NewAPIRoot() (api.Connection, error)
-	NewAPIClient() (*api.Client, error)
 	ModelIdentifier() (string, error)
 }
 
@@ -302,24 +301,15 @@ func (b *autoBoolValue) String() string {
 
 func (b *autoBoolValue) IsBoolFlag() bool { return true }
 
-// StatusAPI is implemented by types that can query the full status of a model.
-type StatusAPI interface {
-	Status([]string) (*params.FullStatus, error)
-	Close() error
-}
-
-type statusAPIGetterFunc func() (StatusAPI, error)
-
 // LeaderAPI is implemented by types that can query for a Leader based on
 // application name.
 type LeaderAPI interface {
-	BestAPIVersion() int
 	Leader(string) (string, error)
 }
 
 type leaderAPIGetterFunc func() (LeaderAPI, error)
 
-func maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, statusAPIGetter statusAPIGetterFunc, target string) (string, error) {
+func maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, target string) (string, error) {
 	if !strings.HasSuffix(target, "/leader") {
 		return target, nil
 	}
@@ -332,42 +322,7 @@ func maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, statusAPIGetter
 	}
 	// Do not call lapi.Close() here, it's used again
 	// upstream from here.
-	if lapi.BestAPIVersion() > 2 {
-		// Leader() is part of facade version 3.
-		return lapi.Leader(app)
-	}
-
-	sapi, err := statusAPIGetter()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer func() { _ = sapi.Close() }()
-
-	res, err := sapi.Status([]string{app})
-	if err != nil {
-		return "", errors.Annotatef(err, "unable to resolve leader unit for application %q", app)
-	}
-
-	for unitName, unitStatus := range res.Applications[app].Units {
-		if unitStatus.Leader {
-			return unitName, nil
-		}
-	}
-
-	// Check if we are trying to look up a subordinate leader. Unfortunately,
-	// this means we have to iterate each principal unit's subordinate list.
-	subordinateAppPrefix := app + "/"
-	for _, appInfo := range res.Applications {
-		for _, unitStatus := range appInfo.Units {
-			for subordinateUnitName, subordinateUnitStatus := range unitStatus.Subordinates {
-				if strings.HasPrefix(subordinateUnitName, subordinateAppPrefix) && subordinateUnitStatus.Leader {
-					return subordinateUnitName, nil
-				}
-			}
-		}
-	}
-
-	return "", errors.Errorf("unable to resolve leader unit for application %q", app)
+	return lapi.Leader(app)
 }
 
 func isTerminal(f interface{}) bool {

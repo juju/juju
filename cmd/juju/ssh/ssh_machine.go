@@ -45,7 +45,6 @@ type sshMachine struct {
 	hostChecker     jujussh.ReachableChecker
 	retryStrategy   retry.CallArgs
 
-	statusAPIGetter statusAPIGetterFunc
 	leaderAPIGetter leaderAPIGetterFunc
 }
 
@@ -389,11 +388,6 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 }
 
 func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
-	if c.statusAPIGetter == nil {
-		c.statusAPIGetter = func() (StatusAPI, error) {
-			return mc.NewAPIClient()
-		}
-	}
 	if c.leaderAPIGetter == nil {
 		c.leaderAPIGetter = func() (LeaderAPI, error) {
 			return c.apiClient, nil
@@ -421,7 +415,7 @@ func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 func (c *sshMachine) resolveTarget(target string) (*resolvedTarget, error) {
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, c.statusAPIGetter, target)
+	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
