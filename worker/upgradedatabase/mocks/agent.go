@@ -15,7 +15,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	mongo "github.com/juju/juju/mongo"
 	names "github.com/juju/names/v4"
-	shell "github.com/juju/utils/v2/shell"
+	shell "github.com/juju/utils/v3/shell"
 	version "github.com/juju/version/v2"
 )
 

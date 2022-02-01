@@ -135,6 +135,36 @@ func (s *nicSuite) TestInterfaceInfosGetByName(c *gc.C) {
 	c.Assert(devs, gc.HasLen, 1)
 }
 
+func (s *nicSuite) TestNormalizeMACAddress(c *gc.C) {
+	specs := []struct {
+		descr string
+		in    string
+		exp   string
+	}{
+		{
+			descr: "uppercased MAC",
+			in:    "AA:BB:CC:DD:EE:FF",
+			exp:   "aa:bb:cc:dd:ee:ff",
+		},
+		{
+			descr: "MAC with dashes instead of colons",
+			in:    "AA-BB-CC-DD-EE-FF",
+			exp:   "aa:bb:cc:dd:ee:ff",
+		},
+		{
+			descr: "already normalized MAC",
+			in:    "aa:bb:cc:dd:ee:ff",
+			exp:   "aa:bb:cc:dd:ee:ff",
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d. %s", i, spec.descr)
+		got := network.NormalizeMACAddress(spec.in)
+		c.Assert(got, gc.Equals, spec.exp)
+	}
+}
+
 func getInterFaceInfos() network.InterfaceInfos {
 	return network.InterfaceInfos{
 		{

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs/filestorage"
@@ -167,7 +167,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		Description:          "sync agent binaries source",
 		BaseURL:              sourceURL,
 		PublicSigningKey:     keys.JujuPublicKey,
-		HostnameVerification: utils.VerifySSLHostnames,
+		HostnameVerification: true,
 		Priority:             simplestreams.CUSTOM_CLOUD_DATA,
 	}
 	if err := config.Validate(); err != nil {

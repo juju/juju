@@ -33,14 +33,14 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (ms *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
-	ms.assertStartFuncs(c, machine.IAASManifolds(machine.ManifoldsConfig{
+func (s *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
+	s.assertStartFuncs(c, machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
 
-func (ms *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
-	ms.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
+func (s *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
+	s.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
@@ -52,8 +52,8 @@ func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds)
 	}
 }
 
-func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
-	ms.assertManifoldNames(c,
+func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
+	s.assertManifoldNames(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
@@ -131,8 +131,8 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 	)
 }
 
-func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
-	ms.assertManifoldNames(c,
+func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
+	s.assertManifoldNames(c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
@@ -215,7 +215,7 @@ func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
 	checkContains(c, manifold.Inputs, "upgrade-steps-flag")
 }
 
-func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
+func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 	exempt := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -286,14 +286,14 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
+
+	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
-		"model-cache",
 		"model-cache-initialized-flag",
 		"model-cache-initialized-gate",
-		"multiwatcher",
 		"lease-manager",
 		"legacy-leases-flag",
 		"raft-transport",
@@ -301,10 +301,20 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"upgrade-database-gate",
 		"upgrade-database-runner",
 	)
+
+	// Explicitly guarded by ifPrimaryController.
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
 		"transaction-pruner",
 	)
+
+	// Guarded by ifDatabaseUpgradeComplete,
+	// which implies running on a controller.
+	dbUpgradedWorkers := set.NewStrings(
+		"model-cache",
+		"multiwatcher",
+	)
+
 	for name, manifold := range manifolds {
 		c.Logf(name)
 		switch {
@@ -314,6 +324,10 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		case primaryControllerWorkers.Contains(name):
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
+		case dbUpgradedWorkers.Contains(name):
+			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
+			checkContains(c, manifold.Inputs, "upgrade-database-flag")
 		default:
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
@@ -393,7 +407,7 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	}
 }
 
-func (ms *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -493,7 +507,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"certificate-watcher": {
 		"agent",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 
@@ -536,7 +549,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-primary-controller-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
@@ -613,14 +625,13 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"is-controller-flag": {"agent", "state", "state-config-watcher"},
+	"is-controller-flag": {"agent", "state-config-watcher"},
 
 	"is-primary-controller-flag": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 
@@ -752,14 +763,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"is-controller-flag",
 		"model-cache-initialized-gate",
-		"state",
 		"state-config-watcher",
 	},
 
 	"model-cache-initialized-gate": {
 		"agent",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 
@@ -1021,7 +1030,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"upgrade-database-flag": {
 		"agent",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 		"upgrade-database-gate",
 	},
@@ -1029,14 +1037,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"upgrade-database-gate": {
 		"agent",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 
 	"upgrade-database-runner": {
 		"agent",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 		"upgrade-database-gate",
 	},

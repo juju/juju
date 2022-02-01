@@ -49,12 +49,12 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v9 v9.0.0-20211015035448-a407f299325d
+	github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d
 	github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v3 v3.0.0-20210709162012-5f861fa82eab
+	github.com/juju/description/v3 v3.0.0-20220125161928-cc5932c29986
 	github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -67,10 +67,10 @@ require (
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
-	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
+	github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os/v2 v2.1.3
+	github.com/juju/os/v2 v2.2.0
 	github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258
@@ -84,10 +84,8 @@ require (
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client/v2 v2.0.0-20210422053140-27f71c100676
 	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
-	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
 	github.com/juju/txn/v2 v2.0.0-20210407000251-11166e89894c
-	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
-	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
+	github.com/juju/utils/v3 v3.0.0-20220130232349-cd7ecef0e94a
 	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206
@@ -177,7 +175,11 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
+	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf // indirect
+	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a // indirect
 	github.com/juju/usso v1.0.1 // indirect
+	github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa // indirect
+	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect

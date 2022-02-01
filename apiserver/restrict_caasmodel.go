@@ -23,7 +23,6 @@ var commonModelFacadeNames = set.NewStrings(
 	"CharmDownloader",
 	"CharmRevisionUpdater",
 	"Charms",
-	"CharmHub",
 	"Cleaner",
 	"Client",
 	"Cloud",

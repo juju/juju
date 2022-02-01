@@ -86,7 +86,7 @@ func (u *Unit) CharmURL() string {
 	return u.details.CharmURL
 }
 
-// OpenbPortRangesByEndpoint returns a map where keys are endpoint names and values
+// OpenPortRangesByEndpoint returns a map where keys are endpoint names and values
 // are the port ranges opened by the unit for each endpoint.
 func (u *Unit) OpenPortRangesByEndpoint() network.GroupedPortRanges {
 	return u.details.OpenPortRangesByEndpoint

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 )
 

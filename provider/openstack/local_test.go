@@ -34,9 +34,9 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
+	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

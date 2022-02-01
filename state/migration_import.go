@@ -568,10 +568,11 @@ func (i *importer) machinePortsOp(m description.Machine) txn.Op {
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
 	doc := &instanceData{
-		DocID:      mdoc.DocID,
-		MachineId:  mdoc.Id,
-		InstanceId: instance.Id(inst.InstanceId()),
-		ModelUUID:  mdoc.ModelUUID,
+		DocID:       mdoc.DocID,
+		MachineId:   mdoc.Id,
+		InstanceId:  instance.Id(inst.InstanceId()),
+		DisplayName: inst.DisplayName(),
+		ModelUUID:   mdoc.ModelUUID,
 	}
 
 	if arch := inst.Architecture(); arch != "" {
@@ -1553,7 +1554,10 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	// the charm url for each unit rather than grabbing the applications charm url.
 	// Currently the units charm url matching the application is a precondiation
 	// to migration.
-	charmURL := s.CharmURL()
+	charmURL, err := charm.ParseURL(s.CharmURL())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	var subordinates []string
 	if subs := u.Subordinates(); len(subs) > 0 {
@@ -1578,7 +1582,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Name:                   u.Name(),
 		Application:            s.Name(),
 		Series:                 s.Series(),
-		CharmURL:               &charmURL,
+		CharmURL:               charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
 		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),

@@ -632,21 +632,12 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 			var unitOrApplication state.Entity
 			unitOrApplication, err = u.st.FindEntity(tag)
 			if err == nil {
-				var cURL *charm.URL
-				var ok bool
-
-				switch entity := unitOrApplication.(type) {
-				case *state.Application:
-					cURL, ok = entity.CharmURL()
-				case *state.Unit:
-					cURL, err = entity.CharmURL()
-					if cURL != nil {
-						ok = true
-					}
-				}
-
-				if cURL != nil {
-					result.Results[i].Result = cURL.String()
+				charmURLer := unitOrApplication.(interface {
+					CharmURL() (*charm.URL, bool)
+				})
+				curl, ok := charmURLer.CharmURL()
+				if curl != nil {
+					result.Results[i].Result = curl.String()
 					result.Results[i].Ok = ok
 				}
 			}
@@ -684,7 +675,7 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				}
 				if err == nil {
 					// Wait for the change to propagate to the cache controller.
-					err = u.waitForCacheCharmURL(unit.Name(), curl.String())
+					err = u.waitForCacheCharmURL(tag, curl.String())
 				}
 			}
 		}
@@ -693,7 +684,9 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 	return result, nil
 }
 
-func (u *UniterAPI) waitForCacheCharmURL(unit, curl string) error {
+func (u *UniterAPI) waitForCacheCharmURL(tag names.UnitTag, curl string) error {
+	unit := tag.Id()
+
 	// One minute is excessively long, but the cache may need to refresh.
 	// In any normal operation, this should be sub-second, although if no changes
 	// were happening recently, it could be theoretically up to five seconds.
@@ -712,7 +705,13 @@ func (u *UniterAPI) waitForCacheCharmURL(unit, curl string) error {
 		return errors.Timeoutf("apiserver stopping, unit change %s.CharmURL to %q", unit, curl)
 	case <-timeout:
 		close(cancel)
-		return errors.Timeoutf("unit change %s.CharmURL to %q", unit, curl)
+
+		cu, err := u.getCacheUnit(tag)
+		if err != nil {
+			return errors.Annotate(err, "waiting for unit CharmURL")
+		}
+
+		return errors.Timeoutf("%s.CharmURL is %q, change to %q", unit, cu.CharmURL(), curl)
 	}
 }
 

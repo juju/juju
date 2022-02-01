@@ -47,7 +47,7 @@ type LXDProfileMachineV2 interface {
 type LXDProfileUnitV2 interface {
 	ApplicationName() string
 	AssignedMachineId() (string, error)
-	CharmURL() (*charm.URL, error)
+	CharmURL() (*charm.URL, bool)
 	Name() string
 	Tag() names.Tag
 }
@@ -66,7 +66,7 @@ type LXDProfileAPIv2 struct {
 	accessUnit common.GetAuthFunc
 }
 
-// NewLXDProfileAPIv2 returns a new LXDProfileAPIv2. Currently both
+// LXDProfileAPIv2 returns a new LXDProfileAPIv2. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewLXDProfileAPIv2(
 	backend LXDProfileBackendV2,

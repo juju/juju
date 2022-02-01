@@ -78,7 +78,7 @@ type OldPortsDoc28 struct {
 	TxnRevno  int64               `bson:"txn-revno"`
 }
 
-// OldPortRangeDoc28 represents a port range entry document prior to the 2.9 schema changes.
+// OldPortsDoc28 represents a port range entry document prior to the 2.9 schema changes.
 type OldPortRangeDoc28 struct {
 	UnitName string `bson:"unitname"`
 	FromPort int    `bson:"fromport"`

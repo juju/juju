@@ -9,7 +9,7 @@ import (
 	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	utilexec "github.com/juju/utils/v2/exec"
+	utilexec "github.com/juju/utils/v3/exec"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"

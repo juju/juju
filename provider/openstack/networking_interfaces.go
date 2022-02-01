@@ -76,6 +76,7 @@ type NetworkingNeutron interface {
 	AllocateFloatingIPV2(string) (*neutron.FloatingIPV2, error)
 	CreatePortV2(neutron.PortV2) (*neutron.PortV2, error)
 	DeletePortV2(string) error
+	ListPortsV2(filter ...*neutron.Filter) ([]neutron.PortV2, error)
 	GetNetworkV2(string) (*neutron.NetworkV2, error)
 	ListFloatingIPsV2(...*neutron.Filter) ([]neutron.FloatingIPV2, error)
 	ListNetworksV2(...*neutron.Filter) ([]neutron.NetworkV2, error)

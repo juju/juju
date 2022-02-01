@@ -798,7 +798,7 @@ func (b *fakeBackend) IsMigrationActive(string) (bool, error) {
 	return b.migrationActive, b.migrationActiveErr
 }
 
-func (b *fakeBackend) CloudCredential(_ names.CloudCredentialTag) (state.Credential, error) {
+func (b *fakeBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
 	return b.credentials, b.credentialsErr
 }
 
@@ -814,7 +814,7 @@ func (b *fakeBackend) AllRelations() ([]migration.PrecheckRelation, error) {
 	return b.relations, b.allRelsErr
 }
 
-func (b *fakeBackend) ListPendingResources(_ string) ([]resource.Resource, error) {
+func (b *fakeBackend) ListPendingResources(app string) ([]resource.Resource, error) {
 	return b.pendingResources, b.pendingResourcesErr
 }
 
@@ -1009,12 +1009,12 @@ func (u *fakeUnit) ShouldBeAssigned() bool {
 	return true
 }
 
-func (u *fakeUnit) CharmURL() (*charm.URL, error) {
+func (u *fakeUnit) CharmURL() (*charm.URL, bool) {
 	url := u.charmURL
 	if url == "" {
 		url = "cs:foo-1"
 	}
-	return charm.MustParseURL(url), nil
+	return charm.MustParseURL(url), false
 }
 
 func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {

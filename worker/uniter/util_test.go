@@ -21,19 +21,18 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/secretsmanager"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
+	"github.com/juju/mutex/v2"
 	"github.com/juju/names/v4"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/secretsmanager"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
@@ -794,16 +794,13 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
-			url, err := ctx.unit.CharmURL()
-			if err != nil {
-				c.Fatalf("cannot refresh unit: %v", err)
-			}
-			if url == nil {
-				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
-				continue
-			}
-			if *url != *curl(s.charm) {
-				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), url.String())
+			url, ok := ctx.unit.CharmURL()
+			if !ok || *url != *curl(s.charm) {
+				var got string
+				if ok {
+					got = url.String()
+				}
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
 			statusInfo, err := s.statusGetter(ctx)()
@@ -1028,9 +1025,8 @@ func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	}
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-
-	url, err := ctx.unit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	url, ok := ctx.unit.CharmURL()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
 

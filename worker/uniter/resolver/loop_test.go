@@ -10,7 +10,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
+	"github.com/juju/mutex/v2"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

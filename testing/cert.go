@@ -10,7 +10,7 @@ import (
 	"math/rand"
 
 	gitjujutesting "github.com/juju/testing"
-	utilscert "github.com/juju/utils/v2/cert"
+	utilscert "github.com/juju/utils/v3/cert"
 )
 
 // CACert and CAKey make up a CA key pair.

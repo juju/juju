@@ -26,7 +26,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	jujutxn "github.com/juju/txn/v2"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/application"
@@ -1586,7 +1586,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	return results, nil
 }
 
-// AllUnitAssignments returns all staged unit assignments in the model.
+// UnitAssignments returns all staged unit assignments in the model.
 func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 	return st.unitAssignments(nil)
 }

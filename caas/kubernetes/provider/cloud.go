@@ -10,8 +10,8 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jujuos "github.com/juju/os/v2"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/exec"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/exec"
 	"gopkg.in/yaml.v2"
 
 	k8s "github.com/juju/juju/caas/kubernetes"

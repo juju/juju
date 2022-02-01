@@ -21,7 +21,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -53,7 +53,7 @@ import (
 const (
 	clientFacadeVersion           = 4
 	userManagerFacadeVersion      = 2
-	sshClientFacadeVersion        = 2
+	sshClientFacadeVersion        = 3
 	pingerFacadeVersion           = 1
 	modelManagerFacadeVersion     = 9
 	highAvailabilityFacadeVersion = 2

@@ -20,6 +20,7 @@ import (
 	apicloud "github.com/juju/juju/api/cloud"
 	commoncharm "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -46,7 +47,7 @@ type sshContainer struct {
 	charmsAPI          CharmsAPI
 	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
-	statusAPIGetter    func() (StatusAPI, error)
+	leaderAPIGetter    leaderAPIGetterFunc
 }
 
 // CloudCredentialAPI defines cloud credential related APIs.
@@ -79,7 +80,7 @@ func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 }
 
-func (c *sshContainer) setHostChecker(checker jujussh.ReachableChecker) {}
+func (c *sshContainer) setHostChecker(_ jujussh.ReachableChecker) {}
 
 // getTarget returns the target.
 func (c *sshContainer) getTarget() string {
@@ -138,11 +139,10 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 			return errors.Trace(err)
 		}
 		c.applicationAPI = application.NewClient(root)
-	}
-
-	if c.statusAPIGetter == nil {
-		c.statusAPIGetter = func() (StatusAPI, error) {
-			return mc.NewAPIClient()
+		if c.leaderAPIGetter == nil {
+			c.leaderAPIGetter = func() (LeaderAPI, error) {
+				return sshclient.NewFacade(root), nil
+			}
 		}
 	}
 
@@ -196,7 +196,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	}
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.statusAPIGetter, target)
+	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -405,6 +405,6 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	return c.execClientGetter(mInfo.Result.Name, cloudSpec)
 }
 
-func (c *sshContainer) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func([]string) (*params.FullStatus, error)) error {
+func (c *sshContainer) maybePopulateTargetViaField(_ *resolvedTarget, _ func([]string) (*params.FullStatus, error)) error {
 	return nil
 }

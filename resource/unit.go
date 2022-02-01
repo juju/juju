@@ -18,5 +18,5 @@ type Unit interface {
 	ApplicationName() string
 
 	// CharmURL returns the unit's charm URL.
-	CharmURL() (*charm.URL, error)
+	CharmURL() (*charm.URL, bool)
 }

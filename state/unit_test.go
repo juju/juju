@@ -1269,8 +1269,8 @@ func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, err = s.unit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, s.charm.URL())
 }
 
@@ -1310,8 +1310,8 @@ func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
 	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, err := s.unit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ok := s.unit.CharmURL()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, s.charm.URL())
 }
 
@@ -1359,9 +1359,9 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Verify it worked after the second attempt.
 				err := s.unit.Refresh()
 				c.Assert(err, jc.ErrorIsNil)
-				currentURL, err := s.unit.CharmURL()
-				c.Assert(err, jc.ErrorIsNil)
+				currentURL, hasURL := s.unit.CharmURL()
 				c.Assert(currentURL, jc.DeepEquals, s.charm.URL())
+				c.Assert(hasURL, jc.IsTrue)
 			},
 		},
 	).Check()
@@ -2649,8 +2649,7 @@ func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "")
 
-	err = unit.SetWorkloadVersion("3.combined")
-	c.Assert(err, jc.ErrorIsNil)
+	unit.SetWorkloadVersion("3.combined")
 	version, err = unit.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "3.combined")

@@ -177,6 +177,9 @@ func (k *kubernetesClient) ensureOperatorRBACResources(
 // EnsureOperator creates or updates an operator pod with the given application
 // name, agent path, and operator config.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) (err error) {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	logger.Debugf("creating/updating %s operator", appName)
 
 	operatorName := k.operatorName(appName)
@@ -422,6 +425,9 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.DeploymentState,
 }
 
 func (k *kubernetesClient) operatorStatefulSetExists(operatorName string) (exists bool, terminating bool, err error) {
+	if k.namespace == "" {
+		return false, false, errNoNamespace
+	}
 	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
 	operator, err := statefulSets.Get(context.TODO(), operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -462,6 +468,9 @@ func (k *kubernetesClient) operatorRBACResourcesRemaining(operatorName string) (
 }
 
 func (k *kubernetesClient) operatorConfigMapExists(operatorName string) (exists bool, terminating bool, err error) {
+	if k.namespace == "" {
+		return false, false, errNoNamespace
+	}
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	cm, err := configMaps.Get(context.TODO(), configMapName, v1.GetOptions{})
@@ -474,6 +483,9 @@ func (k *kubernetesClient) operatorConfigMapExists(operatorName string) (exists 
 }
 
 func (k *kubernetesClient) operatorConfigurationsConfigMapExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
+	if k.namespace == "" {
+		return false, false, errNoNamespace
+	}
 	legacy := isLegacyName(operatorName)
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := appName + "-configurations-config"
@@ -490,6 +502,9 @@ func (k *kubernetesClient) operatorConfigurationsConfigMapExists(appName string,
 }
 
 func (k *kubernetesClient) operatorServiceExists(operatorName string) (exists bool, terminating bool, err error) {
+	if k.namespace == "" {
+		return false, false, errNoNamespace
+	}
 	services := k.client().CoreV1().Services(k.namespace)
 	s, err := services.Get(context.TODO(), operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -501,6 +516,9 @@ func (k *kubernetesClient) operatorServiceExists(operatorName string) (exists bo
 }
 
 func (k *kubernetesClient) operatorSecretExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
+	if k.namespace == "" {
+		return false, false, errNoNamespace
+	}
 	legacy := isLegacyName(operatorName)
 	deploymentName := appName
 	if legacy {
@@ -517,6 +535,9 @@ func (k *kubernetesClient) operatorSecretExists(appName string, operatorName str
 }
 
 func (k *kubernetesClient) operatorDeploymentExists(operatorName string) (exists bool, terminating bool, err error) {
+	if k.namespace == "" {
+		return false, false, errNoNamespace
+	}
 	deployments := k.client().AppsV1().Deployments(k.namespace)
 	operator, err := deployments.Get(context.TODO(), operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -528,6 +549,9 @@ func (k *kubernetesClient) operatorDeploymentExists(operatorName string) (exists
 }
 
 func (k *kubernetesClient) operatorPodExists(appName string) (exists bool, terminating bool, err error) {
+	if k.namespace == "" {
+		return false, false, errNoNamespace
+	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podList, err := pods.List(context.TODO(), v1.ListOptions{
 		LabelSelector: operatorSelector(appName, k.IsLegacyLabels()),
@@ -540,6 +564,9 @@ func (k *kubernetesClient) operatorPodExists(appName string) (exists bool, termi
 
 // DeleteOperator deletes the specified operator.
 func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	logger.Debugf("deleting %s operator", appName)
 
 	operatorName := k.operatorName(appName)
@@ -623,6 +650,9 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 // WatchOperator returns a watcher which notifies when there
 // are changes to the operator of the specified application.
 func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
@@ -634,6 +664,9 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 
 // Operator returns an Operator with current status and life details.
 func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	operatorName := k.operatorName(appName)
 	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
 	_, err := statefulSets.Get(context.TODO(), operatorName, v1.GetOptions{})

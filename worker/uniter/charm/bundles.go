@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/downloader"
 )
@@ -34,7 +33,7 @@ type BundlesDir struct {
 func NewBundlesDir(path string, dlr Downloader, logger Logger) *BundlesDir {
 	if dlr == nil {
 		dlr = downloader.New(downloader.NewArgs{
-			HostnameVerification: utils.NoVerifySSLHostnames,
+			HostnameVerification: false,
 		})
 	}
 	return &BundlesDir{

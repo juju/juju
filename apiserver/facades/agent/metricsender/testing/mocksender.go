@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/state"
 )
