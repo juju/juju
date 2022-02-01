@@ -538,9 +538,19 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 		Status: status.Unknown,
 	}
 
-	if status, err := app.Status(); err == nil {
-		sts = status
+	if appStatus, err := app.Status(); err == nil {
+		// If the status is set to unset, then we need to query all the
+		// units of the application to work out the correct series.
+		if appStatus.Status == status.Unset {
+			derived, err := getDerivedUnitsStatus(app)
+			if err == nil {
+				sts = derived
+			}
+		} else {
+			sts = appStatus
+		}
 	}
+
 	return &params.OfferStatusChange{
 		OfferName: offerName,
 		Status: params.EntityStatus{
@@ -550,4 +560,23 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 			Since:  sts.Since,
 		},
 	}, nil
+}
+
+func getDerivedUnitsStatus(app Application) (status.StatusInfo, error) {
+	units, err := app.AllUnits()
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+
+	statuses := make([]status.StatusInfo, len(units))
+	for _, unit := range units {
+		st, err := unit.Status()
+		if err != nil {
+			return status.StatusInfo{}, errors.Trace(err)
+		}
+
+		statuses = append(statuses, st)
+	}
+	derived := status.DeriveStatus(statuses)
+	return derived, nil
 }

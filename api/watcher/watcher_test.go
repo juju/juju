@@ -485,7 +485,7 @@ func (s *watcherSuite) setupOfferStatusWatch(
 	}
 
 	// Initial event.
-	assertChange(status.Unset, "")
+	assertChange(status.Unknown, "")
 	return assertChange, assertNoChange, stop
 }
 
