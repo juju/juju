@@ -35,9 +35,21 @@ func NewResourceOpener(
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpenerForApplication(st ResourceOpenerState, applicationName string) (opener resource.Opener, err error) {
-	// resourceDownloadLimiter is nil because we only open OCI resources which are json snippets.
-	return newInternalResourceOpener(st, nil, "", applicationName)
+	return newInternalResourceOpener(st, func() ResourceDownloadLock {
+		return noopDownloadResourceLocker{}
+	}, "", applicationName)
 }
+
+// noopDownloadResourceLocker is a no-op download resource locker.
+type noopDownloadResourceLocker struct{}
+
+// Acquire grabs the lock for a given application so long as the
+// per application limit is not exceeded and total across all
+// applications does not exceed the global limit.
+func (noopDownloadResourceLocker) Acquire(string) {}
+
+// Release releases the lock for the given application.
+func (noopDownloadResourceLocker) Release(appName string) {}
 
 // NewResourceOpenerState wraps a State pointer for passing into NewResourceOpener/NewResourceOpenerForApplication.
 func NewResourceOpenerState(st *corestate.State) ResourceOpenerState {
