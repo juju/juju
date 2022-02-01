@@ -28,9 +28,9 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/statemanager"
 )
 
 // ManifoldConfig holds the information necessary to run an apiserver
@@ -48,7 +48,7 @@ type ManifoldConfig struct {
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
 	RaftTransportName      string
-	DBAccessorName         string
+	StateManagerName       string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -98,8 +98,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.RaftTransportName == "" {
 		return errors.NotValidf("empty RaftTransportName")
 	}
-	if config.DBAccessorName == "" {
-		return errors.NotValidf("empty DBAccessorName")
+	if config.StateManagerName == "" {
+		return errors.NotValidf("empty StateManagerName")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -143,7 +143,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.RaftTransportName,
-			config.DBAccessorName,
+			config.StateManagerName,
 		},
 		Start: config.start,
 	}
@@ -235,8 +235,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter dbaccessor.DBGetter
-	if err := context.Get(config.DBAccessorName, &dbGetter); err != nil {
+	var stateManagerProvider statemanager.StateManagerProvider
+	if err := context.Get(config.StateManagerName, &stateManagerProvider); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -259,7 +259,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
 		RaftOpQueue:                       config.RaftOpQueue,
-		SQLDBGetter:                       dbGetter,
+		StateManagerProvider:              stateManagerProvider,
 	})
 	if err != nil {
 		_ = stTracker.Done()

@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -53,15 +52,16 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/statemanager"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
-// SQLDBGetter provides access to model-scoped SQL databases.
-type SQLDBGetter interface {
-	GetDB(modelUUID string) (*sql.DB, error)
+// StateManagerProvider provides access to a namespaced state.
+type StateManagerProvider interface {
+	GetStateManager(string) (statemanager.Overlord, error)
 }
 
 // Server holds the server side of the API.
@@ -205,8 +205,8 @@ type ServerConfig struct {
 	// instance.
 	RaftOpQueue Queue
 
-	// SQLDBGetter provides access to model-scoped SQL databases.
-	SQLDBGetter SQLDBGetter
+	// StateManagerProvider provides access to a namespaced-scoped state.
+	StateManagerProvider StateManagerProvider
 }
 
 // Validate validates the API server configuration.
@@ -258,8 +258,8 @@ func (c ServerConfig) Validate() error {
 	if c.RaftOpQueue == nil {
 		return errors.NotValidf("missing RaftOpQueue")
 	}
-	if c.SQLDBGetter == nil {
-		return errors.NotValidf("missing SQLDBGetter")
+	if c.StateManagerProvider == nil {
+		return errors.NotValidf("missing StateManagerProvider")
 	}
 	return nil
 }
@@ -297,16 +297,16 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
-		statePool:           cfg.StatePool,
-		controller:          cfg.Controller,
-		multiwatcherFactory: cfg.MultiwatcherFactory,
-		centralHub:          cfg.Hub,
-		presence:            cfg.Presence,
-		leaseManager:        cfg.LeaseManager,
-		controllerConfig:    controllerConfig,
-		raftOpQueue:         cfg.RaftOpQueue,
-		sqlDBGetter:         cfg.SQLDBGetter,
-		logger:              loggo.GetLogger("juju.apiserver"),
+		statePool:            cfg.StatePool,
+		controller:           cfg.Controller,
+		multiwatcherFactory:  cfg.MultiwatcherFactory,
+		centralHub:           cfg.Hub,
+		presence:             cfg.Presence,
+		leaseManager:         cfg.LeaseManager,
+		controllerConfig:     controllerConfig,
+		raftOpQueue:          cfg.RaftOpQueue,
+		stateManagerProvider: cfg.StateManagerProvider,
+		logger:               loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -338,7 +338,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
-			sqlDBGetter:           cfg.SQLDBGetter,
+			stateManagerProvider:  cfg.StateManagerProvider,
 		},
 		metricsCollector:    cfg.MetricsCollector,
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
@@ -1031,8 +1031,8 @@ func (srv *Server) serveConn(
 		resolvedModelUUID = statePool.SystemState().ModelUUID()
 	}
 
-	// Attempt to get the dqlite database that is unique to the modelUUID.
-	db, err := srv.shared.sqlDBGetter.GetDB(resolvedModelUUID)
+	// Attempt to get the state manager that is unique to the modelUUID.
+	stateManager, err := srv.shared.stateManagerProvider.GetStateManager(resolvedModelUUID)
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 		return srv.processConn(ctx, conn)
@@ -1048,7 +1048,7 @@ func (srv *Server) serveConn(
 	}
 
 	defer st.Release()
-	h, err := newAPIHandler(srv, st.State, db, conn, modelUUID, connectionID, host)
+	h, err := newAPIHandler(srv, st.State, stateManager, conn, modelUUID, connectionID, host)
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 		return srv.processConn(ctx, conn)

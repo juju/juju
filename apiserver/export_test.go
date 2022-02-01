@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"database/sql"
 	"sync"
 
 	"github.com/juju/clock"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/statemanager"
 )
 
 var (
@@ -47,7 +47,7 @@ func (testingAPIRootHandler) State() *state.State {
 	return nil
 }
 
-func (testingAPIRootHandler) DB() *sql.DB {
+func (testingAPIRootHandler) StateManager() statemanager.Overlord {
 	return nil
 }
 

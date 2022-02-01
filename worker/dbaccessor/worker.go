@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/utils"
-
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 )
@@ -78,17 +77,17 @@ func (c *WorkerConfig) Validate() error {
 type DBApp interface {
 	// Open the dqlite database with the given name
 	Open(context.Context, string) (*sql.DB, error)
-	// Ready can be used to wait for a node to complete some initial tasks that are
-	// initiated at startup. For example a brand new node will attempt to join the
-	// cluster, a restarted node will check if it should assume some particular
-	// role, etc.
+	// Ready can be used to wait for a node to complete some initial tasks that
+	// are initiated at startup. For example a brand new node will attempt to
+	// join the cluster, a restarted node will check if it should assume some
+	// particular role, etc.
 	//
-	// If this method returns without error it means that those initial tasks have
-	// succeeded and follow-up operations like Open() are more likely to succeeed
-	// quickly.
+	// If this method returns without error it means that those initial tasks
+	// have succeeded and follow-up operations like Open() are more likely to
+	// succeed quickly.
 	Ready(context.Context) error
-	// Handover transfers all responsibilities for this node (such has leadership
-	// and voting rights) to another node, if one is available.
+	// Handover transfers all responsibilities for this node (such has
+	// leadership and voting rights) to another node, if one is available.
 	//
 	// This method should always be called before invoking Close(), in order to
 	// gracefully shutdown a node.
@@ -140,25 +139,28 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 func (w *dbWorker) loop() (err error) {
 	defer func() {
 		w.mu.Lock()
-		if w.dbApp != nil {
-			if hErr := w.dbApp.Handover(context.TODO()); hErr != nil {
-				if err == nil {
-					err = errors.Annotate(err, "gracefully handing over dqlite node responsibilities")
-				} else { // we are exiting with another error; so we just log this.
-					w.cfg.Logger.Errorf("unable to gracefully hand off dqlite node responsibilities: %v", hErr)
-				}
-			}
+		defer w.mu.Unlock()
 
-			if cErr := w.dbApp.Close(); cErr != nil {
-				if err == nil {
-					err = errors.Annotate(cErr, "closing dqlite application instance")
-				} else { // we are exiting with another error; so we just log this.
-					w.cfg.Logger.Errorf("unable to close dqlite application instance: %v", cErr)
-				}
-			}
-			w.dbApp = nil
+		if w.dbApp == nil {
+			return
 		}
-		w.mu.Unlock()
+
+		if hErr := w.dbApp.Handover(context.TODO()); hErr != nil {
+			if err == nil {
+				err = errors.Annotate(err, "gracefully handing over dqlite node responsibilities")
+			} else { // we are exiting with another error; so we just log this.
+				w.cfg.Logger.Errorf("unable to gracefully hand off dqlite node responsibilities: %v", hErr)
+			}
+		}
+
+		if cErr := w.dbApp.Close(); cErr != nil {
+			if err == nil {
+				err = errors.Annotate(cErr, "closing dqlite application instance")
+			} else { // we are exiting with another error; so we just log this.
+				w.cfg.Logger.Errorf("unable to close dqlite application instance: %v", cErr)
+			}
+		}
+		w.dbApp = nil
 	}()
 
 	if err := w.initializeDqlite(); err != nil {
@@ -184,8 +186,8 @@ func (w *dbWorker) Wait() error {
 }
 
 // GetDB returns a sql.DB handle for the dqlite-backed database that contains
-// the data for the specified model UUID.
-func (w *dbWorker) GetDB(modelUUID string) (*sql.DB, error) {
+// the data for the specified namespace.
+func (w *dbWorker) GetDB(namespace string) (*sql.DB, error) {
 	select {
 	case <-w.dbReadyCh:
 		// dqlite has been initialized
@@ -197,27 +199,23 @@ func (w *dbWorker) GetDB(modelUUID string) (*sql.DB, error) {
 	defer w.mu.Unlock()
 
 	// Check if a DB handle has already been created and cached.
-	if cachedDB := w.dbHandles[modelUUID]; cachedDB != nil {
+	if cachedDB := w.dbHandles[namespace]; cachedDB != nil {
 		return cachedDB, nil
 	}
 
 	// Create and cache DB instance.
-	db, err := w.dbApp.Open(context.TODO(), modelUUID)
+	db, err := w.dbApp.Open(context.TODO(), namespace)
 	if err != nil {
-		return nil, errors.Annotatef(err, "acccessing DB for model %q", modelUUID)
+		return nil, errors.Annotatef(err, "acccessing DB for namespace %q", namespace)
 	}
-	if err := ensureDBSchema(modelUUID, db); err != nil {
-		return nil, errors.Annotatef(err, "acccessing DB for model %q", modelUUID)
-	}
-	w.dbHandles[modelUUID] = db
-
+	w.dbHandles[namespace] = db
 	return db, nil
 }
 
 // GetExistingDB returns a sql.DB handle for the dqlite-backed database that
-// contains the data for the specified model UUID or a NotFound error if the
+// contains the data for the specified namespace or a NotFound error if the
 // DB is not known.
-func (w *dbWorker) GetExistingDB(modelUUID string) (*sql.DB, error) {
+func (w *dbWorker) GetExistingDB(namespace string) (*sql.DB, error) {
 	select {
 	case <-w.dbReadyCh:
 		// dqlite has been initialized
@@ -229,11 +227,11 @@ func (w *dbWorker) GetExistingDB(modelUUID string) (*sql.DB, error) {
 	defer w.mu.Unlock()
 
 	// Check if a DB handle has already been created and cached.
-	if cachedDB := w.dbHandles[modelUUID]; cachedDB != nil {
+	if cachedDB := w.dbHandles[namespace]; cachedDB != nil {
 		return cachedDB, nil
 	}
 
-	return nil, errors.NotFoundf("database for model %q", modelUUID)
+	return nil, errors.NotFoundf("database for model %q", namespace)
 }
 
 func (w *dbWorker) initializeDqlite() error {
@@ -297,7 +295,9 @@ func (w *dbWorker) initializeDqlite() error {
 		w.dbApp = nil
 		return errors.Annotatef(err, "starting dqlite REPL")
 	}
-	w.catacomb.Add(repl)
+	if err := w.catacomb.Add(repl); err != nil {
+		return errors.Trace(err)
+	}
 
 	w.cfg.Logger.Infof("initialized dqlite application (ID: %v)", w.dbApp.ID())
 	close(w.dbReadyCh) // start accepting GetDB() requests.
@@ -440,7 +440,9 @@ func maybeReadNonce(nonceAddr string, expNonce string) bool {
 	defer func() { _ = conn.Close() }()
 
 	nonceBuf := make([]byte, len(expNonce))
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		return false
+	}
 	n, _ := conn.Read(nonceBuf)
 
 	return n == len(expNonce) && string(nonceBuf[:n]) == expNonce

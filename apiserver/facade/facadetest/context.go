@@ -22,6 +22,7 @@ type Context struct {
 	Resources_           facade.Resources
 	State_               *state.State
 	StatePool_           *state.StatePool
+	StateManager_        facade.StateManager
 	Controller_          *cache.Controller
 	MultiwatcherFactory_ multiwatcher.Factory
 	ID_                  string
@@ -88,6 +89,11 @@ func (context Context) State() *state.State {
 // StatePool is part of of the facade.Context interface.
 func (context Context) StatePool() *state.StatePool {
 	return context.StatePool_
+}
+
+// StateManager returns the StateManager associated with the model.
+func (context Context) StateManager() facade.StateManager {
+	return context.StateManager_
 }
 
 // ID is part of the facade.Context interface.

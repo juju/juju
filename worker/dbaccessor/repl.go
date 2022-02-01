@@ -109,7 +109,14 @@ func (r *sqlREPL) registerCommands() {
 }
 
 func (r *sqlREPL) acceptConnections() {
-	defer r.sessionGroup.Done()
+	// If we're not listening, don't attempt to close the wait group.
+	var listening bool
+	defer func() {
+		if !listening {
+			return
+		}
+		r.sessionGroup.Done()
+	}()
 
 	for {
 		conn, err := r.connListener.Accept()
@@ -117,6 +124,7 @@ func (r *sqlREPL) acceptConnections() {
 			return
 		}
 
+		listening = true
 		r.sessionGroup.Add(1)
 		go r.serveSession(conn)
 	}
@@ -150,7 +158,10 @@ func (r *sqlREPL) serveSession(conn net.Conn) {
 		}
 
 		// Read input
-		conn.SetReadDeadline(r.clock.Now().Add(readTimeout))
+		if err := conn.SetReadDeadline(r.clock.Now().Add(readTimeout)); err != nil {
+			r.logger.Errorf("[session: %v] unable to set REPL deadline timeout: %v", session.id, err)
+			return
+		}
 		n, err := conn.Read(cmdBuf)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -326,7 +337,10 @@ func (r *sqlREPL) handleSQLSelectCommand(s *replSession) {
 	var rowCount int
 	for res.Next() {
 		rowCount++
-		res.Scan(fieldList...)
+		if err := res.Scan(fieldList...); err != nil {
+			r.logger.Errorf("[session: %v] error while scanning through the query result set: %v", s.id, err)
+			continue
+		}
 		for i := 0; i < len(colMeta); i++ {
 			var delim = '\t'
 			if i == len(colMeta)-1 {
@@ -381,10 +395,12 @@ func withRetryWithResult(fn func() (interface{}, error), retriable func(error) b
 		err error
 	)
 
-	withRetry(func() error {
+	if retryErr := withRetry(func() error {
 		res, err = fn()
 		return err
-	}, retriable)
+	}, retriable); retryErr != nil {
+		return nil, retryErr
+	}
 
 	return res, err
 }
