@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -24,7 +24,7 @@ func getServiceLabels(appName string, legacy bool) map[string]string {
 func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
 	for _, v := range services {
 		spec := &core.Service{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: meta.ObjectMeta{
 				Name:        v.Name,
 				Namespace:   k.namespace,
 				Labels:      utils.LabelsMerge(v.Labels, getServiceLabels(appName, k.IsLegacyLabels())),
@@ -50,15 +50,15 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) 
 
 	api := k.client().CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
-	existing, err := api.Get(context.TODO(), spec.Name, v1.GetOptions{})
+	existing, err := api.Get(context.TODO(), spec.Name, meta.GetOptions{})
 	if err == nil {
 		spec.Spec.ClusterIP = existing.Spec.ClusterIP
 		spec.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
 	}
-	_, err = api.Update(context.TODO(), spec, v1.UpdateOptions{})
+	_, err = api.Update(context.TODO(), spec, meta.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		var svcCreated *core.Service
-		svcCreated, err = api.Create(context.TODO(), spec, v1.CreateOptions{})
+		svcCreated, err = api.Create(context.TODO(), spec, meta.CreateOptions{})
 		if err == nil {
 			cleanUp = func() { _ = k.deleteService(svcCreated.GetName()) }
 		}
@@ -72,7 +72,7 @@ func (k *kubernetesClient) deleteService(serviceName string) error {
 		return errNoNamespace
 	}
 	services := k.client().CoreV1().Services(k.namespace)
-	err := services.Delete(context.TODO(), serviceName, v1.DeleteOptions{
+	err := services.Delete(context.TODO(), serviceName, meta.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -88,7 +88,7 @@ func (k *kubernetesClient) deleteServices(appName string) error {
 	// Service API does not have `DeleteCollection` implemented, so we have to do it like this.
 	api := k.client().CoreV1().Services(k.namespace)
 	services, err := api.List(context.TODO(),
-		v1.ListOptions{
+		meta.ListOptions{
 			LabelSelector: utils.LabelsToSelector(
 				getServiceLabels(appName, k.IsLegacyLabels())).String(),
 		},
@@ -105,4 +105,23 @@ func (k *kubernetesClient) deleteServices(appName string) error {
 		}
 	}
 	return nil
+}
+
+func (k *kubernetesClient) findServiceForApplication(appName string) (*core.Service, error) {
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+	servicesList, err := k.client().CoreV1().Services(k.namespace).List(context.TODO(), meta.ListOptions{
+		LabelSelector: utils.LabelsToSelector(labels).String(),
+	})
+
+	if err != nil {
+		return nil, errors.Annotatef(err, "finding service for application %s", appName)
+	}
+
+	if len(servicesList.Items) == 0 {
+		return nil, errors.NotFoundf("finding service for application %s", appName)
+	} else if len(servicesList.Items) != 1 {
+		return nil, errors.NotValidf("unable to handle mutiple services %d for application %s", len(servicesList.Items), appName)
+	}
+
+	return &servicesList.Items[0], nil
 }

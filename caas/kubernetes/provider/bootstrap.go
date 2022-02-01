@@ -419,7 +419,7 @@ func (c *controllerStack) Deploy() (err error) {
 	}
 
 	// create the proxy resources for services of type cluster ip
-	if err = c.createControllerProxy(); err != nil {
+	if err = c.createControllerProxy(c.ctx.Context()); err != nil {
 		return errors.Annotate(err, "creating controller service proxy for controller")
 	}
 
@@ -538,7 +538,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 	return spec, nil
 }
 
-func (c *controllerStack) createControllerProxy() error {
+func (c *controllerStack) createControllerProxy(ctx context.Context) error {
 	if c.pcfg.Bootstrap.IgnoreProxy {
 		return nil
 	}
@@ -568,6 +568,7 @@ func (c *controllerStack) createControllerProxy() error {
 	}
 
 	err = k8sproxy.CreateControllerProxy(
+		ctx,
 		config,
 		c.stackLabels,
 		k8sClient.CoreV1().ConfigMaps(c.broker.GetCurrentNamespace()),

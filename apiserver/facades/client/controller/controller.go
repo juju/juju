@@ -27,6 +27,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	coremigration "github.com/juju/juju/core/migration"
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -196,65 +198,113 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 	return result, nil
 }
 
-// DashboardAddressInfo returns the address info needed to connect to the juju dashboard.
-func (c *ControllerAPI) DashboardAddressInfo() (params.DashboardInfo, error) {
-	getDashboardInfo := func() ([]string, bool, error) {
+// dashboardConnectionInforForCAAS returns a dashboard connection for a Juju
+// dashboard deployed on CAAS.
+func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
+	model *state.Model,
+	applicationName string,
+) (*params.DashboardConnectionProxy, error) {
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
+	environ, err := common.EnvironFuncForModel(model, configGetter)()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	caasBroker, ok := environ.(caas.Broker)
+	if !ok {
+		return nil, errors.New("unable to get cass environ for model")
+	}
+
+	proxier, err := caasBroker.ProxyToApplication(applicationName, "80")
+	if err != nil {
+		return nil, err
+	}
+
+	return params.NewDashboardConnectionProxy(proxier), nil
+}
+
+// dashboardConnectionInforForIAAS returns a dashboard connection for a Juju
+// dashboard deployed on IAAS.
+func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
+	appName string,
+	appSettings map[string]interface{},
+) (*params.DashboardConnectionSSHTunnel, error) {
+	addr, ok := appSettings["dashboard-ingress"]
+	if !ok {
+		return nil, errors.NotFoundf("dashboard address in relation data")
+	}
+
+	dashboardApp, err := c.state.Application(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	port, ok := cfg["port"]
+	if !ok {
+		return nil, errors.NotFoundf("dashboard port in charm config")
+	}
+
+	return &params.DashboardConnectionSSHTunnel{
+		Host: fmt.Sprintf("%s", addr),
+		Port: fmt.Sprintf("%d", port),
+	}, nil
+}
+
+// DashboardConnectionInfo returns the connection information for a client to
+// connect to the Juju Dashboard including any proxying information.
+func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInfo, error) {
+	getDashboardInfo := func() (params.DashboardConnection, error) {
 		controllerApp, err := c.state.Application(bootstrap.ControllerApplicationName)
 		if err != nil {
-			return nil, false, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
+
 		rels, err := controllerApp.Relations()
 		if err != nil {
-			return nil, false, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
+
 		for _, rel := range rels {
 			ep, err := rel.Endpoint(controllerApp.Name())
 			if err != nil {
-				return nil, false, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 			if ep.Name != "dashboard" {
 				continue
 			}
-			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
+
+			model, _, err := c.statePool.GetModel(rel.ModelUUID())
 			if err != nil {
-				return nil, false, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
-			// There is only one related endpoint.
+
+			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
 			related := relatedEps[0]
 
-			// Lookup the dashboard IP address from application relation data.
 			appSettings, err := rel.ApplicationSettings(related.ApplicationName)
 			if err != nil {
-				return nil, false, errors.Trace(err)
-			}
-			addr, ok := appSettings["dashboard-ingress"]
-			if !ok {
-				return nil, false, errors.NotFoundf("dashboard address in relation data")
+				return nil, errors.Trace(err)
 			}
 
-			// Lookup the port number from the dashboard charm config.
-			dashboardApp, err := c.state.Application(related.ApplicationName)
-			if err != nil {
-				return nil, false, errors.Trace(err)
+			if model.Type() != state.ModelTypeCAAS {
+				return c.dashboardConnectionInfoForIAAS(
+					related.ApplicationName,
+					appSettings)
 			}
-			cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
-			if err != nil {
-				return nil, false, errors.Trace(err)
-			}
-			port, ok := cfg["port"]
-			if !ok {
-				return nil, false, errors.NotFoundf("dashboard port in charm config")
-			}
-			hostPort := fmt.Sprintf("%v:%v", addr, port)
-			return []string{hostPort}, true, nil
+
+			return c.dashboardConnectionInfoForCAAS(model, related.ApplicationName)
 		}
-		return nil, false, errors.NotFoundf("dashboard")
+
+		return nil, errors.NotFoundf("no dashboard found")
 	}
-	addr, useTunnel, err := getDashboardInfo()
-	return params.DashboardInfo{
-		Addresses: addr,
-		UseTunnel: useTunnel,
-		Error:     apiservererrors.ServerError(err),
+	con, err := getDashboardInfo()
+	return params.DashboardConnectionInfo{
+		Connection:     con,
+		ConnectionType: con.Type(),
+		Error:          apiservererrors.ServerError(err),
 	}, nil
 }
 

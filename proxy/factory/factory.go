@@ -1,12 +1,15 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package proxy
+package factory
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/proxy"
 )
 
 // Factory provides a mechanism for building various type of proxy based on
@@ -19,7 +22,7 @@ type Factory struct {
 // FactoryRegister describe registration details for building a new proxy.
 type FactoryRegister struct {
 	ConfigFn func() interface{}
-	MakerFn  func(interface{}) (Proxier, error)
+	MakerFn  func(interface{}) (proxy.Proxier, error)
 }
 
 // FactoryMaker is shell object used for facilitating the making of a proxy
@@ -39,7 +42,7 @@ func (f *FactoryMaker) Config() interface{} {
 }
 
 // Make attempts to make the proxy from the filled config.
-func (f *FactoryMaker) Make() (Proxier, error) {
+func (f *FactoryMaker) Make() (proxy.Proxier, error) {
 	return f.Register.MakerFn(f.RawConfig)
 }
 
@@ -65,7 +68,7 @@ func NewDefaultFactory() (*Factory, error) {
 		k8sproxy.ProxierTypeKey,
 		FactoryRegister{
 			ConfigFn: func() interface{} { return k8sproxy.NewProxierConfig() },
-			MakerFn:  func(c interface{}) (Proxier, error) { return k8sproxy.NewProxierFromRawConfig(c) },
+			MakerFn:  func(c interface{}) (proxy.Proxier, error) { return k8sproxy.NewProxierFromRawConfig(c) },
 		}); err != nil {
 		return factory, err
 	}
@@ -78,6 +81,25 @@ func NewFactory() *Factory {
 	return &Factory{
 		inventory: make(map[string]FactoryRegister),
 	}
+}
+
+// ProxierFromJSONDataBag is a utility function for making a proxy from this
+// factory using a JSON data bag. The type key cannot be an empty string.
+func (f *Factory) ProxierFromJSONDataBag(typeKey string, rawData json.RawMessage) (proxy.Proxier, error) {
+	if typeKey == "" {
+		return nil, errors.NotValidf("type key for proxier cannot be empty")
+	}
+
+	maker, err := f.MakerForTypeKey(typeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(rawData, maker.Config()); err != nil {
+		return nil, errors.Annotatef(err, "unmarshalling json config for proxier type %q", typeKey)
+	}
+
+	return maker.Make()
 }
 
 // Register registers a new proxier type and creationg methods to this factory

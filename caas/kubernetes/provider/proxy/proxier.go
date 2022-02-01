@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"net"
 	"net/url"
 
@@ -69,6 +70,12 @@ func (p *Proxier) SetAPIHost(host string) {
 	p.config.APIHost = host
 }
 
+// MarshalJSON implements encoding/json Marshaler interface
+func (p *Proxier) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.config)
+}
+
+// MarshalYAML implements the yaml Marshaler interface
 func (p *Proxier) MarshalYAML() (interface{}, error) {
 	return &p.config, nil
 }

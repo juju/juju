@@ -19191,14 +19191,14 @@
                     },
                     "description": "ControllerVersion returns the version information associated with this\ncontroller binary.\n\nNOTE: the implementation intentionally does not check for SuperuserAccess\nas the Version is known even to users with login access."
                 },
-                "DashboardAddressInfo": {
+                "DashboardConnectionInfo": {
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/DashboardInfo"
+                            "$ref": "#/definitions/DashboardConnectionInfo"
                         }
                     },
-                    "description": "DashboardAddressInfo returns the address info needed to connect to the juju dashboard."
+                    "description": "DashboardConnectionInfo returns the connection information for a client to\nconnect to the Juju Dashboard including any proxying information."
                 },
                 "DestroyController": {
                     "type": "object",
@@ -19575,26 +19575,24 @@
                         "git-commit"
                     ]
                 },
-                "DashboardInfo": {
+                "DashboardConnectionInfo": {
                     "type": "object",
                     "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "connection": {
+                            "type": "object",
+                            "additionalProperties": true
+                        },
+                        "connection-type": {
+                            "type": "string"
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
-                        },
-                        "use-tunnel": {
-                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "addresses",
-                        "use-tunnel"
+                        "connection",
+                        "connection-type"
                     ]
                 },
                 "DestroyControllerArgs": {

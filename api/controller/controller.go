@@ -390,22 +390,17 @@ func (c *Client) ControllerVersion() (ControllerVersion, error) {
 	return out, err
 }
 
-// DashboardAddresses returns the address info needed to connect to the dashboard.
-func (c *Client) DashboardAddresses() ([]string, bool, error) {
-	result := params.DashboardInfo{}
-	err := c.facade.FacadeCall("DashboardAddressInfo", nil, &result)
+// DashboardConnectionInfo fetches the connection information needed for
+// connecting to the Juju Dashboard.
+func (c *Client) DashboardConnectionInfo() (params.DashboardConnectionInfo, error) {
+	result := params.DashboardConnectionInfo{}
+	err := c.facade.FacadeCall("DashboardConnectionInfo", nil, &result)
 	if err != nil {
-		return nil, false, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
+
 	if result.Error != nil {
-		var apiErr error = result.Error
-		if params.IsCodeNotFound(apiErr) {
-			apiErr = errors.NotFoundf("dashboard")
-		}
-		return nil, false, errors.Trace(apiErr)
+		err = result.Error
 	}
-	if len(result.Addresses) < 1 {
-		return nil, false, errors.NotFoundf("dashboard")
-	}
-	return result.Addresses, result.UseTunnel, nil
+	return result, err
 }

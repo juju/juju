@@ -4,12 +4,55 @@
 package provider
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/juju/errors"
+	"k8s.io/apimachinery/pkg/labels"
 
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/proxy"
 )
 
+// ProxyToApplication attempts to construct a Juju proxier for use in proxying
+// connections to the specified application. This assume the presence of a
+// corresponding service for the application.
+func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy.Proxier, error) {
+	svc, err := k.findServiceForApplication(appName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "finding service to proxy to for application %s", appName)
+	}
+
+	proxyName := fmt.Sprintf("%s-model-proxy", k.CurrentModel())
+	err = k8sproxy.EnsureProxyService(
+		context.Background(),
+		labels.Set{},
+		proxyName,
+		k.client().RbacV1().Roles(k.GetCurrentNamespace()),
+		k.client().RbacV1().RoleBindings(k.GetCurrentNamespace()),
+		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
+	)
+	if err != nil {
+		return nil, errors.Annotatef(err, "ensuring proxy service for application %s", appName)
+	}
+
+	config := k8sproxy.GetProxyConfig{
+		APIHost:    k.k8sCfgUnlocked.Host,
+		Namespace:  k.GetCurrentNamespace(),
+		RemotePort: remotePort,
+		Service:    svc.Name,
+	}
+
+	return k8sproxy.GetProxy(
+		proxyName,
+		config,
+		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
+		k.client().CoreV1().Secrets(k.GetCurrentNamespace()),
+	)
+}
+
+// ConnectionProxyInfo provides the means for getting a proxier onto a Juju
+// controller deployed in this provider.
 func (k *kubernetesClient) ConnectionProxyInfo() (proxy.Proxier, error) {
 	p, err := k8sproxy.GetControllerProxy(
 		getBootstrapResourceName(JujuControllerStackName, proxyResourceName),

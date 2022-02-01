@@ -51,6 +51,7 @@ type Relation interface {
 	Endpoint(applicationname string) (state.Endpoint, error)
 	RelatedEndpoints(applicationname string) ([]state.Endpoint, error)
 	ApplicationSettings(appName string) (map[string]interface{}, error)
+	ModelUUID() string
 }
 
 type stateShim struct {
