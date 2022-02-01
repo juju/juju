@@ -67,11 +67,9 @@ func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
 
 func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) {
 		restoreFinishBootstrap()
-		restoreTimeouts()
 	})
 }
 
