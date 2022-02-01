@@ -8,7 +8,7 @@ import (
 	"io"
 	"path"
 
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/environs/simplestreams"
 )

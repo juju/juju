@@ -22,7 +22,7 @@ require (
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/go-dqlite v1.10.1
-	github.com/canonical/pebble v0.0.0-20211124224737-13a5e875b6a1
+	github.com/canonical/pebble v0.0.0-20220105032148-3a48156fcbf0
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -50,13 +50,13 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
-	github.com/juju/charm/v8 v8.0.0-20211025140802-752458745e56
-	github.com/juju/charmrepo/v6 v6.0.0-20210422125831-407c8ef9471c
+	github.com/juju/charm/v8 v8.0.0-20220131000804-ba1fde373826
+	github.com/juju/charmrepo/v6 v6.0.0-20220125115859-0faad4d94e72
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v3 v3.0.0-20210709162012-5f861fa82eab
-	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
+	github.com/juju/description/v3 v3.0.0-20220125161928-cc5932c29986
+	github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
@@ -66,15 +66,16 @@ require (
 	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
-	github.com/juju/mgo/v2 v2.0.0-20210414025616-e854c672032f
-	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
+	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
+	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
+	github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os/v2 v2.1.3
+	github.com/juju/os/v2 v2.2.0
 	github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258
-	github.com/juju/pubsub/v2 v2.0.0-20210804115646-050d38a80f5b
+	github.com/juju/pubsub/v2 v2.0.0-20220104155641-7af8a09f58f0
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/juju/replicaset/v2 v2.0.1-0.20211125220232-7967ce535201
 	github.com/juju/retry v0.0.0-20210818141810-5526f6f6ff07
@@ -85,11 +86,13 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0-20210422053140-27f71c100676
 	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
-	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
+	github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa
 	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2
+	github.com/juju/utils/v3 v3.0.0-20220130232349-cd7ecef0e94a
 	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.0.0-20211015025416-7586be9e222a
+	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
+	github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
@@ -121,7 +124,6 @@ require (
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a
 	gopkg.in/macaroon.v2 v2.1.0
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/retry.v1 v1.0.3
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
@@ -137,8 +139,6 @@ require (
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
-
-replace gopkg.in/natefinch/lumberjack.v2 => github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07
 

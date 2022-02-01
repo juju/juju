@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -208,15 +207,6 @@ func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 
 func assertCharmAssumptions(assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {
 	if assumesExprTree == nil {
-		return nil
-	}
-
-	ctrlCfg, err := ctrlCfgGetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if !ctrlCfg.Features().Contains(feature.CharmAssumes) {
 		return nil
 	}
 

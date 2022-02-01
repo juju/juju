@@ -2402,6 +2402,7 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 	}
 
 	// Maybe save the details of the controller hosting the offer.
+	var externalControllerUUID string
 	if arg.ControllerInfo != nil {
 		controllerTag, err := names.ParseControllerTag(arg.ControllerInfo.ControllerTag)
 		if err != nil {
@@ -2410,6 +2411,7 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 		// Only save controller details if the offer comes from
 		// a different controller.
 		if controllerTag.Id() != api.backend.ControllerTag().Id() {
+			externalControllerUUID = controllerTag.Id()
 			if _, err = api.backend.SaveController(crossmodel.ControllerInfo{
 				ControllerTag: controllerTag,
 				Alias:         arg.ControllerInfo.Alias,
@@ -2425,7 +2427,7 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOfferDetails, arg.Macaroon)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetails, arg.Macaroon)
 	return err
 }
 
@@ -2434,6 +2436,7 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 func (api *APIBase) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
+	externalControllerUUID string,
 	offer params.ApplicationOfferDetails,
 	mac *macaroon.Macaroon,
 ) (RemoteApplication, error) {
@@ -2473,14 +2476,15 @@ func (api *APIBase) saveRemoteApplication(
 	}
 
 	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        applicationName,
-		OfferUUID:   offer.OfferUUID,
-		URL:         offer.OfferURL,
-		SourceModel: sourceModelTag,
-		Endpoints:   remoteEps,
-		Spaces:      remoteSpaces,
-		Bindings:    offer.Bindings,
-		Macaroon:    mac,
+		Name:                   applicationName,
+		OfferUUID:              offer.OfferUUID,
+		URL:                    offer.OfferURL,
+		ExternalControllerUUID: externalControllerUUID,
+		SourceModel:            sourceModelTag,
+		Endpoints:              remoteEps,
+		Spaces:                 remoteSpaces,
+		Bindings:               offer.Bindings,
+		Macaroon:               mac,
 	})
 }
 

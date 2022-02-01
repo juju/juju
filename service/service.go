@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/utils/v2"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/snap"
@@ -223,11 +224,10 @@ func listServicesCommand(initSystem string) (string, bool) {
 
 // installStartRetryAttempts defines how much InstallAndStart retries
 // upon Start failures.
-//
-// TODO(katco): 2016-08-09: lp:1611427
-var installStartRetryAttempts = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 250 * time.Millisecond,
+var installStartRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: 1 * time.Second,
+	Delay:       250 * time.Millisecond,
 }
 
 // InstallAndStart installs the provided service and tries starting it.
@@ -240,19 +240,17 @@ func InstallAndStart(svc ServiceActions) error {
 
 	// For various reasons the init system may take a short time to
 	// realise that the service has been installed.
-	var err error
-	for attempt := installStartRetryAttempts.Start(); attempt.Next(); {
-		if err != nil {
-			logger.Errorf("retrying start request (%v)", errors.Cause(err))
-		}
-		// we attempt restart if the service is running in case daemon parameters
-		// have changed, if its not running a regular start will happen.
-		if err = ManuallyRestart(svc); err == nil {
-			logger.Debugf("started %v", svc)
-			break
-		}
+	retryStrategy := installStartRetryStrategy
+	retryStrategy.Func = func() error { return ManuallyRestart(svc) }
+	retryStrategy.NotifyFunc = func(lastError error, _ int) {
+		logger.Errorf("retrying start request (%v)", errors.Cause(lastError))
 	}
-	return errors.Trace(err)
+	err := retry.Call(retryStrategy)
+	if err != nil {
+		err = retry.LastError(err)
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // discoverService is patched out during some tests.

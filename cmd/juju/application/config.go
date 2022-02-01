@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v2/keyvalues"
+	"github.com/juju/utils/v3/keyvalues"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
@@ -58,6 +58,11 @@ To set the value of one or more settings, provide each one as a key/value pair
 argument to the command invocation. For instance:
 
 juju config apache2 servername=example.com lb_balancer_timeout=60
+
+A single setting value may be set via file.  The following example uses
+a file "/tmp/servername" with contents "example.com":
+
+juju config apache2 servername=@/tmp/servername
 
 By default, any configuration changes will be applied to the currently active
 branch. A specific branch can be targeted using the --branch option. Changes

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
@@ -82,7 +82,10 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 }
 
 func (a *appWorker) Notify() {
-	a.changes <- struct{}{}
+	select {
+	case a.changes <- struct{}{}:
+	case <-a.catacomb.Dying():
+	}
 }
 
 func (a *appWorker) Kill() {

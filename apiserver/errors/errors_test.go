@@ -216,6 +216,11 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeQuotaLimitExceeded,
 }, {
+	err:        errors.NotYetAvailablef("try again later"),
+	code:       params.CodeNotYetAvailable,
+	status:     http.StatusConflict,
+	helperFunc: params.IsCodeNotYetAvailable,
+}, {
 	err: &params.IncompatibleClientError{
 		ServerVersion: jujuversion.Current,
 	},

@@ -14,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -340,11 +340,12 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newStatus, jc.DeepEquals, oldStatus)
 
-	oldInstID, err := oldMachine.InstanceId()
+	oldInstID, oldInstDisplayName, err := oldMachine.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
-	newInstID, err := newMachine.InstanceId()
+	newInstID, newInstDisplayName, err := newMachine.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newInstID, gc.Equals, oldInstID)
+	c.Assert(newInstDisplayName, gc.Equals, oldInstDisplayName)
 
 	oldStatus, err = oldMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,6 +358,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	// Add a machine with an LXC container.
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=bunyan")
 	source := "bunyan"
+	displayName := "test-display-name"
 
 	addr := network.NewSpaceAddress("1.1.1.1")
 	addr.SpaceID = "9"
@@ -366,7 +368,8 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 		Characteristics: &instance.HardwareCharacteristics{
 			RootDiskSource: &source,
 		},
-		Addresses: network.SpaceAddresses{addr},
+		DisplayName: displayName,
+		Addresses:   network.SpaceAddresses{addr},
 	})
 	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -920,9 +923,10 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	stOffers := state.NewApplicationOffers(s.State)
 	stOffer, err := stOffers.AddOffer(
 		crossmodel.AddApplicationOfferArgs{
-			OfferName:       "my-offer",
-			Owner:           "admin",
-			ApplicationName: application.Name(),
+			OfferName:              "my-offer",
+			Owner:                  "admin",
+			ApplicationDescription: "my app",
+			ApplicationName:        application.Name(),
 			Endpoints: map[string]string{
 				"server": serverSpace.Name(),
 			},
@@ -944,7 +948,22 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	c.Assert(exportedOffers, gc.HasLen, 1)
 	exported := exportedOffers[0]
 
-	_, newSt := s.importModel(c, s.State)
+	_, newSt := s.importModel(c, s.State, func(_ map[string]interface{}) {
+		// Application offer permissions are keyed on the offer uuid
+		// rather than a model uuid.
+		// If we import and the permissions still exist, the txn will fail
+		// as imports all assume any records do not already exist.
+		err = s.State.RemoveOfferAccess(
+			names.NewApplicationOfferTag("my-offer"),
+			fooUser.UserTag(),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveOfferAccess(
+			names.NewApplicationOfferTag("my-offer"),
+			names.NewUserTag("admin"),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	})
 
 	// The following is required because we don't add charms during an import,
 	// these are added at a later date. When constructing an application offer,

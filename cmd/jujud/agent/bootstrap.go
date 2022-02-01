@@ -19,8 +19,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3/arch"
+	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
@@ -390,7 +390,7 @@ func getAddressesForMongo(
 	args instancecfg.StateInitializationParams,
 ) (network.ProviderAddresses, error) {
 	if isCAAS {
-		return network.NewProviderAddresses("localhost"), nil
+		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
 	}
 
 	instanceLister, ok := env.(environs.InstanceLister)

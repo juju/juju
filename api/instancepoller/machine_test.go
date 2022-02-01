@@ -229,7 +229,7 @@ func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 	cfg := network.InterfaceInfos{{
 		DeviceIndex: 0,
 		Addresses: []network.ProviderAddress{
-			network.NewProviderAddress("10.0.0.42", network.WithCIDR("10.0.0.0/24")),
+			network.NewMachineAddress("10.0.0.42", network.WithCIDR("10.0.0.0/24")).AsProviderAddress(),
 		},
 	}}
 	expectArgs := params.SetProviderNetworkConfig{

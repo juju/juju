@@ -34,6 +34,19 @@ func newUnit(model *Model, res *Resident) *Unit {
 	}
 }
 
+// Report returns information that is used in the dependency engine report.
+func (u *Unit) Report() map[string]interface{} {
+	details := u.details
+	return map[string]interface{}{
+		"name":            details.Name,
+		"series":          details.Series,
+		"charm-url":       details.CharmURL,
+		"public-address":  details.PublicAddress,
+		"private-address": details.PrivateAddress,
+		"subordinate":     details.Subordinate,
+	}
+}
+
 // Note that these property accessors are not lock-protected.
 // They are intended for calling from external packages that have retrieved a
 // deep copy from the cache.
@@ -73,7 +86,7 @@ func (u *Unit) CharmURL() string {
 	return u.details.CharmURL
 }
 
-// OpenbPortRangesByEndpoint returns a map where keys are endpoint names and values
+// OpenPortRangesByEndpoint returns a map where keys are endpoint names and values
 // are the port ranges opened by the unit for each endpoint.
 func (u *Unit) OpenPortRangesByEndpoint() network.GroupedPortRanges {
 	return u.details.OpenPortRangesByEndpoint

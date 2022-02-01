@@ -10,14 +10,12 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func init() {
+func TestPackage(t *stdtesting.T) {
 	// Required for resources support.
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)
 	}
-}
 
-func TestPackage(t *stdtesting.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 	coretesting.MgoSSLTestPackage(t)

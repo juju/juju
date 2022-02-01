@@ -37,6 +37,26 @@ type Machine struct {
 	configHash string
 }
 
+// Report returns information that is used in the dependency engine report.
+func (m *Machine) Report() map[string]interface{} {
+	details := m.details
+
+	addresses := make([]string, len(details.Addresses))
+	for k, address := range details.Addresses {
+		addresses[k] = address.String()
+	}
+
+	return map[string]interface{}{
+		"instance-id":        details.InstanceId,
+		"config":             details.Config,
+		"series":             details.Series,
+		"is-manual":          details.IsManual,
+		"hw-characteristics": details.HardwareCharacteristics,
+		"charm-profiles":     details.CharmProfiles,
+		"addresses":          addresses,
+	}
+}
+
 // Note that these property accessors are not lock-protected.
 // They are intended for calling from external packages that have retrieved a
 // deep copy from the cache.
@@ -137,12 +157,15 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 //     2. A unit being removed has a profile and other units
 //        exist on the machine.
 //     3. The LXD profile of an application with a unit on this
-//        machine is added, removed, or exists.
+//        machine is added, removed, or exists. This also includes scenarios
+//        where the charm is being downloaded asynchronously and its metadata
+//        gets updated once the download is complete.
 //     4. The machine's instanceId is changed, indicating it
 //        has been provisioned.
 func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher, error) {
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		appTopic:         applicationCharmURLChange,
+		charmTopic:       modelCharmChanged,
 		provisionedTopic: m.topic(machineProvisioned),
 		unitAddTopic:     modelUnitAdd,
 		unitRemoveTopic:  modelUnitRemove,

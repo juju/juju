@@ -25,7 +25,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -56,6 +56,10 @@ const (
 	// AWSClientContextKey defines a way to change the aws client func within
 	// a context.
 	AWSClientContextKey corecontext.ContextKey = "aws-client-func"
+
+	// AWSIAMClientContextKey defines a way to change the aws iam client func
+	// within a context.
+	AWSIAMClientContextKey corecontext.ContextKey = "aws-iam-client-func"
 )
 
 const (
@@ -1507,22 +1511,22 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 		// "PrivateIPAddress" field. The code below arranges so that
 		// the primary IP is always added first with any additional
 		// private IPs appended after it.
-		Addresses: network.ProviderAddresses{network.NewProviderAddress(
+		Addresses: network.ProviderAddresses{network.NewMachineAddress(
 			privateAddress,
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
-		)},
+		).AsProviderAddress()},
 		Origin: network.OriginProvider,
 	}
 
 	for _, privAddr := range iface.PrivateIpAddresses {
 		if ip := aws.ToString(privAddr.Association.PublicIp); ip != "" {
-			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewProviderAddress(
+			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewMachineAddress(
 				ip,
 				network.WithScope(network.ScopePublic),
 				network.WithConfigType(network.ConfigDHCP),
-			))
+			).AsProviderAddress())
 		}
 
 		if aws.ToString(privAddr.PrivateIpAddress) == privateAddress {
@@ -1531,12 +1535,12 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 
 		// An EC2 interface is connected to a single subnet,
 		// so we assume other addresses are in the same subnet.
-		ni.Addresses = append(ni.Addresses, network.NewProviderAddress(
+		ni.Addresses = append(ni.Addresses, network.NewMachineAddress(
 			privateAddress,
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
-		))
+		).AsProviderAddress())
 	}
 
 	return ni
@@ -1872,6 +1876,35 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 			return errors.Trace(err)
 		}
 	}
+
+	instanceProfiles, err := listInstanceProfilesForController(ctx, e.iamClient, controllerUUID)
+	if errors.IsUnauthorized(err) {
+		logger.Warningf("unable to list Instance Profiles for deletion, Instance Profiles may have to be manually cleaned up for controller %q", controllerUUID)
+	} else if err != nil {
+		return errors.Annotatef(err, "listing instance profiles for controller uuid %q", controllerUUID)
+	}
+
+	for _, ip := range instanceProfiles {
+		err := deleteInstanceProfile(ctx, e.iamClient, ip)
+		if err != nil {
+			return errors.Annotatef(err, "deleting instance profile %q for controller uuid %q", *ip.InstanceProfileName, controllerUUID)
+		}
+	}
+
+	roles, err := listRolesForController(ctx, e.iamClient, controllerUUID)
+	if errors.IsUnauthorized(err) {
+		logger.Warningf("unable to list Roles for deletion, Roles may have to be manually cleaned up for controller %q", controllerUUID)
+	} else if err != nil {
+		return errors.Annotatef(err, "listing roles for controller uuid %q", controllerUUID)
+	}
+
+	for _, role := range roles {
+		err := deleteRole(ctx, e.iamClient, *role.RoleName)
+		if err != nil {
+			return errors.Annotatef(err, "deleting role %q as part of controller uuid %q", *role.RoleName, controllerUUID)
+		}
+	}
+
 	return nil
 }
 
@@ -2684,6 +2717,14 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 		e.ec2ClientFunc = s
 	} else {
 		return errors.Errorf("expected a valid client function type")
+	}
+
+	if value := ctx.Value(AWSIAMClientContextKey); value == nil {
+		e.iamClientFunc = iamClientFunc
+	} else if s, ok := value.(IAMClientFunc); ok {
+		e.iamClientFunc = s
+	} else {
+		return errors.Errorf("expected a valid iam client function type")
 	}
 
 	httpClient := jujuhttp.NewClient(

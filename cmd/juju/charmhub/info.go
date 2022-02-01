@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	"context"
+	"fmt"
 	"io"
 
 	"github.com/juju/charm/v8"
@@ -11,21 +13,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charmhub"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const (
 	infoSummary = "Displays detailed information about CharmHub charms."
 	infoDoc     = `
-The charm can be specified by name or by path. Names are looked for both in the
-store and in the deployed charms.
+The charm can be specified by name or by path.
 
-Channels displayed are supported by the default series for this model.  To see
-channels supported with other series, use the --series flag.
+Channels displayed are supported by any series.
+To see channels supported for only a specific series, use the --series flag.
 
 Examples:
     juju info postgresql
@@ -38,12 +36,9 @@ See also:
 
 // NewInfoCommand wraps infoCommand with sane model settings.
 func NewInfoCommand() cmd.Command {
-	return modelcmd.Wrap(&infoCommand{
+	return &infoCommand{
 		charmHubCommand: newCharmHubCommand(),
-		CharmHubClientFunc: func(api base.APICallCloser) InfoCommandAPI {
-			return charmhub.NewClient(api)
-		},
-	})
+	}
 }
 
 // infoCommand supplies the "info" CLI command used to display info
@@ -53,8 +48,6 @@ type infoCommand struct {
 
 	out        cmd.Output
 	warningLog Log
-
-	CharmHubClientFunc func(base.APICallCloser) InfoCommandAPI
 
 	config        bool
 	channel       string
@@ -80,6 +73,8 @@ func (c *infoCommand) Info() *cmd.Info {
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.BoolVar(&c.config, "config", false, "display config for this charm")
 	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
@@ -129,37 +124,38 @@ func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 
 // Run is the business logic of the info command.  It implements the meaty
 // part of the cmd.Command interface.
-func (c *infoCommand) Run(ctx *cmd.Context) error {
-	if err := c.charmHubCommand.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
-	apiRoot, err := c.APIRootFunc()
+func (c *infoCommand) Run(cmdContext *cmd.Context) error {
+	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = apiRoot.Close() }()
 
-	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
-		ctx.Warningf("juju info not supported with controllers < 2.9")
-		return nil
+	client, err := c.CharmHubClientFunc(config, charmhub.DefaultFileSystem())
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	charmHubClient := c.CharmHubClientFunc(apiRoot)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	channel := c.channel
-	if channel != "" {
+	var options []charmhub.InfoOption
+	if c.channel != "" {
 		charmChannel, err := charm.ParseChannelNormalize(c.channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		channel = charmChannel.String()
+		options = append(options, charmhub.WithInfoChannel(charmChannel.String()))
 	}
 
-	info, err := charmHubClient.Info(c.charmOrBundle, charmhub.WithInfoChannel(channel))
-	if params.IsCodeNotFound(err) {
+	info, err := client.Info(ctx, c.charmOrBundle, options...)
+	if errors.IsNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("No information found for charm or bundle with the name %q", c.charmOrBundle))
 	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	view, err := convertCharmInfoResult(info, c.arch, c.series)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -167,13 +163,9 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	// when we get invalid data from the API.
 	// We store it on the command before attempting to output, so we can pick
 	// it up later.
-	c.warningLog = ctx.Warningf
+	c.warningLog = cmdContext.Warningf
 
-	view, err := convertCharmInfoResult(info, c.arch, c.series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return c.out.Write(ctx, &view)
+	return c.out.Write(cmdContext, &view)
 }
 
 func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {

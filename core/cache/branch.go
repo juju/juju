@@ -75,7 +75,7 @@ func (b *Branch) Completed() int64 {
 	return b.details.Completed
 }
 
-// CreatedBy returns user who committed the branch.
+// CompletedBy returns user who committed the branch.
 func (b *Branch) CompletedBy() string {
 	return b.details.CompletedBy
 }

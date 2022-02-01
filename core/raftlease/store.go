@@ -40,8 +40,8 @@ type NotifyTarget interface {
 	// Claimed will be called when a new lease has been claimed.
 	Claimed(lease.Key, string) error
 
-	// Expired will be called when an existing lease has expired.
-	Expired(lease.Key) error
+	// Expiries will be called when a set of existing leases have expired.
+	Expiries([]Expired) error
 }
 
 // TrapdoorFunc returns a trapdoor to be attached to lease details for
@@ -181,6 +181,10 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 }
 
 func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
+	if err := command.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
 	start := s.config.Clock.Now()
 	defer func() {
 		elapsed := s.config.Clock.Now().Sub(start)

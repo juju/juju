@@ -14,7 +14,7 @@ import (
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 )
 
@@ -245,12 +245,7 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
 		"cpu-checker",
-		// TODO(axw) 2014-07-02 #1277359
-		// Don't install bridge-utils in cloud-init;
-		// leave it to the networker worker.
-		"bridge-utils",
 		"tmux",
-		// TODO(wpk) 2017-07-23 maybe we should do it in fanconfigurer?
 		"ubuntu-fan",
 	}
 

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -125,7 +125,7 @@ LXC_BRIDGE="ignored"`[1:])
 	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
 	expectModelConstraints := constraints.MustParse("mem=512M")
 	expectHW := instance.MustParseHardware("mem=2048M")
-	initialAddrs := corenetwork.NewProviderAddresses(
+	initialAddrs := corenetwork.NewMachineAddresses([]string{
 		"zeroonetwothree",
 		"0.1.2.3",
 		"10.0.3.1", // lxc bridge address filtered.
@@ -134,7 +134,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.4.1", // lxd bridge address filtered.
 		"10.0.4.4", // lxd bridge address filtered.
 		"10.0.4.5", // not an lxd bridge address
-	)
+	}).AsProviderAddresses()
 	filteredAddrs := corenetwork.NewSpaceAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",

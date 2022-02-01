@@ -18,15 +18,22 @@ type InlinePolicy struct {
 type IAMServer struct {
 	mu sync.Mutex
 
-	instanceProfiles map[string]*types.InstanceProfile
-	roles            map[string]*types.Role
-	roleInlinePolicy map[string]*InlinePolicy
+	instanceProfiles       map[string]*types.InstanceProfile
+	roles                  map[string]*types.Role
+	roleInlinePolicy       map[string]*InlinePolicy
+	producePermissionError bool
 }
 
 func NewIAMServer() (*IAMServer, error) {
 	srv := &IAMServer{}
 	srv.Reset()
 	return srv, nil
+}
+
+func (i *IAMServer) ProducePermissionError(p bool) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.producePermissionError = p
 }
 
 func (i *IAMServer) Reset() {

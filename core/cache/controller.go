@@ -229,7 +229,7 @@ func (c *Controller) Sweep() {
 	// When this call to `Sweep` is the first after a `Mark`, we will have been
 	// in initialization mode, and updates to cached models will not have
 	// caused summaries to be published.
-	// Now that the we are primed, publish all the summary data.
+	// Now that we are primed, publish all the summary data.
 	c.modelsMu.Lock()
 	for _, model := range c.models {
 		model.mu.Lock()

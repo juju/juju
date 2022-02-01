@@ -4,10 +4,13 @@
 package service
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -71,8 +74,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseSuite) PatchAttempts(retries int) {
-	s.PatchValue(&installStartRetryAttempts, utils.AttemptStrategy{
-		Min: retries,
+	s.PatchValue(&installStartRetryStrategy, retry.CallArgs{
+		Clock:    clock.WallClock,
+		Delay:    time.Millisecond,
+		Attempts: retries,
 	})
 }
 

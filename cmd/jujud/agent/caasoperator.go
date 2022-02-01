@@ -17,7 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -57,7 +57,6 @@ type CaasOperatorAgent struct {
 	ApplicationName  string
 	runner           *worker.Runner
 	bufferedLogger   *logsender.BufferedLogWriter
-	setupLogging     func(agent.Config) error
 	ctx              *cmd.Context
 	dead             chan struct{}
 	errReason        error
@@ -240,8 +239,9 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		}
 	}
 	manifolds := CaasOperatorManifolds(manifoldConfig)
-
-	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
+	metrics := engine.NewMetrics()
+	workerMetricsSink := metrics.ForModel(agentConfig.Model())
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(workerMetricsSink))
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +267,12 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		// as the only issue is connecting to the abstract domain socket
 		// and the agent is controlled by by the OS to only have one.
 		logger.Errorf("failed to start introspection worker: %v", err)
+	}
+	if err := addons.RegisterEngineMetrics(op.prometheusRegistry, metrics, engine, workerMetricsSink); err != nil {
+		// If the dependency engine metrics fail, continue on. This is unlikely
+		// to happen in the real world, but should't stop or bring down an
+		// agent.
+		logger.Errorf("failed to start the dependency engine metrics %v", err)
 	}
 	return engine, nil
 }

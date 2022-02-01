@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/exec"
-	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v3/shell"
 )
 
 const executable = "/bin/systemctl"

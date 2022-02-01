@@ -41,6 +41,9 @@ func (k *kubernetesClient) ensureDaemonSet(spec *apps.DaemonSet) (func(), error)
 }
 
 func (k *kubernetesClient) createDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSet, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	utils.PurifyResource(spec)
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
@@ -50,6 +53,9 @@ func (k *kubernetesClient) createDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSe
 }
 
 func (k *kubernetesClient) getDaemonSet(name string) (*apps.DaemonSet, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("daemon set %q", name)
@@ -58,6 +64,9 @@ func (k *kubernetesClient) getDaemonSet(name string) (*apps.DaemonSet, error) {
 }
 
 func (k *kubernetesClient) updateDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSet, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).Update(context.TODO(), spec, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("daemon set %q", spec.GetName())
@@ -66,6 +75,9 @@ func (k *kubernetesClient) updateDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSe
 }
 
 func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().AppsV1().DaemonSets(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -74,6 +86,9 @@ func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
 }
 
 func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.DaemonSet, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	listOps := v1.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
@@ -88,6 +103,9 @@ func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.Daem
 }
 
 func (k *kubernetesClient) deleteDaemonSets(appName string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),

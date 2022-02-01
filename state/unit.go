@@ -12,17 +12,17 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -316,6 +316,32 @@ func (u *Unit) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
 	if agentHash == u.doc.PasswordHash {
 		return true
+	}
+	// Increased error logging for LP: 1956975 agent lost due to ErrBadCreds.
+	// Usually found 1-3 months after it happened.  It would be helpful to have
+	// additional data we can go back and find.
+	if agentHash == "" {
+		logger.Errorf("%q invalid password, provided agent hash empty", u.Name())
+		return false
+	}
+	if u.doc.PasswordHash == "" {
+		logger.Errorf("%q invalid password, doc password hash empty", u.Name())
+		return false
+	}
+	app, err := u.Application()
+	if err != nil {
+		logger.Errorf("%q invalid password, error getting application: %s", u.Name(), err.Error())
+		return false
+	}
+	units, err := app.AllUnits()
+	if err != nil {
+		logger.Errorf("%q invalid password, error getting all units: %s", app.Name(), err.Error())
+		return false
+	}
+	for _, unit := range units {
+		if u.Name() != unit.Name() && agentHash == unit.doc.PasswordHash {
+			logger.Errorf("%q invalid password, provided agent hash matches %q password hash", u.Name(), unit.Name())
+		}
 	}
 	return false
 }
@@ -1447,12 +1473,12 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		return errors.Errorf("cannot set nil charm url")
 	}
 
-	db, closer := u.st.newDB()
-	defer closer()
-	units, closer := db.GetCollection(unitsC)
-	defer closer()
-	charms, closer := db.GetCollection(charmsC)
-	defer closer()
+	db, dbCloser := u.st.newDB()
+	defer dbCloser()
+	units, uCloser := db.GetCollection(unitsC)
+	defer uCloser()
+	charms, cCloser := db.GetCollection(charmsC)
+	defer cCloser()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -2390,16 +2416,16 @@ var hasNoContainersTerm = bson.DocElem{
 // findCleanMachineQuery returns a Mongo query to find clean (and maybe empty)
 // machines with characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
-	db, closer := u.st.newDB()
-	defer closer()
+	db, dbCloser := u.st.newDB()
+	defer dbCloser()
 
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
 	// If we need empty machines, first build up a list of machine ids which
 	// have containers so we can exclude those.
 	if requireEmpty {
-		containerRefsCollection, closer := db.GetCollection(containerRefsC)
-		defer closer()
+		containerRefsCollection, cCloser := db.GetCollection(containerRefsC)
+		defer cCloser()
 
 		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
@@ -2482,8 +2508,8 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		suitableTerms = append(suitableTerms, bson.DocElem{"availzone", bson.D{{"$in", *cons.Zones}}})
 	}
 	if len(suitableTerms) > 0 {
-		instanceDataCollection, closer := db.GetCollection(instanceDataC)
-		defer closer()
+		instanceDataCollection, iCloser := db.GetCollection(instanceDataC)
+		defer iCloser()
 
 		var suitableInstanceData []instanceData
 		err := instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)

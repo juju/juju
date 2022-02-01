@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -15,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/addons"
@@ -76,6 +78,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 		IsFatal:    agenterrors.IsFatal,
 		WorstError: agenterrors.MoreImportantError,
 		Clock:      clock.WallClock,
+		Metrics:    dependency.DefaultMetrics(),
 		Logger:     loggo.GetLogger("juju.worker.dependency"),
 	}
 	engine, err := dependency.NewEngine(config)
@@ -124,4 +127,51 @@ func (d *dummyWorker) Kill() {
 func (d *dummyWorker) Wait() error {
 	<-d.done
 	return nil
+}
+
+type registerSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&registerSuite{})
+
+func (s *registerSuite) TestRegisterEngineMetrics(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{}, 1)
+
+	collector := dummyCollector{}
+
+	registry := NewMockRegisterer(ctrl)
+	registry.EXPECT().Register(collector)
+	registry.EXPECT().Unregister(collector).Do(func(_ prometheus.Collector) {
+		close(done)
+	})
+	sink := NewMockMetricSink(ctrl)
+	sink.EXPECT().Unregister()
+
+	worker := &dummyWorker{
+		done: make(chan struct{}, 1),
+	}
+
+	err := addons.RegisterEngineMetrics(registry, collector, worker, sink)
+	c.Assert(err, jc.ErrorIsNil)
+
+	worker.Kill()
+
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+type dummyCollector struct{}
+
+// Describe is part of the prometheus.Collector interface.
+func (dummyCollector) Describe(ch chan<- *prometheus.Desc) {
+}
+
+// Collect is part of the prometheus.Collector interface.
+func (dummyCollector) Collect(ch chan<- prometheus.Metric) {
 }

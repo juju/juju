@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs/simplestreams"
@@ -42,7 +41,7 @@ func NewDataSource(baseURL string) simplestreams.DataSource {
 			Description:          sourceDescription,
 			BaseURL:              baseURL,
 			PublicSigningKey:     keys.JujuPublicKey,
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 			RequireSigned:        true,
 		},

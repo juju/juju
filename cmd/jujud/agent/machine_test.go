@@ -24,26 +24,27 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/lumberjack"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/utils/v2/cert"
-	"github.com/juju/utils/v2/ssh"
-	sshtesting "github.com/juju/utils/v2/ssh/testing"
-	"github.com/juju/utils/v2/symlink"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
+	"github.com/juju/utils/v3/cert"
+	"github.com/juju/utils/v3/ssh"
+	sshtesting "github.com/juju/utils/v3/ssh/testing"
+	"github.com/juju/utils/v3/symlink"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
@@ -76,6 +77,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
@@ -99,10 +101,18 @@ type MachineSuite struct {
 
 var _ = gc.Suite(&MachineSuite{})
 
+// noopRevisionUpdater creates a stub to prevent outbound requests to the
+// charmhub store and the charmstore. As these are meant to be unit tests, we
+// should strive to remove outbound calls to external services.
+type noopRevisionUpdater struct{}
+
+func (noopRevisionUpdater) UpdateLatestRevisions() error {
+	return nil
+}
+
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
-		controller.CharmStoreURL:   "staging.charmstore",
 	}
 	s.commonMachineSuite.SetUpTest(c)
 	bootstrapRaft(c, s.DataDir())
@@ -190,7 +200,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	c.Check(l.MaxAge, gc.Equals, 0)
 	c.Check(l.MaxBackups, gc.Equals, 2)
 	c.Check(l.Filename, gc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
-	c.Check(l.MaxSize, gc.Equals, 300)
+	c.Check(l.MaxSize, gc.Equals, 100)
 }
 
 func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
@@ -1037,10 +1047,6 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 
 func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
-	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.AuditingEnabled: true,
-		controller.CharmStoreURL:   "staging.charmstore",
-	}
 
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackMachines(c, tracker, iaasMachineManifolds)
@@ -1058,6 +1064,10 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
+	s.PatchValue(&charmrevision.NewAPIFacade, func(base.APICaller) (charmrevision.Facade, error) {
+		return noopRevisionUpdater{}, nil
+	})
+
 	uuid := s.BackingState.ModelUUID()
 
 	tracker := agenttest.NewEngineTracker()
@@ -1073,6 +1083,10 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
+	s.PatchValue(&charmrevision.NewAPIFacade, func(base.APICaller) (charmrevision.Facade, error) {
+		return noopRevisionUpdater{}, nil
+	})
+
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.

@@ -22,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -128,7 +127,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simples
 		Source: factory.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              baseURL,
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 			RequireSigned:        requireSigned,
 		}),
@@ -1022,7 +1021,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 			Description:          "test",
 			BaseURL:              fmt.Sprintf("%s/signed", ts.URL),
 			PublicSigningKey:     sstesting.SignedMetadataPublicKey,
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 			RequireSigned:        true,
 		},

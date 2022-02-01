@@ -97,6 +97,10 @@ func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 
 	_, err = r.GetToken(names.NewApplicationTag(offer.OfferName))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	userPerms, err := s.State.GetOfferUsers(offer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(userPerms, gc.HasLen, 0)
 }
 
 func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {

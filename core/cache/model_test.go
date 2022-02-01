@@ -28,17 +28,57 @@ type ModelSuite struct {
 
 var _ = gc.Suite(&ModelSuite{})
 
-func (s *ModelSuite) TestReport(c *gc.C) {
+func (s *ModelSuite) TestEmptyReport(c *gc.C) {
 	m := s.NewModel(modelChange)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
-		"name":              "model-owner/test-model",
-		"life":              life.Value("alive"),
-		"application-count": 0,
-		"charm-count":       0,
-		"machine-count":     0,
-		"unit-count":        0,
-		"relation-count":    0,
-		"branch-count":      0,
+		"name":         "model-owner/test-model",
+		"life":         "alive",
+		"applications": make(map[string]interface{}),
+		"charms":       make(map[string]interface{}),
+		"machines":     make(map[string]interface{}),
+		"units":        make(map[string]interface{}),
+		"relations":    make(map[string]interface{}),
+		"branch-count": 0,
+	})
+}
+
+func (s *ModelSuite) TestReport(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateCharm(charmChange, s.Manager)
+	m.UpdateApplication(appChange, s.Manager)
+	m.UpdateUnit(unitChange, s.Manager)
+
+	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
+		"name": "model-owner/test-model",
+		"life": "alive",
+		"applications": map[string]interface{}{
+			"application-name": map[string]interface{}{
+				"charm-url": "www.charm-url.com-1",
+				"config": map[string]interface{}{
+					"another": "foo", "key": "value",
+				},
+				"constraints":      "",
+				"exposed":          false,
+				"min-units":        0,
+				"subordinate":      false,
+				"workload-version": "666"},
+		},
+		"charms": map[string]interface{}{
+			"www.charm-url.com-1": map[string]interface{}{},
+		},
+		"machines": map[string]interface{}{},
+		"units": map[string]interface{}{
+			"application-name/0": map[string]interface{}{
+				"charm-url":       "www.charm-url.com-1",
+				"name":            "application-name/0",
+				"private-address": "",
+				"public-address":  "",
+				"series":          "bionic",
+				"subordinate":     false,
+			},
+		},
+		"relations":    map[string]interface{}{},
+		"branch-count": 0,
 	})
 }
 

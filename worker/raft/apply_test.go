@@ -230,11 +230,11 @@ func opName(i int) []byte {
 	return []byte(fmt.Sprintf("abc-%d", i))
 }
 
-func commandsN(n int) ([]queue.Operation, chan error) {
+func commandsN(n int) ([]queue.OutOperation, chan error) {
 	done := make(chan error)
-	res := make([]queue.Operation, n)
+	res := make([]queue.OutOperation, n)
 	for i := 0; i < n; i++ {
-		res[i] = queue.Operation{
+		res[i] = queue.OutOperation{
 			Command: opName(i),
 			Done: func(err error) {
 				go func() {

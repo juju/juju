@@ -13,6 +13,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -55,14 +56,16 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 				LogDir:          c.MkDir(),
 				MetricsSpoolDir: c.MkDir(),
 			},
-			Tag:               machine,
-			Password:          "sekrit",
-			Nonce:             "unused",
-			Controller:        jt.ControllerTag,
-			Model:             jt.ModelTag,
-			APIAddresses:      []string{"a1:123", "a2:123"},
-			CACert:            "fake CACert",
-			UpgradedToVersion: jv.Current,
+			Tag:                    machine,
+			Password:               "sekrit",
+			Nonce:                  "unused",
+			Controller:             jt.ControllerTag,
+			Model:                  jt.ModelTag,
+			APIAddresses:           []string{"a1:123", "a2:123"},
+			CACert:                 "fake CACert",
+			UpgradedToVersion:      jv.Current,
+			AgentLogfileMaxBackups: 7,
+			AgentLogfileMaxSizeMB:  123,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.Write(), jc.ErrorIsNil)
@@ -77,11 +80,13 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 		logger:  logger,
 	}
 	s.config = deployer.ContextConfig{
-		Agent:            s.agent,
-		Clock:            clock.WallClock,
-		Hub:              s.hub,
-		Logger:           logger,
-		UnitEngineConfig: engine.DependencyEngineConfig,
+		Agent:  s.agent,
+		Clock:  clock.WallClock,
+		Hub:    s.hub,
+		Logger: logger,
+		UnitEngineConfig: func() dependency.EngineConfig {
+			return engine.DependencyEngineConfig(dependency.DefaultMetrics())
+		},
 		SetupLogging: func(c *loggo.Context, _ agent.Config) {
 			c.GetLogger("").SetLogLevel(loggo.DEBUG)
 		},
@@ -173,6 +178,8 @@ func (s *NestedContextSuite) TestDeployUnit(c *gc.C) {
 
 	// Unit written into the config value as deployed units.
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.Equals, unitName)
+	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxBackups(), gc.Equals, 7)
+	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxSizeMB(), gc.Equals, 123)
 }
 
 func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
@@ -202,6 +209,10 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 }
 
 func (s *NestedContextSuite) TestErrTerminateAgentFromAgentWorker(c *gc.C) {
+	_ = s.errTerminateAgentFromAgentWorker(c)
+}
+
+func (s *NestedContextSuite) errTerminateAgentFromAgentWorker(c *gc.C) deployer.Context {
 	s.workers.workerError = jworker.ErrTerminateAgent
 	ctx := s.newContext(c)
 	unitName := "something/0"
@@ -223,6 +234,7 @@ func (s *NestedContextSuite) TestErrTerminateAgentFromAgentWorker(c *gc.C) {
 			"workers": map[string]interface{}{},
 		},
 	})
+	return ctx
 }
 
 func (s *NestedContextSuite) waitForStoppedCount(c *gc.C, ctx deployer.Context, length int) map[string]interface{} {
@@ -306,6 +318,43 @@ func (s *NestedContextSuite) TestStopStartUnits(c *gc.C) {
 	c.Assert(report["stopped"], jc.DeepEquals, []string{"second/0"})
 }
 
+func (s *NestedContextSuite) TestStartUnitAgent(c *gc.C) {
+	ctx := s.errTerminateAgentFromAgentWorker(c)
+	s.workers.workerError = nil
+
+	handledBothCalls := make(chan struct{})
+	count := 0
+	unsub := s.hub.Subscribe(message.StartUnitResponseTopic, func(_ string, data interface{}) {
+		c.Check(data, jc.DeepEquals, message.StartStopResponse{
+			"something/0": "started",
+			"unknown/2":   `unit "unknown/2" not found`,
+		})
+		count++
+		if count == 2 {
+			close(handledBothCalls)
+		}
+	})
+
+	// Start one back up again.
+	done := s.hub.Publish(message.StartUnitTopic, message.Units{
+		Names: []string{"something/0", "unknown/2"},
+	})
+	s.waitForEventHandled(c, pubsub.Wait(done))
+	// Wait for unit to start.
+	s.workers.waitForStart(c, "something/0")
+
+	// Called again gets the same results.
+	done = s.hub.Publish(message.StartUnitTopic, message.Units{
+		Names: []string{"something/0", "unknown/2"},
+	})
+	s.waitForEventHandled(c, pubsub.Wait(done))
+	s.waitForEventHandled(c, handledBothCalls)
+	unsub()
+
+	report := ctx.Report()
+	c.Assert(report["stopped"], gc.IsNil)
+}
+
 func (s *NestedContextSuite) TestUnitStatus(c *gc.C) {
 	responseHandled := make(chan struct{})
 	unsub := s.hub.Subscribe(message.UnitStatusResponseTopic, func(_ string, payload interface{}) {
@@ -363,8 +412,12 @@ func (s *NestedContextSuite) deployThreeUnits(c *gc.C, ctx deployer.Context) {
 	for {
 		units := report["units"].(map[string]interface{})
 		workers := units["workers"].(map[string]interface{})
+
+		first := workers["first/0"].(map[string]interface{})
+		second := workers["second/0"].(map[string]interface{})
 		third := workers["third/0"].(map[string]interface{})
-		if third["state"] == "started" {
+
+		if first["state"] == "started" && second["state"] == "started" && third["state"] == "started" {
 			break
 		}
 		select {

@@ -21,7 +21,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
@@ -515,7 +515,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		if op.app.doc.HasResources && !op.CleanupIgnoringResources {
 			if op.Force {
 				// We need to wait longer than normal for any k8s resources to be fully removed
-				// since it can take a while for the cluster to terminate rnning pods etc.
+				// since it can take a while for the cluster to terminate running pods etc.
 				logger.Debugf("scheduling forced application %q cleanup", op.app.doc.Name)
 				deadline := op.app.st.stateClock.Now().Add(2 * op.MaxWait)
 				cleanupOp := newCleanupAtOp(deadline, cleanupForceApplication, op.app.doc.Name, op.MaxWait)
@@ -714,7 +714,44 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
 	)
-	return ops, nil
+
+	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return append(ops, cancelCleanupOps...), nil
+}
+
+func (a *Application) cancelScheduledCleanupOps() ([]txn.Op, error) {
+	appOrUnitPattern := bson.DocElem{
+		Name: "prefix", Value: bson.D{
+			{Name: "$regex", Value: fmt.Sprintf("^%s(/[0-9]+)*$", a.Name())},
+		},
+	}
+	// No unit and app exists now, so cancel the below scheduled cleanup docs to avoid new resources of later deployment
+	// getting removed accidentally because we re-use unit numbers for sidecar applications.
+	cancelCleanupOpsArgs := []cancelCleanupOpsArg{
+		{cleanupForceDestroyedUnit, appOrUnitPattern},
+		{cleanupForceRemoveUnit, appOrUnitPattern},
+		{cleanupForceApplication, appOrUnitPattern},
+	}
+	relations, err := a.Relations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, rel := range relations {
+		cancelCleanupOpsArgs = append(cancelCleanupOpsArgs, cancelCleanupOpsArg{
+			cleanupForceDestroyedRelation,
+			bson.DocElem{
+				Name: "prefix", Value: relationKey(rel.Endpoints())},
+		})
+	}
+
+	cancelCleanupOps, err := a.st.cancelCleanupOps(cancelCleanupOpsArgs...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cancelCleanupOps, nil
 }
 
 // IsExposed returns whether this application is exposed. The explicitly open
@@ -3586,6 +3623,17 @@ func (a *Application) UnitNames() ([]string, error) {
 	return u, errors.Trace(err)
 }
 
+// CharmPendingToBeDownloaded returns true if the charm referenced by this
+// application is pending to be downloaded.
+func (a *Application) CharmPendingToBeDownloaded() bool {
+	ch, _, err := a.Charm()
+	if err != nil {
+		return false
+	}
+
+	return !ch.IsPlaceholder() && !ch.IsUploaded()
+}
+
 func appUnitNames(st *State, appName string) ([]string, error) {
 	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()
@@ -3603,4 +3651,33 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 		unitNames[i] = doc.Name
 	}
 	return unitNames, nil
+}
+
+// WatchApplicationsWithPendingCharms returns a watcher that emits the IDs of
+// applications that have a charm origin popoulated and reference a charm that
+// is pending to be downloaded.
+func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{
+		col: applicationsC,
+		filter: func(key interface{}) bool {
+			sKey, ok := key.(string)
+			if !ok {
+				return false
+			}
+
+			// We need an application with both a charm URL and
+			// an origin set.trusty
+			app, _ := st.Application(st.localID(sKey))
+			if app == nil || app.CharmOrigin() == nil {
+				return false
+			}
+
+			return app.CharmPendingToBeDownloaded()
+		},
+		// We want to be notified for application documents as soon as
+		// they appear in the collection. As the revno for inserted
+		// docs is 0 we need to set the threshold to -1 so inserted
+		// docs are not ignored by the watcher.
+		revnoThreshold: -1,
+	})
 }

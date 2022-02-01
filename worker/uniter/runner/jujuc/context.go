@@ -255,7 +255,7 @@ type ContextNetworking interface {
 
 	// ClosePortRange ensures the supplied port range is closed even when
 	// the executing unit's application is exposed (unless it is opened
-	// separately by a co- located unit).
+	// separately by a co-located unit).
 	ClosePortRange(endpointName string, portRange network.PortRange) error
 
 	// OpenedPortRanges returns all port ranges currently opened by this

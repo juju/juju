@@ -121,8 +121,8 @@ var ErrChangeComplete = errors.New("change complete")
 // Apply runs the supplied Change against the supplied Database. If it
 // returns no error, the change succeeded.
 func Apply(db Database, change Change) error {
-	db, closer := db.Copy()
-	defer closer()
+	db, dbCloser := db.Copy()
+	defer dbCloser()
 
 	buildTxn := func(int) ([]txn.Op, error) {
 		ops, err := change.Prepare(db)
@@ -135,8 +135,8 @@ func Apply(db Database, change Change) error {
 		return ops, nil
 	}
 
-	runner, closer := db.TransactionRunner()
-	defer closer()
+	runner, tCloser := db.TransactionRunner()
+	defer tCloser()
 	if err := runner.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}

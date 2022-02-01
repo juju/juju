@@ -73,15 +73,22 @@ func (restrictedFilesystem) Stat(string) (os.FileInfo, error) {
 	return nil, notSupported
 }
 
+// FilesystemCommand is embedded in commands that need access to the filesystem.
+type FilesystemCommand struct {
+	// filesystem provides access to os calls to access files.
+	// For embedded commands, methods will always return an error.
+	filesystem Filesystem
+}
+
 // SetFilesystem sets the Filesystem instance on the command.
-func (c *CommandBase) SetFilesystem(fs Filesystem) {
+func (c *FilesystemCommand) SetFilesystem(fs Filesystem) {
 	c.filesystem = fs
 }
 
 // Filesystem returns an instance that provides access to
 // the filesystem, either delegating to calling os functions
 // or functions which always return an error.
-func (c *CommandBase) Filesystem() Filesystem {
+func (c *FilesystemCommand) Filesystem() Filesystem {
 	if c.filesystem == nil {
 		c.filesystem = osFilesystem{}
 	}

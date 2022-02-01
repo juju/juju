@@ -120,6 +120,7 @@ type ModelAPI interface {
 // an API connection.
 type CommandBase struct {
 	cmd.CommandBase
+	FilesystemCommand
 	cmdContext    *cmd.Context
 	apiContexts   map[string]*apiContext
 	modelAPI_     ModelAPI
@@ -136,10 +137,6 @@ type CommandBase struct {
 
 	// Embedded is true if this command is being run inside a controller.
 	Embedded bool
-
-	// filesystem provides access to os calls to access files.
-	// For embedded commands, methods will always return an error.
-	filesystem Filesystem
 }
 
 func (c *CommandBase) assertRunStarted() {

@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/ssh"
-	sshtesting "github.com/juju/utils/v2/ssh/testing"
+	"github.com/juju/utils/v3/ssh"
+	sshtesting "github.com/juju/utils/v3/ssh/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/keymanager"

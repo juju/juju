@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	params "github.com/juju/juju/apiserver/params"
 	raftlease "github.com/juju/juju/core/raftlease"
 )
 
@@ -139,7 +140,7 @@ func (m *MockRaftLeaseApplier) EXPECT() *MockRaftLeaseApplierMockRecorder {
 }
 
 // ApplyLease mocks base method.
-func (m *MockRaftLeaseApplier) ApplyLease(arg0 string) error {
+func (m *MockRaftLeaseApplier) ApplyLease(arg0 params.LeaseOperationCommand) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyLease", arg0)
 	ret0, _ := ret[0].(error)
