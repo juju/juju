@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/overlord/actionstate"
+	overlordstate "github.com/juju/juju/overlord/state"
 	"github.com/juju/juju/state"
 )
 
@@ -79,6 +82,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 		}
 	}
 	summary := fmt.Sprintf("%v run on %v", operationName, strings.Join(receivers, ","))
+	// Note (stickupkid): This transaction should be in one transaction.
 	operationID, err := a.model.EnqueueOperation(summary, len(receivers))
 	if err != nil {
 		return "", params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
@@ -91,10 +95,11 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 		currentResult := &response.Results[i]
 		actionReceiver := action.Receiver
 		var (
-			actionErr    error
-			enqueued     state.Action
-			receiver     state.ActionReceiver
-			receiverName string
+			actionErr, prepareErr error
+			payload               map[string]interface{}
+			enqueued              *actionstate.Action
+			receiver              state.ActionReceiver
+			receiverName          string
 		)
 		if strings.HasSuffix(actionReceiver, "leader") {
 			app := strings.Split(actionReceiver, "/")[0]
@@ -110,7 +115,20 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 			currentResult.Error = apiservererrors.ServerError(actionErr)
 			goto failOperation
 		}
-		enqueued, actionErr = a.model.AddAction(receiver, operationID, action.Name, action.Parameters)
+
+		// Note: this interacts with the juju/state package
+		payload, prepareErr = receiver.PrepareActionPayload(action.Name, action.Parameters)
+
+		actionErr = a.overlordState.Run(func(ctx context.Context, txn overlordstate.Txn) error {
+			// TODO (stickupkid): Call prepare action payload within one single
+			// transaction.
+			if prepareErr != nil {
+				// TODO (stickupkid): If prepareErr is not nil, then insert an
+				// action which is initialized with an error state.
+			}
+			enqueued, err = a.actionManager.AddAction(txn, receiver.Tag(), operationID, action.Name, payload)
+			return errors.Trace(err)
+		})
 		if actionErr != nil {
 			currentResult.Error = apiservererrors.ServerError(actionErr)
 			goto failOperation

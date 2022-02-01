@@ -246,13 +246,18 @@ func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.Ac
 		currentResult := &response.Actions[i]
 		currentResult.Name = name
 
-		actions, err := a.model.FindActionsByName(name)
+		var actions []*actionstate.Action
+		err := a.overlordState.Run(func(ctx context.Context, txn overlordstate.Txn) error {
+			var err error
+			actions, err = a.actionManager.ActionsByName(txn, name)
+			return errors.Trace(err)
+		})
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		for _, action := range actions {
-			recvTag, err := names.ActionReceiverTag(action.Receiver())
+			recvTag, err := names.ActionReceiverTag(action.Receiver)
 			if err != nil {
 				currentResult.Actions = append(currentResult.Actions, params.ActionResult{Error: apiservererrors.ServerError(err)})
 				continue
@@ -304,23 +309,23 @@ func (a *ActionAPI) cancel(arg params.Entities, compat bool) (params.ActionResul
 			continue
 		}
 
-		action, err := a.model.ActionByTag(actionTag)
+		var action *actionstate.Action
+		err = a.overlordState.Run(func(ctx context.Context, txn overlordstate.Txn) error {
+			var err error
+			action, err = a.actionManager.CancelActionByTag(txn, actionTag)
+			return errors.Trace(err)
+		})
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result, err := action.Cancel()
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-		receiverTag, err := names.ActionReceiverTag(result.Receiver())
+		receiverTag, err := names.ActionReceiverTag(action.Receiver)
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		response.Results[i] = common.MakeActionResult(receiverTag, result, compat)
+		response.Results[i] = common.MakeActionResult(receiverTag, action, compat)
 	}
 	return response, nil
 }
