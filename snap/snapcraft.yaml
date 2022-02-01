@@ -120,24 +120,26 @@ plugs:
     content: microk8s
     target: $SNAP_COMMON/.peers
 
-  config-juju:
-    interface: personal-files
-    write:
-      - $HOME/.local/share/juju
-
-  config-lxd:
-    interface: personal-files
-    read:
-      - $HOME/snap/lxd/current/.config/lxc
-      - $HOME/snap/lxd/common/config
-
-  cloud-credentials-juju:
-    interface: personal-files
-    read:
-      - $HOME/.aws
-      - $HOME/.azure
-      - $HOME/.config
-      - $HOME/.kube
-      - $HOME/.maasrc
-      - $HOME/.oci
-      - $HOME/.novarc
+# Even though the snap is being build as classic, the store still places the
+# snap in a review queue despite these not being needed in classic.
+#  config-juju:
+#    interface: personal-files
+#    write:
+#      - $HOME/.local/share/juju
+#
+#  config-lxd:
+#    interface: personal-files
+#    read:
+#      - $HOME/snap/lxd/current/.config/lxc
+#      - $HOME/snap/lxd/common/config
+#
+#  cloud-credentials-juju:
+#    interface: personal-files
+#    read:
+#      - $HOME/.aws
+#      - $HOME/.azure
+#      - $HOME/.config
+#      - $HOME/.kube
+#      - $HOME/.maasrc
+#      - $HOME/.oci
+#      - $HOME/.novarc
