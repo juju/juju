@@ -7,9 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/retry"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	core "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbac "k8s.io/client-go/kubernetes/typed/rbac/v1"
-	//"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 // ControllerProxyConfig is used to configure the kubernetes resources made for
@@ -144,6 +146,39 @@ func EnsureProxyService(
 
 	return nil
 
+}
+
+// WaitForProxyService attempt to block the caller until the proxy service is
+// fully provisioned within Kubernetes or until the function gives up trying to
+// wait. This should be a very quick wait.
+func WaitForProxyService(
+	ctx context.Context,
+	name string,
+	saI core.ServiceAccountInterface,
+) error {
+	hasSASecret := func() error {
+		svc, err := saI.Get(ctx, name, meta.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return errors.NewNotFound(err, "proxy service for "+name)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting proxy service for %s", name)
+		}
+
+		if len(svc.Secrets) == 0 {
+			return errors.NotProvisionedf("proxy service for %s", name)
+		}
+
+		return nil
+	}
+	return retry.Call(retry.CallArgs{
+		Func: hasSASecret,
+		IsFatalError: func(err error) bool {
+			return !errors.IsNotProvisioned(err)
+		},
+		Attempts: 5,
+		Delay:    time.Second * 3,
+		Clock:    clock.WallClock,
+	})
 }
 
 // CreateControllerProxy establishes the Kubernetes resources needed for

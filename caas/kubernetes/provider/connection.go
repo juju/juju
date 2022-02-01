@@ -36,6 +36,15 @@ func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy
 		return nil, errors.Annotatef(err, "ensuring proxy service for application %s", appName)
 	}
 
+	err = k8sproxy.WaitForProxyService(
+		context.Background(),
+		proxyName,
+		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
+	)
+	if err != nil {
+		return nil, errors.Annotatef(err, "waiting for proxy service for application %s", appName)
+	}
+
 	config := k8sproxy.GetProxyConfig{
 		APIHost:    k.k8sCfgUnlocked.Host,
 		Namespace:  k.GetCurrentNamespace(),
