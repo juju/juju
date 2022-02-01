@@ -70,6 +70,8 @@ func FromData(config ChangesConfig) ([]Change, error) {
 		model = &Model{
 			logger: config.Logger,
 		}
+	} else if model.logger == nil {
+		model.logger = config.Logger
 	}
 	model.initializeSequence()
 	model.InferMachineMap(config.Bundle)

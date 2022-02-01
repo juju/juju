@@ -39,6 +39,18 @@ func (s *annotationsSuite) TestExistAndAdd(c *gc.C) {
 	c.Assert(s.annotations.Has(key, "a new value"), jc.IsTrue)
 }
 
+func (s *annotationsSuite) TestRemove(c *gc.C) {
+	key := "annotation-1-key"
+	value := "annotation-1-val"
+	c.Assert(s.annotations.Has(key, value), jc.IsFalse)
+
+	s.annotations.Add(key, value)
+	c.Assert(s.annotations.Has(key, value), jc.IsTrue)
+
+	s.annotations.Remove(key)
+	c.Assert(s.annotations.Has(key, value), jc.IsFalse)
+}
+
 func (s *annotationsSuite) TestCopy(c *gc.C) {
 	annotation1 := map[string]string{
 		"annotation-1-key": "annotation-1-val",

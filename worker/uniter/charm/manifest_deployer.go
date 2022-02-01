@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/charm/v8"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
+	"github.com/juju/retry"
+	"github.com/juju/utils/v3"
 )
 
 const (
@@ -55,7 +58,12 @@ type manifestDeployer struct {
 }
 
 func (d *manifestDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
-	bundle, err := d.bundles.Read(info, abort)
+	bdr := RetryingBundleReader{
+		BundleReader: d.bundles,
+		Clock:        clock.WallClock,
+		Logger:       d.logger,
+	}
+	bundle, err := bdr.Read(info, abort)
 	if err != nil {
 		return err
 	}
@@ -221,4 +229,48 @@ func (d *manifestDeployer) CharmPath(path string) string {
 // DataPath returns the supplied path joined to the ManifestDeployer's data directory.
 func (d *manifestDeployer) DataPath(path string) string {
 	return filepath.Join(d.dataPath, path)
+}
+
+type RetryingBundleReader struct {
+	BundleReader
+
+	Clock  clock.Clock
+	Logger Logger
+}
+
+func (rbr RetryingBundleReader) Read(bi BundleInfo, abort <-chan struct{}) (Bundle, error) {
+	var (
+		bundle   Bundle
+		minDelay = 200 * time.Millisecond
+		maxDelay = 8 * time.Second
+	)
+
+	fetchErr := retry.Call(retry.CallArgs{
+		Attempts:    10,
+		Delay:       minDelay,
+		BackoffFunc: retry.ExpBackoff(minDelay, maxDelay, 2.0, true),
+		Clock:       rbr.Clock,
+		Func: func() error {
+			b, err := rbr.BundleReader.Read(bi, abort)
+			if err != nil {
+				return err
+			}
+			bundle = b
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return err != nil && !errors.IsNotYetAvailable(err)
+		},
+	})
+
+	if fetchErr != nil {
+		// If the charm is still not available something went wrong.
+		// Report a NotFound error instead
+		if errors.IsNotYetAvailable(fetchErr) {
+			rbr.Logger.Errorf("exceeded max retry attempts while waiting for blob data for %q to become available", bi.URL().String())
+			fetchErr = errors.NotFoundf("blob data for %q", bi.URL().String())
+		}
+		return nil, errors.Trace(fetchErr)
+	}
+	return bundle, nil
 }

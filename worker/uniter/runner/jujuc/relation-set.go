@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v2/keyvalues"
+	"github.com/juju/utils/v3/keyvalues"
 	goyaml "gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"

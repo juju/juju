@@ -31,6 +31,11 @@ type Charm struct {
 	details CharmChange
 }
 
+// Report returns information that is used in the dependency engine report.
+func (c *Charm) Report() map[string]interface{} {
+	return map[string]interface{}{}
+}
+
 // LXDProfile returns the lxd profile of this charm.
 func (c *Charm) LXDProfile() lxdprofile.Profile {
 	return c.details.LXDProfile
@@ -48,6 +53,7 @@ func (c *Charm) setDetails(details CharmChange) {
 	})
 
 	c.details = details
+	c.hub.Publish(modelCharmChanged, details)
 }
 
 // copy returns a copy of the unit, ensuring appropriate deep copying.

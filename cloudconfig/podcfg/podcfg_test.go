@@ -57,7 +57,7 @@ func testPodLabels(c *gc.C, cfg *config.Config, jobs []model.MachineJob, expectT
 
 func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
-	cfg["juju-db-snap-channel"] = "4.0/stable"
+	cfg["juju-db-snap-channel"] = "4.4/stable"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
@@ -72,7 +72,7 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	c.Assert(path, gc.Equals, "jujusolutions/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "jujusolutions/juju-db:4.0")
+	c.Assert(path, gc.Equals, "jujusolutions/juju-db:4.4")
 }
 
 func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {

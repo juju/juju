@@ -248,7 +248,11 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(ra.AdoptResources(context.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion))
+	err = ra.AdoptResources(context.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion)
+	if errors.IsNotImplemented(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 // CheckMachines compares the machines in state with the ones reported

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3/ssh"
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"

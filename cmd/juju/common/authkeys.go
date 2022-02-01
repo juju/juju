@@ -12,8 +12,8 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -69,7 +69,7 @@ func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) erro
 }
 
 // ReadAuthorizedKeys implements the standard juju behaviour for finding
-// authorized_keys. It returns a set of keys in in authorized_keys format
+// authorized_keys. It returns a set of keys in authorized_keys format
 // (see sshd(8) for a description).  If path is non-empty, it names the
 // file to use; otherwise the user's .ssh directory will be searched.
 // Home directory expansion will be performed on the path if it starts with

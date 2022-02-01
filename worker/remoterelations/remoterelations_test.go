@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -89,7 +89,7 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 			return
 		}
 	}
-	c.Fatalf("failed to see expected calls.\nexpected: %#v\nobserved: %#v", expected, calls)
+	c.Assert(expected, jc.DeepEquals, calls)
 }
 
 func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Worker {
@@ -151,6 +151,31 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *gc.C) {
 		c.Check(ok, jc.IsTrue)
 		c.Check(w.killed(), jc.IsTrue)
 	}
+}
+
+func (s *remoteRelationsSuite) TestExternalControllerError(c *gc.C) {
+	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+		return nil, errors.New("boom")
+	}
+
+	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+
+	w, err := remoterelations.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	expected := []jujutesting.StubCall{
+		{"WatchRemoteApplications", nil},
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"SetRemoteApplicationStatus", []interface{}{
+			"mysql", "error", "cannot connect to external controller: opening facade to remote model: boom",
+		}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
@@ -642,8 +667,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
-	// Checks that when a remote relation goes away, and all units have
-	// left scope, the relation units worker is killed.
+	// Checks that when a remote relation goes away the relation units worker is killed.
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -657,62 +681,11 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 			break
 		}
 	}
-	// Not killed yet because we are still waiting for units to leave scope.
-	c.Assert(unitsWatcher.killed(), jc.IsFalse)
+	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
-
-	// We get an event with unit count indicating there are
-	// still units in scope.
-	s.stub.ResetCalls()
-	intPtr := func(i int) *int {
-		return &i
-	}
-	event := params.RemoteRelationChangeEvent{
-		RelationToken:    "token-db2:db django:db",
-		ApplicationToken: "token-django",
-		UnitCount:        intPtr(2),
-		DepartedUnits:    []int{1},
-	}
-	unitsWatcher.changes <- event
-	mac, err := apitesting.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
-	expected = []jujutesting.StubCall{
-		{"PublishRelationChange", []interface{}{
-			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
-				UnitCount:        intPtr(2),
-				DepartedUnits:    []int{1},
-				Macaroons:        macaroon.Slice{mac},
-				BakeryVersion:    bakery.LatestVersion,
-			},
-		}},
-	}
-	s.waitForWorkerStubCalls(c, expected)
-	c.Assert(unitsWatcher.killed(), jc.IsFalse)
-
-	// Next event is for last remaining unit.
-	s.stub.ResetCalls()
-	event.UnitCount = intPtr(1)
-	event.DepartedUnits = []int{0}
-	unitsWatcher.changes <- event
-	expected = []jujutesting.StubCall{
-		{"PublishRelationChange", []interface{}{
-			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
-				UnitCount:        intPtr(1),
-				DepartedUnits:    []int{0},
-				Macaroons:        macaroon.Slice{mac},
-				BakeryVersion:    bakery.LatestVersion,
-			},
-		}},
-	}
-	s.waitForWorkerStubCalls(c, expected)
-	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 }
 
 func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {

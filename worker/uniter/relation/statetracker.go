@@ -498,15 +498,21 @@ func (r *relationStateTracker) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 
 	for id, st := range r.stateMgr.(*stateManager).relationState {
-		relationer := r.relationers[id]
-		result[strconv.Itoa(id)] = map[string]interface{}{
+		report := map[string]interface{}{
 			"application-members": st.ApplicationMembers,
 			"members":             st.Members,
 			"is-peer":             r.isPeerRelation[id],
-			"dying":               relationer.IsDying(),
-			"endpoint":            relationer.RelationUnit().Endpoint().Name,
-			"relation":            relationer.RelationUnit().Relation().String(),
 		}
+
+		// Ensure that the relationer exists and is alive before reporting
+		// the information.
+		if relationer, ok := r.relationers[id]; ok && relationer != nil {
+			report["dying"] = relationer.IsDying()
+			report["endpoint"] = relationer.RelationUnit().Endpoint().Name
+			report["relation"] = relationer.RelationUnit().Relation().String()
+		}
+
+		result[strconv.Itoa(id)] = report
 	}
 
 	return result

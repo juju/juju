@@ -8,6 +8,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -86,7 +87,7 @@ type CharmDeployAPI interface {
 // OfferAPI represents the methods of the API the deploy command needs
 // for creating offers.
 type OfferAPI interface {
-	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
+	Offer(modelUUID, application string, endpoints []string, owner, offerName, descr string) ([]apiparams.ErrorResult, error)
 	GrantOffer(user, access string, offerURLs ...string) error
 }
 
@@ -137,6 +138,8 @@ type ApplicationAPI interface {
 
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
+
+	ApplicationsInfo([]names.ApplicationTag) ([]apiparams.ApplicationInfoResult, error)
 }
 
 // Bundle is a local version of the charm.Bundle interface, for test

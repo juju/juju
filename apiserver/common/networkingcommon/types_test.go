@@ -442,7 +442,6 @@ func (s *TypesSuite) TestAddressMatchingFromObservedConfig(c *gc.C) {
 		DeviceName:       "br-eno3-8",
 		ConfigMethod:     "static",
 		CIDRAddress:      "10.1.16.3/23",
-		DNSServers:       []string{},
 		IsDefaultGateway: false,
 		Origin:           network.OriginMachine,
 	}})

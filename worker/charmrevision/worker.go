@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 )
@@ -94,20 +95,27 @@ type revisionUpdateWorker struct {
 }
 
 func (ruw *revisionUpdateWorker) loop() error {
-	var delay time.Duration
 	for {
 		select {
 		case <-ruw.tomb.Dying():
 			return tomb.ErrDying
-		case <-ruw.config.Clock.After(delay):
-			ruw.config.Logger.Debugf("%v elapsed, performing work", delay)
+
+		// TODO (stickupkid): Instead of applying a large jitter, we should
+		// instead attempt to claim a lease to for the required period. Release
+		// the lease on the termination of the worker. Other HA nodes can
+		// update then claim the lease and run the checks.
+		case <-ruw.config.Clock.After(jitter(ruw.config.Period)):
+			ruw.config.Logger.Debugf("%v elapsed, performing work", ruw.config.Period)
 			err := ruw.config.RevisionUpdater.UpdateLatestRevisions()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
-		delay = ruw.config.Period
 	}
+}
+
+func jitter(period time.Duration) time.Duration {
+	return retry.ExpBackoff(period, period*2, 2, true)(0, 1)
 }
 
 // Kill is part of the worker.Worker interface.

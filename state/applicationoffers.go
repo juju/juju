@@ -17,7 +17,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
@@ -264,6 +264,22 @@ func (op *RemoveOfferOperation) Done(err error) error {
 		if err := remoteProxyOp.Done(nil); err != nil {
 			op.AddError(errors.Errorf("error finalising removal of consuming proxy %q: %v", remoteProxyOp.app.Name(), err))
 		}
+	}
+	// Now the offer is removed, delete any user permissions.
+	userPerms, err := op.offerStore.st.GetOfferUsers(op.offer.OfferUUID)
+	if err != nil {
+		op.AddError(errors.Errorf("error removing offer permissions: %v", err))
+		return nil
+	}
+	var removeOps []txn.Op
+	for userName := range userPerms {
+		user := names.NewUserTag(userName)
+		removeOps = append(removeOps,
+			removePermissionOp(applicationOfferKey(op.offer.OfferUUID), userGlobalKey(userAccessID(user))))
+	}
+	err = op.offerStore.st.db().RunTransaction(removeOps)
+	if err != nil {
+		op.AddError(errors.Errorf("error removing offer permissions: %v", err))
 	}
 	return nil
 }

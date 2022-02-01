@@ -167,10 +167,9 @@ type payloadTrackChange struct {
 
 // Prepare is part of the Change interface.
 func (change payloadTrackChange) Prepare(db Database) ([]txn.Op, error) {
-
 	unit := change.Doc.UnitID
-	units, closer := db.GetCollection(unitsC)
-	defer closer()
+	units, uCloser := db.GetCollection(unitsC)
+	defer uCloser()
 	unitOp, err := nsLife.notDeadOp(units, unit)
 	if errors.Cause(err) == errDeadOrGone {
 		return nil, errors.Errorf("unit %q no longer available", unit)
@@ -178,8 +177,8 @@ func (change payloadTrackChange) Prepare(db Database) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	payloads, closer := db.GetCollection(payloadsC)
-	defer closer()
+	payloads, pCloser := db.GetCollection(payloadsC)
+	defer pCloser()
 	payloadOp, err := nsPayloads.trackOp(payloads, change.Doc)
 	if err != nil {
 		return nil, errors.Trace(err)

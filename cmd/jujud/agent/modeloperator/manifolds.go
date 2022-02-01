@@ -5,7 +5,7 @@ package modeloperator
 
 import (
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/dependency"
 

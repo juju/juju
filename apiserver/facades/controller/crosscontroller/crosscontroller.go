@@ -91,7 +91,11 @@ func (api *CrossControllerAPI) ControllerInfo() (params.ControllerAPIInfoResults
 		results.Results[0].Error = apiservererrors.ServerError(err)
 		return results, nil
 	}
-	results.Results[0].Addresses = append([]string{publicDNSAddress}, addrs...)
+	if publicDNSAddress == "" {
+		results.Results[0].Addresses = addrs
+	} else {
+		results.Results[0].Addresses = append([]string{publicDNSAddress}, addrs...)
+	}
 	results.Results[0].CACert = caCert
 	return results, nil
 }

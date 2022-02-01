@@ -13,7 +13,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -200,7 +199,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		isTerminal := func(stdin interface{}) bool {
 			return t.isTerminal
 		}
-		cmd := newSSHCommand(t.hostChecker, isTerminal)
+		cmd := newSSHCommand(t.hostChecker, isTerminal, baseTestingRetryStrategy)
 
 		ctx, err := cmdtesting.RunCommand(c, cmd, t.args...)
 		if t.expectedErr != "" {
@@ -222,8 +221,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.setForceAPIv1(true)
-
-	ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), "0")
+	ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs := argsSpec{
@@ -235,7 +233,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
 	s.setForceAPIv1(false)
-	ctx, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), "0")
+	ctx, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
@@ -298,20 +296,11 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	m := s.Factory.MakeMachine(c, nil)
 	s.setKeys(c, m)
 
-	called := 0
-	attemptStarter := &callbackAttemptStarter{next: func() bool {
-		called++
-		return called < 2
-	}}
-	restorer := testing.PatchValue(&sshHostFromTargetAttemptStrategy, attemptStarter)
-	defer restorer.Restore()
-
 	// Ensure that the ssh command waits for a public (private with proxy=true)
 	// address, or the attempt strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	_, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), args...)
+	_, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), args...)
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
-	c.Assert(called, gc.Equals, 2)
 
 	if proxy {
 		s.setHostChecker(nil) // not used when proxy=true
@@ -319,21 +308,18 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		s.setHostChecker(validAddresses("0.private", "0.public"))
 	}
 
-	called = 0
-	attemptStarter.next = func() bool {
-		called++
-		if called > 1 {
+	retryStrategy := baseTestingRetryStrategy
+	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
+		if attempt > 1 {
 			s.setAddresses(c, m)
 		}
-		return true
 	}
 
-	_, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), args...)
+	_, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil, retryStrategy), args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, gc.Equals, 2)
 }
 
-func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
+func (s *SSHSuite) TestMaybeResolveLeaderUnitFromFullStatus(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -358,34 +344,36 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
 			},
 		},
 	}, nil)
+	statusFunc := func() (StatusAPI, error) { return statusAPI, nil }
+
+	leaderAPI := mocks.NewMockLeaderAPI(ctrl)
+	leaderAPI.EXPECT().BestAPIVersion().Return(2).AnyTimes()
+	leaderFunc := func() (LeaderAPI, error) { return leaderAPI, nil }
 
 	// Resolve principal application leader.
-	resolvedUnit, err := maybeResolveLeaderUnit(func() (StatusAPI, error) {
-		return statusAPI, nil
-	}, "loop/leader")
+	resolvedUnit, err := maybeResolveLeaderUnit(leaderFunc, statusFunc, "loop/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
 
 	// Resolve subordinate application leader.
-	resolvedUnit, err = maybeResolveLeaderUnit(func() (StatusAPI, error) {
-		return statusAPI, nil
-	}, "wormhole/leader")
+	resolvedUnit, err = maybeResolveLeaderUnit(leaderFunc, statusFunc, "wormhole/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "wormhole/1", gc.Commentf("expected leader to resolve to wormhole/1 for subordinate application"))
 }
 
-type callbackAttemptStarter struct {
-	next func() bool
-}
+func (s *SSHSuite) TestMaybeResolveLeaderUnitFromLeader(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-func (s *callbackAttemptStarter) Start() attempt {
-	return callbackAttempt{next: s.next}
-}
+	statusAPI := mocks.NewMockStatusAPI(ctrl)
+	statusFunc := func() (StatusAPI, error) { return statusAPI, nil }
 
-type callbackAttempt struct {
-	next func() bool
-}
+	leaderAPI := mocks.NewMockLeaderAPI(ctrl)
+	leaderAPI.EXPECT().BestAPIVersion().Return(3)
+	leaderAPI.EXPECT().Leader("loop").Return("loop/1", nil)
+	leaderFunc := func() (LeaderAPI, error) { return leaderAPI, nil }
 
-func (a callbackAttempt) Next() bool {
-	return a.next()
+	resolvedUnit, err := maybeResolveLeaderUnit(leaderFunc, statusFunc, "loop/leader")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
 }

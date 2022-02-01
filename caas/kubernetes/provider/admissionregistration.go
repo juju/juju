@@ -41,6 +41,9 @@ func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string, isLegacy 
 func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 	appName string, annotations k8sannotations.Annotation, cfgs []k8sspecs.K8sMutatingWebhook,
 ) (cleanUps []func(), err error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	for _, v := range cfgs {
 		obj := metav1.ObjectMeta{
 			Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
@@ -200,6 +203,9 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName str
 func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 	appName string, annotations k8sannotations.Annotation, cfgs []k8sspecs.K8sValidatingWebhook,
 ) (cleanUps []func(), err error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	for _, v := range cfgs {
 		obj := metav1.ObjectMeta{
 			Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),

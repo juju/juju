@@ -83,8 +83,8 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 	defer workertest.CleanKill(c, updater)
 
 	expServer := corenetwork.ProviderHostPorts{
-		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("localhost"), NetPort: 1234},
-		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
+		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 	}.HostPorts()
 
 	// SetAPIHostPorts should be called with the initial value.
@@ -136,8 +136,8 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
 		expServer := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("localhost"), NetPort: 1234},
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 		}.HostPorts()
 		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
@@ -178,8 +178,8 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
 		expServer := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("localhost"), NetPort: 1234},
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 		}.HostPorts()
 		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
@@ -193,8 +193,8 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
 		expServer := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("localhost"), NetPort: 1234},
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 		}.HostPorts()
 		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
@@ -274,8 +274,8 @@ LXC_BRIDGE="ignored"`[1:])
 	}
 
 	expServer1 := corenetwork.ProviderHostPorts{
-		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("localhost"), NetPort: 1234},
-		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
+		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 	}.HostPorts()
 
 	// SetAPIHostPorts should be called with the initial value, and
@@ -287,8 +287,8 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Assert(servers, gc.HasLen, 2)
 
 		expServerInit := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("10.0.3.3"), NetPort: 4321},
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("10.0.4.2"), NetPort: 4321},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.3.3").AsProviderAddress(), NetPort: 4321},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.4.2").AsProviderAddress(), NetPort: 4321},
 		}.HostPorts()
 		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
 	}
@@ -303,7 +303,7 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Assert(servers, gc.HasLen, 2)
 
 		expServerUpd := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("10.0.3.3"), NetPort: 4001},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.3.3").AsProviderAddress(), NetPort: 4001},
 		}.HostPorts()
 		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
 	}

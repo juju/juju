@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/url"
 
-	apicharmhub "github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 )
@@ -20,26 +19,11 @@ type Printer interface {
 // Log describes a log format function to output to.
 type Log = func(format string, params ...interface{})
 
-// InfoCommandAPI describes API methods required to execute the info command.
-type InfoCommandAPI interface {
-	Info(string, ...apicharmhub.InfoOption) (apicharmhub.InfoResponse, error)
-	Close() error
-}
-
-// FindCommandAPI describes API methods required to execute the find command.
-type FindCommandAPI interface {
-	Find(string, ...apicharmhub.FindOption) ([]apicharmhub.FindResponse, error)
-	Close() error
-}
-
-// DownloadCommandAPI describes API methods required to execute the download
-// command.
-type DownloadCommandAPI interface {
-	Info(context.Context, string, ...charmhub.InfoOption) (transport.InfoResponse, error)
+// CharmHubClient represents a CharmHub Client for making queries to the CharmHub API.
+type CharmHubClient interface {
+	URL() string
+	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
+	Find(ctx context.Context, query string, options ...charmhub.FindOption) ([]transport.FindResponse, error)
 	Refresh(context.Context, charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
-	Download(context.Context, *url.URL, string, ...charmhub.DownloadOption) error
-}
-
-type ModelConfigGetter interface {
-	ModelGet() (map[string]interface{}, error)
+	Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) error
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -271,37 +272,39 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	s.sendApplicationChange(c, "gitlab")
 
 	s.applicationGetter.appWatcher.KillErr(errors.New("splat"))
-	workertest.CheckKilled(c, s.applicationGetter.appWatcher)
-	workertest.CheckKilled(c, s.applicationGetter.allWatcher)
+	_ = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
+	_ = workertest.CheckKilled(c, s.applicationGetter.allWatcher)
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")
 }
 
 func (s *WorkerSuite) TestV2CharmSkipProcessing(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
 	s.charmGetter.charmInfo.Meta = &charm.Meta{}
 
-	s.sendApplicationChange(c, "gitlab")
+	w, err := caasfirewaller.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmGetter.CheckCallNames(c, "ApplicationCharmInfo")
-	s.lifeGetter.CheckNoCalls(c)
+	s.sendApplicationChange(c, "gitlab")
+	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
+
+	workertest.CleanKill(c, w)
+
+	s.expectNoLifeGetterCalls(c)
 }
 
 func (s *WorkerSuite) TestCharmNotFound(c *gc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
 
 	s.charmGetter.charmInfo = nil
 
 	s.sendApplicationChange(c, "gitlab")
+	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
 
-	s.charmGetter.CheckCallNames(c, "ApplicationCharmInfo")
-	s.lifeGetter.CheckNoCalls(c)
+	workertest.CleanKill(c, w)
+
+	s.expectNoLifeGetterCalls(c)
 }
 
 func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
@@ -311,7 +314,7 @@ func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
 
 	s.sendApplicationChange(c, "gitlab")
 	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
-	s.lifeGetter.CheckCallNames(c, "Life")
+	s.waitLifeGetterCalls(c, "Life")
 
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
 	s.charmGetter.charmInfo.Meta = &charm.Meta{}
@@ -323,11 +326,37 @@ func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
 }
 
 func (s *WorkerSuite) waitCharmGetterCalls(c *gc.C, names ...string) {
+	waitStubCalls(c, &s.charmGetter, names...)
+}
+
+func (s *WorkerSuite) waitLifeGetterCalls(c *gc.C, names ...string) {
+	waitStubCalls(c, &s.lifeGetter, names...)
+}
+
+type waitStub interface {
+	Calls() []testing.StubCall
+	CheckCallNames(c *gc.C, expected ...string) bool
+	ResetCalls()
+}
+
+func waitStubCalls(c *gc.C, stub waitStub, names ...string) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.charmGetter.Calls()) >= len(names) {
+		if len(stub.Calls()) >= len(names) {
 			break
 		}
 	}
-	s.charmGetter.CheckCallNames(c, names...)
-	s.charmGetter.ResetCalls()
+	stub.CheckCallNames(c, names...)
+	stub.ResetCalls()
+}
+
+func (s *WorkerSuite) expectNoLifeGetterCalls(c *gc.C) {
+	strategy := utils.AttemptStrategy{
+		Total: coretesting.ShortWait,
+		Delay: 10 * time.Millisecond,
+	}
+	for a := strategy.Start(); a.Next(); {
+		if len(s.lifeGetter.Calls()) > 0 {
+			c.Fatalf("unexpected lifegetter call")
+		}
+	}
 }

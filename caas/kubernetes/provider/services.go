@@ -44,6 +44,9 @@ func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sa
 // ensureK8sService ensures a k8s service resource.
 func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) {
 	cleanUp := func() {}
+	if k.namespace == "" {
+		return cleanUp, errNoNamespace
+	}
 
 	api := k.client().CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
@@ -65,6 +68,9 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) 
 
 // deleteService deletes a service resource.
 func (k *kubernetesClient) deleteService(serviceName string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	services := k.client().CoreV1().Services(k.namespace)
 	err := services.Delete(context.TODO(), serviceName, v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
@@ -76,6 +82,9 @@ func (k *kubernetesClient) deleteService(serviceName string) error {
 }
 
 func (k *kubernetesClient) deleteServices(appName string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	// Service API does not have `DeleteCollection` implemented, so we have to do it like this.
 	api := k.client().CoreV1().Services(k.namespace)
 	services, err := api.List(context.TODO(),

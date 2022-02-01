@@ -54,6 +54,12 @@ func (a Annotation) Add(key, value string) Annotation {
 	return a
 }
 
+// Remove deletes the key and its value from the annotation.
+func (a Annotation) Remove(key string) Annotation {
+	delete(a, key)
+	return a
+}
+
 // Merge merges an annotation with current one.
 func (a Annotation) Merge(as Annotation) Annotation {
 	for k, v := range as {

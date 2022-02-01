@@ -41,7 +41,7 @@ import (
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/prometheus/client_golang/prometheus"
@@ -841,7 +841,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	series := config.PreferredSeries(e.Config())
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
-		addresses:    network.NewProviderAddresses("localhost"),
+		addresses:    network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(),
 		machineId:    agent.BootstrapControllerId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -996,6 +996,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			queue := queue.NewOpQueue(clock.WallClock)
+
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:            statePool,
 				StateManagerProvider: &stubStateManagerProvider{},
@@ -1028,7 +1030,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return state.RestoreNotActive
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
-				RaftOpQueue:      queue.NewOpQueue(clock.WallClock),
+				RaftOpQueue:      queue,
 			})
 			if err != nil {
 				panic(err)
@@ -1040,7 +1042,14 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			abort := make(chan struct{})
 			go stateAuthenticator.Maintain(abort)
 			go func(apiServer *apiserver.Server) {
-				defer close(abort)
+				defer func() {
+					close(abort)
+
+					// Ensure we correctly kill the raft op queue when the api
+					// server goes down.
+					queue.Kill(nil)
+					_ = queue.Wait()
+				}()
 				_ = apiServer.Wait()
 			}(estate.apiServer)
 		}
@@ -1211,7 +1220,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	// Add the addresses we want to see in the machine doc. This means both
 	// IPv4 and IPv6 loopback, as well as the DNS name.
-	addrs := network.NewProviderAddresses(idString+".dns", "127.0.0.1", "::1")
+	addrs := network.NewMachineAddresses([]string{idString + ".dns", "127.0.0.1", "::1"}).AsProviderAddresses()
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
@@ -1475,16 +1484,16 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []ins
 				Disabled:         i == 2,
 				NoAutoStart:      i%2 != 0,
 				Addresses: network.ProviderAddresses{
-					network.NewProviderAddress(
+					network.NewMachineAddress(
 						fmt.Sprintf("0.%d.0.%d", (i+1)*10+idIndex, estate.maxAddr+2),
 						network.WithCIDR(fmt.Sprintf("0.%d.0.0/24", (i+1)*10)),
 						network.WithConfigType(network.ConfigDHCP),
-					),
+					).AsProviderAddress(),
 				},
-				DNSServers: network.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-				GatewayAddress: network.NewProviderAddress(
+				DNSServers: network.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
+				GatewayAddress: network.NewMachineAddress(
 					fmt.Sprintf("0.%d.0.1", (i+1)*10+idIndex),
-				),
+				).AsProviderAddress(),
 				Origin: network.OriginProvider,
 			}
 		}

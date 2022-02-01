@@ -57,7 +57,7 @@ func (inst *environInstance) Addresses(ctx context.ProviderCallContext) (corenet
 	res := make([]corenetwork.ProviderAddress, 0, len(inst.base.Guest.Net))
 	for _, net := range inst.base.Guest.Net {
 		for _, ip := range net.IpAddress {
-			res = append(res, corenetwork.NewProviderAddress(ip))
+			res = append(res, corenetwork.NewMachineAddress(ip).AsProviderAddress())
 		}
 	}
 	return res, nil

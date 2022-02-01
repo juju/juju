@@ -14,7 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -912,7 +912,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	netCfg.EXPECT().AddNetworkConfig(network.InterfaceInfos{{
 		InterfaceName: "eth0",
 		MACAddress:    "mac-address",
-		Addresses:     network.NewProviderAddresses("10.10.10.1"),
+		Addresses:     network.NewMachineAddresses([]string{"10.10.10.1"}).AsProviderAddresses(),
 		ConfigType:    network.ConfigDHCP,
 		Origin:        network.OriginProvider,
 	}}).Return(nil)

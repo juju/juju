@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -20,8 +23,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	jujussh "github.com/juju/juju/network/ssh"
 )
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statusapi_mock.go github.com/juju/juju/cmd/juju/commands StatusAPI
 
 var usageSSHSummary = `
 Initiates an SSH session or executes a command on a Juju machine or container.`[1:]
@@ -120,15 +121,33 @@ For k8s controller:
 See also: 
     scp`
 
+const (
+	// SSHRetryDelay is the time to wait for an SSH connection to be established
+	// to a single endpoint of a target.
+	SSHRetryDelay = 500 * time.Millisecond
+
+	// SSHTimeout is the time to wait for before giving up trying to establish
+	// an SSH connection to a target, after retrying.
+	SSHTimeout = 5 * time.Second
+)
+
 func newSSHCommand(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
+	retryStrategy retry.CallArgs,
 ) cmd.Command {
 	c := &sshCommand{
-		hostChecker: hostChecker,
-		isTerminal:  isTerminal,
+		hostChecker:   hostChecker,
+		isTerminal:    isTerminal,
+		retryStrategy: retryStrategy,
 	}
 	return modelcmd.Wrap(c)
+}
+
+var defaultSSHRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: SSHTimeout,
+	Delay:       SSHRetryDelay,
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -144,6 +163,8 @@ type sshCommand struct {
 	hostChecker jujussh.ReachableChecker
 	isTerminal  func(interface{}) bool
 	pty         autoBoolValue
+
+	retryStrategy retry.CallArgs
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -176,6 +197,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 	c.provider.setTarget(args[0])
 	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
+	c.provider.setRetryStrategy(c.retryStrategy)
 	return nil
 }
 
@@ -203,6 +225,8 @@ type sshProvider interface {
 
 	getArgs() []string
 	setArgs(Args []string)
+
+	setRetryStrategy(retry.CallArgs)
 }
 
 // Run resolves c.Target to a machine, to the address of a i
@@ -282,19 +306,42 @@ type StatusAPI interface {
 	Close() error
 }
 
-func maybeResolveLeaderUnit(statusAPIGetter func() (StatusAPI, error), target string) (string, error) {
+type statusAPIGetterFunc func() (StatusAPI, error)
+
+// LeaderAPI is implemented by types that can query for a Leader based on
+// application name.
+type LeaderAPI interface {
+	BestAPIVersion() int
+	Leader(string) (string, error)
+}
+
+type leaderAPIGetterFunc func() (LeaderAPI, error)
+
+func maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, statusAPIGetter statusAPIGetterFunc, target string) (string, error) {
 	if !strings.HasSuffix(target, "/leader") {
 		return target, nil
 	}
 
-	api, err := statusAPIGetter()
+	app := strings.Split(target, "/")[0]
+
+	lapi, err := leaderAPIGetter()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer func() { _ = api.Close() }()
+	// Do not call lapi.Close() here, it's used again
+	// upstream from here.
+	if lapi.BestAPIVersion() > 2 {
+		// Leader() is part of facade version 3.
+		return lapi.Leader(app)
+	}
 
-	app := strings.Split(target, "/")[0]
-	res, err := api.Status([]string{app})
+	sapi, err := statusAPIGetter()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer func() { _ = sapi.Close() }()
+
+	res, err := sapi.Status([]string{app})
 	if err != nil {
 		return "", errors.Annotatef(err, "unable to resolve leader unit for application %q", app)
 	}

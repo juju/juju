@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
 )
 
 // Request holds a single download request.
@@ -45,7 +44,7 @@ type Status struct {
 // `openBlob` to actually pull the remote data.
 func StartDownload(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) *Download {
 	if openBlob == nil {
-		openBlob = NewHTTPBlobOpener(utils.NoVerifySSLHostnames)
+		openBlob = NewHTTPBlobOpener(false)
 	}
 	dl := &Download{
 		done:     make(chan Status, 1),

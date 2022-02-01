@@ -151,7 +151,7 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	inputAddresses := corenetwork.NewProviderAddresses(
+	inputAddresses := corenetwork.NewMachineAddresses([]string{
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
@@ -165,15 +165,15 @@ LXC_BRIDGE="ignored"`[1:])
 		"192.168.122.1", // filtered (from virbr0 bridge, 192.168.122.1)
 		"192.168.123.42",
 		"localhost", // unfiltered because it isn't an IP address
-	)
-	filteredAddresses := corenetwork.NewProviderAddresses(
+	}).AsProviderAddresses()
+	filteredAddresses := corenetwork.NewMachineAddresses([]string{
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
 		"10.0.6.10",
 		"192.168.123.42",
 		"localhost",
-	)
+	}).AsProviderAddresses()
 	c.Assert(network.FilterBridgeAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
 }
 

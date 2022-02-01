@@ -185,11 +185,11 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() error {
-	watcher, err := u.config.Facade.WatchModelMachines()
+	watch, err := u.config.Facade.WatchModelMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.catacomb.Add(watcher); err != nil {
+	if err := u.catacomb.Add(watch); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -204,7 +204,7 @@ func (u *updaterWorker) loop() error {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
-		case ids, ok := <-watcher.Changes():
+		case ids, ok := <-watch.Changes():
 			if !ok {
 				return errors.New("machines watcher closed")
 			}
@@ -235,7 +235,7 @@ func (u *updaterWorker) loop() error {
 
 func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
-	// and remove it from its poll group if it now dead.
+	// and remove it from its poll group if it is now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
 		var isDead bool
 		if err := entry.m.Refresh(); err != nil {
@@ -363,8 +363,19 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 	}
 
 	netList, err := u.config.Environ.NetworkInterfaces(u.callContextFunc(ctx), instList)
-	if err != nil && !(errors.IsNotSupported(errors.Cause(err)) || isPartialOrNoInstancesError(err)) {
-		return errors.Trace(err)
+	if err != nil && !isPartialOrNoInstancesError(err) {
+		// NOTE(achilleasa): 2022-24-01: all existing providers (with
+		// the exception of "manual" which we don't care about in this
+		// context) implement the NetworkInterfaces method.
+		//
+		// This error is meant as a hint to folks working on new
+		// providers in the future to ensure that they implement this
+		// method.
+		if errors.IsNotSupported(errors.Cause(err)) {
+			return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
+		}
+
+		return errors.Annotate(err, "enumerating network interface list for instances")
 	}
 
 	for idx, info := range infoList {
@@ -415,7 +426,7 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 
 // processProviderInfo updates an entry's machine status and set of provider
 // addresses based on the information collected from the provider. It returns
-// back the *instance* status and the number of provider addresses currently
+// the *instance* status and the number of provider addresses currently
 // known for the machine.
 func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerIfaceList network.InterfaceInfos) (status.Status, int, error) {
 	curStatus, err := entry.m.InstanceStatus()
@@ -466,23 +477,10 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 }
 
 // syncProviderAddresses updates the provider addresses for this entry's machine
-// using either the provider interface list or falling back to the collected
-// instance information.
+// using either the provider sourced interface list.
 //
-// The call returns back the count of provider addresses for the machine.
+// The call returns the count of provider addresses for the machine.
 func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo instances.Instance, providerIfaceList network.InterfaceInfos) (int, error) {
-	// If the provider does not support NetworkInterfaces, we will get an
-	// empty providerIfaceList; if that's the case, populate a minimal
-	// interface list from the instance info
-	// the info we need from the instance.
-	if len(providerIfaceList) == 0 {
-		addrs, err := instInfo.Addresses(u.callContextFunc(stdcontext.Background()))
-		if err != nil {
-			return -1, errors.Trace(err)
-		}
-		providerIfaceList = fakeInterfacesFromInstanceAddrs(addrs)
-	}
-
 	addrs, modified, err := entry.m.SetProviderNetworkConfig(providerIfaceList)
 	if err != nil {
 		return -1, errors.Trace(err)
@@ -493,28 +491,9 @@ func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo in
 	return len(addrs), nil
 }
 
-// fakeInterfacesFromInstanceAddrs serves a fall-back for providers that don't
-// provide us with network interface information. For these providers we fetch
-// the reported instance addresses and coerce them into a list of InterfaceInfo
-// that we can send to the instancepoller facade.
-func fakeInterfacesFromInstanceAddrs(addrs []network.ProviderAddress) network.InterfaceInfos {
-	instIfaceList := make(network.InterfaceInfos, len(addrs))
-	for i, addr := range addrs {
-		instIfaceList[i].DeviceIndex = i
-		switch addr.Scope {
-		case network.ScopePublic:
-			instIfaceList[i].ShadowAddresses = append(instIfaceList[i].ShadowAddresses, addr)
-		default:
-			instIfaceList[i].Addresses = append(instIfaceList[i].Addresses, addr)
-		}
-	}
-
-	return instIfaceList
-}
-
 func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *pollGroupEntry, curProviderStatus, curMachineStatus status.Status, providerAddrCount int) {
 	if curProviderStatus == status.Allocating || curProviderStatus == status.Pending {
-		// Keep the machine in the short poll group until it settles
+		// Keep the machine in the short poll group until it settles.
 		entry.bumpShortPollInterval(u.config.Clock)
 		return
 	}

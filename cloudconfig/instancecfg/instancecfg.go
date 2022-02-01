@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
@@ -477,6 +477,10 @@ func (cfg *InstanceConfig) AgentConfig(
 		Values:            cfg.AgentEnvironment,
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
+	}
+	if cfg.Controller != nil {
+		configParams.AgentLogfileMaxBackups = cfg.Controller.Config.AgentLogfileMaxBackups()
+		configParams.AgentLogfileMaxSizeMB = cfg.Controller.Config.AgentLogfileMaxSizeMB()
 	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)

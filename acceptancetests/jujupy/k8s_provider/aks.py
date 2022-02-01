@@ -19,6 +19,7 @@
 
 from __future__ import print_function
 
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -89,6 +90,18 @@ class AKS(Base):
 
     def _ensure_cluster_stack(self):
         self.provision_aks()
+
+    def add_k8s(self, is_local=False, juju_home=None, storage=None):
+        if storage is None:
+            storageclasses = json.loads(self.kubectl('get', 'storageclass', '-o', 'json'))
+            for sc in storageclasses.get('items', []):
+                annotations = sc['metadata'].get('annotations', None)
+                if annotations is None:
+                    continue
+                if annotations.get('storageclass.kubernetes.io/is-default-class') == 'true':
+                    storage = sc['metadata']['name']
+                    break
+        super().add_k8s(is_local, juju_home, storage)
 
     def _tear_down_substrate(self):
         logger.info("Deleting the AKS instance {0}".format(self.cluster_name))

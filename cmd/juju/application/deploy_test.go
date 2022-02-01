@@ -32,8 +32,8 @@ import (
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/fs"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/fs"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -869,6 +869,7 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		"deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"apache2",
 		[]string{"apache-website", "website-cache"},
+		"admin",
 		"my-offer",
 		"",
 	).Returns([]params.ErrorResult{}, nil)
@@ -877,6 +878,7 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		"deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"apache2",
 		[]string{"apache-website"},
+		"admin",
 		"my-other-offer",
 		"",
 	).Returns([]params.ErrorResult{}, nil)
@@ -2820,8 +2822,8 @@ func (f *fakeDeployAPI) ScaleApplication(p application.ScaleApplicationParams) (
 	}, nil
 }
 
-func (f *fakeDeployAPI) Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]params.ErrorResult, error) {
-	results := f.MethodCall(f, "Offer", modelUUID, application, endpoints, offerName, descr)
+func (f *fakeDeployAPI) Offer(modelUUID, application string, endpoints []string, owner, offerName, descr string) ([]params.ErrorResult, error) {
+	results := f.MethodCall(f, "Offer", modelUUID, application, endpoints, owner, offerName, descr)
 	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
 }
 

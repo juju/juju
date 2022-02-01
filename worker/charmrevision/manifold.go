@@ -68,7 +68,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // NewAPIFacade returns a Facade backed by the supplied APICaller.
-func NewAPIFacade(apiCaller base.APICaller) (Facade, error) {
+var NewAPIFacade = newAPIFacade
+
+func newAPIFacade(apiCaller base.APICaller) (Facade, error) {
 	return charmrevisionupdater.NewClient(apiCaller), nil
 }
 

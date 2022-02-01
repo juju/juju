@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -104,13 +104,13 @@ var fakeInterfaceInfo = corenetwork.InterfaceInfo{
 	MACAddress:    "aa:bb:cc:dd:ee:ff",
 	InterfaceName: "dummy0",
 	Addresses: corenetwork.ProviderAddresses{
-		corenetwork.NewProviderAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")),
+		corenetwork.NewMachineAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")).AsProviderAddress(),
 	},
-	GatewayAddress: corenetwork.NewProviderAddress("0.1.2.1"),
+	GatewayAddress: corenetwork.NewMachineAddress("0.1.2.1").AsProviderAddress(),
 	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
 	// detected and the latter populated by parsing the fake resolv.conf created
 	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
-	DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy"),
+	DNSServers:       corenetwork.NewMachineAddresses([]string{"ns1.dummy"}).AsProviderAddresses(),
 	DNSSearchDomains: nil,
 }
 

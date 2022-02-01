@@ -12,14 +12,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/retry"
+	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
@@ -42,8 +41,10 @@ type sshMachine struct {
 	knownHostsPath  string
 	hostChecker     jujussh.ReachableChecker
 	forceAPIv1      bool
+	retryStrategy   retry.CallArgs
 
-	statusAPIGetter func() (StatusAPI, error)
+	statusAPIGetter statusAPIGetterFunc
+	leaderAPIGetter leaderAPIGetterFunc
 }
 
 const jujuSSHClientForceAPIv1 = "JUJU_SSHCLIENT_API_V1"
@@ -58,6 +59,7 @@ type sshAPIClient interface {
 	PrivateAddress(target string) (string, error)
 	AllAddresses(target string) ([]string, error)
 	PublicKeys(target string) ([]string, error)
+	Leader(string) (string, error)
 	Proxy() (bool, error)
 	Close() error
 }
@@ -88,42 +90,8 @@ func (t *resolvedTarget) isAgent() bool {
 	return targetIsAgent(t.entity)
 }
 
-// attemptStarter is an interface corresponding to utils.AttemptStrategy
-//
-// TODO(katco): 2016-08-09: lp:1611427
-type attemptStarter interface {
-	Start() attempt
-}
-
-type attempt interface {
-	Next() bool
-}
-
-// TODO(katco): 2016-08-09: lp:1611427
-type attemptStrategy utils.AttemptStrategy
-
-func (s attemptStrategy) Start() attempt {
-	// TODO(katco): 2016-08-09: lp:1611427
-	return utils.AttemptStrategy(s).Start()
-}
-
-const (
-	// SSHRetryDelay is the time to wait for an SSH connection to be established
-	// to a single endpoint of a target.
-	SSHRetryDelay = 500 * time.Millisecond
-
-	// SSHTimeout is the time to wait for before giving up trying to establish
-	// an SSH connection to a target, after retrying.
-	SSHTimeout = 5 * time.Second
-
-	// SSHPort is the TCP port used for SSH connections.
-	SSHPort = 22
-)
-
-var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
-	Total: SSHTimeout,
-	Delay: SSHRetryDelay,
-}
+// SSHPort is the TCP port used for SSH connections.
+const SSHPort = 22
 
 func (c *sshMachine) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
@@ -163,6 +131,10 @@ func (c *sshMachine) setHostChecker(checker jujussh.ReachableChecker) {
 	c.hostChecker = checker
 }
 
+func (c *sshMachine) setRetryStrategy(retryStrategy retry.CallArgs) {
+	c.retryStrategy = retryStrategy
+}
+
 // initRun initializes the API connection if required, and determines
 // if SSH proxying is required. It must be called at the top of the
 // command's Run method.
@@ -192,11 +164,11 @@ func (c *sshMachine) initRun(mc ModelCommand) (err error) {
 // end of the command's Run (i.e. as a defer).
 func (c *sshMachine) cleanupRun() {
 	if c.knownHostsPath != "" {
-		os.Remove(c.knownHostsPath)
+		_ = os.Remove(c.knownHostsPath)
 		c.knownHostsPath = ""
 	}
 	if c.apiClient != nil {
-		c.apiClient.Close()
+		_ = c.apiClient.Close()
 		c.apiClient = nil
 	}
 }
@@ -254,7 +226,7 @@ func (c *sshMachine) ssh(ctx Context, enablePty bool, target *resolvedTarget) er
 	return cmd.Run()
 }
 
-func (c *sshMachine) copy(ctx Context) error {
+func (c *sshMachine) copy(_ Context) error {
 	args, targets, err := c.expandSCPArgs(c.getArgs())
 	if err != nil {
 		return err
@@ -342,7 +314,7 @@ func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, erro
 	if err != nil {
 		return "", errors.Annotate(err, "creating known hosts file")
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	c.knownHostsPath = f.Name() // Record for later deletion
 	if err := knownHosts.write(f); err != nil {
 		return "", errors.Trace(err)
@@ -426,6 +398,11 @@ func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 			return mc.NewAPIClient()
 		}
 	}
+	if c.leaderAPIGetter == nil {
+		c.leaderAPIGetter = func() (LeaderAPI, error) {
+			return c.apiClient, nil
+		}
+	}
 
 	if c.apiClient != nil {
 		return nil
@@ -448,7 +425,7 @@ func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 func (c *sshMachine) resolveTarget(target string) (*resolvedTarget, error) {
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.statusAPIGetter, target)
+	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, c.statusAPIGetter, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -503,25 +480,32 @@ func (c *sshMachine) resolveWithRetry(target resolvedTarget, getAddress addressG
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
-	var err error
 	out := &target
-	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
+
+	callArgs := c.retryStrategy
+	callArgs.Func = func() error {
+		var err error
 		out.host, err = getAddress(out.entity)
 		if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
 			// Catch issues like passing invalid machine/unit IDs early.
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 
 		if err != nil {
 			logger.Debugf("getting target %q address(es) failed: %v (retrying)", out.entity, err)
-			continue
+			return errors.Trace(err)
 		}
 
 		logger.Debugf("using target %q address %q", out.entity, out.host)
-		return out, nil
+		return nil
 	}
+	err := retry.Call(callArgs)
 
-	return nil, errors.Trace(err)
+	if err != nil {
+		err = retry.LastError(err)
+		return nil, errors.Trace(err)
+	}
+	return out, nil
 }
 
 // legacyAddressGetter returns the preferred public or private address of the
@@ -656,7 +640,7 @@ func (b *knownHostsBuilder) write(w io.Writer) error {
 			return errors.Annotate(err, "writing known hosts file")
 		}
 	}
-	bufw.Flush()
+	_ = bufw.Flush()
 	return nil
 }
 

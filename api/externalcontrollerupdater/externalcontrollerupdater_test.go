@@ -4,6 +4,7 @@
 package externalcontrollerupdater_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -65,14 +66,14 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfoError(c *gc.C
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ExternalControllerInfoResults)) = params.ExternalControllerInfoResults{
 			[]params.ExternalControllerInfoResult{{
-				Error: &params.Error{Message: "boom"},
+				Error: &params.Error{Code: params.CodeNotFound},
 			}},
 		}
 		return nil
 	})
 	client := externalcontrollerupdater.New(apiCaller)
 	info, err := client.ExternalControllerInfo(coretesting.ControllerTag.Id())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(info, gc.IsNil)
 }
 

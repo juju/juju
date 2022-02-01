@@ -10,7 +10,7 @@ import (
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	rcmd "github.com/juju/juju/cmd/juju/romulus"

@@ -141,7 +141,7 @@ func (s *controllerSuite) TestWaitForAgentCancelled(c *gc.C) {
 		cancel()
 		bootstrapCtx := modelcmd.BootstrapContext(stdCtx, ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-		c.Check(err, gc.ErrorMatches, `contacting controller \(cancelled\): .*`)
+		c.Check(err, gc.ErrorMatches, `unable to contact api server after \d+ attempts: contacting controller \(cancelled\): .*`)
 	})
 }
 

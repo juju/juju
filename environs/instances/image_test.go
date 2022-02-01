@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -359,7 +358,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		dataSource := simplestreams.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              "some-url",
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 		})
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), dataSource, cons)

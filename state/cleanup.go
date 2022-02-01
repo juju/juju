@@ -117,6 +117,36 @@ func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...int
 	}
 }
 
+type cancelCleanupOpsArg struct {
+	kind    cleanupKind
+	pattern bson.DocElem
+}
+
+func (st *State) cancelCleanupOps(args ...cancelCleanupOpsArg) ([]txn.Op, error) {
+	col, closer := st.db().GetCollection(cleanupsC)
+	defer closer()
+	patterns := make([]bson.D, len(args))
+	for i, arg := range args {
+		patterns[i] = bson.D{
+			arg.pattern,
+			{Name: "kind", Value: arg.kind},
+		}
+	}
+	var docs []cleanupDoc
+	if err := col.Find(bson.D{{Name: "$or", Value: patterns}}).All(&docs); err != nil {
+		return nil, errors.Annotate(err, "cannot get cleanups docs")
+	}
+	var ops []txn.Op
+	for _, doc := range docs {
+		ops = append(ops, txn.Op{
+			C:      cleanupsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return ops, nil
+}
+
 // NeedsCleanup returns true if documents previously marked for removal exist.
 func (st *State) NeedsCleanup() (bool, error) {
 	cleanups, closer := st.db().GetCollection(cleanupsC)
@@ -616,6 +646,9 @@ func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw) (err e
 	default:
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
+	if err := st.removeOffersForDyingModel(); err != nil {
+		return err
+	}
 	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
 		return err
 	}
@@ -673,6 +706,28 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
 		if len(errs) != 0 {
 			logger.Warningf("operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (st *State) removeOffersForDyingModel() (err error) {
+	// This won't miss offers, because a Dying model cannot have offers
+	// added to it. But we do have to remove the offers themselves via
+	// individual transactions, because they could be in any state at all.
+	offers := NewApplicationOffers(st)
+	allOffers, err := offers.AllApplicationOffers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, offer := range allOffers {
+		// Remove with force so that any connections get cleaned up.
+		err := offers.Remove(offer.OfferName, true)
+		if err != nil {
+			logger.Warningf("operational errors removing application offer %v for dying model %v: %v", offer.OfferName, st.ModelUUID(), err)
 		}
 		if err != nil {
 			return errors.Trace(err)

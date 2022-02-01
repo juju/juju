@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
+	"github.com/juju/mutex/v2"
 	"github.com/kr/pretty"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"

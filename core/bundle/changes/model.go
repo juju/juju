@@ -443,10 +443,6 @@ type inferenceEngine struct {
 }
 
 func newInference(m *Model, data *charm.BundleData) *inferenceEngine {
-	log := m.logger
-	if log == nil {
-		log = &noOpLogger{}
-	}
 	appUnits := make(map[string][]Unit)
 	// The initialMachines starts by including all the targets defined
 	// by the user for the machine map.
@@ -472,7 +468,7 @@ func newInference(m *Model, data *charm.BundleData) *inferenceEngine {
 		appUnits:        appUnits,
 		appPlacements:   make(map[string][]string),
 		initialMachines: initialMachines,
-		logger:          log,
+		logger:          m.logger,
 	}
 }
 
@@ -584,7 +580,3 @@ mainloop:
 		}
 	}
 }
-
-type noOpLogger struct{}
-
-func (*noOpLogger) Tracef(string, ...interface{}) {}

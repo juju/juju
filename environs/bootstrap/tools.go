@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"

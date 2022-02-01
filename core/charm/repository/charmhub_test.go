@@ -18,10 +18,12 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository/mocks"
+	"github.com/juju/juju/testcharms"
 )
 
 type charmHubRepositorySuite struct {
 	testing.IsolationSuite
+
 	client *mocks.MockCharmHubClient
 	logger *mocks.MockLogger
 }
@@ -364,6 +366,61 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL, gc.DeepEquals, resolvedURL)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
+}
+
+func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl := charm.MustParseURL("ch:wordpress")
+	requestedOrigin := corecharm.Origin{
+		Source: "charm-hub",
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+		Channel: &charm.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+	}
+
+	resolvedURL, err := url.Parse("ch:amd64/focal/wordpress-42")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create test archive and inject a manifest file.
+	pathToArchive := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
+	err = testcharms.InjectFilesToCharmArchive(pathToArchive, map[string]string{
+		"manifest.yaml": `
+bases:
+- architectures:
+  - amd64
+  channel: '20.04'
+  name: ubuntu
+charmcraft-started-at: '2021-05-07T05:37:27.320518Z'
+charmcraft-version: 0.10.0
+`[1:],
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	resolvedArchive, err := charm.ReadCharmArchive(pathToArchive)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectCharmRefreshInstallOneFromChannel(c)
+	s.client.EXPECT().DownloadAndRead(context.TODO(), resolvedURL, gomock.Any()).Return(resolvedArchive, nil)
+
+	repo := NewCharmHubRepository(s.logger, s.client)
+
+	got, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL: curl,
+		Origin:   requestedOrigin,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.HasLen, 1)
+	c.Assert(got[0].Meta.Name, gc.Equals, "dummy")
+	c.Assert(got[0].Config.Options["title"], gc.Not(gc.IsNil))
+	c.Assert(got[0].Manifest.Bases, gc.HasLen, 1)
+	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "charmCHARMcharmCHARMcharmCHARM01", gc.Commentf("expected origin to be resolved"))
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *gc.C) {

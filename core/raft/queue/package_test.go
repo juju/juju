@@ -24,6 +24,10 @@ func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/raft/queue")
 
 	// This package brings in nothing else from outside juju/juju/core
-	c.Assert(found, jc.SameContents, []string{})
+	c.Assert(found, jc.SameContents, []string{
+		"core/globalclock",
+		"core/lease",
+		"core/raftlease",
+	})
 
 }

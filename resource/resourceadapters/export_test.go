@@ -36,6 +36,7 @@ func NewResourceOpenerForTest(
 	unit Unit,
 	application Application,
 	fn func(st ResourceOpenerState) ResourceRetryClientGetter,
+	maxRequests int,
 ) *ResourceOpener {
 	return &ResourceOpener{
 		st:                st,
@@ -44,5 +45,8 @@ func NewResourceOpenerForTest(
 		unit:              unit,
 		application:       application,
 		newResourceOpener: fn,
+		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
+			return NewResourceDownloadLimiter(maxRequests, 0)
+		},
 	}
 }

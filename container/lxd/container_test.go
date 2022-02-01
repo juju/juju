@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/osarch"
 	gc "gopkg.in/check.v1"
@@ -243,7 +243,7 @@ func (s *containerSuite) TestContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []corenetwork.ProviderAddress{
-		corenetwork.NewProviderAddress("10.0.8.173", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
+		corenetwork.NewMachineAddress("10.0.8.173", corenetwork.WithScope(corenetwork.ScopeCloudLocal)).AsProviderAddress(),
 	}
 	c.Check(addrs, gc.DeepEquals, expected)
 }
