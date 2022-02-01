@@ -33,7 +33,6 @@ from time import sleep
 from jujupy.client import temp_bootstrap_env
 from jujupy.utility import ensure_dir, until_timeout
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -169,11 +168,13 @@ class Base(object):
         # returns the newly added CAAS model.
         return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
 
-    def add_k8s(self, is_local=False, juju_home=None):
+    def add_k8s(self, is_local=False, juju_home=None, storage=None):
         args = (
             self.cloud_name,
         )
         juju_home = juju_home or self.client.env.juju_home
+        if storage is not None:
+            args += ('--storage', storage)
         if is_local:
             args += (
                 '--local',
@@ -209,15 +210,13 @@ class Base(object):
         if self.enable_rbac and not rbac_enabled_in_cluster:
             raise Exception("RBAC is required but it's NOT enabled in the cluster")
         if not self.enable_rbac and rbac_enabled_in_cluster:
-            raise Exception("RBAC is unexpectedly enabled in the cluster")
+            raise Exception("RBAC is NOT required but it's enabled in the cluster")
 
-    def check_rbac_enable(self):
-        timeout = 180
-        cmd = ['/bin/sh', '-c', f'{" ".join(self._kubectl_bin)} run --timeout={timeout}s tmp-shell --restart=Never --rm -i --tty --image bitnami/kubectl:latest -- auth can-i create pods; exit 0']
-        o = self.sh(*cmd, timeout=timeout)
-        logger.info('checking RBAC by run "%s" -> %s', ' '.join(cmd), o)
-        # The default SA in the default namespace does NOT have permission to create pods when RBAC is enabled.
-        return 'no' in o.split()
+    def check_rbac_enable(self, timeout=10):
+        cmd = [f'{" ".join(self._kubectl_bin)} auth can-i create pods --as=poorguy']
+        output = self.sh(*cmd, timeout=timeout, no_check=True)
+        logger.info('checking RBAC by run "%s" -> %s', ' '.join(cmd), output)
+        return 'no' in [item.strip() for item in output.split()]
 
     def kubectl(self, *args):
         return self.sh(*(self._kubectl_bin + args))
@@ -234,9 +233,11 @@ class Base(object):
         cm['data'] = data
         self.kubectl_apply(json.dumps(cm))
 
-    def sh(self, *args, shell=False, ignore_quote=False, timeout=None):
+    def sh(self, *args, shell=False, ignore_quote=False, timeout=None, no_check=False):
         args = [quote(str(arg)) if shell and not ignore_quote else str(arg) for arg in args]
         logger.debug('sh -> %s', ' '.join(args))
+        if no_check:
+            return subprocess.getoutput(' '.join(args))
         return subprocess.check_output(
             # cmd should be a list of str.
             args,

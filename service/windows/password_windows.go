@@ -12,8 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
+	"github.com/juju/retry"
+	"github.com/juju/utils/v3"
 )
 
 // netUserSetInfo is used to change the password on a user.
@@ -46,7 +48,7 @@ var resetJujudPassword = func() (string, error) {
 		return "", errors.Annotate(err, "could not start service manager")
 	}
 
-	err = ensureJujudPasswordHelper("jujud", newPassword, mgr, &PasswordChanger{})
+	err = ensureJujudPasswordHelper("jujud", newPassword, mgr, &PasswordChanger{RetryStrategy: changeServicePasswordRetryStrategy})
 	if err != nil {
 		return "", errors.Annotate(err, "could not change password")
 	}
@@ -69,10 +71,10 @@ func ensureJujudPasswordHelper(username, newPassword string, mgr ServiceManager,
 	return nil
 }
 
-// TODO(katco): 2016-08-09: lp:1611427
-var changeServicePasswordAttempts = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 6 * time.Second,
+var changeServicePasswordRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: 5 * time.Second,
+	Delay:       6 * time.Second,
 }
 
 // passwordChangerHelpers exists only for making the testing of the ensureJujudPasswordHelper function easier
@@ -85,7 +87,9 @@ type PasswordChangerHelpers interface {
 }
 
 // passwordChanger implements passwordChangerHelpers
-type PasswordChanger struct{}
+type PasswordChanger struct {
+	RetryStrategy retry.CallArgs
+}
 
 // changeUserPasswordLocalhost changes the password for username on localhost
 func (c *PasswordChanger) ChangeUserPasswordLocalhost(newPassword string) error {
@@ -105,7 +109,6 @@ func (c *PasswordChanger) ChangeUserPasswordLocalhost(newPassword string) error 
 	}
 
 	info := netUserSetPassword{passp}
-
 	err = netUserSetInfo(serverp, userp, changePasswordLevel, &info, nil)
 	if err != nil {
 		return errors.Trace(err)
@@ -132,19 +135,15 @@ func (c *PasswordChanger) ChangeJujudServicesPassword(newPassword string, mgr Se
 			continue
 		}
 		logger.Warningf("resetting password on %s", svc)
-		modifiedService := false
-		var err error
-		for attempt := changeServicePasswordAttempts.Start(); attempt.Next(); {
-			err = mgr.ChangeServicePassword(svc, newPassword)
-			if err != nil {
-				logger.Errorf("retrying to change password on service %v; error: %v", svc, err)
-			}
-			if err == nil {
-				modifiedService = true
-				break
-			}
+
+		retryStrategy := c.RetryStrategy
+		retryStrategy.Func = func() error { return mgr.ChangeServicePassword(svc, newPassword) }
+		retryStrategy.NotifyFunc = func(lastError error, attempt int) {
+			logger.Errorf("retrying to change password on service %v; error: %v", svc, lastError)
 		}
-		if !modifiedService {
+		err := retry.Call(retryStrategy)
+		if err != nil {
+			err = retry.LastError(err)
 			return errors.Trace(err)
 		}
 	}

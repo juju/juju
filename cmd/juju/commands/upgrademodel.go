@@ -114,7 +114,7 @@ type baseUpgradeCommand struct {
 	ResetPrevious bool
 	AssumeYes     bool
 	AgentStream   string
-
+	timeout       time.Duration
 	// IgnoreAgentVersions is used to allow an admin to request an agent version without waiting for all agents to be at the right
 	// version.
 	IgnoreAgentVersions bool
@@ -137,6 +137,7 @@ func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
 		"Don't check if all agents have already reached the current version")
+	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Timeout before upgrade is aborted")
 }
 
 func (c *baseUpgradeCommand) Init(args []string) error {
@@ -303,7 +304,6 @@ type statusAPI interface {
 	Status(patterns []string) (*params.FullStatus, error)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/cmd/juju/commands ClientAPI
 type ClientAPI interface {
 	toolsAPI
 	upgradeJujuAPI
@@ -320,7 +320,6 @@ type modelManagerAPI interface {
 	Close() error
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/controller_mock.go github.com/juju/juju/cmd/juju/commands ControllerAPI
 type ControllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
@@ -368,8 +367,6 @@ func (c *upgradeJujuCommand) getControllerAPI() (ControllerAPI, error) {
 	return apicontroller.NewClient(api), nil
 }
 
-const caasStreamsTimeout = 20 * time.Second
-
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	modelType, err := c.ModelType()
@@ -377,15 +374,13 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	implicitAgentUploadAllowed := true
-	fetchToolsTimeout := 10 * time.Minute
 	if modelType == model.CAAS {
 		if c.BuildAgent {
 			return errors.NotSupportedf("--build-agent for k8s model upgrades")
 		}
 		implicitAgentUploadAllowed = false
-		fetchToolsTimeout = caasStreamsTimeout
 	}
-	return c.upgradeModel(ctx, implicitAgentUploadAllowed, fetchToolsTimeout)
+	return c.upgradeModel(ctx, implicitAgentUploadAllowed, c.timeout)
 }
 
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration) (err error) {
@@ -832,10 +827,9 @@ func fetchStreamsVersions(
 			result <- findResult.List
 		}
 	}()
-
 	select {
 	case <-time.After(timeout):
-		return nil, nil
+		return nil, errors.NewTimeout(nil, fmt.Sprintf("can not fetch available versions in %s", timeout.String()))
 	case err := <-errChan:
 		return nil, err
 	case resultList := <-result:

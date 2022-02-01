@@ -278,8 +278,8 @@ func (m *Model) Operation(id string) (Operation, error) {
 // OperationWithActions returns an OperationInfo by Id.
 func (m *Model) OperationWithActions(id string) (*OperationInfo, error) {
 	// First gather the matching actions and record the parent operation ids we need.
-	actionsCollection, closer := m.st.db().GetCollection(actionsC)
-	defer closer()
+	actionsCollection, aCloser := m.st.db().GetCollection(actionsC)
+	defer aCloser()
 
 	var actions []actionDoc
 	err := actionsCollection.Find(bson.D{{"operation", id}}).
@@ -288,8 +288,8 @@ func (m *Model) OperationWithActions(id string) (*OperationInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
-	operationCollection, closer := m.st.db().GetCollection(operationsC)
-	defer closer()
+	operationCollection, oCloser := m.st.db().GetCollection(operationsC)
+	defer oCloser()
 
 	var docs []operationDoc
 	err = operationCollection.FindId(id).All(&docs)

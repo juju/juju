@@ -18,18 +18,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/lumberjack"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/symlink"
-	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/symlink"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -147,6 +147,11 @@ type AgentInitializer interface {
 	DataDir() string
 }
 
+// ModelMetrics defines a type for creating metrics for a given model.
+type ModelMetrics interface {
+	ForModel(model names.ModelTag) dependency.Metrics
+}
+
 // NewMachineAgentCmd creates a Command which handles parsing
 // command-line arguments and instantiating and running a
 // MachineAgent.
@@ -224,12 +229,15 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 	if !a.logToStdErr {
 		// the context's stderr is set as the loggo writer in github.com/juju/cmd/v3/logging.go
-		a.ctx.Stderr = &lumberjack.Logger{
-			Filename:   agent.LogFilename(config),
-			MaxSize:    300, // megabytes
-			MaxBackups: 2,
+		ljLogger := &lumberjack.Logger{
+			Filename:   agent.LogFilename(config), // eg: "/var/log/juju/machine-0.log"
+			MaxSize:    config.AgentLogfileMaxSizeMB(),
+			MaxBackups: config.AgentLogfileMaxBackups(),
 			Compress:   true,
 		}
+		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
+		a.ctx.Stderr = ljLogger
 	}
 
 	return nil
@@ -535,7 +543,9 @@ func (a *MachineAgent) makeEngineCreator(
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		engineConfigFunc := engine.DependencyEngineConfig
-		engine, err := dependency.NewEngine(engineConfigFunc())
+		metrics := engine.NewMetrics()
+		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
+		engine, err := dependency.NewEngine(engineConfigFunc(controllerMetricsSink))
 		if err != nil {
 			return nil, err
 		}
@@ -604,10 +614,13 @@ func (a *MachineAgent) makeEngineCreator(
 			NewContainerBrokerFunc:            newCAASBroker,
 			NewBrokerFunc:                     newBroker,
 			IsCaasConfig:                      a.isCaasAgent,
-			UnitEngineConfig:                  engineConfigFunc,
-			SetupLogging:                      agentconf.SetupAgentLogging,
-			LeaseFSM:                          raftlease.NewFSM(),
-			RaftOpQueue:                       queue.NewOpQueue(clock.WallClock),
+			UnitEngineConfig: func() dependency.EngineConfig {
+				return engineConfigFunc(controllerMetricsSink)
+			},
+			SetupLogging:            agentconf.SetupAgentLogging,
+			LeaseFSM:                raftlease.NewFSM(),
+			RaftOpQueue:             queue.NewOpQueue(clock.WallClock),
+			DependencyEngineMetrics: metrics,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -639,6 +652,12 @@ func (a *MachineAgent) makeEngineCreator(
 			// as the only issue is connecting to the abstract domain socket
 			// and the agent is controlled by by the OS to only have one.
 			logger.Errorf("failed to start introspection worker: %v", err)
+		}
+		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine, controllerMetricsSink); err != nil {
+			// If the dependency engine metrics fail, continue on. This is unlikely
+			// to happen in the real world, but should't stop or bring down an
+			// agent.
+			logger.Errorf("failed to start the dependency engine metrics %v", err)
 		}
 		return engine, nil
 	}
@@ -1058,7 +1077,8 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config := engine.DependencyEngineConfig()
+
+	config := engine.DependencyEngineConfig(cfg.ModelMetrics)
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
 	config.Filter = model.IgnoreErrRemoved
@@ -1086,12 +1106,15 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		if err := paths.PrimeLogFile(logFilename); err != nil {
 			return nil, errors.Annotate(err, "unable to prime log file")
 		}
-		writer = &lumberjack.Logger{
+		ljLogger := &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),
 			MaxBackups: cfg.ControllerConfig.ModelLogfileMaxBackups(),
 			Compress:   true,
 		}
+		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
+		writer = ljLogger
 	}
 	if err := loggingContext.AddWriter(
 		"file", loggo.NewSimpleWriter(writer, loggo.DefaultFormatter)); err != nil {
@@ -1137,10 +1160,12 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		}
 		return nil, errors.Trace(err)
 	}
+
 	return &modelWorker{
 		Engine:    engine,
 		logger:    cfg.ModelLogger,
 		modelUUID: cfg.ModelUUID,
+		metrics:   cfg.ModelMetrics,
 	}, nil
 }
 
@@ -1162,14 +1187,19 @@ type modelWorker struct {
 	*dependency.Engine
 	logger    modelworkermanager.ModelLogger
 	modelUUID string
+	metrics   engine.MetricSink
 }
 
 // Wait is the last thing that is called on the worker as it is being
 // removed.
 func (m *modelWorker) Wait() error {
 	err := m.Engine.Wait()
+
 	logger.Debugf("closing db logger for %q", m.modelUUID)
-	m.logger.Close()
+	_ = m.logger.Close()
+	// When closing the model, ensure that we also close the metrics with the
+	// logger.
+	_ = m.metrics.Unregister()
 	return err
 }
 

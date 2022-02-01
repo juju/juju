@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"

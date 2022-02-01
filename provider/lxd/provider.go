@@ -221,7 +221,7 @@ func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
 		configPath := filepath.Join(dir, "config.yml")
 		config, err := p.lxcConfigReader.ReadConfig(configPath)
 		if err != nil {
-			logger.Errorf("unable to read/parse LXC config file (%s): %s", configPath, err)
+			logger.Warningf("unable to read/parse LXC config file (%s): %s", configPath, err)
 		}
 		for name, remote := range config.Remotes {
 			if remote.Protocol != lxdnames.ProviderType {

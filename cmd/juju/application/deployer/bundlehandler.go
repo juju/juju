@@ -262,6 +262,10 @@ func (h *bundleHandler) makeModel(
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}
+	status, err = h.updateChannelsModelStatus(status)
+	if err != nil {
+		return errors.Annotate(err, "updating current application channels")
+	}
 
 	h.model, err = appbundle.BuildModelRepresentation(status, h.deployAPI, useExistingMachines, bundleMachines)
 	if err != nil {
@@ -280,6 +284,38 @@ func (h *bundleHandler) makeModel(
 		return err
 	}
 	return nil
+}
+
+// updateChannelsModelStatus gets the application's channel from a different
+// source when the default charm schema is charmstore.  Required for compatibility
+// between pre 2.9 controllers and newer clients.  The controller has the data,
+// status output does not.
+func (h *bundleHandler) updateChannelsModelStatus(status *params.FullStatus) (*params.FullStatus, error) {
+	if !h.defaultCharmSchema.Matches(charm.CharmStore.String()) || len(status.Applications) <= 0 {
+		return status, nil
+	}
+	var tags []names.ApplicationTag
+	for k := range status.Applications {
+		tags = append(tags, names.NewApplicationTag(k))
+	}
+	infoResults, err := h.deployAPI.ApplicationsInfo(tags)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, result := range infoResults {
+		name := tags[i].Id()
+		if result.Error != nil {
+			return nil, errors.Annotatef(err, "%s", name)
+		}
+		appStatus, ok := status.Applications[name]
+		if !ok {
+			return nil, errors.NotFoundf("programming error: %q application info", name)
+		}
+		appStatus.CharmChannel = result.Result.Channel
+		status.Applications[name] = appStatus
+	}
+	return status, nil
 }
 
 // resolveCharmsAndEndpoints will go through the bundle and
@@ -1382,7 +1418,7 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	}
 
 	p := change.Params
-	result, err := h.deployAPI.Offer(h.targetModelUUID, p.Application, p.Endpoints, p.OfferName, "")
+	result, err := h.deployAPI.Offer(h.targetModelUUID, p.Application, p.Endpoints, h.accountUser, p.OfferName, "")
 	if err == nil && len(result) > 0 && result[0].Error != nil {
 		err = result[0].Error
 	}

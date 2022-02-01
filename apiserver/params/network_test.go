@@ -260,9 +260,9 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
 	pAddrs := network.ProviderAddresses{
-		network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")),
-		network.NewProviderAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)),
-		network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic), network.WithConfigType("dhcp")),
+		network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.2.3.0/24")).AsProviderAddress(),
+		network.NewMachineAddress("1.2.3.5", network.WithScope(network.ScopeCloudLocal), network.WithSecondary(true)).AsProviderAddress(),
+		network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic), network.WithConfigType("dhcp")).AsProviderAddress(),
 	}
 	pAddrs[0].SpaceName = "test-space"
 	pAddrs[0].ProviderSpaceID = "666"
@@ -290,17 +290,17 @@ func (s *NetworkSuite) TestProviderHostPortConversion(c *gc.C) {
 	pHPs := []network.ProviderHostPorts{
 		{
 			{
-				ProviderAddress: network.NewProviderAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
+				ProviderAddress: network.NewMachineAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 				NetPort:         1234,
 			},
 			{
-				ProviderAddress: network.NewProviderAddress("2.3.4.5", network.WithScope(network.ScopePublic)),
+				ProviderAddress: network.NewMachineAddress("2.3.4.5", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 				NetPort:         2345,
 			},
 		},
 		{
 			{
-				ProviderAddress: network.NewProviderAddress("3.4.5.6", network.WithScope(network.ScopeCloudLocal)),
+				ProviderAddress: network.NewMachineAddress("3.4.5.6", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 				NetPort:         3456,
 			},
 		},
@@ -423,6 +423,72 @@ func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *gc.C) {
 		{
 			ProviderId:    "3",
 			NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
+		},
+	})
+}
+
+func (s *NetworkSuite) TestNetworkConfigFromInterfaceMACNormalization(c *gc.C) {
+	in := network.InterfaceInfos{
+		{
+			// All-caps and dashes
+			MACAddress: "00-AA-BB-CC-DD",
+		},
+		{
+			// All-caps and colons
+			MACAddress: "00:AA:BB:CC:DD",
+		},
+		{
+			// Already normalized
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+	}
+
+	got := params.NetworkConfigFromInterfaceInfo(in)
+	c.Assert(got, gc.DeepEquals, []params.NetworkConfig{
+		{
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+		{
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+		{
+			MACAddress: "00:aa:bb:cc:dd",
+		},
+	})
+}
+func (s *NetworkSuite) TestInterfaceFromNetworkConfigMACNormalization(c *gc.C) {
+	cfg := []params.NetworkConfig{
+		{
+			// All-caps and dashes
+			MACAddress:     "AA-BB-CC-DD-EE-FF",
+			GatewayAddress: "192.168.0.254",
+		},
+		{
+			// All-caps and colons
+			MACAddress:     "AA:BB:CC:DD:EE:FF",
+			GatewayAddress: "192.168.0.254",
+		},
+		{
+			// Already normalized
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: "192.168.0.254",
+		},
+	}
+
+	got := params.InterfaceInfoFromNetworkConfig(cfg)
+	gwAddr := network.NewMachineAddress("192.168.0.254").AsProviderAddress()
+	c.Assert(got, gc.DeepEquals, network.InterfaceInfos{
+		{
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: gwAddr,
+		},
+		{
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: gwAddr,
+		},
+		{
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			GatewayAddress: gwAddr,
 		},
 	})
 }

@@ -150,6 +150,13 @@ var (
             endpoint: "http://garagemaas"
             skip-tls-verify: true`
 
+	garageMaasYamlFileListCloudOutput = `
+        garage-maas:
+          type: maas
+          auth-types: [oauth1]
+          endpoint: "http://garagemaas"
+          skip-tls-verify: true`
+
 	manyCloudsYamlFile = `
         clouds:
           garage-maas:

@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/life"
 )
 
 type ControllerSuite struct {
@@ -52,14 +51,14 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 	c.Check(controller.ModelUUIDs(), jc.SameContents, []string{modelChange.ModelUUID})
 	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
 		"model-uuid": map[string]interface{}{
-			"name":              "model-owner/test-model",
-			"life":              life.Value("alive"),
-			"application-count": 0,
-			"charm-count":       0,
-			"machine-count":     0,
-			"unit-count":        0,
-			"relation-count":    0,
-			"branch-count":      0,
+			"name":         "model-owner/test-model",
+			"life":         "alive",
+			"applications": make(map[string]interface{}),
+			"charms":       make(map[string]interface{}),
+			"machines":     make(map[string]interface{}),
+			"units":        make(map[string]interface{}),
+			"relations":    make(map[string]interface{}),
+			"branch-count": 0,
 		}})
 
 	// The model has the first ID and is registered.
@@ -155,7 +154,7 @@ func (s *ControllerSuite) TestAddApplication(c *gc.C) {
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod.Report()["application-count"], gc.Equals, 1)
+	c.Check(mod.Report()["applications"], gc.HasLen, 1)
 
 	app, err := mod.Application(appChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,7 +179,7 @@ func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
 	s.ProcessChange(c, remove, events)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod.Report()["application-count"], gc.Equals, 0)
+	c.Check(mod.Report()["applications"], gc.HasLen, 0)
 	s.AssertResident(c, app.CacheId(), false)
 }
 
@@ -190,7 +189,7 @@ func (s *ControllerSuite) TestAddCharm(c *gc.C) {
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod.Report()["charm-count"], gc.Equals, 1)
+	c.Check(mod.Report()["charms"], gc.HasLen, 1)
 
 	ch, err := mod.Charm(charmChange.CharmURL)
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,7 +212,7 @@ func (s *ControllerSuite) TestRemoveCharm(c *gc.C) {
 	}
 	s.ProcessChange(c, remove, events)
 
-	c.Check(mod.Report()["charm-count"], gc.Equals, 0)
+	c.Check(mod.Report()["charms"], gc.HasLen, 0)
 	s.AssertResident(c, ch.CacheId(), false)
 }
 
@@ -223,7 +222,7 @@ func (s *ControllerSuite) TestAddMachine(c *gc.C) {
 
 	mod, err := controller.Model(machineChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod.Report()["machine-count"], gc.Equals, 1)
+	c.Check(mod.Report()["machines"], gc.HasLen, 1)
 
 	machine, err := mod.Machine(machineChange.Id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,7 +245,7 @@ func (s *ControllerSuite) TestRemoveMachine(c *gc.C) {
 	}
 	s.ProcessChange(c, remove, events)
 
-	c.Check(mod.Report()["machine-count"], gc.Equals, 0)
+	c.Check(mod.Report()["machines"], gc.HasLen, 0)
 	s.AssertResident(c, machine.CacheId(), false)
 }
 
@@ -256,7 +255,7 @@ func (s *ControllerSuite) TestAddUnit(c *gc.C) {
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod.Report()["unit-count"], gc.Equals, 1)
+	c.Check(mod.Report()["units"], gc.HasLen, 1)
 
 	unit, err := mod.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,7 +277,7 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 	}
 	s.ProcessChange(c, remove, events)
 
-	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
+	c.Check(mod.Report()["units"], gc.HasLen, 0)
 	s.AssertResident(c, unit.CacheId(), false)
 }
 
@@ -288,7 +287,7 @@ func (s *ControllerSuite) TestAddRelation(c *gc.C) {
 
 	mod, err := controller.Model(relationChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mod.Report()["relation-count"], gc.Equals, 1)
+	c.Check(mod.Report()["relations"], gc.HasLen, 1)
 
 	relation, err := mod.Relation(relationChange.Key)
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,7 +309,7 @@ func (s *ControllerSuite) TestRemoveRelation(c *gc.C) {
 	}
 	s.ProcessChange(c, remove, events)
 
-	c.Check(mod.Report()["relation-count"], gc.Equals, 0)
+	c.Check(mod.Report()["relations"], gc.HasLen, 0)
 	s.AssertResident(c, relation.CacheId(), false)
 }
 
@@ -342,7 +341,7 @@ func (s *ControllerSuite) TestRemoveBranch(c *gc.C) {
 	}
 	s.ProcessChange(c, remove, events)
 
-	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
+	c.Check(mod.Report()["units"], gc.HasLen, 0)
 	s.AssertResident(c, branch.CacheId(), false)
 }
 

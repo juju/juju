@@ -23,46 +23,21 @@ type WorkerSuite struct {
 
 var _ = gc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) TestUpdatesImmediately(c *gc.C) {
-	fix := newFixture(time.Minute)
-	fix.cleanTest(c, func(_ worker.Worker) {
-		fix.waitCall(c)
-		fix.waitNoCall(c)
-	})
-	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
-}
-
 func (s *WorkerSuite) TestNoMoreUpdatesUntilPeriod(c *gc.C) {
 	fix := newFixture(time.Minute)
 	fix.cleanTest(c, func(_ worker.Worker) {
-		fix.waitCall(c)
 		fix.clock.Advance(time.Minute - time.Nanosecond)
 		fix.waitNoCall(c)
 	})
-	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
 }
 
 func (s *WorkerSuite) TestUpdatesAfterPeriod(c *gc.C) {
 	fix := newFixture(time.Minute)
 	fix.cleanTest(c, func(_ worker.Worker) {
-		fix.waitCall(c)
-		if err := fix.clock.WaitAdvance(time.Minute, testing.LongWait, 1); err != nil {
+		if err := fix.clock.WaitAdvance(time.Minute*2, testing.LongWait, 1); err != nil {
 			c.Fatal(err)
 		}
 		fix.waitCall(c)
-		fix.waitNoCall(c)
-	})
-	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions", "UpdateLatestRevisions")
-}
-
-func (s *WorkerSuite) TestImmediateUpdateError(c *gc.C) {
-	fix := newFixture(time.Minute)
-	fix.revisionUpdater.stub.SetErrors(
-		errors.New("no updates for you"),
-	)
-	fix.dirtyTest(c, func(w worker.Worker) {
-		fix.waitCall(c)
-		c.Check(w.Wait(), gc.ErrorMatches, "no updates for you")
 		fix.waitNoCall(c)
 	})
 	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
@@ -71,19 +46,17 @@ func (s *WorkerSuite) TestImmediateUpdateError(c *gc.C) {
 func (s *WorkerSuite) TestDelayedUpdateError(c *gc.C) {
 	fix := newFixture(time.Minute)
 	fix.revisionUpdater.stub.SetErrors(
-		nil,
 		errors.New("no more updates for you"),
 	)
 	fix.dirtyTest(c, func(w worker.Worker) {
-		fix.waitCall(c)
-		if err := fix.clock.WaitAdvance(time.Minute, testing.LongWait, 1); err != nil {
+		if err := fix.clock.WaitAdvance(time.Minute*2, testing.LongWait, 1); err != nil {
 			c.Fatal(err)
 		}
 		fix.waitCall(c)
 		c.Check(w.Wait(), gc.ErrorMatches, "no more updates for you")
 		fix.waitNoCall(c)
 	})
-	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions", "UpdateLatestRevisions")
+	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
 }
 
 // workerFixture isolates a charmrevision worker for testing.

@@ -42,8 +42,8 @@ func pruneCollectionAndChildren(mb modelBackend, maxHistoryTime time.Duration, m
 	defer closer()
 	var childColl *mgo.Collection
 	if childCollectionName != "" {
-		coll, closer := mb.db().GetRawCollection(childCollectionName)
-		defer closer()
+		coll, chCloser := mb.db().GetRawCollection(childCollectionName)
+		defer chCloser()
 		childColl = coll
 	}
 
@@ -151,7 +151,7 @@ func (p *collectionPruner) pruneByAge() error {
 	}
 	query = append(query, p.filter...)
 	iter := p.coll.Find(query).Select(bson.M{"_id": 1}).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 
 	modelName, err := p.st.modelName()
 	if err != nil {
@@ -165,7 +165,7 @@ func (p *collectionPruner) pruneByAge() error {
 	if deleted > 0 {
 		logger.Infof("%s age pruning (%s): %d rows deleted", p.coll.Name, modelName, deleted)
 	}
-	return nil
+	return errors.Trace(iter.Close())
 }
 
 func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSizeMB int, countRatio float64) (int, error) {
@@ -247,7 +247,7 @@ func (p *collectionPruner) pruneBySize() error {
 		query = query.Sort(p.ageField)
 	}
 	iter := query.Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
 	deleted, err := deleteInBatches(p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
@@ -267,8 +267,7 @@ func (p *collectionPruner) pruneBySize() error {
 	}
 
 	logger.Infof("%s size pruning finished: %d rows deleted", p.coll.Name, deleted)
-
-	return nil
+	return errors.Trace(iter.Close())
 }
 
 func deleteInBatches(

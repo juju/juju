@@ -2,7 +2,11 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 package actionstate
 
-import "time"
+import (
+	"time"
+
+	"github.com/juju/names"
+)
 
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
@@ -41,6 +45,9 @@ type ActionMessage struct {
 }
 
 type Action struct {
+	// ID returns the local id of the Action.
+	ID string
+
 	// Receiver is the Name of the Unit or any other ActionReceiver for
 	// which this Action is queued.
 	Receiver string
@@ -78,4 +85,10 @@ type Action struct {
 
 	// Logs holds the progress messages logged by the action.
 	Logs []ActionMessage
+}
+
+// ActionTag returns an ActionTag constructed from this action's
+// Prefix and Sequence.
+func (a *Action) ActionTag() names.ActionTag {
+	return names.NewActionTag(a.ID)
 }

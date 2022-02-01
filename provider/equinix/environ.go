@@ -14,6 +14,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/retry"
+	"github.com/juju/schema"
+	"github.com/juju/utils/v3/arch"
+	"github.com/juju/version/v2"
+	"gopkg.in/juju/environschema.v1"
+
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -31,12 +38,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/loggo"
-	"github.com/juju/retry"
-	"github.com/juju/schema"
-	"github.com/juju/utils/arch"
-	"github.com/juju/version/v2"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/packethost/packngo"
 	errr "github.com/pkg/errors"
@@ -308,6 +309,16 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			"apt-get update",
 			"DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet install dmidecode snapd",
 			"snap install lxd && sudo adduser ubuntu lxd",
+		)
+	}
+
+	// NOTE(achilleasa): ensure that /etc/hosts entry for the loopback dev
+	// references the juju-assigned hostname before localhost. Otherwise,
+	// running 'hostname -f' would return localhost whereas 'hostname'
+	// returns the juju-assigned host (see LP1956538).
+	if _, err := series.UbuntuSeriesVersion(args.InstanceConfig.Series); err == nil {
+		cloudCfg.AddScripts(
+			`sed -i -e "/127\.0\.0\.1/c\127\.0\.0\.1 $(hostname) localhost" /etc/hosts`,
 		)
 	}
 

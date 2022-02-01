@@ -10,7 +10,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/hash"
+	"github.com/juju/utils/v3/hash"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/resources/mocks"

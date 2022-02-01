@@ -19,7 +19,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
@@ -5957,6 +5957,195 @@ func (s *upgradesSuite) TestRemoveOrphanedLinkLayerDevices(c *gc.C) {
 	s.assertUpgradedData(c, RemoveOrphanedLinkLayerDevices,
 		upgradedData(devCol, devExp),
 		upgradedData(addrCol, addrExp),
+	)
+}
+
+func (s *upgradesSuite) TestUpdateExternalControllerInfo(c *gc.C) {
+	model0 := s.makeModel(c, "model-0", coretesting.Attrs{})
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() {
+		_ = model0.Close()
+		_ = model1.Close()
+	}()
+
+	extControllerUUID := utils.MustNewUUID().String()
+	modelUUID1 := utils.MustNewUUID().String()
+	modelUUID2 := utils.MustNewUUID().String()
+
+	ec := NewExternalControllers(s.state)
+	_, err := ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: names.NewControllerTag(extControllerUUID),
+		Addrs:         []string{"10.0.0.1:17070"},
+	}, modelUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Addrs:         []string{"10.0.0.2:17070"},
+	}, coretesting.ModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = model0.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-application",
+		SourceModel: names.NewModelTag(modelUUID1),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = model0.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-application2",
+		SourceModel: names.NewModelTag(modelUUID2),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = model0.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:            "remote-application3",
+		SourceModel:     names.NewModelTag(modelUUID1),
+		IsConsumerProxy: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = model1.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-application4",
+		SourceModel: names.NewModelTag(modelUUID1),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedApps := bsonMById{
+		{
+			"_id":                    model0.docID("remote-application"),
+			"bindings":               bson.M{},
+			"endpoints":              []interface{}{},
+			"is-consumer-proxy":      false,
+			"life":                   0,
+			"model-uuid":             model0.modelUUID(),
+			"name":                   "remote-application",
+			"offer-uuid":             "",
+			"relationcount":          0,
+			"source-controller-uuid": extControllerUUID,
+			"source-model-uuid":      modelUUID1,
+			"spaces":                 []interface{}{},
+		},
+		{
+			"_id":                    model0.docID("remote-application2"),
+			"bindings":               bson.M{},
+			"endpoints":              []interface{}{},
+			"is-consumer-proxy":      false,
+			"life":                   0,
+			"model-uuid":             model0.modelUUID(),
+			"name":                   "remote-application2",
+			"offer-uuid":             "",
+			"relationcount":          0,
+			"source-controller-uuid": "",
+			"source-model-uuid":      modelUUID2,
+			"spaces":                 []interface{}{},
+		},
+		{
+			"_id":                    model0.docID("remote-application3"),
+			"bindings":               bson.M{},
+			"endpoints":              []interface{}{},
+			"is-consumer-proxy":      true,
+			"life":                   0,
+			"model-uuid":             model0.modelUUID(),
+			"name":                   "remote-application3",
+			"offer-uuid":             "",
+			"relationcount":          0,
+			"source-controller-uuid": "",
+			"source-model-uuid":      modelUUID1,
+			"spaces":                 []interface{}{},
+		},
+		{
+			"_id":                    model1.docID("remote-application4"),
+			"bindings":               bson.M{},
+			"endpoints":              []interface{}{},
+			"is-consumer-proxy":      false,
+			"life":                   0,
+			"model-uuid":             model1.modelUUID(),
+			"name":                   "remote-application4",
+			"offer-uuid":             "",
+			"relationcount":          0,
+			"source-controller-uuid": extControllerUUID,
+			"source-model-uuid":      modelUUID1,
+			"spaces":                 []interface{}{},
+		},
+	}
+	sort.Sort(expectedApps)
+
+	appColl, aCloser := s.state.db().GetRawCollection(remoteApplicationsC)
+	defer aCloser()
+	s.assertUpgradedData(c, UpdateExternalControllerInfo,
+		upgradedData(appColl, expectedApps),
+	)
+
+	// Check the orphaned controller is removed and we still have
+	// the in use controller.
+	ec = NewExternalControllers(s.state)
+	_, err = ec.Controller(coretesting.ControllerTag.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = ec.Controller(extControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestRemoveInvalidCharmPlaceholders(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	charmColl, charmCloser := s.state.db().GetRawCollection(charmsC)
+	defer charmCloser()
+
+	appColl, appCloser := s.state.db().GetRawCollection(applicationsC)
+	defer appCloser()
+
+	var err error
+	err = charmColl.Insert(bson.M{
+		"_id":         ensureModelUUID(uuid1, "charm1"),
+		"model-uuid":  uuid1,
+		"url":         charm.MustParseURL("ch:test-1").String(),
+		"placeholder": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = charmColl.Insert(bson.M{
+		"_id":         ensureModelUUID(uuid2, "charm2"),
+		"model-uuid":  uuid2,
+		"url":         charm.MustParseURL("ch:test-2").String(),
+		"placeholder": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = charmColl.Insert(bson.M{
+		"_id":         ensureModelUUID(uuid2, "charm3"),
+		"model-uuid":  uuid2,
+		"url":         charm.MustParseURL("ch:test-3").String(),
+		"placeholder": false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"name":       "app1",
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("ch:test-1").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":         ensureModelUUID(uuid1, "charm1"),
+			"model-uuid":  uuid1,
+			"url":         charm.MustParseURL("ch:test-1").String(),
+			"placeholder": true,
+		},
+		{
+			"_id":         ensureModelUUID(uuid2, "charm3"),
+			"model-uuid":  uuid2,
+			"url":         charm.MustParseURL("ch:test-3").String(),
+			"placeholder": false,
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, RemoveInvalidCharmPlaceholders,
+		upgradedData(charmColl, expected),
 	)
 }
 

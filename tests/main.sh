@@ -2,7 +2,7 @@
 [ -n "${GOPATH:-}" ] && export "PATH=${GOPATH}/bin:${PATH}"
 
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
-export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005"
+export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005 -e SC2001 -e SC2263"
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
@@ -152,6 +152,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		;;
 	v)
 		VERBOSE=2
+		# shellcheck disable=SC2262
 		alias juju="juju --debug"
 		;;
 	A)

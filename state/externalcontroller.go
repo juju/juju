@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
@@ -302,4 +304,34 @@ func upsertExternalControllerOp(doc, existing *externalControllerDoc, modelUUIDs
 		Assert: txn.DocMissing,
 		Insert: *doc,
 	}
+}
+
+// externalControllerRefCountKey returns a key for refcounting consumed
+// apps for the specified controller. Each time a consumed app is created,
+// the refcount is incremented, and the opposite happens on removal.
+func externalControllerRefCountKey(controllerUUID string) string {
+	return fmt.Sprintf("controller#%s", controllerUUID)
+}
+
+// incExternalControllersRefOp returns a txn.Op that increments the reference
+// count for an external controller. These ref counts are controller wide.
+func incExternalControllersRefOp(mb modelBackend, controllerUUID string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	refCountKey := externalControllerRefCountKey(controllerUUID)
+	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, refCountKey, 1)
+	return incRefOp, errors.Trace(err)
+}
+
+// decExternalControllersRefOp returns a txn.Op that decrements the reference
+// count for an external controller. These ref counts are controller wide.
+func decExternalControllersRefOp(mb modelBackend, controllerUUID string) (txn.Op, bool, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	refCountKey := externalControllerRefCountKey(controllerUUID)
+	decRefOp, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, refCountKey)
+	if err != nil {
+		return txn.Op{}, false, errors.Trace(err)
+	}
+	return decRefOp, isFinal, nil
 }

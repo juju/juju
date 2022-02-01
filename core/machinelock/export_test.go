@@ -3,7 +3,7 @@
 
 package machinelock
 
-import "github.com/juju/mutex"
+import "github.com/juju/mutex/v2"
 
 func NewTestLock(config Config, acquire func(mutex.Spec) (mutex.Releaser, error)) (*lock, error) {
 	lock, err := New(config)

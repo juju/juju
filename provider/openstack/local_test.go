@@ -34,9 +34,9 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
+	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -422,11 +422,11 @@ func (s *localServerSuite) assertAddressesWithPublicIP(c *gc.C, cons constraints
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
-			network.NewProviderAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopePublic)),
-			network.NewProviderAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
-			network.NewProviderAddress("::face::000f"),
-			network.NewProviderAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)),
-			network.NewProviderAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)),
+			network.NewMachineAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)).AsProviderAddress(),
+			network.NewMachineAddress("::face::000f").AsProviderAddress(),
+			network.NewMachineAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		})
 		bootstrapFinished = true
 		return nil
@@ -463,10 +463,10 @@ func (s *localServerSuite) assertAddressesWithoutPublicIP(c *gc.C, cons constrai
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
-			network.NewProviderAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
-			network.NewProviderAddress("::face::000f"),
-			network.NewProviderAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)),
-			network.NewProviderAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)),
+			network.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)).AsProviderAddress(),
+			network.NewMachineAddress("::face::000f").AsProviderAddress(),
+			network.NewMachineAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		})
 		bootstrapFinished = true
 		return nil

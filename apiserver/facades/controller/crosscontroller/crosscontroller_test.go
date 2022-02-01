@@ -26,6 +26,8 @@ type CrossControllerSuite struct {
 	localControllerInfo      func() ([]string, string, error)
 	watchLocalControllerInfo func() state.NotifyWatcher
 	api                      *crosscontroller.CrossControllerAPI
+
+	publicDnsAddress string
 }
 
 func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
@@ -41,7 +43,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 	api, err := crosscontroller.NewCrossControllerAPI(
 		s.resources,
 		func() ([]string, string, error) { return s.localControllerInfo() },
-		func() (string, error) { return "publicDNSaddr", nil },
+		func() (string, error) { return s.publicDnsAddress, nil },
 		func() state.NotifyWatcher { return s.watchLocalControllerInfo() },
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,6 +53,18 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
+	results, err := s.api.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
+		[]params.ControllerAPIInfoResult{{
+			Addresses: []string{"addr1", "addr2"},
+			CACert:    "ca-cert",
+		}},
+	})
+}
+
+func (s *CrossControllerSuite) TestControllerInfoWithDNSAddress(c *gc.C) {
+	s.publicDnsAddress = "publicDNSaddr"
 	results, err := s.api.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{

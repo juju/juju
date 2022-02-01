@@ -11,7 +11,7 @@ import (
 
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 )
 
 // Content holds a reader for the content of a resource along

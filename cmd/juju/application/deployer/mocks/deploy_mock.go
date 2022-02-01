@@ -153,6 +153,21 @@ func (mr *MockDeployerAPIMockRecorder) AddUnits(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnits", reflect.TypeOf((*MockDeployerAPI)(nil).AddUnits), arg0)
 }
 
+// ApplicationsInfo mocks base method.
+func (m *MockDeployerAPI) ApplicationsInfo(arg0 []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationsInfo", arg0)
+	ret0, _ := ret[0].([]params.ApplicationInfoResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationsInfo indicates an expected call of ApplicationsInfo.
+func (mr *MockDeployerAPIMockRecorder) ApplicationsInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationsInfo", reflect.TypeOf((*MockDeployerAPI)(nil).ApplicationsInfo), arg0)
+}
+
 // BakeryClient mocks base method.
 func (m *MockDeployerAPI) BakeryClient() base.MacaroonDischarger {
 	m.ctrl.T.Helper()
@@ -491,18 +506,18 @@ func (mr *MockDeployerAPIMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // Offer mocks base method.
-func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4 string) ([]params.ErrorResult, error) {
+func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4, arg5 string) ([]params.ErrorResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Offer", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "Offer", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].([]params.ErrorResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Offer indicates an expected call of Offer.
-func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // ScaleApplication mocks base method.

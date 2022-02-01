@@ -59,8 +59,8 @@ type Txn interface {
 	//  ...
 	//  res, err := tx.StmtContext(ctx, updateMoney).Exec(123.45, 98293203)
 	//
-	// The provided context is used for the preparation of the statement, not for the
-	// execution of the statement.
+	// The provided context is used for the preparation of the statement, not
+	// for the execution of the statement.
 	//
 	// The returned statement operates within the transaction and will be closed
 	// when the transaction has been committed or rolled back.
@@ -78,7 +78,7 @@ type Txn interface {
 // The functions in the txn builder maybe called multiple times depending on
 // how many retries are employed.
 type TxnBuilder interface {
-	Run(func(context.Context, Txn) error)
+	Stage(func(context.Context, Txn) error) TxnBuilder
 	Commit() error
 }
 
@@ -92,9 +92,7 @@ func (s *State) Run(fn func(context.Context, Txn) error) error {
 		return errors.Trace(err)
 	}
 
-	txn.Run(fn)
-
-	return txn.Commit()
+	return txn.Stage(fn).Commit()
 }
 
 // CreateTxn creates a transaction builder. The transaction builder accumulates
@@ -119,12 +117,13 @@ func (t *txnBuilder) Context() context.Context {
 	return t.ctx
 }
 
-// Run adds a function to a given transaction context. The transaction
+// Stage adds a function to a given transaction context. The transaction
 // isn't committed until the commit method is called.
 // The run function maybe called multiple times if the transaction is being
 // retried.
-func (t *txnBuilder) Run(fn func(context.Context, Txn) error) {
+func (t *txnBuilder) Stage(fn func(context.Context, Txn) error) TxnBuilder {
 	t.runnables = append(t.runnables, fn)
+	return t
 }
 
 // Commit commits the transaction.
@@ -136,23 +135,25 @@ func (t *txnBuilder) Commit() error {
 			return errors.Trace(err)
 		}
 
-		tx, err := t.db.BeginTx(t.ctx, nil)
+		rawTx, err := t.db.BeginTx(t.ctx, nil)
 		if err != nil {
 			// Nested transactions are not supported, if we get an error during
 			// the begin transaction phase, attempt to rollback both
 			// transactions, so that they can correctly start again.
-			if tx != nil {
-				_, _ = tx.Exec("ROLLBACK")
+			if rawTx != nil {
+				_, _ = rawTx.Exec("ROLLBACK")
 			}
 			return errors.Trace(err)
 		}
-		// TODO (stickupkid): We should wrap this transaction, so it's possible
-		// to abort a transaction within a run function.
+
 		for _, fn := range t.runnables {
-			if err := fn(t.ctx, tx); err != nil {
+			if err := fn(t.ctx, rawTx); err != nil {
+				// Ensure we rollback when attempt to run each function with in
+				// a transaction commit.
+				_ = rawTx.Rollback()
 				return errors.Trace(err)
 			}
 		}
-		return tx.Commit()
+		return rawTx.Commit()
 	})
 }

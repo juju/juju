@@ -8,6 +8,10 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+var (
+	errNoNamespace = errors.NotProvisionedf("bootstrap broker or no namespace")
+)
+
 // ClusterQueryError represents an issue when querying a cluster.
 type ClusterQueryError struct {
 	Message string

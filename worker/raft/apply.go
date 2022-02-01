@@ -86,7 +86,7 @@ func NewApplier(raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics
 // the leader, if known." (see 6.2.1).
 // If the leader is the current raft instance, then attempt to apply it to
 // the fsm.
-func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Duration) {
+func (a *Applier) ApplyOperation(ops []queue.OutOperation, applyTimeout time.Duration) {
 	start := a.clock.Now()
 
 	// Operations are iterated through optimistically, so if there is an error,
@@ -104,7 +104,7 @@ func (a *Applier) ApplyOperation(ops []queue.Operation, applyTimeout time.Durati
 	}
 }
 
-func (a *Applier) applyOperation(i int, op queue.Operation, applyTimeout time.Duration) {
+func (a *Applier) applyOperation(i int, op queue.OutOperation, applyTimeout time.Duration) {
 	// We use the error to signal if the apply was a failure or not.
 	start := a.clock.Now()
 

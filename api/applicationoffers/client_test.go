@@ -33,6 +33,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	endPointB := "endPointB"
 	offer := "offer"
 	desc := "desc"
+	owner := "fred"
 
 	msg := "fail"
 	apiCaller := basetesting.APICallerFunc(
@@ -54,6 +55,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			c.Assert(offer.ApplicationName, gc.Equals, application)
 			c.Assert(offer.Endpoints, jc.DeepEquals, map[string]string{endPointA: endPointA, endPointB: endPointB})
 			c.Assert(offer.OfferName, gc.Equals, offer.OfferName)
+			c.Assert(offer.OwnerTag, gc.Equals, "user-"+owner)
 			c.Assert(offer.ApplicationDescription, gc.Equals, desc)
 
 			if results, ok := result.(*params.ErrorResults); ok {
@@ -68,7 +70,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 		})
 
 	client := applicationoffers.NewClient(apiCaller)
-	results, err := client.Offer("uuid", application, []string{endPointA, endPointB}, offer, desc)
+	results, err := client.Offer("uuid", application, []string{endPointA, endPointB}, owner, offer, desc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals,
@@ -93,7 +95,7 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := applicationoffers.NewClient(apiCaller)
-	results, err := client.Offer("", "", nil, "", "")
+	results, err := client.Offer("", "", nil, "fred", "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }

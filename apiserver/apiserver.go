@@ -114,6 +114,10 @@ type Server struct {
 	agentRateLimitRate time.Duration
 	agentRateLimit     *ratelimit.Bucket
 
+	// resourceLock is used to limit the number of
+	// concurrent resource downloads to units.
+	resourceLock resourceadapters.ResourceDownloadLock
+
 	// registerIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
 	// is to support registering the handlers underneath the
@@ -346,6 +350,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		healthStatus: "starting",
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
+	srv.updateResourceDownloadLimiters(controllerConfig)
 
 	// We are able to get the current controller config before subscribing to changes
 	// because the changes are only ever published in response to an API call,
@@ -358,6 +363,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 				return
 			}
 			srv.updateAgentRateLimiter(data.Config)
+			srv.updateResourceDownloadLimiters(data.Config)
 		})
 	if err != nil {
 		logger.Criticalf("programming error in subscribe function: %v", err)
@@ -386,7 +392,11 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			WriteCloser: os.Stdout,
 		}
 	} else {
-		srv.logSinkWriter, err = logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
+		srv.logSinkWriter, err = logsink.NewFileWriter(
+			filepath.Join(srv.logDir, "logsink.log"),
+			controllerConfig.AgentLogfileMaxSizeMB(),
+			controllerConfig.AgentLogfileMaxBackups(),
+		)
 		if err != nil {
 			return nil, errors.Annotate(err, "creating logsink writer")
 		}
@@ -480,6 +490,20 @@ func (srv *Server) updateAgentRateLimiter(cfg controller.Config) {
 	} else {
 		srv.agentRateLimit = nil
 	}
+}
+
+func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	globalLimit := cfg.ControllerResourceDownloadLimit()
+	appLimit := cfg.ApplicationResourceDownloadLimit()
+	srv.resourceLock = resourceadapters.NewResourceDownloadLimiter(globalLimit, appLimit)
+}
+
+func (srv *Server) getResourceDownloadLimiter() resourceadapters.ResourceDownloadLock {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	return srv.resourceLock
 }
 
 type rateClock struct {
@@ -723,7 +747,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			opener, err := resourceadapters.NewResourceOpener(resourceadapters.NewResourceOpenerState(st.State), tag.Id())
+			opener, err := resourceadapters.NewResourceOpener(
+				resourceadapters.NewResourceOpenerState(st.State), srv.getResourceDownloadLimiter, tag.Id())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}

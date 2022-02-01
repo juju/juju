@@ -525,10 +525,12 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretRotationChange, 
 	for iter.Next(&doc) {
 		id, err := secretIDFromGlobalKey(doc.DocID)
 		if err != nil {
+			_ = iter.Close()
 			return nil, errors.Annotatef(err, "invalid secret key %q", doc.DocID)
 		}
 		url, err := secrets.ParseURL(doc.URL)
 		if err != nil {
+			_ = iter.Close()
 			return nil, errors.Annotatef(err, "invalid secret URL %q", doc.URL)
 		}
 		w.known[doc.DocID] = rotateWatcherDetails{
@@ -542,7 +544,7 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretRotationChange, 
 			LastRotateTime: doc.LastRotateTime.UTC(),
 		})
 	}
-	return details, iter.Close()
+	return details, errors.Trace(iter.Close())
 }
 
 func (w *secretsRotationWatcher) merge(details []corewatcher.SecretRotationChange, change watcher.Change) ([]corewatcher.SecretRotationChange, error) {

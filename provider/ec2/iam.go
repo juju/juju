@@ -56,6 +56,9 @@ type IAMClient interface {
 	DeleteRolePolicy(stdcontext.Context, *iam.DeleteRolePolicyInput, ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error)
 	GetInstanceProfile(stdcontext.Context, *iam.GetInstanceProfileInput, ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error)
 	GetRole(stdcontext.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	ListInstanceProfiles(stdcontext.Context, *iam.ListInstanceProfilesInput, ...func(*iam.Options)) (*iam.ListInstanceProfilesOutput, error)
+	ListRolePolicies(stdcontext.Context, *iam.ListRolePoliciesInput, ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error)
+	ListRoles(stdcontext.Context, *iam.ListRolesInput, ...func(*iam.Options)) (*iam.ListRolesOutput, error)
 	PutRolePolicy(stdcontext.Context, *iam.PutRolePolicyInput, ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
 	RemoveRoleFromInstanceProfile(stdcontext.Context, *iam.RemoveRoleFromInstanceProfileInput, ...func(*iam.Options)) (*iam.RemoveRoleFromInstanceProfileOutput, error)
 }
@@ -95,6 +98,83 @@ func iamClientFunc(
 	return iam.NewFromConfig(cfg), nil
 }
 
+// controllerPath returns an AWS path to use for IAM resources based on the
+// controller UUID
+func controllerPath(controllerUUID string) string {
+	return fmt.Sprintf("/juju/controller/%s/", controllerUUID)
+}
+
+// deleteInstanceProfile is a convience method for removing instance profile by
+// first detaching all roles from the profile then deleting.
+func deleteInstanceProfile(
+	ctx stdcontext.Context,
+	client IAMClient,
+	instanceProfile iamtypes.InstanceProfile,
+) error {
+	for _, role := range instanceProfile.Roles {
+		_, err := client.RemoveRoleFromInstanceProfile(ctx, &iam.RemoveRoleFromInstanceProfileInput{
+			InstanceProfileName: instanceProfile.InstanceProfileName,
+			RoleName:            role.RoleName,
+		})
+
+		if err != nil {
+			return errors.Annotatef(err, "removing role %q from instance profile", *role.RoleName)
+		}
+	}
+
+	_, err := client.DeleteInstanceProfile(ctx, &iam.DeleteInstanceProfileInput{
+		InstanceProfileName: instanceProfile.InstanceProfileName,
+	})
+
+	return errors.Trace(err)
+}
+
+// deleteRole is a convience method for delete a role and it's associated
+// inline policies.
+func deleteRole(
+	ctx stdcontext.Context,
+	client IAMClient,
+	roleName string,
+) error {
+
+	var (
+		inlinePolicyNames = []string{}
+		marker            *string
+	)
+	for {
+		res, err := client.ListRolePolicies(ctx, &iam.ListRolePoliciesInput{
+			Marker:   marker,
+			RoleName: aws.String(roleName),
+		})
+
+		if err != nil {
+			return errors.Annotatef(err, "listing inline policies for role %q", roleName)
+		}
+
+		inlinePolicyNames = append(inlinePolicyNames, res.PolicyNames...)
+		if !res.IsTruncated {
+			break
+		}
+		marker = res.Marker
+	}
+
+	for _, policyName := range inlinePolicyNames {
+		_, err := client.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+			PolicyName: aws.String(policyName),
+			RoleName:   aws.String(roleName),
+		})
+		if err != nil {
+			return errors.Annotatef(err, "delete inline policy %q", policyName)
+		}
+	}
+
+	_, err := client.DeleteRole(ctx, &iam.DeleteRoleInput{
+		RoleName: aws.String(roleName),
+	})
+
+	return errors.Trace(err)
+}
+
 // ensureControllerInstanceProfile ensures that a controller Instance Profile
 // has been created for the supplied controller name in the specified AWS cloud.
 func ensureControllerInstanceProfile(
@@ -117,6 +197,7 @@ func ensureControllerInstanceProfile(
 				Value: aws.String(controllerUUID),
 			},
 		},
+		Path: aws.String(controllerPath(controllerUUID)),
 	})
 	if err != nil {
 		var alreadyExistsErr *iamtypes.EntityAlreadyExistsException
@@ -182,6 +263,7 @@ func ensureControllerInstanceRole(
 		AssumeRolePolicyDocument: aws.String(controllerRoleAssumePolicy),
 		RoleName:                 aws.String(roleName),
 		Description:              aws.String(fmt.Sprintf("juju role for controller %s", controllerName)),
+		Path:                     aws.String(controllerPath(controllerUUID)),
 		Tags: []iamtypes.Tag{
 			{
 				Key:   aws.String(tags.JujuController),
@@ -251,14 +333,91 @@ func findInstanceProfileFromName(
 	})
 
 	if err != nil {
-		var opHTTPErr *awshttp.ResponseError
-		if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == http.StatusNotFound {
+		if isAWSHTTPErrorCode(err, http.StatusNotFound) {
 			return nil, errors.NotFoundf("instance profile %q not found", name)
 		}
 		return nil, errors.Annotatef(err, "finding instance profile for name %s", name)
 	}
 
 	return res.InstanceProfile, nil
+}
+
+func listInstanceProfilesForController(
+	ctx stdcontext.Context,
+	client IAMClient,
+	controllerUUID string,
+) ([]iamtypes.InstanceProfile, error) {
+	var (
+		marker *string
+		rval   = []iamtypes.InstanceProfile{}
+	)
+	for {
+		res, err := client.ListInstanceProfiles(ctx, &iam.ListInstanceProfilesInput{
+			Marker:     marker,
+			PathPrefix: aws.String(controllerPath(controllerUUID)),
+		})
+
+		if err != nil {
+			if isAWSHTTPErrorCode(err, http.StatusForbidden) {
+				return rval, errors.Unauthorizedf("listing instance profiles for controllerUUID %s", controllerUUID)
+			}
+			return rval, errors.Annotatef(
+				err,
+				"listing roles with controller prefix %q",
+				controllerPath(controllerUUID))
+		}
+
+		rval = append(rval, res.InstanceProfiles...)
+		if !res.IsTruncated {
+			break
+		}
+		marker = res.Marker
+	}
+	return rval, nil
+}
+
+func listRolesForController(
+	ctx stdcontext.Context,
+	client IAMClient,
+	controllerUUID string,
+) ([]iamtypes.Role, error) {
+	var (
+		marker *string
+		rval   = []iamtypes.Role{}
+	)
+	for {
+		res, err := client.ListRoles(ctx, &iam.ListRolesInput{
+			Marker:     marker,
+			PathPrefix: aws.String(controllerPath(controllerUUID)),
+		})
+
+		if err != nil {
+			if isAWSHTTPErrorCode(err, http.StatusForbidden) {
+				return rval, errors.Unauthorizedf(
+					"listing roles for controllerUUID %s",
+					controllerUUID)
+			}
+			return rval, errors.Annotatef(
+				err,
+				"listing roles with controller prefix %q",
+				controllerPath(controllerUUID))
+		}
+
+		rval = append(rval, res.Roles...)
+		if !res.IsTruncated {
+			break
+		}
+		marker = res.Marker
+	}
+	return rval, nil
+}
+
+func isAWSHTTPErrorCode(err error, statusCode int) bool {
+	var opHTTPErr *awshttp.ResponseError
+	if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == statusCode {
+		return true
+	}
+	return false
 }
 
 func findRoleFromName(
@@ -271,8 +430,7 @@ func findRoleFromName(
 	})
 
 	if err != nil {
-		var opHTTPErr *awshttp.ResponseError
-		if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == http.StatusNotFound {
+		if isAWSHTTPErrorCode(err, http.StatusNotFound) {
 			return nil, errors.NotFoundf("role %q not found", name)
 		}
 		return nil, errors.Annotatef(err, "finding role for name %s", name)

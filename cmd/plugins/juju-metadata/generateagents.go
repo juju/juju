@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs/filestorage"
@@ -162,7 +161,7 @@ func makeDataSources(ss *simplestreams.Simplestreams, urls ...string) []simplest
 				Description:          "local source",
 				BaseURL:              url,
 				PublicSigningKey:     keys.JujuPublicKey,
-				HostnameVerification: utils.VerifySSLHostnames,
+				HostnameVerification: true,
 				Priority:             simplestreams.CUSTOM_CLOUD_DATA,
 			},
 		)

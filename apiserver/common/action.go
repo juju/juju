@@ -245,7 +245,7 @@ func WatchActionNotifications(args params.Entities, canAccess AuthFunc, watchOne
 
 // GetActionsFn declares the function type that returns a slice of
 // state.Action and error, used to curry specific list functions.
-type GetActionsFn func() ([]state.Action, error)
+type GetActionsFn func() ([]*actionstate.Action, error)
 
 // ConvertActions takes a generic getActionsFn to obtain a slice
 // of state.Action and then converts them to the API slice of
@@ -267,15 +267,15 @@ func ConvertActions(ar state.ActionReceiver, fn GetActionsFn, compat bool) ([]pa
 
 // MakeActionResult does the actual type conversion from state.Action
 // to params.ActionResult.
-func MakeActionResult(actionReceiverTag names.Tag, action actionstate.Action, compat bool) params.ActionResult {
-	output, message := action.Results
+func MakeActionResult(actionReceiverTag names.Tag, action *actionstate.Action, compat bool) params.ActionResult {
+	output, message := action.Results, action.Message
 	if !compat {
 		convertActionOutput(output)
 	}
 	result := params.ActionResult{
 		Action: &params.Action{
 			Receiver:   actionReceiverTag.String(),
-			Tag:        action.ActionTag.String(),
+			Tag:        action.ActionTag().String(),
 			Name:       action.Name,
 			Parameters: action.Parameters,
 		},
@@ -286,10 +286,10 @@ func MakeActionResult(actionReceiverTag names.Tag, action actionstate.Action, co
 		Started:   action.Started,
 		Completed: action.Completed,
 	}
-	for _, m := range action.Messages {
+	for _, m := range action.Logs {
 		result.Log = append(result.Log, params.ActionMessage{
-			Timestamp: m.Timestamp(),
-			Message:   m.Message(),
+			Timestamp: m.Timestamp,
+			Message:   m.Message,
 		})
 	}
 

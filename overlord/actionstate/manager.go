@@ -86,13 +86,12 @@ func (m *ActionManager) ActionByTag(txn state.Txn, tag names.ActionTag) (*Action
 	}()
 
 	var (
-		id            string
 		rawParameters string
 		status        string
 		action        = new(Action)
 	)
 	for rows.Next() {
-		if err := rows.Scan(&id, &action.Receiver, &action.Name, &rawParameters, &action.Operation, &status, &action.Message, &action.Enqueued, &action.Started, &action.Completed); err != nil {
+		if err := rows.Scan(&action.ID, &action.Receiver, &action.Name, &rawParameters, &action.Operation, &status, &action.Message, &action.Enqueued, &action.Started, &action.Completed); err != nil {
 			return nil, errors.Trace(err)
 		}
 
@@ -111,11 +110,11 @@ func (m *ActionManager) ActionByTag(txn state.Txn, tag names.ActionTag) (*Action
 	action.Status = ActionStatus(status)
 
 	// Get the logs and results.
-	action.Logs, err = m.getActionLogsByID(txn, id)
+	action.Logs, err = m.getActionLogsByID(txn, tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	action.Results, err = m.getActionResultByID(txn, id)
+	action.Results, err = m.getActionResultByID(txn, tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

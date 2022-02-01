@@ -6,7 +6,7 @@ package stateconfigwatcher
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
@@ -23,12 +23,12 @@ type ManifoldConfig struct {
 }
 
 // Manifold returns a dependency.Manifold which wraps the machine
-// agent's voyeur.Value which gets set whenever it the machine agent's
+// agent's voyeur.Value which gets set whenever the machine agent's
 // config is changed. Whenever the config is updated the presence of
 // state serving info is checked and if state serving info was added
 // or removed the manifold worker will bounce itself.
 //
-// The manifold offes a single boolean output which will be true if
+// The manifold offers a single boolean output which will be true if
 // state serving info is available (i.e. the machine agent should be a
 // state server) and false otherwise.
 //

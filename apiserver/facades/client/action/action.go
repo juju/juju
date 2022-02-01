@@ -189,7 +189,7 @@ func (a *ActionAPI) actions(arg params.Entities, compat bool) (params.ActionResu
 			continue
 		}
 
-		var action actionstate.Action
+		var action *actionstate.Action
 		err = a.overlordState.Run(func(ctx context.Context, txn overlordstate.Txn) error {
 			var err error
 			action, err = a.actionManager.ActionByTag(txn, actionTag)

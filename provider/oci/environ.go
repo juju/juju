@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -322,6 +322,7 @@ func (e *Environ) Create(ctx envcontext.ProviderCallContext, params environs.Cre
 
 // AdoptResources implements environs.Environ.
 func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+	// TODO(cderici): implement AdoptResources for oci
 	return errors.NotImplementedf("AdoptResources")
 }
 

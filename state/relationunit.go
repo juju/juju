@@ -69,10 +69,10 @@ func (ru *RelationUnit) UnitName() string {
 // intervention; the relation will not be able to become Dead until all units
 // have departed its scopes.
 func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
-	db, closer := ru.st.newDB()
-	defer closer()
-	relationScopes, closer := db.GetCollection(relationScopesC)
-	defer closer()
+	db, dbCloser := ru.st.newDB()
+	defer dbCloser()
+	relationScopes, rsCloser := db.GetCollection(relationScopesC)
+	defer rsCloser()
 
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
@@ -109,8 +109,8 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   before we create the scope doc, because the existence of a scope doc
 	//   is considered to be a guarantee of the existence of a settings doc.
 	settingsChanged := func() (bool, error) { return false, nil }
-	settingsColl, closer := db.GetCollection(settingsC)
-	defer closer()
+	settingsColl, sCloser := db.GetCollection(settingsC)
+	defer sCloser()
 	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
@@ -159,16 +159,16 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// unit: this could fail due to the subordinate applications not being Alive,
 	// but this case will always be caught by the check for the relation's
 	// life (because a relation cannot be Alive if its applications are not).)
-	relations, closer := db.GetCollection(relationsC)
-	defer closer()
+	relations, rCloser := db.GetCollection(relationsC)
+	defer rCloser()
 	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
 		return err
 	} else if !alive {
 		return stateerrors.ErrCannotEnterScope
 	}
 	if ru.isLocalUnit {
-		units, closer := db.GetCollection(unitsC)
-		defer closer()
+		units, uCloser := db.GetCollection(unitsC)
+		defer uCloser()
 		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
 			return err
 		} else if !alive {

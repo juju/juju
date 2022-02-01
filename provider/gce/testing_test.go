@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
@@ -189,7 +189,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
 	s.Addresses = []network.ProviderAddress{
-		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 	}
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/overlord"
 	"github.com/juju/juju/state"
 )
@@ -67,7 +68,7 @@ type RaftContext interface {
 	// applied to the caller and a ErrEnqueueDeadlineExceeded will be sent.
 	// It's up to the caller to retry or drop depending on how the retry
 	// algorithm is implemented.
-	ApplyLease(context.Context, []byte) error
+	ApplyLease(context.Context, raftlease.Command) error
 }
 
 // StateManager represents a StateManager for the associated model.

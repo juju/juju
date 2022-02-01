@@ -69,7 +69,7 @@ func (ns nsRefcounts_) StrictCreateOp(coll mongo.Collection, key string, value i
 	return ns.JustCreateOp(coll.Name(), key, value), nil
 }
 
-// CreateOrIncrefOp returns a txn.Op that creates a refcount document as
+// CreateOrIncRefOp returns a txn.Op that creates a refcount document as
 // configured with a specified value; or increments any such refcount doc
 // that already exists.
 func (ns nsRefcounts_) CreateOrIncRefOp(coll mongo.Collection, key string, n int) (txn.Op, error) {

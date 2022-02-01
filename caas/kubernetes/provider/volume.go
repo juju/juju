@@ -88,6 +88,9 @@ func (k *kubernetesClient) ensurePVC(pvc *core.PersistentVolumeClaim) (*core.Per
 }
 
 func (k *kubernetesClient) createPVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Create(context.TODO(), pvc, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("PVC %q", pvc.GetName())
@@ -96,6 +99,9 @@ func (k *kubernetesClient) createPVC(pvc *core.PersistentVolumeClaim) (*core.Per
 }
 
 func (k *kubernetesClient) updatePVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Update(context.TODO(), pvc, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("PVC %q", pvc.GetName())
@@ -104,6 +110,9 @@ func (k *kubernetesClient) updatePVC(pvc *core.PersistentVolumeClaim) (*core.Per
 }
 
 func (k *kubernetesClient) deletePVC(name string, uid types.UID) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -112,6 +121,9 @@ func (k *kubernetesClient) deletePVC(name string, uid types.UID) error {
 }
 
 func (k *kubernetesClient) getPVC(name string) (*core.PersistentVolumeClaim, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	pvc, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("pvc %q", name)
@@ -309,6 +321,9 @@ func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.
 }
 
 func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
 	pvc, err := pvClaims.Get(context.TODO(), claimName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
