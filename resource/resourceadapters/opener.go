@@ -35,7 +35,6 @@ func NewResourceOpener(
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpenerForApplication(st ResourceOpenerState, applicationName string) (opener resource.Opener, err error) {
-	// resourceDownloadLimiter is nil because we only open OCI resources which are json snippets.
 	return newInternalResourceOpener(st, func() ResourceDownloadLock {
 		return noopDownloadResourceLocker{}
 	}, "", applicationName)
