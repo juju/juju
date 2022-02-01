@@ -29,25 +29,27 @@ apps:
       # Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
       PATH: "$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH"
     command: bin/juju
-    plugs:
-      - network
-      - ssh-keys
-      - lxd
+    # Even though the snap is being build as classic, the store still places the
+    # snap in a review queue despite these not being needed in classic.
+    # plugs:
+      # - network
+      # - ssh-keys
+      # - lxd
       # Needed so that juju can still use the real ~/.local/share/juju.
-      - config-juju
+      # - config-juju
       # Needed to read lxd config.
-      - config-lxd
+      # - config-lxd
       # Needed to read ~/.kube, ~/.novarc, ~/.aws etc.
-      - cloud-credentials-juju
+      # - cloud-credentials-juju
       # Needed so that arbitrary cloud/credential yaml files can be read.
-      - home
+      # - home
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
     start-timeout: 3m
     stop-timeout: 35s
-    plugs:
-      - network
+#    plugs:
+#      - network
 
 parts:
   wrappers:
