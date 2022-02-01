@@ -122,6 +122,8 @@ type SSHMachineSuite struct {
 	hostChecker   jujussh.ReachableChecker
 }
 
+var _ = gc.Suite(&SSHMachineSuite{})
+
 // Commands to patch
 var patchedCommands = []string{"ssh", "scp"}
 

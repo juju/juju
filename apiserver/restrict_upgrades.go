@@ -44,6 +44,7 @@ var allowedMethodsDuringUpgrades = map[string]set.Strings{
 		"AllAddresses",
 		"PublicKeys",
 		"Proxy",
+		"Leader",
 	),
 	"Pinger": set.NewStrings(
 		"Ping",
