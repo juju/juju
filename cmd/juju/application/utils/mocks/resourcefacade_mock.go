@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/juju/resource"
-	reflect "reflect"
 )
 
-// MockResourceLister is a mock of ResourceLister interface
+// MockResourceLister is a mock of ResourceLister interface.
 type MockResourceLister struct {
 	ctrl     *gomock.Controller
 	recorder *MockResourceListerMockRecorder
 }
 
-// MockResourceListerMockRecorder is the mock recorder for MockResourceLister
+// MockResourceListerMockRecorder is the mock recorder for MockResourceLister.
 type MockResourceListerMockRecorder struct {
 	mock *MockResourceLister
 }
 
-// NewMockResourceLister creates a new mock instance
+// NewMockResourceLister creates a new mock instance.
 func NewMockResourceLister(ctrl *gomock.Controller) *MockResourceLister {
 	mock := &MockResourceLister{ctrl: ctrl}
 	mock.recorder = &MockResourceListerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceLister) EXPECT() *MockResourceListerMockRecorder {
 	return m.recorder
 }
 
-// ListResources mocks base method
+// ListResources mocks base method.
 func (m *MockResourceLister) ListResources(arg0 []string) ([]resource.ApplicationResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListResources", arg0)
@@ -42,7 +43,7 @@ func (m *MockResourceLister) ListResources(arg0 []string) ([]resource.Applicatio
 	return ret0, ret1
 }
 
-// ListResources indicates an expected call of ListResources
+// ListResources indicates an expected call of ListResources.
 func (mr *MockResourceListerMockRecorder) ListResources(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResources", reflect.TypeOf((*MockResourceLister)(nil).ListResources), arg0)

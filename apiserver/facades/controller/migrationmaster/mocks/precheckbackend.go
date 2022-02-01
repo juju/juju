@@ -5,39 +5,40 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	migration "github.com/juju/juju/migration"
 	resource "github.com/juju/juju/resource"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
-	reflect "reflect"
 )
 
-// MockPrecheckBackend is a mock of PrecheckBackend interface
+// MockPrecheckBackend is a mock of PrecheckBackend interface.
 type MockPrecheckBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockPrecheckBackendMockRecorder
 }
 
-// MockPrecheckBackendMockRecorder is the mock recorder for MockPrecheckBackend
+// MockPrecheckBackendMockRecorder is the mock recorder for MockPrecheckBackend.
 type MockPrecheckBackendMockRecorder struct {
 	mock *MockPrecheckBackend
 }
 
-// NewMockPrecheckBackend creates a new mock instance
+// NewMockPrecheckBackend creates a new mock instance.
 func NewMockPrecheckBackend(ctrl *gomock.Controller) *MockPrecheckBackend {
 	mock := &MockPrecheckBackend{ctrl: ctrl}
 	mock.recorder = &MockPrecheckBackendMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPrecheckBackend) EXPECT() *MockPrecheckBackendMockRecorder {
 	return m.recorder
 }
 
-// AgentVersion mocks base method
+// AgentVersion mocks base method.
 func (m *MockPrecheckBackend) AgentVersion() (version.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentVersion")
@@ -46,13 +47,13 @@ func (m *MockPrecheckBackend) AgentVersion() (version.Number, error) {
 	return ret0, ret1
 }
 
-// AgentVersion indicates an expected call of AgentVersion
+// AgentVersion indicates an expected call of AgentVersion.
 func (mr *MockPrecheckBackendMockRecorder) AgentVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockPrecheckBackend)(nil).AgentVersion))
 }
 
-// AllApplications mocks base method
+// AllApplications mocks base method.
 func (m *MockPrecheckBackend) AllApplications() ([]migration.PrecheckApplication, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllApplications")
@@ -61,13 +62,13 @@ func (m *MockPrecheckBackend) AllApplications() ([]migration.PrecheckApplication
 	return ret0, ret1
 }
 
-// AllApplications indicates an expected call of AllApplications
+// AllApplications indicates an expected call of AllApplications.
 func (mr *MockPrecheckBackendMockRecorder) AllApplications() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllApplications", reflect.TypeOf((*MockPrecheckBackend)(nil).AllApplications))
 }
 
-// AllMachines mocks base method
+// AllMachines mocks base method.
 func (m *MockPrecheckBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllMachines")
@@ -76,13 +77,13 @@ func (m *MockPrecheckBackend) AllMachines() ([]migration.PrecheckMachine, error)
 	return ret0, ret1
 }
 
-// AllMachines indicates an expected call of AllMachines
+// AllMachines indicates an expected call of AllMachines.
 func (mr *MockPrecheckBackendMockRecorder) AllMachines() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockPrecheckBackend)(nil).AllMachines))
 }
 
-// AllModelUUIDs mocks base method
+// AllModelUUIDs mocks base method.
 func (m *MockPrecheckBackend) AllModelUUIDs() ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllModelUUIDs")
@@ -91,13 +92,13 @@ func (m *MockPrecheckBackend) AllModelUUIDs() ([]string, error) {
 	return ret0, ret1
 }
 
-// AllModelUUIDs indicates an expected call of AllModelUUIDs
+// AllModelUUIDs indicates an expected call of AllModelUUIDs.
 func (mr *MockPrecheckBackendMockRecorder) AllModelUUIDs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockPrecheckBackend)(nil).AllModelUUIDs))
 }
 
-// AllRelations mocks base method
+// AllRelations mocks base method.
 func (m *MockPrecheckBackend) AllRelations() ([]migration.PrecheckRelation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRelations")
@@ -106,13 +107,13 @@ func (m *MockPrecheckBackend) AllRelations() ([]migration.PrecheckRelation, erro
 	return ret0, ret1
 }
 
-// AllRelations indicates an expected call of AllRelations
+// AllRelations indicates an expected call of AllRelations.
 func (mr *MockPrecheckBackendMockRecorder) AllRelations() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRelations", reflect.TypeOf((*MockPrecheckBackend)(nil).AllRelations))
 }
 
-// CloudCredential mocks base method
+// CloudCredential mocks base method.
 func (m *MockPrecheckBackend) CloudCredential(arg0 names.CloudCredentialTag) (state.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0)
@@ -121,13 +122,13 @@ func (m *MockPrecheckBackend) CloudCredential(arg0 names.CloudCredentialTag) (st
 	return ret0, ret1
 }
 
-// CloudCredential indicates an expected call of CloudCredential
+// CloudCredential indicates an expected call of CloudCredential.
 func (mr *MockPrecheckBackendMockRecorder) CloudCredential(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockPrecheckBackend)(nil).CloudCredential), arg0)
 }
 
-// ControllerBackend mocks base method
+// ControllerBackend mocks base method.
 func (m *MockPrecheckBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerBackend")
@@ -136,13 +137,13 @@ func (m *MockPrecheckBackend) ControllerBackend() (migration.PrecheckBackend, er
 	return ret0, ret1
 }
 
-// ControllerBackend indicates an expected call of ControllerBackend
+// ControllerBackend indicates an expected call of ControllerBackend.
 func (mr *MockPrecheckBackendMockRecorder) ControllerBackend() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerBackend", reflect.TypeOf((*MockPrecheckBackend)(nil).ControllerBackend))
 }
 
-// IsMigrationActive mocks base method
+// IsMigrationActive mocks base method.
 func (m *MockPrecheckBackend) IsMigrationActive(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsMigrationActive", arg0)
@@ -151,13 +152,13 @@ func (m *MockPrecheckBackend) IsMigrationActive(arg0 string) (bool, error) {
 	return ret0, ret1
 }
 
-// IsMigrationActive indicates an expected call of IsMigrationActive
+// IsMigrationActive indicates an expected call of IsMigrationActive.
 func (mr *MockPrecheckBackendMockRecorder) IsMigrationActive(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMigrationActive", reflect.TypeOf((*MockPrecheckBackend)(nil).IsMigrationActive), arg0)
 }
 
-// IsUpgrading mocks base method
+// IsUpgrading mocks base method.
 func (m *MockPrecheckBackend) IsUpgrading() (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsUpgrading")
@@ -166,13 +167,13 @@ func (m *MockPrecheckBackend) IsUpgrading() (bool, error) {
 	return ret0, ret1
 }
 
-// IsUpgrading indicates an expected call of IsUpgrading
+// IsUpgrading indicates an expected call of IsUpgrading.
 func (mr *MockPrecheckBackendMockRecorder) IsUpgrading() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUpgrading", reflect.TypeOf((*MockPrecheckBackend)(nil).IsUpgrading))
 }
 
-// ListPendingResources mocks base method
+// ListPendingResources mocks base method.
 func (m *MockPrecheckBackend) ListPendingResources(arg0 string) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListPendingResources", arg0)
@@ -181,13 +182,13 @@ func (m *MockPrecheckBackend) ListPendingResources(arg0 string) ([]resource.Reso
 	return ret0, ret1
 }
 
-// ListPendingResources indicates an expected call of ListPendingResources
+// ListPendingResources indicates an expected call of ListPendingResources.
 func (mr *MockPrecheckBackendMockRecorder) ListPendingResources(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingResources", reflect.TypeOf((*MockPrecheckBackend)(nil).ListPendingResources), arg0)
 }
 
-// Model mocks base method
+// Model mocks base method.
 func (m *MockPrecheckBackend) Model() (migration.PrecheckModel, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
@@ -196,13 +197,13 @@ func (m *MockPrecheckBackend) Model() (migration.PrecheckModel, error) {
 	return ret0, ret1
 }
 
-// Model indicates an expected call of Model
+// Model indicates an expected call of Model.
 func (mr *MockPrecheckBackendMockRecorder) Model() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockPrecheckBackend)(nil).Model))
 }
 
-// NeedsCleanup mocks base method
+// NeedsCleanup mocks base method.
 func (m *MockPrecheckBackend) NeedsCleanup() (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NeedsCleanup")
@@ -211,7 +212,7 @@ func (m *MockPrecheckBackend) NeedsCleanup() (bool, error) {
 	return ret0, ret1
 }
 
-// NeedsCleanup indicates an expected call of NeedsCleanup
+// NeedsCleanup indicates an expected call of NeedsCleanup.
 func (mr *MockPrecheckBackendMockRecorder) NeedsCleanup() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeedsCleanup", reflect.TypeOf((*MockPrecheckBackend)(nil).NeedsCleanup))

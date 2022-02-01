@@ -5,36 +5,37 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	relation "github.com/juju/juju/worker/uniter/relation"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
 )
 
-// MockStateTrackerState is a mock of StateTrackerState interface
+// MockStateTrackerState is a mock of StateTrackerState interface.
 type MockStateTrackerState struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateTrackerStateMockRecorder
 }
 
-// MockStateTrackerStateMockRecorder is the mock recorder for MockStateTrackerState
+// MockStateTrackerStateMockRecorder is the mock recorder for MockStateTrackerState.
 type MockStateTrackerStateMockRecorder struct {
 	mock *MockStateTrackerState
 }
 
-// NewMockStateTrackerState creates a new mock instance
+// NewMockStateTrackerState creates a new mock instance.
 func NewMockStateTrackerState(ctrl *gomock.Controller) *MockStateTrackerState {
 	mock := &MockStateTrackerState{ctrl: ctrl}
 	mock.recorder = &MockStateTrackerStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStateTrackerState) EXPECT() *MockStateTrackerStateMockRecorder {
 	return m.recorder
 }
 
-// Relation mocks base method
+// Relation mocks base method.
 func (m *MockStateTrackerState) Relation(arg0 names.RelationTag) (relation.Relation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Relation", arg0)
@@ -43,13 +44,13 @@ func (m *MockStateTrackerState) Relation(arg0 names.RelationTag) (relation.Relat
 	return ret0, ret1
 }
 
-// Relation indicates an expected call of Relation
+// Relation indicates an expected call of Relation.
 func (mr *MockStateTrackerStateMockRecorder) Relation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockStateTrackerState)(nil).Relation), arg0)
 }
 
-// RelationById mocks base method
+// RelationById mocks base method.
 func (m *MockStateTrackerState) RelationById(arg0 int) (relation.Relation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RelationById", arg0)
@@ -58,13 +59,13 @@ func (m *MockStateTrackerState) RelationById(arg0 int) (relation.Relation, error
 	return ret0, ret1
 }
 
-// RelationById indicates an expected call of RelationById
+// RelationById indicates an expected call of RelationById.
 func (mr *MockStateTrackerStateMockRecorder) RelationById(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationById", reflect.TypeOf((*MockStateTrackerState)(nil).RelationById), arg0)
 }
 
-// Unit mocks base method
+// Unit mocks base method.
 func (m *MockStateTrackerState) Unit(arg0 names.UnitTag) (relation.Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
@@ -73,7 +74,7 @@ func (m *MockStateTrackerState) Unit(arg0 names.UnitTag) (relation.Unit, error) 
 	return ret0, ret1
 }
 
-// Unit indicates an expected call of Unit
+// Unit indicates an expected call of Unit.
 func (mr *MockStateTrackerStateMockRecorder) Unit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockStateTrackerState)(nil).Unit), arg0)

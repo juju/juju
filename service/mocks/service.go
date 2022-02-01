@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/service/common"
-	reflect "reflect"
 )
 
-// MockService is a mock of Service interface
+// MockService is a mock of Service interface.
 type MockService struct {
 	ctrl     *gomock.Controller
 	recorder *MockServiceMockRecorder
 }
 
-// MockServiceMockRecorder is the mock recorder for MockService
+// MockServiceMockRecorder is the mock recorder for MockService.
 type MockServiceMockRecorder struct {
 	mock *MockService
 }
 
-// NewMockService creates a new mock instance
+// NewMockService creates a new mock instance.
 func NewMockService(ctrl *gomock.Controller) *MockService {
 	mock := &MockService{ctrl: ctrl}
 	mock.recorder = &MockServiceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
-// Conf mocks base method
+// Conf mocks base method.
 func (m *MockService) Conf() common.Conf {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Conf")
@@ -41,13 +42,13 @@ func (m *MockService) Conf() common.Conf {
 	return ret0
 }
 
-// Conf indicates an expected call of Conf
+// Conf indicates an expected call of Conf.
 func (mr *MockServiceMockRecorder) Conf() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Conf", reflect.TypeOf((*MockService)(nil).Conf))
 }
 
-// Exists mocks base method
+// Exists mocks base method.
 func (m *MockService) Exists() (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exists")
@@ -56,13 +57,13 @@ func (m *MockService) Exists() (bool, error) {
 	return ret0, ret1
 }
 
-// Exists indicates an expected call of Exists
+// Exists indicates an expected call of Exists.
 func (mr *MockServiceMockRecorder) Exists() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockService)(nil).Exists))
 }
 
-// Install mocks base method
+// Install mocks base method.
 func (m *MockService) Install() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Install")
@@ -70,13 +71,13 @@ func (m *MockService) Install() error {
 	return ret0
 }
 
-// Install indicates an expected call of Install
+// Install indicates an expected call of Install.
 func (mr *MockServiceMockRecorder) Install() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Install", reflect.TypeOf((*MockService)(nil).Install))
 }
 
-// InstallCommands mocks base method
+// InstallCommands mocks base method.
 func (m *MockService) InstallCommands() ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstallCommands")
@@ -85,13 +86,13 @@ func (m *MockService) InstallCommands() ([]string, error) {
 	return ret0, ret1
 }
 
-// InstallCommands indicates an expected call of InstallCommands
+// InstallCommands indicates an expected call of InstallCommands.
 func (mr *MockServiceMockRecorder) InstallCommands() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstallCommands", reflect.TypeOf((*MockService)(nil).InstallCommands))
 }
 
-// Installed mocks base method
+// Installed mocks base method.
 func (m *MockService) Installed() (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Installed")
@@ -100,13 +101,13 @@ func (m *MockService) Installed() (bool, error) {
 	return ret0, ret1
 }
 
-// Installed indicates an expected call of Installed
+// Installed indicates an expected call of Installed.
 func (mr *MockServiceMockRecorder) Installed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Installed", reflect.TypeOf((*MockService)(nil).Installed))
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockService) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -114,13 +115,13 @@ func (m *MockService) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockServiceMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockService)(nil).Name))
 }
 
-// Remove mocks base method
+// Remove mocks base method.
 func (m *MockService) Remove() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove")
@@ -128,13 +129,13 @@ func (m *MockService) Remove() error {
 	return ret0
 }
 
-// Remove indicates an expected call of Remove
+// Remove indicates an expected call of Remove.
 func (mr *MockServiceMockRecorder) Remove() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockService)(nil).Remove))
 }
 
-// Running mocks base method
+// Running mocks base method.
 func (m *MockService) Running() (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Running")
@@ -143,13 +144,13 @@ func (m *MockService) Running() (bool, error) {
 	return ret0, ret1
 }
 
-// Running indicates an expected call of Running
+// Running indicates an expected call of Running.
 func (mr *MockServiceMockRecorder) Running() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Running", reflect.TypeOf((*MockService)(nil).Running))
 }
 
-// Start mocks base method
+// Start mocks base method.
 func (m *MockService) Start() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start")
@@ -157,13 +158,13 @@ func (m *MockService) Start() error {
 	return ret0
 }
 
-// Start indicates an expected call of Start
+// Start indicates an expected call of Start.
 func (mr *MockServiceMockRecorder) Start() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockService)(nil).Start))
 }
 
-// StartCommands mocks base method
+// StartCommands mocks base method.
 func (m *MockService) StartCommands() ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartCommands")
@@ -172,13 +173,13 @@ func (m *MockService) StartCommands() ([]string, error) {
 	return ret0, ret1
 }
 
-// StartCommands indicates an expected call of StartCommands
+// StartCommands indicates an expected call of StartCommands.
 func (mr *MockServiceMockRecorder) StartCommands() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartCommands", reflect.TypeOf((*MockService)(nil).StartCommands))
 }
 
-// Stop mocks base method
+// Stop mocks base method.
 func (m *MockService) Stop() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop")
@@ -186,7 +187,7 @@ func (m *MockService) Stop() error {
 	return ret0
 }
 
-// Stop indicates an expected call of Stop
+// Stop indicates an expected call of Stop.
 func (mr *MockServiceMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockService)(nil).Stop))

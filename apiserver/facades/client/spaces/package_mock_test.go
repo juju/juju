@@ -21,7 +21,7 @@ import (
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v2/txn"
-	names "github.com/juju/names/v4"
+	v4 "github.com/juju/names/v4"
 )
 
 // MockBacking is a mock of Backing interface.
@@ -226,10 +226,10 @@ func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
 }
 
 // ModelTag mocks base method.
-func (m *MockBacking) ModelTag() names.ModelTag {
+func (m *MockBacking) ModelTag() v4.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
+	ret0, _ := ret[0].(v4.ModelTag)
 	return ret0
 }
 
@@ -361,7 +361,7 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 // AllAddresses mocks base method.
 func (m *MockMachine) AllAddresses() ([]Address, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllDeviceAddresses")
+	ret := m.ctrl.Call(m, "AllAddresses")
 	ret0, _ := ret[0].([]Address)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -370,7 +370,7 @@ func (m *MockMachine) AllAddresses() ([]Address, error) {
 // AllAddresses indicates an expected call of AllAddresses.
 func (mr *MockMachineMockRecorder) AllAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllDeviceAddresses", reflect.TypeOf((*MockMachine)(nil).AllAddresses))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAddresses", reflect.TypeOf((*MockMachine)(nil).AllAddresses))
 }
 
 // AllSpaces mocks base method.
@@ -1375,10 +1375,10 @@ func (m *MockAuthorizerState) EXPECT() *MockAuthorizerStateMockRecorder {
 }
 
 // ModelTag mocks base method.
-func (m *MockAuthorizerState) ModelTag() names.ModelTag {
+func (m *MockAuthorizerState) ModelTag() v4.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
+	ret0, _ := ret[0].(v4.ModelTag)
 	return ret0
 }
 

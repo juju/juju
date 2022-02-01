@@ -5,36 +5,37 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
 )
 
-// MockEntityFinder is a mock of EntityFinder interface
+// MockEntityFinder is a mock of EntityFinder interface.
 type MockEntityFinder struct {
 	ctrl     *gomock.Controller
 	recorder *MockEntityFinderMockRecorder
 }
 
-// MockEntityFinderMockRecorder is the mock recorder for MockEntityFinder
+// MockEntityFinderMockRecorder is the mock recorder for MockEntityFinder.
 type MockEntityFinderMockRecorder struct {
 	mock *MockEntityFinder
 }
 
-// NewMockEntityFinder creates a new mock instance
+// NewMockEntityFinder creates a new mock instance.
 func NewMockEntityFinder(ctrl *gomock.Controller) *MockEntityFinder {
 	mock := &MockEntityFinder{ctrl: ctrl}
 	mock.recorder = &MockEntityFinderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEntityFinder) EXPECT() *MockEntityFinderMockRecorder {
 	return m.recorder
 }
 
-// FindEntity mocks base method
+// FindEntity mocks base method.
 func (m *MockEntityFinder) FindEntity(arg0 names.Tag) (state.Entity, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindEntity", arg0)
@@ -43,36 +44,36 @@ func (m *MockEntityFinder) FindEntity(arg0 names.Tag) (state.Entity, error) {
 	return ret0, ret1
 }
 
-// FindEntity indicates an expected call of FindEntity
+// FindEntity indicates an expected call of FindEntity.
 func (mr *MockEntityFinderMockRecorder) FindEntity(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEntity", reflect.TypeOf((*MockEntityFinder)(nil).FindEntity), arg0)
 }
 
-// MockEntity is a mock of Entity interface
+// MockEntity is a mock of Entity interface.
 type MockEntity struct {
 	ctrl     *gomock.Controller
 	recorder *MockEntityMockRecorder
 }
 
-// MockEntityMockRecorder is the mock recorder for MockEntity
+// MockEntityMockRecorder is the mock recorder for MockEntity.
 type MockEntityMockRecorder struct {
 	mock *MockEntity
 }
 
-// NewMockEntity creates a new mock instance
+// NewMockEntity creates a new mock instance.
 func NewMockEntity(ctrl *gomock.Controller) *MockEntity {
 	mock := &MockEntity{ctrl: ctrl}
 	mock.recorder = &MockEntityMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEntity) EXPECT() *MockEntityMockRecorder {
 	return m.recorder
 }
 
-// Tag mocks base method
+// Tag mocks base method.
 func (m *MockEntity) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
@@ -80,7 +81,7 @@ func (m *MockEntity) Tag() names.Tag {
 	return ret0
 }
 
-// Tag indicates an expected call of Tag
+// Tag indicates an expected call of Tag.
 func (mr *MockEntityMockRecorder) Tag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockEntity)(nil).Tag))

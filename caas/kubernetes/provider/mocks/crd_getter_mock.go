@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	reflect "reflect"
 )
 
-// MockCRDGetterInterface is a mock of CRDGetterInterface interface
+// MockCRDGetterInterface is a mock of CRDGetterInterface interface.
 type MockCRDGetterInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockCRDGetterInterfaceMockRecorder
 }
 
-// MockCRDGetterInterfaceMockRecorder is the mock recorder for MockCRDGetterInterface
+// MockCRDGetterInterfaceMockRecorder is the mock recorder for MockCRDGetterInterface.
 type MockCRDGetterInterfaceMockRecorder struct {
 	mock *MockCRDGetterInterface
 }
 
-// NewMockCRDGetterInterface creates a new mock instance
+// NewMockCRDGetterInterface creates a new mock instance.
 func NewMockCRDGetterInterface(ctrl *gomock.Controller) *MockCRDGetterInterface {
 	mock := &MockCRDGetterInterface{ctrl: ctrl}
 	mock.recorder = &MockCRDGetterInterfaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCRDGetterInterface) EXPECT() *MockCRDGetterInterfaceMockRecorder {
 	return m.recorder
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockCRDGetterInterface) Get(arg0 string) (*v1.CustomResourceDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
@@ -42,7 +43,7 @@ func (m *MockCRDGetterInterface) Get(arg0 string) (*v1.CustomResourceDefinition,
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockCRDGetterInterfaceMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCRDGetterInterface)(nil).Get), arg0)

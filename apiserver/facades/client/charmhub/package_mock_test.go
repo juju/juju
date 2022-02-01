@@ -6,37 +6,38 @@ package charmhub
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charmhub0 "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	config "github.com/juju/juju/environs/config"
-	reflect "reflect"
 )
 
-// MockBackend is a mock of Backend interface
+// MockBackend is a mock of Backend interface.
 type MockBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockBackendMockRecorder
 }
 
-// MockBackendMockRecorder is the mock recorder for MockBackend
+// MockBackendMockRecorder is the mock recorder for MockBackend.
 type MockBackendMockRecorder struct {
 	mock *MockBackend
 }
 
-// NewMockBackend creates a new mock instance
+// NewMockBackend creates a new mock instance.
 func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
 	mock := &MockBackend{ctrl: ctrl}
 	mock.recorder = &MockBackendMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// ModelConfig mocks base method
+// ModelConfig mocks base method.
 func (m *MockBackend) ModelConfig() (*config.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelConfig")
@@ -45,36 +46,36 @@ func (m *MockBackend) ModelConfig() (*config.Config, error) {
 	return ret0, ret1
 }
 
-// ModelConfig indicates an expected call of ModelConfig
+// ModelConfig indicates an expected call of ModelConfig.
 func (mr *MockBackendMockRecorder) ModelConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBackend)(nil).ModelConfig))
 }
 
-// MockClientFactory is a mock of ClientFactory interface
+// MockClientFactory is a mock of ClientFactory interface.
 type MockClientFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientFactoryMockRecorder
 }
 
-// MockClientFactoryMockRecorder is the mock recorder for MockClientFactory
+// MockClientFactoryMockRecorder is the mock recorder for MockClientFactory.
 type MockClientFactoryMockRecorder struct {
 	mock *MockClientFactory
 }
 
-// NewMockClientFactory creates a new mock instance
+// NewMockClientFactory creates a new mock instance.
 func NewMockClientFactory(ctrl *gomock.Controller) *MockClientFactory {
 	mock := &MockClientFactory{ctrl: ctrl}
 	mock.recorder = &MockClientFactoryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClientFactory) EXPECT() *MockClientFactoryMockRecorder {
 	return m.recorder
 }
 
-// Client mocks base method
+// Client mocks base method.
 func (m *MockClientFactory) Client(arg0 string) (Client, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Client", arg0)
@@ -83,36 +84,36 @@ func (m *MockClientFactory) Client(arg0 string) (Client, error) {
 	return ret0, ret1
 }
 
-// Client indicates an expected call of Client
+// Client indicates an expected call of Client.
 func (mr *MockClientFactoryMockRecorder) Client(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Client", reflect.TypeOf((*MockClientFactory)(nil).Client), arg0)
 }
 
-// MockClient is a mock of Client interface
+// MockClient is a mock of Client interface.
 type MockClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientMockRecorder
 }
 
-// MockClientMockRecorder is the mock recorder for MockClient
+// MockClientMockRecorder is the mock recorder for MockClient.
 type MockClientMockRecorder struct {
 	mock *MockClient
 }
 
-// NewMockClient creates a new mock instance
+// NewMockClient creates a new mock instance.
 func NewMockClient(ctrl *gomock.Controller) *MockClient {
 	mock := &MockClient{ctrl: ctrl}
 	mock.recorder = &MockClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
-// Find mocks base method
+// Find mocks base method.
 func (m *MockClient) Find(arg0 context.Context, arg1 string, arg2 ...charmhub0.FindOption) ([]transport.FindResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
@@ -125,14 +126,14 @@ func (m *MockClient) Find(arg0 context.Context, arg1 string, arg2 ...charmhub0.F
 	return ret0, ret1
 }
 
-// Find indicates an expected call of Find
+// Find indicates an expected call of Find.
 func (mr *MockClientMockRecorder) Find(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockClient)(nil).Find), varargs...)
 }
 
-// Info mocks base method
+// Info mocks base method.
 func (m *MockClient) Info(arg0 context.Context, arg1 string, arg2 ...charmhub0.InfoOption) (transport.InfoResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
@@ -145,14 +146,14 @@ func (m *MockClient) Info(arg0 context.Context, arg1 string, arg2 ...charmhub0.I
 	return ret0, ret1
 }
 
-// Info indicates an expected call of Info
+// Info indicates an expected call of Info.
 func (mr *MockClientMockRecorder) Info(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockClient)(nil).Info), varargs...)
 }
 
-// URL mocks base method
+// URL mocks base method.
 func (m *MockClient) URL() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
@@ -160,7 +161,7 @@ func (m *MockClient) URL() string {
 	return ret0
 }
 
-// URL indicates an expected call of URL
+// URL indicates an expected call of URL.
 func (mr *MockClientMockRecorder) URL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockClient)(nil).URL))

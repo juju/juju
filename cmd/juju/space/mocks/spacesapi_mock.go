@@ -9,33 +9,33 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 )
 
-// MockSpaceAPI is a mock of SpaceAPI interface
+// MockSpaceAPI is a mock of SpaceAPI interface.
 type MockSpaceAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockSpaceAPIMockRecorder
 }
 
-// MockSpaceAPIMockRecorder is the mock recorder for MockSpaceAPI
+// MockSpaceAPIMockRecorder is the mock recorder for MockSpaceAPI.
 type MockSpaceAPIMockRecorder struct {
 	mock *MockSpaceAPI
 }
 
-// NewMockSpaceAPI creates a new mock instance
+// NewMockSpaceAPI creates a new mock instance.
 func NewMockSpaceAPI(ctrl *gomock.Controller) *MockSpaceAPI {
 	mock := &MockSpaceAPI{ctrl: ctrl}
 	mock.recorder = &MockSpaceAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSpaceAPI) EXPECT() *MockSpaceAPIMockRecorder {
 	return m.recorder
 }
 
-// AddSpace mocks base method
+// AddSpace mocks base method.
 func (m *MockSpaceAPI) AddSpace(arg0 string, arg1 []string, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2)
@@ -43,13 +43,13 @@ func (m *MockSpaceAPI) AddSpace(arg0 string, arg1 []string, arg2 bool) error {
 	return ret0
 }
 
-// AddSpace indicates an expected call of AddSpace
+// AddSpace indicates an expected call of AddSpace.
 func (mr *MockSpaceAPIMockRecorder) AddSpace(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockSpaceAPI)(nil).AddSpace), arg0, arg1, arg2)
 }
 
-// ListSpaces mocks base method
+// ListSpaces mocks base method.
 func (m *MockSpaceAPI) ListSpaces() ([]params.Space, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSpaces")
@@ -58,14 +58,14 @@ func (m *MockSpaceAPI) ListSpaces() ([]params.Space, error) {
 	return ret0, ret1
 }
 
-// ListSpaces indicates an expected call of ListSpaces
+// ListSpaces indicates an expected call of ListSpaces.
 func (mr *MockSpaceAPIMockRecorder) ListSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSpaces", reflect.TypeOf((*MockSpaceAPI)(nil).ListSpaces))
 }
 
-// MoveSubnets mocks base method
-func (m *MockSpaceAPI) MoveSubnets(arg0 names_v3.SpaceTag, arg1 []names_v3.SubnetTag, arg2 bool) (params.MoveSubnetsResult, error) {
+// MoveSubnets mocks base method.
+func (m *MockSpaceAPI) MoveSubnets(arg0 names.SpaceTag, arg1 []names.SubnetTag, arg2 bool) (params.MoveSubnetsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MoveSubnets", arg0, arg1, arg2)
 	ret0, _ := ret[0].(params.MoveSubnetsResult)
@@ -73,13 +73,13 @@ func (m *MockSpaceAPI) MoveSubnets(arg0 names_v3.SpaceTag, arg1 []names_v3.Subne
 	return ret0, ret1
 }
 
-// MoveSubnets indicates an expected call of MoveSubnets
+// MoveSubnets indicates an expected call of MoveSubnets.
 func (mr *MockSpaceAPIMockRecorder) MoveSubnets(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveSubnets", reflect.TypeOf((*MockSpaceAPI)(nil).MoveSubnets), arg0, arg1, arg2)
 }
 
-// ReloadSpaces mocks base method
+// ReloadSpaces mocks base method.
 func (m *MockSpaceAPI) ReloadSpaces() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReloadSpaces")
@@ -87,13 +87,13 @@ func (m *MockSpaceAPI) ReloadSpaces() error {
 	return ret0
 }
 
-// ReloadSpaces indicates an expected call of ReloadSpaces
+// ReloadSpaces indicates an expected call of ReloadSpaces.
 func (mr *MockSpaceAPIMockRecorder) ReloadSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockSpaceAPI)(nil).ReloadSpaces))
 }
 
-// RemoveSpace mocks base method
+// RemoveSpace mocks base method.
 func (m *MockSpaceAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (params.RemoveSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSpace", arg0, arg1, arg2)
@@ -102,13 +102,13 @@ func (m *MockSpaceAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (params.RemoveS
 	return ret0, ret1
 }
 
-// RemoveSpace indicates an expected call of RemoveSpace
+// RemoveSpace indicates an expected call of RemoveSpace.
 func (mr *MockSpaceAPIMockRecorder) RemoveSpace(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSpace", reflect.TypeOf((*MockSpaceAPI)(nil).RemoveSpace), arg0, arg1, arg2)
 }
 
-// RenameSpace mocks base method
+// RenameSpace mocks base method.
 func (m *MockSpaceAPI) RenameSpace(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameSpace", arg0, arg1)
@@ -116,13 +116,13 @@ func (m *MockSpaceAPI) RenameSpace(arg0, arg1 string) error {
 	return ret0
 }
 
-// RenameSpace indicates an expected call of RenameSpace
+// RenameSpace indicates an expected call of RenameSpace.
 func (mr *MockSpaceAPIMockRecorder) RenameSpace(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpace", reflect.TypeOf((*MockSpaceAPI)(nil).RenameSpace), arg0, arg1)
 }
 
-// ShowSpace mocks base method
+// ShowSpace mocks base method.
 func (m *MockSpaceAPI) ShowSpace(arg0 string) (params.ShowSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShowSpace", arg0)
@@ -131,36 +131,36 @@ func (m *MockSpaceAPI) ShowSpace(arg0 string) (params.ShowSpaceResult, error) {
 	return ret0, ret1
 }
 
-// ShowSpace indicates an expected call of ShowSpace
+// ShowSpace indicates an expected call of ShowSpace.
 func (mr *MockSpaceAPIMockRecorder) ShowSpace(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowSpace", reflect.TypeOf((*MockSpaceAPI)(nil).ShowSpace), arg0)
 }
 
-// MockSubnetAPI is a mock of SubnetAPI interface
+// MockSubnetAPI is a mock of SubnetAPI interface.
 type MockSubnetAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockSubnetAPIMockRecorder
 }
 
-// MockSubnetAPIMockRecorder is the mock recorder for MockSubnetAPI
+// MockSubnetAPIMockRecorder is the mock recorder for MockSubnetAPI.
 type MockSubnetAPIMockRecorder struct {
 	mock *MockSubnetAPI
 }
 
-// NewMockSubnetAPI creates a new mock instance
+// NewMockSubnetAPI creates a new mock instance.
 func NewMockSubnetAPI(ctrl *gomock.Controller) *MockSubnetAPI {
 	mock := &MockSubnetAPI{ctrl: ctrl}
 	mock.recorder = &MockSubnetAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSubnetAPI) EXPECT() *MockSubnetAPIMockRecorder {
 	return m.recorder
 }
 
-// SubnetsByCIDR mocks base method
+// SubnetsByCIDR mocks base method.
 func (m *MockSubnetAPI) SubnetsByCIDR(arg0 []string) ([]params.SubnetsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubnetsByCIDR", arg0)
@@ -169,36 +169,36 @@ func (m *MockSubnetAPI) SubnetsByCIDR(arg0 []string) ([]params.SubnetsResult, er
 	return ret0, ret1
 }
 
-// SubnetsByCIDR indicates an expected call of SubnetsByCIDR
+// SubnetsByCIDR indicates an expected call of SubnetsByCIDR.
 func (mr *MockSubnetAPIMockRecorder) SubnetsByCIDR(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetsByCIDR", reflect.TypeOf((*MockSubnetAPI)(nil).SubnetsByCIDR), arg0)
 }
 
-// MockAPI is a mock of API interface
+// MockAPI is a mock of API interface.
 type MockAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockAPIMockRecorder
 }
 
-// MockAPIMockRecorder is the mock recorder for MockAPI
+// MockAPIMockRecorder is the mock recorder for MockAPI.
 type MockAPIMockRecorder struct {
 	mock *MockAPI
 }
 
-// NewMockAPI creates a new mock instance
+// NewMockAPI creates a new mock instance.
 func NewMockAPI(ctrl *gomock.Controller) *MockAPI {
 	mock := &MockAPI{ctrl: ctrl}
 	mock.recorder = &MockAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAPI) EXPECT() *MockAPIMockRecorder {
 	return m.recorder
 }
 
-// AddSpace mocks base method
+// AddSpace mocks base method.
 func (m *MockAPI) AddSpace(arg0 string, arg1 []string, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2)
@@ -206,13 +206,13 @@ func (m *MockAPI) AddSpace(arg0 string, arg1 []string, arg2 bool) error {
 	return ret0
 }
 
-// AddSpace indicates an expected call of AddSpace
+// AddSpace indicates an expected call of AddSpace.
 func (mr *MockAPIMockRecorder) AddSpace(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockAPI)(nil).AddSpace), arg0, arg1, arg2)
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockAPI) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -220,13 +220,13 @@ func (m *MockAPI) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockAPI)(nil).Close))
 }
 
-// ListSpaces mocks base method
+// ListSpaces mocks base method.
 func (m *MockAPI) ListSpaces() ([]params.Space, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSpaces")
@@ -235,14 +235,14 @@ func (m *MockAPI) ListSpaces() ([]params.Space, error) {
 	return ret0, ret1
 }
 
-// ListSpaces indicates an expected call of ListSpaces
+// ListSpaces indicates an expected call of ListSpaces.
 func (mr *MockAPIMockRecorder) ListSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSpaces", reflect.TypeOf((*MockAPI)(nil).ListSpaces))
 }
 
-// MoveSubnets mocks base method
-func (m *MockAPI) MoveSubnets(arg0 names_v3.SpaceTag, arg1 []names_v3.SubnetTag, arg2 bool) (params.MoveSubnetsResult, error) {
+// MoveSubnets mocks base method.
+func (m *MockAPI) MoveSubnets(arg0 names.SpaceTag, arg1 []names.SubnetTag, arg2 bool) (params.MoveSubnetsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MoveSubnets", arg0, arg1, arg2)
 	ret0, _ := ret[0].(params.MoveSubnetsResult)
@@ -250,13 +250,13 @@ func (m *MockAPI) MoveSubnets(arg0 names_v3.SpaceTag, arg1 []names_v3.SubnetTag,
 	return ret0, ret1
 }
 
-// MoveSubnets indicates an expected call of MoveSubnets
+// MoveSubnets indicates an expected call of MoveSubnets.
 func (mr *MockAPIMockRecorder) MoveSubnets(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveSubnets", reflect.TypeOf((*MockAPI)(nil).MoveSubnets), arg0, arg1, arg2)
 }
 
-// ReloadSpaces mocks base method
+// ReloadSpaces mocks base method.
 func (m *MockAPI) ReloadSpaces() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReloadSpaces")
@@ -264,13 +264,13 @@ func (m *MockAPI) ReloadSpaces() error {
 	return ret0
 }
 
-// ReloadSpaces indicates an expected call of ReloadSpaces
+// ReloadSpaces indicates an expected call of ReloadSpaces.
 func (mr *MockAPIMockRecorder) ReloadSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockAPI)(nil).ReloadSpaces))
 }
 
-// RemoveSpace mocks base method
+// RemoveSpace mocks base method.
 func (m *MockAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (params.RemoveSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSpace", arg0, arg1, arg2)
@@ -279,13 +279,13 @@ func (m *MockAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (params.RemoveSpaceR
 	return ret0, ret1
 }
 
-// RemoveSpace indicates an expected call of RemoveSpace
+// RemoveSpace indicates an expected call of RemoveSpace.
 func (mr *MockAPIMockRecorder) RemoveSpace(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSpace", reflect.TypeOf((*MockAPI)(nil).RemoveSpace), arg0, arg1, arg2)
 }
 
-// RenameSpace mocks base method
+// RenameSpace mocks base method.
 func (m *MockAPI) RenameSpace(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameSpace", arg0, arg1)
@@ -293,13 +293,13 @@ func (m *MockAPI) RenameSpace(arg0, arg1 string) error {
 	return ret0
 }
 
-// RenameSpace indicates an expected call of RenameSpace
+// RenameSpace indicates an expected call of RenameSpace.
 func (mr *MockAPIMockRecorder) RenameSpace(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpace", reflect.TypeOf((*MockAPI)(nil).RenameSpace), arg0, arg1)
 }
 
-// ShowSpace mocks base method
+// ShowSpace mocks base method.
 func (m *MockAPI) ShowSpace(arg0 string) (params.ShowSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShowSpace", arg0)
@@ -308,13 +308,13 @@ func (m *MockAPI) ShowSpace(arg0 string) (params.ShowSpaceResult, error) {
 	return ret0, ret1
 }
 
-// ShowSpace indicates an expected call of ShowSpace
+// ShowSpace indicates an expected call of ShowSpace.
 func (mr *MockAPIMockRecorder) ShowSpace(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowSpace", reflect.TypeOf((*MockAPI)(nil).ShowSpace), arg0)
 }
 
-// SubnetsByCIDR mocks base method
+// SubnetsByCIDR mocks base method.
 func (m *MockAPI) SubnetsByCIDR(arg0 []string) ([]params.SubnetsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubnetsByCIDR", arg0)
@@ -323,7 +323,7 @@ func (m *MockAPI) SubnetsByCIDR(arg0 []string) ([]params.SubnetsResult, error) {
 	return ret0, ret1
 }
 
-// SubnetsByCIDR indicates an expected call of SubnetsByCIDR
+// SubnetsByCIDR indicates an expected call of SubnetsByCIDR.
 func (mr *MockAPIMockRecorder) SubnetsByCIDR(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetsByCIDR", reflect.TypeOf((*MockAPI)(nil).SubnetsByCIDR), arg0)

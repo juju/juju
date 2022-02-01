@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	reflect "reflect"
 )
 
-// MockBundleDataSource is a mock of BundleDataSource interface
+// MockBundleDataSource is a mock of BundleDataSource interface.
 type MockBundleDataSource struct {
 	ctrl     *gomock.Controller
 	recorder *MockBundleDataSourceMockRecorder
 }
 
-// MockBundleDataSourceMockRecorder is the mock recorder for MockBundleDataSource
+// MockBundleDataSourceMockRecorder is the mock recorder for MockBundleDataSource.
 type MockBundleDataSourceMockRecorder struct {
 	mock *MockBundleDataSource
 }
 
-// NewMockBundleDataSource creates a new mock instance
+// NewMockBundleDataSource creates a new mock instance.
 func NewMockBundleDataSource(ctrl *gomock.Controller) *MockBundleDataSource {
 	mock := &MockBundleDataSource{ctrl: ctrl}
 	mock.recorder = &MockBundleDataSourceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBundleDataSource) EXPECT() *MockBundleDataSourceMockRecorder {
 	return m.recorder
 }
 
-// BasePath mocks base method
+// BasePath mocks base method.
 func (m *MockBundleDataSource) BasePath() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BasePath")
@@ -41,13 +42,13 @@ func (m *MockBundleDataSource) BasePath() string {
 	return ret0
 }
 
-// BasePath indicates an expected call of BasePath
+// BasePath indicates an expected call of BasePath.
 func (mr *MockBundleDataSourceMockRecorder) BasePath() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BasePath", reflect.TypeOf((*MockBundleDataSource)(nil).BasePath))
 }
 
-// Parts mocks base method
+// Parts mocks base method.
 func (m *MockBundleDataSource) Parts() []*charm.BundleDataPart {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Parts")
@@ -55,13 +56,13 @@ func (m *MockBundleDataSource) Parts() []*charm.BundleDataPart {
 	return ret0
 }
 
-// Parts indicates an expected call of Parts
+// Parts indicates an expected call of Parts.
 func (mr *MockBundleDataSourceMockRecorder) Parts() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Parts", reflect.TypeOf((*MockBundleDataSource)(nil).Parts))
 }
 
-// ResolveInclude mocks base method
+// ResolveInclude mocks base method.
 func (m *MockBundleDataSource) ResolveInclude(arg0 string) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveInclude", arg0)
@@ -70,7 +71,7 @@ func (m *MockBundleDataSource) ResolveInclude(arg0 string) ([]byte, error) {
 	return ret0, ret1
 }
 
-// ResolveInclude indicates an expected call of ResolveInclude
+// ResolveInclude indicates an expected call of ResolveInclude.
 func (mr *MockBundleDataSourceMockRecorder) ResolveInclude(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveInclude", reflect.TypeOf((*MockBundleDataSource)(nil).ResolveInclude), arg0)

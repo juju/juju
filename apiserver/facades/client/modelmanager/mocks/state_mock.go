@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
-	reflect "reflect"
 )
 
-// MockStatePool is a mock of StatePool interface
+// MockStatePool is a mock of StatePool interface.
 type MockStatePool struct {
 	ctrl     *gomock.Controller
 	recorder *MockStatePoolMockRecorder
 }
 
-// MockStatePoolMockRecorder is the mock recorder for MockStatePool
+// MockStatePoolMockRecorder is the mock recorder for MockStatePool.
 type MockStatePoolMockRecorder struct {
 	mock *MockStatePool
 }
 
-// NewMockStatePool creates a new mock instance
+// NewMockStatePool creates a new mock instance.
 func NewMockStatePool(ctrl *gomock.Controller) *MockStatePool {
 	mock := &MockStatePool{ctrl: ctrl}
 	mock.recorder = &MockStatePoolMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStatePool) EXPECT() *MockStatePoolMockRecorder {
 	return m.recorder
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockStatePool) Get(arg0 string) (modelmanager.State, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
@@ -42,36 +43,36 @@ func (m *MockStatePool) Get(arg0 string) (modelmanager.State, error) {
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockStatePoolMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStatePool)(nil).Get), arg0)
 }
 
-// MockState is a mock of State interface
+// MockState is a mock of State interface.
 type MockState struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateMockRecorder
 }
 
-// MockStateMockRecorder is the mock recorder for MockState
+// MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
 	mock *MockState
 }
 
-// NewMockState creates a new mock instance
+// NewMockState creates a new mock instance.
 func NewMockState(ctrl *gomock.Controller) *MockState {
 	mock := &MockState{ctrl: ctrl}
 	mock.recorder = &MockStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// HasUpgradeSeriesLocks mocks base method
+// HasUpgradeSeriesLocks mocks base method.
 func (m *MockState) HasUpgradeSeriesLocks() (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasUpgradeSeriesLocks")
@@ -80,13 +81,13 @@ func (m *MockState) HasUpgradeSeriesLocks() (bool, error) {
 	return ret0, ret1
 }
 
-// HasUpgradeSeriesLocks indicates an expected call of HasUpgradeSeriesLocks
+// HasUpgradeSeriesLocks indicates an expected call of HasUpgradeSeriesLocks.
 func (mr *MockStateMockRecorder) HasUpgradeSeriesLocks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUpgradeSeriesLocks", reflect.TypeOf((*MockState)(nil).HasUpgradeSeriesLocks))
 }
 
-// Model mocks base method
+// Model mocks base method.
 func (m *MockState) Model() (modelmanager.Model, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
@@ -95,13 +96,13 @@ func (m *MockState) Model() (modelmanager.Model, error) {
 	return ret0, ret1
 }
 
-// Model indicates an expected call of Model
+// Model indicates an expected call of Model.
 func (mr *MockStateMockRecorder) Model() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockState)(nil).Model))
 }
 
-// Release mocks base method
+// Release mocks base method.
 func (m *MockState) Release() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Release")
@@ -109,36 +110,36 @@ func (m *MockState) Release() bool {
 	return ret0
 }
 
-// Release indicates an expected call of Release
+// Release indicates an expected call of Release.
 func (mr *MockStateMockRecorder) Release() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockState)(nil).Release))
 }
 
-// MockModel is a mock of Model interface
+// MockModel is a mock of Model interface.
 type MockModel struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelMockRecorder
 }
 
-// MockModelMockRecorder is the mock recorder for MockModel
+// MockModelMockRecorder is the mock recorder for MockModel.
 type MockModelMockRecorder struct {
 	mock *MockModel
 }
 
-// NewMockModel creates a new mock instance
+// NewMockModel creates a new mock instance.
 func NewMockModel(ctrl *gomock.Controller) *MockModel {
 	mock := &MockModel{ctrl: ctrl}
 	mock.recorder = &MockModelMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
-// IsControllerModel mocks base method
+// IsControllerModel mocks base method.
 func (m *MockModel) IsControllerModel() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsControllerModel")
@@ -146,7 +147,7 @@ func (m *MockModel) IsControllerModel() bool {
 	return ret0
 }
 
-// IsControllerModel indicates an expected call of IsControllerModel
+// IsControllerModel indicates an expected call of IsControllerModel.
 func (mr *MockModelMockRecorder) IsControllerModel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModel)(nil).IsControllerModel))
