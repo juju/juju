@@ -4,8 +4,12 @@
 package upgradesteps
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
@@ -26,6 +30,14 @@ type ManifoldConfig struct {
 	OpenStateForUpgrade  func() (*state.StatePool, error)
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
+}
+
+// defaultRetryStrategy is the retry strategy for performing upgrades that should
+// be used to construct a NewWorker under most circumstances.
+var defaultRetryStrategy = retry.CallArgs{
+	Clock:    clock.WallClock,
+	Delay:    2 * time.Minute,
+	Attempts: 5,
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -83,6 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					false,
 					config.OpenStateForUpgrade,
 					config.PreUpgradeSteps,
+					defaultRetryStrategy,
 					statusSetter,
 					isOperator,
 				)
@@ -99,6 +112,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				isController,
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
+				defaultRetryStrategy,
 				statusSetter,
 				isOperator,
 			)
