@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS actions (
 	receiver TEXT,
 	name TEXT,
 	parameters_json TEXT,
-	operation TEXT
+	operation TEXT,
 	status TEXT,
 	message TEXT,
 	enqueued DATETIME,

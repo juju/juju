@@ -291,7 +291,7 @@ INSERT INTO actions (
 	enqueued, status
 )
 VALUES
-	(?, ?, ?, ?, now(), 'pending')
+	(?, ?, ?, ?, DateTime('now'), 'pending')
 `
 	sqlSelectActionByTag = `
 SELECT
@@ -342,7 +342,7 @@ WHERE
 SELECT
 	result_json
 FROM
-	actions_logs
+	actions_results
 WHERE
 	action_id = ?
 `

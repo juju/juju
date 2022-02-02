@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/utils"
@@ -27,6 +28,7 @@ const dqlitePort = 17666
 type DBGetter interface {
 	GetDB(modelUUID string) (*sql.DB, error)
 	GetExistingDB(modelUUID string) (*sql.DB, error)
+	ListDBs() []string
 }
 
 // Hub provides an API for publishing and subscribing to incoming messages.
@@ -232,6 +234,16 @@ func (w *dbWorker) GetExistingDB(namespace string) (*sql.DB, error) {
 	}
 
 	return nil, errors.NotFoundf("database for model %q", namespace)
+}
+
+// ListDBs returns a list of all the databases that have been created via the
+// worker.
+func (w *dbWorker) ListDBs() []string {
+	results := set.NewStrings()
+	for namespace := range w.dbHandles {
+		results.Add(namespace)
+	}
+	return results.SortedValues()
 }
 
 func (w *dbWorker) initializeDqlite() error {

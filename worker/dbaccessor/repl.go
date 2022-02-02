@@ -18,6 +18,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
+	"github.com/olekukonko/tablewriter"
 )
 
 const readTimeout = 5 * time.Second
@@ -100,6 +101,10 @@ func (r *sqlREPL) registerCommands() {
 		".open": {
 			descr:   "connect to a database (e.g. '.open foo')",
 			handler: r.handleOpenCommand,
+		},
+		".databases": {
+			descr:   "list existing databases",
+			handler: r.handleListDatabasesCommand,
 		},
 		".close": {
 			descr:   "close connection to the current database",
@@ -262,6 +267,26 @@ func (r *sqlREPL) handleOpenCommand(s *replSession) {
 
 	s.dbName = s.cmdParams
 	_, _ = fmt.Fprintf(s.resWriter, "You are now connected to DB %q\n", s.cmdParams)
+}
+
+func (r *sqlREPL) handleListDatabasesCommand(s *replSession) {
+	table := tablewriter.NewWriter(s.resWriter)
+	table.SetAutoFormatHeaders(false)
+	table.SetBorders(tablewriter.Border{})
+	table.SetCenterSeparator(" ")
+	table.SetHeaderLine(true)
+	table.SetRowLine(false)
+	table.SetRowSeparator("-")
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetHeader([]string{"seq", "name"})
+
+	for i, namespace := range r.dbGetter.ListDBs() {
+		if namespace == "" {
+			continue
+		}
+		table.Append([]string{fmt.Sprintf("%d", i), namespace})
+	}
+	table.Render()
 }
 
 func (r *sqlREPL) handleCloseCommand(s *replSession) {

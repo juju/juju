@@ -222,7 +222,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 		for j, a := range r.Actions {
 			receiver, err := names.ActionReceiverTag(a.Receiver())
 			if err == nil {
-				result.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+				result.Results[i].Actions[j] = common.MakeActionResult(receiver, &actionstate.Action{}, false)
 				continue
 			}
 			result.Results[i].Actions[j] = params.ActionResult{
@@ -264,7 +264,7 @@ func (a *ActionAPI) Operations(arg params.Entities) (params.OperationResults, er
 		}
 		for j, a := range op.Actions {
 			receiver := names.NewUnitTag(a.Receiver())
-			results.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+			results.Results[i].Actions[j] = common.MakeActionResult(receiver, &actionstate.Action{}, false)
 		}
 	}
 	return results, nil

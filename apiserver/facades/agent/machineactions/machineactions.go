@@ -7,12 +7,14 @@
 package machineactions
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/overlord/actionstate"
 	"github.com/juju/juju/state"
 )
 
@@ -99,7 +101,9 @@ func (f *Facade) RunningActions(args params.Entities) params.ActionsByReceivers 
 			continue
 		}
 
-		results, err := f.backend.ConvertActions(receiver, receiver.RunningActions)
+		results, err := f.backend.ConvertActions(receiver, func() ([]*actionstate.Action, error) {
+			return nil, errors.NotImplementedf("state.actions to actionstate.actions")
+		})
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue

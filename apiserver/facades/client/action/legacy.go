@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/overlord/actionstate"
 	"github.com/juju/juju/state"
 )
 
@@ -129,18 +130,24 @@ func combine(funcs ...extractorFn) extractorFn {
 // pendingActions iterates through the Actions() enqueued for an
 // ActionReceiver, and converts them to a slice of params.ActionResult.
 func pendingActions(ar state.ActionReceiver, compat bool) ([]params.ActionResult, error) {
-	return common.ConvertActions(ar, ar.PendingActions, compat)
+	return common.ConvertActions(ar, func() ([]*actionstate.Action, error) {
+		return nil, errors.NotImplementedf("state.actions to actionstate.actions")
+	}, compat)
 }
 
 // runningActions iterates through the Actions() running on an
 // ActionReceiver, and converts them to a slice of params.ActionResult.
 func runningActions(ar state.ActionReceiver, compat bool) ([]params.ActionResult, error) {
-	return common.ConvertActions(ar, ar.RunningActions, compat)
+	return common.ConvertActions(ar, func() ([]*actionstate.Action, error) {
+		return nil, errors.NotImplementedf("state.actions to actionstate.actions")
+	}, compat)
 }
 
 // completedActions iterates through the Actions() that have run to
 // completion for an ActionReceiver, and converts them to a slice of
 // params.ActionResult.
 func completedActions(ar state.ActionReceiver, compat bool) ([]params.ActionResult, error) {
-	return common.ConvertActions(ar, ar.CompletedActions, compat)
+	return common.ConvertActions(ar, func() ([]*actionstate.Action, error) {
+		return nil, errors.NotImplementedf("state.actions to actionstate.actions")
+	}, compat)
 }
