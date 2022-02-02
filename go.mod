@@ -43,8 +43,8 @@ require (
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d
 	github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf
-	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
-	github.com/juju/cmd/v3 v3.0.0-20210809234809-65029dab4cd0
+	github.com/juju/clock v0.0.0-20220202072423-1b0f830854c4
+	github.com/juju/cmd/v3 v3.0.0-20220202061353-b1cc80b193b0
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
 	github.com/juju/description/v3 v3.0.0-20220125161928-cc5932c29986
 	github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff
@@ -75,9 +75,9 @@ require (
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client/v2 v2.0.0-20210422053140-27f71c100676
-	github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098
+	github.com/juju/testing v0.0.0-20220202055744-1ad0816210a6
 	github.com/juju/txn/v2 v2.0.0-20210407000251-11166e89894c
-	github.com/juju/utils/v3 v3.0.0-20220130232349-cd7ecef0e94a
+	github.com/juju/utils/v3 v3.0.0-20220202114721-338bb0530e89
 	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206
@@ -94,8 +94,8 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/net v0.0.0-20210917221730-978cfadd31cf
+	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20210921065528-437939a70204
@@ -125,8 +125,8 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/Azure/go-autorest/logger v0.2.0 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/Azure/go-ntlmssp v0.0.0-20180810175552-4a21cbd618b4 // indirect
-	github.com/ChrisTrenkamp/goxpath v0.0.0-20170922090931-c385f95c6022 // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e // indirect
+	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 // indirect
@@ -142,7 +142,7 @@ require (
 	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus/v5 v5.0.3 // indirect
-	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
@@ -152,17 +152,22 @@ require (
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
+	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/imdario/mergo v0.3.5 // indirect
+	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
+	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
+	github.com/jcmturner/gofork v1.0.0 // indirect
+	github.com/jcmturner/goidentity/v6 v6.0.1 // indirect
+	github.com/jcmturner/gokrb5/v8 v8.4.2 // indirect
+	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/jessevdk/go-flags v1.4.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
-	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9 // indirect
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
-	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf // indirect
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa // indirect
@@ -177,8 +182,8 @@ require (
 	github.com/lestrrat/go-pdebug v0.0.0-20160817063333-2e6eaaa5717f // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20160308131105-f74c056fe41f // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
-	github.com/masterzen/simplexml v0.0.0-20160608183007-4572e39b1ab9 // indirect
-	github.com/masterzen/winrm v0.0.0-20200615185753-c42b5136ff88 // indirect
+	github.com/masterzen/simplexml v0.0.0-20190410153822-31eea3082786 // indirect
+	github.com/masterzen/winrm v0.0.0-20211231115050-232efb40349e // indirect
 	github.com/mattn/go-colorable v0.1.10 // indirect
 	github.com/mattn/go-runewidth v0.0.2 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
@@ -199,7 +204,7 @@ require (
 	go.opencensus.io v0.22.3 // indirect
 	golang.org/x/mod v0.3.0 // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
