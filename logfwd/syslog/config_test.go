@@ -113,7 +113,7 @@ func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: asn1: syntax error: data truncated`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: x509: malformed certificate`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
@@ -152,7 +152,7 @@ func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: asn1: syntax error: data truncated`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: x509: malformed certificate`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
