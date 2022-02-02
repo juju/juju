@@ -38,12 +38,6 @@ func (s *setSeriesSuite) TestSetSeriesApplicationGoodPath(c *gc.C) {
 	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationSeries", "ghost", "xenial", false)
 }
 
-func (s *setSeriesSuite) TestSetSeriesApplicationGoodPathForce(c *gc.C) {
-	_, err := s.runUpdateSeries(c, "--force", "ghost", "xenial")
-	c.Assert(err, jc.ErrorIsNil)
-	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationSeries", "ghost", "xenial", true)
-}
-
 func (s *setSeriesSuite) TestNoArguments(c *gc.C) {
 	_, err := s.runUpdateSeries(c)
 	c.Assert(err, gc.ErrorMatches, "application name and series required")

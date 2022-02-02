@@ -153,14 +153,6 @@ func (m *MockMachine) Id() string {
 	return ret0
 }
 
-// DisplayName mocks base method.
-func (m *MockMachine) DisplayName() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DisplayName")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
 // Id indicates an expected call of Id.
 func (mr *MockMachineMockRecorder) Id() *gomock.Call {
 	mr.mock.ctrl.T.Helper()

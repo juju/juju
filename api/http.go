@@ -33,7 +33,7 @@ func (s *state) HTTPClient() (*httprequest.Client, error) {
 	return s.httpClient(baseURL)
 }
 
-// HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
+// RootHTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
 // client pointing to the API server root path.
 func (s *state) RootHTTPClient() (*httprequest.Client, error) {
 	return s.httpClient(&url.URL{

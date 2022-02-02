@@ -386,12 +386,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// forwarding connections and api connection and disconnections to
 		// establish a view on which agents are "alive".
 		presenceName: prworker.Manifold(prworker.ManifoldConfig{
-			AgentName:              agentName,
-			CentralHubName:         centralHubName,
-			StateConfigWatcherName: stateConfigWatcherName,
-			Recorder:               config.PresenceRecorder,
-			Logger:                 loggo.GetLogger("juju.worker.presence"),
-			NewWorker:              prworker.NewWorker,
+			AgentName: agentName,
+			// CentralHubName depends on StateConfigWatcherName,
+			// which implies this can only run on controllers.
+			CentralHubName: centralHubName,
+			Recorder:       config.PresenceRecorder,
+			Logger:         loggo.GetLogger("juju.worker.presence"),
+			NewWorker:      prworker.NewWorker,
 		}),
 
 		// The state manifold creates a *state.State and makes it

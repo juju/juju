@@ -5,36 +5,37 @@
 package gen
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 	packages "golang.org/x/tools/go/packages"
-	reflect "reflect"
 )
 
-// MockAPIServer is a mock of APIServer interface
+// MockAPIServer is a mock of APIServer interface.
 type MockAPIServer struct {
 	ctrl     *gomock.Controller
 	recorder *MockAPIServerMockRecorder
 }
 
-// MockAPIServerMockRecorder is the mock recorder for MockAPIServer
+// MockAPIServerMockRecorder is the mock recorder for MockAPIServer.
 type MockAPIServerMockRecorder struct {
 	mock *MockAPIServer
 }
 
-// NewMockAPIServer creates a new mock instance
+// NewMockAPIServer creates a new mock instance.
 func NewMockAPIServer(ctrl *gomock.Controller) *MockAPIServer {
 	mock := &MockAPIServer{ctrl: ctrl}
 	mock.recorder = &MockAPIServerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAPIServer) EXPECT() *MockAPIServerMockRecorder {
 	return m.recorder
 }
 
-// AdminFacadeDetails mocks base method
+// AdminFacadeDetails mocks base method.
 func (m *MockAPIServer) AdminFacadeDetails() []facade.Details {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdminFacadeDetails")
@@ -42,13 +43,13 @@ func (m *MockAPIServer) AdminFacadeDetails() []facade.Details {
 	return ret0
 }
 
-// AdminFacadeDetails indicates an expected call of AdminFacadeDetails
+// AdminFacadeDetails indicates an expected call of AdminFacadeDetails.
 func (mr *MockAPIServerMockRecorder) AdminFacadeDetails() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdminFacadeDetails", reflect.TypeOf((*MockAPIServer)(nil).AdminFacadeDetails))
 }
 
-// AllFacades mocks base method
+// AllFacades mocks base method.
 func (m *MockAPIServer) AllFacades() Registry {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllFacades")
@@ -56,36 +57,36 @@ func (m *MockAPIServer) AllFacades() Registry {
 	return ret0
 }
 
-// AllFacades indicates an expected call of AllFacades
+// AllFacades indicates an expected call of AllFacades.
 func (mr *MockAPIServerMockRecorder) AllFacades() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllFacades", reflect.TypeOf((*MockAPIServer)(nil).AllFacades))
 }
 
-// MockRegistry is a mock of Registry interface
+// MockRegistry is a mock of Registry interface.
 type MockRegistry struct {
 	ctrl     *gomock.Controller
 	recorder *MockRegistryMockRecorder
 }
 
-// MockRegistryMockRecorder is the mock recorder for MockRegistry
+// MockRegistryMockRecorder is the mock recorder for MockRegistry.
 type MockRegistryMockRecorder struct {
 	mock *MockRegistry
 }
 
-// NewMockRegistry creates a new mock instance
+// NewMockRegistry creates a new mock instance.
 func NewMockRegistry(ctrl *gomock.Controller) *MockRegistry {
 	mock := &MockRegistry{ctrl: ctrl}
 	mock.recorder = &MockRegistryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
 	return m.recorder
 }
 
-// GetType mocks base method
+// GetType mocks base method.
 func (m *MockRegistry) GetType(arg0 string, arg1 int) (reflect.Type, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetType", arg0, arg1)
@@ -94,13 +95,13 @@ func (m *MockRegistry) GetType(arg0 string, arg1 int) (reflect.Type, error) {
 	return ret0, ret1
 }
 
-// GetType indicates an expected call of GetType
+// GetType indicates an expected call of GetType.
 func (mr *MockRegistryMockRecorder) GetType(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetType", reflect.TypeOf((*MockRegistry)(nil).GetType), arg0, arg1)
 }
 
-// List mocks base method
+// List mocks base method.
 func (m *MockRegistry) List() []facade.Description {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List")
@@ -108,13 +109,13 @@ func (m *MockRegistry) List() []facade.Description {
 	return ret0
 }
 
-// List indicates an expected call of List
+// List indicates an expected call of List.
 func (mr *MockRegistryMockRecorder) List() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRegistry)(nil).List))
 }
 
-// ListDetails mocks base method
+// ListDetails mocks base method.
 func (m *MockRegistry) ListDetails() []facade.Details {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListDetails")
@@ -122,36 +123,36 @@ func (m *MockRegistry) ListDetails() []facade.Details {
 	return ret0
 }
 
-// ListDetails indicates an expected call of ListDetails
+// ListDetails indicates an expected call of ListDetails.
 func (mr *MockRegistryMockRecorder) ListDetails() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDetails", reflect.TypeOf((*MockRegistry)(nil).ListDetails))
 }
 
-// MockPackageRegistry is a mock of PackageRegistry interface
+// MockPackageRegistry is a mock of PackageRegistry interface.
 type MockPackageRegistry struct {
 	ctrl     *gomock.Controller
 	recorder *MockPackageRegistryMockRecorder
 }
 
-// MockPackageRegistryMockRecorder is the mock recorder for MockPackageRegistry
+// MockPackageRegistryMockRecorder is the mock recorder for MockPackageRegistry.
 type MockPackageRegistryMockRecorder struct {
 	mock *MockPackageRegistry
 }
 
-// NewMockPackageRegistry creates a new mock instance
+// NewMockPackageRegistry creates a new mock instance.
 func NewMockPackageRegistry(ctrl *gomock.Controller) *MockPackageRegistry {
 	mock := &MockPackageRegistry{ctrl: ctrl}
 	mock.recorder = &MockPackageRegistryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPackageRegistry) EXPECT() *MockPackageRegistryMockRecorder {
 	return m.recorder
 }
 
-// LoadPackage mocks base method
+// LoadPackage mocks base method.
 func (m *MockPackageRegistry) LoadPackage() (*packages.Package, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadPackage")
@@ -160,36 +161,36 @@ func (m *MockPackageRegistry) LoadPackage() (*packages.Package, error) {
 	return ret0, ret1
 }
 
-// LoadPackage indicates an expected call of LoadPackage
+// LoadPackage indicates an expected call of LoadPackage.
 func (mr *MockPackageRegistryMockRecorder) LoadPackage() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadPackage", reflect.TypeOf((*MockPackageRegistry)(nil).LoadPackage))
 }
 
-// MockLinker is a mock of Linker interface
+// MockLinker is a mock of Linker interface.
 type MockLinker struct {
 	ctrl     *gomock.Controller
 	recorder *MockLinkerMockRecorder
 }
 
-// MockLinkerMockRecorder is the mock recorder for MockLinker
+// MockLinkerMockRecorder is the mock recorder for MockLinker.
 type MockLinkerMockRecorder struct {
 	mock *MockLinker
 }
 
-// NewMockLinker creates a new mock instance
+// NewMockLinker creates a new mock instance.
 func NewMockLinker(ctrl *gomock.Controller) *MockLinker {
 	mock := &MockLinker{ctrl: ctrl}
 	mock.recorder = &MockLinkerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLinker) EXPECT() *MockLinkerMockRecorder {
 	return m.recorder
 }
 
-// Links mocks base method
+// Links mocks base method.
 func (m *MockLinker) Links(arg0 string, arg1 facade.Factory) []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Links", arg0, arg1)
@@ -197,7 +198,7 @@ func (m *MockLinker) Links(arg0 string, arg1 facade.Factory) []string {
 	return ret0
 }
 
-// Links indicates an expected call of Links
+// Links indicates an expected call of Links.
 func (mr *MockLinkerMockRecorder) Links(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Links", reflect.TypeOf((*MockLinker)(nil).Links), arg0, arg1)

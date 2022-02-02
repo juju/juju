@@ -69,7 +69,7 @@ var (
 	GetBlockDeviceMappings         = getBlockDeviceMappings
 	IsVPCNotUsableError            = isVPCNotUsableError
 	IsVPCNotRecommendedError       = isVPCNotRecommendedError
-	ShortAttempt                   = &shortAttempt
+	ShortRetryStrategy             = &shortRetryStrategy
 	DestroyVolumeAttempt           = &destroyVolumeAttempt
 	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
 	TerminateInstancesById         = &terminateInstancesById

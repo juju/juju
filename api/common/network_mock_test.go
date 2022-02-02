@@ -5,37 +5,38 @@
 package common_test
 
 import (
+	net "net"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
-	net "net"
-	reflect "reflect"
 )
 
-// MockConfigSource is a mock of ConfigSource interface
+// MockConfigSource is a mock of ConfigSource interface.
 type MockConfigSource struct {
 	ctrl     *gomock.Controller
 	recorder *MockConfigSourceMockRecorder
 }
 
-// MockConfigSourceMockRecorder is the mock recorder for MockConfigSource
+// MockConfigSourceMockRecorder is the mock recorder for MockConfigSource.
 type MockConfigSourceMockRecorder struct {
 	mock *MockConfigSource
 }
 
-// NewMockConfigSource creates a new mock instance
+// NewMockConfigSource creates a new mock instance.
 func NewMockConfigSource(ctrl *gomock.Controller) *MockConfigSource {
 	mock := &MockConfigSource{ctrl: ctrl}
 	mock.recorder = &MockConfigSourceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConfigSource) EXPECT() *MockConfigSourceMockRecorder {
 	return m.recorder
 }
 
-// DefaultRoute mocks base method
+// DefaultRoute mocks base method.
 func (m *MockConfigSource) DefaultRoute() (net.IP, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultRoute")
@@ -45,13 +46,13 @@ func (m *MockConfigSource) DefaultRoute() (net.IP, string, error) {
 	return ret0, ret1, ret2
 }
 
-// DefaultRoute indicates an expected call of DefaultRoute
+// DefaultRoute indicates an expected call of DefaultRoute.
 func (mr *MockConfigSourceMockRecorder) DefaultRoute() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultRoute", reflect.TypeOf((*MockConfigSource)(nil).DefaultRoute))
 }
 
-// GetBridgePorts mocks base method
+// GetBridgePorts mocks base method.
 func (m *MockConfigSource) GetBridgePorts(arg0 string) []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBridgePorts", arg0)
@@ -59,13 +60,13 @@ func (m *MockConfigSource) GetBridgePorts(arg0 string) []string {
 	return ret0
 }
 
-// GetBridgePorts indicates an expected call of GetBridgePorts
+// GetBridgePorts indicates an expected call of GetBridgePorts.
 func (mr *MockConfigSourceMockRecorder) GetBridgePorts(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBridgePorts", reflect.TypeOf((*MockConfigSource)(nil).GetBridgePorts), arg0)
 }
 
-// Interfaces mocks base method
+// Interfaces mocks base method.
 func (m *MockConfigSource) Interfaces() ([]network.ConfigSourceNIC, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Interfaces")
@@ -74,13 +75,13 @@ func (m *MockConfigSource) Interfaces() ([]network.ConfigSourceNIC, error) {
 	return ret0, ret1
 }
 
-// Interfaces indicates an expected call of Interfaces
+// Interfaces indicates an expected call of Interfaces.
 func (mr *MockConfigSourceMockRecorder) Interfaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Interfaces", reflect.TypeOf((*MockConfigSource)(nil).Interfaces))
 }
 
-// OvsManagedBridges mocks base method
+// OvsManagedBridges mocks base method.
 func (m *MockConfigSource) OvsManagedBridges() (set.Strings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OvsManagedBridges")
@@ -89,36 +90,36 @@ func (m *MockConfigSource) OvsManagedBridges() (set.Strings, error) {
 	return ret0, ret1
 }
 
-// OvsManagedBridges indicates an expected call of OvsManagedBridges
+// OvsManagedBridges indicates an expected call of OvsManagedBridges.
 func (mr *MockConfigSourceMockRecorder) OvsManagedBridges() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OvsManagedBridges", reflect.TypeOf((*MockConfigSource)(nil).OvsManagedBridges))
 }
 
-// MockConfigSourceNIC is a mock of ConfigSourceNIC interface
+// MockConfigSourceNIC is a mock of ConfigSourceNIC interface.
 type MockConfigSourceNIC struct {
 	ctrl     *gomock.Controller
 	recorder *MockConfigSourceNICMockRecorder
 }
 
-// MockConfigSourceNICMockRecorder is the mock recorder for MockConfigSourceNIC
+// MockConfigSourceNICMockRecorder is the mock recorder for MockConfigSourceNIC.
 type MockConfigSourceNICMockRecorder struct {
 	mock *MockConfigSourceNIC
 }
 
-// NewMockConfigSourceNIC creates a new mock instance
+// NewMockConfigSourceNIC creates a new mock instance.
 func NewMockConfigSourceNIC(ctrl *gomock.Controller) *MockConfigSourceNIC {
 	mock := &MockConfigSourceNIC{ctrl: ctrl}
 	mock.recorder = &MockConfigSourceNICMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConfigSourceNIC) EXPECT() *MockConfigSourceNICMockRecorder {
 	return m.recorder
 }
 
-// Addresses mocks base method
+// Addresses mocks base method.
 func (m *MockConfigSourceNIC) Addresses() ([]network.ConfigSourceAddr, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses")
@@ -127,13 +128,13 @@ func (m *MockConfigSourceNIC) Addresses() ([]network.ConfigSourceAddr, error) {
 	return ret0, ret1
 }
 
-// Addresses indicates an expected call of Addresses
+// Addresses indicates an expected call of Addresses.
 func (mr *MockConfigSourceNICMockRecorder) Addresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addresses", reflect.TypeOf((*MockConfigSourceNIC)(nil).Addresses))
 }
 
-// HardwareAddr mocks base method
+// HardwareAddr mocks base method.
 func (m *MockConfigSourceNIC) HardwareAddr() net.HardwareAddr {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HardwareAddr")
@@ -141,13 +142,13 @@ func (m *MockConfigSourceNIC) HardwareAddr() net.HardwareAddr {
 	return ret0
 }
 
-// HardwareAddr indicates an expected call of HardwareAddr
+// HardwareAddr indicates an expected call of HardwareAddr.
 func (mr *MockConfigSourceNICMockRecorder) HardwareAddr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HardwareAddr", reflect.TypeOf((*MockConfigSourceNIC)(nil).HardwareAddr))
 }
 
-// Index mocks base method
+// Index mocks base method.
 func (m *MockConfigSourceNIC) Index() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Index")
@@ -155,13 +156,13 @@ func (m *MockConfigSourceNIC) Index() int {
 	return ret0
 }
 
-// Index indicates an expected call of Index
+// Index indicates an expected call of Index.
 func (mr *MockConfigSourceNICMockRecorder) Index() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Index", reflect.TypeOf((*MockConfigSourceNIC)(nil).Index))
 }
 
-// IsUp mocks base method
+// IsUp mocks base method.
 func (m *MockConfigSourceNIC) IsUp() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsUp")
@@ -169,13 +170,13 @@ func (m *MockConfigSourceNIC) IsUp() bool {
 	return ret0
 }
 
-// IsUp indicates an expected call of IsUp
+// IsUp indicates an expected call of IsUp.
 func (mr *MockConfigSourceNICMockRecorder) IsUp() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUp", reflect.TypeOf((*MockConfigSourceNIC)(nil).IsUp))
 }
 
-// MTU mocks base method
+// MTU mocks base method.
 func (m *MockConfigSourceNIC) MTU() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MTU")
@@ -183,13 +184,13 @@ func (m *MockConfigSourceNIC) MTU() int {
 	return ret0
 }
 
-// MTU indicates an expected call of MTU
+// MTU indicates an expected call of MTU.
 func (mr *MockConfigSourceNICMockRecorder) MTU() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MTU", reflect.TypeOf((*MockConfigSourceNIC)(nil).MTU))
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockConfigSourceNIC) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -197,13 +198,13 @@ func (m *MockConfigSourceNIC) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockConfigSourceNICMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockConfigSourceNIC)(nil).Name))
 }
 
-// Type mocks base method
+// Type mocks base method.
 func (m *MockConfigSourceNIC) Type() network.LinkLayerDeviceType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Type")
@@ -211,36 +212,36 @@ func (m *MockConfigSourceNIC) Type() network.LinkLayerDeviceType {
 	return ret0
 }
 
-// Type indicates an expected call of Type
+// Type indicates an expected call of Type.
 func (mr *MockConfigSourceNICMockRecorder) Type() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockConfigSourceNIC)(nil).Type))
 }
 
-// MockConfigSourceAddr is a mock of ConfigSourceAddr interface
+// MockConfigSourceAddr is a mock of ConfigSourceAddr interface.
 type MockConfigSourceAddr struct {
 	ctrl     *gomock.Controller
 	recorder *MockConfigSourceAddrMockRecorder
 }
 
-// MockConfigSourceAddrMockRecorder is the mock recorder for MockConfigSourceAddr
+// MockConfigSourceAddrMockRecorder is the mock recorder for MockConfigSourceAddr.
 type MockConfigSourceAddrMockRecorder struct {
 	mock *MockConfigSourceAddr
 }
 
-// NewMockConfigSourceAddr creates a new mock instance
+// NewMockConfigSourceAddr creates a new mock instance.
 func NewMockConfigSourceAddr(ctrl *gomock.Controller) *MockConfigSourceAddr {
 	mock := &MockConfigSourceAddr{ctrl: ctrl}
 	mock.recorder = &MockConfigSourceAddrMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConfigSourceAddr) EXPECT() *MockConfigSourceAddrMockRecorder {
 	return m.recorder
 }
 
-// IP mocks base method
+// IP mocks base method.
 func (m *MockConfigSourceAddr) IP() net.IP {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IP")
@@ -248,13 +249,13 @@ func (m *MockConfigSourceAddr) IP() net.IP {
 	return ret0
 }
 
-// IP indicates an expected call of IP
+// IP indicates an expected call of IP.
 func (mr *MockConfigSourceAddrMockRecorder) IP() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IP", reflect.TypeOf((*MockConfigSourceAddr)(nil).IP))
 }
 
-// IPNet mocks base method
+// IPNet mocks base method.
 func (m *MockConfigSourceAddr) IPNet() *net.IPNet {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IPNet")
@@ -262,13 +263,13 @@ func (m *MockConfigSourceAddr) IPNet() *net.IPNet {
 	return ret0
 }
 
-// IPNet indicates an expected call of IPNet
+// IPNet indicates an expected call of IPNet.
 func (mr *MockConfigSourceAddrMockRecorder) IPNet() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPNet", reflect.TypeOf((*MockConfigSourceAddr)(nil).IPNet))
 }
 
-// IsSecondary mocks base method
+// IsSecondary mocks base method.
 func (m *MockConfigSourceAddr) IsSecondary() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsSecondary")
@@ -276,13 +277,13 @@ func (m *MockConfigSourceAddr) IsSecondary() bool {
 	return ret0
 }
 
-// IsSecondary indicates an expected call of IsSecondary
+// IsSecondary indicates an expected call of IsSecondary.
 func (mr *MockConfigSourceAddrMockRecorder) IsSecondary() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSecondary", reflect.TypeOf((*MockConfigSourceAddr)(nil).IsSecondary))
 }
 
-// String mocks base method
+// String mocks base method.
 func (m *MockConfigSourceAddr) String() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "String")
@@ -290,7 +291,7 @@ func (m *MockConfigSourceAddr) String() string {
 	return ret0
 }
 
-// String indicates an expected call of String
+// String indicates an expected call of String.
 func (mr *MockConfigSourceAddrMockRecorder) String() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockConfigSourceAddr)(nil).String))
