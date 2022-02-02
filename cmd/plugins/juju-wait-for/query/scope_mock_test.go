@@ -5,46 +5,47 @@
 package query
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockFuncScope is a mock of FuncScope interface
+// MockFuncScope is a mock of FuncScope interface.
 type MockFuncScope struct {
 	ctrl     *gomock.Controller
 	recorder *MockFuncScopeMockRecorder
 }
 
-// MockFuncScopeMockRecorder is the mock recorder for MockFuncScope
+// MockFuncScopeMockRecorder is the mock recorder for MockFuncScope.
 type MockFuncScopeMockRecorder struct {
 	mock *MockFuncScope
 }
 
-// NewMockFuncScope creates a new mock instance
+// NewMockFuncScope creates a new mock instance.
 func NewMockFuncScope(ctrl *gomock.Controller) *MockFuncScope {
 	mock := &MockFuncScope{ctrl: ctrl}
 	mock.recorder = &MockFuncScopeMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFuncScope) EXPECT() *MockFuncScopeMockRecorder {
 	return m.recorder
 }
 
-// Add mocks base method
+// Add mocks base method.
 func (m *MockFuncScope) Add(arg0 string, arg1 interface{}) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Add", arg0, arg1)
 }
 
-// Add indicates an expected call of Add
+// Add indicates an expected call of Add.
 func (mr *MockFuncScopeMockRecorder) Add(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockFuncScope)(nil).Add), arg0, arg1)
 }
 
-// Call mocks base method
+// Call mocks base method.
 func (m *MockFuncScope) Call(arg0 *Identifier, arg1 []Box) (interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", arg0, arg1)
@@ -53,36 +54,36 @@ func (m *MockFuncScope) Call(arg0 *Identifier, arg1 []Box) (interface{}, error) 
 	return ret0, ret1
 }
 
-// Call indicates an expected call of Call
+// Call indicates an expected call of Call.
 func (mr *MockFuncScopeMockRecorder) Call(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockFuncScope)(nil).Call), arg0, arg1)
 }
 
-// MockScope is a mock of Scope interface
+// MockScope is a mock of Scope interface.
 type MockScope struct {
 	ctrl     *gomock.Controller
 	recorder *MockScopeMockRecorder
 }
 
-// MockScopeMockRecorder is the mock recorder for MockScope
+// MockScopeMockRecorder is the mock recorder for MockScope.
 type MockScopeMockRecorder struct {
 	mock *MockScope
 }
 
-// NewMockScope creates a new mock instance
+// NewMockScope creates a new mock instance.
 func NewMockScope(ctrl *gomock.Controller) *MockScope {
 	mock := &MockScope{ctrl: ctrl}
 	mock.recorder = &MockScopeMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockScope) EXPECT() *MockScopeMockRecorder {
 	return m.recorder
 }
 
-// GetIdentValue mocks base method
+// GetIdentValue mocks base method.
 func (m *MockScope) GetIdentValue(arg0 string) (Box, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIdentValue", arg0)
@@ -91,13 +92,13 @@ func (m *MockScope) GetIdentValue(arg0 string) (Box, error) {
 	return ret0, ret1
 }
 
-// GetIdentValue indicates an expected call of GetIdentValue
+// GetIdentValue indicates an expected call of GetIdentValue.
 func (mr *MockScopeMockRecorder) GetIdentValue(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdentValue", reflect.TypeOf((*MockScope)(nil).GetIdentValue), arg0)
 }
 
-// GetIdents mocks base method
+// GetIdents mocks base method.
 func (m *MockScope) GetIdents() []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIdents")
@@ -105,7 +106,7 @@ func (m *MockScope) GetIdents() []string {
 	return ret0
 }
 
-// GetIdents indicates an expected call of GetIdents
+// GetIdents indicates an expected call of GetIdents.
 func (mr *MockScopeMockRecorder) GetIdents() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdents", reflect.TypeOf((*MockScope)(nil).GetIdents))

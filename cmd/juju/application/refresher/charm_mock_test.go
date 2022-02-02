@@ -5,35 +5,36 @@
 package refresher
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	reflect "reflect"
 )
 
-// MockCharm is a mock of Charm interface
+// MockCharm is a mock of Charm interface.
 type MockCharm struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmMockRecorder
 }
 
-// MockCharmMockRecorder is the mock recorder for MockCharm
+// MockCharmMockRecorder is the mock recorder for MockCharm.
 type MockCharmMockRecorder struct {
 	mock *MockCharm
 }
 
-// NewMockCharm creates a new mock instance
+// NewMockCharm creates a new mock instance.
 func NewMockCharm(ctrl *gomock.Controller) *MockCharm {
 	mock := &MockCharm{ctrl: ctrl}
 	mock.recorder = &MockCharmMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
 }
 
-// Actions mocks base method
+// Actions mocks base method.
 func (m *MockCharm) Actions() *charm.Actions {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Actions")
@@ -41,13 +42,13 @@ func (m *MockCharm) Actions() *charm.Actions {
 	return ret0
 }
 
-// Actions indicates an expected call of Actions
+// Actions indicates an expected call of Actions.
 func (mr *MockCharmMockRecorder) Actions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockCharm)(nil).Actions))
 }
 
-// Config mocks base method
+// Config mocks base method.
 func (m *MockCharm) Config() *charm.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
@@ -55,13 +56,13 @@ func (m *MockCharm) Config() *charm.Config {
 	return ret0
 }
 
-// Config indicates an expected call of Config
+// Config indicates an expected call of Config.
 func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCharm)(nil).Config))
 }
 
-// Manifest mocks base method
+// Manifest mocks base method.
 func (m *MockCharm) Manifest() *charm.Manifest {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Manifest")
@@ -69,13 +70,13 @@ func (m *MockCharm) Manifest() *charm.Manifest {
 	return ret0
 }
 
-// Manifest indicates an expected call of Manifest
+// Manifest indicates an expected call of Manifest.
 func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Manifest", reflect.TypeOf((*MockCharm)(nil).Manifest))
 }
 
-// Meta mocks base method
+// Meta mocks base method.
 func (m *MockCharm) Meta() *charm.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
@@ -83,13 +84,13 @@ func (m *MockCharm) Meta() *charm.Meta {
 	return ret0
 }
 
-// Meta indicates an expected call of Meta
+// Meta indicates an expected call of Meta.
 func (mr *MockCharmMockRecorder) Meta() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharm)(nil).Meta))
 }
 
-// Metrics mocks base method
+// Metrics mocks base method.
 func (m *MockCharm) Metrics() *charm.Metrics {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Metrics")
@@ -97,13 +98,13 @@ func (m *MockCharm) Metrics() *charm.Metrics {
 	return ret0
 }
 
-// Metrics indicates an expected call of Metrics
+// Metrics indicates an expected call of Metrics.
 func (mr *MockCharmMockRecorder) Metrics() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockCharm)(nil).Metrics))
 }
 
-// Revision mocks base method
+// Revision mocks base method.
 func (m *MockCharm) Revision() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Revision")
@@ -111,7 +112,7 @@ func (m *MockCharm) Revision() int {
 	return ret0
 }
 
-// Revision indicates an expected call of Revision
+// Revision indicates an expected call of Revision.
 func (mr *MockCharmMockRecorder) Revision() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revision", reflect.TypeOf((*MockCharm)(nil).Revision))

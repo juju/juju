@@ -5,37 +5,38 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
 	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
-	reflect "reflect"
 )
 
-// MockUnitStateBackend is a mock of UnitStateBackend interface
+// MockUnitStateBackend is a mock of UnitStateBackend interface.
 type MockUnitStateBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockUnitStateBackendMockRecorder
 }
 
-// MockUnitStateBackendMockRecorder is the mock recorder for MockUnitStateBackend
+// MockUnitStateBackendMockRecorder is the mock recorder for MockUnitStateBackend.
 type MockUnitStateBackendMockRecorder struct {
 	mock *MockUnitStateBackend
 }
 
-// NewMockUnitStateBackend creates a new mock instance
+// NewMockUnitStateBackend creates a new mock instance.
 func NewMockUnitStateBackend(ctrl *gomock.Controller) *MockUnitStateBackend {
 	mock := &MockUnitStateBackend{ctrl: ctrl}
 	mock.recorder = &MockUnitStateBackendMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnitStateBackend) EXPECT() *MockUnitStateBackendMockRecorder {
 	return m.recorder
 }
 
-// ApplyOperation mocks base method
+// ApplyOperation mocks base method.
 func (m *MockUnitStateBackend) ApplyOperation(arg0 state.ModelOperation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyOperation", arg0)
@@ -43,13 +44,13 @@ func (m *MockUnitStateBackend) ApplyOperation(arg0 state.ModelOperation) error {
 	return ret0
 }
 
-// ApplyOperation indicates an expected call of ApplyOperation
+// ApplyOperation indicates an expected call of ApplyOperation.
 func (mr *MockUnitStateBackendMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockUnitStateBackend)(nil).ApplyOperation), arg0)
 }
 
-// ControllerConfig mocks base method
+// ControllerConfig mocks base method.
 func (m *MockUnitStateBackend) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
@@ -58,13 +59,13 @@ func (m *MockUnitStateBackend) ControllerConfig() (controller.Config, error) {
 	return ret0, ret1
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig
+// ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockUnitStateBackendMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockUnitStateBackend)(nil).ControllerConfig))
 }
 
-// Unit mocks base method
+// Unit mocks base method.
 func (m *MockUnitStateBackend) Unit(arg0 string) (common.UnitStateUnit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
@@ -73,36 +74,36 @@ func (m *MockUnitStateBackend) Unit(arg0 string) (common.UnitStateUnit, error) {
 	return ret0, ret1
 }
 
-// Unit indicates an expected call of Unit
+// Unit indicates an expected call of Unit.
 func (mr *MockUnitStateBackendMockRecorder) Unit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUnitStateBackend)(nil).Unit), arg0)
 }
 
-// MockUnitStateUnit is a mock of UnitStateUnit interface
+// MockUnitStateUnit is a mock of UnitStateUnit interface.
 type MockUnitStateUnit struct {
 	ctrl     *gomock.Controller
 	recorder *MockUnitStateUnitMockRecorder
 }
 
-// MockUnitStateUnitMockRecorder is the mock recorder for MockUnitStateUnit
+// MockUnitStateUnitMockRecorder is the mock recorder for MockUnitStateUnit.
 type MockUnitStateUnitMockRecorder struct {
 	mock *MockUnitStateUnit
 }
 
-// NewMockUnitStateUnit creates a new mock instance
+// NewMockUnitStateUnit creates a new mock instance.
 func NewMockUnitStateUnit(ctrl *gomock.Controller) *MockUnitStateUnit {
 	mock := &MockUnitStateUnit{ctrl: ctrl}
 	mock.recorder = &MockUnitStateUnitMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnitStateUnit) EXPECT() *MockUnitStateUnitMockRecorder {
 	return m.recorder
 }
 
-// SetStateOperation mocks base method
+// SetStateOperation mocks base method.
 func (m *MockUnitStateUnit) SetStateOperation(arg0 *state.UnitState, arg1 state.UnitStateSizeLimits) state.ModelOperation {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetStateOperation", arg0, arg1)
@@ -110,13 +111,13 @@ func (m *MockUnitStateUnit) SetStateOperation(arg0 *state.UnitState, arg1 state.
 	return ret0
 }
 
-// SetStateOperation indicates an expected call of SetStateOperation
+// SetStateOperation indicates an expected call of SetStateOperation.
 func (mr *MockUnitStateUnitMockRecorder) SetStateOperation(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStateOperation", reflect.TypeOf((*MockUnitStateUnit)(nil).SetStateOperation), arg0, arg1)
 }
 
-// State mocks base method
+// State mocks base method.
 func (m *MockUnitStateUnit) State() (*state.UnitState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State")
@@ -125,7 +126,7 @@ func (m *MockUnitStateUnit) State() (*state.UnitState, error) {
 	return ret0, ret1
 }
 
-// State indicates an expected call of State
+// State indicates an expected call of State.
 func (mr *MockUnitStateUnitMockRecorder) State() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockUnitStateUnit)(nil).State))

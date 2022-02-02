@@ -6,6 +6,9 @@ package mocks
 
 import (
 	context "context"
+	url "net/url"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
@@ -13,34 +16,32 @@ import (
 	charm0 "github.com/juju/juju/api/common/charm"
 	charmhub "github.com/juju/juju/charmhub"
 	macaroon "gopkg.in/macaroon.v2"
-	url "net/url"
-	reflect "reflect"
 )
 
-// MockCharmAdder is a mock of CharmAdder interface
+// MockCharmAdder is a mock of CharmAdder interface.
 type MockCharmAdder struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmAdderMockRecorder
 }
 
-// MockCharmAdderMockRecorder is the mock recorder for MockCharmAdder
+// MockCharmAdderMockRecorder is the mock recorder for MockCharmAdder.
 type MockCharmAdderMockRecorder struct {
 	mock *MockCharmAdder
 }
 
-// NewMockCharmAdder creates a new mock instance
+// NewMockCharmAdder creates a new mock instance.
 func NewMockCharmAdder(ctrl *gomock.Controller) *MockCharmAdder {
 	mock := &MockCharmAdder{ctrl: ctrl}
 	mock.recorder = &MockCharmAdderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmAdder) EXPECT() *MockCharmAdderMockRecorder {
 	return m.recorder
 }
 
-// AddCharm mocks base method
+// AddCharm mocks base method.
 func (m *MockCharmAdder) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2)
@@ -49,13 +50,13 @@ func (m *MockCharmAdder) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool
 	return ret0, ret1
 }
 
-// AddCharm indicates an expected call of AddCharm
+// AddCharm indicates an expected call of AddCharm.
 func (mr *MockCharmAdderMockRecorder) AddCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddCharm), arg0, arg1, arg2)
 }
 
-// AddCharmWithAuthorization mocks base method
+// AddCharmWithAuthorization mocks base method.
 func (m *MockCharmAdder) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon, arg3 bool) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCharmWithAuthorization", arg0, arg1, arg2, arg3)
@@ -64,13 +65,13 @@ func (m *MockCharmAdder) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.
 	return ret0, ret1
 }
 
-// AddCharmWithAuthorization indicates an expected call of AddCharmWithAuthorization
+// AddCharmWithAuthorization indicates an expected call of AddCharmWithAuthorization.
 func (mr *MockCharmAdderMockRecorder) AddCharmWithAuthorization(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmWithAuthorization", reflect.TypeOf((*MockCharmAdder)(nil).AddCharmWithAuthorization), arg0, arg1, arg2, arg3)
 }
 
-// AddLocalCharm mocks base method
+// AddLocalCharm mocks base method.
 func (m *MockCharmAdder) AddLocalCharm(arg0 *charm.URL, arg1 charm.Charm, arg2 bool) (*charm.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddLocalCharm", arg0, arg1, arg2)
@@ -79,13 +80,13 @@ func (m *MockCharmAdder) AddLocalCharm(arg0 *charm.URL, arg1 charm.Charm, arg2 b
 	return ret0, ret1
 }
 
-// AddLocalCharm indicates an expected call of AddLocalCharm
+// AddLocalCharm indicates an expected call of AddLocalCharm.
 func (mr *MockCharmAdderMockRecorder) AddLocalCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLocalCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddLocalCharm), arg0, arg1, arg2)
 }
 
-// CheckCharmPlacement mocks base method
+// CheckCharmPlacement mocks base method.
 func (m *MockCharmAdder) CheckCharmPlacement(arg0 string, arg1 *charm.URL) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1)
@@ -93,36 +94,36 @@ func (m *MockCharmAdder) CheckCharmPlacement(arg0 string, arg1 *charm.URL) error
 	return ret0
 }
 
-// CheckCharmPlacement indicates an expected call of CheckCharmPlacement
+// CheckCharmPlacement indicates an expected call of CheckCharmPlacement.
 func (mr *MockCharmAdderMockRecorder) CheckCharmPlacement(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockCharmAdder)(nil).CheckCharmPlacement), arg0, arg1)
 }
 
-// MockMacaroonGetter is a mock of MacaroonGetter interface
+// MockMacaroonGetter is a mock of MacaroonGetter interface.
 type MockMacaroonGetter struct {
 	ctrl     *gomock.Controller
 	recorder *MockMacaroonGetterMockRecorder
 }
 
-// MockMacaroonGetterMockRecorder is the mock recorder for MockMacaroonGetter
+// MockMacaroonGetterMockRecorder is the mock recorder for MockMacaroonGetter.
 type MockMacaroonGetterMockRecorder struct {
 	mock *MockMacaroonGetter
 }
 
-// NewMockMacaroonGetter creates a new mock instance
+// NewMockMacaroonGetter creates a new mock instance.
 func NewMockMacaroonGetter(ctrl *gomock.Controller) *MockMacaroonGetter {
 	mock := &MockMacaroonGetter{ctrl: ctrl}
 	mock.recorder = &MockMacaroonGetterMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMacaroonGetter) EXPECT() *MockMacaroonGetterMockRecorder {
 	return m.recorder
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockMacaroonGetter) Get(arg0 string, arg1 interface{}) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
@@ -130,36 +131,36 @@ func (m *MockMacaroonGetter) Get(arg0 string, arg1 interface{}) error {
 	return ret0
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockMacaroonGetterMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockMacaroonGetter)(nil).Get), arg0, arg1)
 }
 
-// MockCharmrepoForDeploy is a mock of CharmrepoForDeploy interface
+// MockCharmrepoForDeploy is a mock of CharmrepoForDeploy interface.
 type MockCharmrepoForDeploy struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmrepoForDeployMockRecorder
 }
 
-// MockCharmrepoForDeployMockRecorder is the mock recorder for MockCharmrepoForDeploy
+// MockCharmrepoForDeployMockRecorder is the mock recorder for MockCharmrepoForDeploy.
 type MockCharmrepoForDeployMockRecorder struct {
 	mock *MockCharmrepoForDeploy
 }
 
-// NewMockCharmrepoForDeploy creates a new mock instance
+// NewMockCharmrepoForDeploy creates a new mock instance.
 func NewMockCharmrepoForDeploy(ctrl *gomock.Controller) *MockCharmrepoForDeploy {
 	mock := &MockCharmrepoForDeploy{ctrl: ctrl}
 	mock.recorder = &MockCharmrepoForDeployMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmrepoForDeploy) EXPECT() *MockCharmrepoForDeployMockRecorder {
 	return m.recorder
 }
 
-// GetBundle mocks base method
+// GetBundle mocks base method.
 func (m *MockCharmrepoForDeploy) GetBundle(arg0 *charm.URL, arg1 string) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBundle", arg0, arg1)
@@ -168,13 +169,13 @@ func (m *MockCharmrepoForDeploy) GetBundle(arg0 *charm.URL, arg1 string) (charm.
 	return ret0, ret1
 }
 
-// GetBundle indicates an expected call of GetBundle
+// GetBundle indicates an expected call of GetBundle.
 func (mr *MockCharmrepoForDeployMockRecorder) GetBundle(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBundle", reflect.TypeOf((*MockCharmrepoForDeploy)(nil).GetBundle), arg0, arg1)
 }
 
-// ResolveWithPreferredChannel mocks base method
+// ResolveWithPreferredChannel mocks base method.
 func (m *MockCharmrepoForDeploy) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 params.Channel) (*charm.URL, params.Channel, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
@@ -185,36 +186,36 @@ func (m *MockCharmrepoForDeploy) ResolveWithPreferredChannel(arg0 *charm.URL, ar
 	return ret0, ret1, ret2, ret3
 }
 
-// ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel
+// ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel.
 func (mr *MockCharmrepoForDeployMockRecorder) ResolveWithPreferredChannel(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockCharmrepoForDeploy)(nil).ResolveWithPreferredChannel), arg0, arg1)
 }
 
-// MockCharmsAPI is a mock of CharmsAPI interface
+// MockCharmsAPI is a mock of CharmsAPI interface.
 type MockCharmsAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmsAPIMockRecorder
 }
 
-// MockCharmsAPIMockRecorder is the mock recorder for MockCharmsAPI
+// MockCharmsAPIMockRecorder is the mock recorder for MockCharmsAPI.
 type MockCharmsAPIMockRecorder struct {
 	mock *MockCharmsAPI
 }
 
-// NewMockCharmsAPI creates a new mock instance
+// NewMockCharmsAPI creates a new mock instance.
 func NewMockCharmsAPI(ctrl *gomock.Controller) *MockCharmsAPI {
 	mock := &MockCharmsAPI{ctrl: ctrl}
 	mock.recorder = &MockCharmsAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmsAPI) EXPECT() *MockCharmsAPIMockRecorder {
 	return m.recorder
 }
 
-// GetDownloadInfo mocks base method
+// GetDownloadInfo mocks base method.
 func (m *MockCharmsAPI) GetDownloadInfo(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon) (charms.DownloadInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDownloadInfo", arg0, arg1, arg2)
@@ -223,13 +224,13 @@ func (m *MockCharmsAPI) GetDownloadInfo(arg0 *charm.URL, arg1 charm0.Origin, arg
 	return ret0, ret1
 }
 
-// GetDownloadInfo indicates an expected call of GetDownloadInfo
+// GetDownloadInfo indicates an expected call of GetDownloadInfo.
 func (mr *MockCharmsAPIMockRecorder) GetDownloadInfo(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadInfo", reflect.TypeOf((*MockCharmsAPI)(nil).GetDownloadInfo), arg0, arg1, arg2)
 }
 
-// ResolveCharms mocks base method
+// ResolveCharms mocks base method.
 func (m *MockCharmsAPI) ResolveCharms(arg0 []charms.CharmToResolve) ([]charms.ResolvedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveCharms", arg0)
@@ -238,36 +239,36 @@ func (m *MockCharmsAPI) ResolveCharms(arg0 []charms.CharmToResolve) ([]charms.Re
 	return ret0, ret1
 }
 
-// ResolveCharms indicates an expected call of ResolveCharms
+// ResolveCharms indicates an expected call of ResolveCharms.
 func (mr *MockCharmsAPIMockRecorder) ResolveCharms(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharms", reflect.TypeOf((*MockCharmsAPI)(nil).ResolveCharms), arg0)
 }
 
-// MockDownloadBundleClient is a mock of DownloadBundleClient interface
+// MockDownloadBundleClient is a mock of DownloadBundleClient interface.
 type MockDownloadBundleClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockDownloadBundleClientMockRecorder
 }
 
-// MockDownloadBundleClientMockRecorder is the mock recorder for MockDownloadBundleClient
+// MockDownloadBundleClientMockRecorder is the mock recorder for MockDownloadBundleClient.
 type MockDownloadBundleClientMockRecorder struct {
 	mock *MockDownloadBundleClient
 }
 
-// NewMockDownloadBundleClient creates a new mock instance
+// NewMockDownloadBundleClient creates a new mock instance.
 func NewMockDownloadBundleClient(ctrl *gomock.Controller) *MockDownloadBundleClient {
 	mock := &MockDownloadBundleClient{ctrl: ctrl}
 	mock.recorder = &MockDownloadBundleClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDownloadBundleClient) EXPECT() *MockDownloadBundleClientMockRecorder {
 	return m.recorder
 }
 
-// DownloadAndReadBundle mocks base method
+// DownloadAndReadBundle mocks base method.
 func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
@@ -280,7 +281,7 @@ func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, a
 	return ret0, ret1
 }
 
-// DownloadAndReadBundle indicates an expected call of DownloadAndReadBundle
+// DownloadAndReadBundle indicates an expected call of DownloadAndReadBundle.
 func (mr *MockDownloadBundleClientMockRecorder) DownloadAndReadBundle(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)

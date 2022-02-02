@@ -5,34 +5,35 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockTerminal is a mock of Terminal interface
+// MockTerminal is a mock of Terminal interface.
 type MockTerminal struct {
 	ctrl     *gomock.Controller
 	recorder *MockTerminalMockRecorder
 }
 
-// MockTerminalMockRecorder is the mock recorder for MockTerminal
+// MockTerminalMockRecorder is the mock recorder for MockTerminal.
 type MockTerminalMockRecorder struct {
 	mock *MockTerminal
 }
 
-// NewMockTerminal creates a new mock instance
+// NewMockTerminal creates a new mock instance.
 func NewMockTerminal(ctrl *gomock.Controller) *MockTerminal {
 	mock := &MockTerminal{ctrl: ctrl}
 	mock.recorder = &MockTerminalMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTerminal) EXPECT() *MockTerminalMockRecorder {
 	return m.recorder
 }
 
-// Width mocks base method
+// Width mocks base method.
 func (m *MockTerminal) Width() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Width")
@@ -40,7 +41,7 @@ func (m *MockTerminal) Width() int {
 	return ret0
 }
 
-// Width indicates an expected call of Width
+// Width indicates an expected call of Width.
 func (mr *MockTerminalMockRecorder) Width() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Width", reflect.TypeOf((*MockTerminal)(nil).Width))
