@@ -5,8 +5,10 @@
 package osenv_test
 
 import (
+	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -27,6 +29,8 @@ func (s *varsSuite) TestJujuXDGDataHomeNoSnapHome(c *gc.C) {
 	// be set on the testing env.
 	s.PatchEnvironment(osenv.XDGDataHome, "")
 	s.PatchEnvironment("SNAP_REAL_HOME", "")
+	err := os.Unsetenv("SNAP_REAL_HOME")
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchEnvironment("HOME", path)
 	c.Assert(osenv.JujuXDGDataHomeLinux(), gc.Equals, filepath.Join(path, ".local", "share", "juju"))
 }
