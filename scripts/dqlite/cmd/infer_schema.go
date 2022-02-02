@@ -17,6 +17,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 )
 
@@ -164,10 +165,49 @@ func isMongoDocMapping(tspec *ast.TypeSpec) bool {
 }
 
 func clusterASTS(structASTs []structAST) map[string][]structAST {
-	// TODO:
-	return map[string][]structAST{
-		"": structASTs,
+	// Construct a set of possible prefix names
+	prefixSet := set.NewStrings()
+	for _, str := range structASTs {
+		if strings.ContainsRune(str.Name, '_') {
+			continue // assume this can't be a prefix
+		}
+
+		prefixSet.Add(str.Name)
 	}
+
+	// Group structs sharing each prefix
+	clusters := make(map[string][]structAST)
+
+nextStruct:
+	for _, str := range structASTs {
+		if prefixSet.Contains(str.Name) {
+			clusters[str.Name] = append(clusters[str.Name], str)
+			continue
+		}
+
+		// Can we cluster it with any of the prefixes?
+		for prefix := range prefixSet {
+			if strings.HasPrefix(str.Name, prefix) {
+				clusters[prefix] = append(clusters[prefix], str)
+				continue nextStruct
+			}
+		}
+
+		// Add as a standalone cluster
+		clusters[str.Name] = append(clusters[str.Name], str)
+	}
+
+	// Co-locate ASTs that don't have any other ASTs in their cluster
+	for key, asts := range clusters {
+		if len(asts) != 1 {
+			continue
+		}
+
+		clusters[""] = append(clusters[""], asts...)
+		delete(clusters, key)
+	}
+
+	return clusters
 }
 
 func renderERD(w io.Writer, clusters map[string][]structAST, fset *token.FileSet) {
@@ -182,6 +222,8 @@ func renderERD(w io.Writer, clusters map[string][]structAST, fset *token.FileSet
 			fmt.Fprintln(w, "  subgraph {")
 		} else {
 			fmt.Fprintf(w, "  subgraph cluster_%s {\n", clusterName)
+			fmt.Fprintf(w, "    color=blue;")
+			fmt.Fprintf(w, "    label=\"%s group\";\n", clusterName)
 		}
 
 		prefix := strings.Repeat(" ", 4)
