@@ -30,6 +30,7 @@ func (*importSuite) TestImports(c *gc.C) {
 
 	expected := set.NewStrings(
 		"agent",
+		"agent/constants",
 		"agent/tools",
 		"api",
 		"api/agent",
@@ -46,11 +47,8 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/watcher",
 		"apiserver/errors",
 		"apiserver/params",
-		"cmd/containeragent/utils",
-		"caas/kubernetes",
-		"caas/kubernetes/pod",
 		"caas/kubernetes/provider/constants",
-		"caas/kubernetes/provider/proxy",
+		"cmd/containeragent/utils",
 		"charmhub",
 		"charmhub/path",
 		"charmhub/transport",
@@ -102,7 +100,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"pki",
 		"provider/lxd/lxdnames",
 		"proxy",
-		"proxy/errors",
 		"resource",
 		"rpc",
 		"rpc/jsoncodec",

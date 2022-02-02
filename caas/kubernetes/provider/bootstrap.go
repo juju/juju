@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
+	agentconstants "github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
@@ -292,7 +293,7 @@ func newcontrollerStack(
 	cs.resourceNameVolSharedSecret = cs.getResourceName(mongo.SharedSecretFile)
 	cs.resourceNameVolSSLKey = cs.getResourceName(mongo.FileNameDBSSLKey)
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cloudconfig.FileNameBootstrapParams)
-	cs.resourceNameVolAgentConf = cs.getResourceName(agent.AgentConfigFilename)
+	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
 	if cs.dockerAuthSecretData, err = pcfg.Controller.Config.CAASImageRepo().SecretData(); err != nil {
 		return nil, errors.Trace(err)
@@ -1375,7 +1376,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	agentConfigRelativePath := c.pathJoin(
 		"agents",
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
-		agent.AgentConfigFilename,
+		agentconstants.AgentConfigFilename,
 	)
 	var jujudCmds []string
 	pushCmd := func(cmd string) {

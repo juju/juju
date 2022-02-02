@@ -19578,21 +19578,58 @@
                 "DashboardConnectionInfo": {
                     "type": "object",
                     "properties": {
-                        "connection": {
-                            "type": "object",
-                            "additionalProperties": true
-                        },
-                        "connection-type": {
-                            "type": "string"
-                        },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "proxy-connection": {
+                            "$ref": "#/definitions/DashboardConnectionProxy"
+                        },
+                        "ssh-connection": {
+                            "$ref": "#/definitions/DashboardConnectionSSHTunnel"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "connection",
-                        "connection-type"
+                        "proxy-connection",
+                        "ssh-connection"
+                    ]
+                },
+                "DashboardConnectionProxy": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "type"
+                    ]
+                },
+                "DashboardConnectionSSHTunnel": {
+                    "type": "object",
+                    "properties": {
+                        "host": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "host",
+                        "port"
                     ]
                 },
                 "DestroyControllerArgs": {

@@ -6,7 +6,7 @@ package constants
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/agent"
+	agentconstants "github.com/juju/juju/agent/constants"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 	JujuExecServerSocketPort = 30666
 
 	// TemplateFileNameAgentConf is the template agent.conf file name.
-	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
+	TemplateFileNameAgentConf = "template-" + agentconstants.AgentConfigFilename
 
 	// ControllerAgentConfigFilename is the agent conf filename
 	// for the controller agent for the api server.

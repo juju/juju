@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/retry"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -20,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	core "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbac "k8s.io/client-go/kubernetes/typed/rbac/v1"
+
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 // ControllerProxyConfig is used to configure the kubernetes resources made for
@@ -81,7 +82,7 @@ func proxyRoleForName(name string, lbs labels.Set) *rbacv1.Role {
 	return &role
 }
 
-// EnsureModelProxy ensures there is a proxy service account in existance for
+// EnsureModelProxy ensures there is a proxy service account in existence for
 // the namespace of a Kubernetes model.
 func EnsureProxyService(
 	ctx context.Context,
@@ -99,7 +100,7 @@ func EnsureProxyService(
 		roleRVal, err = roleI.Update(ctx, pr, meta.UpdateOptions{})
 	}
 	if err != nil {
-		return errors.Annotate(err, "creating proxy service account role")
+		return errors.Annotate(err, "cannot create proxy service account role")
 	}
 
 	sa := &corev1.ServiceAccount{

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	proxyfactory "github.com/juju/juju/proxy/factory"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -409,22 +410,23 @@ func (s *Suite) TestWatchAllModelSummaries(c *gc.C) {
 	c.Assert(watcher, gc.IsNil)
 }
 
-func (s *Suite) TestDashboardAddresses(c *gc.C) {
+func (s *Suite) TestDashboardConnectionInfo(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, result interface{}) error {
 			c.Assert(objType, gc.Equals, "Controller")
-			c.Assert(request, gc.Equals, "DashboardAddressInfo")
+			c.Assert(request, gc.Equals, "DashboardConnectionInfo")
 			c.Assert(args, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.DashboardInfo{})
-			*(result.(*params.DashboardInfo)) = params.DashboardInfo{
-				Addresses: []string{"10.1.1.1:666"},
-				UseTunnel: true,
+			c.Assert(result, gc.FitsTypeOf, &params.DashboardConnectionInfo{})
+			*(result.(*params.DashboardConnectionInfo)) = params.DashboardConnectionInfo{
+				SSHConnection: &params.DashboardConnectionSSHTunnel{
+					Host: "10.1.1.1",
+					Port: "1234",
+				},
 			}
 			return nil
 		})
 	client := controller.NewClient(apiCaller)
-	addresses, useTunnel, err := client.DashboardAddresses()
+	connectionInfo, err := client.DashboardConnectionInfo(proxyfactory.NewFactory())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, []string{"10.1.1.1:666"})
-	c.Assert(useTunnel, jc.IsTrue)
+	c.Assert(connectionInfo.SSHTunnel, gc.NotNil)
 }

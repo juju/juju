@@ -4,8 +4,6 @@
 package params
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -136,25 +134,10 @@ type ControllerVersionResults struct {
 	GitCommit string `json:"git-commit"`
 }
 
-const (
-	// DashboardConnectionTypeProxy is the type key used for proxy connections
-	DashboardConnectionTypeProxy = "proxy"
-
-	// DashboardConnectionTypeSSHTunnel is the type key used for ssh connections
-	DashboardConnectionTypeSSHTunnel = "ssh-tunnel"
-)
-
 // DashboardConnectionProxy represents a proxy connection to the Juju Dashboard
 type DashboardConnectionProxy struct {
-	Proxier       proxy.Proxier   `json:"proxier"`
-	proxierConfig json.RawMessage `json:"-"`
-	ProxierType   string          `json:"type"`
-}
-
-// ProxierFactory is an interface type representing a factory that can make a
-// new juju proxier from the supplied type and JSON config.
-type ProxierFactory interface {
-	ProxierFromJSONDataBag(proxierType string, config json.RawMessage) (proxy.Proxier, error)
+	Config map[string]interface{} `json:"config"`
+	Type   string                 `json:"type"`
 }
 
 // DashboardConnectionSSHTunnel represents an ssh tunnel connection to the Juju
@@ -164,118 +147,27 @@ type DashboardConnectionSSHTunnel struct {
 	Port string `json:"port"`
 }
 
-// DashboardConnection interface represents a generic interface for establishing
-// dashboard connections.
-type DashboardConnection interface {
-	Type() string
-}
-
 // DashboardConnectionInfo holds the information necassery
 type DashboardConnectionInfo struct {
-	Connection     DashboardConnection `json:"connection"`
-	ConnectionType string              `json:"connection-type"`
-	Error          *Error              `json:"error,omitempty"`
-}
-
-// DashboardInfo holds the results from an api call
-// to get address info for the juju dashboard.
-type DashboardInfo struct {
-	Addresses []string `json:"addresses"`
-	UseTunnel bool     `json:"use-tunnel"`
-	Error     *Error   `json:"error,omitempty"`
+	ProxyConnection *DashboardConnectionProxy     `json:"proxy-connection"`
+	SSHConnection   *DashboardConnectionSSHTunnel `json:"ssh-connection"`
+	Error           *Error                        `json:"error,omitempty"`
 }
 
 // NewDashboardConnectionProxy constructs a new DashboardConnectionProxy from
 // the supplied proxier.
-func NewDashboardConnectionProxy(proxier proxy.Proxier) *DashboardConnectionProxy {
-	proxierType := ""
-	if proxier != nil {
-		proxierType = proxier.Type()
-	}
-	return &DashboardConnectionProxy{
-		Proxier:     proxier,
-		ProxierType: proxierType,
-	}
-}
-
-// Type implements the DashboardConnection interface
-func (_ *DashboardConnectionProxy) Type() string {
-	return DashboardConnectionTypeProxy
-}
-
-// Type implements the DashboardConnection interface
-func (_ *DashboardConnectionSSHTunnel) Type() string {
-	return DashboardConnectionTypeSSHTunnel
-}
-
-// UnmarshalJSON implements the encoding/json Unmarshaller interface
-func (d *DashboardConnectionInfo) UnmarshalJSON(data []byte) error {
-	wireFormat := &struct {
-		Connection     json.RawMessage `json:"connection"`
-		ConnectionType string          `json:"connection-type"`
-		Error          *Error          `json:"error,omitempty"`
-	}{}
-	if err := json.Unmarshal(data, wireFormat); err != nil {
-		return errors.Trace(err)
-	}
-	switch ct := wireFormat.ConnectionType; ct {
-	case DashboardConnectionTypeProxy:
-		con := &DashboardConnectionProxy{}
-		if err := json.Unmarshal(wireFormat.Connection, con); err != nil {
-			return errors.Trace(err)
-		}
-		d.Connection = con
-	case DashboardConnectionTypeSSHTunnel:
-		con := &DashboardConnectionSSHTunnel{}
-		if err := json.Unmarshal(wireFormat.Connection, con); err != nil {
-			return errors.Trace(err)
-		}
-		d.Connection = con
-	case "":
-		break
-	default:
-		return fmt.Errorf("Unknown connection type %q", ct)
+func NewDashboardConnectionProxy(proxier proxy.Proxier) (*DashboardConnectionProxy, error) {
+	if proxier == nil {
+		return nil, errors.NotValidf("cannot have nil proxier")
 	}
 
-	d.ConnectionType = wireFormat.ConnectionType
-	d.Error = wireFormat.Error
-	return nil
-}
-
-// ProxierFromFactory attempts to construct a Juju proxier from the raw JSON
-// configuration in this connection using the supplied proxier factory.
-func (d *DashboardConnectionProxy) ProxierFromFactory(factory ProxierFactory) (proxy.Proxier, error) {
-	if d.Proxier != nil {
-		return d.Proxier, nil
-	}
-
-	if d.ProxierType == "" {
-		return nil, errors.NotValidf("proxier type is empty, unable to construct a proxy from an empty type")
-	}
-
-	proxier, err := factory.ProxierFromJSONDataBag(d.ProxierType, d.proxierConfig)
+	config, err := proxier.RawConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "making proxy from configuration")
+		return nil, errors.Annotatef(err, "getting raw configuration for proxier of type %s", proxier.Type())
 	}
 
-	d.Proxier = proxier
-	return proxier, nil
-}
-
-// UnmarshalJSON implements the encoding/json Unmarshaller interface
-func (d *DashboardConnectionProxy) UnmarshalJSON(data []byte) error {
-	wireFormat := &struct {
-		ProxierConfig json.RawMessage `json:"proxier"`
-		ProxierType   string          `json:"type"`
-	}{}
-
-	if err := json.Unmarshal(data, wireFormat); err != nil {
-		return errors.Trace(err)
-	}
-
-	d.ProxierType = wireFormat.ProxierType
-	d.proxierConfig = wireFormat.ProxierConfig
-	d.Proxier = nil
-
-	return nil
+	return &DashboardConnectionProxy{
+		Config: config,
+		Type:   proxier.Type(),
+	}, nil
 }

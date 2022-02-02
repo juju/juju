@@ -4,6 +4,8 @@
 package dashboard
 
 import (
+	"os"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/juju/jujuclient"
 
@@ -14,11 +16,12 @@ var (
 	WebbrowserOpen = &webbrowserOpen
 )
 
-func NewDashboardCommandForTest(store jujuclient.ClientStore, api ControllerAPI) cmd.Command {
+func NewDashboardCommandForTest(store jujuclient.ClientStore, api ControllerAPI, signalCh chan os.Signal) cmd.Command {
 	d := &dashboardCommand{
 		newAPIFunc: func() (ControllerAPI, bool, error) {
 			return api, false, nil
 		},
+		signalCh: signalCh,
 	}
 	d.SetClientStore(store)
 	return modelcmd.Wrap(d)

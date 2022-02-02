@@ -4,9 +4,8 @@
 package factory
 
 import (
-	"encoding/json"
-
 	"github.com/juju/errors"
+	"github.com/mitchellh/mapstructure"
 
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/proxy"
@@ -83,9 +82,10 @@ func NewFactory() *Factory {
 	}
 }
 
-// ProxierFromJSONDataBag is a utility function for making a proxy from this
-// factory using a JSON data bag. The type key cannot be an empty string.
-func (f *Factory) ProxierFromJSONDataBag(typeKey string, rawData json.RawMessage) (proxy.Proxier, error) {
+// ProxierFromConfig is a utility function for making a proxier from this
+// factory using raw config data within in a map[string]interface{}. The type
+// key cannot be an empty string.
+func (f *Factory) ProxierFromConfig(typeKey string, config map[string]interface{}) (proxy.Proxier, error) {
 	if typeKey == "" {
 		return nil, errors.NotValidf("type key for proxier cannot be empty")
 	}
@@ -95,8 +95,8 @@ func (f *Factory) ProxierFromJSONDataBag(typeKey string, rawData json.RawMessage
 		return nil, err
 	}
 
-	if err := json.Unmarshal(rawData, maker.Config()); err != nil {
-		return nil, errors.Annotatef(err, "unmarshalling json config for proxier type %q", typeKey)
+	if err := mapstructure.Decode(config, maker.Config()); err != nil {
+		return nil, errors.Annotatef(err, "decoding config  for proxier type %q", typeKey)
 	}
 
 	return maker.Make()

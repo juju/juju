@@ -86,6 +86,7 @@ require (
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
+	github.com/mitchellh/mapstructure v1.4.3
 	github.com/oracle/oci-go-sdk/v47 v47.1.0
 	github.com/packethost/packngo v0.19.0
 	github.com/pkg/errors v0.9.1

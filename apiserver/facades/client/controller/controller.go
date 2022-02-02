@@ -212,15 +212,18 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 
 	caasBroker, ok := environ.(caas.Broker)
 	if !ok {
-		return nil, errors.New("unable to get cass environ for model")
+		return nil, errors.New("cannot get cass environ for model")
 	}
 
+	// TODO: (tlm) We are hardcoding port 80 here because the kubernetes
+	// dashboard charm doesn't have any config that we can look at to work out
+	// what it is. A bug has been raised here: https://github.com/canonical-web-and-design/juju-dashboard-charm/issues/15
 	proxier, err := caasBroker.ProxyToApplication(applicationName, "80")
 	if err != nil {
 		return nil, err
 	}
 
-	return params.NewDashboardConnectionProxy(proxier), nil
+	return params.NewDashboardConnectionProxy(proxier)
 }
 
 // dashboardConnectionInforForIAAS returns a dashboard connection for a Juju
@@ -256,21 +259,22 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 // DashboardConnectionInfo returns the connection information for a client to
 // connect to the Juju Dashboard including any proxying information.
 func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInfo, error) {
-	getDashboardInfo := func() (params.DashboardConnection, error) {
+	getDashboardInfo := func() (params.DashboardConnectionInfo, error) {
+		rval := params.DashboardConnectionInfo{}
 		controllerApp, err := c.state.Application(bootstrap.ControllerApplicationName)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return rval, errors.Trace(err)
 		}
 
 		rels, err := controllerApp.Relations()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return rval, errors.Trace(err)
 		}
 
 		for _, rel := range rels {
 			ep, err := rel.Endpoint(controllerApp.Name())
 			if err != nil {
-				return nil, errors.Trace(err)
+				return rval, errors.Trace(err)
 			}
 			if ep.Name != "dashboard" {
 				continue
@@ -278,34 +282,43 @@ func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInf
 
 			model, _, err := c.statePool.GetModel(rel.ModelUUID())
 			if err != nil {
-				return nil, errors.Trace(err)
+				return rval, errors.Trace(err)
 			}
 
 			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
+			if err != nil {
+				return rval, errors.Trace(err)
+			}
 			related := relatedEps[0]
 
 			appSettings, err := rel.ApplicationSettings(related.ApplicationName)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return rval, errors.Trace(err)
 			}
 
 			if model.Type() != state.ModelTypeCAAS {
-				return c.dashboardConnectionInfoForIAAS(
+				sshConnection, err := c.dashboardConnectionInfoForIAAS(
 					related.ApplicationName,
 					appSettings)
+				rval.SSHConnection = sshConnection
+				return rval, err
 			}
 
-			return c.dashboardConnectionInfoForCAAS(model, related.ApplicationName)
+			proxyConnection, err := c.dashboardConnectionInfoForCAAS(model, related.ApplicationName)
+			rval.ProxyConnection = proxyConnection
+			return rval, err
 		}
 
-		return nil, errors.NotFoundf("no dashboard found")
+		return rval, errors.NotFoundf("no dashboard found")
 	}
-	con, err := getDashboardInfo()
-	return params.DashboardConnectionInfo{
-		Connection:     con,
-		ConnectionType: con.Type(),
-		Error:          apiservererrors.ServerError(err),
-	}, nil
+	conInfo, err := getDashboardInfo()
+
+	if conInfo.ProxyConnection != nil && conInfo.SSHConnection != nil {
+		return params.DashboardConnectionInfo{},
+			errors.New("cannot set both proxy and ssh connection for dashboard connection info")
+	}
+	conInfo.Error = apiservererrors.ServerError(err)
+	return conInfo, nil
 }
 
 // AllModels allows controller administrators to get the list of all the

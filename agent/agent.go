@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/machinelock"
@@ -562,7 +563,7 @@ func Dir(dataDir string, tag names.Tag) string {
 // NOTE: Delete this once all agents accept --config instead
 // of --data-dir - it won't be needed anymore.
 func ConfigPath(dataDir string, tag names.Tag) string {
-	return filepath.Join(Dir(dataDir, tag), AgentConfigFilename)
+	return filepath.Join(Dir(dataDir, tag), constants.AgentConfigFilename)
 }
 
 // ReadConfig reads configuration data from the given location.
@@ -865,7 +866,7 @@ func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error
 		return nil, errors.Trace(err)
 	}
 	commands := renderer.MkdirAll(c.Dir())
-	filename := c.File(AgentConfigFilename)
+	filename := c.File(constants.AgentConfigFilename)
 	commands = append(commands, renderer.WriteFile(filename, data)...)
 	commands = append(commands, renderer.Chmod(filename, 0600)...)
 	return commands, nil

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/proxy"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -390,17 +391,52 @@ func (c *Client) ControllerVersion() (ControllerVersion, error) {
 	return out, err
 }
 
+// DashboardConnectionInfo
+type DashboardConnectionInfo struct {
+	Proxier   proxy.Proxier
+	SSHTunnel *DashboardConnectionSSHTunnel
+}
+
+type DashboardConnectionSSHTunnel struct {
+	Host string
+	Port string
+}
+
+// ProxierFactory is an interface type representing a factory that can make a
+// new juju proxier from the supplied raw config.
+type ProxierFactory interface {
+	ProxierFromConfig(string, map[string]interface{}) (proxy.Proxier, error)
+}
+
 // DashboardConnectionInfo fetches the connection information needed for
 // connecting to the Juju Dashboard.
-func (c *Client) DashboardConnectionInfo() (params.DashboardConnectionInfo, error) {
+func (c *Client) DashboardConnectionInfo(factory ProxierFactory) (DashboardConnectionInfo, error) {
+	rval := DashboardConnectionInfo{}
 	result := params.DashboardConnectionInfo{}
 	err := c.facade.FacadeCall("DashboardConnectionInfo", nil, &result)
 	if err != nil {
-		return result, errors.Trace(err)
+		return rval, errors.Trace(err)
 	}
 
 	if result.Error != nil {
-		err = result.Error
+		return rval, result.Error
 	}
-	return result, err
+
+	if result.SSHConnection != nil {
+		rval.SSHTunnel = &DashboardConnectionSSHTunnel{
+			Host: result.SSHConnection.Host,
+			Port: result.SSHConnection.Port,
+		}
+		return rval, nil
+	}
+
+	proxier, err := factory.ProxierFromConfig(
+		result.ProxyConnection.Type,
+		result.ProxyConnection.Config)
+	if err != nil {
+		return rval, errors.Annotate(err, "creating proxier from config")
+	}
+
+	rval.Proxier = proxier
+	return rval, nil
 }

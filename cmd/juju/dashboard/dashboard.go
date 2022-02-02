@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/webbrowser"
 
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -26,7 +26,7 @@ import (
 
 // ControllerAPI is used to get dashboard info from the controller.
 type ControllerAPI interface {
-	DashboardConnectionInfo() (params.DashboardConnectionInfo, error)
+	DashboardConnectionInfo(controller.ProxierFactory) (controller.DashboardConnectionInfo, error)
 	Close() error
 }
 
@@ -37,6 +37,7 @@ func NewDashboardCommand() cmd.Command {
 		return d.newControllerAPI()
 	}
 	d.embeddedSSHCmd = ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy)
+	d.signalCh = make(chan os.Signal)
 	return modelcmd.Wrap(d)
 }
 
@@ -51,6 +52,7 @@ type dashboardCommand struct {
 
 	port           int
 	embeddedSSHCmd cmd.Command
+	signalCh       chan os.Signal
 }
 
 type urlCallBack func(url string)
@@ -122,8 +124,16 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.DashboardConnectionInfo()
+
+	factory, err := proxyfactory.NewDefaultFactory()
 	if err != nil {
+		return errors.Annotate(err, "creating default proxy factory to support dashboard connection")
+	}
+
+	res, err := api.DashboardConnectionInfo(factory)
+	if errors.IsNotFound(err) {
+		return errors.New(dashboardNotAvailableMessage)
+	} else if err != nil {
 		return errors.Annotatef(err,
 			"getting dashboard address for controller %q",
 			controllerName,
@@ -132,37 +142,17 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 
 	var runner connectionRunner
 
-	if res.ConnectionType == params.DashboardConnectionTypeProxy {
-		proxyConnection, ok := res.Connection.(*params.DashboardConnectionProxy)
+	if res.Proxier != nil {
+		tunnelProxy, ok := res.Proxier.(proxy.TunnelProxier)
 		if !ok {
-			return errors.NotValidf("connection type provided by the the controller")
-		}
-
-		factory, err := proxyfactory.NewDefaultFactory()
-		if err != nil {
-			return errors.Annotate(err, "creating default proxy factory to support dashboard connection")
-		}
-
-		proxier, err := proxyConnection.ProxierFromFactory(factory)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		tunnelProxy, ok := proxier.(proxy.TunnelProxier)
-		if !ok {
-			return errors.Annotatef(err, "unsupported proxy type %q for dashboard", proxier.Type())
+			return errors.Annotatef(err, "unsupported proxy type %q for dashboard", res.Proxier.Type())
 		}
 
 		runner = tunnelProxyRunner(tunnelProxy)
-	} else if res.ConnectionType == params.DashboardConnectionTypeSSHTunnel {
-		sshConnectionInfo, ok := res.Connection.(*params.DashboardConnectionSSHTunnel)
-		if !ok {
-			return errors.NotValidf("connection type provided by the controller")
-		}
-
-		runner = tunnelSSHRunner(sshConnectionInfo, c.port, c.embeddedSSHCmd)
+	} else if res.SSHTunnel != nil {
+		runner = tunnelSSHRunner(*res.SSHTunnel, c.port, c.embeddedSSHCmd)
 	} else {
-		return errors.NotSupportedf("dashboard connection type %s", res.ConnectionType)
+		return errors.NotValidf("dashboard connection has no proxying or ssh connection information")
 	}
 
 	urlCh := make(chan string)
@@ -172,40 +162,51 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	}
 
 	stdctx, cancel := context.WithCancel(context.Background())
-	finishCh := make(chan struct{})
+	cancelOnce := sync.Once{}
+	defer cancelOnce.Do(cancel)
+	finishCh := make(chan error)
 	go func() {
 		defer close(finishCh)
 		err := runner(stdctx, runnerURLCallBack)
-		if err != nil {
-			ctx.Infof("running connection runner %v", err)
-		}
+		finishCh <- errors.Annotate(err, "running connection runner")
 	}()
 
-	signalCh := make(chan os.Signal)
-	signal.Notify(signalCh, os.Interrupt, os.Kill)
+	// We need to wait for either the runner to blow up or tell us wha the
+	// dashboard url is before processing the os signals
+	var userErr error
+	select {
+	case url := <-urlCh:
+		if userErr = c.openBrowser(ctx, "Dashboard", url); userErr != nil {
+			cancelOnce.Do(cancel)
+			break
+		}
+		if userErr = c.showCredentials(ctx); userErr != nil {
+			cancelOnce.Do(cancel)
+		}
+	case err, ok := <-finishCh:
+		if ok {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
+	signal.Notify(c.signalCh, os.Interrupt, os.Kill)
 	for {
 		select {
-		case url := <-urlCh:
-			if err = c.openBrowser(ctx, "Dashboard", url); err != nil {
-				cancel()
-				break
-			}
-			if err = c.showCredentials(ctx); err != nil {
-				cancel()
-				break
-			}
-		case waitSig := <-signalCh:
+		case waitSig := <-c.signalCh:
 			ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
-			cancel()
-		case <-finishCh:
-			return err
+			cancelOnce.Do(cancel)
+		case err, ok := <-finishCh:
+			if ok && err != nil {
+				return errors.Wrap(userErr, err)
+			}
+			return userErr
 		}
 	}
-	return err
 }
 
 func tunnelSSHRunner(
-	tunnel *params.DashboardConnectionSSHTunnel,
+	tunnel controller.DashboardConnectionSSHTunnel,
 	localPort int,
 	sshCommand cmd.Command,
 ) connectionRunner {
