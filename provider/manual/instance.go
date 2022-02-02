@@ -4,8 +4,6 @@
 package manual
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -18,8 +16,8 @@ type manualBootstrapInstance struct {
 	host string
 }
 
-func (inst manualBootstrapInstance) Id() instance.Id {
-	return instance.Id(fmt.Sprintf("%s%s", BootstrapInstanceId, inst.host))
+func (manualBootstrapInstance) Id() instance.Id {
+	return BootstrapInstanceId
 }
 
 func (manualBootstrapInstance) Status(ctx context.ProviderCallContext) instance.Status {

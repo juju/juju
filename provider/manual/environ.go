@@ -74,7 +74,7 @@ func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.Id)
 
 // AllInstances implements environs.InstanceBroker.
 func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.Instances(ctx, []instance.Id{instance.Id(fmt.Sprintf("%s%s", BootstrapInstanceId, e.host))})
+	return e.Instances(ctx, []instance.Id{BootstrapInstanceId})
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
@@ -121,7 +121,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 		return nil, err
 	}
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
-		icfg.Bootstrap.BootstrapMachineInstanceId = instance.Id(fmt.Sprintf("%s%s", BootstrapInstanceId, e.host))
+		icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = hw
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
@@ -146,7 +146,7 @@ func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, con
 			return nil, err
 		}
 	}
-	return []instance.Id{instance.Id(fmt.Sprintf("%s%s", BootstrapInstanceId, e.host))}, nil
+	return []instance.Id{BootstrapInstanceId}, nil
 }
 
 func (e *manualEnviron) verifyBootstrapHost() error {
@@ -207,7 +207,7 @@ func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 	var found bool
 	var err error
 	for i, id := range ids {
-		if id == instance.Id(fmt.Sprintf("%s%s", BootstrapInstanceId, e.host)) {
+		if id == BootstrapInstanceId {
 			result[i] = manualBootstrapInstance{e.host}
 			found = true
 		} else {
