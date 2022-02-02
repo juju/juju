@@ -164,7 +164,7 @@ func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockApplication)(nil).Charm))
 }
 
-// CharmConfig mocks base method
+// CharmConfig mocks base method.
 func (m *MockApplication) CharmConfig(arg0 string) (v9.Settings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmConfig", arg0)
@@ -193,7 +193,7 @@ func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmOrigin", reflect.TypeOf((*MockApplication)(nil).CharmOrigin))
 }
 
-// CharmURL mocks base method
+// CharmURL mocks base method.
 func (m *MockApplication) CharmURL() (*v9.URL, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
@@ -506,7 +506,7 @@ func (mr *MockApplicationMockRecorder) UnsetExposeSettings(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetExposeSettings", reflect.TypeOf((*MockApplication)(nil).UnsetExposeSettings), arg0)
 }
 
-// UpdateApplicationConfig mocks base method
+// UpdateApplicationConfig mocks base method.
 func (m *MockApplication) UpdateApplicationConfig(arg0 application0.ConfigAttributes, arg1 []string, arg2 environschema_v1.Fields, arg3 schema.Defaults) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationConfig", arg0, arg1, arg2, arg3)
@@ -534,7 +534,7 @@ func (mr *MockApplicationMockRecorder) UpdateApplicationSeries(arg0, arg1 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationSeries", reflect.TypeOf((*MockApplication)(nil).UpdateApplicationSeries), arg0, arg1)
 }
 
-// UpdateCharmConfig mocks base method
+// UpdateCharmConfig mocks base method.
 func (m *MockApplication) UpdateCharmConfig(arg0 string, arg1 v9.Settings) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCharmConfig", arg0, arg1)
@@ -571,7 +571,7 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
 }
 
-// Actions mocks base method
+// Actions mocks base method.
 func (m *MockCharm) Actions() *v9.Actions {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Actions")
@@ -585,7 +585,7 @@ func (mr *MockCharmMockRecorder) Actions() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockCharm)(nil).Actions))
 }
 
-// Config mocks base method
+// Config mocks base method.
 func (m *MockCharm) Config() *v9.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
@@ -599,7 +599,7 @@ func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCharm)(nil).Config))
 }
 
-// Manifest mocks base method
+// Manifest mocks base method.
 func (m *MockCharm) Manifest() *v9.Manifest {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Manifest")
@@ -613,7 +613,7 @@ func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Manifest", reflect.TypeOf((*MockCharm)(nil).Manifest))
 }
 
-// Meta mocks base method
+// Meta mocks base method.
 func (m *MockCharm) Meta() *v9.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
@@ -627,7 +627,7 @@ func (mr *MockCharmMockRecorder) Meta() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharm)(nil).Meta))
 }
 
-// Metrics mocks base method
+// Metrics mocks base method.
 func (m *MockCharm) Metrics() *v9.Metrics {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Metrics")
@@ -669,7 +669,7 @@ func (mr *MockCharmMockRecorder) String() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockCharm)(nil).String))
 }
 
-// URL mocks base method
+// URL mocks base method.
 func (m *MockCharm) URL() *v9.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")

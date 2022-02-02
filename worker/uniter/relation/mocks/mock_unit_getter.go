@@ -11,30 +11,30 @@ import (
 	reflect "reflect"
 )
 
-// MockUnitGetter is a mock of UnitGetter interface
+// MockUnitGetter is a mock of UnitGetter interface.
 type MockUnitGetter struct {
 	ctrl     *gomock.Controller
 	recorder *MockUnitGetterMockRecorder
 }
 
-// MockUnitGetterMockRecorder is the mock recorder for MockUnitGetter
+// MockUnitGetterMockRecorder is the mock recorder for MockUnitGetter.
 type MockUnitGetterMockRecorder struct {
 	mock *MockUnitGetter
 }
 
-// NewMockUnitGetter creates a new mock instance
+// NewMockUnitGetter creates a new mock instance.
 func NewMockUnitGetter(ctrl *gomock.Controller) *MockUnitGetter {
 	mock := &MockUnitGetter{ctrl: ctrl}
 	mock.recorder = &MockUnitGetterMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnitGetter) EXPECT() *MockUnitGetterMockRecorder {
 	return m.recorder
 }
 
-// Unit mocks base method
+// Unit mocks base method.
 func (m *MockUnitGetter) Unit(arg0 names.UnitTag) (relation.Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
@@ -43,7 +43,7 @@ func (m *MockUnitGetter) Unit(arg0 names.UnitTag) (relation.Unit, error) {
 	return ret0, ret1
 }
 
-// Unit indicates an expected call of Unit
+// Unit indicates an expected call of Unit.
 func (mr *MockUnitGetterMockRecorder) Unit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUnitGetter)(nil).Unit), arg0)

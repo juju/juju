@@ -5,34 +5,35 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockProviderIDGetter is a mock of ProviderIDGetter interface
+// MockProviderIDGetter is a mock of ProviderIDGetter interface.
 type MockProviderIDGetter struct {
 	ctrl     *gomock.Controller
 	recorder *MockProviderIDGetterMockRecorder
 }
 
-// MockProviderIDGetterMockRecorder is the mock recorder for MockProviderIDGetter
+// MockProviderIDGetterMockRecorder is the mock recorder for MockProviderIDGetter.
 type MockProviderIDGetterMockRecorder struct {
 	mock *MockProviderIDGetter
 }
 
-// NewMockProviderIDGetter creates a new mock instance
+// NewMockProviderIDGetter creates a new mock instance.
 func NewMockProviderIDGetter(ctrl *gomock.Controller) *MockProviderIDGetter {
 	mock := &MockProviderIDGetter{ctrl: ctrl}
 	mock.recorder = &MockProviderIDGetterMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProviderIDGetter) EXPECT() *MockProviderIDGetterMockRecorder {
 	return m.recorder
 }
 
-// Name mocks base method
+// Name mocks base method.
 func (m *MockProviderIDGetter) Name() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
@@ -40,13 +41,13 @@ func (m *MockProviderIDGetter) Name() string {
 	return ret0
 }
 
-// Name indicates an expected call of Name
+// Name indicates an expected call of Name.
 func (mr *MockProviderIDGetterMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockProviderIDGetter)(nil).Name))
 }
 
-// ProviderID mocks base method
+// ProviderID mocks base method.
 func (m *MockProviderIDGetter) ProviderID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProviderID")
@@ -54,13 +55,13 @@ func (m *MockProviderIDGetter) ProviderID() string {
 	return ret0
 }
 
-// ProviderID indicates an expected call of ProviderID
+// ProviderID indicates an expected call of ProviderID.
 func (mr *MockProviderIDGetterMockRecorder) ProviderID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderID", reflect.TypeOf((*MockProviderIDGetter)(nil).ProviderID))
 }
 
-// Refresh mocks base method
+// Refresh mocks base method.
 func (m *MockProviderIDGetter) Refresh() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
@@ -68,7 +69,7 @@ func (m *MockProviderIDGetter) Refresh() error {
 	return ret0
 }
 
-// Refresh indicates an expected call of Refresh
+// Refresh indicates an expected call of Refresh.
 func (mr *MockProviderIDGetterMockRecorder) Refresh() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockProviderIDGetter)(nil).Refresh))

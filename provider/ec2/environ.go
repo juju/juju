@@ -25,7 +25,6 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -71,11 +70,11 @@ const (
 )
 
 var (
-	// Use shortAttempt to poll for short-term events or for retrying API calls.
-	// TODO(katco): 2016-08-09: lp:1611427
-	shortAttempt = utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
+	// Use shortRetryStrategy to poll for short-term events or for retrying API calls.
+	shortRetryStrategy = retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 5 * time.Second,
+		Delay:       200 * time.Millisecond,
 	}
 
 	// aliveInstanceStates are the states which we filter by when listing
@@ -1118,15 +1117,20 @@ func tagResources(e Client, ctx context.ProviderCallContext, tags map[string]str
 	for k, v := range tags {
 		ec2Tags = append(ec2Tags, types.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
-	var err error
-	for a := shortAttempt.Start(); a.Next(); {
-		_, err = e.CreateTags(ctx, &ec2.CreateTagsInput{
+	retryStrategy := shortRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		return !strings.HasSuffix(ec2ErrCode(err), ".NotFound")
+	}
+	retryStrategy.Func = func() error {
+		_, err := e.CreateTags(ctx, &ec2.CreateTagsInput{
 			Resources: resourceIds,
 			Tags:      ec2Tags,
 		})
-		if err == nil || !strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
-			return maybeConvertCredentialError(err, ctx)
-		}
+		return err
+	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
 	}
 	return maybeConvertCredentialError(err, ctx)
 }
@@ -1147,42 +1151,51 @@ func tagRootDisk(e Client, ctx context.ProviderCallContext, tags map[string]stri
 		}
 		return ""
 	}
-	// Wait until the instance has an associated EBS volume in the
-	// block-device-mapping.
-	volumeID := findVolumeID(inst)
-	// TODO(katco): 2016-08-09: lp:1611427
-	waitRootDiskAttempt := utils.AttemptStrategy{
-		Total: 5 * time.Minute,
-		Delay: 5 * time.Second,
+	var volumeID string
+
+	retryStrategy := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 5 * time.Minute,
+		Delay:       5 * time.Second,
 	}
-	for a := waitRootDiskAttempt.Start(); volumeID == "" && a.Next(); {
-		resp, err := e.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
-			InstanceIds: []string{aws.ToString(inst.InstanceId)},
-		})
-		if err != nil {
+	retryStrategy.IsFatalError = func(err error) bool {
+		if strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
 			// EC2 calls are eventually consistent; if we get a
 			// NotFound error when looking up the instance we
 			// should retry until it appears or we run out of
 			// attempts.
-			if strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
-				logger.Debugf("instance %v is not available yet; retrying fetch of instance information", inst.InstanceId)
-				continue
-			}
-
-			// No need to retry for other error types.
-			return errors.Annotate(
-				maybeConvertCredentialError(err, ctx),
-				"cannot fetch instance information",
-			)
+			logger.Debugf("instance %v is not available yet; retrying fetch of instance information", inst.InstanceId)
+			return false
+		} else if errors.IsNotFound(err) {
+			// Volume ID not found
+			return false
+		}
+		// No need to retry for other error types
+		return true
+	}
+	retryStrategy.Func = func() error {
+		// Refresh instance
+		resp, err := e.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+			InstanceIds: []string{aws.ToString(inst.InstanceId)},
+		})
+		if err != nil {
+			return err
 		}
 		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
 			inst = &resp.Reservations[0].Instances[0]
-			volumeID = findVolumeID(inst)
 		}
+
+		volumeID = findVolumeID(inst)
+		if volumeID == "" {
+			return errors.NewNotFound(nil, "Volume ID not found")
+		}
+		return nil
 	}
-	if volumeID == "" {
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		return errors.New("timed out waiting for EBS volume to be associated")
 	}
+
 	return tagResources(e, ctx, tags, volumeID)
 }
 
@@ -1191,16 +1204,26 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e Client, ctx context.ProviderCallContext, ri *ec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *ec2.RunInstancesOutput, err error) {
+func _runInstances(e Client, ctx context.ProviderCallContext, ri *ec2.RunInstancesInput, callback environs.StatusCallbackFunc) (*ec2.RunInstancesOutput, error) {
+	var resp *ec2.RunInstancesOutput
 	try := 1
-	for a := shortAttempt.Start(); a.Next(); {
-		_ = callback(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
-		resp, err = e.RunInstances(ctx, ri)
-		if err == nil || !isNotFoundError(err) {
-			break
-		}
-		try++
+
+	retryStrategy := shortRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		return !isNotFoundError(err)
 	}
+	retryStrategy.Func = func() error {
+		_ = callback(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
+		var err error
+		resp, err = e.RunInstances(ctx, ri)
+		try++
+		return err
+	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
+	}
+
 	return resp, maybeConvertCredentialError(err, ctx)
 }
 
@@ -1240,8 +1263,11 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
-	var err error
-	for a := shortAttempt.Start(); a.Next(); {
+	retryStrategy := shortRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		return err != environs.ErrPartialInstances
+	}
+	retryStrategy.Func = func() error {
 		var need []string
 		for i, inst := range insts {
 			if inst == nil {
@@ -1253,11 +1279,13 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 			makeFilter("instance-id", need...),
 			makeModelFilter(e.uuid()),
 		}
-		err = e.gatherInstances(ctx, ids, insts, filters)
-		if err == nil || err != environs.ErrPartialInstances {
-			break
-		}
+		return e.gatherInstances(ctx, ids, insts, filters)
 	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
+	}
+
 	if err == environs.ErrPartialInstances {
 		for _, inst := range insts {
 			if inst != nil {
@@ -1343,7 +1371,11 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 	// Make a series of requests to cope with eventual consistency.  Each
 	// request will attempt to add more network interface queries to the
 	// requested set till we eventually obtain the full set of data.
-	for a := shortAttempt.Start(); a.Next(); {
+	retryStrategy := shortRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		return err != environs.ErrPartialInstances
+	}
+	retryStrategy.Func = func() error {
 		var need []string
 		for idx, info := range infos {
 			if info == nil {
@@ -1355,10 +1387,11 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		// use a model filter here.
 		filter := makeFilter("attachment.instance-id", need...)
 		logger.Tracef("retrieving NICs for instances %v", need)
-		err = e.gatherNetworkInterfaceInfo(ctx, filter, infos, idToInfosIndex, subMap)
-		if err == nil || err != environs.ErrPartialInstances {
-			break
-		}
+		return e.gatherNetworkInterfaceInfo(ctx, filter, infos, idToInfosIndex, subMap)
+	}
+	err = retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
 	}
 
 	if err == environs.ErrPartialInstances {
@@ -1445,29 +1478,41 @@ func (e *environ) gatherNetworkInterfaceInfo(
 }
 
 func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
-	var err error
 	var resp *ec2.DescribeNetworkInterfacesOutput
-	for a := shortAttempt.Start(); a.Next(); {
+
+	abortRetries := make(chan struct{}, 1)
+	defer close(abortRetries)
+
+	retryStrategy := shortRetryStrategy
+	retryStrategy.Stop = abortRetries
+	retryStrategy.IsFatalError = func(err error) bool {
+		return common.IsCredentialNotValid(err)
+	}
+	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
+		logger.Errorf("failed to get instance %q interfaces: %v (retrying)", instId, lastError)
+	}
+	retryStrategy.Func = func() error {
 		logger.Tracef("retrieving NICs for instance %q", instId)
 		filter := makeFilter("attachment.instance-id", string(instId))
+
+		var err error
 		resp, err = e.ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
 			Filters: []types.Filter{filter},
 		})
 		if err != nil {
-			err = maybeConvertCredentialError(err, ctx)
-			if common.IsCredentialNotValid(err) {
-				// no need to re-try: there is a problem with credentials
-				break
-			}
-			logger.Errorf("failed to get instance %q interfaces: %v (retrying)", instId, err)
-			continue
+			return maybeConvertCredentialError(err, ctx)
 		}
 		if len(resp.NetworkInterfaces) == 0 {
-			logger.Tracef("instance %q has no NIC attachment yet, retrying...", instId)
-			continue
+			msg := fmt.Sprintf("instance %q has no NIC attachment yet, retrying...", instId)
+			logger.Tracef("%s", msg)
+			return errors.New(msg)
 		}
 		logger.Tracef("found instance %q NICs: %s", instId, pretty.Sprint(resp.NetworkInterfaces))
-		break
+		return nil
+	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
 	}
 	if err != nil {
 		// either the instance doesn't exist or we couldn't get through to
@@ -2160,7 +2205,12 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// TODO (anastasiamac 2016-04-7) instance termination would benefit
 	// from retry with exponential delay just like security groups
 	// in defer. Bug#1567179.
-	for a := shortAttempt.Start(); a.Next(); {
+	abortRetries := make(chan struct{}, 1)
+	defer close(abortRetries)
+
+	retryStrategy := shortRetryStrategy
+	retryStrategy.Stop = abortRetries
+	retryStrategy.Func = func() error {
 		resp, err := terminateInstancesById(e.ec2Client, ctx, ids...)
 		if err == nil {
 			for i, sc := range resp {
@@ -2172,10 +2222,16 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			// This will return either success at terminating all instances (1st condition) or
 			// encountered error as long as it's not NotFound (2nd condition).
+			abortRetries <- struct{}{}
 			return maybeConvertCredentialError(err, ctx)
 		}
+		return err
 	}
-
+	err := retry.Call(retryStrategy)
+	if err != nil && retry.IsRetryStopped(err) {
+		err = retry.LastError(err)
+		return err
+	}
 	// We will get here only if we got a NotFound error.
 	// 1. If we attempted to terminate only one instance was, return now.
 	if len(ids) == 1 {
@@ -2398,23 +2454,30 @@ func (e *environ) securityGroupsByNameOrID(ctx stdcontext.Context, groupName str
 
 	// If the security group was just created, it might not be available
 	// yet as EC2 resources are eventually consistent. If we get a NotFound
-	// error from EC2 we will retry the request using the shortAttempt
+	// error from EC2 we will retry the request using the shortRetryStrategy
 	// strategy before giving up.
-	for a := shortAttempt.Start(); ; a.Next() {
-		resp, err := e.ec2Client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+	var resp *ec2.DescribeSecurityGroupsOutput
+
+	retryStrategy := shortRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		return !strings.HasSuffix(ec2ErrCode(err), ".NotFound")
+	}
+	retryStrategy.Func = func() error {
+		var err error
+		resp, err = e.ec2Client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 			GroupNames: groups,
 			Filters:    filters,
 		})
-		if err == nil {
-			return resp.SecurityGroups, err
-		}
-
-		// If we run out of attempts or we got an error other than NotFound
-		// immediately return the error back.
-		if !a.HasNext() || !strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
-			return nil, err
-		}
+		return err
 	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return resp.SecurityGroups, nil
 }
 
 // ensureGroup returns the security group with name and perms.
