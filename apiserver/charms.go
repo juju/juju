@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	ziputil "github.com/juju/utils/v2/zip"
+	ziputil "github.com/juju/utils/v3/zip"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -141,7 +141,7 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	charmArchivePath, fileArg, serveIcon, err := h.processGet(r, st.State)
 	if err != nil {
 		// An error occurred retrieving the charm bundle.
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) || errors.IsNotYetAvailable(err) {
 			return errors.Trace(err)
 		}
 
@@ -520,6 +520,12 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 	if err != nil {
 		return errRet(errors.Annotate(err, "cannot get charm from state"))
 	}
+	// Check if the charm is still pending to be downloaded and return back
+	// a suitable error.
+	if !ch.IsUploaded() {
+		return errRet(errors.NewNotYetAvailable(nil, curl.String()))
+	}
+
 	archivePath, err = common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
 	if err != nil {
 		return errRet(errors.Annotatef(err, "cannot read charm %q from storage", curl))
@@ -532,7 +538,17 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 // the error is encoded in the Error field as a string, not an Error
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
-	logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+	if errors.IsNotYetAvailable(err) {
+		// This error is typically raised when trying to fetch the blob
+		// contents for a charm which is still pending to be downloaded.
+		//
+		// We should log this at debug level to avoid unnecessary noise
+		// in the logs.
+		logger.Debugf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+	} else {
+		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+	}
+
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Trace(sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,

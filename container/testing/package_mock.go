@@ -5,6 +5,8 @@
 package testing
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
 	container "github.com/juju/juju/container"
@@ -12,33 +14,32 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	instances "github.com/juju/juju/environs/instances"
-	reflect "reflect"
 )
 
-// MockManager is a mock of Manager interface
+// MockManager is a mock of Manager interface.
 type MockManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockManagerMockRecorder
 }
 
-// MockManagerMockRecorder is the mock recorder for MockManager
+// MockManagerMockRecorder is the mock recorder for MockManager.
 type MockManagerMockRecorder struct {
 	mock *MockManager
 }
 
-// NewMockManager creates a new mock instance
+// NewMockManager creates a new mock instance.
 func NewMockManager(ctrl *gomock.Controller) *MockManager {
 	mock := &MockManager{ctrl: ctrl}
 	mock.recorder = &MockManagerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
-// CreateContainer mocks base method
+// CreateContainer mocks base method.
 func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 string, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4, arg5)
@@ -48,13 +49,13 @@ func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 con
 	return ret0, ret1, ret2
 }
 
-// CreateContainer indicates an expected call of CreateContainer
+// CreateContainer indicates an expected call of CreateContainer.
 func (mr *MockManagerMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*MockManager)(nil).CreateContainer), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
-// DestroyContainer mocks base method
+// DestroyContainer mocks base method.
 func (m *MockManager) DestroyContainer(arg0 instance.Id) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyContainer", arg0)
@@ -62,13 +63,13 @@ func (m *MockManager) DestroyContainer(arg0 instance.Id) error {
 	return ret0
 }
 
-// DestroyContainer indicates an expected call of DestroyContainer
+// DestroyContainer indicates an expected call of DestroyContainer.
 func (mr *MockManagerMockRecorder) DestroyContainer(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyContainer", reflect.TypeOf((*MockManager)(nil).DestroyContainer), arg0)
 }
 
-// IsInitialized mocks base method
+// IsInitialized mocks base method.
 func (m *MockManager) IsInitialized() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsInitialized")
@@ -76,13 +77,13 @@ func (m *MockManager) IsInitialized() bool {
 	return ret0
 }
 
-// IsInitialized indicates an expected call of IsInitialized
+// IsInitialized indicates an expected call of IsInitialized.
 func (mr *MockManagerMockRecorder) IsInitialized() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsInitialized", reflect.TypeOf((*MockManager)(nil).IsInitialized))
 }
 
-// ListContainers mocks base method
+// ListContainers mocks base method.
 func (m *MockManager) ListContainers() ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListContainers")
@@ -91,13 +92,13 @@ func (m *MockManager) ListContainers() ([]instances.Instance, error) {
 	return ret0, ret1
 }
 
-// ListContainers indicates an expected call of ListContainers
+// ListContainers indicates an expected call of ListContainers.
 func (mr *MockManagerMockRecorder) ListContainers() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListContainers", reflect.TypeOf((*MockManager)(nil).ListContainers))
 }
 
-// Namespace mocks base method
+// Namespace mocks base method.
 func (m *MockManager) Namespace() instance.Namespace {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Namespace")
@@ -105,36 +106,36 @@ func (m *MockManager) Namespace() instance.Namespace {
 	return ret0
 }
 
-// Namespace indicates an expected call of Namespace
+// Namespace indicates an expected call of Namespace.
 func (mr *MockManagerMockRecorder) Namespace() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Namespace", reflect.TypeOf((*MockManager)(nil).Namespace))
 }
 
-// MockInitialiser is a mock of Initialiser interface
+// MockInitialiser is a mock of Initialiser interface.
 type MockInitialiser struct {
 	ctrl     *gomock.Controller
 	recorder *MockInitialiserMockRecorder
 }
 
-// MockInitialiserMockRecorder is the mock recorder for MockInitialiser
+// MockInitialiserMockRecorder is the mock recorder for MockInitialiser.
 type MockInitialiserMockRecorder struct {
 	mock *MockInitialiser
 }
 
-// NewMockInitialiser creates a new mock instance
+// NewMockInitialiser creates a new mock instance.
 func NewMockInitialiser(ctrl *gomock.Controller) *MockInitialiser {
 	mock := &MockInitialiser{ctrl: ctrl}
 	mock.recorder = &MockInitialiserMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInitialiser) EXPECT() *MockInitialiserMockRecorder {
 	return m.recorder
 }
 
-// Initialise mocks base method
+// Initialise mocks base method.
 func (m *MockInitialiser) Initialise() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Initialise")
@@ -142,7 +143,7 @@ func (m *MockInitialiser) Initialise() error {
 	return ret0
 }
 
-// Initialise indicates an expected call of Initialise
+// Initialise indicates an expected call of Initialise.
 func (mr *MockInitialiserMockRecorder) Initialise() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialise", reflect.TypeOf((*MockInitialiser)(nil).Initialise))

@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

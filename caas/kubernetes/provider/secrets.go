@@ -131,6 +131,9 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {
 
 // updateSecret updates a secret resource.
 func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	_, err := k.client().CoreV1().Secrets(k.namespace).Update(context.TODO(), sec, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("secret %q", sec.GetName())
@@ -140,6 +143,9 @@ func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
 
 // getSecret return a secret resource.
 func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(context.TODO(), secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -152,6 +158,9 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 
 // createSecret creates a secret resource.
 func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	utils.PurifyResource(secret)
 	out, err := k.client().CoreV1().Secrets(k.namespace).Create(context.TODO(), secret, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
@@ -162,6 +171,9 @@ func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, erro
 
 // deleteSecret deletes a secret resource.
 func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().CoreV1().Secrets(k.namespace).Delete(context.TODO(), secretName, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -170,6 +182,9 @@ func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error 
 }
 
 func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	listOps := v1.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
@@ -184,6 +199,9 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 }
 
 func (k *kubernetesClient) deleteSecrets(appName string) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{

@@ -6,6 +6,8 @@ package mocks
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/api/admissionregistration/v1"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,33 +15,32 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	v11 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	rest "k8s.io/client-go/rest"
-	reflect "reflect"
 )
 
-// MockAdmissionregistrationV1Interface is a mock of AdmissionregistrationV1Interface interface
+// MockAdmissionregistrationV1Interface is a mock of AdmissionregistrationV1Interface interface.
 type MockAdmissionregistrationV1Interface struct {
 	ctrl     *gomock.Controller
 	recorder *MockAdmissionregistrationV1InterfaceMockRecorder
 }
 
-// MockAdmissionregistrationV1InterfaceMockRecorder is the mock recorder for MockAdmissionregistrationV1Interface
+// MockAdmissionregistrationV1InterfaceMockRecorder is the mock recorder for MockAdmissionregistrationV1Interface.
 type MockAdmissionregistrationV1InterfaceMockRecorder struct {
 	mock *MockAdmissionregistrationV1Interface
 }
 
-// NewMockAdmissionregistrationV1Interface creates a new mock instance
+// NewMockAdmissionregistrationV1Interface creates a new mock instance.
 func NewMockAdmissionregistrationV1Interface(ctrl *gomock.Controller) *MockAdmissionregistrationV1Interface {
 	mock := &MockAdmissionregistrationV1Interface{ctrl: ctrl}
 	mock.recorder = &MockAdmissionregistrationV1InterfaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAdmissionregistrationV1Interface) EXPECT() *MockAdmissionregistrationV1InterfaceMockRecorder {
 	return m.recorder
 }
 
-// MutatingWebhookConfigurations mocks base method
+// MutatingWebhookConfigurations mocks base method.
 func (m *MockAdmissionregistrationV1Interface) MutatingWebhookConfigurations() v11.MutatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MutatingWebhookConfigurations")
@@ -47,13 +48,13 @@ func (m *MockAdmissionregistrationV1Interface) MutatingWebhookConfigurations() v
 	return ret0
 }
 
-// MutatingWebhookConfigurations indicates an expected call of MutatingWebhookConfigurations
+// MutatingWebhookConfigurations indicates an expected call of MutatingWebhookConfigurations.
 func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) MutatingWebhookConfigurations() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MutatingWebhookConfigurations", reflect.TypeOf((*MockAdmissionregistrationV1Interface)(nil).MutatingWebhookConfigurations))
 }
 
-// RESTClient mocks base method
+// RESTClient mocks base method.
 func (m *MockAdmissionregistrationV1Interface) RESTClient() rest.Interface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RESTClient")
@@ -61,13 +62,13 @@ func (m *MockAdmissionregistrationV1Interface) RESTClient() rest.Interface {
 	return ret0
 }
 
-// RESTClient indicates an expected call of RESTClient
+// RESTClient indicates an expected call of RESTClient.
 func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) RESTClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RESTClient", reflect.TypeOf((*MockAdmissionregistrationV1Interface)(nil).RESTClient))
 }
 
-// ValidatingWebhookConfigurations mocks base method
+// ValidatingWebhookConfigurations mocks base method.
 func (m *MockAdmissionregistrationV1Interface) ValidatingWebhookConfigurations() v11.ValidatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidatingWebhookConfigurations")
@@ -75,36 +76,36 @@ func (m *MockAdmissionregistrationV1Interface) ValidatingWebhookConfigurations()
 	return ret0
 }
 
-// ValidatingWebhookConfigurations indicates an expected call of ValidatingWebhookConfigurations
+// ValidatingWebhookConfigurations indicates an expected call of ValidatingWebhookConfigurations.
 func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) ValidatingWebhookConfigurations() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidatingWebhookConfigurations", reflect.TypeOf((*MockAdmissionregistrationV1Interface)(nil).ValidatingWebhookConfigurations))
 }
 
-// MockMutatingWebhookConfigurationV1Interface is a mock of MutatingWebhookConfigurationInterface interface
+// MockMutatingWebhookConfigurationV1Interface is a mock of MutatingWebhookConfigurationInterface interface.
 type MockMutatingWebhookConfigurationV1Interface struct {
 	ctrl     *gomock.Controller
 	recorder *MockMutatingWebhookConfigurationV1InterfaceMockRecorder
 }
 
-// MockMutatingWebhookConfigurationV1InterfaceMockRecorder is the mock recorder for MockMutatingWebhookConfigurationV1Interface
+// MockMutatingWebhookConfigurationV1InterfaceMockRecorder is the mock recorder for MockMutatingWebhookConfigurationV1Interface.
 type MockMutatingWebhookConfigurationV1InterfaceMockRecorder struct {
 	mock *MockMutatingWebhookConfigurationV1Interface
 }
 
-// NewMockMutatingWebhookConfigurationV1Interface creates a new mock instance
+// NewMockMutatingWebhookConfigurationV1Interface creates a new mock instance.
 func NewMockMutatingWebhookConfigurationV1Interface(ctrl *gomock.Controller) *MockMutatingWebhookConfigurationV1Interface {
 	mock := &MockMutatingWebhookConfigurationV1Interface{ctrl: ctrl}
 	mock.recorder = &MockMutatingWebhookConfigurationV1InterfaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMutatingWebhookConfigurationV1Interface) EXPECT() *MockMutatingWebhookConfigurationV1InterfaceMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) Create(arg0 context.Context, arg1 *v1.MutatingWebhookConfiguration, arg2 v10.CreateOptions) (*v1.MutatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2)
@@ -113,13 +114,13 @@ func (m *MockMutatingWebhookConfigurationV1Interface) Create(arg0 context.Contex
 	return ret0, ret1
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).Create), arg0, arg1, arg2)
 }
 
-// Delete mocks base method
+// Delete mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) Delete(arg0 context.Context, arg1 string, arg2 v10.DeleteOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
@@ -127,13 +128,13 @@ func (m *MockMutatingWebhookConfigurationV1Interface) Delete(arg0 context.Contex
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
+// Delete indicates an expected call of Delete.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).Delete), arg0, arg1, arg2)
 }
 
-// DeleteCollection mocks base method
+// DeleteCollection mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) DeleteCollection(arg0 context.Context, arg1 v10.DeleteOptions, arg2 v10.ListOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteCollection", arg0, arg1, arg2)
@@ -141,13 +142,13 @@ func (m *MockMutatingWebhookConfigurationV1Interface) DeleteCollection(arg0 cont
 	return ret0
 }
 
-// DeleteCollection indicates an expected call of DeleteCollection
+// DeleteCollection indicates an expected call of DeleteCollection.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).DeleteCollection), arg0, arg1, arg2)
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) Get(arg0 context.Context, arg1 string, arg2 v10.GetOptions) (*v1.MutatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
@@ -156,13 +157,13 @@ func (m *MockMutatingWebhookConfigurationV1Interface) Get(arg0 context.Context, 
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).Get), arg0, arg1, arg2)
 }
 
-// List mocks base method
+// List mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) List(arg0 context.Context, arg1 v10.ListOptions) (*v1.MutatingWebhookConfigurationList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", arg0, arg1)
@@ -171,13 +172,13 @@ func (m *MockMutatingWebhookConfigurationV1Interface) List(arg0 context.Context,
 	return ret0, ret1
 }
 
-// List indicates an expected call of List
+// List indicates an expected call of List.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).List), arg0, arg1)
 }
 
-// Patch mocks base method
+// Patch mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []byte, arg4 v10.PatchOptions, arg5 ...string) (*v1.MutatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2, arg3, arg4}
@@ -190,14 +191,14 @@ func (m *MockMutatingWebhookConfigurationV1Interface) Patch(arg0 context.Context
 	return ret0, ret1
 }
 
-// Patch indicates an expected call of Patch
+// Patch indicates an expected call of Patch.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).Patch), varargs...)
 }
 
-// Update mocks base method
+// Update mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) Update(arg0 context.Context, arg1 *v1.MutatingWebhookConfiguration, arg2 v10.UpdateOptions) (*v1.MutatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
@@ -206,13 +207,13 @@ func (m *MockMutatingWebhookConfigurationV1Interface) Update(arg0 context.Contex
 	return ret0, ret1
 }
 
-// Update indicates an expected call of Update
+// Update indicates an expected call of Update.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).Update), arg0, arg1, arg2)
 }
 
-// Watch mocks base method
+// Watch mocks base method.
 func (m *MockMutatingWebhookConfigurationV1Interface) Watch(arg0 context.Context, arg1 v10.ListOptions) (watch.Interface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch", arg0, arg1)
@@ -221,36 +222,36 @@ func (m *MockMutatingWebhookConfigurationV1Interface) Watch(arg0 context.Context
 	return ret0, ret1
 }
 
-// Watch indicates an expected call of Watch
+// Watch indicates an expected call of Watch.
 func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).Watch), arg0, arg1)
 }
 
-// MockValidatingWebhookConfigurationV1Interface is a mock of ValidatingWebhookConfigurationInterface interface
+// MockValidatingWebhookConfigurationV1Interface is a mock of ValidatingWebhookConfigurationInterface interface.
 type MockValidatingWebhookConfigurationV1Interface struct {
 	ctrl     *gomock.Controller
 	recorder *MockValidatingWebhookConfigurationV1InterfaceMockRecorder
 }
 
-// MockValidatingWebhookConfigurationV1InterfaceMockRecorder is the mock recorder for MockValidatingWebhookConfigurationV1Interface
+// MockValidatingWebhookConfigurationV1InterfaceMockRecorder is the mock recorder for MockValidatingWebhookConfigurationV1Interface.
 type MockValidatingWebhookConfigurationV1InterfaceMockRecorder struct {
 	mock *MockValidatingWebhookConfigurationV1Interface
 }
 
-// NewMockValidatingWebhookConfigurationV1Interface creates a new mock instance
+// NewMockValidatingWebhookConfigurationV1Interface creates a new mock instance.
 func NewMockValidatingWebhookConfigurationV1Interface(ctrl *gomock.Controller) *MockValidatingWebhookConfigurationV1Interface {
 	mock := &MockValidatingWebhookConfigurationV1Interface{ctrl: ctrl}
 	mock.recorder = &MockValidatingWebhookConfigurationV1InterfaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockValidatingWebhookConfigurationV1Interface) EXPECT() *MockValidatingWebhookConfigurationV1InterfaceMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) Create(arg0 context.Context, arg1 *v1.ValidatingWebhookConfiguration, arg2 v10.CreateOptions) (*v1.ValidatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2)
@@ -259,13 +260,13 @@ func (m *MockValidatingWebhookConfigurationV1Interface) Create(arg0 context.Cont
 	return ret0, ret1
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).Create), arg0, arg1, arg2)
 }
 
-// Delete mocks base method
+// Delete mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) Delete(arg0 context.Context, arg1 string, arg2 v10.DeleteOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
@@ -273,13 +274,13 @@ func (m *MockValidatingWebhookConfigurationV1Interface) Delete(arg0 context.Cont
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
+// Delete indicates an expected call of Delete.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).Delete), arg0, arg1, arg2)
 }
 
-// DeleteCollection mocks base method
+// DeleteCollection mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) DeleteCollection(arg0 context.Context, arg1 v10.DeleteOptions, arg2 v10.ListOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteCollection", arg0, arg1, arg2)
@@ -287,13 +288,13 @@ func (m *MockValidatingWebhookConfigurationV1Interface) DeleteCollection(arg0 co
 	return ret0
 }
 
-// DeleteCollection indicates an expected call of DeleteCollection
+// DeleteCollection indicates an expected call of DeleteCollection.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).DeleteCollection), arg0, arg1, arg2)
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) Get(arg0 context.Context, arg1 string, arg2 v10.GetOptions) (*v1.ValidatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
@@ -302,13 +303,13 @@ func (m *MockValidatingWebhookConfigurationV1Interface) Get(arg0 context.Context
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).Get), arg0, arg1, arg2)
 }
 
-// List mocks base method
+// List mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) List(arg0 context.Context, arg1 v10.ListOptions) (*v1.ValidatingWebhookConfigurationList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", arg0, arg1)
@@ -317,13 +318,13 @@ func (m *MockValidatingWebhookConfigurationV1Interface) List(arg0 context.Contex
 	return ret0, ret1
 }
 
-// List indicates an expected call of List
+// List indicates an expected call of List.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).List), arg0, arg1)
 }
 
-// Patch mocks base method
+// Patch mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []byte, arg4 v10.PatchOptions, arg5 ...string) (*v1.ValidatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2, arg3, arg4}
@@ -336,14 +337,14 @@ func (m *MockValidatingWebhookConfigurationV1Interface) Patch(arg0 context.Conte
 	return ret0, ret1
 }
 
-// Patch indicates an expected call of Patch
+// Patch indicates an expected call of Patch.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).Patch), varargs...)
 }
 
-// Update mocks base method
+// Update mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) Update(arg0 context.Context, arg1 *v1.ValidatingWebhookConfiguration, arg2 v10.UpdateOptions) (*v1.ValidatingWebhookConfiguration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
@@ -352,13 +353,13 @@ func (m *MockValidatingWebhookConfigurationV1Interface) Update(arg0 context.Cont
 	return ret0, ret1
 }
 
-// Update indicates an expected call of Update
+// Update indicates an expected call of Update.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).Update), arg0, arg1, arg2)
 }
 
-// Watch mocks base method
+// Watch mocks base method.
 func (m *MockValidatingWebhookConfigurationV1Interface) Watch(arg0 context.Context, arg1 v10.ListOptions) (watch.Interface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch", arg0, arg1)
@@ -367,7 +368,7 @@ func (m *MockValidatingWebhookConfigurationV1Interface) Watch(arg0 context.Conte
 	return ret0, ret1
 }
 
-// Watch indicates an expected call of Watch
+// Watch indicates an expected call of Watch.
 func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).Watch), arg0, arg1)

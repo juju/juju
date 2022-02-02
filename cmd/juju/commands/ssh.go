@@ -24,8 +24,6 @@ import (
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statusapi_mock.go github.com/juju/juju/cmd/juju/commands StatusAPI
-
 var usageSSHSummary = `
 Initiates an SSH session or executes a command on a Juju machine or container.`[1:]
 
@@ -308,19 +306,42 @@ type StatusAPI interface {
 	Close() error
 }
 
-func maybeResolveLeaderUnit(statusAPIGetter func() (StatusAPI, error), target string) (string, error) {
+type statusAPIGetterFunc func() (StatusAPI, error)
+
+// LeaderAPI is implemented by types that can query for a Leader based on
+// application name.
+type LeaderAPI interface {
+	BestAPIVersion() int
+	Leader(string) (string, error)
+}
+
+type leaderAPIGetterFunc func() (LeaderAPI, error)
+
+func maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, statusAPIGetter statusAPIGetterFunc, target string) (string, error) {
 	if !strings.HasSuffix(target, "/leader") {
 		return target, nil
 	}
 
-	api, err := statusAPIGetter()
+	app := strings.Split(target, "/")[0]
+
+	lapi, err := leaderAPIGetter()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer func() { _ = api.Close() }()
+	// Do not call lapi.Close() here, it's used again
+	// upstream from here.
+	if lapi.BestAPIVersion() > 2 {
+		// Leader() is part of facade version 3.
+		return lapi.Leader(app)
+	}
 
-	app := strings.Split(target, "/")[0]
-	res, err := api.Status([]string{app})
+	sapi, err := statusAPIGetter()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer func() { _ = sapi.Close() }()
+
+	res, err := sapi.Status([]string{app})
 	if err != nil {
 		return "", errors.Annotatef(err, "unable to resolve leader unit for application %q", app)
 	}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -82,14 +81,14 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 		return ss.NewDataSource(simplestreams.Config{
 			Description:          "id0",
 			BaseURL:              "betwixt/releases",
-			HostnameVerification: utils.NoVerifySSLHostnames,
+			HostnameVerification: false,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA}), nil
 	})
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
 		return ss.NewDataSource(simplestreams.Config{
 			Description:          "id1",
 			BaseURL:              "yoink",
-			HostnameVerification: utils.NoVerifySSLHostnames,
+			HostnameVerification: false,
 			Priority:             simplestreams.SPECIFIC_CLOUD_DATA}), nil
 	})
 	// overwrite the one previously registered against id1

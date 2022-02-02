@@ -39,6 +39,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"api-caller",
 		"api-config-watcher",
 		"application-scaler",
+		"charm-downloader",
 		"charm-revision-updater",
 		"clock",
 		"compute-provisioner",
@@ -94,6 +95,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"caas-operator-provisioner",
 		"caas-storage-provisioner",
 		"caas-unit-provisioner",
+		"charm-downloader",
 		"charm-revision-updater",
 		"clock",
 		"is-responsible-flag",
@@ -299,6 +301,17 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"model-upgraded-flag",
 		"not-dead-flag"},
 
+	"charm-downloader": {
+		"agent",
+		"api-caller",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag",
+		"valid-credential-flag"},
+
 	"charm-revision-updater": {
 		"agent",
 		"api-caller",
@@ -436,6 +449,17 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"model-upgrade-gate",
 		"model-upgraded-flag",
 		"not-dead-flag"},
+
+	"charm-downloader": {
+		"agent",
+		"api-caller",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag",
+		"valid-credential-flag"},
 
 	"charm-revision-updater": {
 		"agent",

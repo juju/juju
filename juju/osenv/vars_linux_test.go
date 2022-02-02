@@ -17,6 +17,16 @@ func (s *varsSuite) TestJujuXDGDataHome(c *gc.C) {
 	// cleanup xdg config home because it has priority and it might
 	// be set on the testing env.
 	s.PatchEnvironment(osenv.XDGDataHome, "")
+	s.PatchEnvironment("SNAP_REAL_HOME", path)
+	c.Assert(osenv.JujuXDGDataHomeLinux(), gc.Equals, filepath.Join(path, ".local", "share", "juju"))
+}
+
+func (s *varsSuite) TestJujuXDGDataHomeNoSnapHome(c *gc.C) {
+	path := `/foo/bar/baz/`
+	// cleanup xdg config home because it has priority and it might
+	// be set on the testing env.
+	s.PatchEnvironment(osenv.XDGDataHome, "")
+	s.PatchEnvironment("SNAP_REAL_HOME", "")
 	s.PatchEnvironment("HOME", path)
 	c.Assert(osenv.JujuXDGDataHomeLinux(), gc.Equals, filepath.Join(path, ".local", "share", "juju"))
 }
@@ -30,7 +40,7 @@ func (s *varsSuite) TestJujuXDGDataHomeXDG(c *gc.C) {
 
 func (s *varsSuite) TestJujuXDGDataHomeNoXDGDefaultsConfig(c *gc.C) {
 	s.PatchEnvironment(osenv.XDGDataHome, "")
-	s.PatchEnvironment("HOME", "/a/bogus/user/home")
+	s.PatchEnvironment("SNAP_REAL_HOME", "/a/bogus/user/home")
 	homeLinux := osenv.JujuXDGDataHomeLinux()
 	c.Assert(homeLinux, gc.Equals, "/a/bogus/user/home/.local/share/juju")
 }

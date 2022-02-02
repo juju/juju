@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 )
 
 // A DataSource retrieves simplestreams metadata.
@@ -88,11 +88,7 @@ type Config struct {
 
 	// HostnameVerification indicates whether to use self-signed credentials
 	// and not try to verify the hostname on the TLS/SSL certificates.
-	//
-	// TODO (hml) 2020-07-16
-	// It would be lovely to get rid of the SSLHostnameVerification
-	// type and use the model-config value more.
-	HostnameVerification utils.SSLHostnameVerification
+	HostnameVerification bool
 
 	// PublicSigningKey is the public key used to validate signed metadata.
 	PublicSigningKey string
@@ -131,7 +127,7 @@ func NewDataSource(cfg Config) DataSource {
 	// TODO (hml) 2020-01-08
 	// Move call to cfg.Validate() here and add return of error.
 	client := jujuhttp.NewClient(
-		jujuhttp.WithSkipHostnameVerification(!bool(cfg.HostnameVerification)),
+		jujuhttp.WithSkipHostnameVerification(!cfg.HostnameVerification),
 		jujuhttp.WithCACertificates(cfg.CACertificates...),
 		jujuhttp.WithLogger(logger.Child("http")),
 	)

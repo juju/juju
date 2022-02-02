@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v3/shell"
 )
 
 // Service is the base type for application.Service implementations.

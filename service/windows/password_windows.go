@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v3"
 )
 
 // netUserSetInfo is used to change the password on a user.

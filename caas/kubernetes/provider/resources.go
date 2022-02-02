@@ -18,6 +18,9 @@ import (
 // AdoptResources is called when the model is moved from one
 // controller to another using model migration.
 func (k *kubernetesClient) AdoptResources(ctx jujucontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
 	modelLabel := fmt.Sprintf("%v==%v", tags.JujuModel, k.modelUUID)
 
 	pods := k.client().CoreV1().Pods(k.namespace)

@@ -41,7 +41,7 @@ import (
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/prometheus/client_golang/prometheus"

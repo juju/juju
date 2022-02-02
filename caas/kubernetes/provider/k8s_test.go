@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -54,6 +55,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type K8sSuite struct {
@@ -63,7 +65,6 @@ type K8sSuite struct {
 var _ = gc.Suite(&K8sSuite{})
 
 func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
-
 	podSpec := specs.PodSpec{
 		ServiceAccount: primeServiceAccount,
 	}
@@ -794,6 +795,49 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 		workloadSpec, fs, cfgMapName,
 	)
 	resultChecker(vol, err)
+}
+
+func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
+	ctrl := gomock.NewController(c)
+
+	s.clock = testclock.NewClock(time.Time{})
+
+	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, "")
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
+	})
+	stringsWatcherFn := k8swatcher.NewK8sStringsWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock, e []string,
+		f k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		return nil, errors.NewNotFound(nil, "undefined k8sStringsWatcherFn for base test")
+	})
+
+	var err error
+	s.broker, err = provider.NewK8sBroker(coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
+		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Test namespace is actually empty string and a namespaced method fails.
+	_, err = s.broker.GetPod("test")
+	c.Assert(err, gc.ErrorMatches, `bootstrap broker or no namespace not provisioned`)
+
+	nsInput := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+	})
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).Times(2).
+			Return(nsInput, nil),
+	)
+
+	// Check a cluster wide resource is still accessible.
+	ns, err := s.broker.GetNamespace("test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ns, gc.DeepEquals, nsInput)
 }
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *gc.C) {

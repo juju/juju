@@ -25,11 +25,10 @@ type Logger interface {
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	AgentName              string
-	CentralHubName         string
-	StateConfigWatcherName string
-	Recorder               presence.Recorder
-	Logger                 Logger
+	AgentName      string
+	CentralHubName string
+	Recorder       presence.Recorder
+	Logger         Logger
 
 	NewWorker func(WorkerConfig) (worker.Worker, error)
 }
@@ -41,9 +40,6 @@ func (c *ManifoldConfig) Validate() error {
 	}
 	if c.CentralHubName == "" {
 		return errors.NotValidf("missing CentralHubName")
-	}
-	if c.StateConfigWatcherName == "" {
-		return errors.NotValidf("missing StateConfigWatcherName")
 	}
 	if c.Recorder == nil {
 		return errors.NotValidf("missing Recorder")
@@ -64,7 +60,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.CentralHubName,
-			config.StateConfigWatcherName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -83,18 +78,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.CentralHubName, &hub); err != nil {
 				config.Logger.Tracef("hub dependency not available")
 				return nil, err
-			}
-			// Confirm we're running in a state server by asking the
-			// stateconfigwatcher manifold.
-			var haveStateConfig bool
-			if err := context.Get(config.StateConfigWatcherName, &haveStateConfig); err != nil {
-				config.Logger.Tracef("state config watcher not available")
-				return nil, err
-			}
-			if !haveStateConfig {
-				config.Logger.Tracef("not a state server, not needed")
-				config.Recorder.Disable()
-				return nil, dependency.ErrMissing
 			}
 			config.Recorder.Enable()
 

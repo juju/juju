@@ -469,5 +469,9 @@ func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv
 	if !isCRDScopeNamespaced(crd.Spec.Scope) {
 		return client, nil
 	}
+
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
 	return client.Namespace(k.namespace), nil
 }

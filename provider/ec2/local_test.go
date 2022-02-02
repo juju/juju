@@ -21,9 +21,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -1701,6 +1702,7 @@ func (t *localServerSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 
 	infoLists, err := env.NetworkInterfaces(t.callCtx, []instance.Id{inst.Id(), instance.Id("bogus")})
+	c.Log(infoLists)
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(infoLists, gc.HasLen, 2)
 
@@ -2072,11 +2074,11 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 
 func patchEC2ForTesting(c *gc.C, region types.Region) func() {
 	ec2.UseTestImageData(c, ec2.MakeTestImageStreamsData(region))
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt)
+	restoreRetryTimeouts := envtesting.PatchRetryStrategies(ec2.ShortRetryStrategy)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()
-		restoreTimeouts()
+		restoreRetryTimeouts()
 		ec2.UseTestImageData(c, nil)
 	}
 }
@@ -2409,20 +2411,22 @@ func (t *localServerSuite) TestStopInstances(c *gc.C) {
 	// We need the retry logic here because we are waiting
 	// for Instances to return an error, and it will not retry
 	// if it succeeds.
-	gone := false
-	for a := ec2.ShortAttempt.Start(); a.Next(); {
+	retryStrategy := ec2.ShortRetryStrategy
+	retryStrategy.Func = func() error {
 		insts, err = t.Env.Instances(t.callCtx, []instance.Id{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
-			continue
+			return err
 		}
 		if err == environs.ErrNoInstances {
-			gone = true
-			break
+			return nil
 		}
 		c.Fatalf("error getting instances: %v", err)
+		return errors.New(fmt.Sprintf("error getting instances: %v", err))
 	}
-	if !gone {
+	err = retry.Call(*retryStrategy)
+
+	if err != nil {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
 }

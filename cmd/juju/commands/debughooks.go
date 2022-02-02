@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	charmscommon "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/api/sshclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -40,6 +41,7 @@ type debugHooksCommand struct {
 
 	applicationAPI
 	charmAPI
+	leaderAPIGetter leaderAPIGetterFunc
 }
 
 const debugHooksDoc = `
@@ -98,7 +100,7 @@ type charmAPI interface {
 }
 
 func (c *debugHooksCommand) initAPIs() (err error) {
-	if c.charmAPI != nil && c.applicationAPI != nil {
+	if c.charmAPI != nil && c.applicationAPI != nil && c.leaderAPIGetter != nil {
 		return nil
 	}
 
@@ -112,6 +114,11 @@ func (c *debugHooksCommand) initAPIs() (err error) {
 	}
 	if c.charmAPI == nil {
 		c.charmAPI = charms.NewClient(root)
+	}
+	if c.leaderAPIGetter == nil {
+		c.leaderAPIGetter = func() (LeaderAPI, error) {
+			return sshclient.NewFacade(root), nil
+		}
 	}
 	return nil
 }
@@ -229,9 +236,11 @@ func (c *debugHooksCommand) commonRun(
 
 	// If the unit/leader syntax is used, we first need to resolve it into
 	// the unit name that corresponds to the current leader.
-	resolvedTargetName, err := maybeResolveLeaderUnit(func() (StatusAPI, error) {
-		return c.ModelCommandBase.NewAPIClient()
-	}, target)
+	resolvedTargetName, err := maybeResolveLeaderUnit(
+		c.leaderAPIGetter,
+		func() (StatusAPI, error) {
+			return c.ModelCommandBase.NewAPIClient()
+		}, target)
 	if err != nil {
 		return errors.Trace(err)
 	}

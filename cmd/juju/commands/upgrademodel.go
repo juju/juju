@@ -304,7 +304,6 @@ type statusAPI interface {
 	Status(patterns []string) (*params.FullStatus, error)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/cmd/juju/commands ClientAPI
 type ClientAPI interface {
 	toolsAPI
 	upgradeJujuAPI
@@ -321,7 +320,6 @@ type modelManagerAPI interface {
 	Close() error
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/controller_mock.go github.com/juju/juju/cmd/juju/commands ControllerAPI
 type ControllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)

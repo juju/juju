@@ -18,7 +18,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
@@ -43,7 +43,8 @@ type sshMachine struct {
 	forceAPIv1      bool
 	retryStrategy   retry.CallArgs
 
-	statusAPIGetter func() (StatusAPI, error)
+	statusAPIGetter statusAPIGetterFunc
+	leaderAPIGetter leaderAPIGetterFunc
 }
 
 const jujuSSHClientForceAPIv1 = "JUJU_SSHCLIENT_API_V1"
@@ -58,6 +59,7 @@ type sshAPIClient interface {
 	PrivateAddress(target string) (string, error)
 	AllAddresses(target string) ([]string, error)
 	PublicKeys(target string) ([]string, error)
+	Leader(string) (string, error)
 	Proxy() (bool, error)
 	Close() error
 }
@@ -162,11 +164,11 @@ func (c *sshMachine) initRun(mc ModelCommand) (err error) {
 // end of the command's Run (i.e. as a defer).
 func (c *sshMachine) cleanupRun() {
 	if c.knownHostsPath != "" {
-		os.Remove(c.knownHostsPath)
+		_ = os.Remove(c.knownHostsPath)
 		c.knownHostsPath = ""
 	}
 	if c.apiClient != nil {
-		c.apiClient.Close()
+		_ = c.apiClient.Close()
 		c.apiClient = nil
 	}
 }
@@ -224,7 +226,7 @@ func (c *sshMachine) ssh(ctx Context, enablePty bool, target *resolvedTarget) er
 	return cmd.Run()
 }
 
-func (c *sshMachine) copy(ctx Context) error {
+func (c *sshMachine) copy(_ Context) error {
 	args, targets, err := c.expandSCPArgs(c.getArgs())
 	if err != nil {
 		return err
@@ -312,7 +314,7 @@ func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, erro
 	if err != nil {
 		return "", errors.Annotate(err, "creating known hosts file")
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	c.knownHostsPath = f.Name() // Record for later deletion
 	if err := knownHosts.write(f); err != nil {
 		return "", errors.Trace(err)
@@ -396,6 +398,11 @@ func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 			return mc.NewAPIClient()
 		}
 	}
+	if c.leaderAPIGetter == nil {
+		c.leaderAPIGetter = func() (LeaderAPI, error) {
+			return c.apiClient, nil
+		}
+	}
 
 	if c.apiClient != nil {
 		return nil
@@ -418,7 +425,7 @@ func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 func (c *sshMachine) resolveTarget(target string) (*resolvedTarget, error) {
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.statusAPIGetter, target)
+	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, c.statusAPIGetter, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -633,7 +640,7 @@ func (b *knownHostsBuilder) write(w io.Writer) error {
 			return errors.Annotate(err, "writing known hosts file")
 		}
 	}
-	bufw.Flush()
+	_ = bufw.Flush()
 	return nil
 }
 

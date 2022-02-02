@@ -6,39 +6,40 @@ package mocks
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/api/authentication/v1"
 	v10 "k8s.io/api/core/v1"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	reflect "reflect"
 )
 
-// MockServiceAccountInterface is a mock of ServiceAccountInterface interface
+// MockServiceAccountInterface is a mock of ServiceAccountInterface interface.
 type MockServiceAccountInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockServiceAccountInterfaceMockRecorder
 }
 
-// MockServiceAccountInterfaceMockRecorder is the mock recorder for MockServiceAccountInterface
+// MockServiceAccountInterfaceMockRecorder is the mock recorder for MockServiceAccountInterface.
 type MockServiceAccountInterfaceMockRecorder struct {
 	mock *MockServiceAccountInterface
 }
 
-// NewMockServiceAccountInterface creates a new mock instance
+// NewMockServiceAccountInterface creates a new mock instance.
 func NewMockServiceAccountInterface(ctrl *gomock.Controller) *MockServiceAccountInterface {
 	mock := &MockServiceAccountInterface{ctrl: ctrl}
 	mock.recorder = &MockServiceAccountInterfaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockServiceAccountInterface) EXPECT() *MockServiceAccountInterfaceMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockServiceAccountInterface) Create(arg0 context.Context, arg1 *v10.ServiceAccount, arg2 v11.CreateOptions) (*v10.ServiceAccount, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2)
@@ -47,13 +48,13 @@ func (m *MockServiceAccountInterface) Create(arg0 context.Context, arg1 *v10.Ser
 	return ret0, ret1
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockServiceAccountInterfaceMockRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockServiceAccountInterface)(nil).Create), arg0, arg1, arg2)
 }
 
-// CreateToken mocks base method
+// CreateToken mocks base method.
 func (m *MockServiceAccountInterface) CreateToken(arg0 context.Context, arg1 string, arg2 *v1.TokenRequest, arg3 v11.CreateOptions) (*v1.TokenRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateToken", arg0, arg1, arg2, arg3)
@@ -62,13 +63,13 @@ func (m *MockServiceAccountInterface) CreateToken(arg0 context.Context, arg1 str
 	return ret0, ret1
 }
 
-// CreateToken indicates an expected call of CreateToken
+// CreateToken indicates an expected call of CreateToken.
 func (mr *MockServiceAccountInterfaceMockRecorder) CreateToken(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateToken", reflect.TypeOf((*MockServiceAccountInterface)(nil).CreateToken), arg0, arg1, arg2, arg3)
 }
 
-// Delete mocks base method
+// Delete mocks base method.
 func (m *MockServiceAccountInterface) Delete(arg0 context.Context, arg1 string, arg2 v11.DeleteOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
@@ -76,13 +77,13 @@ func (m *MockServiceAccountInterface) Delete(arg0 context.Context, arg1 string, 
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
+// Delete indicates an expected call of Delete.
 func (mr *MockServiceAccountInterfaceMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockServiceAccountInterface)(nil).Delete), arg0, arg1, arg2)
 }
 
-// DeleteCollection mocks base method
+// DeleteCollection mocks base method.
 func (m *MockServiceAccountInterface) DeleteCollection(arg0 context.Context, arg1 v11.DeleteOptions, arg2 v11.ListOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteCollection", arg0, arg1, arg2)
@@ -90,13 +91,13 @@ func (m *MockServiceAccountInterface) DeleteCollection(arg0 context.Context, arg
 	return ret0
 }
 
-// DeleteCollection indicates an expected call of DeleteCollection
+// DeleteCollection indicates an expected call of DeleteCollection.
 func (mr *MockServiceAccountInterfaceMockRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockServiceAccountInterface)(nil).DeleteCollection), arg0, arg1, arg2)
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockServiceAccountInterface) Get(arg0 context.Context, arg1 string, arg2 v11.GetOptions) (*v10.ServiceAccount, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
@@ -105,13 +106,13 @@ func (m *MockServiceAccountInterface) Get(arg0 context.Context, arg1 string, arg
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockServiceAccountInterfaceMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockServiceAccountInterface)(nil).Get), arg0, arg1, arg2)
 }
 
-// List mocks base method
+// List mocks base method.
 func (m *MockServiceAccountInterface) List(arg0 context.Context, arg1 v11.ListOptions) (*v10.ServiceAccountList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", arg0, arg1)
@@ -120,13 +121,13 @@ func (m *MockServiceAccountInterface) List(arg0 context.Context, arg1 v11.ListOp
 	return ret0, ret1
 }
 
-// List indicates an expected call of List
+// List indicates an expected call of List.
 func (mr *MockServiceAccountInterfaceMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockServiceAccountInterface)(nil).List), arg0, arg1)
 }
 
-// Patch mocks base method
+// Patch mocks base method.
 func (m *MockServiceAccountInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []byte, arg4 v11.PatchOptions, arg5 ...string) (*v10.ServiceAccount, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2, arg3, arg4}
@@ -139,14 +140,14 @@ func (m *MockServiceAccountInterface) Patch(arg0 context.Context, arg1 string, a
 	return ret0, ret1
 }
 
-// Patch indicates an expected call of Patch
+// Patch indicates an expected call of Patch.
 func (mr *MockServiceAccountInterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockServiceAccountInterface)(nil).Patch), varargs...)
 }
 
-// Update mocks base method
+// Update mocks base method.
 func (m *MockServiceAccountInterface) Update(arg0 context.Context, arg1 *v10.ServiceAccount, arg2 v11.UpdateOptions) (*v10.ServiceAccount, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
@@ -155,13 +156,13 @@ func (m *MockServiceAccountInterface) Update(arg0 context.Context, arg1 *v10.Ser
 	return ret0, ret1
 }
 
-// Update indicates an expected call of Update
+// Update indicates an expected call of Update.
 func (mr *MockServiceAccountInterfaceMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockServiceAccountInterface)(nil).Update), arg0, arg1, arg2)
 }
 
-// Watch mocks base method
+// Watch mocks base method.
 func (m *MockServiceAccountInterface) Watch(arg0 context.Context, arg1 v11.ListOptions) (watch.Interface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch", arg0, arg1)
@@ -170,7 +171,7 @@ func (m *MockServiceAccountInterface) Watch(arg0 context.Context, arg1 v11.ListO
 	return ret0, ret1
 }
 
-// Watch indicates an expected call of Watch
+// Watch indicates an expected call of Watch.
 func (mr *MockServiceAccountInterfaceMockRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockServiceAccountInterface)(nil).Watch), arg0, arg1)

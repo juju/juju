@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/utils/v3/arch"
+
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/utils/arch"
 )
 
 const (

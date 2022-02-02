@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/agent"
 )
@@ -613,7 +612,7 @@ func (s Simplestreams) GetIndexWithFormat(source DataSource,
 				Description:          "mirror",
 				BaseURL:              mirrorInfo.MirrorURL,
 				PublicSigningKey:     source.PublicSigningKey(),
-				HostnameVerification: utils.VerifySSLHostnames,
+				HostnameVerification: true,
 				Priority:             source.Priority(),
 				RequireSigned:        requireSigned,
 			})

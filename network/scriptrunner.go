@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/exec"
+	"github.com/juju/utils/v3/exec"
 )
 
 type ScriptResult struct {

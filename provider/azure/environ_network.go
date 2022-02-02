@@ -4,7 +4,6 @@
 package azure
 
 import (
-	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -68,7 +67,7 @@ func (env *azureEnviron) allProviderSubnets(ctx context.ProviderCallContext) ([]
 
 	subClient := azurenetwork.SubnetsClient{BaseClient: env.network}
 	vnetRG, vnetName := env.networkInfo()
-	subnets, err := subClient.List(stdcontext.Background(), vnetRG, vnetName)
+	subnets, err := subClient.List(ctx, vnetRG, vnetName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -98,6 +97,33 @@ func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.
 		})
 	}
 	return results, nil
+}
+
+func (env *azureEnviron) allPublicIPs(ctx context.ProviderCallContext) (map[string]network.ProviderAddress, error) {
+	ipClient := azurenetwork.PublicIPAddressesClient{BaseClient: env.network}
+	ipList, err := ipClient.List(ctx, env.resourceGroup)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	idToIPMap := make(map[string]network.ProviderAddress)
+	for _, ipRes := range ipList.Values() {
+		if ipRes.ID == nil || ipRes.PublicIPAddressPropertiesFormat == nil || ipRes.IPAddress == nil {
+			continue
+		}
+
+		var cfgMethod = network.ConfigDHCP
+		if ipRes.PublicIPAllocationMethod == azurenetwork.Static {
+			cfgMethod = network.ConfigStatic
+		}
+
+		idToIPMap[*ipRes.ID] = network.NewMachineAddress(
+			*ipRes.IPAddress,
+			network.WithConfigType(cfgMethod),
+		).AsProviderAddress()
+	}
+
+	return idToIPMap, nil
 }
 
 // SuperSubnets implements environs.NetworkingEnviron.
@@ -159,6 +185,14 @@ func (env *azureEnviron) NetworkInterfaces(ctx context.ProviderCallContext, inst
 		return nil, errors.Trace(err)
 	}
 
+	// Create a map of azure IP address IDs to provider addresses. We will
+	// use this information to associate public IP addresses with NICs
+	// when mapping the obtained azure NIC list.
+	ipMap, err := env.allPublicIPs(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var (
 		res        = make([]network.InterfaceInfos, len(instanceIDs))
 		matchCount int
@@ -171,7 +205,7 @@ func (env *azureEnviron) NetworkInterfaces(ctx context.ProviderCallContext, inst
 		}
 
 		matchCount++
-		res[resIdx] = mapAzureInterfaceList(azInterfaceList, subnetIDToCIDR)
+		res[resIdx] = mapAzureInterfaceList(azInterfaceList, subnetIDToCIDR, ipMap)
 	}
 
 	if matchCount == 0 {
@@ -183,7 +217,7 @@ func (env *azureEnviron) NetworkInterfaces(ctx context.ProviderCallContext, inst
 	return res, nil
 }
 
-func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[string]string) network.InterfaceInfos {
+func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[string]string, ipMap map[string]network.ProviderAddress) network.InterfaceInfos {
 	var out = make(network.InterfaceInfos, len(in))
 
 	for idx, azif := range in {
@@ -214,29 +248,19 @@ func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[strin
 
 			isPrimary := ipConf.Primary != nil && *ipConf.Primary
 
-			// NOTE(achilleasa): azure does not seem to include
-			// shadow IPs (or any public IP for that matter) when
-			// querying network interfaces. If we do encounter a
-			// public IP make sure we include it as a shadow IP.
-			if ipConf.PublicIPAddress != nil && ipConf.PublicIPAddress.PublicIPAddressPropertiesFormat != nil && ipConf.PublicIPAddress.IPAddress != nil {
-				var cfgMethod = network.ConfigDHCP
-				if ipConf.PublicIPAddress.PublicIPAllocationMethod == azurenetwork.Static {
-					cfgMethod = network.ConfigStatic
-				}
-
-				providerAddr := network.NewMachineAddress(
-					*ipConf.PublicIPAddress.IPAddress,
-					network.WithScope(network.ScopePublic),
-					network.WithConfigType(cfgMethod),
-				).AsProviderAddress()
-
-				// If this a primary address make sure it appears
-				// at the top of the shadow address list.
-				if isPrimary {
-					ni.ShadowAddresses = append(network.ProviderAddresses{providerAddr}, ni.ShadowAddresses...)
-					ni.ConfigType = cfgMethod
-				} else {
-					ni.ShadowAddresses = append(ni.ShadowAddresses, providerAddr)
+			// Azure does not include the public IP address values
+			// but it does provide us with the ID of any assigned
+			// public addresses which we can use to index the ipMap.
+			if ipConf.PublicIPAddress != nil && ipConf.PublicIPAddress.ID != nil {
+				if providerAddr, found := ipMap[*ipConf.PublicIPAddress.ID]; found {
+					// If this a primary address make sure it appears
+					// at the top of the shadow address list.
+					if isPrimary {
+						ni.ShadowAddresses = append(network.ProviderAddresses{providerAddr}, ni.ShadowAddresses...)
+						ni.ConfigType = providerAddr.AddressConfigType()
+					} else {
+						ni.ShadowAddresses = append(ni.ShadowAddresses, providerAddr)
+					}
 				}
 			}
 

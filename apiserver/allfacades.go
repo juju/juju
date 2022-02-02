@@ -85,6 +85,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
@@ -180,6 +181,7 @@ func AllFacades() *facade.Registry {
 	reg("Bundle", 5, bundle.NewFacadeV5)
 	reg("Bundle", 6, bundle.NewFacadeV6)
 	reg("CharmHub", 1, charmhub.NewFacade)
+	reg("CharmDownloader", 1, charmdownloader.NewFacadeV1)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacadeV2)
 	reg("Charms", 3, charms.NewFacadeV3)
@@ -341,8 +343,9 @@ func AllFacades() *facade.Registry {
 	reg("Secrets", 1, secrets.NewSecretsAPI)
 	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
 
-	reg("SSHClient", 1, sshclient.NewFacade)
-	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.
+	reg("SSHClient", 1, sshclient.NewFacadeV2)
+	reg("SSHClient", 2, sshclient.NewFacadeV2) // v2 adds AllAddresses() method.
+	reg("SSHClient", 3, sshclient.NewFacade)   // v3 adds Leader() method.
 
 	reg("Spaces", 2, spaces.NewAPIv2)
 	reg("Spaces", 3, spaces.NewAPIv3)

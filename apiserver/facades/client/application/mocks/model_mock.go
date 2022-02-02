@@ -5,35 +5,36 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	config "github.com/juju/juju/environs/config"
-	reflect "reflect"
 )
 
-// MockStateModel is a mock of StateModel interface
+// MockStateModel is a mock of StateModel interface.
 type MockStateModel struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateModelMockRecorder
 }
 
-// MockStateModelMockRecorder is the mock recorder for MockStateModel
+// MockStateModelMockRecorder is the mock recorder for MockStateModel.
 type MockStateModelMockRecorder struct {
 	mock *MockStateModel
 }
 
-// NewMockStateModel creates a new mock instance
+// NewMockStateModel creates a new mock instance.
 func NewMockStateModel(ctrl *gomock.Controller) *MockStateModel {
 	mock := &MockStateModel{ctrl: ctrl}
 	mock.recorder = &MockStateModelMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStateModel) EXPECT() *MockStateModelMockRecorder {
 	return m.recorder
 }
 
-// ModelConfig mocks base method
+// ModelConfig mocks base method.
 func (m *MockStateModel) ModelConfig() (*config.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelConfig")
@@ -42,7 +43,7 @@ func (m *MockStateModel) ModelConfig() (*config.Config, error) {
 	return ret0, ret1
 }
 
-// ModelConfig indicates an expected call of ModelConfig
+// ModelConfig indicates an expected call of ModelConfig.
 func (mr *MockStateModelMockRecorder) ModelConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockStateModel)(nil).ModelConfig))

@@ -61,3 +61,6 @@ const RaftBatchFSM = "raft-batch-fsm"
 // RaftAPILeases will switch all lease store management transport, currently
 // handled by Pubsub to facade API interaction.
 const RaftAPILeases = "raft-api-leases"
+
+// AsynchronousCharmDownloads enables support for asynchronous charm downloads.
+const AsynchronousCharmDownloads = "async-charm-downloads"

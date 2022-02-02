@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"

@@ -7,7 +7,9 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/utils/v2"
+	"github.com/juju/clock"
+	"github.com/juju/retry"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -110,4 +112,88 @@ func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
 
 	c.Check(attempt1, gc.DeepEquals, impatientAttempt)
 	c.Check(attempt2, gc.DeepEquals, impatientAttempt)
+}
+
+// TODO(jack-w-shaw): 2022-01-21: Implementing funcs for both 'AttemptStrategy'
+// patching and 'RetryStrategy' patching whilst lp:1611427 is in progress
+//
+// Remove AttemptStrategy patching when they are no longer in use i.e. when
+// lp issue is resolved
+
+func (*testingSuite) TestSaveRetrytrategiesSaves(c *gc.C) {
+	retryStrategy := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: time.Second,
+		Delay:       time.Millisecond,
+	}
+
+	snapshot := saveRetryStrategies([]*retry.CallArgs{&retryStrategy})
+
+	c.Assert(snapshot, gc.HasLen, 1)
+	c.Check(snapshot[0].address, gc.Equals, &retryStrategy)
+	c.Check(snapshot[0].original, gc.DeepEquals, retryStrategy)
+}
+
+func (*testingSuite) TestSaveRetryStrategiesLeavesOriginalsIntact(c *gc.C) {
+	original := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: time.Second,
+		Delay:       time.Millisecond,
+	}
+	retryStrategy := original
+
+	saveRetryStrategies([]*retry.CallArgs{&retryStrategy})
+
+	c.Check(retryStrategy, gc.DeepEquals, original)
+}
+
+func (*testingSuite) TestInternalPatchRetryStrategiesPatches(c *gc.C) {
+	retryStrategy := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 33 * time.Millisecond,
+		Delay:       99 * time.Microsecond,
+	}
+	c.Assert(retryStrategy, gc.Not(gc.DeepEquals), impatientRetryStrategy)
+
+	internalPatchRetryStrategies([]*retry.CallArgs{&retryStrategy})
+
+	c.Check(retryStrategy, gc.DeepEquals, impatientRetryStrategy)
+}
+
+// internalPatchAttemptStrategies returns a cleanup function that restores
+// the given strategies to their original configurations.  For simplicity,
+// these tests take this as sufficient proof that any strategy that gets
+// patched, also gets restored by the cleanup function.
+func (*testingSuite) TestInternalPatchRetryStrategiesReturnsCleanup(c *gc.C) {
+	original := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 22 * time.Millisecond,
+		Delay:       77 * time.Microsecond,
+	}
+	c.Assert(original, gc.Not(gc.DeepEquals), impatientRetryStrategy)
+	retryStrategy := original
+
+	cleanup := internalPatchRetryStrategies([]*retry.CallArgs{&retryStrategy})
+	cleanup()
+
+	c.Check(retryStrategy, gc.DeepEquals, original)
+}
+
+func (*testingSuite) TestPatchRetryStrategiesPatchesGivenRetries(c *gc.C) {
+	retryStrategy1 := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 33 * time.Millisecond,
+		Delay:       99 * time.Microsecond,
+	}
+	retryStrategy2 := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 82 * time.Microsecond,
+		Delay:       62 * time.Nanosecond,
+	}
+
+	cleanup := PatchRetryStrategies(&retryStrategy1, &retryStrategy2)
+	defer cleanup()
+
+	c.Check(retryStrategy1, gc.DeepEquals, impatientRetryStrategy)
+	c.Check(retryStrategy2, gc.DeepEquals, impatientRetryStrategy)
 }

@@ -21,6 +21,8 @@ import (
 const (
 	// Model config has changed.
 	modelConfigChange = "model-config-change"
+	// Charm metadata has changed.
+	modelCharmChanged = "charm-change"
 	// A machine has been added to, or removed from the model.
 	modelAddRemoveMachine = "model-add-remove-machine"
 	// A unit has landed on a machine, or a subordinate unit has been changed,

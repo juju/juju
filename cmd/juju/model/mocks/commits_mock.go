@@ -11,30 +11,30 @@ import (
 	model "github.com/juju/juju/core/model"
 )
 
-// MockCommitsCommandAPI is a mock of CommitsCommandAPI interface
+// MockCommitsCommandAPI is a mock of CommitsCommandAPI interface.
 type MockCommitsCommandAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockCommitsCommandAPIMockRecorder
 }
 
-// MockCommitsCommandAPIMockRecorder is the mock recorder for MockCommitsCommandAPI
+// MockCommitsCommandAPIMockRecorder is the mock recorder for MockCommitsCommandAPI.
 type MockCommitsCommandAPIMockRecorder struct {
 	mock *MockCommitsCommandAPI
 }
 
-// NewMockCommitsCommandAPI creates a new mock instance
+// NewMockCommitsCommandAPI creates a new mock instance.
 func NewMockCommitsCommandAPI(ctrl *gomock.Controller) *MockCommitsCommandAPI {
 	mock := &MockCommitsCommandAPI{ctrl: ctrl}
 	mock.recorder = &MockCommitsCommandAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCommitsCommandAPI) EXPECT() *MockCommitsCommandAPIMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockCommitsCommandAPI) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -42,13 +42,13 @@ func (m *MockCommitsCommandAPI) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockCommitsCommandAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCommitsCommandAPI)(nil).Close))
 }
 
-// ListCommits mocks base method
+// ListCommits mocks base method.
 func (m *MockCommitsCommandAPI) ListCommits() ([]model.GenerationCommit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListCommits")
@@ -57,7 +57,7 @@ func (m *MockCommitsCommandAPI) ListCommits() ([]model.GenerationCommit, error) 
 	return ret0, ret1
 }
 
-// ListCommits indicates an expected call of ListCommits
+// ListCommits indicates an expected call of ListCommits.
 func (mr *MockCommitsCommandAPIMockRecorder) ListCommits() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCommits", reflect.TypeOf((*MockCommitsCommandAPI)(nil).ListCommits))

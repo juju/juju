@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 
 	gomock "github.com/golang/mock/gomock"

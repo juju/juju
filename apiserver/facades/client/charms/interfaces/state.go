@@ -27,6 +27,7 @@ type BackendModel interface {
 }
 
 type BackendState interface {
+	AddCharmMetadata(state.CharmInfo) (*state.Charm, error)
 	AllCharms() ([]*state.Charm, error)
 	Application(string) (Application, error)
 	Charm(curl *charm.URL) (*state.Charm, error)
