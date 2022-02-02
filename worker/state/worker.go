@@ -23,18 +23,22 @@ type stateWorker struct {
 	pingInterval time.Duration
 	setStatePool func(*state.StatePool)
 	cleanupOnce  sync.Once
+
+	pool              *state.StatePool
+	modelStateWorkers map[string]worker.Worker
 }
 
 func (w *stateWorker) loop() error {
-	pool, err := w.stTracker.Use()
+	var err error
+	w.pool, err = w.stTracker.Use()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer func() { _ = w.stTracker.Done() }()
 
-	systemState := pool.SystemState()
+	systemState := w.pool.SystemState()
 
-	w.setStatePool(pool)
+	w.setStatePool(w.pool)
 	defer w.setStatePool(nil)
 
 	modelWatcher := systemState.WatchModelLives()
@@ -43,7 +47,7 @@ func (w *stateWorker) loop() error {
 	wrenchTimer := time.NewTimer(30 * time.Second)
 	defer wrenchTimer.Stop()
 
-	modelStateWorkers := make(map[string]worker.Worker)
+	w.modelStateWorkers = make(map[string]worker.Worker)
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -51,11 +55,7 @@ func (w *stateWorker) loop() error {
 
 		case modelUUIDs := <-modelWatcher.Changes():
 			for _, modelUUID := range modelUUIDs {
-				if err := w.processModelLifeChange(
-					modelUUID,
-					modelStateWorkers,
-					pool,
-				); err != nil {
+				if err := w.processModelLifeChange(modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -76,25 +76,13 @@ func (w *stateWorker) Report() map[string]interface{} {
 	return w.stTracker.Report()
 }
 
-func (w *stateWorker) processModelLifeChange(
-	modelUUID string,
-	modelStateWorkers map[string]worker.Worker,
-	pool *state.StatePool,
-) error {
-	remove := func() {
-		if w, ok := modelStateWorkers[modelUUID]; ok {
-			w.Kill()
-			delete(modelStateWorkers, modelUUID)
-		}
-		_, _ = pool.Remove(modelUUID)
-	}
-
-	model, hp, err := pool.GetModel(modelUUID)
+func (w *stateWorker) processModelLifeChange(modelUUID string) error {
+	model, hp, err := w.pool.GetModel(modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Model has been removed from state.
 			logger.Debugf("model %q removed from state", modelUUID)
-			remove()
+			w.remove(modelUUID)
 			return nil
 		}
 		return errors.Trace(err)
@@ -104,17 +92,25 @@ func (w *stateWorker) processModelLifeChange(
 	if model.Life() == state.Dead {
 		// Model is Dead, and will soon be removed from state.
 		logger.Debugf("model %q is dead", modelUUID)
-		remove()
+		w.remove(modelUUID)
 		return nil
 	}
 
-	if modelStateWorkers[modelUUID] == nil {
-		mw := newModelStateWorker(pool, modelUUID, w.pingInterval)
-		modelStateWorkers[modelUUID] = mw
+	if w.modelStateWorkers[modelUUID] == nil {
+		mw := newModelStateWorker(w.pool, modelUUID, w.pingInterval)
+		w.modelStateWorkers[modelUUID] = mw
 		_ = w.catacomb.Add(mw)
 	}
 
 	return nil
+}
+
+func (w *stateWorker) remove(modelUUID string) {
+	if worker, ok := w.modelStateWorkers[modelUUID]; ok {
+		worker.Kill()
+		delete(w.modelStateWorkers, modelUUID)
+	}
+	_, _ = w.pool.Remove(modelUUID)
 }
 
 // Kill is part of the worker.Worker interface.
