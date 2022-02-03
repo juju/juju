@@ -44,11 +44,11 @@ require (
 	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
 	github.com/juju/charm/v8 v8.0.0-20220131000804-ba1fde373826
 	github.com/juju/charmrepo/v6 v6.0.0-20220125115859-0faad4d94e72
-	github.com/juju/clock v0.0.0-20220202072423-1b0f830854c4
-	github.com/juju/cmd/v3 v3.0.0-20220202061353-b1cc80b193b0
-	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
+	github.com/juju/clock v0.0.0-20220203021603-d9deb868a28a
+	github.com/juju/cmd/v3 v3.0.0-20220203030511-039f3566372a
+	github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a
 	github.com/juju/description/v3 v3.0.0-20220125161928-cc5932c29986
-	github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff
+	github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
@@ -60,7 +60,7 @@ require (
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
-	github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3
+	github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os/v2 v2.2.0
@@ -76,9 +76,9 @@ require (
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client/v2 v2.0.0-20210422053140-27f71c100676
-	github.com/juju/testing v0.0.0-20220202055744-1ad0816210a6
+	github.com/juju/testing v0.0.0-20220203020004-a0ff61f03494
 	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a
-	github.com/juju/utils/v3 v3.0.0-20220202114721-338bb0530e89
+	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
 	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
