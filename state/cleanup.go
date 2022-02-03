@@ -1331,8 +1331,9 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 			return errors.Annotatef(err, "cannot get controller node for machine %v", machineID)
 		}
 		if node.HasVote() {
-			// we remove the vote from the controller so that it can be torn down cleanly. Note that this isn't reflected
-			// in the actual replicaset, so users using --force should be careful.
+			// we remove the vote from the controller so that it can be torn
+			// down cleanly. Note that this isn't reflected in the actual
+			// replicaset, so users using --force should be careful.
 			if err := node.SetHasVote(false); err != nil {
 				return errors.Trace(err)
 			}
