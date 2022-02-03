@@ -507,7 +507,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 	return &environs.BootstrapResult{
 		Arch: podArch,
 		// TODO(wallyworld) - use actual series of controller pod image
-		Series:                 series.LatestLts(),
+		Series:                 series.LatestLTS(),
 		CaasBootstrapFinalizer: finalizer,
 	}, nil
 }

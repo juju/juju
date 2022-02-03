@@ -353,7 +353,7 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 	cfg := model.Config()
 	value, ok := cfg["default-series"]
 	if !ok {
-		value = series.LatestLts()
+		value = series.LatestLTS()
 	}
 	defaultSeries := fmt.Sprintf("%v", value)
 

@@ -37,7 +37,7 @@ const controllerCharmURL = "ch:juju-controller"
 
 func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmRisk string, isCAAS bool, unitPassword string) (resultErr error) {
 	arch := corearch.DefaultArchitecture
-	series := coreseries.LatestLts()
+	series := coreseries.LatestLTS()
 	if cons.HasArch() {
 		arch = *cons.Arch
 	}
@@ -154,8 +154,8 @@ func populateStoreControllerCharm(st *state.State, charmRisk, series, arch strin
 	// any series specific code.
 	if charmSeries := set.NewStrings(supportedSeries...); charmSeries.Contains(series) {
 		curl = curl.WithSeries(series)
-	} else if charmSeries.Contains(coreseries.LatestLts()) {
-		curl = curl.WithSeries(coreseries.LatestLts())
+	} else if charmSeries.Contains(coreseries.LatestLTS()) {
+		curl = curl.WithSeries(coreseries.LatestLTS())
 	} else {
 		// Fallback in case controller charm is out of date.
 		curl = curl.WithSeries("focal")

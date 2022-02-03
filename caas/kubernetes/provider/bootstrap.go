@@ -43,6 +43,7 @@ import (
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -1441,7 +1442,7 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 		c.broker.randomPrefix,
 	)
 
-	chSeries := series.LatestLts()
+	chSeries := version.DefaultSupportedLTS()
 	os, err := series.GetOSFromSeries(chSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
