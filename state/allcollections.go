@@ -253,7 +253,11 @@ func allCollections() CollectionSchema {
 		// This collection is used for internal bookkeeping; certain complex
 		// or tedious state changes are deferred by recording a cleanup doc
 		// for later handling.
-		cleanupsC: {},
+		cleanupsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// This collection contains incrementing integers, subdivided by name,
 		// to ensure various IDs aren't reused.
