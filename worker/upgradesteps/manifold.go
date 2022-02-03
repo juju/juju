@@ -6,16 +6,18 @@ package upgradesteps
 import (
 	"time"
 
+	apiagent "github.com/juju/juju/api/agent"
+
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
+
+	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
@@ -30,14 +32,6 @@ type ManifoldConfig struct {
 	OpenStateForUpgrade  func() (*state.StatePool, error)
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
-}
-
-// defaultRetryStrategy is the retry strategy for performing upgrades that should
-// be used to construct a NewWorker under most circumstances.
-var defaultRetryStrategy = retry.CallArgs{
-	Clock:    clock.WallClock,
-	Delay:    2 * time.Minute,
-	Attempts: 5,
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -59,8 +53,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Get the agent.
-			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			var localAgent agent.Agent
+			if err := context.Get(config.AgentName, &localAgent); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -85,34 +79,30 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			// application tag for CAAS operator; controller, machine or unit tag for agents.
-			isOperator := agent.CurrentConfig().Tag().Kind() == names.ApplicationTagKind
-			if isOperator {
-				return NewWorker(
-					upgradeStepsLock,
-					agent,
-					apiConn,
-					false,
-					config.OpenStateForUpgrade,
-					config.PreUpgradeSteps,
-					defaultRetryStrategy,
-					statusSetter,
-					isOperator,
-				)
-			}
+			// Application tag for CAAS operator; controller,
+			// machine or unit tag for agents.
+			agentTag := localAgent.CurrentConfig().Tag()
+			isOperator := agentTag.Kind() == names.ApplicationTagKind
 
-			isController, err := apiagent.IsController(apiConn, agent.CurrentConfig().Tag())
-			if err != nil {
-				return nil, errors.Trace(err)
+			var isController bool
+			if !isOperator {
+				isController, err = apiagent.IsController(apiConn, agentTag)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 			}
 			return NewWorker(
 				upgradeStepsLock,
-				agent,
+				localAgent,
 				apiConn,
 				isController,
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
-				defaultRetryStrategy,
+				retry.CallArgs{
+					Clock:    clock.WallClock,
+					Delay:    2 * time.Minute,
+					Attempts: 5,
+				},
 				statusSetter,
 				isOperator,
 			)
