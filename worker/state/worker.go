@@ -4,11 +4,12 @@
 package state
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/tomb.v2"
@@ -23,6 +24,7 @@ type stateWorker struct {
 	pingInterval time.Duration
 	setStatePool func(*state.StatePool)
 	cleanupOnce  sync.Once
+	clock        clock.Clock
 
 	pool              *state.StatePool
 	modelStateWorkers map[string]worker.Worker
@@ -59,6 +61,34 @@ func (w *stateWorker) loop() error {
 					return errors.Trace(err)
 				}
 			}
+
+		case <-time.After(w.pingInterval):
+
+			// Attempt to ping only on the state session, as all model sessions
+			// are copies of the parent session.
+			err := retry.Call(retry.CallArgs{
+				Attempts: 5,
+				Func: func() error {
+					select {
+					case <-w.catacomb.Dying():
+						// There is no sentinel error, so wrap it to get the
+						// dying error.
+						return dyingErr{err: w.catacomb.ErrDying()}
+					default:
+						return systemState.Ping()
+					}
+				},
+				IsFatalError: func(e error) bool {
+					_, isDying := errors.Cause(e).(dyingErr)
+					return isDying
+				},
+				Clock: w.clock,
+				Delay: time.Millisecond * 50,
+			})
+			if err != nil {
+				return errors.Annotatef(err, "state ping failed")
+			}
+
 		// Useful for tracking down some bugs that occur when
 		// mongo is overloaded.
 		case <-wrenchTimer.C:
@@ -70,8 +100,8 @@ func (w *stateWorker) loop() error {
 	}
 }
 
-// Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
-// what is going on at runtime.
+// Report conforms to the Dependency Engine Report() interface, giving an
+// opportunity to introspect what is going on at runtime.
 func (w *stateWorker) Report() map[string]interface{} {
 	return w.stTracker.Report()
 }
@@ -97,7 +127,7 @@ func (w *stateWorker) processModelLifeChange(modelUUID string) error {
 	}
 
 	if w.modelStateWorkers[modelUUID] == nil {
-		mw := newModelStateWorker(w.pool, modelUUID, w.pingInterval)
+		mw := newModelStateWorker(w.pool, modelUUID)
 		w.modelStateWorkers[modelUUID] = mw
 		_ = w.catacomb.Add(mw)
 	}
@@ -131,21 +161,18 @@ func (w *stateWorker) Wait() error {
 }
 
 type modelStateWorker struct {
-	tomb         tomb.Tomb
-	pool         *state.StatePool
-	modelUUID    string
-	pingInterval time.Duration
+	tomb      tomb.Tomb
+	pool      *state.StatePool
+	modelUUID string
 }
 
 func newModelStateWorker(
 	pool *state.StatePool,
 	modelUUID string,
-	pingInterval time.Duration,
 ) worker.Worker {
 	w := &modelStateWorker{
-		pool:         pool,
-		modelUUID:    modelUUID,
-		pingInterval: pingInterval,
+		pool:      pool,
+		modelUUID: modelUUID,
 	}
 	w.tomb.Go(w.loop)
 	return w
@@ -166,31 +193,10 @@ func (w *modelStateWorker) loop() error {
 		_, _ = w.pool.Remove(w.modelUUID)
 	}()
 
-	// Jitter the interval so that each model doesn't attempt to connect to
-	// mongo at potentially the same time.
-	interval := w.pingInterval + jitter(time.Millisecond*200)
-
-	// If the state ping fails, attempt to retry the ping, before returning.
-	var pingErr error
-	for attempt := 0; attempt < 5; {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-time.After(interval):
-			if pingErr = st.Ping(); pingErr != nil {
-				// Reduce the next ping interval to fail early in case mongo
-				// has actually died. This should prevent the worst case
-				// scenario of a large initial ping interval.
-				interval = maxDuration(interval/2, time.Second)
-				attempt++
-				continue
-			}
-			interval = w.pingInterval
-			attempt = 0
-		}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
 	}
-
-	return errors.Annotate(pingErr, "state ping failed")
 }
 
 // Kill is part of the worker.Worker interface.
@@ -203,13 +209,10 @@ func (w *modelStateWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func maxDuration(a, b time.Duration) time.Duration {
-	if a > b {
-		return a
-	}
-	return b
+type dyingErr struct {
+	err error
 }
 
-func jitter(amount time.Duration) time.Duration {
-	return time.Duration((rand.Float64() - 0.5) * float64(amount))
+func (d dyingErr) Error() string {
+	return d.err.Error()
 }

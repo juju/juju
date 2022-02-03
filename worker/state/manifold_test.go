@@ -6,6 +6,7 @@ package state_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,7 +29,6 @@ type ManifoldSuite struct {
 	openStateCalled   bool
 	openStateErr      error
 	config            workerstate.ManifoldConfig
-	agent             *mockAgent
 	resources         dt.StubResources
 	setStatePoolCalls []*state.StatePool
 }
@@ -50,6 +50,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		SetStatePool: func(pool *state.StatePool) {
 			s.setStatePoolCalls = append(s.setStatePoolCalls, pool)
 		},
+		Clock: clock.WallClock,
 	}
 	s.manifold = workerstate.Manifold(s.config)
 	s.resources = dt.StubResources{
@@ -96,6 +97,11 @@ func (s *ManifoldSuite) TestStartOpenStateNil(c *gc.C) {
 func (s *ManifoldSuite) TestStartSetStatePoolNil(c *gc.C) {
 	s.config.SetStatePool = nil
 	s.startManifoldInvalidConfig(c, s.config, "nil SetStatePool not valid")
+}
+
+func (s *ManifoldSuite) TestStartClockNil(c *gc.C) {
+	s.config.Clock = nil
+	s.startManifoldInvalidConfig(c, s.config, "nil Clock not valid")
 }
 
 func (s *ManifoldSuite) startManifoldInvalidConfig(c *gc.C, config workerstate.ManifoldConfig, expect string) {

@@ -6,6 +6,7 @@ package state
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
@@ -24,6 +25,7 @@ type ManifoldConfig struct {
 	StateConfigWatcherName string
 	OpenStatePool          func(coreagent.Config) (*state.StatePool, error)
 	PingInterval           time.Duration
+	Clock                  clock.Clock
 
 	// SetStatePool is called with the state pool when it is created,
 	// and called again with nil just before the state pool is closed.
@@ -46,6 +48,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.SetStatePool == nil {
 		return errors.NotValidf("nil SetStatePool")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -97,6 +102,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				stTracker:    stTracker,
 				pingInterval: pingInterval,
 				setStatePool: config.SetStatePool,
+				clock:        config.Clock,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
 				Site: &w.catacomb,

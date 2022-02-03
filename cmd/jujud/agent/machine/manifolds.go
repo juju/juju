@@ -407,6 +407,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateConfigWatcherName: stateConfigWatcherName,
 			OpenStatePool:          config.OpenStatePool,
 			SetStatePool:           config.SetStatePool,
+			Clock:                  config.Clock,
 		}),
 
 		// The multiwatcher manifold watches all the changes in the database
