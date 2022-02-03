@@ -18,7 +18,7 @@ on:
       - 'testing/**'
       - 'tests/**'
 
-env: 
+env:
   DOCKER_USERNAME: jujuqabot
   JUJU_BUILD_NUMBER: 888
 
@@ -32,20 +32,26 @@ jobs:
         microk8s: [1.21/stable]
 
     steps:
-    - name: Set up Go 1.17 for building juju
+    - name: Checking out repo
+      uses: actions/checkout@v2
+
+    - name: Find required go version
+      id: go-version
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
       uses: actions/setup-go@v2.1.4
       with:
-        go-version: "1.17"
+        go-version: ${{ steps.go-version.outputs.version }}
       id: go
-      
+
     - name: setup env
       shell: bash
       run: |
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
-    - name: Checking out repo
-      uses: actions/checkout@v2
 
     - uses: balchua/microk8s-actions@v0.2.2
       with:
@@ -174,7 +180,7 @@ jobs:
             kubectl describe $resource -A > describe/"$resource".describe || true
         done
       if: failure()
-      
+
     - name: Upload kubectl describe
       uses: actions/upload-artifact@v2
       with:
