@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	stdtesting "testing"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	jc "github.com/juju/testing/checkers"
@@ -39,12 +38,10 @@ func TestMAAS(t *stdtesting.T) {
 // whitebox package maas. Either move that into a whitebox test so it can be
 // shared, or into a 'testing' package so we can use it here.
 func (s *environSuite) SetUpSuite(c *gc.C) {
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(maas.ShortAttempt)
 	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *environSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
 	mockGetController := func(string, string) (gomaasapi.Controller, error) {
@@ -73,84 +70,6 @@ func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
-}
-
-func getSimpleCloudSpec() environscloudspec.CloudSpec {
-	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
-		"maas-oauth": "a:b:c",
-	})
-	return environscloudspec.CloudSpec{
-		Type:       "maas",
-		Name:       "maas",
-		Endpoint:   "http://maas.testing.invalid",
-		Credential: &cred,
-	}
-}
-
-func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
-	// SetConfig() validates the config change and disallows, for example,
-	// changes in the environment name.
-	oldCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "old-name"})
-	newCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "new-name"})
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), oldCfg, fakeGetCapabilities)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// SetConfig() fails, even though both the old and the new config are
-	// individually valid.
-	err = env.SetConfig(newCfg)
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
-
-	// The old config is still in place.  The new config never took effect.
-	c.Check(env.Config().Name(), gc.Equals, "old-name")
-}
-
-func fakeGetCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
-	return set.NewStrings("network-deployment-ubuntu"), nil
-}
-
-func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
-	origAttrs := coretesting.Attrs{
-		"apt-mirror": "http://testing1.invalid",
-	}
-	cfg := getSimpleTestConfig(c, origAttrs)
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(env.Config().Name(), gc.Equals, "testmodel")
-
-	newAttrs := coretesting.Attrs{
-		"apt-mirror": "http://testing2.invalid",
-	}
-	cfg2 := getSimpleTestConfig(c, newAttrs)
-	errSetConfig := env.SetConfig(cfg2)
-	c.Check(errSetConfig, gc.IsNil)
-	c.Check(env.Config().Name(), gc.Equals, "testmodel")
-	c.Check(env.Config().AptMirror(), gc.Equals, "http://testing2.invalid")
-}
-
-func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
-	cfg := getSimpleTestConfig(c, nil)
-
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(env.Config().Name(), gc.Equals, "testmodel")
-}
-
-var expectedCloudinitConfig = []string{
-	"set -xe",
-	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
-}
-
-func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
-	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
-	c.Assert(err, jc.ErrorIsNil)
-	script := expectedCloudinitConfig
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, script)
 }
 
 type badEndpointSuite struct {

@@ -11,11 +11,14 @@ import (
 	"net/url"
 	"regexp"
 	"text/template"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
@@ -23,12 +26,15 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -163,6 +169,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapConstraints:     constraints.MustParse("mem=1G"),
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
@@ -366,6 +375,9 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapConstraints:     constraints.MustParse("mem=1G"),
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -384,6 +396,9 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapConstraints:     constraints.MustParse("mem=1G"),
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
@@ -402,6 +417,9 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapConstraints:     constraints.MustParse("mem=1G"),
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
 }
@@ -418,6 +436,9 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 			// to something that's not the current version.
 			AgentVersion:             &vers,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
@@ -432,6 +453,9 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapConstraints:     constraints.MustParse("mem=1G"),
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
@@ -980,6 +1004,9 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapConstraints:     constraints.MustParse("mem=1G"),
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -1088,6 +1115,110 @@ func (s *environSuite) TestUsingUnknownVersionURLForAPI(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL.String(), gc.Equals, configuredURL)
+}
+
+func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
+	attrs := coretesting.FakeConfig()
+	attrs["type"] = "maas"
+	attrs["bootstrap-timeout"] = "1200"
+	for k, v := range extraAttrs {
+		attrs[k] = v
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+func getSimpleCloudSpec() environscloudspec.CloudSpec {
+	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+		"maas-oauth": "a:b:c",
+	})
+	return environscloudspec.CloudSpec{
+		Type:       "maas",
+		Name:       "maas",
+		Endpoint:   "http://maas.testing.invalid",
+		Credential: &cred,
+	}
+}
+
+var fakeRetryStrategy = retry.CallArgs{
+	Clock:    clock.WallClock,
+	Delay:    time.Millisecond,
+	Attempts: 5,
+}
+
+func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
+	// SetConfig() validates the config change and disallows, for example,
+	// changes in the environment name.
+	oldCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "old-name"})
+	newCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "new-name"})
+	env, err := NewEnviron(getSimpleCloudSpec(), oldCfg, fakeGetCapabilities)
+	env.shortRetryStrategy = fakeRetryStrategy
+	env.longRetryStrategy = fakeRetryStrategy
+	c.Assert(err, jc.ErrorIsNil)
+
+	// SetConfig() fails, even though both the old and the new config are
+	// individually valid.
+	err = env.SetConfig(newCfg)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
+
+	// The old config is still in place.  The new config never took effect.
+	c.Check(env.Config().Name(), gc.Equals, "old-name")
+}
+
+func fakeGetCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+	return set.NewStrings("network-deployment-ubuntu"), nil
+}
+
+func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
+	origAttrs := coretesting.Attrs{
+		"apt-mirror": "http://testing1.invalid",
+	}
+	cfg := getSimpleTestConfig(c, origAttrs)
+	env, err := NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
+	env.shortRetryStrategy = fakeRetryStrategy
+	env.longRetryStrategy = fakeRetryStrategy
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(env.Config().Name(), gc.Equals, "testmodel")
+
+	newAttrs := coretesting.Attrs{
+		"apt-mirror": "http://testing2.invalid",
+	}
+	cfg2 := getSimpleTestConfig(c, newAttrs)
+	errSetConfig := env.SetConfig(cfg2)
+	c.Check(errSetConfig, gc.IsNil)
+	c.Check(env.Config().Name(), gc.Equals, "testmodel")
+	c.Check(env.Config().AptMirror(), gc.Equals, "http://testing2.invalid")
+}
+
+func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
+	cfg := getSimpleTestConfig(c, nil)
+
+	env, err := NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
+	env.shortRetryStrategy = fakeRetryStrategy
+	env.longRetryStrategy = fakeRetryStrategy
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(env.Config().Name(), gc.Equals, "testmodel")
+}
+
+var expectedCloudinitConfig = []string{
+	"set -xe",
+	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
+}
+
+func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
+	cfg := getSimpleTestConfig(c, nil)
+	env, err := NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
+	env.shortRetryStrategy = fakeRetryStrategy
+	env.longRetryStrategy = fakeRetryStrategy
+	c.Assert(err, jc.ErrorIsNil)
+	script := expectedCloudinitConfig
+	cloudcfg, err := NewCloudinitConfig(env, "testing.invalid", "quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, script)
 }
 
 func generateHWTemplate(netMacs map[string]ifaceInfo) (string, error) {

@@ -684,6 +684,9 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 			AdminSecret:              jujutesting.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
@@ -705,6 +708,9 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 			AdminSecret:              jujutesting.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Check(c.GetTestLog(), jc.Contains, "WARNING juju.provider.maas failed to get instance from provider attempt")
 }
@@ -726,6 +732,9 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 			AdminSecret:              jujutesting.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2238,6 +2247,9 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 			AdminSecret:              jujutesting.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2367,6 +2379,9 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 			// to something that's not the current version.
 			AgentVersion:             &vers,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
@@ -2382,6 +2397,9 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 			AdminSecret:              jujutesting.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout: coretesting.LongWait,
+			},
 		})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
