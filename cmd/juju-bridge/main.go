@@ -26,6 +26,7 @@ Options:
 Example:
 
   $ juju-bridge /etc/network/interfaces ens3=br-ens3 bond0.150=br-bond0.150
+
 `
 
 func printParseError(err error) {
@@ -43,7 +44,7 @@ func main() {
 	args := flag.Args()
 
 	if len(args) < 2 {
-		fmt.Fprintln(os.Stderr, usage)
+		fmt.Fprint(os.Stderr, usage)
 		os.Exit(1)
 	}
 
@@ -63,7 +64,7 @@ func main() {
 	for _, v := range args[1:] {
 		arg := strings.Split(v, "=")
 		if len(arg) != 2 {
-			fmt.Fprintln(os.Stderr, usage)
+			fmt.Fprint(os.Stderr, usage)
 			os.Exit(1)
 		}
 		devices[arg[0]] = arg[1]
