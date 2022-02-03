@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -268,20 +267,16 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	defer st.Release()
-	backend := credentialcommon.NewPersistentBackend(st.State)
-	// Begin check for manual cloud - we do not want to perform certain checks if the cloud
-	// is manaul
-	var model credentialcommon.Model
-	if model, err = backend.Model(); err != nil {
-		return params.ErrorResults{}, errors.Trace((err))
+	model, err := st.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
 	}
-	var cloud cloud.Cloud
-	if cloud, err = backend.Cloud(model.CloudName()); err != nil {
-		return params.ErrorResults{}, errors.Trace((err))
+	cloud, err := model.Cloud()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
 	}
-
 	return credentialcommon.ValidateExistingModelCredential(
-		backend,
+		credentialcommon.NewPersistentBackend(st.State),
 		context.CallContext(st.State),
 		cloud.Type != "manual",
 	)
