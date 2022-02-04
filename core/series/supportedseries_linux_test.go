@@ -33,11 +33,11 @@ func (s *SupportedSeriesLinuxSuite) TestLatestLts(c *gc.C) {
 		latest, want string
 	}{
 		{"testseries", "testseries"},
-		{"", "jammy"},
+		{"", "focal"},
 	}
 	for _, test := range table {
 		SetLatestLtsForTesting(test.latest)
-		got := LatestLts()
+		got := LatestLTS()
 		c.Assert(got, gc.Equals, test.want)
 	}
 }

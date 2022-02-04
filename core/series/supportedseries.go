@@ -68,8 +68,8 @@ func AllWorkloadOSTypes(requestedSeries, imageStream string) (set.Strings, error
 		return nil, errors.Trace(err)
 	}
 	result := set.NewStrings()
-	for _, series := range supported.workloadSeries(true) {
-		result.Add(DefaultOSTypeNameFromSeries(series))
+	for _, wSeries := range supported.workloadSeries(true) {
+		result.Add(DefaultOSTypeNameFromSeries(wSeries))
 	}
 	return result, nil
 }
@@ -371,8 +371,8 @@ var (
 // the work to determine the latest lts series once.
 var latestLtsSeries string
 
-// LatestLts returns the Latest LTS Release found in distro-info
-func LatestLts() string {
+// LatestLTS returns the Latest LTS Release found in distro-info
+func LatestLTS() string {
 	if latestLtsSeries != "" {
 		return latestLtsSeries
 	}
@@ -382,11 +382,11 @@ func LatestLts() string {
 	updateSeriesVersionsOnce()
 
 	var latest SeriesName
-	for k, version := range ubuntuSeries {
-		if !version.LTS || !version.Supported {
+	for k, seriesVersion := range ubuntuSeries {
+		if !seriesVersion.LTS || !seriesVersion.Supported {
 			continue
 		}
-		if version.Version > ubuntuSeries[latest].Version {
+		if seriesVersion.Version > ubuntuSeries[latest].Version {
 			latest = k
 		}
 	}

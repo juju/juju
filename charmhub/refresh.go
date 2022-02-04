@@ -400,7 +400,7 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		// Kubernetes is not a valid channel for a base.
 		// Instead use the latest LTS version of ubuntu.
 		name = "ubuntu"
-		channel, err = coreseries.SeriesVersion(coreseries.LatestLts())
+		channel, err = coreseries.SeriesVersion(coreseries.LatestLTS())
 		if err != nil {
 			return transport.Base{}, errors.NotValidf("invalid latest version")
 		}
