@@ -1248,24 +1248,6 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 		return errors.Errorf("instance %q is started but not deployed", id)
 	}
 	return errors.Trace(err)
-
-	// for a := longAttempt.Start(); a.Next(); {
-	// 	statusValues, err := env.deploymentStatus(ctx, id)
-	// 	if errors.IsNotImplemented(err) {
-	// 		return nil
-	// 	}
-	// 	if err != nil {
-	// 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-	// 		return errors.Trace(err)
-	// 	}
-	// 	if statusValues[systemId] == "Deployed" {
-	// 		return nil
-	// 	}
-	// 	if statusValues[systemId] == "Failed deployment" {
-	// 		return errors.Errorf("instance %q failed to deploy", id)
-	// 	}
-	// }
-	// return errors.Errorf("instance %q is started but not deployed", id)
 }
 
 func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
