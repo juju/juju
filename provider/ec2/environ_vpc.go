@@ -341,7 +341,9 @@ func getVPCRouteTables(apiClient vpcAPIClient, ctx context.ProviderCallContext, 
 	if len(resp.RouteTables) == 0 {
 		return nil, vpcNotRecommendedf("VPC has no route tables")
 	}
-	logger.Tracef("RouteTables() returned %s", pretty.Sprint(resp))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("RouteTables() returned %s", pretty.Sprint(resp))
+	}
 
 	return resp.RouteTables, nil
 }
@@ -396,7 +398,9 @@ func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gate
 	vpcCIDRBlock := aws.ToString(vpc.CidrBlock)
 	for _, route := range routeTable.Routes {
 		if route.State != activeState {
-			logger.Tracef("skipping inactive route %s", pretty.Sprint(route))
+			if logger.IsTraceEnabled() {
+				logger.Tracef("skipping inactive route %s", pretty.Sprint(route))
+			}
 			continue
 		}
 
@@ -413,7 +417,9 @@ func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gate
 				hasLocalRoute = true
 			}
 		default:
-			logger.Tracef("route %s is neither local nor default (skipping)", pretty.Sprint(route))
+			if logger.IsTraceEnabled() {
+				logger.Tracef("route %s is neither local nor default (skipping)", pretty.Sprint(route))
+			}
 		}
 	}
 

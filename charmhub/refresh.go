@@ -97,7 +97,9 @@ func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *Refresh
 
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
-	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+	}
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -108,7 +110,9 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 // RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
 // at the same time.  Used as part of the charm revision updater facade.
 func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
-	c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	}
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)

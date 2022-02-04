@@ -1507,7 +1507,9 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 			logger.Tracef("%s", msg)
 			return errors.New(msg)
 		}
-		logger.Tracef("found instance %q NICs: %s", instId, pretty.Sprint(resp.NetworkInterfaces))
+		if logger.IsTraceEnabled() {
+			logger.Tracef("found instance %q NICs: %s", instId, pretty.Sprint(resp.NetworkInterfaces))
+		}
 		return nil
 	}
 	err := retry.Call(retryStrategy)
