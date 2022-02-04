@@ -448,8 +448,9 @@ github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0b
 github.com/juju/errors v0.0.0-20180726005433-812b06ada177/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20190930114154-d42613fe1ab9/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
-github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff h1:WLHwK6yMswDvGUNrkxp4GYnrbQS8WULu1D3qteVdUIg=
 github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff/go.mod h1:i1eL7XREII6aHpQ2gApI/v6FkVUDEBremNkcBCKYAcY=
+github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9 h1:EJHbsNpQyupmMeWTq7inn+5L/WZ7JfzCVPJ+DP9McCQ=
+github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9/go.mod h1:TRm7EVGA3mQOqSVcBySRY7a9Y1/gyVhh/WTCnc5sD4U=
 github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611 h1:qYMzwsKsEBtgdSxlp3OAfzPwr/KcFb92V6V/soqePSE=
 github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611/go.mod h1:Xyly79yyEtbs4CizvwlQkdV9XLBqytrJm6Pz579cCSA=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d h1:c93kUJDtVAXFEhsCh5jSxyOJmFHuzcihnslQiX8Urwo=
@@ -503,8 +504,9 @@ github.com/juju/mgotest v1.0.2/go.mod h1:04v1Xi2RiTO3h77YWtaXB2LAaGRSSi+Vl4hOV1c
 github.com/juju/mutex v0.0.0-20171110020013-1fe2a4bf0a3a/go.mod h1:Y3oOzHH8CQ0Ppt0oCKJ2JFO81/EsWenH5AEqigLH+yY=
 github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf h1:2d3cilQly1OpAfZcn4QRuwDOdVoHsM4cDTkcKbmO760=
 github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf/go.mod h1:Y3oOzHH8CQ0Ppt0oCKJ2JFO81/EsWenH5AEqigLH+yY=
-github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3 h1:26ZmuBEXYSExkU2lLdMYBpxtK3/xXOgOfeCUNpNWcA8=
 github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3/go.mod h1:TTCG9BJD9rCC4DZFz3jA0QvCqFDHw8Eqz0jstwY7RTQ=
+github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c h1:+wSxXZCFPw3Bs5ij3ZMV0njIKGVwl4+Ftb5vb0ij+7Y=
+github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c/go.mod h1:jwCfBs/smYDaeZLqeaCi8CB8M+tOes4yf827HoOEoqk=
 github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b/go.mod h1:gdlBx0aNufAMkEx3GjT8Yz4MChs3oVjCp/nEz/PrTX4=
 github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0 h1:SqeiFgQd+LhYUHg3fpRBaR4iK8a0MviLC7v8TJuiJ20=
 github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0/go.mod h1:gdlBx0aNufAMkEx3GjT8Yz4MChs3oVjCp/nEz/PrTX4=
@@ -567,8 +569,9 @@ github.com/juju/testing v0.0.0-20191001232224-ce9dec17d28b/go.mod h1:63prj8cnj0t
 github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd/go.mod h1:hpGvhGHPVbNBraRLZEhoQwFLMrjK8PSlO4D3nDjKYXo=
 github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07/go.mod h1:7lxZW0B50+xdGFkvhAb8bwAGt6IU87JB1H9w4t8MNVM=
 github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098/go.mod h1:7lxZW0B50+xdGFkvhAb8bwAGt6IU87JB1H9w4t8MNVM=
-github.com/juju/testing v0.0.0-20220202055744-1ad0816210a6 h1:ulhR1Mns3DtuGP+dmHV92CBqgsNT7FsE3sFOePwHFVI=
 github.com/juju/testing v0.0.0-20220202055744-1ad0816210a6/go.mod h1:QgWc2UdIPJ8t3rnvv95tFNOsQDfpXYEZDbP281o3b2c=
+github.com/juju/testing v0.0.0-20220203020004-a0ff61f03494 h1:XEDzpuZb8Ma7vLja3+5hzUqVTvAqm5Y+ygvnDs5iTMM=
+github.com/juju/testing v0.0.0-20220203020004-a0ff61f03494/go.mod h1:rUquetT0ALL48LHZhyRGvjjBH8xZaZ8dFClulKK5wK4=
 github.com/juju/txn v0.0.0-20210302043154-251cea9e140a h1:/NIvlTv1px6ct0WBa9PctsgORDTVoDYdniYeLI4kdfw=
 github.com/juju/txn v0.0.0-20210302043154-251cea9e140a/go.mod h1:7AHyL/X/p4k0qJ8oegFiI/FYMNWzMznvsHLhE346+ms=
 github.com/juju/txn/v2 v2.0.0-20210407000251-11166e89894c h1:nnYKExWEDMD9sYWHQilrQMWxDvMM1ivNcGpWLEg4qQY=

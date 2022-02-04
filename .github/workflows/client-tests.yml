@@ -1,5 +1,5 @@
 name: "Client Tests"
-on: 
+on:
   push:
     paths-ignore:
       - 'acceptancetests/**'
@@ -33,15 +33,20 @@ jobs:
         os: [ubuntu-latest, macOS-latest]
 
     steps:
-
-    - name: Set up Go 1.17
-      uses: actions/setup-go@v2.1.5
-      with:
-        go-version: 1.17
-      id: go
-
     - name: Checkout
       uses: actions/checkout@v2
+
+    - name: Find required go version
+      id: go-version
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
+      uses: actions/setup-go@v2.1.4
+      with:
+        go-version: ${{ steps.go-version.outputs.version }}
+      id: go
 
     - name: "Install Mongo Dependencies: ubuntu-latest"
       if: (matrix.os == 'ubuntu-latest')
