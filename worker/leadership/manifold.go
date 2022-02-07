@@ -14,8 +14,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/agent/leadership"
+	"github.com/juju/juju/api/base"
 	coreleadership "github.com/juju/juju/core/leadership"
 )
 

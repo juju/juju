@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	basetesting "github.com/juju/juju/api/base/testing"
 	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/diskmanager"

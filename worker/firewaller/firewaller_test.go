@@ -23,8 +23,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/agent/credentialvalidator"
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	apifirewaller "github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/api/controller/remoterelations"

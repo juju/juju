@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/agent/upgradesteps"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/worker/common/reboot"

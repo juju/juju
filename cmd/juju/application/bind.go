@@ -13,8 +13,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/spaces"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"

@@ -9,8 +9,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/clock"
-	"github.com/juju/juju/api/base"
 	apifanconfigurer "github.com/juju/juju/api/agent/fanconfigurer"
+	"github.com/juju/juju/api/base"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a

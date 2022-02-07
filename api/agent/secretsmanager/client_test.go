@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/agent/secretsmanager"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/testing"

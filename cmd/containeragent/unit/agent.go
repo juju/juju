@@ -25,8 +25,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/base"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/containeragent/utils"

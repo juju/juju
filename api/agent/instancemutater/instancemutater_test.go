@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/api/agent/instancemutater/mocks"
+	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/testing"
 )

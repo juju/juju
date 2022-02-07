@@ -17,8 +17,8 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"

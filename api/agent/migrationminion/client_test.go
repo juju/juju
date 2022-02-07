@@ -12,8 +12,8 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/agent/migrationminion"
+	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"

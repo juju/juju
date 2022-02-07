@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	apicharm "github.com/juju/juju/api/common/charm"
 	api "github.com/juju/juju/api/client/resources"
+	apicharm "github.com/juju/juju/api/common/charm"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"

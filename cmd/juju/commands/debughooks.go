@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/charms"
-	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/client/sshclient"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"

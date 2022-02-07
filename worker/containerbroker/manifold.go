@@ -8,8 +8,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/agent/provisioner"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
