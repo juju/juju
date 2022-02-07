@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -110,12 +110,6 @@ func (s *UpgradeSuite) TestNewChannelWhenUpgradeRequired(c *gc.C) {
 	c.Assert(lock.IsUnlocked(), jc.IsFalse)
 	// The agent's version should NOT have been updated.
 	c.Assert(config.Version, gc.Equals, initialVersion)
-}
-
-func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
-	retries := getUpgradeRetryStrategy()
-	c.Assert(retries.Delay, gc.Equals, 2*time.Minute)
-	c.Assert(retries.Min, gc.Equals, 5)
 }
 
 func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
@@ -383,11 +377,15 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 	error, *fakeConfigSetter, []StatusCall, gate.Lock,
 ) {
-	s.setInstantRetryStrategy(c)
 	config := s.makeFakeConfig()
 	agent := NewFakeAgent(config)
 	doneLock := NewLock(config)
 	machineStatus := &testStatusSetter{}
+	testRetryStrategy := retry.CallArgs{
+		Clock:    clock.WallClock,
+		Delay:    time.Millisecond,
+		Attempts: maxUpgradeRetries,
+	}
 	worker, err := NewWorker(
 		doneLock,
 		agent,
@@ -395,6 +393,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 		isController,
 		s.openStateForUpgrade,
 		s.preUpgradeSteps,
+		testRetryStrategy,
 		machineStatus,
 		false,
 	)
@@ -455,17 +454,6 @@ func (s *UpgradeSuite) setMachineProvisioned(c *gc.C, id string) {
 }
 
 const maxUpgradeRetries = 3
-
-func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
-	// TODO(katco): 2016-08-09: lp:1611427
-	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
-		c.Logf("setting instant retry strategy for upgrade: retries=%d", maxUpgradeRetries)
-		return utils.AttemptStrategy{
-			Delay: 0,
-			Min:   maxUpgradeRetries,
-		}
-	})
-}
 
 func (s *UpgradeSuite) makeExpectedStatusCalls(retryCount int, expectFail bool, failReason string) []StatusCall {
 	calls := []StatusCall{{
