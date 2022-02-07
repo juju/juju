@@ -19,8 +19,8 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	api "github.com/juju/juju/api/agent/caasapplicationprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
+	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"

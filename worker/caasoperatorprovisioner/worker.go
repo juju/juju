@@ -27,8 +27,8 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent"
-	apicaasprovisioner "github.com/juju/juju/api/agent/caasoperatorprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
+	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
