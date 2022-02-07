@@ -9,34 +9,35 @@ function findpackages() {
 }
 
 function movepackage() {
-    >&2 echo moving $JUJU_PATH/$1 to $JUJU_PATH/$2...
-    $GOMVPKG -from $JUJU_PATH/$1 -to $JUJU_PATH/$2
+    >&2 echo "  moving $JUJU_PATH/$1 to $JUJU_PATH/$2..."
+    mv $1 $2
+    for f in $(grep -lrF "$JUJU_PATH/$1" .); do
+        sed -i "s~$JUJU_PATH/$1~$JUJU_PATH/$2~" "$f"
+    done
 }
 
 for g in $API_GROUPS; do
     if [[ -d api/$g ]]; then
         >&2 echo "api/$g exists, moving it to api/renamed$g"
-        movepackage api/$g api/renamed$g
+        movepackage "api/$g" "api/renamed$g"
     fi
 done
 
-exit
-
 for g in $API_GROUPS; do
     >&2 echo "moving packages to $g"
-    mkdir -p api/$g
-    for p in $(findpackages $g); do
-        oldp=$p
+    mkdir -p "api/$g"
+    for p in $(findpackages "$g"); do
+        oldp="$p"
         if [[ $p=$g ]]; then
-            oldp=renamed$p
+            oldp="renamed$p"
         fi
         >&2 echo -n "  looking for $oldp... "
         if [[ -d api/$p ]]; then
             echo "found"
-            movepackage api/$oldp api/$g/$p
+            movepackage "api/$oldp" "api/$g/$p"
         else
             echo "not found"
         fi
     done
-    >&2 echo
+    >&2 echo "done moving packages to $g"
 done
