@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 

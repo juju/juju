@@ -12,7 +12,7 @@ import (
 	state "github.com/juju/juju/state"
 	mgo "github.com/juju/mgo/v2"
 	txn "github.com/juju/mgo/v2/txn"
-	txn0 "github.com/juju/txn"
+	txn0 "github.com/juju/txn/v2"
 )
 
 // MockDatabase is a mock of Database interface.
