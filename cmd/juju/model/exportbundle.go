@@ -12,8 +12,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/bundle"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/bundle"
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"

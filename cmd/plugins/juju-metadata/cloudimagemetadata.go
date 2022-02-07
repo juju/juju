@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/juju/juju/api/imagemetadatamanager"
+	"github.com/juju/juju/api/client/imagemetadatamanager"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 

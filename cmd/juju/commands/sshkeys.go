@@ -4,7 +4,7 @@
 package commands
 
 import (
-	"github.com/juju/juju/api/keymanager"
+	"github.com/juju/juju/api/client/keymanager"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 

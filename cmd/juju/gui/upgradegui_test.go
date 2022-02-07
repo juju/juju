@@ -22,7 +22,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/gui"
 	envgui "github.com/juju/juju/environs/gui"

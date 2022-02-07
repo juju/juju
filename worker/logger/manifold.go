@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/logger"
+	"github.com/juju/juju/api/agent/logger"
 )
 
 // Logger represents a loggo logger for the purpose of recording what is going

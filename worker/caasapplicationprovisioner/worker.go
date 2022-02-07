@@ -20,7 +20,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	api "github.com/juju/juju/api/caasapplicationprovisioner"
+	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"

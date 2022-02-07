@@ -16,10 +16,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/charms"
 	charmscommon "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/api/sshclient"
+	"github.com/juju/juju/api/client/sshclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/meterstatus"
+	"github.com/juju/juju/api/agent/meterstatus"
 	"github.com/juju/juju/core/machinelock"
 )
 

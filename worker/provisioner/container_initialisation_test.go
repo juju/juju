@@ -20,8 +20,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	apimocks "github.com/juju/juju/api/base/mocks"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	provisionermocks "github.com/juju/juju/api/provisioner/mocks"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
+	provisionermocks "github.com/juju/juju/api/agent/provisioner/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"

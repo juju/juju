@@ -18,9 +18,9 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/crossmodelrelations"
-	"github.com/juju/juju/api/migrationminion"
-	"github.com/juju/juju/api/secretsmanager"
+	"github.com/juju/juju/api/controller/crossmodelrelations"
+	"github.com/juju/juju/api/agent/migrationminion"
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"

@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/caasoperatorupgrader"
-	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/api/controller/caasoperatorupgrader"
+	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/worker/gate"
 )
 

@@ -24,7 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/constraints"

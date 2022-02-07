@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	msapi "github.com/juju/juju/api/meterstatus"
+	msapi "github.com/juju/juju/api/agent/meterstatus"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"

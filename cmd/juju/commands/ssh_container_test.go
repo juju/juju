@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"

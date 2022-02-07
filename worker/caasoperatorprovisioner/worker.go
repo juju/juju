@@ -27,7 +27,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent"
-	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"

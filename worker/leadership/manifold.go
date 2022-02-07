@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/leadership"
+	"github.com/juju/juju/api/agent/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
 )
 

@@ -4,7 +4,7 @@
 package cachedimages
 
 import (
-	"github.com/juju/juju/api/imagemanager"
+	"github.com/juju/juju/api/client/imagemanager"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 

@@ -15,7 +15,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/keyupdater"
+	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"

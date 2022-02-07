@@ -20,9 +20,9 @@ import (
 	"github.com/juju/romulus/api/budget"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/storage"
+	"github.com/juju/juju/api/client/modelconfig"
+	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/client/storage"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"

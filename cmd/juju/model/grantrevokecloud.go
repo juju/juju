@@ -6,7 +6,7 @@ package model
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/api/client/cloud"
 	"github.com/juju/names/v4"
 
 	jujucmd "github.com/juju/juju/cmd"
