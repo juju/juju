@@ -12,7 +12,7 @@ function movepackage() {
     >&2 echo "  moving $JUJU_PATH/$1 to $JUJU_PATH/$2..."
     mv $1 $2
     for f in $(grep -lrF "$JUJU_PATH/$1" .); do
-        sed -i "s~$JUJU_PATH/$1~$JUJU_PATH/$2~" "$f"
+        sed -i "s~\"$JUJU_PATH/$1\"~\"$JUJU_PATH/$2\"~" "$f"
     done
 }
 
