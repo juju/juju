@@ -496,7 +496,9 @@ func (e *Environ) startInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef("Image cache contains: %# v", pretty.Formatter(imgCache))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("Image cache contains: %# v", pretty.Formatter(imgCache))
+	}
 
 	series := args.InstanceConfig.Series
 	arches := args.Tools.Arches()

@@ -213,5 +213,7 @@ func (n *rpcObserver) logReplyTrace(logger loggo.Logger, hdr *rpc.Header, body i
 }
 
 func (n *rpcObserver) logTrace(logger loggo.Logger, prefix string, hdr *rpc.Header, body interface{}) {
-	logger.Tracef("%s [%X] %s %s", prefix, n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("%s [%X] %s %s", prefix, n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+	}
 }
