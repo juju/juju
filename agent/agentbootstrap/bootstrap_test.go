@@ -172,6 +172,7 @@ LXC_BRIDGE="ignored"`[1:])
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineConstraints:             expectBootstrapConstraints,
 			BootstrapMachineInstanceId:              "i-bootstrap",
+			BootstrapMachineDisplayName:             "test-display-name",
 			BootstrapMachineHardwareCharacteristics: &expectHW,
 			ControllerCloud: cloud.Cloud{
 				Name:         "dummy",
@@ -436,7 +437,8 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	args := agentbootstrap.InitializeStateParams{
 		StateInitializationParams: instancecfg.StateInitializationParams{
-			BootstrapMachineInstanceId: "i-bootstrap",
+			BootstrapMachineInstanceId:  "i-bootstrap",
+			BootstrapMachineDisplayName: "test-display-name",
 			ControllerCloud: cloud.Cloud{
 				Name:      "dummy",
 				Type:      "dummy",

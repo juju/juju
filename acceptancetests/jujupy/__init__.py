@@ -13,6 +13,30 @@
 # You should have received a copy of the Lesser GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from jujupy.backend import JUJU_DEV_FEATURE_FLAGS, JujuBackend
+from jujupy.client import (
+    KILL_CONTROLLER,
+    KVM_MACHINE,
+    LXC_MACHINE,
+    LXD_MACHINE,
+    IaasClient,
+    JujuData,
+    Machine,
+    ModelClient,
+    client_for_existing,
+    client_from_config,
+    get_cache_path,
+    get_machine_dns_name,
+    juju_home_path,
+    parse_new_state_server_from_error,
+    temp_bootstrap_env,
+)
+from jujupy.configuration import (
+    NoSuchEnvironment,
+    get_juju_data,
+    get_juju_home,
+)
+from jujupy.controller import Controllers
 from jujupy.exceptions import (
     AgentsNotStarted,
     AuthNotAccepted,
@@ -22,49 +46,10 @@ from jujupy.exceptions import (
     SoftDeadlineExceeded,
     TypeNotAccepted,
 )
-from jujupy.backend import (
-    JUJU_DEV_FEATURE_FLAGS,
-    JujuBackend,
-)
-from jujupy.client import (
-    client_from_config,
-    client_for_existing,
-    get_cache_path,
-    get_machine_dns_name,
-    juju_home_path,
-    JujuData,
-    KILL_CONTROLLER,
-    KVM_MACHINE,
-    LXC_MACHINE,
-    LXD_MACHINE,
-    Machine,
-    ModelClient,
-    IaasClient,
-    parse_new_state_server_from_error,
-    temp_bootstrap_env,
-)
-from jujupy.configuration import (
-    get_juju_data,
-    get_juju_home,
-    NoSuchEnvironment,
-)
-from jujupy.fake import (
-    FakeBackend,
-    FakeControllerState,
-    fake_juju_client,
-)
-from jujupy.status import (
-    Status,
-)
-from jujupy.controller import (
-    Controllers,
-)
-from jujupy.utility import (
-    get_timeout_prefix,
-)
-from jujupy.wait_condition import (
-    ConditionList,
-)
+from jujupy.fake import FakeBackend, FakeControllerState, fake_juju_client
+from jujupy.status import Status
+from jujupy.utility import get_timeout_prefix
+from jujupy.wait_condition import ConditionList
 
 __all__ = [
     'AgentsNotStarted',
@@ -91,7 +76,6 @@ __all__ = [
     'LXD_MACHINE',
     'Machine',
     'ModelClient',
-    'CaasClient',
     'IaasClient',
     'NameNotAccepted',
     'NoProvider',

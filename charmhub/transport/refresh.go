@@ -3,7 +3,10 @@
 
 package transport
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // RefreshRequest defines a typed request for making refresh queries, containing
 // both a series of context and actions, this powerful setup should allow for
@@ -92,6 +95,10 @@ type RefreshEntity struct {
 	Summary   string             `json:"summary"`
 	Version   string             `json:"version"`
 	CreatedAt time.Time          `json:"created-at"`
+
+	// The minimum set of metadata required for deploying a charm.
+	MetadataYAML json.RawMessage `json:"metadata-yaml,omitempty"`
+	ConfigYAML   json.RawMessage `json:"config-yaml,omitempty"`
 }
 
 // RefreshResourceRevision represents a resource name revision pair for

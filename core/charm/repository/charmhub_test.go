@@ -5,10 +5,12 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,7 +20,14 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository/mocks"
-	"github.com/juju/juju/testcharms"
+)
+
+var (
+	expRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
 )
 
 type charmHubRepositorySuite struct {
@@ -391,40 +400,19 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 		},
 	}
 
-	resolvedURL, err := url.Parse("ch:amd64/focal/wordpress-42")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create test archive and inject a manifest file.
-	pathToArchive := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
-	err = testcharms.InjectFilesToCharmArchive(pathToArchive, map[string]string{
-		"manifest.yaml": `
-bases:
-- architectures:
-  - amd64
-  channel: '20.04'
-  name: ubuntu
-charmcraft-started-at: '2021-05-07T05:37:27.320518Z'
-charmcraft-version: 0.10.0
-`[1:],
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	resolvedArchive, err := charm.ReadCharmArchive(pathToArchive)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.expectCharmRefreshInstallOneFromChannel(c)
-	s.client.EXPECT().DownloadAndRead(context.TODO(), resolvedURL, gomock.Any()).Return(resolvedArchive, nil)
-
+	s.expectCharmRefreshInstallOneFromChannel(c) // resolve the origin
+	s.expectCharmRefreshInstallOneFromChannel(c) // refresh and get metadata
 	repo := NewCharmHubRepository(s.logger, s.client)
 
 	got, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
 		CharmURL: curl,
 		Origin:   requestedOrigin,
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.HasLen, 1)
-	c.Assert(got[0].Meta.Name, gc.Equals, "dummy")
-	c.Assert(got[0].Config.Options["title"], gc.Not(gc.IsNil))
+	c.Assert(got[0].Meta.Name, gc.Equals, "wordpress")
+	c.Assert(got[0].Config.Options["blog-title"], gc.Not(gc.IsNil))
 	c.Assert(got[0].Manifest.Bases, gc.HasLen, 1)
 	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "charmCHARMcharmCHARMcharmCHARM01", gc.Commentf("expected origin to be resolved"))
 }
@@ -455,6 +443,23 @@ func (s *charmHubRepositorySuite) expectCharmRefresh(c *gc.C, cfg charmhub.Refre
 					Size:       42,
 					URL:        "ch:amd64/focal/wordpress-42",
 				},
+				//
+				Bases: []transport.Base{
+					{
+						Name:         "ubuntu",
+						Architecture: "amd64",
+						Channel:      "20.04",
+					},
+				},
+				MetadataYAML: json.RawMessage([]byte(`
+name: wordpress
+summary: Blog engine
+description: Blog engine
+`[1:])),
+				ConfigYAML: json.RawMessage([]byte(`
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
+`[1:])),
 			},
 			EffectiveChannel: "latest/stable",
 		}}, nil
@@ -609,6 +614,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -642,6 +648,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -669,7 +676,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 			Revision:    &revision,
 		}},
 		Context: []transport.RefreshRequestContext{},
-		Fields:  []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -712,6 +719,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 			},
 			TrackingChannel: channel.String(),
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
