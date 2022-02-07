@@ -28,11 +28,11 @@ for g in $API_GROUPS; do
     mkdir -p "api/$g"
     for p in $(findpackages "$g"); do
         oldp="$p"
-        if [[ $p=$g ]]; then
+        if [[ $p == $g ]]; then
             oldp="renamed$p"
         fi
         >&2 echo -n "  looking for $oldp... "
-        if [[ -d api/$p ]]; then
+        if [ -d "api/$p" ]; then
             echo "found"
             movepackage "api/$oldp" "api/$g/$p"
         else
