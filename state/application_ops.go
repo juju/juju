@@ -8,7 +8,7 @@ import (
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 )
 
 type updateLeaderSettingsOperation struct {

@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 )
 
 // ModelOperation is a high-level model operation,

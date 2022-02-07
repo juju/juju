@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
