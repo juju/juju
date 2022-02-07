@@ -24,7 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	apicaasprovisioner "github.com/juju/juju/api/agent/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/resources"
 	coretesting "github.com/juju/juju/testing"

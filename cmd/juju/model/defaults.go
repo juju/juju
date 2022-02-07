@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	cloudapi "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/api/modelmanager"
+	cloudapi "github.com/juju/juju/api/client/cloud"
+	"github.com/juju/juju/api/client/modelmanager"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"

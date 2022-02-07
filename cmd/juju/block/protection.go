@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api"
-	apiblock "github.com/juju/juju/api/block"
+	apiblock "github.com/juju/juju/api/client/block"
 	"github.com/juju/juju/apiserver/params"
 )
 

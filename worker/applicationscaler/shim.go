@@ -4,7 +4,7 @@
 package applicationscaler
 
 import (
-	"github.com/juju/juju/api/applicationscaler"
+	"github.com/juju/juju/api/client/applicationscaler"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 )

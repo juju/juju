@@ -17,7 +17,7 @@ import (
 	api "github.com/juju/romulus/api/plan"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"

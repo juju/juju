@@ -4,7 +4,7 @@
 package caasunitprovisioner
 
 import (
-	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
+	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"

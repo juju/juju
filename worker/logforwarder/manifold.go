@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	apiagent "github.com/juju/juju/api/agent"
+	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logstream"
 	"github.com/juju/juju/apiserver/params"

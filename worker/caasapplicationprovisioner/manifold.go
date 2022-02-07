@@ -11,8 +11,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api/base"
-	apicaasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
-	caasunitprovisionerapi "github.com/juju/juju/api/caasunitprovisioner"
+	apicaasapplicationprovisioner "github.com/juju/juju/api/agent/caasapplicationprovisioner"
+	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
 )
 

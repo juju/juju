@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/secretsmanager"
-	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/agent/secretsmanager"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"

@@ -18,9 +18,9 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	controllerclient "github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/migrationtarget"
-	"github.com/juju/juju/api/usermanager"
+	controllerclient "github.com/juju/juju/api/controller/controller"
+	"github.com/juju/juju/api/controller/migrationtarget"
+	"github.com/juju/juju/api/client/usermanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"

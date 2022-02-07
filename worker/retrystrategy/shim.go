@@ -6,7 +6,7 @@ package retrystrategy
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/retrystrategy"
+	"github.com/juju/juju/api/agent/retrystrategy"
 )
 
 // NewFacade creates a Facade from a base.APICaller.

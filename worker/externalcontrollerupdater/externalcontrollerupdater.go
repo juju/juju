@@ -16,7 +16,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/crosscontroller"
+	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc"

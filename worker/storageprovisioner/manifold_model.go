@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/storageprovisioner"
+	"github.com/juju/juju/api/agent/storageprovisioner"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/common"
 )

@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/api/base"
-	apicaasoperator "github.com/juju/juju/api/caasoperator"
+	apicaasoperator "github.com/juju/juju/api/agent/caasoperator"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"

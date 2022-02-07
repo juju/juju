@@ -10,7 +10,7 @@ import (
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
-	apicharm "github.com/juju/juju/api/charms"
+	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

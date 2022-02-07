@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/instancemutater"
+	"github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 )
@@ -21,7 +21,7 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceMutaterAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/instancemutater Logger
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/namestag_mock.go github.com/juju/names/v4 Tag
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/agent/instancemutater MutaterMachine
 
 type InstanceMutaterAPI interface {
 	WatchMachines() (watcher.StringsWatcher, error)

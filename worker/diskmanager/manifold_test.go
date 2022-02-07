@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
-	apidiskmanager "github.com/juju/juju/api/diskmanager"
+	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
 	"github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/diskmanager"

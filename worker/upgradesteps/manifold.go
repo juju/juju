@@ -6,7 +6,7 @@ package upgradesteps
 import (
 	"time"
 
-	apiagent "github.com/juju/juju/api/agent"
+	apiagent "github.com/juju/juju/api/agent/agent"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"

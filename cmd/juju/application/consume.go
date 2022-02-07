@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"

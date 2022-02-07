@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/api/agent/proxyupdater"
 )
 
 // Logger represents the methods used for logging messages.

@@ -20,7 +20,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/agent/addons"
-	apiagent "github.com/juju/juju/api/agent"
+	apiagent "github.com/juju/juju/api/agent/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/config"
 )

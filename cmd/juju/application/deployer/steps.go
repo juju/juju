@@ -6,7 +6,7 @@ package deployer
 import (
 	"github.com/juju/romulus"
 
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/client/application"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 )
 

@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/resources/client"
+	"github.com/juju/juju/api/client/resources/client"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"

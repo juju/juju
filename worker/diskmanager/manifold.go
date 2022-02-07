@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	apidiskmanager "github.com/juju/juju/api/diskmanager"
+	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 

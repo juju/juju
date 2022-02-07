@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/crossmodelrelations"
-	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/api/controller/crossmodelrelations"
+	"github.com/juju/juju/api/controller/firewaller"
+	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/worker/apicaller"
 )
 

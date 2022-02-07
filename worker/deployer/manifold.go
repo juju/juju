@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	apideployer "github.com/juju/juju/api/deployer"
+	apideployer "github.com/juju/juju/api/agent/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 

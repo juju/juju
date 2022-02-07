@@ -7,7 +7,7 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/credentialvalidator"
+	"github.com/juju/juju/api/agent/credentialvalidator"
 	"github.com/juju/juju/environs/context"
 )
 
