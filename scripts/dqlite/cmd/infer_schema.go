@@ -175,13 +175,39 @@ func clusterASTS(structASTs []structAST) map[string][]structAST {
 		prefixSet.Add(str.Name)
 	}
 
+	// Construct a set of possible foreign names
+	foreignSet := make(map[string]string)
+	for _, str := range structASTs {
+		for _, field := range str.Decl.Fields.List {
+			if ident, ok := field.Type.(*ast.Ident); ok {
+				if !strings.HasSuffix(ident.Name, "Status") {
+					continue
+				}
+
+				value := strings.ToLower(strings.TrimSuffix(ident.Name, "Status"))
+				if value == "" {
+					continue
+				}
+				foreignSet[str.Name] = value
+			}
+		}
+	}
+
 	// Group structs sharing each prefix
 	clusters := make(map[string][]structAST)
-
 nextStruct:
 	for _, str := range structASTs {
+		var added bool
+		if name, ok := foreignSet[str.Name]; ok {
+			clusters[name] = append(clusters[name], str)
+			added = true
+		}
 		if prefixSet.Contains(str.Name) {
 			clusters[str.Name] = append(clusters[str.Name], str)
+			added = true
+		}
+
+		if added {
 			continue
 		}
 
