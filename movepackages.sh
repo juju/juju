@@ -1,6 +1,5 @@
 #!/bin/bash
 
-GOMVPKG=$(go env GOPATH)/bin/gomvpkg
 JUJU_PATH=github.com/juju/juju
 API_GROUPS="agent client controller"
 
@@ -42,3 +41,5 @@ for g in $API_GROUPS; do
     done
     >&2 echo "done moving packages to $g"
 done
+
+gofmt -s -w
