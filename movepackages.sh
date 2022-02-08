@@ -4,7 +4,7 @@ JUJU_PATH=github.com/juju/juju
 API_GROUPS="agent client controller"
 
 function findpackages() {
-    find apiserver/facades/$1 -type d -maxdepth 1 -exec basename {} \;
+    find apiserver/facades/$1 -mindepth 1 -maxdepth 1 -type d -exec basename {} \;
 }
 
 function movepackage() {
