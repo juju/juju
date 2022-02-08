@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -37,6 +38,15 @@ const (
 
 	// RefreshAction defines a refresh action.
 	RefreshAction Action = "refresh"
+)
+
+var (
+	// A set of fields that are always requested when performing refresh calls
+	requiredRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
 )
 
 const (
@@ -212,6 +222,7 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 		Revision:    revision,
 		Channel:     channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -240,6 +251,7 @@ func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -296,6 +308,7 @@ func InstallOneFromChannel(name string, channel string, base RefreshBase) (Refre
 		Name:        name,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -314,6 +327,7 @@ func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -332,6 +346,7 @@ func DownloadOneFromRevisionByName(name string, revision int) (RefreshConfig, er
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -354,6 +369,7 @@ func DownloadOneFromChannel(id string, channel string, base RefreshBase) (Refres
 		ID:          id,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -376,6 +392,7 @@ func DownloadOneFromChannelByName(name string, channel string, base RefreshBase)
 		Name:        name,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 

@@ -461,6 +461,7 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		InstanceId:              args.BootstrapMachineInstanceId,
 		HardwareCharacteristics: hardware,
 		Jobs:                    jobs,
+		DisplayName:             args.BootstrapMachineDisplayName,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")

@@ -426,7 +426,8 @@ func (p *StatePool) Close() error {
 		p.txnWatcherSession.Close()
 	}
 	p.mu.Unlock()
-	// As with above and the other watchers. Unlock while releas
+	// As with above and the other watchers, unlock while releasing the state
+	// session.
 	if err := p.systemState.Close(); err != nil {
 		lastErr = err
 	}

@@ -27,7 +27,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-goose/goose/v4 v4.0.0-20211105130700-d0015d23b748
 	github.com/go-logr/logr v0.2.0
-	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20210309064400-d73aa8f92aa2
+	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20220204130128-afeebcc9521d
 	github.com/golang/mock v1.5.0
 	github.com/google/go-querystring v1.0.0
 	github.com/googleapis/gnostic v0.4.1
@@ -40,47 +40,47 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
-	github.com/juju/blobstore/v2 v2.0.0-20210302045357-edd2b24570b7
+	github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4
 	github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d
 	github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf
-	github.com/juju/clock v0.0.0-20220202072423-1b0f830854c4
-	github.com/juju/cmd/v3 v3.0.0-20220202061353-b1cc80b193b0
-	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v3 v3.0.0-20220125161928-cc5932c29986
+	github.com/juju/clock v0.0.0-20220203021603-d9deb868a28a
+	github.com/juju/cmd/v3 v3.0.0-20220203030511-039f3566372a
+	github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a
+	github.com/juju/description/v3 v3.0.0-20220207013250-e60bc7b1c242
 	github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9
-	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
+	github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
-	github.com/juju/gomaasapi/v2 v2.0.0-20210323144809-92beddd020fe
-	github.com/juju/http/v2 v2.0.0-20210623153641-418e83b0dab4
-	github.com/juju/idmclient/v2 v2.0.0-20210309081103-6b4a5212f851
-	github.com/juju/jsonschema v0.0.0-20210422141032-b0ff291abe9c
-	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
+	github.com/juju/gomaasapi/v2 v2.0.0-20220207023642-10dd7f190313
+	github.com/juju/http/v2 v2.0.0-20220207005632-792b5de45d16
+	github.com/juju/idmclient/v2 v2.0.0-20220207024613-525e1ac3a890
+	github.com/juju/jsonschema v0.0.0-20220207021905-6f321f9146b3
+	github.com/juju/jsonschema-gen v0.0.0-20220207021829-b1697c753155
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
 	github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c
-	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
+	github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os/v2 v2.2.0
-	github.com/juju/packaging/v2 v2.0.0-20210628104420-5487e24f1350
+	github.com/juju/os/v2 v2.2.1
+	github.com/juju/packaging/v2 v2.0.0-20220207023655-2ed4de2dc5b4
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
-	github.com/juju/proxy v0.0.0-20210817195502-c6015cfe0258
-	github.com/juju/pubsub/v2 v2.0.0-20220104155641-7af8a09f58f0
+	github.com/juju/proxy v0.0.0-20220207021845-4d37a2e6a78f
+	github.com/juju/pubsub/v2 v2.0.0-20220207005728-39d68caef4a7
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/juju/replicaset/v2 v2.0.1-0.20211125220232-7967ce535201
-	github.com/juju/retry v0.0.0-20210818141810-5526f6f6ff07
-	github.com/juju/rfc/v2 v2.0.0-20210319034215-ed820200fad3
-	github.com/juju/romulus v0.0.0-20210309074704-4fa3bbd32568
+	github.com/juju/replicaset/v2 v2.0.1-0.20220207005755-f1b225b4be6e
+	github.com/juju/retry v0.0.0-20220204093819-62423bf33287
+	github.com/juju/rfc/v2 v2.0.0-20220207021814-ffb92bc8e9eb
+	github.com/juju/romulus v0.0.0-20220207004956-1a3bcf86b836
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
-	github.com/juju/terms-client/v2 v2.0.0-20210422053140-27f71c100676
+	github.com/juju/terms-client/v2 v2.0.0-20220207005045-25aa57bf93cd
 	github.com/juju/testing v0.0.0-20220203020004-a0ff61f03494
-	github.com/juju/txn/v2 v2.0.0-20210407000251-11166e89894c
-	github.com/juju/utils/v3 v3.0.0-20220202114721-338bb0530e89
-	github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23
+	github.com/juju/txn/v2 v2.0.0-20220204100656-93c9d8a9b89f
+	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
+	github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.0.0-20211202172815-a08892ace206
+	github.com/juju/worker/v3 v3.0.0-20220204100750-e23db69a42d2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
@@ -168,10 +168,8 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
-	github.com/juju/txn v0.0.0-20210302043154-251cea9e140a // indirect
 	github.com/juju/usso v1.0.1 // indirect
-	github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa // indirect
-	github.com/juju/utils/v2 v2.0.0-20210305225158-eedbe7b6b3e2 // indirect
+	github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -200,6 +198,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.opencensus.io v0.22.3 // indirect
 	golang.org/x/mod v0.3.0 // indirect
@@ -214,7 +214,6 @@ require (
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be // indirect
 	gopkg.in/macaroon-bakery.v2 v2.3.0 // indirect
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect

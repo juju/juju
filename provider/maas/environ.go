@@ -13,11 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -46,14 +47,15 @@ const (
 	apiVersion2 = "2.0"
 )
 
-// A request may fail due to "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by LongAttempt.
-var shortAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
+var defaultShortRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	Delay:       200 * time.Millisecond,
+	MaxDuration: 5 * time.Second,
+}
+var defaultLongRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	Delay:       10 * time.Second,
+	MaxDuration: 1200 * time.Second,
 }
 
 var (
@@ -97,6 +99,14 @@ type maasEnviron struct {
 	// GetCapabilities is a function that connects to MAAS to return its set of
 	// capabilities.
 	GetCapabilities Capabilities
+
+	// A request may fail to due "eventual consistency" semantics, which
+	// should resolve fairly quickly.  A request may also fail due to a slow
+	// state transition (for instance an instance taking a while to release
+	// a security group after termination).  The former failure mode is
+	// dealt with by shortRetryStrategy, the latter by longRetryStrategy
+	shortRetryStrategy retry.CallArgs
+	longRetryStrategy  retry.CallArgs
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -111,9 +121,11 @@ func NewEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps C
 		getCaps = getCapabilities
 	}
 	env := &maasEnviron{
-		name:            cfg.Name(),
-		uuid:            cfg.UUID(),
-		GetCapabilities: getCaps,
+		name:               cfg.Name(),
+		uuid:               cfg.UUID(),
+		GetCapabilities:    getCaps,
+		shortRetryStrategy: defaultShortRetryStrategy,
+		longRetryStrategy:  defaultLongRetryStrategy,
 	}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
@@ -164,7 +176,7 @@ func (env *maasEnviron) Bootstrap(
 		dialOpts environs.BootstrapDialOpts,
 	) error {
 		// Wait for bootstrap instance to change to deployed state.
-		if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
+		if err := env.waitForNodeDeployment2(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
 			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
 		}
 		return finalizer(ctx, icfg, dialOpts)
@@ -422,29 +434,39 @@ func (env *maasEnviron) PrecheckInstance(ctx context.ProviderCallContext, args e
 func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
-	var err error
 
-	for a := shortAttempt.Start(); a.Next(); {
-		ver := client.GetSubObject("version/")
-		result, err = ver.CallGet("", nil)
-		if err == nil {
-			break
-		}
+	retryStrategy := defaultShortRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
 		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-			logger.Debugf("Failed attempting to get capabilities from maas endpoint %q: %v", serverURL, err)
-
-			message := "could not connect to MAAS controller - check the endpoint is correct"
-			trimmedURL := strings.TrimRight(serverURL, "/")
-			if !strings.HasSuffix(trimmedURL, "/MAAS") {
-				message += " (it normally ends with /MAAS)"
-			}
-			return caps, errors.NewNotSupported(nil, message)
+			return true
 		}
+		return false
 	}
-	if err != nil {
+	retryStrategy.Func = func() error {
+		var err error
+		version := client.GetSubObject("version/")
+		result, err = version.CallGet("", nil)
+		return err
+	}
+	err := retry.Call(retryStrategy)
+
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		logger.Debugf("Can't connect to maas server at endpoint %q: %v", serverURL, err)
+		err = retry.LastError(err)
 		return caps, err
 	}
+	if err != nil {
+		err, _ := errors.Cause(err).(gomaasapi.ServerError)
+		logger.Debugf("Failed attempting to get capabilities from maas endpoint %q: %v", serverURL, err)
+
+		message := "could not connect to MAAS controller - check the endpoint is correct"
+		trimmedURL := strings.TrimRight(serverURL, "/")
+		if !strings.HasSuffix(trimmedURL, "/MAAS") {
+			message += " (it normally ends with /MAAS)"
+		}
+		return caps, errors.NewNotSupported(nil, message)
+	}
+
 	info, err := result.GetMap()
 	if err != nil {
 		logger.Debugf("Invalid data returned from maas endpoint %q: %v", serverURL, err)
@@ -667,19 +689,19 @@ func (env *maasEnviron) acquireNode(
 		acquireParams.Add("system_id", systemId)
 	}
 
-	var (
-		result gomaasapi.JSONObject
-		err    error
-	)
-	for a := shortAttempt.Start(); a.Next(); {
+	var result gomaasapi.JSONObject
+	retryStrategy := env.shortRetryStrategy
+	retryStrategy.Func = func() error {
 		client := env.getMAASClient().GetSubObject("nodes/")
 		logger.Tracef("calling acquire with params: %+v", acquireParams)
-		if result, err = client.CallPost("acquire", acquireParams); err == nil {
-			break // Got a result back.
-		}
+
+		var err error
+		result, err = client.CallPost("acquire", acquireParams)
+		return err
 	}
+	err := retry.Call(retryStrategy)
 	if err != nil {
-		return gomaasapi.MAASObject{}, err
+		return gomaasapi.MAASObject{}, retry.LastError(err)
 	}
 	node, err := result.GetMAASObject()
 	if err != nil {
@@ -884,35 +906,42 @@ func (env *maasEnviron) tagInstance2(inst *maas2Instance, instanceConfig *instan
 	}
 }
 
-func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
-	// TODO(katco): 2016-08-09: lp:1611427
-	longAttempt := utils.AttemptStrategy{
-		Delay: 10 * time.Second,
-		Total: timeout,
+func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
+	retryStrategy := env.longRetryStrategy
+	retryStrategy.MaxDuration = timeout
+	retryStrategy.IsFatalError = func(err error) bool {
+		if errors.IsNotProvisioned(err) {
+			return true
+		}
+		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			return true
+		}
+		return false
 	}
-
-	retryCount := 1
-	for a := longAttempt.Start(); a.Next(); {
+	retryStrategy.NotifyFunc = func(lastErr error, attempts int) {
+		if errors.IsNotFound(lastErr) {
+			logger.Warningf("failed to get instance from provider attempt %d", attempts)
+		}
+	}
+	retryStrategy.Func = func() error {
 		machine, err := env.getInstance(ctx, id)
 		if err != nil {
-			logger.Warningf("failed to get instance from provider attempt %d", retryCount)
-			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
-				break
-			}
-
-			retryCount++
-			continue
+			return err
 		}
 		stat := machine.Status(ctx)
 		if stat.Status == status.Running {
 			return nil
 		}
 		if stat.Status == status.ProvisioningError {
-			return errors.Errorf("instance %q failed to deploy", id)
-
+			return errors.NewNotProvisioned(nil, fmt.Sprintf("instance %q failed to deploy", id))
 		}
+		return errors.NewNotYetAvailable(nil, "Not yet provisioned")
 	}
-	return errors.Errorf("instance %q is started but not deployed", id)
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		return errors.Errorf("instance %q is started but not deployed", id)
+	}
+	return errors.Trace(err)
 }
 
 func (env *maasEnviron) deploymentStatusOne(ctx context.ProviderCallContext, id instance.Id) (string, string) {

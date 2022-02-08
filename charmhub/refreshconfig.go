@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmhub/transport"
@@ -34,6 +35,7 @@ type refreshOne struct {
 	// asynchronous calls.
 	instanceKey string
 	metrics     transport.ContextMetrics
+	fields      []string
 }
 
 // InstanceKey returns the underlying instance key.
@@ -70,6 +72,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, error) {
 			InstanceKey: c.instanceKey,
 			ID:          &c.ID,
 		}},
+		Fields: c.fields,
 	}, nil
 }
 
@@ -91,8 +94,10 @@ type executeOne struct {
 	Base     RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
-	action      Action
-	instanceKey string
+	action            Action
+	instanceKey       string
+	resourceRevisions []transport.RefreshResourceRevision
+	fields            []string
 }
 
 // InstanceKey returns the underlying instance key.
@@ -128,6 +133,7 @@ func (c executeOne) Build() (transport.RefreshRequest, error) {
 			Channel:     c.Channel,
 			Base:        &base,
 		}},
+		Fields: c.fields,
 	}
 	return req, nil
 }
@@ -171,6 +177,7 @@ type executeOneByRevision struct {
 	// asynchronous calls.
 	instanceKey string
 	action      Action
+	fields      []string
 }
 
 // InstanceKey returns the underlying instance key.
@@ -201,6 +208,15 @@ func (c executeOneByRevision) Build() (transport.RefreshRequest, error) {
 		}},
 		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
 	}
+
+	if len(c.fields) != 0 {
+		fieldSet := set.NewStrings(req.Fields...)
+		for _, field := range c.fields {
+			fieldSet.Add(field)
+		}
+		req.Fields = fieldSet.SortedValues()
+	}
+
 	return req, nil
 }
 
@@ -255,6 +271,12 @@ func (c refreshMany) Build() (transport.RefreshRequest, error) {
 		result.Actions = append(result.Actions, req.Actions...)
 		result.Fields = append(result.Fields, req.Fields...)
 	}
+
+	// Ensure that the required field list contains no duplicates
+	if len(result.Fields) != 0 {
+		result.Fields = set.NewStrings(result.Fields...).SortedValues()
+	}
+
 	return result, nil
 }
 
