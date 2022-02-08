@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/controller"
@@ -367,13 +367,17 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			closer = session.Close
 		}
 		observer := func(t jujutxn.Transaction) {
-			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
-				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+			if txnLogger.IsTraceEnabled() {
+				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+			}
 		}
 		if db.runTransactionObserver != nil {
 			observer = func(t jujutxn.Transaction) {
-				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
-					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+				if txnLogger.IsTraceEnabled() {
+					txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+						t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+				}
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
 					t.Ops, t.Error,

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
@@ -888,6 +888,7 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 		Constraints:             cons,
 		HardwareCharacteristics: hc,
 		InstanceId:              "inst-id",
+		DisplayName:             "test-display-name",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
 	}
@@ -896,9 +897,6 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 1)
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
-	instId, err := m.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(instId), gc.Equals, "inst-id")
 	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
 	c.Assert(m.Series(), gc.Equals, "precise")
 	mcons, err := m.Constraints()
@@ -907,9 +905,10 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	mhc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*mhc, gc.DeepEquals, hc)
-	instId, err = m.InstanceId()
+	instId, instDN, err := m.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(instId), gc.Equals, "inst-id")
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) TestAddMachinesModelDying(c *gc.C) {
@@ -945,9 +944,12 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cores=4")
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		DisplayName: "test-display-name",
 		Series:      "quantal",
 		Constraints: extraCons,
 		Jobs:        oneJob,
+		Nonce:       "nonce",
+		InstanceId:  "inst-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
@@ -957,6 +959,12 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
+	m, err = s.State.Machine(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
+	_, instDN, err := m.InstanceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
@@ -964,9 +972,12 @@ func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:    "quantal",
-		Jobs:      oneJob,
-		Placement: "theplacement",
+		DisplayName: "test-display-name",
+		Series:      "quantal",
+		Jobs:        oneJob,
+		Placement:   "theplacement",
+		Nonce:       "nonce",
+		InstanceId:  "inst-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
@@ -977,6 +988,12 @@ func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
+	m, err = s.State.Machine(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
+	_, instDN, err := m.InstanceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
@@ -1006,6 +1023,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		Constraints:             cons,
 		HardwareCharacteristics: hc,
 		InstanceId:              "inst-id",
+		DisplayName:             "test-display-name",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
 		Volumes: []state.HostVolumeParams{{
@@ -1047,6 +1065,10 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Check(volumeParams, gc.Equals, machineTemplate.Volumes[i].Volume)
 	}
+	instId, instDN, err := m.InstanceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(instId), gc.Equals, "inst-id")
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containers []string) {

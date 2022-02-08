@@ -784,7 +784,9 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		return nil, err
 	}
 
-	logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
+	}
 	return newPeerGroupInfo(w.controllerTrackers, sts.Members, members, w.config.MongoPort, haSpace)
 }
 

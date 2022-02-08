@@ -8,10 +8,6 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-var (
-	ShortAttempt = &shortAttempt
-)
-
 func NewCloudinitConfig(env environs.Environ, hostname, series string) (cloudinit.CloudConfig, error) {
 	return env.(*maasEnviron).newCloudinitConfig(hostname, series)
 }

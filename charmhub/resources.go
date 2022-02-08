@@ -46,6 +46,8 @@ func (c *ResourcesClient) ListResourceRevisions(ctx context.Context, charm, reso
 	if restResp.StatusCode == http.StatusNotFound {
 		return nil, errors.NotFoundf("%q for %q", charm, resource)
 	}
-	c.logger.Tracef("ListResourceRevisions(%s, %s) unmarshalled: %s", charm, resource, pretty.Sprint(resp.Revisions))
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("ListResourceRevisions(%s, %s) unmarshalled: %s", charm, resource, pretty.Sprint(resp.Revisions))
+	}
 	return resp.Revisions, nil
 }

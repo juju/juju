@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -37,6 +38,15 @@ const (
 
 	// RefreshAction defines a refresh action.
 	RefreshAction Action = "refresh"
+)
+
+var (
+	// A set of fields that are always requested when performing refresh calls
+	requiredRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
 )
 
 const (
@@ -87,7 +97,9 @@ func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *Refresh
 
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
-	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+	}
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -98,7 +110,9 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 // RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
 // at the same time.  Used as part of the charm revision updater facade.
 func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
-	c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	}
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -212,6 +226,7 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 		Revision:    revision,
 		Channel:     channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -239,6 +254,7 @@ func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -296,6 +312,7 @@ func InstallOneFromChannel(name string, channel string, base RefreshBase) (Refre
 		Name:        name,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -314,6 +331,7 @@ func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -332,6 +350,7 @@ func DownloadOneFromRevisionByName(name string, revision int) (RefreshConfig, er
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -354,6 +373,7 @@ func DownloadOneFromChannel(id string, channel string, base RefreshBase) (Refres
 		ID:          id,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -376,6 +396,7 @@ func DownloadOneFromChannelByName(name string, channel string, base RefreshBase)
 		Name:        name,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 

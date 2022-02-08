@@ -306,6 +306,7 @@ func BootstrapInstance(
 
 	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+		icfg.Bootstrap.BootstrapMachineDisplayName = result.DisplayName
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
 		envConfig := env.Config()

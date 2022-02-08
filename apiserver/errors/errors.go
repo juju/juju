@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -141,7 +141,9 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
-	logger.Tracef("server RPC error %v", errors.Details(err))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("server RPC error %v", errors.Details(err))
+	}
 
 	var (
 		info map[string]interface{}

@@ -7,10 +7,19 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
 
-    - name: Set up Go 1.17
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Find required go version
+      id: go-version
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
       uses: actions/setup-go@v2.1.4
       with:
-        go-version: 1.17
+        go-version: ${{ steps.go-version.outputs.version }}
       id: go
 
     - name: Install Dependencies
@@ -18,10 +27,7 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.36.0
-
-    - name: Checkout
-      uses: actions/checkout@v2
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.44.0
 
     - name: Download Dependencies
       run: go mod download
@@ -52,17 +58,22 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
 
-    - name: Set up Go 1.17
-      uses: actions/setup-go@v2.1.4
-      with:
-        go-version: 1.17
-      id: go
-
     - name: Checkout
       uses: actions/checkout@v2
+
+    - name: Find required go version
+      id: go-version
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
+      uses: actions/setup-go@v2.1.4
+      with:
+        go-version: ${{ steps.go-version.outputs.version }}
+      id: go
 
     - name: Schema Check
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
-

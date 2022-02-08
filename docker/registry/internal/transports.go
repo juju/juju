@@ -260,7 +260,9 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 		return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
 	}
 	errMsg := fmt.Sprintf("non-successful response status=%d", resp.StatusCode)
-	logger.Tracef("%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
+	if logger.IsTraceEnabled() {
+		logger.Tracef("%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
+	}
 	errNew := errors.Errorf
 	switch resp.StatusCode {
 	case http.StatusForbidden:

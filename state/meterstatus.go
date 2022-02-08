@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 )
 
 // MeterStatus represents the metering status of a unit.

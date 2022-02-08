@@ -24,6 +24,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
+    - name: Find required go version
+      id: go-version
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
+      uses: actions/setup-go@v2.1.4
+      with:
+        go-version: ${{ steps.go-version.outputs.version }}
+      id: go
+
     - name: Build snap
       shell: bash
       run: |
@@ -75,6 +87,24 @@ jobs:
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "/snap/bin" >> $GITHUB_PATH
 
+    - name: Checkout
+      if: env.RUN_TEST == 'RUN'
+      uses: actions/checkout@v2
+
+    - name: Find required go version
+      id: go-version
+      if: env.RUN_TEST == 'RUN'
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
+      if: env.RUN_TEST == 'RUN'
+      uses: actions/setup-go@v2.1.4
+      with:
+        go-version: ${{ steps.go-version.outputs.version }}
+      id: go
+
     - name: Bootstrap Juju
       if: env.RUN_TEST == 'RUN'
       shell: bash
@@ -85,10 +115,6 @@ jobs:
         juju bootstrap localhost test
         juju status
         juju version
-
-    - name: Checkout
-      if: env.RUN_TEST == 'RUN'
-      uses: actions/checkout@v2
 
     - name: Deploy some applications
       if: env.RUN_TEST == 'RUN'

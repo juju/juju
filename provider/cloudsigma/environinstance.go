@@ -5,7 +5,6 @@ package cloudsigma
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -120,7 +119,7 @@ func (env *environ) instancesForMethod(ctx context.ProviderCallContext, method s
 		instances = append(instances, instance)
 	}
 
-	if logger.LogLevel() <= loggo.TRACE {
+	if logger.IsTraceEnabled() {
 		logger.Tracef("%v, len = %d:", method, len(instances))
 		for _, instance := range instances {
 			logger.Tracef("... id: %q, status: %q", instance.Id(), instance.Status(ctx))

@@ -199,7 +199,7 @@ group is alphabetically sorted. eg:
         gc "gopkg.in/check.v1"
 
         "github.com/juju/juju/state"
-        "github.com/juju/juju/worker"
+        "github.com/juju/worker/v3"
     )
 ```
 
