@@ -143,7 +143,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 			// We only care about the initial container creation.
 			// This worker has done its job so stop it.
 			// We do not expect there will be an error, and there's not much we can do anyway.
-			if err := cs.runner.StopAndRemoveWorker(cs.workerName, nil); err != nil {
+			if err := cs.runner.StopAndRemoveWorker(cs.workerName, abort); err != nil {
 				cs.logger.Warningf("stopping machine agent container watcher: %v", err)
 			}
 		}
