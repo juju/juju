@@ -490,10 +490,24 @@ func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]core
 		subnetIDToCIDR[sub.ProviderId.String()] = sub.CIDR
 	}
 
-	// Unfortunately the client does not support filter by anything other
-	// than tags, so we need to grab everything and apply the filter here.
 	neutronClient := n.neutron()
-	allInstPorts, err := neutronClient.ListPortsV2()
+	filter := projectIDFilter(n.client().TenantId())
+
+	fips, err := neutronClient.ListFloatingIPsV2(filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing floating IPs")
+	}
+
+	// Map private IP to public IP for every assigned FIP.
+	fixedToFIP := make(map[string]string)
+	for _, fip := range fips {
+		if fip.FixedIP == "" {
+			continue
+		}
+		fixedToFIP[fip.FixedIP] = fip.IP
+	}
+
+	allInstPorts, err := neutronClient.ListPortsV2(filter)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing ports")
 	}
@@ -505,10 +519,8 @@ func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]core
 		instIfaceMap[devID] = append(instIfaceMap[devID], instPort)
 	}
 
-	var (
-		res        = make([]corenetwork.InterfaceInfos, len(instanceIDs))
-		matchCount int
-	)
+	res := make([]corenetwork.InterfaceInfos, len(instanceIDs))
+	var matchCount int
 
 	for resIdx, instID := range instanceIDs {
 		ifaceList, found := instIfaceMap[instID]
@@ -517,7 +529,7 @@ func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]core
 		}
 
 		matchCount++
-		res[resIdx] = mapInterfaceList(ifaceList, subnetIDToCIDR)
+		res[resIdx] = mapInterfaceList(ifaceList, subnetIDToCIDR, fixedToFIP)
 	}
 
 	if matchCount == 0 {
@@ -529,42 +541,50 @@ func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]core
 	return res, nil
 }
 
-func mapInterfaceList(in []neutron.PortV2, subnetIDToCIDR map[string]string) network.InterfaceInfos {
+func mapInterfaceList(
+	in []neutron.PortV2, subnetIDToCIDR, fixedToFIP map[string]string,
+) network.InterfaceInfos {
 	var out = make(corenetwork.InterfaceInfos, len(in))
 
-	for idx, osIf := range in {
+	for idx, port := range in {
 		ni := corenetwork.InterfaceInfo{
 			DeviceIndex:       idx,
-			ProviderId:        corenetwork.Id(osIf.Id),
-			ProviderNetworkId: corenetwork.Id(osIf.NetworkId),
-			InterfaceName:     osIf.Name, // NOTE(achilleasa): on microstack this is always empty.
-			Disabled:          osIf.Status != "ACTIVE",
-			NoAutoStart:       false,
-			InterfaceType:     corenetwork.EthernetDevice,
-			Origin:            corenetwork.OriginProvider,
-			MACAddress:        corenetwork.NormalizeMACAddress(osIf.MACAddress),
+			ProviderId:        corenetwork.Id(port.Id),
+			ProviderNetworkId: corenetwork.Id(port.NetworkId),
+			// NOTE(achilleasa): on microstack port.Name is always empty.
+			InterfaceName: port.Name,
+			Disabled:      port.Status != "ACTIVE",
+			NoAutoStart:   false,
+			InterfaceType: corenetwork.EthernetDevice,
+			Origin:        corenetwork.OriginProvider,
+			MACAddress:    corenetwork.NormalizeMACAddress(port.MACAddress),
 		}
 
-		for i, ipConf := range osIf.FixedIPs {
-			addrOpts := []func(corenetwork.AddressMutator){
-				// openstack assigns IPs from a configured pool.
-				corenetwork.WithConfigType(corenetwork.ConfigStatic),
-			}
-
-			if subnetCIDR := subnetIDToCIDR[ipConf.SubnetID]; subnetCIDR != "" {
-				addrOpts = append(addrOpts, corenetwork.WithCIDR(subnetCIDR))
-			}
-
+		for i, ipConf := range port.FixedIPs {
 			providerAddr := corenetwork.NewMachineAddress(
 				ipConf.IPAddress,
-				addrOpts...,
+				corenetwork.WithConfigType(corenetwork.ConfigStatic),
+				corenetwork.WithCIDR(subnetIDToCIDR[ipConf.SubnetID]),
 			).AsProviderAddress()
 
 			ni.Addresses = append(ni.Addresses, providerAddr)
 
+			// If there is a FIP associated with this private IP,
+			// add it as a public address.
+			if fip := fixedToFIP[ipConf.IPAddress]; fip != "" {
+				ni.ShadowAddresses = append(ni.ShadowAddresses, corenetwork.NewMachineAddress(
+					fip,
+					corenetwork.WithScope(corenetwork.ScopePublic),
+					// TODO (manadart 2022-02-08): Other providers add these
+					// addresses with the DHCP config type.
+					// But this is not really correct.
+					// We should consider another type for what are in effect
+					// NATing arrangements, that better conveys the topology.
+				).AsProviderAddress())
+			}
+
 			// If this is the first address, populate additional NIC details.
 			if i == 0 {
-				ni.ConfigType = corenetwork.ConfigStatic
 				ni.ProviderSubnetId = corenetwork.Id(ipConf.SubnetID)
 			}
 		}
