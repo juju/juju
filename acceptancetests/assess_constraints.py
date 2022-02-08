@@ -363,7 +363,7 @@ def assess_constraints(client, test_kvm=False):
         assess_cores_constraints(client, ['2'])
         assess_cpu_power_constraints(client, ['30'])
         assess_multiple_constraints(client, 'root-disk-and-cpu-power',
-                                    root_disk='15G', cpu_power='40')
+                                    root_disk='15G', cpu_power='4000')
 
 
 def parse_args(argv):
