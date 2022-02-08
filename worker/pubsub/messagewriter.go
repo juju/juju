@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api"
-	pubsubapi "github.com/juju/juju/api/pubsub"
+	pubsubapi "github.com/juju/juju/api/controller/pubsub"
 	"github.com/juju/juju/apiserver/params"
 )
 

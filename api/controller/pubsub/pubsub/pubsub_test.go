@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	apipubsub "github.com/juju/juju/api/pubsub"
+	apipubsub "github.com/juju/juju/api/controller/pubsub"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/testing"
 )

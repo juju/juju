@@ -16,30 +16,33 @@ function movepackage() {
     done
 }
 
-for g in $API_GROUPS; do
-    if [[ -d api/$g ]]; then
-        >&2 echo "api/$g exists, moving it to api/renamed$g"
-        movepackage "api/$g" "api/renamed$g"
-    fi
-done
+# for g in $API_GROUPS; do
+#     if [[ -d api/$g ]]; then
+#         >&2 echo "api/$g exists, moving it to api/renamed$g"
+#         movepackage "api/$g" "api/renamed$g"
+#     fi
+# done
 
-for g in $API_GROUPS; do
-    >&2 echo "moving packages to $g"
-    mkdir -p "api/$g"
-    for p in $(findpackages "$g"); do
-        oldp="$p"
-        if [[ $p == $g ]]; then
-            oldp="renamed$p"
-        fi
-        >&2 echo -n "  looking for $oldp... "
-        if [ -d "api/$p" ]; then
-            echo "found"
-            movepackage "api/$oldp" "api/$g/$p"
-        else
-            echo "not found"
-        fi
-    done
-    >&2 echo "done moving packages to $g"
-done
+# for g in $API_GROUPS; do
+#     >&2 echo "moving packages to $g"
+#     mkdir -p "api/$g"
+#     for p in $(findpackages "$g"); do
+#         oldp="$p"
+#         if [[ $p == $g ]]; then
+#             oldp="renamed$p"
+#         fi
+#         >&2 echo -n "  looking for $oldp... "
+#         if [ -d "api/$p" ]; then
+#             echo "found"
+#             movepackage "api/$oldp" "api/$g/$p"
+#         else
+#             echo "not found"
+#         fi
+#     done
+#     >&2 echo "done moving packages to $g"
+# done
 
-gofmt -s -w
+movepackage "api/machiner" "api/agent/machiner"
+movepackage "api/pubsub" "api/controller/pubsub"
+
+gofmt -s -w .
