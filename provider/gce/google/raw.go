@@ -10,8 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/retry"
 	"golang.org/x/net/context"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
@@ -22,10 +23,10 @@ const diskTypesBase = "https://www.googleapis.com/compute/v1/projects/%s/zones/%
 // These are attempt strategies used in waitOperation.
 var (
 	// TODO(ericsnow) Tune the timeouts and delays.
-	// TODO(katco): 2016-08-09: lp:1611427
-	attemptsLong = utils.AttemptStrategy{
-		Total: 5 * time.Minute,
-		Delay: 2 * time.Second,
+	longRetryStrategy = retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       2 * time.Second,
+		MaxDuration: 5 * time.Minute,
 	}
 )
 
@@ -100,7 +101,7 @@ func (rc *rawConn) AddInstance(projectID, zoneName string, spec *compute.Instanc
 		// We are guaranteed the insert failed at the point.
 		return errors.Annotate(err, "sending new instance request")
 	}
-	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
+	err = rc.waitOperation(projectID, operation, longRetryStrategy, logOperationErrors)
 	return errors.Trace(err)
 }
 
@@ -110,7 +111,7 @@ func (rc *rawConn) RemoveInstance(projectID, zone, id string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = rc.waitOperation(projectID, operation, attemptsLong, returnNotFoundOperationErrors)
+	err = rc.waitOperation(projectID, operation, longRetryStrategy, returnNotFoundOperationErrors)
 	return errors.Trace(err)
 }
 
@@ -143,7 +144,7 @@ func (rc *rawConn) AddFirewall(projectID string, firewall *compute.Firewall) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
+	err = rc.waitOperation(projectID, operation, longRetryStrategy, logOperationErrors)
 	return errors.Trace(err)
 }
 
@@ -153,7 +154,7 @@ func (rc *rawConn) UpdateFirewall(projectID, name string, firewall *compute.Fire
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
+	err = rc.waitOperation(projectID, operation, longRetryStrategy, logOperationErrors)
 	return errors.Trace(err)
 }
 
@@ -191,7 +192,7 @@ func (rc *rawConn) RemoveFirewall(projectID, name string) error {
 		return errors.Trace(convertRawAPIError(err))
 	}
 
-	err = rc.waitOperation(projectID, operation, attemptsLong, returnNotFoundOperationErrors)
+	err = rc.waitOperation(projectID, operation, longRetryStrategy, returnNotFoundOperationErrors)
 	return errors.Trace(convertRawAPIError(err))
 }
 
@@ -239,7 +240,7 @@ func (rc *rawConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	if err != nil {
 		return errors.Annotate(err, "could not create a new disk")
 	}
-	return errors.Trace(rc.waitOperation(project, op, attemptsLong, logOperationErrors))
+	return errors.Trace(rc.waitOperation(project, op, longRetryStrategy, logOperationErrors))
 }
 
 func (rc *rawConn) ListDisks(project string) ([]*compute.Disk, error) {
@@ -269,7 +270,7 @@ func (rc *rawConn) RemoveDisk(project, zone, id string) error {
 	if err != nil {
 		return errors.Annotatef(err, "could not delete disk %q", id)
 	}
-	return errors.Trace(rc.waitOperation(project, op, attemptsLong, returnNotFoundOperationErrors))
+	return errors.Trace(rc.waitOperation(project, op, longRetryStrategy, returnNotFoundOperationErrors))
 }
 
 func (rc *rawConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
@@ -375,27 +376,37 @@ var doOpCall = func(call opDoer) (*compute.Operation, error) {
 // waitOperation waits for the provided operation to reach the "done"
 // status. It follows the given attempt strategy (e.g. wait time between
 // attempts) and may time out.
-//
-// TODO(katco): 2016-08-09: lp:1611427
-func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attempts utils.AttemptStrategy, f handleOperationErrors) error {
+func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, retryStrategy retry.CallArgs, f handleOperationErrors) error {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	started := time.Now()
 	logger.Infof("GCE operation %q, waiting...", op.Name)
-	for a := attempts.Start(); a.Next(); {
-		if op.Status == StatusDone {
-			break
-		}
 
+	retryStrategy.IsFatalError = func(err error) bool {
+		return !errors.IsNotProvisioned(err)
+	}
+	retryStrategy.Func = func() error {
 		var err error
 		op, err = rc.checkOperation(projectID, op)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
+		if op.Status == StatusDone {
+			return nil
+		}
+		return errors.NewNotProvisioned(nil, "GCE operation not done yet")
 	}
+	var err error
 	if op.Status != StatusDone {
+		err = retry.Call(retryStrategy)
+	}
+
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		// lp:1558657
-		err := errors.Errorf("timed out after %d seconds", time.Now().Sub(started)/time.Second)
+		err := errors.Annotatef(err, "timed out after %d seconds", time.Now().Sub(started)/time.Second)
 		return waitError{op, err}
+	}
+	if err != nil {
+		return errors.Trace(err)
 	}
 	if err := f(op); err != nil {
 		return err
@@ -421,7 +432,7 @@ func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *com
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = rc.waitOperation(projectID, op, attemptsLong, logOperationErrors)
+	err = rc.waitOperation(projectID, op, longRetryStrategy, logOperationErrors)
 	return errors.Trace(err)
 }
 
