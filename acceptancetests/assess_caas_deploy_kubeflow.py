@@ -324,7 +324,8 @@ def prepare(caas_client, caas_provider, build):
     caas_client.sh('rm', '-rf', f'{KUBEFLOW_DIR}')
     caas_client.sh('git', 'clone', KUBEFLOW_REPO_URI, KUBEFLOW_DIR)
     # TODO: pin to this sha for now, update if we want to test newer Kubeflow.
-    caas_client.sh('git', 'reset', '--hard', 'a96fa2d')
+    with jump_dir(KUBEFLOW_DIR):
+        caas_client.sh('git', 'reset', '--hard', 'a96fa2d')
 
     caas_client.sh('pip3', 'install', 'tox')
     caas_client.sh(
