@@ -5,6 +5,10 @@ FROM $BASE_IMAGE
 RUN useradd --system -M syslog
 RUN usermod -s /usr/sbin/nologin syslog
 
+# Add a juju user to run the daemon.
+RUN useradd -u 1010 juju
+USER juju
+
 # Some Python dependencies.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
