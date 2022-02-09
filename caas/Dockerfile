@@ -42,6 +42,9 @@ RUN chown juju /opt/jujud
 RUN chown juju /opt/jujuc
 RUN chown juju /opt/containeragent
 RUN chown juju /opt/pebble
+RUN chown -R juju /root
+RUN chown -R juju /usr/bin
+RUN chown -R juju /etc/profile.d
 
 USER juju
 
