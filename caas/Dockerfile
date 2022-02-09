@@ -5,6 +5,9 @@ FROM $BASE_IMAGE
 RUN useradd --system -M syslog
 RUN usermod -s /usr/sbin/nologin syslog
 
+# Add a juju user to run the daemon.
+RUN useradd -u 1010 juju
+
 # Some Python dependencies.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -33,5 +36,13 @@ COPY jujud /opt/
 COPY jujuc /opt/
 COPY containeragent /opt/
 COPY pebble /opt/
+
+RUN chown -R juju /var/lib/juju
+RUN chown juju /opt/jujud
+RUN chown juju /opt/jujuc
+RUN chown juju /opt/containeragent
+RUN chown juju /opt/pebble
+
+USER juju
 
 ENTRYPOINT ["sh", "-c"]
