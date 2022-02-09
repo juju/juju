@@ -185,6 +185,17 @@ func (env *environ) Config() *config.Config {
 	return cfg
 }
 
+// ValidateCloudEndpoint returns nil if the current model can talk to the lxd
+// server endpoint.  Used as validation during model upgrades.
+// Implements environs.CloudEndpointChecker
+func (env *environ) ValidateCloudEndpoint(ctx context.ProviderCallContext) error {
+	info, err := env.server().GetConnectionInfo()
+	if err != nil {
+		return err
+	}
+	return env.provider.Ping(ctx, info.URL)
+}
+
 // PrepareForBootstrap implements environs.Environ.
 func (env *environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) error {
 	return nil
