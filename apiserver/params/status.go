@@ -57,7 +57,7 @@ type ModelStatusInfo struct {
 	SLA              string         `json:"sla"`
 }
 
-// NetworkInterfaceStatus holds a /etc/network/interfaces-type data and the
+// NetworkInterface holds a /etc/network/interfaces-type data and the
 // space name for any device with at least one associated IP address.
 type NetworkInterface struct {
 	// IPAddresses holds the IP addresses bound to this machine.

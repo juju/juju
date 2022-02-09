@@ -20,13 +20,13 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewState creates a new instance mutater facade using the input caller.
+// NewClient creates a new instance mutater facade using the input caller.
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, instanceMutaterFacade)
 	return NewClientFromFacade(facadeCaller)
 }
 
-// NewStateFromFacade creates a new instance mutater facade using the input
+// NewClientFromFacade creates a new instance mutater facade using the input
 // facade caller.
 func NewClientFromFacade(facadeCaller base.FacadeCaller) *Client {
 	return &Client{

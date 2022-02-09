@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
@@ -1000,46 +999,13 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				if err == nil {
 					err = unit.SetCharmURL(curl)
 				}
-				if err == nil {
-					// Wait for the change to propagate to the cache controller.
-					err = u.waitForCacheCharmURL(tag, curl.String())
-				}
+				// TODO(cache) - we'd wait for the model cache to receive the change.
+				// But we're not using the model cache at the moment.
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-func (u *UniterAPI) waitForCacheCharmURL(tag names.UnitTag, curl string) error {
-	unit := tag.Id()
-
-	// One minute is excessively long, but the cache may need to refresh.
-	// In any normal operation, this should be sub-second, although if no changes
-	// were happening recently, it could be theoretically up to five seconds.
-	timeout := u.clock.After(time.Minute)
-	cancel := make(chan struct{})
-	done := u.cacheModel.WaitForUnit(unit, func(u *cache.Unit) bool {
-		return u.CharmURL() == curl
-	}, cancel)
-
-	select {
-	case <-done:
-		return nil
-	case <-u.cancel:
-		// The API server is stopping, so don't wait any longer.
-		close(cancel)
-		return errors.Timeoutf("apiserver stopping, unit change %s.CharmURL to %q", unit, curl)
-	case <-timeout:
-		close(cancel)
-
-		cu, err := u.getCacheUnit(tag)
-		if err != nil {
-			return errors.Annotate(err, "waiting for unit CharmURL")
-		}
-
-		return errors.Timeoutf("%s.CharmURL is %q, change to %q", unit, cu.CharmURL(), curl)
-	}
 }
 
 // WorkloadVersion returns the workload version for all given units or applications.
@@ -1311,14 +1277,23 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			var unit cache.Unit
-			unit, err = u.getCacheUnit(tag)
+			// TODO(cache) - we were using the model cache but due to
+			// issues with propagating the charm URL, use the state model.
+			var unit *state.Unit
+			unit, err = u.st.Unit(tag.Id())
+			if errors.IsNotFound(err) {
+				result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+				continue
+			}
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+
+			var settings charm.Settings
+			settings, err = unit.ConfigSettings()
 			if err == nil {
-				var settings charm.Settings
-				settings, err = unit.ConfigSettings()
-				if err == nil {
-					result.Results[i].Settings = params.ConfigSettings(settings)
-				}
+				result.Results[i].Settings = params.ConfigSettings(settings)
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -3373,13 +3348,19 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 			continue
 		}
 
-		unit, err := u.getCacheUnit(tag)
+		// TODO(cache) - we were using the model cache but due to
+		// issues with propagating the charm URL, use the state model.
+		unit, err := u.st.Unit(tag.Id())
+		if errors.IsNotFound(err) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		w, err := unit.WatchConfigSettings()
+		w, err := unit.WatchConfigSettingsHash()
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
