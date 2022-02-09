@@ -118,7 +118,7 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
                     'deploy',
                     '--bundle', f'{KUBEFLOW_DIR}/{bundle_info[bundle]["file_name"]}',
                     '--build',
-                    '--', '-m', k8s_model.model_name, '--trust',
+                    '--', '-m', k8s_model.model_name,
                 ),
                 # disable `include_e` and pass -m to `juju-bundle`
                 include_e=False,
@@ -127,7 +127,6 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
         k8s_model.deploy(
             charm=bundle_info[bundle]['uri'],
             channel="stable",
-            trust='true',
         )
 
     if application_exists(k8s_model, 'istio-ingressgateway'):
