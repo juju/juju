@@ -173,7 +173,14 @@ func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	s.externalNetwork = ""
 	s.expectListSubnets()
 
-	s.neutron.EXPECT().ListPortsV2().Return([]neutron.PortV2{
+	s.neutron.EXPECT().ListFloatingIPsV2(gomock.Any()).Return([]neutron.FloatingIPV2{
+		{
+			FixedIP: "10.0.0.2",
+			IP:      "10.245.164.31",
+		},
+	}, nil)
+
+	s.neutron.EXPECT().ListPortsV2(gomock.Any()).Return([]neutron.PortV2{
 		{
 			DeviceId:    "another-instance",
 			DeviceOwner: "compute:nova",
@@ -239,10 +246,15 @@ func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 			network.WithConfigType(network.ConfigStatic),
 		).AsProviderAddress(),
 	})
+	c.Assert(nic0.ShadowAddresses, gc.DeepEquals, network.ProviderAddresses{
+		network.NewMachineAddress(
+			"10.245.164.31",
+			network.WithScope(network.ScopePublic),
+		).AsProviderAddress(),
+	})
 	c.Assert(nic0.ProviderId, gc.Equals, network.Id("nic-0"))
 	c.Assert(nic0.ProviderNetworkId, gc.Equals, network.Id("deadbeef-0bad-400d-8000-4b1ddbeefbeef"))
 	c.Assert(nic0.ProviderSubnetId, gc.Equals, network.Id("sub-42"), gc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
-	c.Assert(nic0.ConfigType, gc.Equals, network.ConfigStatic, gc.Commentf("expected NIC to use the config type for the primary NIC address"))
 
 	nic1 := res[0][1]
 	c.Assert(nic1.InterfaceType, gc.Equals, network.EthernetDevice)
@@ -267,7 +279,9 @@ func (s *networkingSuite) TestNetworkInterfacesPartialMatch(c *gc.C) {
 	s.externalNetwork = ""
 	s.expectListSubnets()
 
-	s.neutron.EXPECT().ListPortsV2().Return([]neutron.PortV2{
+	s.neutron.EXPECT().ListFloatingIPsV2(gomock.Any()).Return(nil, nil)
+
+	s.neutron.EXPECT().ListPortsV2(gomock.Any()).Return([]neutron.PortV2{
 		{
 			Id:          "nic-0",
 			DeviceId:    "inst-0",
@@ -291,16 +305,18 @@ func (s *networkingSuite) TestNetworkInterfacesPartialMatch(c *gc.C) {
 func (s *networkingSuite) expectNeutronCalls(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.neutron = NewMockNetworkingNeutron(ctrl)
 	s.client = NewMockNetworkingAuthenticatingClient(ctrl)
+	s.client.EXPECT().TenantId().Return("TenantId").AnyTimes()
+
+	s.neutron = NewMockNetworkingNeutron(ctrl)
+
 	s.ecfg = NewMockNetworkingEnvironConfig(ctrl)
 
 	s.base = NewMockNetworkingBase(ctrl)
 	bExp := s.base.EXPECT()
 	bExp.neutron().Return(s.neutron).AnyTimes()
+	bExp.client().Return(s.client).AnyTimes()
 	bExp.ecfg().Return(s.ecfg).AnyTimes()
-
-	s.client.EXPECT().TenantId().Return("TenantId").AnyTimes()
 
 	return ctrl
 }
