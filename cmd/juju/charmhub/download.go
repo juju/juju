@@ -42,7 +42,7 @@ to stdout.
 
 Examples:
     juju download postgresql
-    juju download postgresql - > postgresql.charm
+    juju download postgresql --no-progress - > postgresql.charm
 
 See also:
     info
@@ -69,6 +69,7 @@ type downloadCommand struct {
 	charmOrBundle string
 	archivePath   string
 	pipeToStdout  bool
+	noProgress    bool
 
 	orderedSeries []string
 }
@@ -94,6 +95,7 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
+	f.BoolVar(&c.noProgress, "no-progress", false, "disable the progress bar")
 }
 
 // Init initializes the download command, including validating the provided
@@ -252,11 +254,21 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	pb := progress.MakeProgressBar(cmdContext.Stdout)
 	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, entity.Name)
-	if err := client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb)); err != nil {
+
+	if c.noProgress {
+		err = client.Download(ctx, resourceURL, path)
+	} else {
+		pb := progress.MakeProgressBar(cmdContext.Stdout)
+		err = client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb))
+	}
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// if err := client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb)); err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	// If we're piping to stdout, then we don't need to mention how to install
 	// and deploy the charm.
