@@ -66,7 +66,22 @@ func (s *LogSenderSuite) TestNewAPIWriteError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	err = w.WriteLog(new(params.LogRecord))
-	c.Assert(err, gc.ErrorMatches, "cannot send log message: foo")
+	c.Assert(err, gc.ErrorMatches, "sending log message: foo")
+	c.Assert(conn.written, gc.HasLen, 0)
+}
+
+func (s *LogSenderSuite) TestNewAPIReadError(c *gc.C) {
+	conn := &mockConnector{
+		c:          c,
+		readError:  errors.New("read foo"),
+		writeError: errors.New("closed yo"),
+	}
+	a := logsender.NewAPI(conn)
+	w, err := a.LogWriter()
+	c.Assert(err, gc.IsNil)
+
+	err = w.WriteLog(new(params.LogRecord))
+	c.Assert(err, gc.ErrorMatches, "sending log message: read foo: closed yo")
 	c.Assert(conn.written, gc.HasLen, 0)
 }
 
@@ -75,9 +90,10 @@ type mockConnector struct {
 
 	connectError error
 	writeError   error
+	readError    error
 	written      []interface{}
-
-	closeCount int
+	readDone     chan struct{}
+	closeCount   int
 }
 
 func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stream, error) {
@@ -86,9 +102,12 @@ func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stre
 		"jujuclientversion": []string{version.Current.String()},
 		"version":           []string{"1"},
 	})
+
 	if c.connectError != nil {
 		return nil, c.connectError
 	}
+
+	c.readDone = make(chan struct{}, 1)
 	return mockStream{c}, nil
 }
 
@@ -96,7 +115,33 @@ type mockStream struct {
 	conn *mockConnector
 }
 
+func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
+	defer func() {
+		select {
+		case s.conn.readDone <- struct{}{}:
+		default:
+		}
+	}()
+
+	// NextReader is now called by the read loop thread.
+	// Wait a bit before returning, so it doesn't sit in a very tight loop.
+	time.Sleep(time.Millisecond)
+
+	if s.conn.readError != nil {
+		return 0, nil, s.conn.readError
+	}
+	return 0, nil, nil
+}
+
 func (s mockStream) WriteJSON(v interface{}) error {
+	// Wait for a NextReader call in case the test
+	// orchestration is for an error there.
+	select {
+	case <-s.conn.readDone:
+	case <-time.After(coretesting.LongWait):
+		s.conn.c.Errorf("timed out waiting for read")
+	}
+
 	if s.conn.writeError != nil {
 		return s.conn.writeError
 	}
@@ -104,19 +149,12 @@ func (s mockStream) WriteJSON(v interface{}) error {
 	return nil
 }
 
-func (s mockStream) ReadJSON(v interface{}) error {
-	s.conn.c.Errorf("ReadJSON called unexpectedly")
+func (s mockStream) Close() error {
+	s.conn.closeCount++
 	return nil
 }
 
-func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
-	// NextReader is now called by the read loop thread.
-	// So just wait a bit and return so it doesn't sit in a very tight loop.
-	time.Sleep(time.Millisecond)
-	return 0, nil, nil
-}
-
-func (s mockStream) Close() error {
-	s.conn.closeCount++
+func (s mockStream) ReadJSON(v interface{}) error {
+	s.conn.c.Errorf("ReadJSON called unexpectedly")
 	return nil
 }
