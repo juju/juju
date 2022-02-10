@@ -720,6 +720,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		IsFatal:       agenterrors.ConnectionIsFatal(logger, apiConn),
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
+		Logger:        logger.Child("runner"),
 	})
 	defer func() {
 		// If startAPIWorkers exits early with an error, stop the
