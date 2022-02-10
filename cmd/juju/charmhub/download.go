@@ -252,7 +252,8 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	pb := progress.MakeProgressBar(cmdContext.Stdout)
+	//pb := progress.MakeProgressBar(cmdContext.Stdout)
+	pb := progress.MakeProgressBar(cmdContext.Stderr)
 	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, entity.Name)
 	if err := client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb)); err != nil {
 		return errors.Trace(err)
