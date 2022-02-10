@@ -35,6 +35,6 @@ linters:
     - deadcode
     - varcheck
 run:
-  timeout: 20m
+  timeout: 30m
 skip-dirs:
   - acceptancetests
