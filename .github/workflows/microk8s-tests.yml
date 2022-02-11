@@ -91,7 +91,7 @@ jobs:
           cd bundle-kubeflow
 
           # TODO: pin to this sha for now, update if we want to test newer Kubeflow.
-          git reset --hard a96fa2d
+          git reset --hard f391f4a
 
           git clone git://git.launchpad.net/canonical-osm
           cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
