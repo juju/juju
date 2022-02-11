@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/pubsub"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/testing"
 )
 

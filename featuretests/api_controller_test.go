@@ -8,8 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 )
 
 // This suite only exists because no user facing calls exercise

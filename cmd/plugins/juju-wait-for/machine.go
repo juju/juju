@@ -13,12 +13,12 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/rpc/params"
 )
 
 func newMachineCommand() cmd.Command {

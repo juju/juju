@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
-	"github.com/juju/juju/apiserver/params"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 var (

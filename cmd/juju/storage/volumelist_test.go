@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/rpc/params"
 )
 
 func (s *ListSuite) TestVolumeListEmpty(c *gc.C) {

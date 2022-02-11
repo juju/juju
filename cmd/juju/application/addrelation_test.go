@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/rpc/params"
 	jtesting "github.com/juju/juju/testing"
 )
 

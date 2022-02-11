@@ -22,9 +22,9 @@ import (
 
 	actionapi "github.com/juju/juju/api/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

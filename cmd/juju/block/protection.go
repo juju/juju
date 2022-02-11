@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apiblock "github.com/juju/juju/api/block"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.block")

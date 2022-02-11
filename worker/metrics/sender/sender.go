@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/metricsadder"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/metrics/spool"
 )
 

@@ -21,7 +21,6 @@ import (
 
 	api "github.com/juju/juju/api/caasapplicationprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/worker/caasapplicationprovisioner/mocks"

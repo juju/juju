@@ -11,12 +11,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -319,7 +319,7 @@ type importSuite struct{}
 var _ = gc.Suite(&importSuite{})
 
 func (*importSuite) TestParamsDoesNotDependOnState(c *gc.C) {
-	imports := testing.FindJujuCoreImports(c, "github.com/juju/juju/apiserver/params")
+	imports := testing.FindJujuCoreImports(c, "github.com/juju/juju/rpc/params")
 	for _, i := range imports {
 		c.Assert(i, gc.Not(gc.Equals), "state")
 	}

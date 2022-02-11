@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/upgradesteps"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/uniter/operation"

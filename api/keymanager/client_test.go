@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/api/keymanager"
 	keymanagerserver "github.com/juju/juju/apiserver/facades/client/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
-	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 )
 
 type keymanagerSuite struct {

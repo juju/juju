@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/rpc/params"
 	"gopkg.in/yaml.v3"
 )
 

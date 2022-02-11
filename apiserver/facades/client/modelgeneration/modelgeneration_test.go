@@ -14,9 +14,9 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration/mocks"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/rpc/params"
 )
 
 type modelGenerationSuite struct {

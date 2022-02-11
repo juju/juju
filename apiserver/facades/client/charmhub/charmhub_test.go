@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

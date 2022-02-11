@@ -16,10 +16,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

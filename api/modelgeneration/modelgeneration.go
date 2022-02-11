@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Client provides methods that the Juju client command uses to interact

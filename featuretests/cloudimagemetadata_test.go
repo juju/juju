@@ -9,10 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/imagemetadatamanager"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 )
 
 type cloudImageMetadataSuite struct {

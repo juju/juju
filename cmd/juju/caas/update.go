@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 
 	cloudapi "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 // UpdateCloudAPI - Implemented by cloudapi.Client.

@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
-	"github.com/juju/juju/apiserver/params"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 )
 
 type recorderSuite struct {

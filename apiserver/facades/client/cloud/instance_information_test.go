@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facades/client/cloud"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

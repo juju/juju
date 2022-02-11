@@ -27,7 +27,6 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/resources/client"
 	app "github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/params"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -44,6 +43,7 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 )

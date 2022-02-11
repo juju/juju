@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/modelgeneration"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 )
 
 type modelGenerationSuite struct {

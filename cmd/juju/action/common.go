@@ -13,9 +13,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
 	coreactions "github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")

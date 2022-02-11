@@ -16,7 +16,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	jujutesting "github.com/juju/juju/testing"
 )
 

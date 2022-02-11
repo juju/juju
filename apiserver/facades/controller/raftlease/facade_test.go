@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/rpc/params"
 )
 
 type RaftLeaseSuite struct {
