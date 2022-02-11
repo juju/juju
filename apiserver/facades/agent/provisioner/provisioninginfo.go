@@ -479,10 +479,11 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 		return nil, errors.Trace(err)
 	}
 
-	subnets, err := space.Subnets()
+	spaceInfo, err := space.NetworkSpace()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	subnets := spaceInfo.Subnets
 
 	if len(subnets) == 0 {
 		return nil, errors.Errorf("cannot use space %q as deployment target: no subnets", spaceName)
@@ -491,16 +492,16 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 	subnetsToZones := make(map[string][]string, len(subnets))
 	for _, subnet := range subnets {
 		warningPrefix := fmt.Sprintf("not using subnet %q in space %q for machine %q provisioning: ",
-			subnet.CIDR(), spaceName, machineID,
+			subnet.CIDR, spaceName, machineID,
 		)
 
-		providerID := subnet.ProviderId()
+		providerID := subnet.ProviderId
 		if providerID == "" {
 			logger.Warningf(warningPrefix + "no ProviderId set")
 			continue
 		}
 
-		zones := subnet.AvailabilityZones()
+		zones := subnet.AvailabilityZones
 		if len(zones) == 0 {
 			// For most providers we expect availability zones but Azure
 			// uses Availability Sets instead. So in that case we accept
