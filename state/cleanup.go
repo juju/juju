@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -1102,7 +1101,8 @@ func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw
 		logger.Warningf("%v", err)
 	}
 
-	return cleanupDyingEntityStorage(sb, unitTag, false, filesystemAttachments, volumeAttachments, force)
+	cleaner := newDyingEntityStorageCleaner(sb, unitTag, false, force)
+	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments))
 }
 
 func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool, force bool, maxWait time.Duration) error {
@@ -1491,145 +1491,9 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 		}
 		logger.Warningf("could not determine if machine %v is manual: %v", m.MachineTag().Id(), err)
 	}
-	return cleanupDyingEntityStorage(sb, m.Tag(), manual, filesystemAttachments, volumeAttachments, force)
-}
 
-func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual bool, filesystemAttachments []FilesystemAttachment, volumeAttachments []VolumeAttachment, force bool) error {
-	// Destroy non-detachable machine/unit filesystems first.
-	filesystems, err := sb.filesystems(bson.D{{"hostid", hostTag.Id()}})
-	if err != nil && !errors.IsNotFound(err) {
-		err = errors.Annotate(err, "getting host filesystems")
-		if !force {
-			logger.Warningf("%v", err)
-		}
-	}
-	for _, f := range filesystems {
-		if err := sb.DestroyFilesystem(f.FilesystemTag(), force); err != nil && !errors.IsNotFound(err) {
-			if !force {
-				return errors.Trace(err)
-			}
-			logger.Warningf("could not destroy filesystem %v for %v: %v", f.FilesystemTag().Id(), hostTag, err)
-		}
-	}
-
-	// Detach all filesystems from the machine/unit.
-	for _, fsa := range filesystemAttachments {
-		detachable, err := isDetachableFilesystemTag(sb.mb.db(), fsa.Filesystem())
-		if err != nil && !errors.IsNotFound(err) {
-			if !force {
-				return errors.Trace(err)
-			}
-			logger.Warningf("could not determine if filesystem %v for %v is detachable: %v", fsa.Filesystem().Id(), hostTag, err)
-		}
-		if detachable {
-			if err := sb.DetachFilesystem(fsa.Host(), fsa.Filesystem()); err != nil && !errors.IsNotFound(err) {
-				if !force {
-					return errors.Trace(err)
-				}
-				logger.Warningf("could not detach filesystem %v for %v: %v", fsa.Filesystem().Id(), hostTag, err)
-			}
-		}
-		if !manual {
-			// For non-manual machines we immediately remove the attachments
-			// for non-detachable or volume-backed filesystems, which should
-			// have been set to Dying by the destruction of the machine
-			// filesystems, or filesystem detachment, above.
-			machineTag := fsa.Host()
-			var remove bool
-			var volumeTag names.VolumeTag
-			var updateStatus func() error
-			if !detachable {
-				remove = true
-				updateStatus = func() error { return nil }
-			} else {
-				f, err := sb.Filesystem(fsa.Filesystem())
-				if err != nil && !errors.IsNotFound(err) {
-					if !force {
-						return errors.Trace(err)
-					}
-					logger.Warningf("could not get filesystem %v for %v: %v", fsa.Filesystem().Id(), hostTag, err)
-				}
-				if err == nil {
-					if v, err := f.Volume(); err == nil && !errors.IsNotFound(err) {
-						// Filesystem is volume-backed.
-						volumeTag = v
-						remove = true
-					}
-					updateStatus = func() error {
-						return f.SetStatus(status.StatusInfo{
-							Status: status.Detached,
-						})
-					}
-				}
-			}
-			if remove {
-				if err := sb.RemoveFilesystemAttachment(fsa.Host(), fsa.Filesystem(), force); err != nil && !errors.IsNotFound(err) {
-					if !force {
-						return errors.Trace(err)
-					}
-					logger.Warningf("could not remove attachment for filesystem %v for %v: %v", fsa.Filesystem().Id(), hostTag, err)
-				}
-				if volumeTag != (names.VolumeTag{}) {
-					if err := sb.RemoveVolumeAttachmentPlan(machineTag, volumeTag, force); err != nil && !errors.IsNotFound(err) {
-						if !force {
-							return errors.Trace(err)
-						}
-						logger.Warningf("could not remove attachment plan for volume %v for %v: %v", volumeTag.Id(), hostTag, err)
-					}
-				}
-				if err := updateStatus(); err != nil && !errors.IsNotFound(err) {
-					if !force {
-						return errors.Trace(err)
-					}
-					logger.Warningf("could not update status while cleaning up storage for dying %v: %v", hostTag, err)
-				}
-			}
-		}
-	}
-
-	// For non-manual machines we immediately remove the non-detachable
-	// filesystems, which should have been detached above. Short circuiting
-	// the removal of machine filesystems means we can avoid stuck
-	// filesystems preventing any model-scoped backing volumes from being
-	// detached and destroyed. For non-manual machines this is safe, because
-	// the machine is about to be terminated. For manual machines, stuck
-	// filesystems will have to be fixed manually.
-	if !manual {
-		for _, f := range filesystems {
-			if err := sb.RemoveFilesystem(f.FilesystemTag()); err != nil && !errors.IsNotFound(err) {
-				if !force {
-					return errors.Trace(err)
-				}
-				logger.Warningf("could not remove filesystem %v for dying %v: %v", f.FilesystemTag().Id(), hostTag, err)
-			}
-		}
-	}
-
-	// Detach all remaining volumes from the machine.
-	for _, va := range volumeAttachments {
-		if detachable, err := isDetachableVolumeTag(sb.mb.db(), va.Volume()); err != nil && !errors.IsNotFound(err) {
-			if !force {
-				return errors.Trace(err)
-			}
-			logger.Warningf("could not determine if volume %v for dying %v is detachable: %v", va.Volume().Id(), hostTag, err)
-		} else if !detachable {
-			// Non-detachable volumes will be removed along with the machine.
-			continue
-		}
-		if err := sb.DetachVolume(va.Host(), va.Volume(), force); err != nil && !errors.IsNotFound(err) {
-			if IsContainsFilesystem(err) {
-				// The volume will be destroyed when the
-				// contained filesystem is removed, whose
-				// destruction is initiated above.
-				continue
-			}
-			if !force {
-				return errors.Trace(err)
-			}
-			logger.Warningf("could not detach volume %v for dying %v: %v", va.Volume().Id(), hostTag, err)
-		}
-	}
-	return nil
+	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), manual, force)
+	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments))
 }
 
 // obliterateUnit removes a unit from state completely. It is not safe or
