@@ -25563,9 +25563,7 @@
         "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
+            "machine-agent"
         ],
         "Schema": {
             "type": "object",
