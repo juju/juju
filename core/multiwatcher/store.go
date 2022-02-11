@@ -228,7 +228,13 @@ func (a *store) Get(id EntityID) EntityInfo {
 	if !ok {
 		return nil
 	}
-	return e.Value.(*entityEntry).info
+	ei := e.Value.(*entityEntry).info
+	if ei == nil {
+		return nil
+	}
+	// Always clone to prevent data races/mutating internal store state which will miss
+	// sending changes.
+	return ei.Clone()
 }
 
 // ChangesSince returns any changes that have occurred since
