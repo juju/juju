@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/rpc/params"
 )
 
 // API2ID converts the given payload tag string into a payload ID.

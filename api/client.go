@@ -27,13 +27,13 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )

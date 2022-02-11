@@ -6,7 +6,7 @@ package backups
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 // List provides the implementation of the API method.

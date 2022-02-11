@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

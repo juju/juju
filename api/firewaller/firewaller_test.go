@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

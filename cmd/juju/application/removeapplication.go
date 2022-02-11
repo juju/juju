@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/storage"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/rpc/params"
 )
 
 // NewRemoveApplicationCommand returns a command which removes an application.

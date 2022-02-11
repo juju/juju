@@ -5,7 +5,7 @@ package backups
 
 import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Remove deletes the backups defined by ID from the database.

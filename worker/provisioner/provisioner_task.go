@@ -22,7 +22,6 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/controller"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	providercommon "github.com/juju/juju/provider/common"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/common"

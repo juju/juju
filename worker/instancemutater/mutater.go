@@ -16,13 +16,13 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/api/instancemutater"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/wrench"
 )
 

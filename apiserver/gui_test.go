@@ -26,8 +26,8 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/params"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"

@@ -17,10 +17,10 @@ import (
 	"github.com/juju/utils/v2/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

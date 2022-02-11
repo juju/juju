@@ -11,12 +11,12 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
 	corelife "github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
 )
 

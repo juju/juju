@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmhub"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/rpc/params"
 )
 
 const (

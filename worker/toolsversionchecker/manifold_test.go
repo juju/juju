@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/toolsversionchecker"
 )
 

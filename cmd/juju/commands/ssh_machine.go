@@ -22,9 +22,9 @@ import (
 	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/api/sshclient"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/rpc/params"
 )
 
 // sshMachine implements functionality shared by sshCommand, SCPCommand

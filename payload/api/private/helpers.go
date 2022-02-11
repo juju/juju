@@ -8,9 +8,9 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
+	"github.com/juju/juju/rpc/params"
 )
 
 // API2Result converts the API result to a payload.Result.

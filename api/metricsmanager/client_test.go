@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/api/metricsmanager"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 )
 
 type metricsManagerSuite struct {

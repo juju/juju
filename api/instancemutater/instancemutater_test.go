@@ -15,7 +15,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/api/instancemutater/mocks"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	jujutesting "github.com/juju/juju/testing"
 )
 

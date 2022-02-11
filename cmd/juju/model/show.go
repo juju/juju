@@ -13,11 +13,11 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/rpc/params"
 )
 
 const showModelCommandDoc = `Show information about the current or specified model.`

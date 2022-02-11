@@ -12,9 +12,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 

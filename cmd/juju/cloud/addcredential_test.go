@@ -19,7 +19,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

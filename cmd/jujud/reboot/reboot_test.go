@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/cmd/jujud/reboot/mocks"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/rpc/params"
 )
 
 type NewRebootSuite struct {

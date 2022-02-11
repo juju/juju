@@ -10,11 +10,11 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	caasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
 	charms "github.com/juju/juju/api/common/charms"
-	params "github.com/juju/juju/apiserver/params"
 	life "github.com/juju/juju/core/life"
 	resources "github.com/juju/juju/core/resources"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 )
 

@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
 	"github.com/juju/juju/payload/api/client"
+	"github.com/juju/juju/rpc/params"
 )
 
 type publicSuite struct {

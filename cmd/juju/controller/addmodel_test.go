@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

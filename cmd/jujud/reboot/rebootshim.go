@@ -7,10 +7,10 @@ import (
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )

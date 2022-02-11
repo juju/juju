@@ -14,7 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/httpattachment"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )

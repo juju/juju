@@ -8,10 +8,10 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/apiserver/params"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 // New returns a new notify watch handler that will convert the given machine &

@@ -5,7 +5,7 @@ package diskmanager
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/names/v4"
 )

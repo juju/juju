@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
+	params "github.com/juju/juju/rpc/params"
 	names_v3 "github.com/juju/names/v4"
 )
 

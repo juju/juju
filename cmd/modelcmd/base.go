@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/pki"
 	proxyerrors "github.com/juju/juju/proxy/errors"
+	"github.com/juju/juju/rpc/params"
 )
 
 var errNoNameSpecified = errors.New("no name specified")

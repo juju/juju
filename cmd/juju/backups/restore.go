@@ -16,13 +16,13 @@ import (
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 // NewRestoreCommand returns a command used to restore a backup.

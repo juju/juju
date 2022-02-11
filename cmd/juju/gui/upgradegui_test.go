@@ -23,11 +23,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/gui"
 	envgui "github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/simplestreams"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
 

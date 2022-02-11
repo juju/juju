@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/rpc/params"
 )
 
 type removeSuite struct {
