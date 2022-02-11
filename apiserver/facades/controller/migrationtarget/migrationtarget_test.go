@@ -4,6 +4,7 @@
 package migrationtarget_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/description/v3"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -31,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
@@ -390,7 +393,7 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
+func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -405,6 +408,51 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 	mockEnv := mockEnv{
 		Stub:      &testing.Stub{},
 		instances: []*mockInstance{{id: "birds"}},
+	}
+	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: model.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil)
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "manual",
+		Type:      "manual",
+		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		Endpoint:  "10.0.0.1",
+	}, owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
+	tag := names.NewCloudCredentialTag(
+		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		CloudName:       "manual",
+		CloudCredential: tag,
+		Owner:           owner.UserTag(),
+	})
+	defer st.Close()
+
+	fact := factory.NewFactory(st, s.StatePool)
+	fact.MakeMachine(c, &factory.MachineParams{
+		Nonce: "manual:birds",
+	})
+	fact.MakeMachine(c, &factory.MachineParams{
+		Nonce: "manual:flibbertigibbert",
+	})
+
+	mockEnv := mockEnv{
+		Stub:      &testing.Stub{},
+		instances: []*mockInstance{{id: "birds"}, {id: "flibbertigibbert"}},
 	}
 	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 
