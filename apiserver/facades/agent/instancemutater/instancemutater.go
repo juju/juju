@@ -107,7 +107,6 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
-		//machineFunc: machineFromEntity,
 	}, nil
 }
 
@@ -303,11 +302,11 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 }
 
 // WatchLXDProfileVerificationForMachine notifies if any of the following happen
-// relative to this machine:
+// relative to the specified machine:
 //     1. A new unit whose charm has an LXD profile is added.
 //     2. A unit being removed has a profile and other units
 //        exist on the machine.
-//     3. The LXD profile of an application with a unit on this
+//     3. The LXD profile of an application with a unit on the
 //        machine is added, removed, or exists. This also includes scenarios
 //        where the charm is being downloaded asynchronously and its metadata
 //        gets updated once the download is complete.
