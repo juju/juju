@@ -368,7 +368,14 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 	s.State.StartSync()
 
 	obtained = s.nextChange(c, changes)
+	modelChange2, ok := obtained.(cache.ModelChange)
+	c.Assert(ok, jc.IsTrue)
+	// Check permissions dropped correctly.
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.UserPermissions", gc.HasLen, 0)
+	c.Assert(modelChange2, mc, modelChange)
 
+	obtained = s.nextChange(c, changes)
 	change, ok := obtained.(cache.RemoveModel)
 	c.Assert(ok, jc.IsTrue)
 	c.Check(change.ModelUUID, gc.Equals, model.UUID())

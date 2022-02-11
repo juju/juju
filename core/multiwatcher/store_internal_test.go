@@ -309,7 +309,7 @@ func (s *storeSuite) TestGet(c *gc.C) {
 	m := &MachineInfo{ModelUUID: "uuid", ID: "0"}
 	a.Update(m)
 
-	c.Assert(a.Get(m.EntityID()), gc.Equals, m)
+	c.Assert(a.Get(m.EntityID()), gc.DeepEquals, m)
 	c.Assert(a.Get(EntityID{"machine", "uuid", "1"}), gc.IsNil)
 }
 
