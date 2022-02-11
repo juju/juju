@@ -268,10 +268,19 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	}
 	defer st.Release()
 
+	// We don't want to check existing cloud instances for "manual" clouds.
+	model, err := st.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	cloud, err := model.Cloud()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	return credentialcommon.ValidateExistingModelCredential(
 		credentialcommon.NewPersistentBackend(st.State),
 		context.CallContext(st.State),
-		true,
+		cloud.Type != "manual",
 	)
 }
 
