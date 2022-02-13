@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/proxy"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -390,22 +391,52 @@ func (c *Client) ControllerVersion() (ControllerVersion, error) {
 	return out, err
 }
 
-// DashboardAddresses returns the address info needed to connect to the dashboard.
-func (c *Client) DashboardAddresses() ([]string, bool, error) {
-	result := params.DashboardInfo{}
-	err := c.facade.FacadeCall("DashboardAddressInfo", nil, &result)
+// DashboardConnectionInfo
+type DashboardConnectionInfo struct {
+	Proxier   proxy.Proxier
+	SSHTunnel *DashboardConnectionSSHTunnel
+}
+
+type DashboardConnectionSSHTunnel struct {
+	Host string
+	Port string
+}
+
+// ProxierFactory is an interface type representing a factory that can make a
+// new juju proxier from the supplied raw config.
+type ProxierFactory interface {
+	ProxierFromConfig(string, map[string]interface{}) (proxy.Proxier, error)
+}
+
+// DashboardConnectionInfo fetches the connection information needed for
+// connecting to the Juju Dashboard.
+func (c *Client) DashboardConnectionInfo(factory ProxierFactory) (DashboardConnectionInfo, error) {
+	rval := DashboardConnectionInfo{}
+	result := params.DashboardConnectionInfo{}
+	err := c.facade.FacadeCall("DashboardConnectionInfo", nil, &result)
 	if err != nil {
-		return nil, false, errors.Trace(err)
+		return rval, errors.Trace(err)
 	}
+
 	if result.Error != nil {
-		var apiErr error = result.Error
-		if params.IsCodeNotFound(apiErr) {
-			apiErr = errors.NotFoundf("dashboard")
+		return rval, result.Error
+	}
+
+	if result.SSHConnection != nil {
+		rval.SSHTunnel = &DashboardConnectionSSHTunnel{
+			Host: result.SSHConnection.Host,
+			Port: result.SSHConnection.Port,
 		}
-		return nil, false, errors.Trace(apiErr)
+		return rval, nil
 	}
-	if len(result.Addresses) < 1 {
-		return nil, false, errors.NotFoundf("dashboard")
+
+	proxier, err := factory.ProxierFromConfig(
+		result.ProxyConnection.Type,
+		result.ProxyConnection.Config)
+	if err != nil {
+		return rval, errors.Annotate(err, "creating proxier from config")
 	}
-	return result.Addresses, result.UseTunnel, nil
+
+	rval.Proxier = proxier
+	return rval, nil
 }

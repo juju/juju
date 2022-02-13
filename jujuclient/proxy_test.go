@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/proxy/factory"
 )
 
 type dummyProxier struct {
@@ -19,7 +20,7 @@ type dummyProxier struct {
 }
 
 type proxyWrapperSuite struct {
-	factory *proxy.Factory
+	factory *factory.Factory
 }
 
 var _ = gc.Suite(&proxyWrapperSuite{})
@@ -31,6 +32,10 @@ func (d *dummyProxier) MarshalYAML() (interface{}, error) {
 	return map[string]string{
 		"conf": d.Conf,
 	}, nil
+}
+
+func (d *dummyProxier) RawConfig() (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
 }
 
 func (d *dummyProxier) Start() error {
@@ -45,7 +50,7 @@ func (d *dummyProxier) Type() string {
 }
 
 func (p *proxyWrapperSuite) SetUpTest(c *gc.C) {
-	p.factory = proxy.NewFactory()
+	p.factory = factory.NewFactory()
 }
 
 func (p *proxyWrapperSuite) TestMarshallingKeys(c *gc.C) {
@@ -72,7 +77,7 @@ func (p *proxyWrapperSuite) TestUnmarshalling(c *gc.C) {
 	y, err := yaml.Marshal(wrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = p.factory.Register(proxier.Type(), proxy.FactoryRegister{
+	err = p.factory.Register(proxier.Type(), factory.FactoryRegister{
 		ConfigFn: func() interface{} {
 			return &dummyProxier{}
 		},
@@ -86,7 +91,7 @@ func (p *proxyWrapperSuite) TestUnmarshalling(c *gc.C) {
 
 	fmt.Println(string(y))
 
-	jujuclient.NewProxierFactory = func() (*proxy.Factory, error) {
+	jujuclient.NewProxierFactory = func() (*factory.Factory, error) {
 		return p.factory, nil
 	}
 

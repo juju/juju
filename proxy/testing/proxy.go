@@ -5,6 +5,9 @@ package testing
 
 type MockProxier struct {
 	// See Proxier interface
+	RawConfigFn func() (map[string]interface{}, error)
+
+	// See Proxier interface
 	StartFn func() error
 
 	// See Proxier interface
@@ -28,6 +31,13 @@ func NewMockTunnelProxier() *MockTunnelProxier {
 	return &MockTunnelProxier{
 		MockProxier: &MockProxier{},
 	}
+}
+
+func (mp *MockProxier) RawConfig() (map[string]interface{}, error) {
+	if mp.RawConfigFn == nil {
+		return map[string]interface{}{}, nil
+	}
+	return mp.RawConfigFn()
 }
 
 func (mp *MockProxier) Start() error {

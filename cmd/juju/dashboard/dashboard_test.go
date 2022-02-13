@@ -6,6 +6,7 @@ package dashboard_test
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -14,8 +15,10 @@ import (
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/juju/dashboard"
 	"github.com/juju/juju/jujuclient"
+	proxytesting "github.com/juju/juju/proxy/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,17 +26,18 @@ type baseDashboardSuite struct {
 	testing.BaseSuite
 
 	controllerAPI *mockControllerAPI
+	tunnelProxier *proxytesting.MockTunnelProxier
 	store         *jujuclient.MemStore
+	signalCh      chan os.Signal
 }
 
 type mockControllerAPI struct {
-	addresses []string
-	tunnel    bool
-	err       error
+	info controller.DashboardConnectionInfo
+	err  error
 }
 
-func (m *mockControllerAPI) DashboardAddresses() ([]string, bool, error) {
-	return m.addresses, m.tunnel, m.err
+func (m *mockControllerAPI) DashboardConnectionInfo(_ controller.ProxierFactory) (controller.DashboardConnectionInfo, error) {
+	return m.info, m.err
 }
 
 func (m *mockControllerAPI) Close() error {
@@ -42,7 +46,7 @@ func (m *mockControllerAPI) Close() error {
 
 // run executes the dashboard command passing the given args.
 func (s *baseDashboardSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(s.store, s.controllerAPI), args...)
+	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(s.store, s.controllerAPI, s.signalCh), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
@@ -55,6 +59,10 @@ func (s *baseDashboardSuite) patchBrowser(f func(*url.URL) error) {
 	s.PatchValue(dashboard.WebbrowserOpen, f)
 }
 
+func (s *baseDashboardSuite) sendInterrupt() {
+	s.signalCh <- os.Interrupt
+}
+
 type dashboardSuite struct {
 	baseDashboardSuite
 }
@@ -62,8 +70,19 @@ type dashboardSuite struct {
 var _ = gc.Suite(&dashboardSuite{})
 
 func (s *dashboardSuite) SetUpTest(c *gc.C) {
+	s.signalCh = make(chan os.Signal, 1)
+
+	s.tunnelProxier = proxytesting.NewMockTunnelProxier()
+	s.tunnelProxier.HostFn = func() string { return "10.1.1.1" }
+	s.tunnelProxier.PortFn = func() string {
+		defer s.sendInterrupt()
+		return "6767"
+	}
+
 	s.controllerAPI = &mockControllerAPI{
-		addresses: []string{"10.1.1.1"},
+		info: controller.DashboardConnectionInfo{
+			Proxier: s.tunnelProxier,
+		},
 	}
 	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["kontroll"] = jujuclient.ControllerDetails{}
@@ -85,8 +104,8 @@ func (s *dashboardSuite) TestDashboardSuccessWithBrowser(c *gc.C) {
 	})
 	out, err := s.run(c, "--browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	dashboardURL := "https://10.1.1.1"
-	expectOut := "Opening the Juju Dashboard in your browser.\nIf it does not open, open this URL:\n" + dashboardURL
+	dashboardURL := "http://10.1.1.1:6767"
+	expectOut := "Opening the Juju Dashboard in your browser.\nIf it does not open, open this URL:\n" + dashboardURL + "\nReceived signal interrupt, stopping dashboard proxy connection"
 	c.Assert(out, gc.Equals, expectOut)
 	c.Assert(browserURL, gc.Equals, dashboardURL)
 }
@@ -112,9 +131,9 @@ func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *gc.C) {
 	// There is no need to patch the browser open function here.
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, jc.Contains, fmt.Sprintf(`
 Dashboard for controller "kontroll" is enabled at:
-  https://10.1.1.1`[1:]))
+  http://10.1.1.1:6767`[1:]))
 }
 
 func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *gc.C) {
@@ -123,22 +142,21 @@ func (s *dashboardSuite) TestDashboardSuccessBrowserNotFound(c *gc.C) {
 	})
 	out, err := s.run(c, "--browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	expectOut := "Open this URL in your browser:\nhttps://10.1.1.1"
-	c.Assert(out, gc.Equals, expectOut)
+	expectOut := "Open this URL in your browser:\nhttp://10.1.1.1:6767"
+	c.Assert(out, jc.Contains, expectOut)
 }
 
 func (s *dashboardSuite) TestDashboardErrorBrowser(c *gc.C) {
 	s.patchBrowser(func(u *url.URL) error {
 		return errors.New("bad wolf")
 	})
-	out, err := s.run(c, "--browser")
+	_, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, "cannot open web browser: bad wolf")
-	c.Assert(out, gc.Equals, "")
 }
 
 func (s *dashboardSuite) TestDashboardErrorUnavailable(c *gc.C) {
 	s.controllerAPI.err = errors.NotFoundf("dashboard")
-	out, err := s.run(c, "--browser")
+	_, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, `
 The Juju dashboard is not yet deployed.
 To deploy the Juju dashboard follow these steps:
@@ -147,7 +165,6 @@ To deploy the Juju dashboard follow these steps:
   juju expose juju-dashboard
   juju relate juju-dashboard controller
 `[1:])
-	c.Assert(out, gc.Equals, "")
 }
 
 func (s *dashboardSuite) TestDashboardError(c *gc.C) {

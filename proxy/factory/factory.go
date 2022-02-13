@@ -1,12 +1,14 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package proxy
+package factory
 
 import (
 	"github.com/juju/errors"
+	"github.com/mitchellh/mapstructure"
 
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/proxy"
 )
 
 // Factory provides a mechanism for building various type of proxy based on
@@ -19,7 +21,7 @@ type Factory struct {
 // FactoryRegister describe registration details for building a new proxy.
 type FactoryRegister struct {
 	ConfigFn func() interface{}
-	MakerFn  func(interface{}) (Proxier, error)
+	MakerFn  func(interface{}) (proxy.Proxier, error)
 }
 
 // FactoryMaker is shell object used for facilitating the making of a proxy
@@ -39,7 +41,7 @@ func (f *FactoryMaker) Config() interface{} {
 }
 
 // Make attempts to make the proxy from the filled config.
-func (f *FactoryMaker) Make() (Proxier, error) {
+func (f *FactoryMaker) Make() (proxy.Proxier, error) {
 	return f.Register.MakerFn(f.RawConfig)
 }
 
@@ -65,7 +67,7 @@ func NewDefaultFactory() (*Factory, error) {
 		k8sproxy.ProxierTypeKey,
 		FactoryRegister{
 			ConfigFn: func() interface{} { return k8sproxy.NewProxierConfig() },
-			MakerFn:  func(c interface{}) (Proxier, error) { return k8sproxy.NewProxierFromRawConfig(c) },
+			MakerFn:  func(c interface{}) (proxy.Proxier, error) { return k8sproxy.NewProxierFromRawConfig(c) },
 		}); err != nil {
 		return factory, err
 	}
@@ -78,6 +80,26 @@ func NewFactory() *Factory {
 	return &Factory{
 		inventory: make(map[string]FactoryRegister),
 	}
+}
+
+// ProxierFromConfig is a utility function for making a proxier from this
+// factory using raw config data within in a map[string]interface{}. The type
+// key cannot be an empty string.
+func (f *Factory) ProxierFromConfig(typeKey string, config map[string]interface{}) (proxy.Proxier, error) {
+	if typeKey == "" {
+		return nil, errors.NotValidf("type key for proxier cannot be empty")
+	}
+
+	maker, err := f.MakerForTypeKey(typeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := mapstructure.Decode(config, maker.Config()); err != nil {
+		return nil, errors.Annotatef(err, "decoding config  for proxier type %q", typeKey)
+	}
+
+	return maker.Make()
 }
 
 // Register registers a new proxier type and creationg methods to this factory

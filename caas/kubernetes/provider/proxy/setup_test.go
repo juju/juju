@@ -48,6 +48,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	}
 
 	err := proxy.CreateControllerProxy(
+		context.Background(),
 		config,
 		labels.Set{},
 		s.client.CoreV1().ConfigMaps(testNamespace),
@@ -105,6 +106,7 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 	}
 
 	err := proxy.CreateControllerProxy(
+		context.Background(),
 		config,
 		labels.Set{},
 		s.client.CoreV1().ConfigMaps(testNamespace),

@@ -677,6 +677,11 @@ func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 	return Endpoint{}, errors.NewNotFound(nil, msg)
 }
 
+// ModelUUID returns the model UUID for the relation.
+func (r *Relation) ModelUUID() string {
+	return r.doc.ModelUUID
+}
+
 // Endpoints returns the endpoints for the relation.
 func (r *Relation) Endpoints() []Endpoint {
 	return r.doc.Endpoints

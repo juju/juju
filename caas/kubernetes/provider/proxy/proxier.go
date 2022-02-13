@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/mitchellh/mapstructure"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
@@ -21,12 +22,12 @@ type Proxier struct {
 }
 
 type ProxierConfig struct {
-	APIHost             string `yaml:"api-host"`
-	CAData              string `yaml:"ca-cert"`
-	Namespace           string `yaml:"namespace"`
-	RemotePort          string `yaml:"remote-port"`
-	Service             string `yaml:"service"`
-	ServiceAccountToken string `yaml:"service-account-token"`
+	APIHost             string `yaml:"api-host" mapstructure:"api-host"`
+	CAData              string `yaml:"ca-cert" mapstructure:"ca-cert"`
+	Namespace           string `yaml:"namespace" mapstructure:"namespace"`
+	RemotePort          string `yaml:"remote-port" mapstructure:"remote-port"`
+	Service             string `yaml:"service" mapstructure:"service"`
+	ServiceAccountToken string `yaml:"service-account-token" mapstructure:"service-account-token"`
 }
 
 const (
@@ -69,6 +70,14 @@ func (p *Proxier) SetAPIHost(host string) {
 	p.config.APIHost = host
 }
 
+// RawConfig implements Proxier RawConfig interface.
+func (p *Proxier) RawConfig() (map[string]interface{}, error) {
+	rval := map[string]interface{}{}
+	err := mapstructure.Decode(&p.config, &rval)
+	return rval, errors.Trace(err)
+}
+
+// MarshalYAML implements the yaml Marshaler interface
 func (p *Proxier) MarshalYAML() (interface{}, error) {
 	return &p.config, nil
 }

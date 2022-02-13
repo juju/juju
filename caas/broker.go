@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/storage"
 )
 
@@ -215,6 +216,9 @@ type Broker interface {
 
 	// EnsureImageRepoSecret ensures the image pull secret gets created.
 	EnsureImageRepoSecret(docker.ImageRepoDetails) error
+
+	// ProxyManager provides methods for managing application proxy connections.
+	ProxyManager
 }
 
 // ApplicationBroker provides an API for accessing the broker interface for
@@ -311,6 +315,11 @@ type CredentialChecker interface {
 	// CheckCloudCredentials verifies that the provided cloud credentials
 	// are still valid for the cloud.
 	CheckCloudCredentials() error
+}
+
+// ProxyManager provides the API to get proxier information for applications
+type ProxyManager interface {
+	ProxyToApplication(appName, remotePort string) (proxy.Proxier, error)
 }
 
 // ServiceManager provides the API to manipulate services.

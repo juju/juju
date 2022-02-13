@@ -4,12 +4,12 @@
 package dashboard
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
-	"net"
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -20,11 +20,13 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/proxy"
+	proxyfactory "github.com/juju/juju/proxy/factory"
 )
 
 // ControllerAPI is used to get dashboard info from the controller.
 type ControllerAPI interface {
-	DashboardAddresses() ([]string, bool, error)
+	DashboardConnectionInfo(controller.ProxierFactory) (controller.DashboardConnectionInfo, error)
 	Close() error
 }
 
@@ -35,6 +37,7 @@ func NewDashboardCommand() cmd.Command {
 		return d.newControllerAPI()
 	}
 	d.embeddedSSHCmd = ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy)
+	d.signalCh = make(chan os.Signal)
 	return modelcmd.Wrap(d)
 }
 
@@ -49,7 +52,11 @@ type dashboardCommand struct {
 
 	port           int
 	embeddedSSHCmd cmd.Command
+	signalCh       chan os.Signal
 }
+
+type urlCallBack func(url string)
+type connectionRunner func(ctx context.Context, callBack urlCallBack) error
 
 func (c *dashboardCommand) newControllerAPI() (ControllerAPI, bool, error) {
 	root, err := c.NewControllerAPIRoot()
@@ -106,7 +113,7 @@ func (c *dashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements the cmd.Command interface.
 func (c *dashboardCommand) Run(ctx *cmd.Context) error {
-	api, isProxied, err := c.newAPIFunc()
+	api, _, err := c.newAPIFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -117,93 +124,127 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	actualDashboardAddresses, useTunnel, err := api.DashboardAddresses()
+
+	factory, err := proxyfactory.NewDefaultFactory()
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return errors.New(dashboardNotAvailableMessage)
-		}
+		return errors.Annotate(err, "creating default proxy factory to support dashboard connection")
+	}
+
+	res, err := api.DashboardConnectionInfo(factory)
+	if errors.IsNotFound(err) {
+		return errors.New(dashboardNotAvailableMessage)
+	} else if err != nil {
 		return errors.Annotatef(err,
 			"getting dashboard address for controller %q",
 			controllerName,
 		)
 	}
 
-	// Pick a random dashboard address.
-	i := rand.Intn(len(actualDashboardAddresses))
-	dashboardAddress := actualDashboardAddresses[i]
-	dashboardURL := fmt.Sprintf("https://%s", dashboardAddress)
+	var runner connectionRunner
 
-	var errCh <-chan error
-	if useTunnel {
-		errCh, err = c.openTunnel(dashboardAddress)
-		if err != nil {
+	if res.Proxier != nil {
+		tunnelProxy, ok := res.Proxier.(proxy.TunnelProxier)
+		if !ok {
+			return errors.Annotatef(err, "unsupported proxy type %q for dashboard", res.Proxier.Type())
+		}
+
+		runner = tunnelProxyRunner(tunnelProxy)
+	} else if res.SSHTunnel != nil {
+		runner = tunnelSSHRunner(*res.SSHTunnel, c.port, c.embeddedSSHCmd)
+	} else {
+		return errors.NotValidf("dashboard connection has no proxying or ssh connection information")
+	}
+
+	urlCh := make(chan string)
+	defer close(urlCh)
+	runnerURLCallBack := func(url string) {
+		urlCh <- url
+	}
+
+	stdctx, cancel := context.WithCancel(context.Background())
+	cancelOnce := sync.Once{}
+	defer cancelOnce.Do(cancel)
+	finishCh := make(chan error)
+	go func() {
+		defer close(finishCh)
+		err := runner(stdctx, runnerURLCallBack)
+		finishCh <- errors.Annotate(err, "running connection runner")
+	}()
+
+	// We need to wait for either the runner to blow up or tell us wha the
+	// dashboard url is before processing the os signals
+	var userErr error
+	select {
+	case url := <-urlCh:
+		if userErr = c.openBrowser(ctx, "Dashboard", url); userErr != nil {
+			cancelOnce.Do(cancel)
+			break
+		}
+		if userErr = c.showCredentials(ctx); userErr != nil {
+			cancelOnce.Do(cancel)
+		}
+	case err, ok := <-finishCh:
+		if ok {
 			return errors.Trace(err)
 		}
-		dashboardURL = fmt.Sprintf("http://localhost:%d", c.port)
-	}
-	// TODO(wallyworld) - support k8s dashboard charm properly
-	if isProxied {
-		//addr, err := proxierAddr(conn.Proxy())
-		//if err != nil {
-		//	return errors.Trace(err)
-		//}
-		//dashboardURL = fmt.Sprintf("http://%s", addr)
-		return errors.NotSupportedf("k8s dashboard")
-	}
-
-	// Open the Juju Dashboard in the browser.
-	if err = c.openBrowser(ctx, "Dashboard", dashboardURL); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Print login credentials if requested.
-	if err = c.showCredentials(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
-	if !useTunnel && !isProxied {
 		return nil
 	}
 
-	ctx.Infof("The dashboard connection for controller %q requires a proxied "+
-		"connection. This command will hold the proxy connection open until "+
-		"an interrupt or kill signal is sent.",
-		controllerName,
-	)
-
-	signalCh := make(chan os.Signal)
-	signal.Notify(signalCh, os.Interrupt, os.Kill)
-	select {
-	case waitSig := <-signalCh:
-		ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
-	case err := <-errCh:
-		return errors.Annotate(err, "error opening ssh tunnel")
+	signal.Notify(c.signalCh, os.Interrupt, os.Kill)
+	for {
+		select {
+		case waitSig := <-c.signalCh:
+			ctx.Infof("Received signal %s, stopping dashboard proxy connection", waitSig)
+			cancelOnce.Do(cancel)
+		case err, ok := <-finishCh:
+			if ok && err != nil {
+				return errors.Wrap(userErr, err)
+			}
+			return userErr
+		}
 	}
-	return nil
 }
 
-// openTunnel creates a tunnel from localhost to the dashboard.
-func (c *dashboardCommand) openTunnel(dashboardAddress string) (<-chan error, error) {
-	host, _, err := net.SplitHostPort(dashboardAddress)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := c.embeddedSSHCmd.Init([]string{
-		"ubuntu@" + host,
-		"-N",
-		"-L",
-		fmt.Sprintf("%d:%s", c.port, dashboardAddress),
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
-	errCh := make(chan error)
-	go func() {
-		// TODO(wallyworld) - extract the core ssh machinery and use directly.
-		ctx, _ := cmd.DefaultContext()
-		errCh <- c.embeddedSSHCmd.Run(ctx)
-	}()
+func tunnelSSHRunner(
+	tunnel controller.DashboardConnectionSSHTunnel,
+	localPort int,
+	sshCommand cmd.Command,
+) connectionRunner {
+	return func(ctx context.Context, callBack urlCallBack) error {
+		if err := sshCommand.Init([]string{
+			"ubuntu@" + tunnel.Host,
+			"-N",
+			"-L",
+			fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port),
+		}); err != nil {
+			return errors.Trace(err)
+		}
 
-	return errCh, nil
+		callBack(fmt.Sprintf("http://localhost:%d", localPort))
+
+		// TODO(tlm)
+		// How we call the embeddedSSHCmd is a little wrong here. We need to
+		// support passing a context onto the sub command so that everything can
+		// shutdown cleanly.
+		// TODO(wallyworld) - extract the core ssh machinery and use directly.
+		cmdCtx, _ := cmd.DefaultContext()
+		return sshCommand.Run(cmdCtx)
+	}
+}
+
+func tunnelProxyRunner(p proxy.TunnelProxier) connectionRunner {
+	return func(ctx context.Context, callBack urlCallBack) error {
+		if err := p.Start(); err != nil {
+			return errors.Annotate(err, "starting tunnel proxy")
+		}
+		defer p.Stop()
+
+		callBack(fmt.Sprintf("http://%s:%s", p.Host(), p.Port()))
+		select {
+		case <-ctx.Done():
+		}
+		return nil
+	}
 }
 
 // openBrowser opens the Juju Dashboard at the given URL.

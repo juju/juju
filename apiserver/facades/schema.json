@@ -19191,14 +19191,14 @@
                     },
                     "description": "ControllerVersion returns the version information associated with this\ncontroller binary.\n\nNOTE: the implementation intentionally does not check for SuperuserAccess\nas the Version is known even to users with login access."
                 },
-                "DashboardAddressInfo": {
+                "DashboardConnectionInfo": {
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/DashboardInfo"
+                            "$ref": "#/definitions/DashboardConnectionInfo"
                         }
                     },
-                    "description": "DashboardAddressInfo returns the address info needed to connect to the juju dashboard."
+                    "description": "DashboardConnectionInfo returns the connection information for a client to\nconnect to the Juju Dashboard including any proxying information."
                 },
                 "DestroyController": {
                     "type": "object",
@@ -19575,26 +19575,61 @@
                         "git-commit"
                     ]
                 },
-                "DashboardInfo": {
+                "DashboardConnectionInfo": {
                     "type": "object",
                     "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "use-tunnel": {
-                            "type": "boolean"
+                        "proxy-connection": {
+                            "$ref": "#/definitions/DashboardConnectionProxy"
+                        },
+                        "ssh-connection": {
+                            "$ref": "#/definitions/DashboardConnectionSSHTunnel"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "addresses",
-                        "use-tunnel"
+                        "proxy-connection",
+                        "ssh-connection"
+                    ]
+                },
+                "DashboardConnectionProxy": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "type"
+                    ]
+                },
+                "DashboardConnectionSSHTunnel": {
+                    "type": "object",
+                    "properties": {
+                        "host": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "host",
+                        "port"
                     ]
                 },
                 "DestroyControllerArgs": {

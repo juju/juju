@@ -16,6 +16,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
+	proxy "github.com/juju/juju/proxy"
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
@@ -414,6 +415,21 @@ func (m *MockBroker) Provider() caas.ContainerEnvironProvider {
 func (mr *MockBrokerMockRecorder) Provider() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Provider", reflect.TypeOf((*MockBroker)(nil).Provider))
+}
+
+// ProxyToApplication mocks base method.
+func (m *MockBroker) ProxyToApplication(arg0, arg1 string) (proxy.Proxier, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProxyToApplication", arg0, arg1)
+	ret0, _ := ret[0].(proxy.Proxier)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProxyToApplication indicates an expected call of ProxyToApplication.
+func (mr *MockBrokerMockRecorder) ProxyToApplication(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProxyToApplication", reflect.TypeOf((*MockBroker)(nil).ProxyToApplication), arg0, arg1)
 }
 
 // SetConfig mocks base method.

@@ -52,6 +52,7 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 	}
 
 	err := proxy.CreateControllerProxy(
+		context.Background(),
 		config,
 		labels.Set{},
 		i.client.CoreV1().ConfigMaps(testNamespace),
@@ -77,6 +78,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 	}
 
 	err := proxy.CreateControllerProxy(
+		context.Background(),
 		config,
 		labels.Set{},
 		i.client.CoreV1().ConfigMaps(testNamespace),
