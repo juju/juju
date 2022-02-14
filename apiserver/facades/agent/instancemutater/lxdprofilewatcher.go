@@ -151,7 +151,6 @@ func (w *machineLXDProfileWatcher) loop() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			w.closed = true
 			return w.catacomb.ErrDying()
 		case apps := <-appWatcher.Changes():
 			logger.Tracef("application charm changes: %v", apps)
