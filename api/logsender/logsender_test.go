@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -73,12 +74,18 @@ func (s *LogSenderSuite) TestNewAPIWriteError(c *gc.C) {
 func (s *LogSenderSuite) TestNewAPIReadError(c *gc.C) {
 	conn := &mockConnector{
 		c:          c,
+		closed:     make(chan bool),
 		readError:  errors.New("read foo"),
 		writeError: errors.New("closed yo"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter()
 	c.Assert(err, gc.IsNil)
+	select {
+	case <-conn.closed:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timeout waiting for connection to close")
+	}
 
 	err = w.WriteLog(new(params.LogRecord))
 	c.Assert(err, gc.ErrorMatches, "sending log message: read foo: closed yo")
@@ -94,6 +101,7 @@ type mockConnector struct {
 	written      []interface{}
 	readDone     chan struct{}
 	closeCount   int
+	closed       chan bool
 }
 
 func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stream, error) {
@@ -108,11 +116,12 @@ func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stre
 	}
 
 	c.readDone = make(chan struct{}, 1)
-	return mockStream{c}, nil
+	return mockStream{conn: c, closed: c.closed}, nil
 }
 
 type mockStream struct {
-	conn *mockConnector
+	conn   *mockConnector
+	closed chan bool
 }
 
 func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
@@ -151,6 +160,9 @@ func (s mockStream) WriteJSON(v interface{}) error {
 
 func (s mockStream) Close() error {
 	s.conn.closeCount++
+	if s.closed != nil {
+		close(s.closed)
+	}
 	return nil
 }
 
