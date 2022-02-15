@@ -16,6 +16,9 @@ import (
 
 var keyRule = charm.GetActionNameRule()
 
+// list of action result keys that are not allowed to be set by users
+var reservedKeys = []string{"stdout", "stdout-encoding", "stderr", "stderr-encoding"}
+
 // ActionSetCommand implements the action-set command.
 type ActionSetCommand struct {
 	cmd.CommandBase
@@ -30,11 +33,13 @@ func NewActionSetCommand(ctx Context) (cmd.Command, error) {
 
 // Info returns the content for --help.
 func (c *ActionSetCommand) Info() *cmd.Info {
-	doc := `
+	reservedText := `"` + strings.Join(reservedKeys, `", "`) + `"`
+	doc := fmt.Sprintf(`
 action-set adds the given values to the results map of the Action. This map
 is returned to the user after the completion of the Action. Keys must start
 and end with lowercase alphanumeric, and contain only lowercase alphanumeric,
-hyphens and periods.
+hyphens and periods.  The following special keys are reserved for internal use: 
+%s.
 
 Example usage:
  action-set outfile.size=10G
@@ -51,7 +56,7 @@ Example usage:
    bar:
      zab: "4"
    baz: "1"
-`
+`, reservedText)
 	return jujucmd.Info(&cmd.Info{
 		Name:    "action-set",
 		Args:    "<key>=<value> [<key>=<value> ...]",
@@ -78,6 +83,12 @@ func (c *ActionSetCommand) Init(args []string) error {
 		for _, key := range keySlice {
 			if valid := keyRule.MatchString(key); !valid {
 				return fmt.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods", key)
+			}
+
+			for _, reserved := range reservedKeys {
+				if reserved == key {
+					return fmt.Errorf(`cannot set reserved action key "%s"`, key)
+				}
 			}
 		}
 		// [key, key, key, key, value]
