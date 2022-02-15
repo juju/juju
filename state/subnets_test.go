@@ -452,7 +452,7 @@ func (s *SubnetSuite) TestUniqueAdditionAndRetrievalByCIDR(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("multiple subnets matching %q", cidr))
 }
 
-func (s *SubnetSuite) TestUpdateSpaceOps(c *gc.C) {
+func (s *SubnetSuite) TestUpdateSubnetSpaceOps(c *gc.C) {
 	space, err := s.State.AddSpace("space-0", "0", []string{}, false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -465,10 +465,9 @@ func (s *SubnetSuite) TestUpdateSpaceOps(c *gc.C) {
 
 	sub, err := s.State.AddSubnet(arg)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.State.UpdateSubnetSpaceOps(sub.ID(), space.Id()), gc.IsNil)
 
-	c.Check(sub.UpdateSpaceOps(space.Id()), gc.IsNil)
-
-	ops := sub.UpdateSpaceOps("666")
+	ops := s.State.UpdateSubnetSpaceOps(sub.ID(), "666")
 	c.Assert(ops, gc.HasLen, 2)
 	for _, op := range ops {
 		if op.C == "spaces" {

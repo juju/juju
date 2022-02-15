@@ -10,12 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
-	"github.com/juju/juju/core/network"
 )
 
 type SpaceRemoveSuite struct {
-	space  *spaces.MockRemoveSpace
-	subnet *spaces.MockSubnet
+	space *spaces.MockRemoveSpace
 }
 
 var _ = gc.Suite(&SpaceRemoveSuite{})
@@ -28,16 +26,14 @@ func (s *SpaceRemoveSuite) TestSuccess(c *gc.C) {
 		C:      "1",
 		Id:     "2",
 		Remove: true,
-	}}
-
-	moveSubnetOps := []txn.Op{{
+	}, {
 		C:      "1",
 		Remove: false,
 	}}
 
-	s.space.EXPECT().RemoveSpaceOps().Return(removeSpaceOps)
-	s.subnet.EXPECT().UpdateSpaceOps(network.AlphaSpaceId).Return(moveSubnetOps)
-	op := spaces.NewRemoveSpaceOp(s.space, []spaces.Subnet{s.subnet})
+	s.space.EXPECT().RemoveSpaceOps().Return(removeSpaceOps, nil)
+
+	op := spaces.NewRemoveSpaceOp(s.space)
 
 	ops, err := op.Build(0)
 
@@ -49,7 +45,6 @@ func (s *SpaceRemoveSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.space = spaces.NewMockRemoveSpace(ctrl)
-	s.subnet = spaces.NewMockSubnet(ctrl)
 
 	return ctrl
 }

@@ -1464,7 +1464,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	})
 
 	// Trigger a space topology change by moving subnet-2 into space 1
-	moveOps := sub2.UpdateSpaceOps(sp1.Id())
+	moveOps := s.State.UpdateSubnetSpaceOps(sub2.ID(), sp1.Id())
 	c.Assert(s.State.ApplyOperation(modelOp{moveOps}), jc.ErrorIsNil)
 
 	// Check that worker picked up the change and updated the rules
@@ -1524,8 +1524,9 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	})
 
 	// Simulate the deletion of a space, with subnets moving back to alpha.
-	moveOps := sub1.UpdateSpaceOps(network.AlphaSpaceId)
-	deleteOps := sp1.RemoveSpaceOps()
+	moveOps := s.State.UpdateSubnetSpaceOps(sub1.ID(), network.AlphaSpaceId)
+	deleteOps, err := sp1.RemoveSpaceOps()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ApplyOperation(modelOp{append(moveOps, deleteOps...)}), jc.ErrorIsNil)
 
 	// We expect to see NO ingress rules as the referenced space does not exist.
@@ -1579,7 +1580,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 
 	// Move endpoint back to alpha space. This will leave space-1 with no
 	// endpoints.
-	moveOps := sub1.UpdateSpaceOps(network.AlphaSpaceId)
+	moveOps := s.State.UpdateSubnetSpaceOps(sub1.ID(), network.AlphaSpaceId)
 	c.Assert(s.State.ApplyOperation(modelOp{moveOps}), jc.ErrorIsNil)
 
 	// We expect to see NO ingress rules (and warnings in the logs) as
