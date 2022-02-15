@@ -11,12 +11,12 @@ import (
 // A Connector is able to provide a Connection.  This connection can be used to
 // make API calls via the various packages in github.com/juju/juju/api.
 type Connector interface {
-	Connect() (Connection, error)
+	Connect(...DialOption) (Connection, error)
 }
 
-// SimpleConnectorOpts aims to provide the same API surface as pilot juju for
+// SimpleConnectorConfig aims to provide the same API surface as pilot juju for
 // obtaining an api connection.
-type SimpleConnectorOpts struct {
+type SimpleConnectorConfig struct {
 	ControllerAddress string
 	CACert            string
 	ModelUUID         string
@@ -28,8 +28,8 @@ type SimpleConnectorOpts struct {
 
 // A SimpleConnector can provide connections from a simple set of options.
 type SimpleConnector struct {
-	info     *Info
-	dialOpts DialOpts
+	info            Info
+	defaultDialOpts DialOpts
 }
 
 var _ Connector = (*SimpleConnector)(nil)
@@ -37,8 +37,8 @@ var _ Connector = (*SimpleConnector)(nil)
 // NewSimpleConnector returns an instance of *SimpleConnector configured to
 // connect according to the specified options.  If some options are invalid an
 // error is returned.
-func NewSimpleConnector(opts SimpleConnectorOpts, dialOpts DialOpts) (*SimpleConnector, error) {
-	info := &Info{
+func NewSimpleConnector(opts SimpleConnectorConfig, dialOptions ...DialOption) (*SimpleConnector, error) {
+	info := Info{
 		Addrs:    []string{opts.ControllerAddress},
 		CACert:   opts.CACert,
 		ModelTag: names.NewModelTag(opts.ModelUUID),
@@ -50,13 +50,21 @@ func NewSimpleConnector(opts SimpleConnectorOpts, dialOpts DialOpts) (*SimpleCon
 	if err := info.Validate(); err != nil {
 		return nil, err
 	}
-	return &SimpleConnector{
-		info:     info,
-		dialOpts: dialOpts,
-	}, nil
+	conn := &SimpleConnector{
+		info:            info,
+		defaultDialOpts: DefaultDialOpts(),
+	}
+	for _, f := range dialOptions {
+		f(&conn.defaultDialOpts)
+	}
+	return conn, nil
 }
 
 // Connect returns a Connection according to c's configuration.
-func (c *SimpleConnector) Connect() (Connection, error) {
-	return Open(c.info, c.dialOpts)
+func (c *SimpleConnector) Connect(dialOptions ...DialOption) (Connection, error) {
+	opts := c.defaultDialOpts
+	for _, f := range dialOptions {
+		f(&opts)
+	}
+	return Open(&c.info, c.defaultDialOpts)
 }
