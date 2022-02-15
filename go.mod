@@ -52,7 +52,7 @@ require (
 	github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
-	github.com/juju/gomaasapi/v2 v2.0.0-20220207023642-10dd7f190313
+	github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471
 	github.com/juju/http/v2 v2.0.0-20220207005632-792b5de45d16
 	github.com/juju/idmclient/v2 v2.0.0-20220207024613-525e1ac3a890
 	github.com/juju/jsonschema v0.0.0-20220207021905-6f321f9146b3
