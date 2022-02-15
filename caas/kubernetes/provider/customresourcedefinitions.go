@@ -55,6 +55,10 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 	annotations map[string]string,
 	crdSpecs []k8sspecs.K8sCustomResourceDefinition,
 ) (cleanUps []func(), _ error) {
+	k8sVersion, err := k.Version()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting k8s api version")
+	}
 	for _, v := range crdSpecs {
 		obj := metav1.ObjectMeta{
 			Name:        v.Name,
@@ -67,9 +71,23 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 		var err error
 		switch v.Spec.Version {
 		case k8sspecs.K8sCustomResourceDefinitionV1:
-			out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1(obj, v.Spec.SpecV1)
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
+				return cleanUps, errors.NotSupportedf("custom resource definition version %q", v.Spec.Version)
+			} else {
+				out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1(obj, v.Spec.SpecV1)
+			}
 		case k8sspecs.K8sCustomResourceDefinitionV1Beta1:
-			out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1beta1(obj, v.Spec.SpecV1Beta1)
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
+				out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1beta1(obj, v.Spec.SpecV1Beta1)
+			} else {
+				var newSpec apiextensionsv1.CustomResourceDefinitionSpec
+				newSpec, err = k8sspecs.UpgradeCustomResourceDefinitionSpecV1Beta1(v.Spec.SpecV1Beta1)
+				if err != nil {
+					err = errors.Annotatef(err, "cannot convert v1beta1 crd to v1")
+					break
+				}
+				out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1(obj, newSpec)
+			}
 		default:
 			// This should never happen.
 			return cleanUps, errors.NotSupportedf("custom resource definition version %q", v.Spec.Version)

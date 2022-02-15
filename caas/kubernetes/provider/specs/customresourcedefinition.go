@@ -27,6 +27,120 @@ type K8sCustomResourceDefinitionSpec struct {
 	SpecV1      apiextensionsv1.CustomResourceDefinitionSpec
 }
 
+// UpgradeCustomResourceDefinitionSpecV1Beta1 converts a v1beta1 CustomResourceDefinition to v1.
+func UpgradeCustomResourceDefinitionSpecV1Beta1(spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (apiextensionsv1.CustomResourceDefinitionSpec, error) {
+	out := apiextensionsv1.CustomResourceDefinitionSpec{
+		Group: spec.Group,
+		Scope: apiextensionsv1.ResourceScope(spec.Scope),
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:     spec.Names.Plural,
+			Singular:   spec.Names.Singular,
+			ShortNames: spec.Names.ShortNames,
+			Kind:       spec.Names.Kind,
+			ListKind:   spec.Names.ListKind,
+			Categories: spec.Names.Categories,
+		},
+	}
+	if spec.Versions != nil {
+		for _, v := range spec.Versions {
+			crd := apiextensionsv1.CustomResourceDefinitionVersion{
+				Name:               v.Name,
+				Served:             v.Served,
+				Storage:            v.Storage,
+				Deprecated:         v.Deprecated,
+				DeprecationWarning: v.DeprecationWarning,
+			}
+			if v.Schema != nil {
+				schemaBytes, err := json.Marshal(v.Schema)
+				if err != nil {
+					return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+				}
+				schema := apiextensionsv1.CustomResourceValidation{}
+				err = json.Unmarshal(schemaBytes, &schema)
+				if err != nil {
+					return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+				}
+				crd.Schema = &schema
+			}
+			if v.Subresources != nil {
+				subresourceBytes, err := json.Marshal(v.Subresources)
+				if err != nil {
+					return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+				}
+				subresource := apiextensionsv1.CustomResourceSubresources{}
+				err = json.Unmarshal(subresourceBytes, &subresource)
+				if err != nil {
+					return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+				}
+				crd.Subresources = &subresource
+			}
+			if len(v.AdditionalPrinterColumns) > 0 {
+				apcBytes, err := json.Marshal(v.AdditionalPrinterColumns)
+				if err != nil {
+					return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+				}
+				var apc []apiextensionsv1.CustomResourceColumnDefinition
+				err = json.Unmarshal(apcBytes, &apc)
+				if err != nil {
+					return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+				}
+				crd.AdditionalPrinterColumns = apc
+			}
+			out.Versions = append(out.Versions, crd)
+		}
+	} else if spec.Version != "" {
+		out.Versions = append(out.Versions, apiextensionsv1.CustomResourceDefinitionVersion{
+			Name:    spec.Version,
+			Served:  true,
+			Storage: true,
+		})
+	}
+	if spec.PreserveUnknownFields != nil {
+		out.PreserveUnknownFields = *spec.PreserveUnknownFields
+	}
+	if spec.Conversion != nil {
+		conversion := apiextensionsv1.CustomResourceConversion{
+			Strategy: apiextensionsv1.ConversionStrategyType(spec.Conversion.Strategy),
+		}
+		if spec.Conversion.WebhookClientConfig != nil {
+			conversion.Webhook = &apiextensionsv1.WebhookConversion{
+				ConversionReviewVersions: spec.Conversion.ConversionReviewVersions,
+				ClientConfig: &apiextensionsv1.WebhookClientConfig{
+					URL:      spec.Conversion.WebhookClientConfig.URL,
+					CABundle: spec.Conversion.WebhookClientConfig.CABundle,
+				},
+			}
+			if spec.Conversion.WebhookClientConfig.Service != nil {
+				conversion.Webhook.ClientConfig.Service = &apiextensionsv1.ServiceReference{
+					Namespace: spec.Conversion.WebhookClientConfig.Service.Namespace,
+					Name:      spec.Conversion.WebhookClientConfig.Service.Name,
+					Path:      spec.Conversion.WebhookClientConfig.Service.Path,
+					Port:      spec.Conversion.WebhookClientConfig.Service.Port,
+				}
+			}
+		}
+		out.Conversion = &conversion
+	}
+	if spec.Validation != nil {
+		schemaBytes, err := json.Marshal(spec.Validation)
+		if err != nil {
+			return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+		}
+		schema := apiextensionsv1.CustomResourceValidation{}
+		err = json.Unmarshal(schemaBytes, &schema)
+		if err != nil {
+			return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.Trace(err)
+		}
+		for i, ver := range out.Versions {
+			if ver.Schema == nil {
+				ver.Schema = &schema
+			}
+			out.Versions[i] = ver
+		}
+	}
+	return out, nil
+}
+
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (crdSpecs *K8sCustomResourceDefinitionSpec) UnmarshalJSON(value []byte) (err error) {
 	err = unmarshalJSONStrict(value, &crdSpecs.SpecV1)
