@@ -497,6 +497,8 @@ github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b h1:Ow9ltIspVQvDdG
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b/go.mod h1:Zqa/vGkXr78k47zM6tFmU9phhxKz/PIdqBzpLhJ86zc=
 github.com/juju/os/v2 v2.2.1 h1:6FrLTloQMA25q65t7qlDBLdwjLe33i0xLyGhM47yclk=
 github.com/juju/os/v2 v2.2.1/go.mod h1:xGfP9I+Xb/A03NcGBsoJgwr084hPckkQHecaHuV3wBQ=
+github.com/juju/os/v2 v2.2.2 h1:h2WYDtC4Ch8OM83kNrca485hq9BYGtNkz6VSzTGlHCI=
+github.com/juju/os/v2 v2.2.2/go.mod h1:xGfP9I+Xb/A03NcGBsoJgwr084hPckkQHecaHuV3wBQ=
 github.com/juju/packaging/v2 v2.0.0-20220207023655-2ed4de2dc5b4 h1:9iFFR02tVnFJGrAneWZ/UbpgBiXAINJ+46HRJSRvfEI=
 github.com/juju/packaging/v2 v2.0.0-20220207023655-2ed4de2dc5b4/go.mod h1:JC+FIRTJXGLt9wA+iP3ltkzv+aWVMMojB/R47uIAK0Y=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93 h1:nlmpG1/Pv5elsi69wXhLkBhefGPE19bOCJ/xVwovl7A=
