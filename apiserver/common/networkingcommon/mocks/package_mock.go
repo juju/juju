@@ -80,19 +80,19 @@ func (mr *MockBackingSpaceMockRecorder) ProviderId() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderId", reflect.TypeOf((*MockBackingSpace)(nil).ProviderId))
 }
 
-// Subnets mocks base method.
-func (m *MockBackingSpace) Subnets() ([]networkingcommon.BackingSubnet, error) {
+// NetworkSpace mocks base method.
+func (m *MockBackingSpace) NetworkSpace() (networkingcommon.BackingSpaceInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subnets")
-	ret0, _ := ret[0].([]networkingcommon.BackingSubnet)
+	ret := m.ctrl.Call(m, "NetworkSpace")
+	ret0, _ := ret[0].(networkingcommon.BackingSpaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Subnets indicates an expected call of Subnets.
-func (mr *MockBackingSpaceMockRecorder) Subnets() *gomock.Call {
+// NetworkSpace indicates an expected call of NetworkSpace.
+func (mr *MockBackingSpaceMockRecorder) NetworkSpace() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnets", reflect.TypeOf((*MockBackingSpace)(nil).Subnets))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkSpace", reflect.TypeOf((*MockBackingSpace)(nil).NetworkSpace))
 }
 
 // MockBackingSubnet is a mock of BackingSubnet interface.

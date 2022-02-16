@@ -155,13 +155,17 @@ func (f *FakeSpace) Name() string {
 	return f.SpaceName
 }
 
-func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
-	outputSubnets := []networkingcommon.BackingSubnet{}
-
-	if err = f.NextErr(); err != nil {
-		return outputSubnets, err
+func (f *FakeSpace) NetworkSpace() (networkingcommon.BackingSpaceInfo, error) {
+	if err := f.NextErr(); err != nil {
+		return networkingcommon.BackingSpaceInfo{}, err
 	}
 
+	outputSpaceInfo := networkingcommon.BackingSpaceInfo{
+		ID:   f.SpaceId,
+		Name: network.SpaceName(f.SpaceName),
+	}
+
+	outputSpaceInfo.Subnets = make([]networkingcommon.BackingSubnetInfo, len(f.SubnetIds))
 	for i, subnetId := range f.SubnetIds {
 		providerId := network.Id("provider-" + subnetId)
 
@@ -170,7 +174,7 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 		// test data.
 		first, err := strconv.Atoi(strings.Split(subnetId, ".")[2])
 		if err != nil {
-			return outputSubnets, err
+			return outputSpaceInfo, err
 		}
 		vlantag := 0
 		zones := []string{"foo"}
@@ -190,10 +194,10 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 			AvailabilityZones: zones,
 			Status:            status,
 		}
-		outputSubnets = append(outputSubnets, &FakeSubnet{Info: backing, id: f.SpaceId + strconv.Itoa(i)})
+		outputSpaceInfo.Subnets[i] = backing
 	}
 
-	return outputSubnets, nil
+	return outputSpaceInfo, nil
 }
 
 func (f *FakeSpace) ProviderId() (netID network.Id) {

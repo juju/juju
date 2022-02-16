@@ -87,11 +87,26 @@ type BackingSpace interface {
 	// Name returns the space name.
 	Name() string
 
-	// Subnets returns the subnets in the space
-	Subnets() ([]BackingSubnet, error)
+	// NetworkSpace maps the space into network.SpaceInfo
+	NetworkSpace() (BackingSpaceInfo, error)
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() network.Id
+}
+
+type BackingSpaceInfo struct {
+	// ID is the unique identifier for the space.
+	ID string
+
+	// Name is the name of the space.
+	Name network.SpaceName
+
+	// ProviderId is the provider's unique identifier for the space,
+	// such as used by MAAS.
+	ProviderId network.Id
+
+	// Subnets are the subnets that have been grouped into this network space.
+	Subnets []BackingSubnetInfo
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
@@ -145,6 +160,31 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 		Status:            subnet.Status(),
 		SpaceTag:          names.NewSpaceTag(subnet.SpaceName()).String(),
 		Life:              subnet.Life(),
+	}
+}
+
+func BackingSubnetInfoToParamsSubnet(subnet BackingSubnetInfo) params.Subnet {
+	return params.Subnet{
+		CIDR:              subnet.CIDR,
+		VLANTag:           subnet.VLANTag,
+		ProviderId:        subnet.ProviderId.String(),
+		ProviderNetworkId: subnet.ProviderNetworkId.String(),
+		Zones:             subnet.AvailabilityZones,
+		Status:            subnet.Status,
+		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
+		Life:              subnet.Life,
+	}
+}
+
+func SubnetInfoToBackingSubnetInfo(subnet network.SubnetInfo) BackingSubnetInfo {
+	return BackingSubnetInfo{
+		ProviderId:        subnet.ProviderId,
+		ProviderNetworkId: subnet.ProviderNetworkId,
+		CIDR:              subnet.CIDR,
+		VLANTag:           subnet.VLANTag,
+		AvailabilityZones: subnet.AvailabilityZones,
+		SpaceName:         subnet.SpaceName,
+		SpaceID:           subnet.SpaceID,
 	}
 }
 

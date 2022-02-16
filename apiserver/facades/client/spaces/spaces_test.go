@@ -519,22 +519,27 @@ func (s *APISuite) expectEndpointBindings(ctrl *gomock.Controller, spaceID strin
 
 // expectDefaultSpace configures a default space mock with default subnet settings
 func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spacesErr, subnetErr error) {
-	subnetMock := netmocks.NewMockBackingSubnet(ctrl)
-	subnetMock.EXPECT().CIDR().Return("192.168.0.0/24").AnyTimes()
-	subnetMock.EXPECT().SpaceID().Return("1").AnyTimes()
-	subnetMock.EXPECT().SpaceName().Return(name).AnyTimes()
-	subnetMock.EXPECT().VLANTag().Return(0).AnyTimes()
-	subnetMock.EXPECT().ProviderId().Return(network.Id("0")).AnyTimes()
-	subnetMock.EXPECT().ProviderNetworkId().Return(network.Id("1")).AnyTimes()
-	subnetMock.EXPECT().AvailabilityZones().Return([]string{"bar", "bam"}).AnyTimes()
-	subnetMock.EXPECT().Status().Return("in-use").AnyTimes()
-	subnetMock.EXPECT().Life().Return(life.Value("alive")).AnyTimes()
-	subnetMock.EXPECT().ID().Return("111").AnyTimes()
+	backingSubnets := []networkingcommon.BackingSubnetInfo{{
+		ProviderId:        network.Id("0"),
+		ProviderNetworkId: network.Id("1"),
+		CIDR:              "192.168.0.0/24",
+		VLANTag:           0,
+		AvailabilityZones: []string{"bar", "bam"},
+		SpaceName:         name,
+		SpaceID:           "1",
+		Status:            "in-use",
+		Life:              life.Value("alive"),
+	}}
+	backingSpaceInfo := networkingcommon.BackingSpaceInfo{
+		ID:      "1",
+		Name:    network.SpaceName(name),
+		Subnets: backingSubnets,
+	}
 
 	spacesMock := netmocks.NewMockBackingSpace(ctrl)
 	spacesMock.EXPECT().Id().Return("1").AnyTimes()
 	spacesMock.EXPECT().Name().Return(name).AnyTimes()
-	spacesMock.EXPECT().Subnets().Return([]networkingcommon.BackingSubnet{subnetMock}, subnetErr).AnyTimes()
+	spacesMock.EXPECT().NetworkSpace().Return(backingSpaceInfo, subnetErr).AnyTimes()
 	if spacesErr != nil {
 		s.Backing.EXPECT().SpaceByName(name).Return(nil, spacesErr)
 	} else {

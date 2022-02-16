@@ -89,14 +89,20 @@ type spaceShim struct {
 	*state.Space
 }
 
-func (s *spaceShim) Subnets() ([]BackingSubnet, error) {
-	results, err := s.Space.Subnets()
+func (s *spaceShim) NetworkSpace() (BackingSpaceInfo, error) {
+	result, err := s.Space.NetworkSpace()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return BackingSpaceInfo{}, errors.Trace(err)
 	}
-	subnets := make([]BackingSubnet, len(results))
-	for i, result := range results {
-		subnets[i] = &subnetShim{Subnet: result}
+	spaceInfo := BackingSpaceInfo{
+		ID:         result.ID,
+		Name:       result.Name,
+		ProviderId: result.ProviderId,
 	}
-	return subnets, nil
+	subnets := make([]BackingSubnetInfo, len(result.Subnets))
+	for i, subnet := range result.Subnets {
+		subnets[i] = SubnetInfoToBackingSubnetInfo(subnet)
+	}
+	spaceInfo.Subnets = subnets
+	return spaceInfo, nil
 }
