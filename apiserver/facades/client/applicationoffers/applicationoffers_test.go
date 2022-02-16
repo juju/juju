@@ -93,8 +93,8 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
-		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+		subnets: network.SubnetInfos{
+			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
 		},
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
@@ -623,8 +623,8 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
-		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+		subnets: network.SubnetInfos{
+			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
 		},
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
@@ -659,8 +659,8 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	anotherState.spaces["anotherspace"] = &mockSpace{
 		name:       "anotherspace",
 		providerId: "juju-space-myspace",
-		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+		subnets: network.SubnetInfos{
+			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
 		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
@@ -909,12 +909,8 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
-		subnets: []applicationoffers.Subnet{
-			&mockSubnet{
-				cidr:       "4.3.2.0/24",
-				providerId: "juju-subnet-1",
-				zones:      []string{"az1"},
-			},
+		subnets: network.SubnetInfos{
+			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
 		},
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
@@ -962,12 +958,8 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	anotherState.spaces["anotherspace"] = &mockSpace{
 		name:       "anotherspace",
 		providerId: "juju-space-anotherspace",
-		subnets: []applicationoffers.Subnet{
-			&mockSubnet{
-				cidr:       "4.3.2.0/24",
-				providerId: "juju-subnet-1",
-				zones:      []string{"az1"},
-			},
+		subnets: network.SubnetInfos{
+			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
 		},
 	}
 	anotherState.model = &mockModel{
@@ -1365,8 +1357,8 @@ func (s *consumeSuite) setupOffer() {
 	st.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
-		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+		subnets: network.SubnetInfos{
+			{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", AvailabilityZones: []string{"az1"}},
 		},
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
