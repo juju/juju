@@ -87,19 +87,16 @@ jobs:
       run: |
         sg microk8s <<EOF
           set -eux
-          git clone https://github.com/juju-solutions/bundle-kubeflow.git
-          cd bundle-kubeflow
 
-          # TODO: pin to this sha for now, update if we want to test newer Kubeflow.
-          git reset --hard a96fa2d
+          microk8s kubectl wait --for=condition=available -nkube-system deployment/coredns deployment/hostpath-provisioner --timeout=10m
+          juju bootstrap microk8s --debug uk8s --config=caas-image-repo=$DOCKER_USERNAME --config test-mode=true --model-default test-mode=true
 
-          git clone git://git.launchpad.net/canonical-osm
-          cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
-
-          sudo pip3 install -r requirements.txt -r test-requirements.txt
-          sudo pip3 install tox
-          python3 ./scripts/cli.py microk8s setup --test-mode --config caas-image-repo=$DOCKER_USERNAME --services ''
-          KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --build --bundle edge
+          juju add-model kubeflow microk8s --config logging-config="<root>=DEBUG;unit=DEBUG"
+          juju deploy kubeflow-lite --trust --revision 60
+          sleep 10
+          microk8s kubectl patch role -n kubeflow istio-ingressgateway-operator -p '{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"Role","metadata":{"name":"istio-ingressgateway-operator"},"rules":[{"apiGroups":["*"],"resources":["*"],"verbs":["*"]}]}'
+          sleep 6m
+          juju --debug wait -wv -m kubeflow -t 300
 
           microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
         EOF
