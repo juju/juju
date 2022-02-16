@@ -31,7 +31,7 @@ jobs:
         echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
 
     - name: Set up Go
-      uses: actions/setup-go@v2.1.4
+      uses: actions/setup-go@v2.2.0
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
@@ -102,7 +102,7 @@ jobs:
 
     - name: Set up Go
       if: env.RUN_TEST == 'RUN'
-      uses: actions/setup-go@v2.1.4
+      uses: actions/setup-go@v2.2.0
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
