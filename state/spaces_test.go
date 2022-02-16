@@ -446,25 +446,6 @@ func (s *SpacesSuite) TestAddSpaceWithEmptyNameAndNonEmptyProviderIdFails(c *gc.
 	s.assertInvalidSpaceNameErrorAndWasNotAdded(c, err, args.Name)
 }
 
-func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
-	args := addSpaceArgs{
-		Name:        "my-space",
-		SubnetCIDRs: []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24", "4.1.1.0/24", "5.1.1.0/24"},
-	}
-	space, err := s.addSpaceWithSubnets(c, args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var expected []*state.Subnet
-	for _, cidr := range args.SubnetCIDRs {
-		subnet, err := s.State.SubnetByCIDR(cidr)
-		c.Assert(err, jc.ErrorIsNil)
-		expected = append(expected, subnet)
-	}
-	actual, err := space.Subnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.DeepEquals, expected)
-}
-
 func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 	alphaSpace, err := s.State.SpaceByName(network.AlphaSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
