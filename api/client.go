@@ -281,8 +281,12 @@ func (c *Client) Close() error {
 
 // SetModelAgentVersion sets the model agent-version setting
 // to the given value.
-func (c *Client) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {
-	args := params.SetModelAgentVersion{Version: version, IgnoreAgentVersions: ignoreAgentVersions}
+func (c *Client) SetModelAgentVersion(version version.Number, stream string, ignoreAgentVersions bool) error {
+	args := params.SetModelAgentVersion{
+		Version:             version,
+		AgentStream:         stream,
+		IgnoreAgentVersions: ignoreAgentVersions,
+	}
 	return c.facade.FacadeCall("SetModelAgentVersion", args, nil)
 }
 

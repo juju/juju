@@ -436,9 +436,9 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	defer st.Close()
 
 	// Update the model agent versions to ensure settings changes cause an update.
-	err = s.State.SetModelAgentVersion(version.MustParse("2.6.666"), true)
+	err = s.State.SetModelAgentVersion(version.MustParse("2.6.666"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetModelAgentVersion(version.MustParse("2.6.667"), true)
+	err = st.SetModelAgentVersion(version.MustParse("2.6.667"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedVersions := map[string]string{
 		s.State.ModelUUID(): "2.6.666",

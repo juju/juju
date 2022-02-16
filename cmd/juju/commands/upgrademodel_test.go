@@ -643,6 +643,44 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
 	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsTrue)
 }
 
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStream(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+		facadeVersion:  5,
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, command, "--agent-stream=proposed")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
+	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
+	c.Assert(fakeAPI.stream, gc.Equals, "proposed")
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStreamUnsupported(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+		facadeVersion:  4,
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, command, "--agent-stream=proposed")
+	c.Assert(err, gc.ErrorMatches, `
+this version of Juju does not support specifying an agent-stream value
+different to that of the controller model. If you want to use "proposed" agents,
+you must first 'juju model-config -m controller agent-stream=proposed'.
+`)
+}
+
 type DryRunTest struct {
 	about             string
 	cmdArgs           []string
@@ -1021,6 +1059,7 @@ type fakeUpgradeJujuAPI struct {
 	abortCurrentUpgradeCalled bool
 	setVersionCalledWith      version.Number
 	setIgnoreCalledWith       bool
+	setStreamCalledWith       string
 	tools                     []string
 	findToolsCalled           bool
 }
@@ -1032,6 +1071,10 @@ func (a *fakeUpgradeJujuAPI) reset() {
 	a.setIgnoreCalledWith = false
 	a.tools = []string{}
 	a.findToolsCalled = false
+}
+
+func (a *fakeUpgradeJujuAPI) BestAPIVersion() int {
+	return 5
 }
 
 func (a *fakeUpgradeJujuAPI) ControllerConfig() (controller.Config, error) {
@@ -1084,9 +1127,10 @@ func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number, ignoreAgentVersions bool) error {
+func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number, stream string, ignoreAgentVersions bool) error {
 	a.setVersionCalledWith = v
 	a.setIgnoreCalledWith = ignoreAgentVersions
+	a.setStreamCalledWith = stream
 	return a.setVersionErr
 }
 
@@ -1108,6 +1152,12 @@ type fakeUpgradeJujuAPINoState struct {
 	tools               coretools.List
 	modelAgentVersion   version.Number
 	ignoreAgentVersions bool
+	stream              string
+	facadeVersion       int
+}
+
+func (a *fakeUpgradeJujuAPINoState) BestAPIVersion() int {
+	return a.facadeVersion
 }
 
 func (a *fakeUpgradeJujuAPINoState) Close() error {
@@ -1142,9 +1192,10 @@ func (a *fakeUpgradeJujuAPINoState) Status(patterns []string) (*params.FullStatu
 	}, nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {
+func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, stream string, ignoreAgentVersions bool) error {
 	a.modelAgentVersion = version
 	a.ignoreAgentVersions = ignoreAgentVersions
+	a.stream = stream
 	return nil
 }
 
