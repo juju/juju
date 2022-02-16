@@ -88,6 +88,9 @@ jobs:
         sg microk8s <<EOF
           set -eux
 
+          microk8s kubectl wait --for=condition=available -nkube-system deployment/coredns deployment/hostpath-provisioner --timeout=10m
+          juju bootstrap microk8s --debug uk8s --config=caas-image-repo=$DOCKER_USERNAME --config test-mode=true --model-default test-mode=true
+
           juju add-model kubeflow microk8s --config logging-config="<root>=DEBUG;unit=DEBUG"
           juju deploy kubeflow-lite --trust --revision 60
           sleep 10
