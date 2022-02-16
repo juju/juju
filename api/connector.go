@@ -17,10 +17,17 @@ type Connector interface {
 // SimpleConnectorConfig aims to provide the same API surface as pilot juju for
 // obtaining an api connection.
 type SimpleConnectorConfig struct {
-	ControllerAddress string
-	CACert            string
-	ModelUUID         string
 
+	// Address of the controller (required)
+	ControllerAddress string
+
+	// I don't know if that's required...
+	CACert string
+
+	// UUID of model to connect to (optional)
+	ModelUUID string
+
+	// Either Username/Password or Macaroons is required to get authentication.
 	Username  string
 	Password  string
 	Macaroons []macaroon.Slice
