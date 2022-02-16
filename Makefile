@@ -13,17 +13,61 @@ export CGO_ENABLED=0
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
-define MAIN_PACKAGES
-  github.com/juju/juju/cmd/juju
-  github.com/juju/juju/cmd/jujuc
-  github.com/juju/juju/cmd/jujud
-  github.com/juju/juju/cmd/containeragent
-  github.com/juju/juju/cmd/plugins/juju-metadata
-  github.com/juju/juju/cmd/plugins/juju-wait-for
+# bin_platform_paths takes a juju binary to be built and the platform that it
+# is to be built for and returns a list of paths for that binary to be output.
+bin_platform_paths = $(addprefix ${BUILD_DIR}/, $(addsuffix /bin/${1}, $(subst /,_,${2})))
+
+# CLIENT_PACKAGE_PLATFORMS defines a white space seperated list of platforms
+# to build the Juju client binaries for. Platforms are defined as GO style
+# OS_ARCH.
+CLIENT_PACKAGE_PLATFORMS ?= $(GOOS)/$(GOARCH)
+
+# AGENT_PACKAGE_PLATFORMS defines a white space seperated list of platforms
+# to build the Juju agent binaries for. Platforms are defined as GO style
+# OS_ARCH.
+AGENT_PACKAGE_PLATFORMS ?= $(GOOS)/$(GOARCH)
+
+# OCI_IMAGE_PLATFORMS defines a white space seperated list of platforms
+# to build the Juju OCI images for. Platforms are defined as GO style
+# OS_ARCH.
+OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
+
+# BUILD_AGENT_TARGETS is a list of make targets the get built that fall under
+# the category of Juju agents. These targets are also the ones we are more then
+# likely wanting to cross compile.
+# NOTES:
+# - We filter pebble here for only linux builds as that is only what it will
+#   compile for at the moment.
+define BUILD_AGENT_TARGETS
+	$(call bin_platform_paths,jujuc,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,jujud,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,containeragent,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
-ifeq ($(GOOS),linux)
-	MAIN_PACKAGES += github.com/canonical/pebble/cmd/pebble
+# BUILD_CLIENT_TARGETS is a list of make targets that get built that fall under
+# the category of Juju clients. These targets are also less likely to be cross
+# compiled
+define BUILD_CLIENT_TARGETS
+	$(call bin_platform_paths,juju,${CLIENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,juju-metadata,${CLIENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,juju-wait-for,${CLIENT_PACKAGE_PLATFORMS})
+endef
+
+# INSTALL_TARGETS is a list of make targets that get installed when make
+# install is run.
+define INSTALL_TARGETS
+	juju \
+	jujuc \
+	jujud \
+	containeragent \
+	juju-metadata \
+	juju-wait-for
+endef
+
+# We only add pebble to the list of install targets if we are building for linux
+ifeq ($(GOOS), linux)
+	INSTALL_TARGETS += pebble
 endif
 
 # Allow the tests to take longer on restricted platforms.
@@ -73,13 +117,6 @@ ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang)
-	# disable optimizations on ppc64le due to https://golang.org/issue/39049
-	# go 1.15 should include the fix for this issue.
-	COMPILE_FLAGS = -gcflags "all=-N"
-else
-	COMPILE_FLAGS =
-endif
     LINK_FLAGS = -ldflags "-s -w -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
@@ -91,6 +128,22 @@ define DEPENDENCIES
   zip
 endef
 
+# run_go_build is a canned command sequence for the steps required to build a
+# juju package. It's expected that the make target using this sequence has a
+# local variable defined for PACKAGE. An example of PACKAGE would be
+# PACKAGE=github.com/juju/juju
+define run_go_build
+	$(eval OS = $(word 1,$(subst _, ,$*)))
+	$(eval ARCH = $(word 2,$(subst _, ,$*)))
+	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	@@mkdir -p ${BBIN_DIR}
+	env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
+endef
+
+define run_go_install
+	go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
+endef
+
 default: build
 
 .PHONY: help
@@ -98,26 +151,121 @@ help:
 	@echo "Usage: \n"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
-build: rebuild-schema go-build
-## build: Create Juju binaries
+.PHONY: juju
+juju: PACKAGE = github.com/juju/juju/cmd/juju
+juju:
+## juju: Install juju without updating dependencies
+	${run_go_install}
 
-release-build: go-build
+.PHONY: jujuc
+jujuc: PACKAGE = github.com/juju/juju/cmd/jujuc
+jujuc:
+## jujuc: Install jujuc without updating dependencies
+	${run_go_install}
+
+.PHONY: jujud
+jujud: PACKAGE = github.com/juju/juju/cmd/jujud
+jujud:
+## jujud: Install jujud without updating dependencies
+	${run_go_install}
+
+.PHONY: containeragent
+containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
+containeragent:
+## containeragent: Install containeragent without updating dependencies
+	${run_go_install}
+
+.PHONY: juju-metadata
+juju-metadata: PACKAGE = github.com/juju/juju/cmd/plugins/juju-metadata
+juju-metadata:
+## juju-metadata: Install juju-metadata without updating dependencies
+	${run_go_install}
+
+.PHONY: juju-wait-for
+juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
+juju-wait-for:
+## juju-wait-for: Install juju-wait-for without updating dependencies
+	${run_go_install}
+
+.PHONY: pebble
+pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble
+pebble:
+## pebble: Install pebble without updating dependencies
+	${run_go_install}
+
+.PHONY: phony_explicit
+phony_explicit:
+## phone_explicit is a dummy target that can be added to pattern targets to
+## them phony make.
+
+${BUILD_DIR}/%/bin/juju: PACKAGE = github.com/juju/juju/cmd/juju
+${BUILD_DIR}/%/bin/juju: phony_explicit
+## build for juju
+	$(run_go_build)
+
+${BUILD_DIR}/%/bin/jujuc: PACKAGE = github.com/juju/juju/cmd/jujuc
+${BUILD_DIR}/%/bin/jujuc: phony_explicit
+## build for jujuc
+	$(run_go_build)
+
+${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
+${BUILD_DIR}/%/bin/jujud: phony_explicit
+# build for jujud
+	$(run_go_build)
+
+${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
+${BUILD_DIR}/%/bin/containeragent: phony_explicit
+# build for containeragent
+	$(run_go_build)
+
+${BUILD_DIR}/%/bin/juju-metadata: PACKAGE = github.com/juju/juju/cmd/plugins/juju-metadata
+${BUILD_DIR}/%/bin/juju-metadata: phony_explicit
+# build for juju-metadata
+	$(run_go_build)
+
+${BUILD_DIR}/%/bin/juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
+${BUILD_DIR}/%/bin/juju-wait-for: phony_explicit
+# build for juju-wait-for
+	$(run_go_build)
+
+${BUILD_DIR}/%/bin/pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble
+${BUILD_DIR}/%/bin/pebble: phony_explicit
+# build for pebble
+	$(run_go_build)
+
+.PHONY: build
+build: rebuild-schema go-build
+## build builds all the targets specified by BUILD_AGENT_TARGETS and
+## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
+
+.PHONY: go-build
+go-build: $(BUILD_AGENT_TARGETS) $(BUILD_CLIENT_TARGETS)
+## build builds all the targets specified by BUILD_AGENT_TARGETS and
+## BUILD_CLIENT_TARGETS.
+
+.PHONY: release-build
+release-build: $(BUILD_MAIN_TARGETS) $(BUILD_AGENT_TARGETS)
 ## release-build: Construct Juju binaries, without building schema
 
-release-install: go-install
+.PHONY: release-install
+release-install: $(INSTALL_TARGETS)
 ## release-install: Install Juju binaries
 
+.PHONY: pre-check
 pre-check:
 ## pre-check: Verify go code via static analysis
 	@echo running pre-test checks
 	@INCLUDE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
 
+.PHONY: check
 check: pre-check run-tests
 ## check: Verify Juju code using static analysis and unit tests
 
+.PHONY: test
 test: run-tests
 ## test: Verify Juju code using unit tests
 
+.PHONY: run-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests:
 ## run-tests: Run the unit tests
@@ -127,38 +275,37 @@ run-tests:
 	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
+.PHONY: install
 install: rebuild-schema go-install
-## install: Install Juju binaries
+## install: Install Juju binaries with a rebuilt schema
 
+.PHONY: go-install
+go-install: $(INSTALL_TARGETS)
+## go-install: Install Juju binaries
+
+.PHONY: clean
 clean:
 ## clean: Clean the cache and test caches
 	go clean -n -r --cache --testcache $(PROJECT)/...
 
-go-install:
-## go-install: Install Juju binaries without updating dependencies
-	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
-
-go-build:
-## go-build: Build Juju binaries without updating dependencies
-	@mkdir -p ${BIN_DIR}
-	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
-
+.PHONY: vendor-dependencies
 vendor-dependencies:
 ## vendor-dependencies: updates vendored dependencies
 	@go mod vendor
 
+.PHONY: format
 # Reformat source files.
 format:
 ## format: Format the go source code
 	gofmt -w -l .
 
+.PHONY: simplify
 # Reformat and simplify source files.
 simplify:
 ## simplify: Format and simplify the go source code
 	gofmt -w -l -s .
 
+.PHONY: rebuild-schema
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
@@ -169,6 +316,7 @@ else
 		./apiserver/facades/schema.json
 endif
 
+.PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
@@ -181,8 +329,9 @@ else
 endif
 
 WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-
 JUJU_DB_CHANNEL=4.4/stable
+
+.PHONY: install-mongo-dependencies
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
 	@echo Installing ${JUJU_DB_CHANNEL} juju-db snap for mongodb
@@ -190,10 +339,12 @@ install-mongo-dependencies:
 	@$(WAIT_FOR_DPKG)
 	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
+.PHONY: install-dependencies
 install-dependencies: install-snap-dependencies install-mongo-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
 
+.PHONY: install-etc
 # Install bash_completion
 install-etc:
 ## install-etc: Install auto-completion
@@ -201,6 +352,7 @@ install-etc:
 	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju /usr/share/bash-completion/completions
 	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-version /usr/share/bash-completion/completions
 
+.PHONY: setup-lxd
 setup-lxd:
 ## setup-lxd: Auto configure LXD
 ifeq ($(shell ifconfig lxdbr0 2>&1 | grep -q "inet addr" && echo true),true)
@@ -213,6 +365,7 @@ endif
 
 
 GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' ${PROJECT}/... | grep -c "gopkg.in/check.v*")"
+.PHONY: check-deps
 check-deps:
 ## check-deps: Check dependencies are correct versions
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
@@ -232,46 +385,60 @@ OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_
 OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=sh -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 
-image_check_prereq=build
+image_check_prereq=image-check-build
 ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)
 	image_check_prereq=image-check-build-skip
 endif
 
-image-check-build: $(image_check_prereq)
+.PHONY: image-check
+image-check: $(image_check_prereq)
 
+.PHONY: image-check-build
+image-check-build:
+	CLIENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" AGENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" make build
+
+.PHONY: image-check-build-skip
 image-check-build-skip:
 	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
 
-operator-image: image-check-build
+.PHONY: image-check
+operator-image: image-check
 ## operator-image: Build operator image via docker
-	$(BUILD_OPERATOR_IMAGE)
+	${BUILD_OPERATOR_IMAGE} "$(OCI_IMAGE_PLATFORMS)"
 
+.PHONY: push-operator-image
 push-operator-image: operator-image
 ## push-operator-image: Push up the newly built operator image via docker
 	@:$(if $(value JUJU_BUILD_NUMBER),, $(error Undefined JUJU_BUILD_NUMBER))
 	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
 
+.PHONY: push-release-operator-image
 push-release-operator-image: operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
 	docker push "$(shell ${OPERATOR_IMAGE_RELEASE_PATH})"
 
+.PHONY: host-install
 host-install:
 ## install juju for host os/architecture
-	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make install
+	+GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make juju
 
+.PHONY: minikube-operator-update
 minikube-operator-update: host-install operator-image
 ## minikube-operator-update: Push up the newly built operator image for use with minikube
 	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | minikube image load --overwrite=true -
 
+.PHONY: microk8s-operator-update
 microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
 	@${UPDATE_MICROK8S_OPERATOR}
 
+.PHONY: check-k8s-model
 check-k8s-model:
 ## check-k8s-model: Check if k8s model is present in show-model
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))
 	@juju show-model ${JUJU_K8S_MODEL} > /dev/null
 
+.PHONY: local-operator-update
 local-operator-update: check-k8s-model operator-image
 ## local-operator-update: Build then update local operator image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
@@ -281,11 +448,7 @@ local-operator-update: check-k8s-model operator-image
 
 STATIC_ANALYSIS_JOB ?=
 
+.PHONY: static-analysis
 static-analysis:
 ## static-analysis: Check the go code using static-analysis
 	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
-
-.PHONY: build check install release-install release-build go-build go-install
-.PHONY: clean format simplify test run-tests
-.PHONY: install-dependencies
-.PHONY: check-deps
