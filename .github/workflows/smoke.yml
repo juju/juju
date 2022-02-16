@@ -274,7 +274,7 @@ jobs:
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
         UPGRADE_PARAMS_localhost: "--build-agent"
-        UPGRADE_PARAMS_microk8s: "--agent-stream stable"
+        UPGRADE_PARAMS_microk8s: ""
       run: |
         set -euxo pipefail
 
@@ -309,12 +309,12 @@ jobs:
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
         UPGRADE_PARAMS_localhost: "--build-agent"
-        UPGRADE_PARAMS_microk8s: "--agent-stream stable"
+        UPGRADE_PARAMS_microk8s: ""
       run: |
         set -euxo pipefail
 
         while true; do
-          juju upgrade-model --agent-stream stable 2>&1 | tee output.log || true
+          juju upgrade-model 2>&1 | tee output.log || true
           RES=$(cat output.log | grep "upgrade in progress" || echo "NOT-UPGRADING")
           if [ "$RES" = "NOT-UPGRADING" ]; then
             break
