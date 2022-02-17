@@ -133,7 +133,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "15",
+		Major: "1", Minor: "21",
 	}, nil)
 
 	crds := []k8sspecs.K8sCustomResourceDefinition{
@@ -252,7 +252,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	crds := []k8sspecs.K8sCustomResourceDefinition{
@@ -269,6 +269,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 					Version: "v1alpha2",
 					Group:   "kubeflow.org",
 					Scope:   "Namespaced",
+					Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+						{
+							Name:    "v1alpha2",
+							Served:  true,
+							Storage: true,
+						},
+					},
 					Validation: &apiextensionsv1beta1.CustomResourceValidation{
 						OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
@@ -381,7 +388,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "15",
+		Major: "1", Minor: "21",
 	}, nil)
 
 	crds := []k8sspecs.K8sCustomResourceDefinition{
@@ -502,7 +509,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *g
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	crds := []k8sspecs.K8sCustomResourceDefinition{
@@ -623,7 +630,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *g
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	crds := []k8sspecs.K8sCustomResourceDefinition{
@@ -946,7 +953,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	crRaw1 := getCR1()
@@ -1072,7 +1079,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	crRaw1 := getCR1()
@@ -1230,7 +1237,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	crdGetter := provider.CRDGetter{s.broker}
@@ -1404,7 +1411,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	crd1 := &apiextensionsv1.CustomResourceDefinition{
@@ -1543,7 +1550,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
-		Major: "1", Minor: "16",
+		Major: "1", Minor: "22",
 	}, nil)
 
 	mockCRDGetter := mocks.NewMockCRDGetterInterface(ctrl)
