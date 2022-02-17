@@ -76,6 +76,13 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	lowercaseName := strings.ToLower(name)
 
+	if _, err := st.User(names.NewUserTag(name)); err != nil && !errors.IsNotFound(err) {
+		if IsDeletedUserError(err) {
+			return nil, errors.Annotate(err, "cannot reuse name")
+		}
+		return nil, errors.Trace(err)
+	}
+
 	dateCreated := st.nowToTheSecond()
 	user := &User{
 		st: st,
@@ -113,11 +120,8 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	ops = append(ops, controllerUserOps...)
 
 	err := st.db().RunTransaction(ops)
-	if err == txn.ErrAborted {
-		err = errors.Errorf("username unavailable")
-	}
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
+		if err == txn.ErrAborted {
 			err = errors.Errorf("username unavailable")
 		}
 		return nil, errors.Trace(err)
