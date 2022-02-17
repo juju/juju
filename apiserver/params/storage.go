@@ -784,7 +784,7 @@ type FilesystemDetails struct {
 	MachineAttachments map[string]FilesystemAttachmentDetails `json:"machine-attachments,omitempty"`
 
 	// UnitAttachments contains a mapping from
-	// unit tag to filesystem attachment information (CAAS models).
+	// unit tag to filesystem attachment information.
 	UnitAttachments map[string]FilesystemAttachmentDetails `json:"unit-attachments,omitempty"`
 
 	// Storage contains details about the storage instance

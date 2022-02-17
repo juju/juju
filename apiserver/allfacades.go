@@ -154,7 +154,7 @@ func AllFacades() *facade.Registry {
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 4, charms.NewFacadeV4)
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
-	reg("Client", 4, client.NewFacade)
+	reg("Client", 5, client.NewFacade)
 	reg("Cloud", 7, cloud.NewFacadeV7)
 
 	// CAAS related facades.

@@ -276,7 +276,7 @@ type toolsAPI interface {
 
 type upgradeJujuAPI interface {
 	AbortCurrentUpgrade() error
-	SetModelAgentVersion(version version.Number, ignoreAgentVersion bool) error
+	SetModelAgentVersion(version version.Number, stream string, ignoreAgentVersion bool) error
 	Close() error
 }
 
@@ -413,6 +413,15 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	}
 	haveControllerModelPermission := err == nil
 	isControllerModel := haveControllerModelPermission && cfg.UUID() == controllerModelConfig[config.UUIDKey]
+	modelStream := controllerModelConfig[config.AgentStreamKey]
+	if modelStream == "" {
+		modelStream = tools.ReleasedStream
+	}
+	wantStream := c.AgentStream
+	if wantStream == "" {
+		wantStream = tools.ReleasedStream
+	}
+
 	if c.BuildAgent {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
@@ -507,6 +516,12 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	if warnCompat {
 		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", upgradeCtx.chosen, jujuversion.Current)
 	}
+
+	// Log rather than Printf so it stands out.
+	if modelStream != wantStream {
+		logger.Warningf("Updating model config to specify agent-stream=%s.\nYou can reset back to %q after the upgrade has finished.", wantStream, modelStream)
+	}
+
 	if c.DryRun {
 		if c.BuildAgent {
 			fmt.Fprintf(ctx.Stderr, "%s --build-agent\n", c.upgradeMessage)
@@ -532,7 +547,7 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
-	if err := client.SetModelAgentVersion(upgradeCtx.chosen, c.IgnoreAgentVersions); err != nil {
+	if err := client.SetModelAgentVersion(upgradeCtx.chosen, c.AgentStream, c.IgnoreAgentVersions); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {
 			return errors.Errorf("%s\n\n"+
 				"Please wait for the upgrade to complete or if there was a problem with\n"+

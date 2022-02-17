@@ -125,6 +125,7 @@ type UnsetModelDefaults struct {
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
 	Version             version.Number `json:"version"`
+	AgentStream         string         `json:"agent-stream,omitempty"`
 	IgnoreAgentVersions bool           `json:"force,omitempty"`
 }
 

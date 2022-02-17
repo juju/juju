@@ -375,6 +375,10 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 			msg = "unknown error running microk8s status"
 		}
 		return status, errors.New(msg)
+	} else {
+		if strings.HasPrefix(strings.ToLower(string(result.Stdout)), "microk8s is not running") {
+			return status, errors.NotProvisionedf("microk8s is not running")
+		}
 	}
 
 	err = yaml.Unmarshal(result.Stdout, &status)

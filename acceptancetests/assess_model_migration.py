@@ -4,38 +4,28 @@
 from __future__ import print_function
 
 import argparse
-from contextlib import contextmanager
+import difflib
 import logging
 import os
-from subprocess import CalledProcessError
 import sys
+from subprocess import CalledProcessError
 from time import sleep
+
 import yaml
 
-from remote import remote_from_address
-from utility import (
-    JujuAssertionError,
-    add_basic_testing_arguments,
-    configure_logging,
-    qualified_model_name,
-    temp_dir,
-    until_timeout,
-)
-from assess_user_grant_revoke import User
-from deploy_stack import (
-    BootstrapManager,
-    get_random_string
-)
-from jujupy.wait_condition import (
-    ModelCheckFailed,
-    wait_for_model_check,
-)
+from deploy_stack import BootstrapManager, get_random_string
+from jujupy.wait_condition import ModelCheckFailed, wait_for_model_check
 from jujupy.workloads import (
     assert_deployed_charm_is_responding,
     deploy_dummy_source_to_new_model,
     deploy_simple_server_to_new_model,
 )
-
+from utility import (
+    JujuAssertionError,
+    add_basic_testing_arguments,
+    configure_logging,
+    until_timeout,
+)
 
 __metaclass__ = type
 
@@ -392,6 +382,7 @@ def assert_logs_appear_in_client_model(client, expected_logs, timeout):
     :param expected_logs: string containing log contents to check for.
     :param timeout: int seconds to wait for before raising JujuAssertionError.
     """
+    current_logs = ''
     for _ in until_timeout(timeout):
         current_logs = client.get_juju_output(
             'debug-log', '--no-tail', '--replay', '-l', 'DEBUG')
@@ -399,6 +390,11 @@ def assert_logs_appear_in_client_model(client, expected_logs, timeout):
             log.info('SUCCESS: logs migrated.')
             return
         sleep(1)
+    diff = difflib.ndiff(
+        expected_logs.splitlines(keepends=True),
+        current_logs.splitlines(keepends=True),
+    )
+    log.error(f'log migration failed, diff of the logs: \n{"".join(diff)}')
     raise JujuAssertionError(
         'Logs failed to be migrated after {}'.format(timeout))
 

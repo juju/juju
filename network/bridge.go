@@ -15,10 +15,7 @@ import (
 
 // Bridger creates network bridges to support addressable containers.
 type Bridger interface {
-	// Turns existing devices into bridged devices.
-	// TODO(frobware) - we may want a different type to encompass
-	// and reflect how bridging should be done vis-a-vis what
-	// needs to be bridged.
+	// Bridge turns existing devices into bridged devices.
 	Bridge(devices []DeviceToBridge, reconfigureDelay int) error
 }
 

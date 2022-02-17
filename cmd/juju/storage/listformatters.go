@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
-
 	"github.com/juju/ansiterm"
+
 	"github.com/juju/juju/cmd/output"
 )
 
@@ -54,9 +54,7 @@ func formatStorageInstancesListTabular(writer io.Writer, s CombinedStorage) erro
 			w.Println(info.status.Message)
 		}
 	}
-	tw.Flush()
-
-	return nil
+	return tw.Flush()
 }
 
 func sortStorageInstancesByUnitId(s CombinedStorage) ([]string, map[string]map[string]storageAttachmentInfo) {
@@ -95,7 +93,7 @@ func sortStorageInstancesByUnitId(s CombinedStorage) ([]string, map[string]map[s
 	for unit := range byUnit {
 		units = append(units, unit)
 	}
-	sort.Strings(slashSeparatedIds(units))
+	sort.Strings(units)
 	return units, byUnit
 }
 
@@ -125,25 +123,12 @@ func getStoragePoolAndSize(s CombinedStorage) (map[string]string, map[string]uin
 
 func getFilesystemAttachment(combined CombinedStorage, attachmentInfo storageAttachmentInfo) FilesystemAttachment {
 	for _, f := range combined.Filesystems {
-		combineAllAttachments := func() map[string]FilesystemAttachment {
-			all := map[string]FilesystemAttachment{}
-			attachment := f.Attachments
-
-			if attachment == nil {
-				return all
-			}
-			for k, v := range attachment.Machines {
-				all[k] = v
-			}
-			for k, v := range attachment.Containers {
-				all[k] = v
-			}
-			return all
-		}
-
 		if f.Storage == attachmentInfo.storageId {
-			if attachment, ok := combineAllAttachments()[attachmentInfo.unitId]; ok {
-				return attachment
+			infos, _ := extractFilesystemAttachmentInfo(filesystemAttachmentInfos{}, "", f)
+			for _, info := range infos {
+				if info.UnitId == attachmentInfo.unitId {
+					return info.FilesystemAttachment
+				}
 			}
 		}
 	}
@@ -170,7 +155,7 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 		for storageId := range byStorage {
 			storageIds = append(storageIds, storageId)
 		}
-		sort.Strings(slashSeparatedIds(storageIds))
+		sort.Strings(storageIds)
 
 		for _, storageId := range storageIds {
 			info := byStorage[storageId]
@@ -187,8 +172,7 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 			w.Println(info.status.Message)
 		}
 	}
-	w.Flush()
-	return nil
+	return w.Flush()
 }
 
 func humanizeStorageSize(size uint64) string {

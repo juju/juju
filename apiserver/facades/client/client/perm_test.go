@@ -402,7 +402,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		return func() {}, err
 	}
 	ver := version.Number{Major: 2, Minor: 0, Patch: 0}
-	err = st.Client().SetModelAgentVersion(ver, false)
+	err = st.Client().SetModelAgentVersion(ver, "released", false)
 	if err != nil {
 		return func() {}, err
 	}
@@ -411,7 +411,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			st.Client().SetModelAgentVersion(version.MustParse(versionString), false)
+			st.Client().SetModelAgentVersion(version.MustParse(versionString), "released", false)
 		}
 	}, nil
 }

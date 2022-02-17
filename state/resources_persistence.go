@@ -110,7 +110,9 @@ func (p ResourcePersistence) ListResources(applicationID string) (resource.Appli
 			DownloadProgress: downloadProgress[tag],
 		})
 	}
-	rpLogger.Tracef("found %d docs: %q", len(docs), pretty.Sprint(results))
+	if rpLogger.IsTraceEnabled() {
+		rpLogger.Tracef("found %d docs: %q", len(docs), pretty.Sprint(results))
+	}
 	return results, nil
 }
 

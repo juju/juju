@@ -254,7 +254,7 @@ func (w *mutaterWorker) getRequiredLXDProfiles(modelName string) []string {
 	return w.getRequiredLXDProfilesFunc(modelName)
 }
 
-// kill is part of the lifetimeContext interface.
+// KillWithError is part of the lifetimeContext interface.
 func (w *mutaterWorker) KillWithError(err error) {
 	w.catacomb.Kill(err)
 }

@@ -131,7 +131,7 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacade creates a version 4 Client facade to handle API requests.
+// NewFacade creates a version 5 Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
 func NewFacade(ctx facade.Context) (*Client, error) {
@@ -714,7 +714,7 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		}
 	}
 
-	return c.api.stateAccessor.SetModelAgentVersion(args.Version, args.IgnoreAgentVersions)
+	return c.api.stateAccessor.SetModelAgentVersion(args.Version, &args.AgentStream, args.IgnoreAgentVersions)
 }
 
 // CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good

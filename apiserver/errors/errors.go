@@ -141,7 +141,9 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
-	logger.Tracef("server RPC error %v", errors.Details(err))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("server RPC error %v", errors.Details(err))
+	}
 
 	var (
 		info map[string]interface{}

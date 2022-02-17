@@ -290,7 +290,9 @@ func ContainerConfigToK8sEnvConfig(cc specs.ContainerConfig) (envVars []core.Env
 		case map[string]interface{}:
 			vars, envFroms, err := processMapInterfaceValue(k, envVal)
 			if err != nil {
-				logger.Tracef("processing container config %q, err -> %v", k, errors.ErrorStack(err))
+				if logger.IsTraceEnabled() {
+					logger.Tracef("processing container config %q, err -> %v", k, errors.ErrorStack(err))
+				}
 				return nil, nil, errors.Trace(err)
 			}
 			envVars = append(envVars, vars...)
@@ -308,8 +310,10 @@ func ContainerConfigToK8sEnvConfig(cc specs.ContainerConfig) (envVars []core.Env
 		return getEnvFromSourceName(envFromSources[i]) < getEnvFromSourceName(envFromSources[j])
 	})
 
-	logger.Tracef("envVars -> %s", pretty.Sprint(envVars))
-	logger.Tracef("envFromSources -> %s", pretty.Sprint(envFromSources))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("envVars -> %s", pretty.Sprint(envVars))
+		logger.Tracef("envFromSources -> %s", pretty.Sprint(envFromSources))
+	}
 	return envVars, envFromSources, nil
 }
 

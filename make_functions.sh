@@ -33,9 +33,26 @@ _image_version() {
     _strip_build_version "$(_juju_version)"
 }
 
+microk8s_operator_update() {
+  echo "Uploading image $(operator_image_path) to microk8s"
+  # For macos we have to push the image into the microk8s multipass vm because
+  # we can't use the ctr to stream off the local machine.
+  if [ $(uname) == "Darwin" ]; then
+    tmp_docker_image="/tmp/juju-operator-image-${RANDOM}.image"
+    docker save $(operator_image_path) | multipass transfer - microk8s-vm:${tmp_docker_image}
+    microk8s ctr --namespace k8s.io image import ${tmp_docker_image}
+    multipass exec microk8s-vm rm "${tmp_docker_image}"
+    return
+  fi
+
+  # Linux we can stream the file like normal.
+  docker save "$(operator_image_path)" | microk8s.ctr --namespace k8s.io image import -
+}
+
 operator_image_release_path() {
     echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version)"
 }
+
 operator_image_path() {
     if [ -z "${JUJU_BUILD_NUMBER}" ] || [ ${JUJU_BUILD_NUMBER} -eq 0 ]; then
         operator_image_release_path

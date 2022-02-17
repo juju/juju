@@ -17,7 +17,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
@@ -25,6 +24,8 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cmd/modelcmd"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -644,6 +645,24 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
 	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsTrue)
 }
 
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStream(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, command, "--agent-stream=proposed")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
+	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
+	c.Assert(fakeAPI.stream, gc.Equals, "proposed")
+}
+
 type DryRunTest struct {
 	about             string
 	cmdArgs           []string
@@ -1022,6 +1041,7 @@ type fakeUpgradeJujuAPI struct {
 	abortCurrentUpgradeCalled bool
 	setVersionCalledWith      version.Number
 	setIgnoreCalledWith       bool
+	setStreamCalledWith       string
 	tools                     []string
 	findToolsCalled           bool
 }
@@ -1085,9 +1105,10 @@ func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number, ignoreAgentVersions bool) error {
+func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number, stream string, ignoreAgentVersions bool) error {
 	a.setVersionCalledWith = v
 	a.setIgnoreCalledWith = ignoreAgentVersions
+	a.setStreamCalledWith = stream
 	return a.setVersionErr
 }
 
@@ -1109,6 +1130,7 @@ type fakeUpgradeJujuAPINoState struct {
 	tools               coretools.List
 	modelAgentVersion   version.Number
 	ignoreAgentVersions bool
+	stream              string
 }
 
 func (a *fakeUpgradeJujuAPINoState) Close() error {
@@ -1143,9 +1165,10 @@ func (a *fakeUpgradeJujuAPINoState) Status(patterns []string) (*params.FullStatu
 	}, nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {
+func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, stream string, ignoreAgentVersions bool) error {
 	a.modelAgentVersion = version
 	a.ignoreAgentVersions = ignoreAgentVersions
+	a.stream = stream
 	return nil
 }
 

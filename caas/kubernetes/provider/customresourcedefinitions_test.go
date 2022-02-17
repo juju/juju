@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -17,6 +18,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
@@ -130,6 +132,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "15",
+	}, nil)
+
 	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
 			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
@@ -241,9 +247,142 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 	)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1Upgrade(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
+
+	crds := []k8sspecs.K8sCustomResourceDefinition{
+		{
+			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
+			Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+				Version: k8sspecs.K8sCustomResourceDefinitionV1Beta1,
+				SpecV1Beta1: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+					Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+						Kind:     "TFJob",
+						Singular: "tfjob",
+						Plural:   "tfjobs",
+					},
+					Version: "v1alpha2",
+					Group:   "kubeflow.org",
+					Scope:   "Namespaced",
+					Validation: &apiextensionsv1beta1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: pointer.Float64Ptr(1),
+												},
+											},
+										},
+										"PS": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
+												},
+											},
+										},
+										"Chief": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	crd2 := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "tfjobs.kubeflow.org",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Scope: apiextensionsv1.NamespaceScoped,
+			Group: "kubeflow.org",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
+			},
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha2",
+					Served:  true,
+					Storage: true,
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: pointer.Float64Ptr(1),
+												},
+											},
+										},
+										"PS": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: pointer.Float64Ptr(1),
+												},
+											},
+										},
+										"Chief": {
+											Properties: map[string]apiextensionsv1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: pointer.Float64Ptr(1),
+													Maximum: pointer.Float64Ptr(1),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{},
+				},
+			},
+		},
+	}
+
+	s.assertCustomerResourceDefinitions(
+		c, crds,
+		s.mockCustomResourceDefinitionV1.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(arg0 context.Context, arg1 *apiextensionsv1.CustomResourceDefinition, arg2 v1.CreateOptions) {
+			// For some reason, gomock can't compare this but jc.DeepEquals has no problem.
+			c.Check(arg1, jc.DeepEquals, crd2)
+		}).Return(crd2, nil),
+	)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "15",
+	}, nil)
 
 	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
@@ -362,6 +501,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *g
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
+
 	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
 			Meta: k8sspecs.Meta{
@@ -478,6 +621,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *g
 func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
 
 	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
@@ -798,6 +945,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
+
 	crRaw1 := getCR1()
 	crRaw2 := getCR2()
 
@@ -919,6 +1070,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
 
 	crRaw1 := getCR1()
 	crRaw2 := getCR2()
@@ -1073,6 +1228,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
 
 	crdGetter := provider.CRDGetter{s.broker}
 
@@ -1244,6 +1403,10 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
+
 	crd1 := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
@@ -1378,6 +1541,10 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+
+	s.mockDiscovery.EXPECT().ServerVersion().AnyTimes().Return(&k8sversion.Info{
+		Major: "1", Minor: "16",
+	}, nil)
 
 	mockCRDGetter := mocks.NewMockCRDGetterInterface(ctrl)
 	unExpectedErr := errors.New("a non not found error")
