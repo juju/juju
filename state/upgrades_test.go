@@ -6149,6 +6149,55 @@ func (s *upgradesSuite) TestRemoveInvalidCharmPlaceholders(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestSetContainerAddressOriginToMachine(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	uuid1 := utils.MustNewUUID().String()
+	uuid2 := utils.MustNewUUID().String()
+
+	err := col.Insert(bson.M{
+		"_id":        uuid1 + ":principal/1",
+		"model-uuid": uuid1,
+		"machine-id": "0",
+		"origin":     "provider",
+	}, bson.M{
+		"_id":        uuid1 + ":telegraf/1",
+		"model-uuid": uuid1,
+		"machine-id": "0/lxd/0",
+		"origin":     "provider",
+	}, bson.M{
+		"_id":        uuid2 + ":telegraf/0",
+		"model-uuid": uuid2,
+		"machine-id": "11/kvm/11",
+		"origin":     "provider",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first origin is unchanged - it is not a container/VM in-machine.
+	expected := bsonMById{
+		{
+			"_id":        uuid1 + ":principal/1",
+			"model-uuid": uuid1,
+			"machine-id": "0",
+			"origin":     "provider",
+		}, {
+			"_id":        uuid1 + ":telegraf/1",
+			"model-uuid": uuid1,
+			"machine-id": "0/lxd/0",
+			"origin":     "machine",
+		}, {
+			"_id":        uuid2 + ":telegraf/0",
+			"model-uuid": uuid2,
+			"machine-id": "11/kvm/11",
+			"origin":     "machine",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, SetContainerAddressOriginToMachine, upgradedData(col, expected))
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
