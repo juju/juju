@@ -40,7 +40,7 @@ func (api *CleanerAPI) Cleanup() error {
 	return api.st.Cleanup()
 }
 
-// WatchChanges watches for cleanups to be perfomed in state
+// WatchCleanups watches for cleanups to be performed in state.
 func (api *CleanerAPI) WatchCleanups() (params.NotifyWatchResult, error) {
 	watch := api.st.WatchCleanups()
 	if _, ok := <-watch.Changes(); ok {

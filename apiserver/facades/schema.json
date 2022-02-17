@@ -16318,7 +16318,7 @@
                             "$ref": "#/definitions/NotifyWatchResult"
                         }
                     },
-                    "description": "WatchChanges watches for cleanups to be perfomed in state"
+                    "description": "WatchCleanups watches for cleanups to be performed in state."
                 }
             },
             "definitions": {

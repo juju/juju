@@ -784,7 +784,7 @@ func destroyFilesystemOps(sb *storageBackend, f *filesystem, release, force bool
 	baseAssert := append(lifeAssert, extraAssert...)
 	setFields := bson.D{}
 	if release {
-		setFields = append(setFields, bson.DocElem{"releasing", true})
+		setFields = append(setFields, bson.DocElem{Name: "releasing", Value: true})
 	}
 	if f.doc.AttachmentCount == 0 {
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
@@ -799,7 +799,7 @@ func destroyFilesystemOps(sb *storageBackend, f *filesystem, release, force bool
 		}
 		// The filesystem is not volume-backed, so leave it to the
 		// storage provisioner to destroy it.
-		setFields = append(setFields, bson.DocElem{"life", Dead})
+		setFields = append(setFields, bson.DocElem{Name: "life", Value: Dead})
 		return []txn.Op{{
 			C:      filesystemsC,
 			Id:     f.doc.FilesystemId,
@@ -808,7 +808,7 @@ func destroyFilesystemOps(sb *storageBackend, f *filesystem, release, force bool
 		}}, nil
 	}
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
-	setFields = append(setFields, bson.DocElem{"life", Dying})
+	setFields = append(setFields, bson.DocElem{Name: "life", Value: Dying})
 	ops := []txn.Op{{
 		C:      filesystemsC,
 		Id:     f.doc.FilesystemId,
