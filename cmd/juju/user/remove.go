@@ -43,10 +43,10 @@ See also:
 
 var removeUserMsg = `
 WARNING! This command will permanently archive the user %q on the %q
-controller.
+controller. This action is irreversible and you WILL NOT be able to reuse
+username %q.
 
-This action is irreversible. If you wish to temporarily disable the
-user please use the`[1:] + " `juju disable-user` " + `command. See
+If you wish to temporarily disable the user please use the`[1:] + " `juju disable-user`\n" + `command. See
 ` + " `juju help disable-user` " + `for more details.
 
 Continue (y/N)? `
@@ -140,7 +140,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 
 func confirmDelete(ctx *cmd.Context, controller, username string) error {
 	// Get confirmation from the user that they want to continue
-	fmt.Fprintf(ctx.Stdout, removeUserMsg, username, controller)
+	fmt.Fprintf(ctx.Stdout, removeUserMsg, username, controller, username)
 
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
