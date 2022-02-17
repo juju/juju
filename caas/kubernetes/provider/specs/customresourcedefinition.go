@@ -41,6 +41,9 @@ func UpgradeCustomResourceDefinitionSpecV1Beta1(spec apiextensionsv1beta1.Custom
 			Categories: spec.Names.Categories,
 		},
 	}
+	if spec.Version != "" && len(spec.Versions) == 0 {
+		return apiextensionsv1.CustomResourceDefinitionSpec{}, errors.NotValidf("custom resource definition group %q", spec.Group)
+	}
 	if spec.Versions != nil {
 		for _, v := range spec.Versions {
 			crd := apiextensionsv1.CustomResourceDefinitionVersion{
@@ -88,12 +91,6 @@ func UpgradeCustomResourceDefinitionSpecV1Beta1(spec apiextensionsv1beta1.Custom
 			}
 			out.Versions = append(out.Versions, crd)
 		}
-	} else if spec.Version != "" {
-		out.Versions = append(out.Versions, apiextensionsv1.CustomResourceDefinitionVersion{
-			Name:    spec.Version,
-			Served:  true,
-			Storage: true,
-		})
 	}
 	if spec.PreserveUnknownFields != nil {
 		out.PreserveUnknownFields = *spec.PreserveUnknownFields
