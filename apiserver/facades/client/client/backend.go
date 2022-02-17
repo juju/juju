@@ -70,7 +70,7 @@ type Backend interface {
 	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
-	SetModelAgentVersion(version.Number, bool) error
+	SetModelAgentVersion(version.Number, *string, bool) error
 	SetModelConstraints(constraints.Value) error
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error

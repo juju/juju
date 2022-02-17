@@ -81,17 +81,17 @@ func (mr *MockClientAPIMockRecorder) FindTools(arg0, arg1, arg2, arg3, arg4 inte
 }
 
 // SetModelAgentVersion mocks base method.
-func (m *MockClientAPI) SetModelAgentVersion(arg0 version.Number, arg1 bool) error {
+func (m *MockClientAPI) SetModelAgentVersion(arg0 version.Number, arg1 string, arg2 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetModelAgentVersion indicates an expected call of SetModelAgentVersion.
-func (mr *MockClientAPIMockRecorder) SetModelAgentVersion(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockClientAPIMockRecorder) SetModelAgentVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockClientAPI)(nil).SetModelAgentVersion), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockClientAPI)(nil).SetModelAgentVersion), arg0, arg1, arg2)
 }
 
 // Status mocks base method.

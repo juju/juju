@@ -131,7 +131,7 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 	c.Assert(err, jc.ErrorIsNil)
 
 	if !state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
+		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, nil, true)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
