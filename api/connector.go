@@ -21,7 +21,7 @@ type SimpleConnectorConfig struct {
 	// Address of the controller (required)
 	ControllerAddress string
 
-	// I don't know if that's required...
+	// I don't know if that's required
 	CACert string
 
 	// UUID of model to connect to (optional)
