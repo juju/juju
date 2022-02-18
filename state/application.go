@@ -1892,7 +1892,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			}
 		}
 		// Exit early if the Application series doesn't need to change.
-		if a.Series() == series {
+		if a.Series() == series && a.CharmOrigin().Platform.Series == series {
 			return nil, jujutxn.ErrNoOperations
 		}
 
@@ -1931,7 +1931,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			Assert: bson.D{{"life", Alive},
 				{"charmurl", a.doc.CharmURL},
 				{"unitcount", a.doc.UnitCount}},
-			Update: bson.D{{"$set", bson.D{{"series", series}}}},
+			Update: bson.D{{"$set", bson.D{{"series", series},
+				{"charm-origin.platform.series", series}}}},
 		}}
 
 		if unit != nil {
@@ -1950,7 +1951,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				Assert: bson.D{{"life", Alive},
 					{"charmurl", sub.doc.CharmURL},
 					{"unitcount", sub.doc.UnitCount}},
-				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+				Update: bson.D{{"$set", bson.D{{"series", series},
+					{"charm-origin.platform.series", series}}}},
 			})
 		}
 		return ops, nil
