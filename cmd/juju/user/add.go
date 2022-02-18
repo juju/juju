@@ -20,12 +20,13 @@ import (
 var usageSummary = `
 Adds a Juju user to a controller.`[1:]
 
-const usageDetails = `The user's details are stored within the controller and
-will be removed when the controller is destroyed.
+const usageDetails = `
+The user's details are stored within the controller and will be removed when
+the controller is destroyed.
 
 A user unique registration string will be printed. This registration string 
-must be used by the newly added user as supplied to 
-complete the registration process. 
+must be used by the newly added user as supplied to complete the registration
+process.
 
 Some machine providers will require the user to be in possession of certain
 credentials in order to create a model.
