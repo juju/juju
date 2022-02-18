@@ -126,7 +126,8 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
     else:
         k8s_model.deploy(
             charm=bundle_info[bundle]['uri'],
-            channel="stable",
+            revision="60",
+            trust="true",
         )
 
     if application_exists(k8s_model, 'istio-ingressgateway'):
