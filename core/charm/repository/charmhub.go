@@ -523,6 +523,11 @@ func (c *CharmHubRepository) selectNextBasesFromReleases(releases []transport.Re
 		return nil, errors.Errorf("no releases available")
 	}
 	if origin.Platform.Series == "" {
+		// If the user passed in a branch, but not enough information about the
+		// arch and series, then we can help by giving a better error message.
+		if origin.Channel != nil && origin.Channel.Branch != "" {
+			return nil, errors.Errorf("ambiguous arch and series with channel track/risk/branch. specify both arch and series along with channel.")
+		}
 		// If the origin is empty, then we want to help the user out
 		// by display a series of suggestions to try.
 		suggestions := c.composeSuggestions(releases, origin)

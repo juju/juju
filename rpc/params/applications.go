@@ -34,6 +34,7 @@ type CharmOrigin struct {
 	// Revision is the charm revision number.
 	Revision *int    `json:"revision,omitempty"`
 	Track    *string `json:"track,omitempty"`
+	Branch   *string `json:"branch,omitempty"`
 
 	Architecture string `json:"architecture,omitempty"`
 	OS           string `json:"os,omitempty"`
