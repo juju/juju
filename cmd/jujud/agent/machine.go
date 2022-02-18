@@ -1143,7 +1143,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
-		logger.Infof("setting short charmrevision worker interval: %v", interval)
+		logger.Debugf("setting short charmrevision worker interval: %v", interval)
 		manifoldsCfg.CharmRevisionUpdateInterval = interval
 	}
 
