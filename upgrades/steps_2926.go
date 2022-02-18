@@ -13,5 +13,12 @@ func stateStepsFor2926() []Step {
 				return context.State().SetContainerAddressOriginToMachine()
 			},
 		},
+		&upgradeStep{
+			description: "update charm origin to facilitate charm refresh after set-series",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().UpdateCharmOriginAfterSetSeries()
+			},
+		},
 	}
 }

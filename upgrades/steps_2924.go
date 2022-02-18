@@ -20,12 +20,5 @@ func stateStepsFor2924() []Step {
 				return context.State().RemoveInvalidCharmPlaceholders()
 			},
 		},
-		&upgradeStep{
-			description: "update charm origin to facilitate charm refresh after set-series",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return context.State().UpdateCharmOriginAfterSetSeries()
-			},
-		},
 	}
 }
