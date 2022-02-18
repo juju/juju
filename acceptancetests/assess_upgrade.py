@@ -20,7 +20,7 @@ import sys
 
 from collections import (
     namedtuple,
-    )
+)
 from textwrap import (
     dedent,
 )
@@ -28,13 +28,13 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
-    )
+)
 from deploy_stack import (
     BootstrapManager
 )
 from jujupy.binaries import (
     get_stable_juju
-    )
+)
 from jujupy.client import (
     ModelClient,
     get_stripped_version_number,
@@ -43,7 +43,7 @@ from jujupy.client import (
 from jujupy.stream_server import (
     StreamServer,
     agent_tgz_from_juju_binary,
-    )
+)
 from jujupy.wait_condition import (
     WaitModelVersion,
     wait_until_model_upgrades,
@@ -51,14 +51,11 @@ from jujupy.wait_condition import (
 from jujupy.workloads import (
     deploy_keystone_with_db,
     assert_keystone_is_responding
-    )
-
+)
 
 __metaclass__ = type
 
-
 log = logging.getLogger("assess_upgrade")
-
 
 VersionParts = namedtuple('VersionParts', ['version', 'release', 'arch'])
 
@@ -127,15 +124,20 @@ def assert_upgrade_is_successful(
 
 def upgrade_stable_to_devel_version(client, extra_args):
     devel_version = get_stripped_version_number(client.version)
+
+    # TODO(wallyworld) - remove this model-config override when juju 2.9.26 is released
     client.get_controller_client().juju(
-        'upgrade-juju', ('-m', 'controller', '--debug',
-                         '--agent-stream', 'devel',
-                         '--agent-version', devel_version,) + extra_args)
+        'model-config', ('--debug',
+                         'model-config', 'agent-stream=devel',) + extra_args)
+
+    client.get_controller_client().juju(
+        'upgrade-controller', ('--debug',
+                               '--agent-stream', 'devel',
+                               '--agent-version', devel_version,) + extra_args)
     assert_model_is_version(client.get_controller_client(), devel_version)
     wait_until_model_upgrades(client)
 
-    client.juju('upgrade-juju', ('--debug', '--agent-stream',
-                                 'devel', '--agent-version', devel_version,) +
+    client.juju('upgrade-model', ('--debug', '--agent-version', devel_version,) +
                 extra_args)
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)

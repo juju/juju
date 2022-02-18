@@ -16318,7 +16318,7 @@
                             "$ref": "#/definitions/NotifyWatchResult"
                         }
                     },
-                    "description": "WatchChanges watches for cleanups to be perfomed in state"
+                    "description": "WatchCleanups watches for cleanups to be performed in state."
                 }
             },
             "definitions": {
@@ -16368,7 +16368,7 @@
     {
         "Name": "Client",
         "Description": "Client serves client-specific API methods.",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -18560,6 +18560,9 @@
                 "SetModelAgentVersion": {
                     "type": "object",
                     "properties": {
+                        "agent-stream": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
                         },
@@ -49477,7 +49480,7 @@
     },
     {
         "Name": "UpgradeSteps",
-        "Description": "",
+        "Description": "UpgradeStepsAPI implements version 2 of the Upgrade Steps API,\nwhich adds WriteUniterState.",
         "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",

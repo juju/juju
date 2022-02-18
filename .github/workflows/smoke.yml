@@ -31,7 +31,7 @@ jobs:
         echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
 
     - name: Set up Go
-      uses: actions/setup-go@v2.1.4
+      uses: actions/setup-go@v2.2.0
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
@@ -112,7 +112,7 @@ jobs:
 
     - name: Set up Go
       if: env.RUN_TEST == 'RUN'
-      uses: actions/setup-go@v2.1.4
+      uses: actions/setup-go@v2.2.0
       with:
         go-version: ${{ steps.vars.outputs.go-version }}
 
@@ -274,7 +274,7 @@ jobs:
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
         UPGRADE_PARAMS_localhost: "--build-agent"
-        UPGRADE_PARAMS_microk8s: "--agent-stream stable"
+        UPGRADE_PARAMS_microk8s: ""
       run: |
         set -euxo pipefail
 
@@ -309,12 +309,12 @@ jobs:
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
         UPGRADE_PARAMS_localhost: "--build-agent"
-        UPGRADE_PARAMS_microk8s: "--agent-stream stable"
+        UPGRADE_PARAMS_microk8s: ""
       run: |
         set -euxo pipefail
 
         while true; do
-          juju upgrade-model --agent-stream stable 2>&1 | tee output.log || true
+          juju upgrade-model 2>&1 | tee output.log || true
           RES=$(cat output.log | grep "upgrade in progress" || echo "NOT-UPGRADING")
           if [ "$RES" = "NOT-UPGRADING" ]; then
             break

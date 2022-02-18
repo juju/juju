@@ -100,7 +100,7 @@ type HostedConfig struct {
 	Error     error
 }
 
-// HostedModelsConfig returns all model settings for the
+// HostedModelConfigs returns all model settings for the
 // controller model.
 func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
 	result := params.HostedModelConfigsResults{}
