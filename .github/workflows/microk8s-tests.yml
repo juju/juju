@@ -97,7 +97,7 @@ jobs:
           sleep 10
           microk8s kubectl patch role -n kubeflow istio-ingressgateway-operator -p '{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"Role","metadata":{"name":"istio-ingressgateway-operator"},"rules":[{"apiGroups":["*"],"resources":["*"],"verbs":["*"]}]}'
           sleep 6m
-          juju --debug wait -wv -m kubeflow -t 300
+          juju --debug wait -wv -m kubeflow -t 1200
 
           microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
         EOF
