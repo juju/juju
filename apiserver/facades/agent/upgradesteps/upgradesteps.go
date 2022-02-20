@@ -35,6 +35,8 @@ type UpgradeStepsV1 interface {
 	ResetKVMMachineModificationStatusIdle(params.Entity) (params.ErrorResult, error)
 }
 
+// UpgradeStepsAPI implements version 2 of the Upgrade Steps API,
+// which adds WriteUniterState.
 type UpgradeStepsAPI struct {
 	st                 UpgradeStepsState
 	resources          facade.Resources
@@ -43,8 +45,7 @@ type UpgradeStepsAPI struct {
 	getUnitAuthFunc    common.GetAuthFunc
 }
 
-// UpgradeStepsAPIV2 implements version (v2) of the Upgrade Steps API,
-// which add WriteUniterState.
+// UpgradeStepsAPIV1 implements version 1 of the Upgrade Steps API.
 type UpgradeStepsAPIV1 struct {
 	*UpgradeStepsAPI
 }

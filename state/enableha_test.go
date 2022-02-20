@@ -403,7 +403,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	// find that the number of voting machines in state is greater than
 	// what we're attempting to ensure, and fail.
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "bionic", nil)
-	c.Assert(err, gc.ErrorMatches, "failed to create new controller machines: cannot reduce controller count")
+	c.Assert(err, gc.ErrorMatches, "failed to enable HA with 3 controllers: cannot remove controllers with enable-ha, use remove-machine and chose the controller\\(s\\) to remove")
 	c.Assert(changes.Added, gc.HasLen, 0)
 
 	// Machine 0 should never have been created.

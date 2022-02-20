@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
@@ -219,7 +219,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		"limits.memory":                                          strconv.Itoa(3750 * 1024 * 1024),
 	}
 	s.Addresses = network.ProviderAddresses{
-		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 	}
 
 	// NOTE: the instance ids used throughout this package are not at all
@@ -652,7 +652,7 @@ func (conn *StubClient) ContainerAddresses(name string) ([]network.ProviderAddre
 	}
 
 	return network.ProviderAddresses{
-		network.NewProviderAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
 	}, nil
 }
 

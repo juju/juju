@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/controller"
@@ -121,8 +121,8 @@ var ErrChangeComplete = errors.New("change complete")
 // Apply runs the supplied Change against the supplied Database. If it
 // returns no error, the change succeeded.
 func Apply(db Database, change Change) error {
-	db, closer := db.Copy()
-	defer closer()
+	db, dbCloser := db.Copy()
+	defer dbCloser()
 
 	buildTxn := func(int) ([]txn.Op, error) {
 		ops, err := change.Prepare(db)
@@ -135,8 +135,8 @@ func Apply(db Database, change Change) error {
 		return ops, nil
 	}
 
-	runner, closer := db.TransactionRunner()
-	defer closer()
+	runner, tCloser := db.TransactionRunner()
+	defer tCloser()
 	if err := runner.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
@@ -367,13 +367,17 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			closer = session.Close
 		}
 		observer := func(t jujutxn.Transaction) {
-			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
-				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+			if txnLogger.IsTraceEnabled() {
+				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+			}
 		}
 		if db.runTransactionObserver != nil {
 			observer = func(t jujutxn.Transaction) {
-				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
-					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+				if txnLogger.IsTraceEnabled() {
+					txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+						t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+				}
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
 					t.Ops, t.Error,

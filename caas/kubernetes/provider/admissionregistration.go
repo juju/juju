@@ -41,6 +41,13 @@ func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string, isLegacy 
 func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 	appName string, annotations k8sannotations.Annotation, cfgs []k8sspecs.K8sMutatingWebhook,
 ) (cleanUps []func(), err error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	k8sVersion, err := k.Version()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting k8s api version")
+	}
 	for _, v := range cfgs {
 		obj := metav1.ObjectMeta{
 			Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
@@ -53,15 +60,32 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 		var cfgCleanup func()
 		switch v.APIVersion() {
 		case k8sspecs.K8sWebhookV1:
-			cfgCleanup, err = k.ensureMutatingWebhookConfigurationV1(&admissionregistrationv1.MutatingWebhookConfiguration{
-				ObjectMeta: obj,
-				Webhooks:   toMutatingWebhookV1(v.Webhooks),
-			})
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
+				return cleanUps, errors.NotSupportedf("mutating webhook version %q", v.APIVersion())
+			} else {
+				cfgCleanup, err = k.ensureMutatingWebhookConfigurationV1(&admissionregistrationv1.MutatingWebhookConfiguration{
+					ObjectMeta: obj,
+					Webhooks:   toMutatingWebhookV1(v.Webhooks),
+				})
+			}
 		case k8sspecs.K8sWebhookV1Beta1:
-			cfgCleanup, err = k.ensureMutatingWebhookConfigurationV1beta1(&admissionregistrationv1beta1.MutatingWebhookConfiguration{
-				ObjectMeta: obj,
-				Webhooks:   toMutatingWebhookV1beta1(v.Webhooks),
-			})
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
+				cfgCleanup, err = k.ensureMutatingWebhookConfigurationV1beta1(&admissionregistrationv1beta1.MutatingWebhookConfiguration{
+					ObjectMeta: obj,
+					Webhooks:   toMutatingWebhookV1beta1(v.Webhooks),
+				})
+			} else {
+				var webHooks []admissionregistrationv1.MutatingWebhook
+				webHooks, err = convertToMutatingWebhookV1(v.Webhooks)
+				if err != nil {
+					err = errors.Annotatef(err, "cannot convert v1beta1 MutatingWebhookConfiguration to v1")
+					break
+				}
+				cfgCleanup, err = k.ensureMutatingWebhookConfigurationV1(&admissionregistrationv1.MutatingWebhookConfiguration{
+					ObjectMeta: obj,
+					Webhooks:   webHooks,
+				})
+			}
 		default:
 			// This should never happen.
 			return cleanUps, errors.NotSupportedf("mutating webhook version %q", v.APIVersion())
@@ -87,6 +111,13 @@ func toMutatingWebhookV1(i []k8sspecs.K8sMutatingWebhookSpec) (o []admissionregi
 		o = append(o, v.SpecV1)
 	}
 	return o
+}
+
+func convertToMutatingWebhookV1(i []k8sspecs.K8sMutatingWebhookSpec) (o []admissionregistrationv1.MutatingWebhook, _ error) {
+	for _, v := range i {
+		o = append(o, k8sspecs.UpgradeK8sMutatingWebhookSpecV1Beta1(v.SpecV1Beta1))
+	}
+	return o, nil
 }
 
 func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1(cfg *admissionregistrationv1.MutatingWebhookConfiguration) (func(), error) {
@@ -200,6 +231,13 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName str
 func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 	appName string, annotations k8sannotations.Annotation, cfgs []k8sspecs.K8sValidatingWebhook,
 ) (cleanUps []func(), err error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	k8sVersion, err := k.Version()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting k8s api version")
+	}
 	for _, v := range cfgs {
 		obj := metav1.ObjectMeta{
 			Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
@@ -212,18 +250,35 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 		var cfgCleanup func()
 		switch v.APIVersion() {
 		case k8sspecs.K8sWebhookV1:
-			cfgCleanup, err = k.ensureValidatingWebhookConfigurationV1(&admissionregistrationv1.ValidatingWebhookConfiguration{
-				ObjectMeta: obj,
-				Webhooks:   toValidatingWebhookV1(v.Webhooks),
-			})
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
+				return cleanUps, errors.NotSupportedf("validating webhook version %q", v.APIVersion())
+			} else {
+				cfgCleanup, err = k.ensureValidatingWebhookConfigurationV1(&admissionregistrationv1.ValidatingWebhookConfiguration{
+					ObjectMeta: obj,
+					Webhooks:   toValidatingWebhookV1(v.Webhooks),
+				})
+			}
 		case k8sspecs.K8sWebhookV1Beta1:
-			cfgCleanup, err = k.ensureValidatingWebhookConfigurationV1beta1(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
-				ObjectMeta: obj,
-				Webhooks:   toValidatingWebhookV1beta1(v.Webhooks),
-			})
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
+				cfgCleanup, err = k.ensureValidatingWebhookConfigurationV1beta1(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+					ObjectMeta: obj,
+					Webhooks:   toValidatingWebhookV1beta1(v.Webhooks),
+				})
+			} else {
+				var webHooks []admissionregistrationv1.ValidatingWebhook
+				webHooks, err = convertToValidatingWebhookV1(v.Webhooks)
+				if err != nil {
+					err = errors.Annotatef(err, "cannot convert v1beta1 ValidatingWebhookConfiguration to v1")
+					break
+				}
+				cfgCleanup, err = k.ensureValidatingWebhookConfigurationV1(&admissionregistrationv1.ValidatingWebhookConfiguration{
+					ObjectMeta: obj,
+					Webhooks:   webHooks,
+				})
+			}
 		default:
 			// This should never happen.
-			return cleanUps, errors.NotSupportedf("mutating webhook version %q", v.APIVersion())
+			return cleanUps, errors.NotSupportedf("validating webhook version %q", v.APIVersion())
 		}
 		cleanUps = append(cleanUps, cfgCleanup)
 		if err != nil {
@@ -245,6 +300,13 @@ func toValidatingWebhookV1(i []k8sspecs.K8sValidatingWebhookSpec) (o []admission
 		o = append(o, v.SpecV1)
 	}
 	return o
+}
+
+func convertToValidatingWebhookV1(i []k8sspecs.K8sValidatingWebhookSpec) (o []admissionregistrationv1.ValidatingWebhook, _ error) {
+	for _, v := range i {
+		o = append(o, k8sspecs.UpgradeK8sValidatingWebhookSpecV1Beta1(v.SpecV1Beta1))
+	}
+	return o, nil
 }
 
 func (k *kubernetesClient) ensureValidatingWebhookConfigurationV1(cfg *admissionregistrationv1.ValidatingWebhookConfiguration) (func(), error) {

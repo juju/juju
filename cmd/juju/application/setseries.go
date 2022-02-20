@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,25 +39,31 @@ type setSeriesCommand struct {
 	setSeriesClient setSeriesAPI
 
 	applicationName string
-	force           bool
 	series          string
 }
 
 var setSeriesDoc = `
-When no options are set, an application series value will be set within juju.
+The specified application's series value will be set within juju. Any subordinates of
+the application will also have their series set to the provided value.
 
-The update is disallowed unless the --force option is used if the requested
-series is not explicitly supported by the application's charm and all
-subordinates, as well as any other charms which may be deployed to the same
-machine.
+This will not change the series of any existing units, rather new units will use
+the new series when deployed.
+
+It is recommended to only do this after upgrade-series has been run for machine containing
+all existing units of the application.
+
+To ensure correct binaries, run 'juju refresh' before running 'juju add-unit'.
 
 Examples:
-	juju set-series <application> <series>
-	juju set-series <application> <series> --force
+
+Set the series for the ubuntu application to focal
+
+	juju set-series ubuntu focal
 
 See also:
     status
-    upgrade-charm
+    refresh
+    upgrade-series
 `
 
 func (c *setSeriesCommand) Info() *cmd.Info {
@@ -72,7 +77,6 @@ func (c *setSeriesCommand) Info() *cmd.Info {
 
 func (c *setSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "Set even if the series is not supported by the charm and/or related subordinate charms.")
 }
 
 // Init implements cmd.Command.
@@ -111,31 +115,36 @@ func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer apiRoot.Close()
+		defer func() { _ = apiRoot.Close() }()
 	}
 
 	if c.applicationName != "" {
 		if c.setSeriesClient == nil {
 			c.setSeriesClient = application.NewClient(apiRoot)
-			defer c.setSeriesClient.Close()
+			defer func() { _ = c.setSeriesClient.Close() }()
 		}
 		if c.setSeriesClient.BestAPIVersion() < 5 {
 			return errors.New("setting the application series is not supported by this API server")
 		}
-		return c.updateApplicationSeries()
+		err := c.updateApplicationSeries()
+		if err == nil {
+			// TODO hmlanigan 2022-01-18
+			// Remove warning once improvements to develop are made, where by
+			// upgrade-series downloads the new charm. Or this command is removed.
+			// subordinate
+			ctx.Warningf("To ensure the correct charm binaries are installed when add-unit is next called, please first run `juju refresh` for this application and any related subordinates.")
+		}
+		return err
 	}
 
 	// This should never happen...
-	return errors.New("no application nor machine name specified")
+	return errors.New("no application name specified")
 }
 
 func (c *setSeriesCommand) updateApplicationSeries() error {
 	err := block.ProcessBlockedError(
-		c.setSeriesClient.UpdateApplicationSeries(c.applicationName, c.series, c.force),
+		c.setSeriesClient.UpdateApplicationSeries(c.applicationName, c.series, false),
 		block.BlockChange)
 
-	if params.IsCodeIncompatibleSeries(err) {
-		return errors.Errorf("%v. Use --force to set the series anyway.", err)
-	}
 	return err
 }

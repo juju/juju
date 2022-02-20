@@ -33,11 +33,10 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = presence.ManifoldConfig{
-		AgentName:              "agent",
-		CentralHubName:         "central-hub",
-		StateConfigWatcherName: "state-config",
-		Recorder:               corepresence.New(testclock.NewClock(time.Now())),
-		Logger:                 loggo.GetLogger("test"),
+		AgentName:      "agent",
+		CentralHubName: "central-hub",
+		Recorder:       corepresence.New(testclock.NewClock(time.Now())),
+		Logger:         loggo.GetLogger("test"),
 		NewWorker: func(presence.WorkerConfig) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},
@@ -49,7 +48,7 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent", "central-hub", "state-config"})
+	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent", "central-hub"})
 }
 
 func (s *ManifoldSuite) TestConfigValidation(c *gc.C) {
@@ -69,13 +68,6 @@ func (s *ManifoldSuite) TestConfigValidationMissingCentralHubName(c *gc.C) {
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing CentralHubName not valid")
-}
-
-func (s *ManifoldSuite) TestConfigValidationMissingStateConfigWatcherName(c *gc.C) {
-	s.config.StateConfigWatcherName = ""
-	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing StateConfigWatcherName not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingRecorder(c *gc.C) {
@@ -135,18 +127,6 @@ func (s *ManifoldSuite) TestCentralHubMissing(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestNotAServer(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":        &fakeAgent{tag: names.NewMachineTag("42")},
-		"central-hub":  pubsub.NewStructuredHub(nil),
-		"state-config": false,
-	})
-
-	worker, err := s.manifold().Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-}
-
 func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 	hub := pubsub.NewStructuredHub(nil)
 	var config presence.WorkerConfig
@@ -156,9 +136,8 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 	}
 
 	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":        &fakeAgent{tag: names.NewMachineTag("42")},
-		"central-hub":  hub,
-		"state-config": true,
+		"agent":       &fakeAgent{tag: names.NewMachineTag("42")},
+		"central-hub": hub,
 	})
 
 	worker, err := s.manifold().Start(context)

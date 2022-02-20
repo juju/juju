@@ -121,16 +121,27 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-// collect combines the effects of the one change, and any further changes read
-// from more in the next 10ms. The result map describes the existence, or not,
-// of every id observed to have changed. If a value is read from the supplied
-// stop chan, collect returns false immediately.
+// collect combines the effects of the one change, and any further
+// changes read from more in the next 10ms. The result map describes the
+// existence, or not, of every id observed to have changed. If a value is read
+// from the supplied stop chan, collect returns false immediately.
 func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{}) (map[interface{}]bool, bool) {
+	return collectWhereRevnoGreaterThan(one, more, stop, 0)
+}
+
+// collectWhereRevnoGreaterThan combines the effects of the one change, and any
+// further changes read from more in the next 10ms. The result map describes
+// the existence, or not, of every id observed to have changed. If a value is
+// read from the supplied stop chan, collect returns false immediately.
+//
+// The implementation will flag result doc IDs as existing iff the doc revno
+// is greater than the provided revnoThreshold value.
+func collectWhereRevnoGreaterThan(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{}, revnoThreshold int64) (map[interface{}]bool, bool) {
 	var count int
 	result := map[interface{}]bool{}
 	handle := func(ch watcher.Change) {
 		count++
-		result[ch.Id] = ch.Revno > 0
+		result[ch.Id] = ch.Revno > revnoThreshold
 	}
 	handle(one)
 	// TODO(fwereade): 2016-03-17 lp:1558657
@@ -390,6 +401,27 @@ func (st *State) WatchApplications() StringsWatcher {
 // the lifecycles of the remote applications in the model.
 func (st *State) WatchRemoteApplications() StringsWatcher {
 	return newLifecycleWatcher(st, remoteApplicationsC, nil, isLocalID(st), nil)
+}
+
+// WatchApplicationCharms notifies when application charm URLs change.
+// TODO(wallyworld) - use a filter to only trigger on charm URL changes.
+func (st *State) WatchApplicationCharms() StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{col: applicationsC})
+}
+
+// WatchUnits notifies when units change.
+func (st *State) WatchUnits() StringsWatcher {
+	return newLifecycleWatcher(st, unitsC, nil, isLocalID(st), nil)
+}
+
+// WatchMachines notifies when machines change.
+func (st *State) WatchMachines() StringsWatcher {
+	return newLifecycleWatcher(st, machinesC, nil, isLocalID(st), nil)
+}
+
+// WatchCharms notifies when charms change.
+func (st *State) WatchCharms() StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{col: charmsC})
 }
 
 // WatchStorageAttachments returns a StringsWatcher that notifies of
@@ -2032,13 +2064,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	charmConfigKey := applicationCharmConfigKey(u.doc.Application, cURL)
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
 }
 
@@ -2057,13 +2083,7 @@ func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	charmConfigKey := applicationCharmConfigKey(u.doc.Application, cURL)
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newSettingsHashWatcher(u.st, charmConfigKey), nil
 }
 
@@ -2808,6 +2828,11 @@ type colWCfg struct {
 
 	// If global is true the watcher won't be limited to this model.
 	global bool
+
+	// Only return documents with a revno greater than revnoThreshold. The
+	// default zero value ensures that only modified (i.e revno > 0) rather
+	// than just created documents are returned.
+	revnoThreshold int64
 }
 
 // newCollectionWatcher starts and returns a new StringsWatcher configured
@@ -2881,7 +2906,7 @@ func (w *collectionWatcher) loop() error {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
 		case ch := <-in:
-			updates, ok := collect(ch, in, w.tomb.Dying())
+			updates, ok := collectWhereRevnoGreaterThan(ch, in, w.tomb.Dying(), w.colWCfg.revnoThreshold)
 			if !ok {
 				return tomb.ErrDying
 			}

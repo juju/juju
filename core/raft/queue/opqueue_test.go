@@ -9,12 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/clock"
-	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
+
+	"github.com/juju/juju/core/raftlease"
 )
 
 type OpQueueSuite struct {
@@ -23,8 +24,8 @@ type OpQueueSuite struct {
 
 var _ = gc.Suite(&OpQueueSuite{})
 
-func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+func (s *OpQueueSuite) TestEnqueueDequeue(c *gc.C) {
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := consumeN(c, queue, 1)
 
@@ -56,7 +57,7 @@ func (s *OpQueueSuite) TestEnqueue(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	canceled := make(chan struct{}, 1)
 	close(canceled)
@@ -86,7 +87,7 @@ func (s *OpQueueSuite) TestEnqueueWithStopped(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := consumeNUntilErr(c, queue, 1, errors.New("boom"))
 
@@ -117,12 +118,13 @@ func (s *OpQueueSuite) TestEnqueueWithError(c *gc.C) {
 	c.Assert(count, gc.Equals, 1)
 }
 
-func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+func (s *OpQueueSuite) TestSynchronousEnqueueImmediateDispatch(c *gc.C) {
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
-	toEnqueue := 3
+	toEnqueue := 5
 	go func() {
-		// Synchronous enqueues will result in batches of 1.
+		// Synchronous enqueues should result in multiple batches despite
+		// being fewer total ops than the maximum batch size.
 		for i := 0; i < toEnqueue; i++ {
 			err := queue.Enqueue(InOperation{
 				Command: command(opName(i)),
@@ -145,19 +147,19 @@ func (s *OpQueueSuite) TestSynchronousEnqueueSingleDispatch(c *gc.C) {
 	err := queue.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The 3 operations were dispatched in separate batches.
-	c.Assert(len(results), gc.Equals, 3)
+	c.Assert(len(results) > 1, jc.IsTrue)
 }
 
 func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	toEnqueue := EnqueueBatchSize * 3
 	for i := 0; i < toEnqueue; i++ {
 		go func(i int) {
-			queue.Enqueue(InOperation{
+			err := queue.Enqueue(InOperation{
 				Command: command(opName(i)),
 			})
+			c.Assert(err, jc.ErrorIsNil)
 		}(i)
 	}
 
@@ -176,13 +178,14 @@ func (s *OpQueueSuite) TestConcurrentEnqueueMultiDispatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The exact batching that occurs is variable, but as a conservative test,
-	// ensure that we had some factor of batching.
+	// ensure that we had a decent factor of batching - the number of batches
+	// is fewer than 1/3 of the total enqueued operations.
 	c.Check(len(results) > 1, jc.IsTrue)
 	c.Check(len(results) < EnqueueBatchSize, jc.IsTrue)
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := make(chan raftlease.Command, 3)
 	go func() {
@@ -262,7 +265,7 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithErrors(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := make(chan raftlease.Command, 2)
 	go func() {
@@ -346,7 +349,7 @@ func (s *OpQueueSuite) TestMultipleEnqueueWithStop(c *gc.C) {
 }
 
 func (s *OpQueueSuite) TestMultipleEnqueues(c *gc.C) {
-	queue := NewOpQueue(clock.WallClock)
+	queue := NewOpQueue(testclock.NewClock(time.Now()))
 
 	results := consumeN(c, queue, 10)
 

@@ -11,30 +11,30 @@ import (
 	caasapplication "github.com/juju/juju/api/caasapplication"
 )
 
-// MockApplicationAPI is a mock of ApplicationAPI interface
+// MockApplicationAPI is a mock of ApplicationAPI interface.
 type MockApplicationAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationAPIMockRecorder
 }
 
-// MockApplicationAPIMockRecorder is the mock recorder for MockApplicationAPI
+// MockApplicationAPIMockRecorder is the mock recorder for MockApplicationAPI.
 type MockApplicationAPIMockRecorder struct {
 	mock *MockApplicationAPI
 }
 
-// NewMockApplicationAPI creates a new mock instance
+// NewMockApplicationAPI creates a new mock instance.
 func NewMockApplicationAPI(ctrl *gomock.Controller) *MockApplicationAPI {
 	mock := &MockApplicationAPI{ctrl: ctrl}
 	mock.recorder = &MockApplicationAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationAPI) EXPECT() *MockApplicationAPIMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockApplicationAPI) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -42,13 +42,13 @@ func (m *MockApplicationAPI) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockApplicationAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockApplicationAPI)(nil).Close))
 }
 
-// UnitIntroduction mocks base method
+// UnitIntroduction mocks base method.
 func (m *MockApplicationAPI) UnitIntroduction(arg0, arg1 string) (*caasapplication.UnitConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitIntroduction", arg0, arg1)
@@ -57,7 +57,7 @@ func (m *MockApplicationAPI) UnitIntroduction(arg0, arg1 string) (*caasapplicati
 	return ret0, ret1
 }
 
-// UnitIntroduction indicates an expected call of UnitIntroduction
+// UnitIntroduction indicates an expected call of UnitIntroduction.
 func (mr *MockApplicationAPIMockRecorder) UnitIntroduction(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitIntroduction", reflect.TypeOf((*MockApplicationAPI)(nil).UnitIntroduction), arg0, arg1)

@@ -243,14 +243,14 @@ func (u *Undertaker) processDyingModel(timeout *time.Duration) error {
 		timeoutAfter = u.config.Clock.After(*timeout)
 	}
 
-	watcher, err := u.config.Facade.WatchModelResources()
+	watch, err := u.config.Facade.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.catacomb.Add(watcher); err != nil {
+	if err := u.catacomb.Add(watch); err != nil {
 		return errors.Trace(err)
 	}
-	defer watcher.Kill()
+	defer watch.Kill()
 	attempt := 1
 	for {
 		select {
@@ -258,7 +258,7 @@ func (u *Undertaker) processDyingModel(timeout *time.Duration) error {
 			return u.catacomb.ErrDying()
 		case <-timeoutAfter:
 			return errors.Timeoutf("process dying model")
-		case <-watcher.Changes():
+		case <-watch.Changes():
 			err := u.config.Facade.ProcessDyingModel()
 			if err == nil {
 				// ProcessDyingModel succeeded. We're free to

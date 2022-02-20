@@ -31,18 +31,16 @@ import (
 type instanceMutaterAPISuite struct {
 	coretesting.IsolationSuite
 
-	authorizer *facademocks.MockAuthorizer
-	entity     *mocks.MockEntity
-	lifer      *mocks.MockLifer
-	state      *mocks.MockInstanceMutaterState
-	model      *mocks.MockModelCache
-	resources  *facademocks.MockResources
+	authorizer     *facademocks.MockAuthorizer
+	entity         *mocks.MockEntity
+	lifer          *mocks.MockLifer
+	state          *mocks.MockInstanceMutaterState
+	mutatorWatcher *mocks.MockInstanceMutatorWatcher
+	resources      *facademocks.MockResources
 
 	machineTag  names.Tag
 	notifyDone  chan struct{}
 	stringsDone chan []string
-
-	machineFunc instancemutater.EntityMachineFunc
 }
 
 func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
@@ -60,14 +58,14 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	s.entity = mocks.NewMockEntity(ctrl)
 	s.lifer = mocks.NewMockLifer(ctrl)
 	s.state = mocks.NewMockInstanceMutaterState(ctrl)
-	s.model = mocks.NewMockModelCache(ctrl)
+	s.mutatorWatcher = mocks.NewMockInstanceMutatorWatcher(ctrl)
 	s.resources = facademocks.NewMockResources(ctrl)
 
 	return ctrl
 }
 
 func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
-	facade, err := instancemutater.NewTestAPI(s.state, s.model, s.resources, s.authorizer, s.machineFunc)
+	facade, err := instancemutater.NewTestAPI(s.state, s.mutatorWatcher, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -81,19 +79,12 @@ func (s *instanceMutaterAPISuite) expectLife(machineTag names.Tag) {
 	)
 }
 
-func (s *instanceMutaterAPISuite) expectFindEntity(machineTag names.Tag, entity state.Entity) {
-	s.machineFunc = func(state.Entity) (instancemutater.Machine, error) {
-		shim, ok := entity.(machineEntityShim)
-		if !ok {
-			return nil, errors.NotValidf("machine entity")
-		}
-		return shim.Machine, nil
-	}
-	s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
+func (s *instanceMutaterAPISuite) expectMachine(machineTag names.Tag, machine *mocks.MockMachine) {
+	s.state.EXPECT().Machine(machineTag.Id()).Return(machine, nil)
 }
 
-func (s *instanceMutaterAPISuite) expectFindEntityError(machineTag names.Tag, err error) {
-	s.state.EXPECT().FindEntity(machineTag).Return(nil, err)
+func (s *instanceMutaterAPISuite) expectFindMachineError(machineTag names.Tag, err error) {
+	s.state.EXPECT().Machine(machineTag.Id()).Return(nil, err)
 }
 
 func (s *instanceMutaterAPISuite) expectAuthMachineAgent() {
@@ -237,11 +228,10 @@ type entityShim struct {
 type InstanceMutaterAPICharmProfilingInfoSuite struct {
 	instanceMutaterAPISuite
 
-	cacheMachine *mocks.MockModelCacheMachine
-	machine      *mocks.MockMachine
-	unit         *mocks.MockUnit
-	application  *mocks.MockApplication
-	charm        *mocks.MockCharm
+	machine     *mocks.MockMachine
+	unit        *mocks.MockUnit
+	application *mocks.MockApplication
+	charm       *mocks.MockCharm
 }
 
 var _ = gc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
@@ -249,7 +239,6 @@ var _ = gc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
-	s.cacheMachine = mocks.NewMockModelCacheMachine(ctrl)
 	s.machine = mocks.NewMockMachine(ctrl)
 	s.unit = mocks.NewMockUnit(ctrl)
 	s.application = mocks.NewMockApplication(ctrl)
@@ -267,11 +256,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectInstanceId("0")
 	s.expectUnits(1)
 	s.expectCharmProfiles()
@@ -313,11 +298,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectInstanceId("0")
 	s.expectUnits(2)
 	s.expectCharmProfiles()
@@ -364,7 +345,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithIn
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntityError(s.machineTag, errors.New("not found"))
+	s.expectFindMachineError(s.machineTag, errors.New("not found"))
 	facade := s.facadeAPIForScenario(c)
 
 	results, err := facade.CharmProfilingInfo(params.Entity{Tag: "machine-0"})
@@ -377,11 +358,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectInstanceIdNotProvisioned()
 	facade := s.facadeAPIForScenario(c)
 
@@ -392,10 +369,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 	c.Assert(results.ModelName, gc.Equals, "")
 	c.Assert(results.ProfileChanges, gc.HasLen, 0)
 	c.Assert(results.CurrentProfiles, gc.HasLen, 0)
-}
-
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectMachine(id instance.Id) {
-	s.model.EXPECT().Machine(string(id)).Return(s.cacheMachine, nil)
 }
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectInstanceId(id instance.Id) {
@@ -426,7 +399,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *g
 	stateExp := s.state.EXPECT()
 	unitExp := s.unit.EXPECT()
 
-	unitExp.Application().Return("foo")
+	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
 	chURL, err := charm.ParseURL("cs:app-0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -451,7 +424,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 	stateExp := s.state.EXPECT()
 	unitExp := s.unit.EXPECT()
 
-	unitExp.Application().Return("foo")
+	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
 	chURL, err := charm.ParseURL("cs:app-0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -461,8 +434,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 }
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectName() {
-	modelExp := s.model.EXPECT()
-	modelExp.Name().Return("foo")
+	modelExp := s.state.EXPECT()
+	modelExp.ModelName().Return("foo", nil)
 }
 
 type InstanceMutaterAPISetCharmProfilesSuite struct {
@@ -488,11 +461,7 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) 
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectSetProfiles(profiles, nil)
 	facade := s.facadeAPIForScenario(c)
 
@@ -516,17 +485,9 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectSetProfiles(profiles, nil)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectSetProfiles(profiles, errors.New("Failure"))
 	facade := s.facadeAPIForScenario(c)
 
@@ -579,11 +540,7 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatus
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectSetModificationStatus(status.Applied, "applied", nil)
 	facade := s.facadeAPIForScenario(c)
 
@@ -605,11 +562,7 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatus
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectFindEntity(s.machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
+	s.expectMachine(s.machineTag, s.machine)
 	s.expectSetModificationStatus(status.Applied, "applied", errors.New("failed"))
 	facade := s.facadeAPIForScenario(c)
 
@@ -688,19 +641,6 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
 }
 
-func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesModelCacheError(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectAuthMachineAgent()
-	s.expectAuthController()
-	s.expectWatchMachinesError()
-	facade := s.facadeAPIForScenario(c)
-
-	result, err := facade.WatchMachines()
-	c.Assert(err, gc.ErrorMatches, "error from model cache")
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
-}
-
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectAuthController() {
 	s.authorizer.EXPECT().AuthController().Return(true)
 }
@@ -715,7 +655,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(tim
 		close(s.notifyDone)
 	}()
 
-	s.model.EXPECT().WatchMachines().Return(s.watcher, nil)
+	s.state.EXPECT().WatchMachines().Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
@@ -724,18 +664,14 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChan
 	ch := make(chan []string)
 	close(ch)
 
-	s.model.EXPECT().WatchMachines().Return(s.watcher, nil)
+	s.state.EXPECT().WatchMachines().Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
-}
-
-func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesError() {
-	s.model.EXPECT().WatchMachines().Return(s.watcher, errors.New("error from model cache"))
 }
 
 type InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite struct {
 	instanceMutaterAPISuite
 
-	machine *mocks.MockModelCacheMachine
+	machine *mocks.MockMachine
 	watcher *mocks.MockNotifyWatcher
 }
 
@@ -744,7 +680,7 @@ var _ = gc.Suite(&InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite{})
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
-	s.machine = mocks.NewMockModelCacheMachine(ctrl)
+	s.machine = mocks.NewMockMachine(ctrl)
 	s.watcher = mocks.NewMockNotifyWatcher(ctrl)
 
 	return ctrl
@@ -840,7 +776,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
-			Error: apiservererrors.ServerError(errors.New("error from model cache")),
+			Error: apiservererrors.ServerError(errors.New("watcher error")),
 		}},
 	})
 }
@@ -859,9 +795,9 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 		close(s.notifyDone)
 	}()
 
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().IsManual().Return(false)
-	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, nil)
+	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(false, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
@@ -870,31 +806,31 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 	ch := make(chan struct{})
 	close(ch)
 
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().IsManual().Return(false)
-	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, nil)
+	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(false, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError() {
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().IsManual().Return(false)
-	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, errors.New("error from model cache"))
+	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(false, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Return(s.watcher, errors.New("watcher error"))
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithManualMachine() {
 	ch := make(chan struct{})
 	close(ch)
 
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().IsManual().Return(true)
-	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Times(0)
+	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(true, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Times(0)
 }
 
 type InstanceMutaterAPIWatchContainersSuite struct {
 	instanceMutaterAPISuite
 
-	machine *mocks.MockModelCacheMachine
+	machine *mocks.MockMachine
 	watcher *mocks.MockStringsWatcher
 }
 
@@ -903,7 +839,7 @@ var _ = gc.Suite(&InstanceMutaterAPIWatchContainersSuite{})
 func (s *InstanceMutaterAPIWatchContainersSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
-	s.machine = mocks.NewMockModelCacheMachine(ctrl)
+	s.machine = mocks.NewMockMachine(ctrl)
 	s.watcher = mocks.NewMockStringsWatcher(ctrl)
 
 	return ctrl
@@ -952,19 +888,6 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithClosedCh
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersModelCacheError(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectAuthMachineAgent()
-	s.expectLife(s.machineTag)
-	s.expectWatchContainersError()
-	facade := s.facadeAPIForScenario(c)
-
-	result, err := facade.WatchContainers(params.Entity{Tag: s.machineTag.String()})
-	c.Assert(err, gc.ErrorMatches, "error from model cache")
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
-}
-
 func (s *InstanceMutaterAPIWatchContainersSuite) expectAuthController() {
 	s.authorizer.EXPECT().AuthController().Return(true)
 }
@@ -979,8 +902,8 @@ func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithNotify
 		close(s.stringsDone)
 	}()
 
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().WatchContainers().Return(s.watcher, nil)
+	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().WatchContainers(instance.LXD).Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
@@ -989,18 +912,7 @@ func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithClosed
 	ch := make(chan []string)
 	close(ch)
 
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().WatchContainers().Return(s.watcher, nil)
+	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().WatchContainers(instance.LXD).Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
-}
-
-func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersError() {
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().WatchContainers().Return(s.watcher, errors.New("error from model cache"))
-}
-
-type machineEntityShim struct {
-	instancemutater.Machine
-	state.Entity
-	state.Lifer
 }

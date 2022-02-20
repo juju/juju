@@ -15,10 +15,11 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -205,17 +206,20 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		return nil, errors.New("*charm.URL was nil")
 	}
 
+	pendingUpload := info.SHA256 == "" || info.StoragePath == ""
+
 	doc := charmDoc{
-		DocID:        info.ID.String(),
-		URL:          info.ID,
-		CharmVersion: info.Version,
-		Meta:         info.Charm.Meta(),
-		Config:       safeConfig(info.Charm),
-		Manifest:     info.Charm.Manifest(),
-		Metrics:      info.Charm.Metrics(),
-		Actions:      info.Charm.Actions(),
-		BundleSha256: info.SHA256,
-		StoragePath:  info.StoragePath,
+		DocID:         info.ID.String(),
+		URL:           info.ID,
+		CharmVersion:  info.Version,
+		Meta:          info.Charm.Meta(),
+		Config:        safeConfig(info.Charm),
+		Manifest:      info.Charm.Manifest(),
+		Metrics:       info.Charm.Metrics(),
+		Actions:       info.Charm.Actions(),
+		BundleSha256:  info.SHA256,
+		StoragePath:   info.StoragePath,
+		PendingUpload: pendingUpload,
 	}
 	lpc, ok := info.Charm.(charm.LXDProfiler)
 	if !ok {
@@ -268,8 +272,8 @@ func insertPendingCharmOps(mb modelBackend, curl *charm.URL) ([]txn.Op, error) {
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
 func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
-	charms, closer := mb.db().GetCollection(charmsC)
-	defer closer()
+	charms, cCloser := mb.db().GetCollection(charmsC)
+	defer cCloser()
 
 	life, err := nsLife.read(charms, cdoc.DocID)
 	if errors.IsNotFound(err) {
@@ -288,8 +292,8 @@ func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 		Insert: cdoc,
 	}
 
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
+	refcounts, rCloser := mb.db().GetCollection(refcountsC)
+	defer rCloser()
 
 	charmKey := charmGlobalKey(cdoc.URL)
 	refOp, required, err := nsRefcounts.LazyCreateOp(refcounts, charmKey)
@@ -712,6 +716,10 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
+//
+// TODO(achilleasa) Overwrite this implementation with the body of the
+// AddCharmMetadata method once the server-side bundle expansion work is
+// complete.
 func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
@@ -766,17 +774,24 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	return charms, errors.Trace(iter.Close())
 }
 
-// Charm returns the charm with the given URL. Charms pending upload
-// to storage and placeholders are never returned.
+// Charm returns the charm with the given URL. Charm placeholders are never
+// returned. Charms pending to be uploaded are only returned if the
+// async charm download feature flag is set.
+//
+// TODO(achilleasa) remove the feature flag check once the server-side bundle
+// expansion work lands.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
+	var (
+		cdoc    charmDoc
+		charmID = curl.String()
+	)
+
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
-	cdoc := &charmDoc{}
 	what := bson.D{
 		{"_id", curl.String()},
 		{"placeholder", bson.D{{"$ne", true}}},
-		{"pendingupload", bson.D{{"$ne", true}}},
 	}
 	what = append(what, nsLife.notDead()...)
 	err := charms.Find(what).One(&cdoc)
@@ -787,11 +802,18 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	ch := newCharm(st, cdoc)
-	if err := charm.CheckMeta(ch); err != nil {
-		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
+	// This check ensures that we don't break the existing deploy logic
+	// until the server-side bundle expansion work lands.
+	cfg, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return ch, nil
+	returnPendingCharms := cfg.Features().Contains(feature.AsynchronousCharmDownloads)
+	if cdoc.PendingUpload && !returnPendingCharms {
+		return nil, errors.NotFoundf("charm %q", charmID)
+	}
+
+	return newCharm(st, &cdoc), nil
 }
 
 // LatestPlaceholderCharm returns the latest charm described by the
@@ -876,6 +898,9 @@ func isValidPlaceholderCharmURL(curl *charm.URL) bool {
 //
 // The url's schema must be charmstore ("cs") or a charmhub ("ch") and it must
 // include a revision that isn't a negative value.
+//
+// TODO(achilleas): This call will be removed once the server-side bundle
+// deployment work lands.
 func (st *State) PrepareCharmUpload(curl *charm.URL) (*Charm, error) {
 	// Perform a few sanity checks first.
 	if !isValidPlaceholderCharmURL(curl) {
@@ -971,6 +996,9 @@ func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
+//
+// TODO(achilleas): This call will be removed once the server-side bundle
+// deployment work lands.
 func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
@@ -995,4 +1023,44 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 		return nil, onAbort(err, stateerrors.ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(info.ID)
+}
+
+// AddCharmMetadata creates a charm document in state and populates it with the
+// provided charm metadata details. If the charm document already exists it
+// will be returned back as a *charm.Charm.
+//
+// If the provided CharmInfo does not include a SHA256 and storage path entry,
+// then the charm document will be created with the PendingUpload flag set
+// to true.
+//
+// The charm URL must either have a charmstore ("cs") or a charmhub ("ch")
+// schema and it must include a revision that isn't a negative value. Otherwise,
+// an error will be returned.
+func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
+	// Perform a few sanity checks first.
+	if !isValidPlaceholderCharmURL(info.ID) {
+		return nil, errors.Errorf("expected charm URL with a valid schema, got %q", info.ID)
+	}
+	if info.ID.Revision < 0 {
+		return nil, errors.Errorf("expected charm URL with revision, got %q", info.ID)
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Check if the charm doc already exists.
+		if _, err := st.Charm(info.ID); err == nil {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		return insertCharmOps(st, info)
+	}
+
+	if err := st.db().Run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ch, err := st.Charm(info.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ch, nil
 }

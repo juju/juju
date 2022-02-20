@@ -15,8 +15,8 @@ import (
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -67,11 +67,9 @@ func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
 
 func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) {
 		restoreFinishBootstrap()
-		restoreTimeouts()
 	})
 }
 

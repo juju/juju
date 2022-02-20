@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -86,10 +85,6 @@ func ImageMetadataSources(env BootstrapEnviron, dataSourceFactory simplestreams.
 	// Add configured and environment-specific datasources.
 	var sources []simplestreams.DataSource
 	if userURL, ok := config.ImageMetadataURL(); ok {
-		verify := utils.VerifySSLHostnames
-		if !config.SSLHostnameVerification() {
-			verify = utils.NoVerifySSLHostnames
-		}
 		publicKey, err := simplestreams.UserPublicSigningKey()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -98,7 +93,7 @@ func ImageMetadataSources(env BootstrapEnviron, dataSourceFactory simplestreams.
 			Description:          "image-metadata-url",
 			BaseURL:              userURL,
 			PublicSigningKey:     publicKey,
-			HostnameVerification: verify,
+			HostnameVerification: config.SSLHostnameVerification(),
 			Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
 		}
 		if err := cfg.Validate(); err != nil {

@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/utils/v2/fs"
-	"github.com/juju/utils/v2/symlink"
+	"github.com/juju/utils/v3/arch"
+	"github.com/juju/utils/v3/fs"
+	"github.com/juju/utils/v3/symlink"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 

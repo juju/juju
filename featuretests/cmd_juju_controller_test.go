@@ -193,8 +193,12 @@ controller:
     owner: admin
     cloud: dummy
     validity-check: valid
+  supported-features:
+  - name: juju
+    description: the version of Juju used by the model
+    version: %v
 `[1:]
-	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current))
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current, version.Current))
 }
 
 func (s *cmdControllerSuite) TestListModelsYAMLWithExactTime(c *gc.C) {

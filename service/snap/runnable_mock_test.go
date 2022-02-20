@@ -5,34 +5,35 @@
 package snap
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockRunnable is a mock of Runnable interface
+// MockRunnable is a mock of Runnable interface.
 type MockRunnable struct {
 	ctrl     *gomock.Controller
 	recorder *MockRunnableMockRecorder
 }
 
-// MockRunnableMockRecorder is the mock recorder for MockRunnable
+// MockRunnableMockRecorder is the mock recorder for MockRunnable.
 type MockRunnableMockRecorder struct {
 	mock *MockRunnable
 }
 
-// NewMockRunnable creates a new mock instance
+// NewMockRunnable creates a new mock instance.
 func NewMockRunnable(ctrl *gomock.Controller) *MockRunnable {
 	mock := &MockRunnable{ctrl: ctrl}
 	mock.recorder = &MockRunnableMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRunnable) EXPECT() *MockRunnableMockRecorder {
 	return m.recorder
 }
 
-// Execute mocks base method
+// Execute mocks base method.
 func (m *MockRunnable) Execute(arg0 string, arg1 ...string) (string, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
@@ -45,7 +46,7 @@ func (m *MockRunnable) Execute(arg0 string, arg1 ...string) (string, error) {
 	return ret0, ret1
 }
 
-// Execute indicates an expected call of Execute
+// Execute indicates an expected call of Execute.
 func (mr *MockRunnableMockRecorder) Execute(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)

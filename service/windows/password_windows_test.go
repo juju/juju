@@ -8,7 +8,11 @@
 package windows_test
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -44,7 +48,11 @@ type ServicePasswordChangerSuite struct {
 
 func (s *ServicePasswordChangerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.c = &windows.PasswordChanger{}
+	s.c = &windows.PasswordChanger{RetryStrategy: retry.CallArgs{
+		Clock:    clock.WallClock,
+		Delay:    time.Second,
+		Attempts: 1,
+	}}
 	s.mgr = &myAmazingServiceManager{}
 }
 

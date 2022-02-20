@@ -10,10 +10,11 @@ import (
 	"net/http"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	path "github.com/juju/juju/charmhub/path"
@@ -26,7 +27,15 @@ type RefreshSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&RefreshSuite{})
+var (
+	_ = gc.Suite(&RefreshSuite{})
+
+	expRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
+)
 
 func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	ctrl := gomock.NewController(c)
@@ -53,6 +62,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 	}
 
 	config, err := RefreshOne("instance-key", id, 1, "latest/stable", RefreshBase{
@@ -91,7 +101,7 @@ func (s *RefreshSuite) TestRefeshConfigValidateSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Channel.*")
 }
 
-func (s *RefreshSuite) TestRefeshConfigValidateName(c *gc.C) {
+func (s *RefreshSuite) TestRefeshConfigVali914dateName(c *gc.C) {
 	err := s.testRefeshConfigValidate(c, RefreshBase{
 		Name:         "all",
 		Channel:      "20.04",
@@ -152,6 +162,59 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
     {
       "id": "bar",
       "instance-key": "instance-key-bar"
+    }
+  ]
+}
+`,
+	}
+
+	headers := http.Header{"User-Agent": []string{"Test Agent 1.0"}}
+	restClient := NewHTTPRESTClient(httpTransport, headers)
+	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+
+	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config2, err := RefreshOne("instance-key-bar", "bar", 2, "latest/edge", RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "14.04",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config := RefreshMany(config1, config2)
+
+	response, err := client.Refresh(context.Background(), config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
+
+	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
+		{ID: "foo", InstanceKey: "instance-key-foo"},
+		{ID: "bar", InstanceKey: "instance-key-bar"},
+	})
+}
+
+func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+	baseURLPath := path.MakePath(baseURL)
+
+	httpTransport := &metadataTransport{
+		responseBody: `
+{
+  "error-list": [],
+  "results": [
+    {
+        "id": "bar",
+        "instance-key": "instance-key-bar"
+    },
+    {
+      "id": "foo",
+      "instance-key": "instance-key-foo"
     }
   ]
 }
@@ -265,6 +328,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 			InstanceKey: "instance-key-bar",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 		Metrics: map[string]map[string]string{
 			"controller": {"uuid": "controller-uuid"},
 			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
@@ -404,6 +468,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -458,6 +523,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 			InstanceKey: "instance-key",
 			ID:          &id,
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -503,7 +569,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *gc.C) {
 			Name:        &name,
 			Revision:    &revision,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -537,7 +603,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
 				{Name: "testme", Revision: 3},
 			},
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -580,6 +646,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -618,6 +685,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -677,7 +745,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
 			ID:          &id,
 			Revision:    &rev,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -704,7 +772,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
 			Name:        &name,
 			Revision:    &rev,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -740,6 +808,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -779,6 +848,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -818,6 +888,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},
+		Fields: expRefreshFields,
 	})
 }
 
@@ -944,7 +1015,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Name:        &name4,
 			Revision:    &rev4,
 		}},
-		Fields: []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields: expRefreshFields,
 	})
 }
 

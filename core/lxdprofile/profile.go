@@ -14,7 +14,7 @@ type LXDProfiles struct {
 	Profile Profile
 }
 
-// Implements LXDProfiler interface.
+// LXDProfile implements LXDProfiler interface.
 func (p LXDProfiles) LXDProfile() LXDProfile {
 	return p.Profile
 }
@@ -33,12 +33,12 @@ type Profile struct {
 	Devices     map[string]map[string]string
 }
 
-// Implements LXDProfile interface.
+// Empty implements LXDProfile interface.
 func (p Profile) Empty() bool {
 	return len(p.Devices) < 1 && len(p.Config) < 1
 }
 
-// Implements LXDProfile interface.
+// ValidateConfigDevices implements LXDProfile interface.
 func (p Profile) ValidateConfigDevices() error {
 	for _, val := range p.Devices {
 		goodDevs := set.NewStrings("unix-char", "unix-block", "gpu", "usb")

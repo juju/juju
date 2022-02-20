@@ -22,9 +22,9 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/txn/v2"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -887,6 +888,7 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 		Constraints:             cons,
 		HardwareCharacteristics: hc,
 		InstanceId:              "inst-id",
+		DisplayName:             "test-display-name",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
 	}
@@ -895,9 +897,6 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 1)
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
-	instId, err := m.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(instId), gc.Equals, "inst-id")
 	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
 	c.Assert(m.Series(), gc.Equals, "precise")
 	mcons, err := m.Constraints()
@@ -906,9 +905,10 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	mhc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*mhc, gc.DeepEquals, hc)
-	instId, err = m.InstanceId()
+	instId, instDN, err := m.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(instId), gc.Equals, "inst-id")
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) TestAddMachinesModelDying(c *gc.C) {
@@ -944,9 +944,12 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cores=4")
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		DisplayName: "test-display-name",
 		Series:      "quantal",
 		Constraints: extraCons,
 		Jobs:        oneJob,
+		Nonce:       "nonce",
+		InstanceId:  "inst-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
@@ -956,6 +959,12 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
+	m, err = s.State.Machine(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
+	_, instDN, err := m.InstanceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
@@ -963,9 +972,12 @@ func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:    "quantal",
-		Jobs:      oneJob,
-		Placement: "theplacement",
+		DisplayName: "test-display-name",
+		Series:      "quantal",
+		Jobs:        oneJob,
+		Placement:   "theplacement",
+		Nonce:       "nonce",
+		InstanceId:  "inst-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
@@ -976,6 +988,12 @@ func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
+	m, err = s.State.Machine(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
+	_, instDN, err := m.InstanceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
@@ -1005,6 +1023,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		Constraints:             cons,
 		HardwareCharacteristics: hc,
 		InstanceId:              "inst-id",
+		DisplayName:             "test-display-name",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
 		Volumes: []state.HostVolumeParams{{
@@ -1046,6 +1065,10 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Check(volumeParams, gc.Equals, machineTemplate.Volumes[i].Volume)
 	}
+	instId, instDN, err := m.InstanceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(instId), gc.Equals, "inst-id")
+	c.Assert(instDN, gc.Equals, "test-display-name")
 }
 
 func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containers []string) {
@@ -2800,10 +2823,21 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
+			doc := bson.M{
+				"model-uuid": modelUUID,
+			}
+			id := "arbitraryid"
+			// We need a "real" application and offer.
+			if collName == "applicationOffers" {
+				doc["application-name"] = "foo"
+			} else if collName == "applications" {
+				doc["name"] = "foo"
+				id = "foo"
+			}
 			ops = append(ops, mgotxn.Op{
 				C:      collName,
-				Id:     state.DocID(st, "arbitraryid"),
-				Insert: bson.M{"model-uuid": modelUUID},
+				Id:     state.DocID(st, id),
+				Insert: doc,
 			})
 		}
 	}
@@ -3057,6 +3091,50 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsRemovesOfferPermissions(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	s.createOffer(c)
+
+	coll, closer := state.GetRawCollection(s.State, "permissions")
+	defer closer()
+	cnt, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cnt, gc.Equals, 8)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cnt, err = coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	// 2 model permissions deleted.
+	// 2 offer permissions deleted.
+	c.Assert(cnt, gc.Equals, 4)
+}
+
+func (s *StateSuite) createOffer(c *gc.C) {
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	offerArgs := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              eps,
+		Owner:                  owner.Name(),
+		HasRead:                []string{"everyone@external"},
+	}
+	_, err := sd.AddOffer(offerArgs)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
@@ -3855,7 +3933,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify machine0 and machine1 are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	expectErr := fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3882,7 +3960,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3896,7 +3974,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	}
 
 	// Verify only the units are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3934,7 +4012,7 @@ func (s *StateSuite) changeEnviron(c *gc.C, modelConfig *config.Config, name str
 	c.Assert(s.Model.UpdateModelConfig(attrs, nil), gc.IsNil)
 }
 
-func assertAgentVersion(c *gc.C, st *state.State, vers string) {
+func assertAgentVersion(c *gc.C, st *state.State, vers, stream string) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelConfig, err := m.ModelConfig()
@@ -3942,6 +4020,9 @@ func assertAgentVersion(c *gc.C, st *state.State, vers string) {
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(agentVersion.String(), gc.Equals, vers)
+	agentStream := modelConfig.AgentStream()
+	c.Assert(agentStream, gc.Equals, stream)
+
 }
 
 func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
@@ -3955,9 +4036,9 @@ func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, s.State, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
@@ -3971,9 +4052,27 @@ func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and verify.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, s.State, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6", "released")
+}
+
+func (s *StateSuite) TestSetModelAgentVersionUpdateStream(c *gc.C) {
+	proposed := "proposed"
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &proposed, false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, s.State, "4.5.6", proposed)
+
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.7"), nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, s.State, "4.5.7", proposed)
+}
+
+func (s *StateSuite) TestSetModelAgentVersionUpdateStreamEmpty(c *gc.C) {
+	stream := ""
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &stream, false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
@@ -3989,17 +4088,17 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 	lower := version.MustParseBinary("1.24.6-ubuntu-amd64")
 
 	// Set other model version to < controller model version
-	err := otherSt.SetModelAgentVersion(lower.Number, false)
+	err := otherSt.SetModelAgentVersion(lower.Number, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, lower.Number.String())
+	assertAgentVersion(c, otherSt, lower.Number.String(), "released")
 
 	// Set other model version == controller version
-	err = otherSt.SetModelAgentVersion(jujuversion.Current, false)
+	err = otherSt.SetModelAgentVersion(jujuversion.Current, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, jujuversion.Current.String())
+	assertAgentVersion(c, otherSt, jujuversion.Current.String(), "released")
 
 	// Set other model version to > server version
-	err = otherSt.SetModelAgentVersion(higher.Number, false)
+	err = otherSt.SetModelAgentVersion(higher.Number, nil, false)
 	expected := fmt.Sprintf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 		higher.Number,
 		jujuversion.Current,
@@ -4018,10 +4117,10 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 		func() { s.changeEnviron(c, modelConfig, "default-series", "3") },
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
-	assertAgentVersion(c, s.State, currentVersion)
+	assertAgentVersion(c, s.State, currentVersion, "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
@@ -4032,14 +4131,14 @@ func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
 	err = machine.SetAgentVersion(version.MustParseBinary("1.0.1-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	// This should be refused because an agent doesn't match "currentVersion"
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: machine-0")
 	// Version hasn't changed
-	assertAgentVersion(c, s.State, currentVersion)
+	assertAgentVersion(c, s.State, currentVersion, "released")
 	// But we can force it
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), true)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, s.State, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
@@ -4063,7 +4162,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetModelAgentVersion(nextVersion, false)
+	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
 	c.Assert(err, jc.Satisfies, stateerrors.IsUpgradeInProgressError)
 }
 
@@ -4092,7 +4191,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetModelAgentVersion(nextVersion, false)
+	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
 	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current model version.+")
 }
 

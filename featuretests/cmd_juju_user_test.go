@@ -129,10 +129,10 @@ func (s *UserSuite) TestUserEnable(c *gc.C) {
 func (s *UserSuite) TestRemoveUserPrompt(c *gc.C) {
 	expected := `
 WARNING! This command will permanently archive the user "jjam" on the "kontroll"
-controller.
+controller. This action is irreversible and you WILL NOT be able to reuse
+username "jjam".
 
-This action is irreversible. If you wish to temporarily disable the
-user please use the`[1:] + " `juju disable-user` " + `command. See
+If you wish to temporarily disable the user please use the`[1:] + " `juju disable-user`\n" + `command. See
 ` + " `juju help disable-user` " + `for more details.
 
 Continue (y/N)? `

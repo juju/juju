@@ -33,7 +33,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
@@ -506,7 +506,7 @@ func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) (netwo
 func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) network.ProviderAddresses {
 	var machineAddresses []network.ProviderAddress
 	if publicIP != "" {
-		publicAddr := network.NewProviderAddress(publicIP, network.WithScope(network.ScopePublic))
+		publicAddr := network.NewMachineAddress(publicIP, network.WithScope(network.ScopePublic)).AsProviderAddress()
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
@@ -527,7 +527,7 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 			if address.Version == 6 {
 				addrType = network.IPv6Address
 			}
-			machineAddr := network.NewProviderAddress(address.Address, network.WithScope(networkScope))
+			machineAddr := network.NewMachineAddress(address.Address, network.WithScope(networkScope)).AsProviderAddress()
 			if machineAddr.Type != addrType {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrType)
 			}
@@ -1031,14 +1031,10 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
-	verify := utils.VerifySSLHostnames
-	if !e.Config().SSLHostnameVerification() {
-		verify = utils.NoVerifySSLHostnames
-	}
 	cfg := simplestreams.Config{
 		Description:          "keystone catalog",
 		BaseURL:              serviceURL,
-		HostnameVerification: verify,
+		HostnameVerification: e.Config().SSLHostnameVerification(),
 		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
 		CACertificates:       e.cloudUnlocked.CACertificates,
 	}
@@ -1492,7 +1488,7 @@ func (e *Environ) networksForInstance(
 		netInfo[i] = network.InterfaceInfo{
 			InterfaceName: fmt.Sprintf("eth%d", i),
 			MACAddress:    port.MACAddress,
-			Addresses:     network.NewProviderAddresses(ips...),
+			Addresses:     network.NewMachineAddresses(ips).AsProviderAddresses(),
 			ConfigType:    network.ConfigDHCP,
 			Origin:        network.OriginProvider,
 		}

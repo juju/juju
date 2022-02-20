@@ -9,8 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -47,7 +46,7 @@ func newDataSourceFunc(factory simplestreams.DataSourceFactory, baseURL string) 
 				Description:          "ubuntu cloud images",
 				BaseURL:              baseURL,
 				PublicSigningKey:     imagemetadata.SimplestreamsImagesPublicKey,
-				HostnameVerification: utils.VerifySSLHostnames,
+				HostnameVerification: true,
 				Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 				RequireSigned:        true,
 			},

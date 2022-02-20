@@ -67,7 +67,7 @@ func (s *observerSuite) createFactory(c *gc.C) (observer.ObserverFactory, func()
 		metricobserver.MetricLabelFacade:    "api-facade",
 		metricobserver.MetricLabelVersion:   strconv.Itoa(42),
 		metricobserver.MetricLabelMethod:    "api-method",
-		metricobserver.MetricLabelErrorCode: "badness",
+		metricobserver.MetricLabelErrorCode: "error",
 	})
 
 	factory, err := metricobserver.NewObserverFactory(metricobserver.Config{

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/environschema.v1"
 
 	apicontroller "github.com/juju/juju/api/controller"
 	jujucmd "github.com/juju/juju/cmd"
@@ -81,7 +82,7 @@ func (c *configCommand) Info() *cmd.Info {
 		Args:    "[<attribute key>[=<value>] ...]",
 		Purpose: "Displays or sets configuration settings for a controller.",
 	}
-	if details, err := ConfigDetails(); err == nil {
+	if details, err := ConfigDetailsUpdatable(); err == nil {
 		if formattedDetails, err := common.FormatConfigSchema(details); err == nil {
 			info.Doc = fmt.Sprintf("%s%s\n%s%s",
 				configCommandHelpDocPart1,
@@ -226,19 +227,34 @@ func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error 
 	return errors.Trace(client.ConfigSet(attrs))
 }
 
-// ConfigDetails gets information about controller config attributes.
-func ConfigDetails() (map[string]interface{}, error) {
+// ConfigDetailsUpdatable gets information about the controller config
+// attributes that are updatable.
+func ConfigDetailsUpdatable() (map[string]interface{}, error) {
 	specifics := make(map[string]interface{})
 	for key, attr := range controller.ConfigSchema {
 		if !controller.AllowedUpdateConfigAttributes.Contains(key) {
 			continue
 		}
-		specifics[key] = common.PrintConfigSchema{
-			Description: attr.Description,
-			Type:        fmt.Sprintf("%s", attr.Type),
-		}
+		specifics[key] = attrToPrintSchema(attr)
 	}
 	return specifics, nil
+}
+
+// ConfigDetailsAll gets information about all the controller config
+// attributes, including those only settable during bootstrap.
+func ConfigDetailsAll() (map[string]interface{}, error) {
+	specifics := make(map[string]interface{})
+	for key, attr := range controller.ConfigSchema {
+		specifics[key] = attrToPrintSchema(attr)
+	}
+	return specifics, nil
+}
+
+func attrToPrintSchema(attr environschema.Attr) common.PrintConfigSchema {
+	return common.PrintConfigSchema{
+		Description: attr.Description,
+		Type:        fmt.Sprintf("%s", attr.Type),
+	}
 }
 
 func formatConfigTabular(writer io.Writer, value interface{}) error {

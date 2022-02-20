@@ -97,8 +97,13 @@ type ClientV2 struct {
 	*ClientV3
 }
 
-// ClientV2 serves the (v2) client-specific API methods.
+// ClientV3 serves the (v3) client-specific API methods.
 type ClientV3 struct {
+	*ClientV4
+}
+
+// ClientV4 serves the (v4) client-specific API methods.
+type ClientV4 struct {
 	*Client
 }
 
@@ -170,14 +175,23 @@ func NewFacadeV2(ctx facade.Context) (*ClientV2, error) {
 
 // NewFacadeV3 creates a version 3 Client facade to handle API requests.
 func NewFacadeV3(ctx facade.Context) (*ClientV3, error) {
-	client, err := NewFacade(ctx)
+	client, err := NewFacadeV4(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ClientV3{client}, nil
 }
 
-// NewFacade creates a version 4 Client facade to handle API requests.
+// NewFacadeV4 creates a version 4 Client facade to handle API requests.
+func NewFacadeV4(ctx facade.Context) (*ClientV4, error) {
+	client, err := NewFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ClientV4{client}, nil
+}
+
+// NewFacade creates a version 5 Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
 func NewFacade(ctx facade.Context) (*Client, error) {
@@ -763,7 +777,7 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		}
 	}
 
-	return c.api.stateAccessor.SetModelAgentVersion(args.Version, args.IgnoreAgentVersions)
+	return c.api.stateAccessor.SetModelAgentVersion(args.Version, &args.AgentStream, args.IgnoreAgentVersions)
 }
 
 // CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good

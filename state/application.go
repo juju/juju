@@ -20,8 +20,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/v2"
+	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
@@ -1892,7 +1892,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			}
 		}
 		// Exit early if the Application series doesn't need to change.
-		if a.Series() == series {
+		if a.Series() == series && a.CharmOrigin().Platform.Series == series {
 			return nil, jujutxn.ErrNoOperations
 		}
 
@@ -1931,7 +1931,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			Assert: bson.D{{"life", Alive},
 				{"charmurl", a.doc.CharmURL},
 				{"unitcount", a.doc.UnitCount}},
-			Update: bson.D{{"$set", bson.D{{"series", series}}}},
+			Update: bson.D{{"$set", bson.D{{"series", series},
+				{"charm-origin.platform.series", series}}}},
 		}}
 
 		if unit != nil {
@@ -1950,7 +1951,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				Assert: bson.D{{"life", Alive},
 					{"charmurl", sub.doc.CharmURL},
 					{"unitcount", sub.doc.UnitCount}},
-				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+				Update: bson.D{{"$set", bson.D{{"series", series},
+					{"charm-origin.platform.series", series}}}},
 			})
 		}
 		return ops, nil
@@ -2649,17 +2651,11 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
-		maybeDoFinal := *u.doc.CharmURL != a.doc.CharmURL.String()
-
-		cURL, err := u.CharmURL()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
+		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
 		// When 'force' is set, this call will return both needed operations
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, cURL, maybeDoFinal, op)
+		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if op.FatalError(err) {
@@ -3629,6 +3625,17 @@ func (a *Application) UnitNames() ([]string, error) {
 	return u, errors.Trace(err)
 }
 
+// CharmPendingToBeDownloaded returns true if the charm referenced by this
+// application is pending to be downloaded.
+func (a *Application) CharmPendingToBeDownloaded() bool {
+	ch, _, err := a.Charm()
+	if err != nil {
+		return false
+	}
+
+	return !ch.IsPlaceholder() && !ch.IsUploaded()
+}
+
 func appUnitNames(st *State, appName string) ([]string, error) {
 	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()
@@ -3646,4 +3653,33 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 		unitNames[i] = doc.Name
 	}
 	return unitNames, nil
+}
+
+// WatchApplicationsWithPendingCharms returns a watcher that emits the IDs of
+// applications that have a charm origin popoulated and reference a charm that
+// is pending to be downloaded.
+func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{
+		col: applicationsC,
+		filter: func(key interface{}) bool {
+			sKey, ok := key.(string)
+			if !ok {
+				return false
+			}
+
+			// We need an application with both a charm URL and
+			// an origin set.trusty
+			app, _ := st.Application(st.localID(sKey))
+			if app == nil || app.CharmOrigin() == nil {
+				return false
+			}
+
+			return app.CharmPendingToBeDownloaded()
+		},
+		// We want to be notified for application documents as soon as
+		// they appear in the collection. As the revno for inserted
+		// docs is 0 we need to set the threshold to -1 so inserted
+		// docs are not ignored by the watcher.
+		revnoThreshold: -1,
+	})
 }

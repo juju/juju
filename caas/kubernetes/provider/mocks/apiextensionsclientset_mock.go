@@ -5,37 +5,38 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	discovery "k8s.io/client-go/discovery"
-	reflect "reflect"
 )
 
-// MockApiExtensionsClientInterface is a mock of Interface interface
+// MockApiExtensionsClientInterface is a mock of Interface interface.
 type MockApiExtensionsClientInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockApiExtensionsClientInterfaceMockRecorder
 }
 
-// MockApiExtensionsClientInterfaceMockRecorder is the mock recorder for MockApiExtensionsClientInterface
+// MockApiExtensionsClientInterfaceMockRecorder is the mock recorder for MockApiExtensionsClientInterface.
 type MockApiExtensionsClientInterfaceMockRecorder struct {
 	mock *MockApiExtensionsClientInterface
 }
 
-// NewMockApiExtensionsClientInterface creates a new mock instance
+// NewMockApiExtensionsClientInterface creates a new mock instance.
 func NewMockApiExtensionsClientInterface(ctrl *gomock.Controller) *MockApiExtensionsClientInterface {
 	mock := &MockApiExtensionsClientInterface{ctrl: ctrl}
 	mock.recorder = &MockApiExtensionsClientInterfaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApiExtensionsClientInterface) EXPECT() *MockApiExtensionsClientInterfaceMockRecorder {
 	return m.recorder
 }
 
-// ApiextensionsV1 mocks base method
+// ApiextensionsV1 mocks base method.
 func (m *MockApiExtensionsClientInterface) ApiextensionsV1() v1.ApiextensionsV1Interface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApiextensionsV1")
@@ -43,13 +44,13 @@ func (m *MockApiExtensionsClientInterface) ApiextensionsV1() v1.ApiextensionsV1I
 	return ret0
 }
 
-// ApiextensionsV1 indicates an expected call of ApiextensionsV1
+// ApiextensionsV1 indicates an expected call of ApiextensionsV1.
 func (mr *MockApiExtensionsClientInterfaceMockRecorder) ApiextensionsV1() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).ApiextensionsV1))
 }
 
-// ApiextensionsV1beta1 mocks base method
+// ApiextensionsV1beta1 mocks base method.
 func (m *MockApiExtensionsClientInterface) ApiextensionsV1beta1() v1beta1.ApiextensionsV1beta1Interface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApiextensionsV1beta1")
@@ -57,13 +58,13 @@ func (m *MockApiExtensionsClientInterface) ApiextensionsV1beta1() v1beta1.Apiext
 	return ret0
 }
 
-// ApiextensionsV1beta1 indicates an expected call of ApiextensionsV1beta1
+// ApiextensionsV1beta1 indicates an expected call of ApiextensionsV1beta1.
 func (mr *MockApiExtensionsClientInterfaceMockRecorder) ApiextensionsV1beta1() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1beta1", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).ApiextensionsV1beta1))
 }
 
-// Discovery mocks base method
+// Discovery mocks base method.
 func (m *MockApiExtensionsClientInterface) Discovery() discovery.DiscoveryInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Discovery")
@@ -71,7 +72,7 @@ func (m *MockApiExtensionsClientInterface) Discovery() discovery.DiscoveryInterf
 	return ret0
 }
 
-// Discovery indicates an expected call of Discovery
+// Discovery indicates an expected call of Discovery.
 func (mr *MockApiExtensionsClientInterfaceMockRecorder) Discovery() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Discovery", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).Discovery))

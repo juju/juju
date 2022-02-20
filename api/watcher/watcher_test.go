@@ -11,7 +11,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -496,13 +496,10 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertChange, assertNoChange, stop := s.setupOfferStatusWatch(c)
 	defer stop()
 
-	// watcher needs to come from model cache: https://bugs.launchpad.net/juju/+bug/1883625"
-	// Until then, the status checking is bypassed.
-	var err error
-	// err := mysql.SetStatus(status.StatusInfo{Status: status.Unknown, Message: "another message"})
-	// c.Assert(err, jc.ErrorIsNil)
+	err := mysql.SetStatus(status.StatusInfo{Status: status.Unknown, Message: "another message"})
+	c.Assert(err, jc.ErrorIsNil)
 
-	// assertChange(status.Waiting, "another message")
+	assertChange(status.Unknown, "another message")
 
 	// Removing offer and application both trigger events.
 	offers := state.NewApplicationOffers(s.State)

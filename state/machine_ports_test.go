@@ -6,8 +6,8 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
-	jujutxn "github.com/juju/txn"
+	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"

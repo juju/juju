@@ -11,7 +11,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 
 	"github.com/juju/juju/core/network"
 )
@@ -611,10 +611,10 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 			newDev.VLANTag = sub.VLANTag()
 			newDev.IsDefaultGateway = addr.IsDefaultGateway()
 			newDev.Addresses = network.ProviderAddresses{
-				network.NewProviderAddress("", network.WithCIDR(sub.CIDR()))}
+				network.NewMachineAddress("", network.WithCIDR(sub.CIDR())).AsProviderAddress()}
 		} else {
 			newDev.Addresses = network.ProviderAddresses{
-				network.NewProviderAddress("", network.WithCIDR(addr.SubnetCIDR()))}
+				network.NewMachineAddress("", network.WithCIDR(addr.SubnetCIDR())).AsProviderAddress()}
 		}
 	}
 

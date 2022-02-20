@@ -45,7 +45,6 @@ Examples:
     juju create-backup --no-download
 
 See also:
-    backups
     download-backup
 `
 

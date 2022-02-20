@@ -66,7 +66,7 @@ func TestClaimHasJujuLabel(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			r, err := claimHasJujuLabel(test.Obj)
 			if err != nil {
-				t.Errorf("unexpected error testing claim has juju label %w", err)
+				t.Errorf("unexpected error testing claim has juju label %v", err)
 			}
 			if r != test.Result {
 				t.Errorf("unexpected result for claim has juju label, weanted %t got %t",
@@ -172,7 +172,7 @@ func TestClaimIsManagedByJuju(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			r, err := claimIsManagedByJuju(test.Obj)
 			if err != nil {
-				t.Errorf("unexpected error testing is managed by juju %w", err)
+				t.Errorf("unexpected error testing is managed by juju %v", err)
 			}
 			if r != test.Result {
 				t.Errorf("unexpected result for claim is managed by juju, weanted %t got %t",
@@ -207,7 +207,7 @@ func TestClaimIsManagedByJujuNilData(t *testing.T) {
 func TestClaimOrAggregateWithEmptyClaimsReturnsFalse(t *testing.T) {
 	r, err := ClaimAggregateOr().Assert(nil)
 	if err != nil {
-		t.Errorf("unexpected error for empty claim aggregate or %w", err)
+		t.Errorf("unexpected error for empty claim aggregate or %v", err)
 	}
 	if r {
 		t.Errorf("expected empty claim aggregate or to return false")
@@ -224,7 +224,7 @@ func TestClaimAggregateOrReturnsTrue(t *testing.T) {
 		}),
 	).Assert(nil)
 	if err != nil {
-		t.Errorf("unexpected error for claim aggregate or %w", err)
+		t.Errorf("unexpected error for claim aggregate or %v", err)
 	}
 	if !r {
 		t.Errorf("expected claim aggregate or to return true")
@@ -241,7 +241,7 @@ func TestClaimAggregateOrReturnsFalse(t *testing.T) {
 		}),
 	).Assert(nil)
 	if err != nil {
-		t.Errorf("unexpected error for claim aggregate or %w", err)
+		t.Errorf("unexpected error for claim aggregate or %v", err)
 	}
 	if r {
 		t.Errorf("expected claim aggregate or to return false")
@@ -370,7 +370,7 @@ func TestClaimJujuOwnership(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			r, err := ClaimJujuOwnership.Assert(test.Obj)
 			if err != nil {
-				t.Errorf("unexpected error testing claim juju ownership %w", err)
+				t.Errorf("unexpected error testing claim juju ownership %v", err)
 			}
 			if r != test.Result {
 				t.Errorf("unexpected result for claim juju ownership, weanted %t got %t",

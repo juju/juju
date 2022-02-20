@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v9 "github.com/juju/charm/v8"
+	v8 "github.com/juju/charm/v8"
 	controller "github.com/juju/juju/controller"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
@@ -68,7 +68,7 @@ func (mr *MockStateBackendMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockStateBackend) PrepareCharmUpload(arg0 *v9.URL) (UploadedCharm, error) {
+func (m *MockStateBackend) PrepareCharmUpload(arg0 *v8.URL) (UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(UploadedCharm)

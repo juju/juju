@@ -240,26 +240,50 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 		}
 	}
 
-	var latest []latestCharmInfo
+	// The error strategy for fetching charmhub and charmstore infos is to
+	// only return an error if both requests fail. We do want to keep trying
+	// even if there is an outage or breakage with either one of the APIs.
+	var (
+		charmStoreErr error
+		charmhubErr   error
+
+		latest []latestCharmInfo
+	)
 	if len(charmstoreIDs) > 0 {
 		storeLatest, err := api.fetchCharmstoreInfos(cfg, charmstoreIDs, charmstoreApps)
 		if err != nil {
-			return nil, errors.Trace(err)
+			charmStoreErr = err
+		} else {
+			latest = append(latest, storeLatest...)
 		}
-		latest = append(latest, storeLatest...)
 	}
 	if len(charmhubIDs) > 0 {
 		if telemetry {
 			charmhubIDs, err = api.addMetricsToCharmhubInfos(charmhubIDs, charmhubApps)
 			if err != nil {
+				// It's fine to error out here, as this is a state backed
+				// request and should be transitive.
 				return nil, errors.Trace(err)
 			}
 		}
 		hubLatest, err := api.fetchCharmhubInfos(cfg, charmhubIDs, charmhubApps)
 		if err != nil {
-			return nil, errors.Trace(err)
+			charmhubErr = err
+		} else {
+			latest = append(latest, hubLatest...)
 		}
-		latest = append(latest, hubLatest...)
+	}
+
+	// If both charmstore and charmhub apps are failing, return with the
+	// intention of forcing a retry. If we got some results, it's better to
+	// show them, than nothing at all. In this case, just log a warning.
+	if charmStoreErr != nil && charmhubApps != nil {
+		return nil, errors.Errorf("charmstore: %v\ncharmhub: %v", charmStoreErr, charmhubErr)
+	}
+	if charmStoreErr != nil {
+		logger.Errorf("charmstore: %v", charmStoreErr)
+	} else if charmhubErr != nil {
+		logger.Errorf("charmhub: %v", charmhubErr)
 	}
 
 	return latest, nil

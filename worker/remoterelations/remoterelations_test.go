@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -89,7 +89,7 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 			return
 		}
 	}
-	c.Fatalf("failed to see expected calls.\nexpected: %#v\nobserved: %#v", expected, calls)
+	c.Assert(expected, jc.DeepEquals, calls)
 }
 
 func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Worker {
@@ -151,6 +151,31 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *gc.C) {
 		c.Check(ok, jc.IsTrue)
 		c.Check(w.killed(), jc.IsTrue)
 	}
+}
+
+func (s *remoteRelationsSuite) TestExternalControllerError(c *gc.C) {
+	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+		return nil, errors.New("boom")
+	}
+
+	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+
+	w, err := remoterelations.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	expected := []jujutesting.StubCall{
+		{"WatchRemoteApplications", nil},
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"SetRemoteApplicationStatus", []interface{}{
+			"mysql", "error", "cannot connect to external controller: opening facade to remote model: boom",
+		}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {

@@ -173,22 +173,22 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell go version | grep -o "go1.14" || true),go1.14)
-	@echo Using installed go-1.14
+ifeq ($(shell go version | grep -o "go1.17" || true),go1.17)
+	@echo Using installed go-1.17
 else
-	@echo Installing go-1.14 snap
-	@sudo snap install go --channel=1.14/stable --classic
+	@echo Installing go-1.17 snap
+	@sudo snap install go --channel=1.17/stable --classic
 endif
 
+WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
+
+JUJU_DB_CHANNEL=4.4/stable
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
-	@echo Adding juju PPA for mongodb
-	@sudo apt-add-repository --yes ppa:juju/stable
-	@sudo apt-get update
-	@echo Installing dependencies
-	@sudo apt-get --yes install  \
-	$(strip $(DEPENDENCIES)) \
-	$(shell apt-cache madison mongodb-server-core juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
+	@echo Installing ${JUJU_DB_CHANNEL} juju-db snap for mongodb
+	@sudo snap refresh juju-db --channel=${JUJU_DB_CHANNEL} 2> /dev/null; sudo snap install juju-db --channel=${JUJU_DB_CHANNEL} 2> /dev/null
+	@$(WAIT_FOR_DPKG)
+	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
 install-dependencies: install-snap-dependencies install-mongo-dependencies
 ## install-dependencies: Install all the dependencies
@@ -230,6 +230,7 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_operator_image "$$@"' build_operator_image
 OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
 OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
+UPDATE_MICROK8S_OPERATOR=sh -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 
 image-check-build:
 ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
@@ -255,9 +256,13 @@ host-install:
 ## install juju for host os/architecture
 	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make install
 
+minikube-operator-update: host-install operator-image
+## minikube-operator-update: Push up the newly built operator image for use with minikube
+	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | minikube image load --overwrite=true -
+
 microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
-	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
+	@${UPDATE_MICROK8S_OPERATOR}
 
 check-k8s-model:
 ## check-k8s-model: Check if k8s model is present in show-model

@@ -12,10 +12,12 @@ import (
 	"github.com/go-goose/goose/v4/nova"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 )
 
 type networkingBase struct {
@@ -93,7 +95,8 @@ func newNetworking(e *Environ) Networking {
 
 // AllocatePublicIP is part of the Networking interface.
 func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
-	// Look for external networks, in the same AZ as the server's networks, to use for the FIP.
+	// Look for external networks, in the same AZ as the server's networks,
+	// to use for the FIP.
 	detail, err := n.nova().GetServer(string(id))
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -110,13 +113,14 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// Is there an unused FloatingIP on an external network in the instance's availability zone?
+	// Is there an unused FloatingIP on an external network
+	// in the instance's availability zone?
 	for _, fip := range fips {
 		if fip.FixedIP == "" {
-			// Not a perfect solution.  If an external network was specified in the
-			// config, it'll be at the top of the extNetworkIds, but may be not used
-			// if the available FIP isn't it in.  However the instance and the
-			// FIP will be in the same availability zone.
+			// Not a perfect solution.  If an external network was specified in
+			// the config, it'll be at the top of the extNetworkIds, but may be
+			// not used if the available FIP isn't it in. However the instance
+			// and the FIP will be in the same availability zone.
 			for _, extNetId := range extNetworkIds {
 				if fip.FloatingNetworkId == extNetId {
 					logger.Debugf("found unassigned public ip: %v", fip.IP)
@@ -143,8 +147,8 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 
 // getExternalNetworkIDsFromHostAddrs returns a slice of external network IDs.
 // If specified, the configured external network is returned. Otherwise search
-// for an external network in the same availability zones as the provided server
-// addresses.
+// for an external network in the same availability zones as the provided
+// server addresses.
 func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string][]nova.IPAddress) ([]string, error) {
 	extNetworkIds := make([]string, 0)
 	neutronClient := n.neutron()
@@ -211,7 +215,7 @@ func (n *NeutronNetworking) findNetworkAZForHostAddrs(addrs map[string][]nova.IP
 // with no AZ.  If no network has an AZ, return all external networks.
 func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]string, error) {
 	neutronClient := e.neutron()
-	// Find all external networks in availability zone
+	// Find all external networks in availability zone.
 	networks, err := neutronClient.ListNetworksV2(externalNetworkFilter())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -225,7 +229,8 @@ func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]st
 			}
 		}
 		if azNames.IsEmpty() || len(network.AvailabilityZones) == 0 {
-			logger.Debugf("Adding %q to potential external networks for Floating IPs, no availability zones found", network.Name)
+			logger.Debugf(
+				"Adding %q to potential external networks for Floating IPs, no availability zones found", network.Name)
 			netIds = append(netIds, network.Id)
 		}
 	}
@@ -305,19 +310,19 @@ func generateUniquePortName(name string) string {
 
 func resolveNeutronNetwork(client NetworkingNeutron, name string, external bool) (string, error) {
 	if utils.IsValidUUIDString(name) {
-		// NOTE: There is an OpenStack cloud, whitestack, which has the network used
-		// to create servers specified as an External network, contrary to how all
-		// the other OpenStacks that we know of work.  Juju can use this OpenStack
-		// by setting the "network" config by UUID, which we do no verify, nor check
-		// to ensure it's an internal network.
+		// NOTE: There is an OpenStack cloud, whitestack, which has the network
+		// used to create servers specified as an External network, contrary to
+		// how all the other OpenStacks that we know of work. Juju can use this
+		// OpenStack by setting the "network" config by UUID, which we do not
+		// verify, nor check to ensure it's an internal network.
 		// TODO hml 2021-08-03
 		// Verify that the UUID is of a valid network, without type.
 		return name, nil
 	}
 	// Mimic unintentional, now expected behavior. Prior to OpenStack Rocky,
 	// empty strings in the neutron filters were ignored. name == "" AND
-	// external-router=false, returned a list of all internal networks.  If
-	// there the list was length one, the OpenStack provider would use it,
+	// external-router=false, returned a list of all internal networks.
+	// If the list was length one, the OpenStack provider would use it,
 	// without explicit user configuration.
 	//
 	// Rocky introduced an optional extension to neutron: empty-string-filtering.
@@ -380,7 +385,8 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 	internalNet := n.ecfg().network()
 	netId, err := resolveNeutronNetwork(neutron, internalNet, false)
 	if err != nil {
-		// Note: (jam 2018-05-23) We don't treat this as fatal because we used to never pay attention to it anyway
+		// Note: (jam 2018-05-23) We don't treat this as fatal because
+		// we used to never pay attention to it anyway
 		if internalNet == "" {
 			logger.Warningf(noNetConfigMsg(err))
 		} else {
@@ -457,9 +463,8 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 
 // noNetConfigMsg is used to present resolution options when an error is
 // encountered due to missing "network" configuration.
-// Any error from attempting to resolve a network without network
-// config set, is likely due to the resolution returning multiple
-// internal networks.
+// Any error from attempting to resolve a network without network config set,
+// is likely due to the resolution returning multiple internal networks.
 func noNetConfigMsg(err error) string {
 	return fmt.Sprintf(
 		"%s\n\tTo resolve this error, set a value for \"network\" in model-config or model-defaults;"+
@@ -467,6 +472,125 @@ func noNetConfigMsg(err error) string {
 		err.Error())
 }
 
-func (n *NeutronNetworking) NetworkInterfaces(ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("neutron network interfaces")
+// NetworkInterfaces implements environs.NetworkingEnviron. It returns a
+// slice where the i_th element contains the list of network interfaces
+// for the i_th input instance ID.
+//
+// If none of the provided instance IDs exist, ErrNoInstances will be returned.
+// If only a subset of the instance IDs exist, the result will contain a nil
+// value for the missing instances and a ErrPartialInstances error will be
+// returned.
+func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+	allSubnets, err := n.Subnets(instance.UnknownId, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing subnets")
+	}
+	subnetIDToCIDR := make(map[string]string)
+	for _, sub := range allSubnets {
+		subnetIDToCIDR[sub.ProviderId.String()] = sub.CIDR
+	}
+
+	neutronClient := n.neutron()
+	filter := projectIDFilter(n.client().TenantId())
+
+	fips, err := neutronClient.ListFloatingIPsV2(filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing floating IPs")
+	}
+
+	// Map private IP to public IP for every assigned FIP.
+	fixedToFIP := make(map[string]string)
+	for _, fip := range fips {
+		if fip.FixedIP == "" {
+			continue
+		}
+		fixedToFIP[fip.FixedIP] = fip.IP
+	}
+
+	allInstPorts, err := neutronClient.ListPortsV2(filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing ports")
+	}
+
+	// Group ports by device ID.
+	instIfaceMap := make(map[instance.Id][]neutron.PortV2)
+	for _, instPort := range allInstPorts {
+		devID := instance.Id(instPort.DeviceId)
+		instIfaceMap[devID] = append(instIfaceMap[devID], instPort)
+	}
+
+	res := make([]corenetwork.InterfaceInfos, len(instanceIDs))
+	var matchCount int
+
+	for resIdx, instID := range instanceIDs {
+		ifaceList, found := instIfaceMap[instID]
+		if !found {
+			continue
+		}
+
+		matchCount++
+		res[resIdx] = mapInterfaceList(ifaceList, subnetIDToCIDR, fixedToFIP)
+	}
+
+	if matchCount == 0 {
+		return nil, environs.ErrNoInstances
+	} else if matchCount < len(instanceIDs) {
+		return res, environs.ErrPartialInstances
+	}
+
+	return res, nil
+}
+
+func mapInterfaceList(
+	in []neutron.PortV2, subnetIDToCIDR, fixedToFIP map[string]string,
+) network.InterfaceInfos {
+	var out = make(corenetwork.InterfaceInfos, len(in))
+
+	for idx, port := range in {
+		ni := corenetwork.InterfaceInfo{
+			DeviceIndex:       idx,
+			ProviderId:        corenetwork.Id(port.Id),
+			ProviderNetworkId: corenetwork.Id(port.NetworkId),
+			// NOTE(achilleasa): on microstack port.Name is always empty.
+			InterfaceName: port.Name,
+			Disabled:      port.Status != "ACTIVE",
+			NoAutoStart:   false,
+			InterfaceType: corenetwork.EthernetDevice,
+			Origin:        corenetwork.OriginProvider,
+			MACAddress:    corenetwork.NormalizeMACAddress(port.MACAddress),
+		}
+
+		for i, ipConf := range port.FixedIPs {
+			providerAddr := corenetwork.NewMachineAddress(
+				ipConf.IPAddress,
+				corenetwork.WithConfigType(corenetwork.ConfigStatic),
+				corenetwork.WithCIDR(subnetIDToCIDR[ipConf.SubnetID]),
+			).AsProviderAddress()
+
+			ni.Addresses = append(ni.Addresses, providerAddr)
+
+			// If there is a FIP associated with this private IP,
+			// add it as a public address.
+			if fip := fixedToFIP[ipConf.IPAddress]; fip != "" {
+				ni.ShadowAddresses = append(ni.ShadowAddresses, corenetwork.NewMachineAddress(
+					fip,
+					corenetwork.WithScope(corenetwork.ScopePublic),
+					// TODO (manadart 2022-02-08): Other providers add these
+					// addresses with the DHCP config type.
+					// But this is not really correct.
+					// We should consider another type for what are in effect
+					// NATing arrangements, that better conveys the topology.
+				).AsProviderAddress())
+			}
+
+			// If this is the first address, populate additional NIC details.
+			if i == 0 {
+				ni.ProviderSubnetId = corenetwork.Id(ipConf.SubnetID)
+			}
+		}
+
+		out[idx] = ni
+	}
+
+	return out
 }

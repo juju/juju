@@ -59,7 +59,7 @@ type residentManager struct {
 	marked bool
 
 	// removals is the channel on which remove messages are sent.
-	// It will generally be the the cached controller's "changes" channel.
+	// It will generally be the cached controller's "changes" channel.
 	removals chan<- interface{}
 
 	// dying tells us that the manager's owner is going away.
@@ -111,7 +111,7 @@ func (m *residentManager) mark() {
 }
 
 // sweep removes stale cache residents in descending order of ID.
-// Lock protection of the resident map is done in "evictions" and in the
+// Lock protection of the resident map is done in "evictions" and in
 // the ultimate "evict" invocations.
 func (m *residentManager) sweep() <-chan struct{} {
 	finished := make(chan struct{})
@@ -252,7 +252,7 @@ func (r *Resident) cleanup() error {
 }
 
 // cleanupWorkers calls "Stop" on all registered workers.
-// Note that the deregistration method should have been added the the worker's
+// Note that the deregistration method should have been added to the worker's
 // tomb cleanup method - stopping the worker cleanly is enough to deregister.
 func (r *Resident) cleanupWorkers() error {
 	var errs []string
@@ -296,7 +296,7 @@ func (r *Resident) setRemovalMessage(msg interface{}) bool {
 	return wasNil
 }
 
-// unint64Reverse facilitates sorting of a slice in *descending* order.
+// uint64Reverse facilitates sorting of a slice in *descending* order.
 type uint64Reverse []uint64
 
 func (p uint64Reverse) Len() int           { return len(p) }

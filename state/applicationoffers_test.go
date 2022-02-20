@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -97,6 +97,10 @@ func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 
 	_, err = r.GetToken(names.NewApplicationTag(offer.OfferName))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	userPerms, err := s.State.GetOfferUsers(offer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(userPerms, gc.HasLen, 0)
 }
 
 func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {

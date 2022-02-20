@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
@@ -568,10 +568,11 @@ func (i *importer) machinePortsOp(m description.Machine) txn.Op {
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
 	doc := &instanceData{
-		DocID:      mdoc.DocID,
-		MachineId:  mdoc.Id,
-		InstanceId: instance.Id(inst.InstanceId()),
-		ModelUUID:  mdoc.ModelUUID,
+		DocID:       mdoc.DocID,
+		MachineId:   mdoc.Id,
+		InstanceId:  instance.Id(inst.InstanceId()),
+		DisplayName: inst.DisplayName(),
+		ModelUUID:   mdoc.ModelUUID,
 	}
 
 	if arch := inst.Architecture(); arch != "" {
@@ -1378,10 +1379,17 @@ func (i *importer) makeCharmOrigin(a description.Application, curl *charm.URL, u
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// Fix the case where `juju set-series` was called before the change to
+		// set the series in the origin's platform as well.
+		// Assumes that UpdateApplicationSeries will not change operating systems.
+		series := p.Series
+		if series != a.Series() {
+			series = a.Series()
+		}
 		platform = &Platform{
 			Architecture: p.Architecture,
 			OS:           p.OS,
-			Series:       p.Series,
+			Series:       series,
 		}
 	} else {
 		// Attempt to fallback to the application charm URL and then the
@@ -1553,7 +1561,10 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	// the charm url for each unit rather than grabbing the applications charm url.
 	// Currently the units charm url matching the application is a precondiation
 	// to migration.
-	charmURL := s.CharmURL()
+	charmURL, err := charm.ParseURL(s.CharmURL())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	var subordinates []string
 	if subs := u.Subordinates(); len(subs) > 0 {
@@ -1578,7 +1589,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Name:                   u.Name(),
 		Application:            s.Name(),
 		Series:                 s.Series(),
-		CharmURL:               &charmURL,
+		CharmURL:               charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
 		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),

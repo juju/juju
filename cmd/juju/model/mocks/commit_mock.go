@@ -10,50 +10,54 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockCommitCommandAPI is a mock of CommitCommandAPI interface
+// MockCommitCommandAPI is a mock of CommitCommandAPI interface.
 type MockCommitCommandAPI struct {
 	ctrl     *gomock.Controller
 	recorder *MockCommitCommandAPIMockRecorder
 }
 
-// MockCommitCommandAPIMockRecorder is the mock recorder for MockCommitCommandAPI
+// MockCommitCommandAPIMockRecorder is the mock recorder for MockCommitCommandAPI.
 type MockCommitCommandAPIMockRecorder struct {
 	mock *MockCommitCommandAPI
 }
 
-// NewMockCommitCommandAPI creates a new mock instance
+// NewMockCommitCommandAPI creates a new mock instance.
 func NewMockCommitCommandAPI(ctrl *gomock.Controller) *MockCommitCommandAPI {
 	mock := &MockCommitCommandAPI{ctrl: ctrl}
 	mock.recorder = &MockCommitCommandAPIMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCommitCommandAPI) EXPECT() *MockCommitCommandAPIMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockCommitCommandAPI) Close() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockCommitCommandAPIMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCommitCommandAPI)(nil).Close))
 }
 
-// CommitBranch mocks base method
+// CommitBranch mocks base method.
 func (m *MockCommitCommandAPI) CommitBranch(arg0 string) (int, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitBranch", arg0)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CommitBranch indicates an expected call of CommitBranch
+// CommitBranch indicates an expected call of CommitBranch.
 func (mr *MockCommitCommandAPIMockRecorder) CommitBranch(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitBranch", reflect.TypeOf((*MockCommitCommandAPI)(nil).CommitBranch), arg0)
 }

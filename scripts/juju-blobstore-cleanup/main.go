@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/blobstore/v2"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -22,7 +21,9 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
+
+	"github.com/juju/blobstore/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"

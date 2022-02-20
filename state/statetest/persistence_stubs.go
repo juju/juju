@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/testing"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 )
 
 type StubPersistence struct {

@@ -68,9 +68,16 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		// matching existing charms in this method, assume a channel of stable
 		// if not specified.  Required because another change ensures that the
 		// cs applications have a channel provided an old controller.
+		//
+		// However, if we are deploying a bundle with local charms they
+		// will always get an empty channel. For such cases, we should
+		// never force a "stable" channel as deploying the bundle more
+		// than once will fail (see LP1954933).
 		channel := application.Channel
-		if channel == "" {
-			channel = "stable"
+		if existingApp == nil || !strings.HasPrefix(existingApp.Charm, "local:") {
+			if channel == "" {
+				channel = "stable"
+			}
 		}
 
 		revision := -1

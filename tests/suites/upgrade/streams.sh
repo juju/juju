@@ -4,7 +4,7 @@ run_simplestream_metadata_last_stable() {
 	jujud_version=$(jujud_version)
 	previous_version=$(last_stable_version "${jujud_version}")
 
-	exec_simplestream_metadata "stable" "${jujud_version}" "${previous_version}"
+	exec_simplestream_metadata "stable" "juju" "${jujud_version}" "${previous_version}"
 }
 
 run_simplestream_metadata_prior_stable() {
@@ -12,8 +12,23 @@ run_simplestream_metadata_prior_stable() {
 
 	jujud_version=$(jujud_version)
 	previous_version=$(prior_stable_version "${jujud_version}")
+	major=$(echo "${previous_version}" | cut -d '.' -f 1)
+	minor=$(echo "${previous_version}" | cut -d '.' -f 2)
 
-	exec_simplestream_metadata "prior" "${jujud_version}" "${previous_version}"
+	action=$(snap info juju | grep -q "installed" || echo "install")
+	if [ "${action}" == "" ]; then
+		action="refresh"
+	fi
+	for i in {1..3}; do
+			opts=""
+			if [ "${i}" -gt 1 ] && [ "${action}" == "refresh" ]; then
+				opts=" --amend"
+			fi
+			# shellcheck disable=SC2015
+			sudo snap "${action}" --classic juju --channel "${major}.${minor}/stable" "${opts}" 2>&1 && break || sleep 10
+	done
+
+	exec_simplestream_metadata "prior" "/snap/bin/juju" "${jujud_version}" "${previous_version}"
 }
 
 exec_simplestream_metadata() {
@@ -22,17 +37,12 @@ exec_simplestream_metadata() {
 	version=$(jujud version)
 
 	test_name=${1}
-	jujud_version=${2}
-	stable_version=${3}
+	bootstrap_juju_client=${2}
+	jujud_version=${3}
+	stable_version=${4}
 
 	echo "===> Using jujud version ${version}"
 	echo "===> Testing against stable version ${stable_version}"
-
-	OUT=$(sudo snap install juju --classic --channel="${stable_version}/stable" 2>&1 || echo "FALLBACK")
-	if [ "${OUT}" == "FALLBACK" ] || [[ ${OUT} =~ (.*)is\ already\ installed(.*)$ ]]; then
-		echo "===> Using snap refresh juju ${stable_version}/stable"
-		sudo snap refresh juju --channel="${stable_version}/stable"
-	fi
 
 	add_clean_func "remove_upgrade_tools"
 	add_clean_func "remove_upgrade_metadata"
@@ -72,13 +82,14 @@ exec_simplestream_metadata() {
 	name="test-upgrade-${test_name}-stream"
 
 	file="${TEST_DIR}/test-upgrade-${test_name}-stream.log"
-	/snap/bin/juju bootstrap "lxd" "${name}" \
+	${bootstrap_juju_client} bootstrap "lxd" "${name}" \
 		--show-log \
+		--agent-version="${stable_version}" \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
-		--config agent-metadata-url="http://${server_address}:8666/" \
-		--config test-mode=true 2>&1 | OUTPUT "${file}"
+		--config agent-metadata-url="http://${server_address}:8666/" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
+  juju add-model test-upgrade-"${test_name}"
 	juju deploy ./tests/suites/upgrade/charms/ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
@@ -105,6 +116,22 @@ exec_simplestream_metadata() {
 	done
 
 	sleep 10
+	juju switch test-upgrade-"${test_name}"
+	juju upgrade-model
+	while true; do
+		UPDATED=$(juju machines --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
+		if [ "$CURRENT" != "$UPDATED" ]; then
+			break
+		fi
+		echo "[+] (attempt ${attempt}) polling machines"
+		sleep 10
+		attempt=$((attempt + 1))
+		if [ "$attempt" -eq 48 ]; then
+			echo "Upgrade model timed out"
+			exit 1
+		fi
+	done
+
 	juju upgrade-charm ubuntu --path=./tests/suites/upgrade/charms/ubuntu
 
 	sleep 10
@@ -123,12 +150,26 @@ test_upgrade_simplestream() {
 		cd .. || exit
 
 		run "run_simplestream_metadata_last_stable"
+	)
+}
+
+test_upgrade_simplestream_previous() {
+	if [ -n "$(skip 'test_upgrade_simplestream_previous')" ]; then
+		echo "==> SKIP: Asked to skip stream (previous) tests"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
 		run "run_simplestream_metadata_prior_stable"
 	)
 }
 
 last_stable_version() {
-	local version major minor patch parts
+	local version major minor
 
 	version="${1}"
 
@@ -137,23 +178,12 @@ last_stable_version() {
 
 	major=$(echo "${version}" | cut -d '.' -f 1)
 	minor=$(echo "${version}" | cut -d '.' -f 2)
-	patch=$(echo "${version}" | cut -d '.' -f 3)
 
-	parts=$(echo "${version}" | awk -F. '{print NF-1}')
-	if [ "${parts}" -eq 2 ]; then
-		if [ "${patch}" -eq 0 ]; then
-			minor=$((minor - 1))
-		fi
-		echo "${major}.${minor}"
-		return
-	fi
-
-	minor=$((minor - 1))
-	echo "${major}.${minor}"
+	echo "$(snap info juju | grep -E "^\s+${major}\.${minor}/stable" | awk '{print $2}')"
 }
 
 prior_stable_version() {
-	local version major minor patch parts
+	local version major minor
 
 	version="${1}"
 
@@ -162,9 +192,9 @@ prior_stable_version() {
 
 	major=$(echo "${version}" | cut -d '.' -f 1)
 	minor=$(echo "${version}" | cut -d '.' -f 2)
-
 	minor=$((minor - 1))
-	echo "${major}.${minor}"
+
+	echo "$(snap info juju | grep -E "^\s+${major}\.${minor}/stable" | awk '{print $2}')"
 }
 
 series_version() {

@@ -1,5 +1,5 @@
 name: "Client Tests"
-on: 
+on:
   push:
     paths-ignore:
       - 'acceptancetests/**'
@@ -26,36 +26,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS-latest is disabled because there is an issue of the tests timing
-        # out. No effort has been done to work out why they currently timeout
-        # on macOS, but we should investigate that to improve our coverage on
-        # other clients.
-        # To turn on macOS, just update the os to include it.
+        # windows tests is disabled because we require a certain version of
+        # mongo (that's actually going away now though), and choclately was
+        # failing to install it correctly.
         # os: [ubuntu-latest, macOS-latest, windows-latest]
         os: [ubuntu-latest, macOS-latest]
 
     steps:
 
-    - name: Set up Go 1.14
-      uses: actions/setup-go@v2.1.4
-      with:
-        go-version: 1.14
-      id: go
-
     - name: Checkout
       uses: actions/checkout@v2
+
+    - name: Find required go version
+      id: go-version
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
+      uses: actions/setup-go@v2.2.0
+      with:
+        go-version: ${{ steps.go-version.outputs.version }}
+      id: go
 
     - name: "Install Mongo Dependencies: ubuntu-latest"
       if: (matrix.os == 'ubuntu-latest')
       run: |
-        # Remove the default mongo
-        for version in "4.2" "4.4"; do
-          sudo rm "/etc/apt/sources.list.d/mongodb-org-${version}.list" || true
-        done
-        sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y mongodb-org
-        sudo DEBIAN_FRONTEND=noninteractive apt autoremove
-        sudo rm -rf /usr/bin/mongo* || true
-
         make install-mongo-dependencies
 
     - name: "Remove Mongo Dependencies: windows-latest"
@@ -68,18 +64,18 @@ jobs:
       if: (matrix.os == 'windows-latest')
       uses: crazy-max/ghaction-chocolatey@v1
       with:
-        args: install mongodb.install --version=4.0.21 --allow-downgrade
+        args: install mongodb.install --version=4.4.11 --allow-downgrade
 
     # GitHub runners already have preinstalled version of mongodb, but
-    # we specifically need 4.0.21, otherwise our tests will not pass
+    # we specifically need 4.4.11, otherwise our tests will not pass
     - name: "Install Mongo Dependencies: macOS-latest"
       if: (matrix.os == 'macOS-latest')
       run: |
-        curl -o mongodb-4.0.21.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.21.tgz
-        tar xzvf mongodb-4.0.21.tgz
+        curl -o mongodb-4.4.11.tgz https://fastdl.mongodb.org/osx/mongodb-macos-x86_64-4.4.11.tgz
+        tar xzvf mongodb-4.4.11.tgz
         sudo rm -rf /usr/local/mongodb
         sudo mkdir -p /usr/local/mongodb
-        sudo mv mongodb-osx-x86_64-4.0.21/bin/* /usr/local/mongodb
+        sudo mv mongodb-macos-x86_64-4.4.11/bin/* /usr/local/mongodb
         sudo mkdir -p /usr/local/bin
         sudo rm /usr/local/bin/mongod
         sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod

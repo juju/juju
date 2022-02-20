@@ -25,8 +25,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
-	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/v2"
+	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/application"
@@ -245,6 +245,38 @@ func (st *State) RemoveExportingModelDocs() error {
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	modelUUID := st.ModelUUID()
 
+	// Gather all user permissions for the model.
+	// Do this first because we remove some parent docs below.
+	var permOps []txn.Op
+	permPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
+	}
+	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	permOps = append(permOps, ops...)
+	// Gather all offer permissions for the model.
+	ao := NewApplicationOffers(st)
+	allOffers, err := ao.AllApplicationOffers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, offer := range allOffers {
+		permPattern = bson.M{
+			"_id": bson.M{"$regex": "^" + permissionID(applicationOfferKey(offer.OfferUUID), "")},
+		}
+		ops, err = st.removeInCollectionOps(permissionsC, permPattern)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		permOps = append(permOps, ops...)
+	}
+	err = st.db().RunTransaction(permOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
 		if info.global || info.rawAccess {
@@ -282,19 +314,6 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 
 	// Logs are in a separate database so don't get caught by that loop.
 	_ = removeModelLogs(st.MongoSession(), modelUUID)
-
-	// Remove all user permissions for the model.
-	permPattern := bson.M{
-		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
-	}
-	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = st.db().RunTransaction(ops)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Now remove the model.
 	model, err := st.Model()
@@ -464,15 +483,23 @@ func (st *State) EnsureModelRemoved() error {
 		if info.global {
 			continue
 		}
-		coll, closer := st.db().GetCollection(name)
-		defer closer()
-		n, err := coll.Find(nil).Count()
-		if err != nil {
+
+		if err := func(name string, info CollectionInfo) error {
+			coll, closer := st.db().GetCollection(name)
+			defer closer()
+
+			n, err := coll.Find(nil).Count()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			if n != 0 {
+				found[name] = n
+				foundOrdered = append(foundOrdered, name)
+			}
+			return nil
+		}(name, info); err != nil {
 			return errors.Trace(err)
-		}
-		if n != 0 {
-			found[name] = n
-			foundOrdered = append(foundOrdered, name)
 		}
 	}
 
@@ -592,7 +619,7 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 // given version, only if the model is in a stable state (all agents are
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
-func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVersions bool) (err error) {
+func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) (err error) {
 	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
 		return errors.Errorf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 			newVersion.String(),
@@ -622,6 +649,14 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 			// Nothing to do.
 			return nil, jujutxn.ErrNoOperations
 		}
+		agentStream, _ := settings.Get("agent-stream")
+		currentStream, _ := agentStream.(string)
+		newStream := currentStream
+		if stream != nil {
+			if (*stream != "" || currentStream != "released") && (*stream != "released" || currentStream != "") {
+				newStream = *stream
+			}
+		}
 
 		if !ignoreAgentVersions {
 			if isCAAS {
@@ -646,7 +681,10 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 				Id:     st.docID(modelGlobalKey),
 				Assert: bson.D{{"version", settings.version}},
 				Update: bson.D{
-					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
+					{"$set", bson.D{
+						{"settings.agent-version", newVersion.String()},
+						{"settings.agent-stream", newStream},
+					}},
 				},
 			},
 		}
@@ -1588,7 +1626,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	return results, nil
 }
 
-// AllUnitAssignments returns all staged unit assignments in the model.
+// UnitAssignments returns all staged unit assignments in the model.
 func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 	return st.unitAssignments(nil)
 }

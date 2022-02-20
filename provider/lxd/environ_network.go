@@ -91,7 +91,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 		}
 
 		for _, stateAddr := range state.Addresses {
-			netAddr := network.NewProviderAddress(stateAddr.Address)
+			netAddr := network.NewMachineAddress(stateAddr.Address).AsProviderAddress()
 			if netAddr.Scope == network.ScopeLinkLocal || netAddr.Scope == network.ScopeMachineLocal {
 				continue
 			}
@@ -165,7 +165,7 @@ func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubn
 		}
 
 		for _, guestAddr := range netInfo.Addresses {
-			netAddr := network.NewProviderAddress(guestAddr.Address)
+			netAddr := network.NewMachineAddress(guestAddr.Address).AsProviderAddress()
 			if netAddr.Scope == network.ScopeLinkLocal || netAddr.Scope == network.ScopeMachineLocal {
 				continue
 			}
@@ -308,7 +308,7 @@ func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, net
 	// the primary address and is used to populate the interface CIDR and
 	// subnet ID fields.
 	for _, addr := range netInfo.Addresses {
-		netAddr := network.NewProviderAddress(addr.Address)
+		netAddr := network.NewMachineAddress(addr.Address).AsProviderAddress()
 		if netAddr.Scope == network.ScopeLinkLocal || netAddr.Scope == network.ScopeMachineLocal {
 			continue
 		}

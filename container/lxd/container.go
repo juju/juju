@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/units"
 	"github.com/lxc/lxd/shared/version"
@@ -236,7 +236,7 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 			continue
 		}
 		for _, addr := range net.Addresses {
-			netAddr := corenetwork.NewProviderAddress(addr.Address)
+			netAddr := corenetwork.NewMachineAddress(addr.Address).AsProviderAddress()
 			if netAddr.Scope == corenetwork.ScopeLinkLocal || netAddr.Scope == corenetwork.ScopeMachineLocal {
 				logger.Tracef("ignoring address %q for container %q", addr, name)
 				continue

@@ -11,10 +11,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/pbkdf2"
 
@@ -37,6 +38,15 @@ const (
 
 	// RefreshAction defines a refresh action.
 	RefreshAction Action = "refresh"
+)
+
+var (
+	// A set of fields that are always requested when performing refresh calls
+	requiredRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
 )
 
 const (
@@ -87,7 +97,9 @@ func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *Refresh
 
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
-	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+	}
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -98,7 +110,9 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 // RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
 // at the same time.  Used as part of the charm revision updater facade.
 func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
-	c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+	}
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -133,7 +147,7 @@ func (c *RefreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[
 }
 
 func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) (transport.RequestMetrics, error) {
-	m := make(transport.RequestMetrics, 0)
+	m := make(transport.RequestMetrics)
 	for k, v := range metrics {
 		// verify top level "model" and "controller" keys
 		if k != charmmetrics.Controller && k != charmmetrics.Model {
@@ -162,9 +176,30 @@ func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []tra
 	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Ensure that all the results contain the correct instance keys.
+	if err := ensure(resp.Results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Exit early.
+	if len(resp.Results) <= 1 {
+		return resp.Results, nil
+	}
 
-	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
-	return resp.Results, ensure(resp.Results)
+	// As the results are not expected to be in the correct order, sort them
+	// to prevent others falling into not RTFM!
+	indexes := make(map[string]int, len(req.Actions))
+	for i, action := range req.Actions {
+		indexes[action.InstanceKey] = i
+	}
+	results := make([]transport.RefreshResponse, len(resp.Results))
+	for _, result := range resp.Results {
+		results[indexes[result.InstanceKey]] = result
+	}
+
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(results))
+	}
+	return results, nil
 }
 
 // RefreshOne creates a request config for requesting only one charm.
@@ -191,6 +226,7 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 		Revision:    revision,
 		Channel:     channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -218,6 +254,7 @@ func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -249,7 +286,7 @@ func AddConfigMetrics(config RefreshConfig, metrics map[charmmetrics.MetricKey]s
 	if len(metrics) < 1 {
 		return c, nil
 	}
-	c.metrics = make(transport.ContextMetrics, 0)
+	c.metrics = make(transport.ContextMetrics)
 	for k, v := range metrics {
 		c.metrics[k.String()] = v
 	}
@@ -275,6 +312,7 @@ func InstallOneFromChannel(name string, channel string, base RefreshBase) (Refre
 		Name:        name,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -293,6 +331,7 @@ func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -311,6 +350,7 @@ func DownloadOneFromRevisionByName(name string, revision int) (RefreshConfig, er
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -333,6 +373,7 @@ func DownloadOneFromChannel(id string, channel string, base RefreshBase) (Refres
 		ID:          id,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 
@@ -355,6 +396,7 @@ func DownloadOneFromChannelByName(name string, channel string, base RefreshBase)
 		Name:        name,
 		Channel:     &channel,
 		Base:        base,
+		fields:      requiredRefreshFields,
 	}, nil
 }
 

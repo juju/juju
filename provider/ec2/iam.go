@@ -333,8 +333,7 @@ func findInstanceProfileFromName(
 	})
 
 	if err != nil {
-		var opHTTPErr *awshttp.ResponseError
-		if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == http.StatusNotFound {
+		if isAWSHTTPErrorCode(err, http.StatusNotFound) {
 			return nil, errors.NotFoundf("instance profile %q not found", name)
 		}
 		return nil, errors.Annotatef(err, "finding instance profile for name %s", name)
@@ -359,7 +358,10 @@ func listInstanceProfilesForController(
 		})
 
 		if err != nil {
-			return nil, errors.Annotatef(
+			if isAWSHTTPErrorCode(err, http.StatusForbidden) {
+				return rval, errors.Unauthorizedf("listing instance profiles for controllerUUID %s", controllerUUID)
+			}
+			return rval, errors.Annotatef(
 				err,
 				"listing roles with controller prefix %q",
 				controllerPath(controllerUUID))
@@ -390,7 +392,12 @@ func listRolesForController(
 		})
 
 		if err != nil {
-			return nil, errors.Annotatef(
+			if isAWSHTTPErrorCode(err, http.StatusForbidden) {
+				return rval, errors.Unauthorizedf(
+					"listing roles for controllerUUID %s",
+					controllerUUID)
+			}
+			return rval, errors.Annotatef(
 				err,
 				"listing roles with controller prefix %q",
 				controllerPath(controllerUUID))
@@ -405,6 +412,14 @@ func listRolesForController(
 	return rval, nil
 }
 
+func isAWSHTTPErrorCode(err error, statusCode int) bool {
+	var opHTTPErr *awshttp.ResponseError
+	if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == statusCode {
+		return true
+	}
+	return false
+}
+
 func findRoleFromName(
 	ctx stdcontext.Context,
 	client IAMClient,
@@ -415,8 +430,7 @@ func findRoleFromName(
 	})
 
 	if err != nil {
-		var opHTTPErr *awshttp.ResponseError
-		if stderrors.As(err, &opHTTPErr) && opHTTPErr.HTTPStatusCode() == http.StatusNotFound {
+		if isAWSHTTPErrorCode(err, http.StatusNotFound) {
 			return nil, errors.NotFoundf("role %q not found", name)
 		}
 		return nil, errors.Annotatef(err, "finding role for name %s", name)

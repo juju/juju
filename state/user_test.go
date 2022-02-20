@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
@@ -492,6 +492,16 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	c.Check(users[4].Name(), gc.Equals, "erica")
 	c.Check(users[5].Name(), gc.Equals, "fred")
 	c.Check(users[6].Name(), gc.Equals, "test-admin")
+}
+
+func (s *UserSuite) TestAddDeletedUser(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
+
+	_ = s.State.RemoveUser(names.NewUserTag("bob"))
+
+	_, err := s.State.AddUser(
+		"bob", "ignored", "ignored", "ignored")
+	c.Assert(err, jc.Satisfies, state.IsDeletedUserError)
 }
 
 func (s *UserSuite) TestAddUserNoSecretKey(c *gc.C) {

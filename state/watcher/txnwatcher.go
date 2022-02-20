@@ -327,11 +327,10 @@ func (w *TxnWatcher) loop() error {
 			logCollection = w.getTxnLogCollection()
 		}
 		added, err := w.sync(logCollection)
-		if wrench.IsActive("txnwatcher", "sync-error") {
+		if w.logger.IsTraceEnabled() && wrench.IsActive("txnwatcher", "sync-error") {
 			added = false
 			err = errors.New("test sync watcher error")
 		}
-
 		if err == nil {
 			if syncRetryCount > 0 {
 				w.logger.Infof("txn sync watcher recovered after %d retries", syncRetryCount)

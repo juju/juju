@@ -12,3 +12,5 @@ import (
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }
+
+//go:generate go run github.com/golang/mock/mockgen -package sshclient_test -destination leaderreadermock_test.go github.com/juju/juju/core/leadership Reader

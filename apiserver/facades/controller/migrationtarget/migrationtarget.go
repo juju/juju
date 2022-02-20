@@ -248,7 +248,11 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(ra.AdoptResources(context.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion))
+	err = ra.AdoptResources(context.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion)
+	if errors.IsNotImplemented(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -264,10 +268,19 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	}
 	defer st.Release()
 
+	// We don't want to check existing cloud instances for "manual" clouds.
+	model, err := st.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	cloud, err := model.Cloud()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	return credentialcommon.ValidateExistingModelCredential(
 		credentialcommon.NewPersistentBackend(st.State),
 		context.CallContext(st.State),
-		true,
+		cloud.Type != "manual",
 	)
 }
 

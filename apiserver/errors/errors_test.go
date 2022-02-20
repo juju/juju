@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -215,6 +215,11 @@ var errorTransformTests = []struct {
 	code:       params.CodeQuotaLimitExceeded,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeQuotaLimitExceeded,
+}, {
+	err:        errors.NotYetAvailablef("try again later"),
+	code:       params.CodeNotYetAvailable,
+	status:     http.StatusConflict,
+	helperFunc: params.IsCodeNotYetAvailable,
 }, {
 	err: &params.IncompatibleClientError{
 		ServerVersion: jujuversion.Current,

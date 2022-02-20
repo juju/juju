@@ -15,7 +15,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
@@ -461,6 +461,7 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		InstanceId:              args.BootstrapMachineInstanceId,
 		HardwareCharacteristics: hardware,
 		Jobs:                    jobs,
+		DisplayName:             args.BootstrapMachineDisplayName,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")

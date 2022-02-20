@@ -295,8 +295,9 @@ type toolsAPI interface {
 }
 
 type upgradeJujuAPI interface {
+	BestAPIVersion() int
 	AbortCurrentUpgrade() error
-	SetModelAgentVersion(version version.Number, ignoreAgentVersion bool) error
+	SetModelAgentVersion(version version.Number, stream string, ignoreAgentVersion bool) error
 	Close() error
 }
 
@@ -304,7 +305,6 @@ type statusAPI interface {
 	Status(patterns []string) (*params.FullStatus, error)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/cmd/juju/commands ClientAPI
 type ClientAPI interface {
 	toolsAPI
 	upgradeJujuAPI
@@ -321,7 +321,6 @@ type modelManagerAPI interface {
 	Close() error
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/controller_mock.go github.com/juju/juju/cmd/juju/commands ControllerAPI
 type ControllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
@@ -385,6 +384,12 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	return c.upgradeModel(ctx, implicitAgentUploadAllowed, c.timeout)
 }
 
+const unsupportedStreamMsg = `
+this version of Juju does not support specifying an agent-stream value
+different to that of the controller model. If you want to use %q agents,
+you must first 'juju model-config -m controller agent-stream=%s'.
+`
+
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration) (err error) {
 	defer func() {
 		if err != nil {
@@ -435,6 +440,15 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	}
 	haveControllerModelPermission := err == nil
 	isControllerModel := haveControllerModelPermission && cfg.UUID() == controllerModelConfig[config.UUIDKey]
+	modelStream := controllerModelConfig[config.AgentStreamKey]
+	if modelStream == "" {
+		modelStream = tools.ReleasedStream
+	}
+	wantStream := c.AgentStream
+	if wantStream == "" {
+		wantStream = tools.ReleasedStream
+	}
+
 	if c.BuildAgent {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
@@ -443,6 +457,10 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		}
 		if !isControllerModel {
 			return errors.Errorf("--build-agent can only be used with the controller model")
+		}
+	} else if isControllerModel {
+		if modelStream != wantStream && client.BestAPIVersion() < 5 {
+			return errors.Errorf(unsupportedStreamMsg, wantStream, wantStream)
 		}
 	}
 
@@ -529,6 +547,12 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	if warnCompat {
 		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", upgradeCtx.chosen, jujuversion.Current)
 	}
+
+	// Log rather than Printf so it stands out.
+	if modelStream != wantStream {
+		logger.Warningf("Updating model config to specify agent-stream=%s.\nYou can reset back to %q after the upgrade has finished.", wantStream, modelStream)
+	}
+
 	if c.DryRun {
 		if c.BuildAgent {
 			fmt.Fprintf(ctx.Stderr, "%s --build-agent\n", c.upgradeMessage)
@@ -554,7 +578,7 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
-	if err := client.SetModelAgentVersion(upgradeCtx.chosen, c.IgnoreAgentVersions); err != nil {
+	if err := client.SetModelAgentVersion(upgradeCtx.chosen, c.AgentStream, c.IgnoreAgentVersions); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {
 			return errors.Errorf("%s\n\n"+
 				"Please wait for the upgrade to complete or if there was a problem with\n"+

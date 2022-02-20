@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -122,6 +122,14 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusTemporaryRedirect
 	case params.CodeLeaseError:
 		status = leaseStatusCode(err1)
+	case params.CodeNotYetAvailable:
+		// The request could not be completed due to a conflict with
+		// the current state of the resource. This code is only allowed
+		// in situations where it is expected that the user might be
+		// able to resolve the conflict and resubmit the request.
+		//
+		// See https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.10
+		status = http.StatusConflict
 	}
 	return err1, status
 }
@@ -133,7 +141,9 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
-	logger.Tracef("server RPC error %v", errors.Details(err))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("server RPC error %v", errors.Details(err))
+	}
 
 	var (
 		info map[string]interface{}
@@ -221,6 +231,8 @@ func ServerError(err error) *params.Error {
 		}.AsMap()
 	case errors.IsQuotaLimitExceeded(err):
 		code = params.CodeQuotaLimitExceeded
+	case errors.IsNotYetAvailable(err):
+		code = params.CodeNotYetAvailable
 	case params.IsIncompatibleClientError(err):
 		code = params.CodeIncompatibleClient
 		rawErr := errors.Cause(err).(*params.IncompatibleClientError)
@@ -344,6 +356,8 @@ func RestoreError(err error) error {
 		return NewDeadlineExceededError(msg)
 	case params.IsLeaseError(err):
 		return rehydrateLeaseError(err)
+	case params.IsCodeNotYetAvailable(err):
+		return errors.NewNotYetAvailable(nil, msg)
 	default:
 		return err
 	}

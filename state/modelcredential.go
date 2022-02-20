@@ -11,7 +11,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
@@ -53,27 +53,30 @@ func (st *State) suspendCredentialModels(tag names.CloudCredentialTag, reason st
 	logger.Warningf("suspending these models:\n%s\n because their credential has become invalid:\n%s",
 		strings.Join(infos, " - "),
 		reason)
-	status := modelStatusInvalidCredential(reason)
+	sts := modelStatusInvalidCredential(reason)
 	doc := statusDoc{
-		Status:     status.Status,
-		StatusInfo: status.Message,
-		StatusData: status.Data,
+		Status:     sts.Status,
+		StatusInfo: sts.Message,
+		StatusData: sts.Data,
 		Updated:    timeOrNow(nil, st.clock()).UnixNano(),
 	}
 	for _, m := range models {
-		one, closer, err := st.model(m.UUID)
-		if err != nil {
-			// Something has gone wrong with this model... keep going.
-			logger.Warningf("model %v error: %v", m.UUID, err)
-			continue
-		}
-		defer func() { _ = closer() }()
-		if _, err = probablyUpdateStatusHistory(one.st.db(), one.globalKey(), doc); err != nil {
-			// We do not want to stop processing the rest of the models.
-			logger.Warningf("%v", err)
-		}
+		st.maybeSetModelStatusHistoryDoc(m.UUID, doc)
 	}
 	return nil
+}
+
+func (st *State) maybeSetModelStatusHistoryDoc(modelUUID string, doc statusDoc) {
+	one, closer, err := st.model(modelUUID)
+	defer func() { _ = closer() }()
+	if err != nil {
+		logger.Warningf("model %v error: %v", modelUUID, err)
+		return
+	}
+
+	if _, err = probablyUpdateStatusHistory(one.st.db(), one.globalKey(), doc); err != nil {
+		logger.Warningf("%v", err)
+	}
 }
 
 // ValidateCloudCredential validates new cloud credential for this model.

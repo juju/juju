@@ -24,8 +24,10 @@ import (
 //
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
-func NewResourceOpener(st ResourceOpenerState, unitName string) (opener resource.Opener, err error) {
-	return newInternalResourceOpener(st, unitName, "")
+func NewResourceOpener(
+	st ResourceOpenerState, resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string,
+) (opener resource.Opener, err error) {
+	return newInternalResourceOpener(st, resourceDownloadLimiterFunc, unitName, "")
 }
 
 // NewResourceOpenerForApplication returns a new resource.Opener for the given app.
@@ -33,15 +35,30 @@ func NewResourceOpener(st ResourceOpenerState, unitName string) (opener resource
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpenerForApplication(st ResourceOpenerState, applicationName string) (opener resource.Opener, err error) {
-	return newInternalResourceOpener(st, "", applicationName)
+	return newInternalResourceOpener(st, func() ResourceDownloadLock {
+		return noopDownloadResourceLocker{}
+	}, "", applicationName)
 }
+
+// noopDownloadResourceLocker is a no-op download resource locker.
+type noopDownloadResourceLocker struct{}
+
+// Acquire grabs the lock for a given application so long as the
+// per application limit is not exceeded and total across all
+// applications does not exceed the global limit.
+func (noopDownloadResourceLocker) Acquire(string) {}
+
+// Release releases the lock for the given application.
+func (noopDownloadResourceLocker) Release(appName string) {}
 
 // NewResourceOpenerState wraps a State pointer for passing into NewResourceOpener/NewResourceOpenerForApplication.
 func NewResourceOpenerState(st *corestate.State) ResourceOpenerState {
 	return &stateShim{st}
 }
 
-func newInternalResourceOpener(st ResourceOpenerState, unitName string, applicationName string) (opener resource.Opener, err error) {
+func newInternalResourceOpener(
+	st ResourceOpenerState, resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string, applicationName string,
+) (opener resource.Opener, err error) {
 	unit := Unit(nil)
 	if unitName != "" {
 		unit, err = st.Unit(unitName)
@@ -100,12 +117,13 @@ func newInternalResourceOpener(st ResourceOpenerState, unitName string, applicat
 	}
 
 	return &ResourceOpener{
-		st:                st,
-		res:               resources,
-		userID:            userID,
-		unit:              unit,
-		application:       application,
-		newResourceOpener: resourceClient,
+		st:                          st,
+		res:                         resources,
+		userID:                      userID,
+		unit:                        unit,
+		application:                 application,
+		newResourceOpener:           resourceClient,
+		resourceDownloadLimiterFunc: resourceDownloadLimiterFunc,
 	}, nil
 }
 
@@ -118,6 +136,8 @@ type ResourceOpener struct {
 	application Application
 
 	newResourceOpener func(st ResourceOpenerState) ResourceRetryClientGetter
+
+	resourceDownloadLimiterFunc func() ResourceDownloadLock
 }
 
 // OpenResource implements server.ResourceOpener.
@@ -151,11 +171,17 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		modelUUID:   ro.st.ModelUUID(),
 	}
 
+	appKey := fmt.Sprintf("%s:%s", ro.st.ModelUUID(), ro.application.Name())
+	limiter := ro.resourceDownloadLimiterFunc()
+	limiter.Acquire(appKey)
 	res, reader, err := repositories.GetResource(repositories.GetResourceArgs{
 		Client:     client,
 		Repository: st,
 		CharmID:    id,
 		Name:       name,
+		Done: func() {
+			limiter.Release(appKey)
+		},
 	})
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)

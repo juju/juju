@@ -98,9 +98,13 @@ func ensureJujuAdminServiceAccount(
 	}
 
 	var secret *core.Secret
+	// NOTE (tlm) Increased the max duration here to 120 seconds to deal with
+	// microk8s bootstrapping. Microk8s is taking a significant amoutn of time
+	// to be Kubernetes ready while still reporting that it is ready to go.
+	// See lp:1937282
 	retryCallArgs := retry.CallArgs{
 		Delay:       time.Second,
-		MaxDuration: 5 * time.Second,
+		MaxDuration: 120 * time.Second,
 		Clock:       clock,
 		Func: func() error {
 			secret, err = getServiceAccountSecret(clientset, name, adminNameSpace)

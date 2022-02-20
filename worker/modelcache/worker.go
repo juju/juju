@@ -86,7 +86,7 @@ func (c Config) WithDefaultRestartStrategy() Config {
 	return c
 }
 
-// Validate ensures all the necessary values are specified
+// Validate ensures all the necessary values are specified.
 func (c *Config) Validate() error {
 	if c.StatePool == nil {
 		return errors.NotValidf("missing state pool")

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"

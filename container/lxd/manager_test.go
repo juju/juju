@@ -370,7 +370,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 		InterfaceType:       "ethernet",
 		MACAddress:          "aa:bb:cc:dd:ee:f0",
 		Addresses: corenetwork.ProviderAddresses{
-			corenetwork.NewProviderAddress("", corenetwork.WithCIDR("10.10.0.0/24")),
+			corenetwork.NewMachineAddress("", corenetwork.WithCIDR("10.10.0.0/24")).AsProviderAddress(),
 		},
 	}}
 

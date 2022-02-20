@@ -16,9 +16,9 @@ import (
 	"github.com/juju/mgo/v2"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
-	jujutxn "github.com/juju/txn"
-	txntesting "github.com/juju/txn/testing"
+	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v2"
+	txntesting "github.com/juju/txn/v2/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/imagestorage"

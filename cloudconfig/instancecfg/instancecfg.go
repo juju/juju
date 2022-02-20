@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
@@ -321,6 +321,10 @@ type StateInitializationParams struct {
 	// machine instance being initialized.
 	BootstrapMachineInstanceId instance.Id
 
+	// BootstrapMachineDisplayName is the human readable name for
+	// the bootstrap machine instance being initialized.
+	BootstrapMachineDisplayName string
+
 	// BootstrapMachineConstraints holds the constraints for the bootstrap
 	// machine.
 	BootstrapMachineConstraints constraints.Value
@@ -353,6 +357,7 @@ type stateInitializationParamsInternal struct {
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
+	BootstrapMachineDisplayName             string                            `yaml:"bootstrap-machine-display-name,omitempty"`
 	ModelConstraints                        constraints.Value                 `yaml:"model-constraints"`
 	CustomImageMetadataJSON                 string                            `yaml:"custom-image-metadata,omitempty"`
 	ControllerCloud                         string                            `yaml:"controller-cloud"`
@@ -382,6 +387,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
 		p.BootstrapMachineHardwareCharacteristics,
+		p.BootstrapMachineDisplayName,
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
 		string(controllerCloud),
@@ -422,6 +428,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
 		BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,
+		BootstrapMachineDisplayName:             internal.BootstrapMachineDisplayName,
 		ModelConstraints:                        internal.ModelConstraints,
 		CustomImageMetadata:                     imageMetadata,
 		ControllerCloud:                         controllerCloud,
@@ -477,6 +484,10 @@ func (cfg *InstanceConfig) AgentConfig(
 		Values:            cfg.AgentEnvironment,
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
+	}
+	if cfg.Controller != nil {
+		configParams.AgentLogfileMaxBackups = cfg.Controller.Config.AgentLogfileMaxBackups()
+		configParams.AgentLogfileMaxSizeMB = cfg.Controller.Config.AgentLogfileMaxSizeMB()
 	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)

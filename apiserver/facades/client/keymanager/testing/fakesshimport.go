@@ -6,7 +6,7 @@ package testing
 import (
 	"strings"
 
-	"github.com/juju/utils/v2/ssh/testing"
+	"github.com/juju/utils/v3/ssh/testing"
 )
 
 var multiOneDup = testing.ValidKeyFour.Key + "\n" + testing.ValidKeyTwo.Key

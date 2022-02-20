@@ -16,7 +16,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/mongo/utils"
@@ -722,7 +722,7 @@ func (st *State) Branches() ([]*Generation, error) {
 	return branches, nil
 }
 
-// Generations returns all committed branches.
+// CommittedBranches returns all committed branches.
 func (st *State) CommittedBranches() ([]*Generation, error) {
 	col, closer := st.db().GetCollection(generationsC)
 	defer closer()

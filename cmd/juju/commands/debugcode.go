@@ -6,15 +6,17 @@ package commands
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
+	"github.com/juju/retry"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network/ssh"
 )
 
-func newDebugCodeCommand(hostChecker ssh.ReachableChecker) cmd.Command {
+func newDebugCodeCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {
 	c := new(debugCodeCommand)
 	c.hostChecker = hostChecker
+	c.retryStrategy = defaultSSHRetryStrategy
 	return modelcmd.Wrap(c)
 }
 

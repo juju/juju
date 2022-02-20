@@ -538,14 +538,18 @@ func (h *bundleHandler) getChanges() error {
 		Logger:           logger,
 		Force:            h.force,
 	}
-	logger.Tracef("bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
-	logger.Tracef("bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
-	logger.Tracef("bundlechanges.ChangesConfig.Model %s", pretty.Sprint(cfg.Model))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
+		logger.Tracef("bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
+		logger.Tracef("bundlechanges.ChangesConfig.Model %s", pretty.Sprint(cfg.Model))
+	}
 	changes, err := bundlechanges.FromData(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef("changes %s", pretty.Sprint(changes))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("changes %s", pretty.Sprint(changes))
+	}
 	h.changes = changes
 	return nil
 }
@@ -573,7 +577,9 @@ func (h *bundleHandler) handleChanges() error {
 	// Deploy the bundle.
 	for i, change := range h.changes {
 		fmt.Fprint(h.ctx.Stdout, fmtChange(change))
-		logger.Tracef("%d: change %s", i, pretty.Sprint(change))
+		if logger.IsTraceEnabled() {
+			logger.Tracef("%d: change %s", i, pretty.Sprint(change))
+		}
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
 			err = h.addCharm(change)
@@ -1418,7 +1424,7 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	}
 
 	p := change.Params
-	result, err := h.deployAPI.Offer(h.targetModelUUID, p.Application, p.Endpoints, p.OfferName, "")
+	result, err := h.deployAPI.Offer(h.targetModelUUID, p.Application, p.Endpoints, h.accountUser, p.OfferName, "")
 	if err == nil && len(result) > 0 && result[0].Error != nil {
 		err = result[0].Error
 	}

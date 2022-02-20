@@ -17,10 +17,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/parallel"
-	"github.com/juju/utils/v2/shell"
-	"github.com/juju/utils/v2/ssh"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/parallel"
+	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v3/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/cloudconfig"
@@ -306,6 +306,7 @@ func BootstrapInstance(
 
 	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+		icfg.Bootstrap.BootstrapMachineDisplayName = result.DisplayName
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
 		envConfig := env.Config()

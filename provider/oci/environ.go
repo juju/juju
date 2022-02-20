@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -322,6 +322,7 @@ func (e *Environ) Create(ctx envcontext.ProviderCallContext, params environs.Cre
 
 // AdoptResources implements environs.Environ.
 func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+	// TODO(cderici): implement AdoptResources for oci
 	return errors.NotImplementedf("AdoptResources")
 }
 
@@ -457,18 +458,6 @@ func (e *Environ) getCloudInitConfig(series string, apiPort int, statePort int) 
 	return cloudcfg, nil
 }
 
-func shortenMachineId(machineId *string, nRunesShown int) string {
-	var short string
-	if machineId != nil {
-		short = *machineId
-	}
-	offset := len(short) - nRunesShown
-	if offset > 0 {
-		short = "..." + short[offset:]
-	}
-	return short
-}
-
 // StartInstance implements environs.InstanceBroker.
 func (e *Environ) StartInstance(
 	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
@@ -507,7 +496,9 @@ func (e *Environ) startInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef("Image cache contains: %# v", pretty.Formatter(imgCache))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("Image cache contains: %# v", pretty.Formatter(imgCache))
+	}
 
 	series := args.InstanceConfig.Series
 	arches := args.Tools.Arches()
@@ -651,7 +642,6 @@ func (e *Environ) startInstance(
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("started instance %q", *machineId)
-	displayName := shortenMachineId(machineId, 6)
 
 	if desiredStatus == ociCore.InstanceLifecycleStateRunning && allocatePublicIP {
 		if err := instance.waitForPublicIP(ctx); err != nil {
@@ -660,7 +650,7 @@ func (e *Environ) startInstance(
 	}
 
 	result := &environs.StartInstanceResult{
-		DisplayName: displayName,
+		DisplayName: hostname,
 		Instance:    instance,
 		Hardware:    instance.hardwareCharacteristics(),
 	}

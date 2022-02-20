@@ -11,84 +11,90 @@ import (
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 )
 
-// MockLXDProfiler is a mock of LXDProfiler interface
+// MockLXDProfiler is a mock of LXDProfiler interface.
 type MockLXDProfiler struct {
 	ctrl     *gomock.Controller
 	recorder *MockLXDProfilerMockRecorder
 }
 
-// MockLXDProfilerMockRecorder is the mock recorder for MockLXDProfiler
+// MockLXDProfilerMockRecorder is the mock recorder for MockLXDProfiler.
 type MockLXDProfilerMockRecorder struct {
 	mock *MockLXDProfiler
 }
 
-// NewMockLXDProfiler creates a new mock instance
+// NewMockLXDProfiler creates a new mock instance.
 func NewMockLXDProfiler(ctrl *gomock.Controller) *MockLXDProfiler {
 	mock := &MockLXDProfiler{ctrl: ctrl}
 	mock.recorder = &MockLXDProfilerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLXDProfiler) EXPECT() *MockLXDProfilerMockRecorder {
 	return m.recorder
 }
 
-// LXDProfile mocks base method
+// LXDProfile mocks base method.
 func (m *MockLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfile")
 	ret0, _ := ret[0].(lxdprofile.LXDProfile)
 	return ret0
 }
 
-// LXDProfile indicates an expected call of LXDProfile
+// LXDProfile indicates an expected call of LXDProfile.
 func (mr *MockLXDProfilerMockRecorder) LXDProfile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfile", reflect.TypeOf((*MockLXDProfiler)(nil).LXDProfile))
 }
 
-// MockLXDProfile is a mock of LXDProfile interface
+// MockLXDProfile is a mock of LXDProfile interface.
 type MockLXDProfile struct {
 	ctrl     *gomock.Controller
 	recorder *MockLXDProfileMockRecorder
 }
 
-// MockLXDProfileMockRecorder is the mock recorder for MockLXDProfile
+// MockLXDProfileMockRecorder is the mock recorder for MockLXDProfile.
 type MockLXDProfileMockRecorder struct {
 	mock *MockLXDProfile
 }
 
-// NewMockLXDProfile creates a new mock instance
+// NewMockLXDProfile creates a new mock instance.
 func NewMockLXDProfile(ctrl *gomock.Controller) *MockLXDProfile {
 	mock := &MockLXDProfile{ctrl: ctrl}
 	mock.recorder = &MockLXDProfileMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLXDProfile) EXPECT() *MockLXDProfileMockRecorder {
 	return m.recorder
 }
 
-// Empty mocks base method
+// Empty mocks base method.
 func (m *MockLXDProfile) Empty() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Empty")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// Empty indicates an expected call of Empty
+// Empty indicates an expected call of Empty.
 func (mr *MockLXDProfileMockRecorder) Empty() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Empty", reflect.TypeOf((*MockLXDProfile)(nil).Empty))
 }
 
-// ValidateConfigDevices mocks base method
+// ValidateConfigDevices mocks base method.
 func (m *MockLXDProfile) ValidateConfigDevices() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateConfigDevices")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ValidateConfigDevices indicates an expected call of ValidateConfigDevices
+// ValidateConfigDevices indicates an expected call of ValidateConfigDevices.
 func (mr *MockLXDProfileMockRecorder) ValidateConfigDevices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateConfigDevices", reflect.TypeOf((*MockLXDProfile)(nil).ValidateConfigDevices))
 }

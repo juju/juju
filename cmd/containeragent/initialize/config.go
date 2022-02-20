@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
@@ -125,6 +125,14 @@ func (c *configFromEnv) JujuDBSnapChannel() string {
 }
 
 func (c *configFromEnv) NonSyncedWritesToRaftLog() bool {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) AgentLogfileMaxSizeMB() int {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) AgentLogfileMaxBackups() int {
 	panic("not implemented")
 }
 

@@ -21,7 +21,6 @@ var (
 	OciStorageProviderType = ociStorageProviderType
 	OciVolumeType          = ociVolumeType
 	IscsiPool              = iscsiPool
-	ShortenMachineId       = shortenMachineId
 )
 
 func (e *Environ) SetClock(clock clock.Clock) {

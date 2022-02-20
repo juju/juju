@@ -118,37 +118,37 @@ func (i *MachineInfo) EntityID() EntityID {
 func (i *MachineInfo) Clone() EntityInfo {
 	clone := *i
 	clone.HardwareCharacteristics = i.HardwareCharacteristics.Clone()
-	if len(i.Annotations) > 0 {
+	if i.Annotations != nil {
 		clone.Annotations = map[string]string{}
 		for k, v := range i.Annotations {
 			clone.Annotations[k] = v
 		}
 	}
-	if len(i.Config) > 0 {
+	if i.Config != nil {
 		clone.Config = map[string]interface{}{}
 		for k, v := range i.Config {
 			clone.Config[k] = v
 		}
 	}
-	if len(i.SupportedContainers) > 0 {
+	if i.SupportedContainers != nil {
 		clone.SupportedContainers = make([]instance.ContainerType, len(i.SupportedContainers))
 		for i, c := range i.SupportedContainers {
 			clone.SupportedContainers[i] = c
 		}
 	}
-	if len(i.CharmProfiles) > 0 {
+	if i.CharmProfiles != nil {
 		clone.CharmProfiles = make([]string, len(i.CharmProfiles))
 		for i, c := range i.CharmProfiles {
 			clone.CharmProfiles[i] = c
 		}
 	}
-	if len(i.Jobs) > 0 {
+	if i.Jobs != nil {
 		clone.Jobs = make([]model.MachineJob, len(i.Jobs))
 		for i, j := range i.Jobs {
 			clone.Jobs[i] = j
 		}
 	}
-	if len(i.Addresses) > 0 {
+	if i.Addresses != nil {
 		clone.Addresses = make([]network.ProviderAddress, len(i.Addresses))
 		for i, a := range i.Addresses {
 			clone.Addresses[i] = a
@@ -221,13 +221,13 @@ func (i *ApplicationInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *ApplicationInfo) Clone() EntityInfo {
 	clone := *i
-	if len(i.Annotations) > 0 {
+	if i.Annotations != nil {
 		clone.Annotations = map[string]string{}
 		for k, v := range i.Annotations {
 			clone.Annotations[k] = v
 		}
 	}
-	if len(i.Config) > 0 {
+	if i.Config != nil {
 		clone.Config = map[string]interface{}{}
 		for k, v := range i.Config {
 			clone.Config[k] = v
@@ -296,7 +296,7 @@ func (i *CharmInfo) EntityID() EntityID {
 func (i *CharmInfo) Clone() EntityInfo {
 	clone := *i
 	clone.LXDProfile = i.LXDProfile.Clone()
-	if len(i.DefaultConfig) > 0 {
+	if i.DefaultConfig != nil {
 		clone.DefaultConfig = map[string]interface{}{}
 		for k, v := range i.DefaultConfig {
 			clone.DefaultConfig[k] = v
@@ -393,7 +393,7 @@ func (i *UnitInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *UnitInfo) Clone() EntityInfo {
 	clone := *i
-	if len(i.Annotations) > 0 {
+	if i.Annotations != nil {
 		clone.Annotations = map[string]string{}
 		for k, v := range i.Annotations {
 			clone.Annotations[k] = v
@@ -404,7 +404,7 @@ func (i *UnitInfo) Clone() EntityInfo {
 	return &clone
 }
 
-// ActionInfo holds the information about a action that is tracked by
+// ActionInfo holds the information about an action that is tracked by
 // multiwatcherStore.
 type ActionInfo struct {
 	ModelUUID  string
@@ -433,13 +433,13 @@ func (i *ActionInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *ActionInfo) Clone() EntityInfo {
 	clone := *i
-	if len(i.Parameters) > 0 {
+	if i.Parameters != nil {
 		clone.Parameters = map[string]interface{}{}
 		for k, v := range i.Parameters {
 			clone.Parameters[k] = v
 		}
 	}
-	if len(i.Results) > 0 {
+	if i.Results != nil {
 		clone.Results = map[string]interface{}{}
 		for k, v := range i.Results {
 			clone.Results[k] = v
@@ -486,7 +486,7 @@ func (i *RelationInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *RelationInfo) Clone() EntityInfo {
 	clone := *i
-	if len(i.Endpoints) > 0 {
+	if i.Endpoints != nil {
 		clone.Endpoints = make([]Endpoint, len(i.Endpoints))
 		for i, ep := range i.Endpoints {
 			clone.Endpoints[i] = ep
@@ -516,7 +516,7 @@ func (i *AnnotationInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *AnnotationInfo) Clone() EntityInfo {
 	clone := *i
-	if len(i.Annotations) > 0 {
+	if i.Annotations != nil {
 		clone.Annotations = map[string]string{}
 		for k, v := range i.Annotations {
 			clone.Annotations[k] = v
@@ -591,19 +591,19 @@ func (i *ModelInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *ModelInfo) Clone() EntityInfo {
 	clone := *i
-	if len(i.Annotations) > 0 {
+	if i.Annotations != nil {
 		clone.Annotations = map[string]string{}
 		for k, v := range i.Annotations {
 			clone.Annotations[k] = v
 		}
 	}
-	if len(i.Config) > 0 {
+	if i.Config != nil {
 		clone.Config = map[string]interface{}{}
 		for k, v := range i.Config {
 			clone.Config[k] = v
 		}
 	}
-	if len(i.UserPermissions) > 0 {
+	if i.UserPermissions != nil {
 		clone.UserPermissions = map[string]permission.Access{}
 		for k, v := range i.UserPermissions {
 			clone.UserPermissions[k] = v
@@ -647,23 +647,19 @@ func (i *BranchInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *BranchInfo) Clone() EntityInfo {
 	clone := *i
-	if len(i.AssignedUnits) > 0 {
+	if i.AssignedUnits != nil {
 		clone.AssignedUnits = map[string][]string{}
 		for k, units := range i.AssignedUnits {
 			cUnits := make([]string, len(units))
-			for i, u := range units {
-				cUnits[i] = u
-			}
+			copy(cUnits, units)
 			clone.AssignedUnits[k] = cUnits
 		}
 	}
-	if len(i.Config) > 0 {
+	if i.Config != nil {
 		clone.Config = map[string][]ItemChange{}
 		for k, itemChanges := range i.Config {
 			cItems := make([]ItemChange, len(itemChanges))
-			for i, c := range itemChanges {
-				cItems[i] = c
-			}
+			copy(cItems, itemChanges)
 			clone.Config[k] = cItems
 		}
 	}

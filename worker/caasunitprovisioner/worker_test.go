@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -419,7 +419,7 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 			params.UpdateApplicationServiceArg{
 				ApplicationTag: names.NewApplicationTag("gitlab").String(),
 				ProviderId:     "id",
-				Addresses:      params.FromProviderAddresses(network.NewProviderAddresses("10.0.0.1")...),
+				Addresses:      params.FromProviderAddresses(network.NewMachineAddresses([]string{"10.0.0.1"}).AsProviderAddresses()...),
 				Scale:          intPtr(4),
 			},
 		})
@@ -1037,7 +1037,8 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	waitCharmGetterCalls("ApplicationCharmInfo")
 
 	// Ensure application worker exited due to charm becoming v2
-	aw, _ := caasunitprovisioner.AppWorker(w, "gitlab")
+	aw, ok := caasunitprovisioner.AppWorker(w, "gitlab")
+	c.Assert(ok, jc.IsTrue)
 	err = workertest.CheckKilled(c, aw)
 	c.Assert(err, jc.ErrorIsNil)
 }

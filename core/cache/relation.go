@@ -3,6 +3,8 @@
 
 package cache
 
+import "fmt"
+
 // Relation represents a relation in a cached model.
 type Relation struct {
 	// Resident identifies the relation as a type-agnostic cached entity
@@ -17,6 +19,21 @@ func newRelation(model *Model, res *Resident) *Relation {
 	return &Relation{
 		Resident: res,
 		model:    model,
+	}
+}
+
+// Report returns information that is used in the dependency engine report.
+func (r *Relation) Report() map[string]interface{} {
+	details := r.details
+
+	endpoints := make([]string, len(details.Endpoints))
+	for k, ep := range details.Endpoints {
+		endpoints[k] = fmt.Sprintf("%s:%s", ep.Application, ep.Name)
+	}
+
+	return map[string]interface{}{
+		"key":       details.Key,
+		"endpoints": endpoints,
 	}
 }
 

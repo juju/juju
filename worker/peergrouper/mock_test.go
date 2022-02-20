@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v2"
-	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 

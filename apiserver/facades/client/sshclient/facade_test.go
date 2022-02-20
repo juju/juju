@@ -4,6 +4,7 @@
 package sshclient_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
@@ -51,20 +52,20 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
 	s.callContext = context.NewEmptyCloudCallContext()
-	facade, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
 
 func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
+	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
-	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
+	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
@@ -180,6 +181,19 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"ModelConfig", []interface{}{}},
 	})
+}
+
+func (s *facadeSuite) TestLeader(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockReader := NewMockReader(ctrl)
+	mockReader.EXPECT().Leaders().Return(map[string]string{"testme": "ubuntu/4", "ubuntu": "ubuntu/5"}, nil)
+	facade, err := sshclient.InternalFacade(s.backend, mockReader, s.authorizer, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := facade.Leader(params.Entity{Tag: names.NewApplicationTag("ubuntu").String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "ubuntu/5")
 }
 
 type mockBackend struct {

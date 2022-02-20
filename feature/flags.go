@@ -62,7 +62,5 @@ const RaftBatchFSM = "raft-batch-fsm"
 // handled by Pubsub to facade API interaction.
 const RaftAPILeases = "raft-api-leases"
 
-// CharmAssumes instructs Juju to process assumes expressions from charm
-// metadata when attempting to deploy charms. In addition, it enables reporting
-// of supported features as part of the 'juju show-model' output.
-const CharmAssumes = "charm-assumes"
+// AsynchronousCharmDownloads enables support for asynchronous charm downloads.
+const AsynchronousCharmDownloads = "async-charm-downloads"

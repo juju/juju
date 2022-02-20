@@ -5,35 +5,36 @@
 package systemd
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	exec "github.com/juju/utils/v2/exec"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	exec "github.com/juju/utils/v3/exec"
 )
 
-// MockShimExec is a mock of ShimExec interface
+// MockShimExec is a mock of ShimExec interface.
 type MockShimExec struct {
 	ctrl     *gomock.Controller
 	recorder *MockShimExecMockRecorder
 }
 
-// MockShimExecMockRecorder is the mock recorder for MockShimExec
+// MockShimExecMockRecorder is the mock recorder for MockShimExec.
 type MockShimExecMockRecorder struct {
 	mock *MockShimExec
 }
 
-// NewMockShimExec creates a new mock instance
+// NewMockShimExec creates a new mock instance.
 func NewMockShimExec(ctrl *gomock.Controller) *MockShimExec {
 	mock := &MockShimExec{ctrl: ctrl}
 	mock.recorder = &MockShimExecMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockShimExec) EXPECT() *MockShimExecMockRecorder {
 	return m.recorder
 }
 
-// RunCommands mocks base method
+// RunCommands mocks base method.
 func (m *MockShimExec) RunCommands(arg0 exec.RunParams) (*exec.ExecResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunCommands", arg0)
@@ -42,7 +43,7 @@ func (m *MockShimExec) RunCommands(arg0 exec.RunParams) (*exec.ExecResponse, err
 	return ret0, ret1
 }
 
-// RunCommands indicates an expected call of RunCommands
+// RunCommands indicates an expected call of RunCommands.
 func (mr *MockShimExecMockRecorder) RunCommands(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommands", reflect.TypeOf((*MockShimExec)(nil).RunCommands), arg0)

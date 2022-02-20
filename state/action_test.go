@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	"github.com/juju/txn/v2"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -526,7 +526,7 @@ func (s *ActionSuite) toSupportNewActionID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	if !state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
+		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, nil, true)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -536,7 +536,7 @@ func (s *ActionSuite) toSupportOldActionID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	if state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(version.MustParse("2.6.0"), true)
+		err := s.State.SetModelAgentVersion(version.MustParse("2.6.0"), nil, true)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

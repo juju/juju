@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	// Register the providers for the field check test
@@ -287,7 +287,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerNodes",
 		"HAPrimaryMachine",
 		"LatestMigration",
-		"ControllerConfig",
 	)
 
 	// Check that Model.LastModelConnection is called three times
@@ -460,7 +459,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerNodes",
 		"HAPrimaryMachine",
 		"LatestMigration",
-		"ControllerConfig",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
 
@@ -1078,7 +1076,7 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
-	err := s.BackingState.SetModelAgentVersion(coretesting.FakeVersionNumber, false)
+	err := s.BackingState.SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	admin := s.AdminUserTag(c)

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"

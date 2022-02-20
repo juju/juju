@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -275,7 +275,7 @@ func (s *stateSuite) TestAllFacadeVersionsSafeFromMutation(c *gc.C) {
 }
 
 func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
-	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 4)
+	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 5)
 }
 
 func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {

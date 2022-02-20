@@ -9,7 +9,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"

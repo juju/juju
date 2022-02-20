@@ -17,7 +17,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mutex"
+	"github.com/juju/mutex/v2"
 	cookiejar "github.com/juju/persistent-cookiejar"
 
 	"github.com/juju/juju/cloud"

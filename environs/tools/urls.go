@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/environs"
 	conf "github.com/juju/juju/environs/config"
@@ -73,15 +72,11 @@ func GetMetadataSources(env environs.BootstrapEnviron, dataSourceFactory simples
 	// Add configured and environment-specific datasources.
 	var sources []simplestreams.DataSource
 	if userURL, ok := config.AgentMetadataURL(); ok {
-		verify := utils.VerifySSLHostnames
-		if !config.SSLHostnameVerification() {
-			verify = utils.NoVerifySSLHostnames
-		}
 		dataSourceConfig := simplestreams.Config{
 			Description:          conf.AgentMetadataURLKey,
 			BaseURL:              userURL,
 			PublicSigningKey:     keys.JujuPublicKey,
-			HostnameVerification: verify,
+			HostnameVerification: config.SSLHostnameVerification(),
 			Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
 		}
 		if err := dataSourceConfig.Validate(); err != nil {
@@ -107,7 +102,7 @@ func GetMetadataSources(env environs.BootstrapEnviron, dataSourceFactory simples
 			Description:          "default simplestreams",
 			BaseURL:              defaultURL,
 			PublicSigningKey:     keys.JujuPublicKey,
-			HostnameVerification: utils.VerifySSLHostnames,
+			HostnameVerification: true,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 			RequireSigned:        DefaultBaseURL == streamsAgentURL,
 		}

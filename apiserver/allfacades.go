@@ -85,6 +85,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
@@ -167,7 +168,8 @@ func AllFacades() *facade.Registry {
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
-	reg("ApplicationOffers", 3, applicationoffers.NewOffersAPIV3) // Add user to consume offers details  args.
+	reg("ApplicationOffers", 3, applicationoffers.NewOffersAPIV3) // Add user to consume offers details args.
+	reg("ApplicationOffers", 4, applicationoffers.NewOffersAPIV4) // Add user to add offer args.
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 1, backups.NewFacade)
 	reg("Backups", 2, backups.NewFacadeV2)
@@ -179,6 +181,7 @@ func AllFacades() *facade.Registry {
 	reg("Bundle", 5, bundle.NewFacadeV5)
 	reg("Bundle", 6, bundle.NewFacadeV6)
 	reg("CharmHub", 1, charmhub.NewFacade)
+	reg("CharmDownloader", 1, charmdownloader.NewFacadeV1)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacadeV2)
 	reg("Charms", 3, charms.NewFacadeV3)
@@ -187,7 +190,8 @@ func AllFacades() *facade.Registry {
 	reg("Client", 1, client.NewFacadeV1)
 	reg("Client", 2, client.NewFacadeV2)
 	reg("Client", 3, client.NewFacadeV3)
-	reg("Client", 4, client.NewFacade)
+	reg("Client", 4, client.NewFacadeV4)
+	reg("Client", 5, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacadeV1)
 	reg("Cloud", 2, cloud.NewFacadeV2) // adds AddCloud, AddCredentials, CredentialContents, RemoveClouds
 	reg("Cloud", 3, cloud.NewFacadeV3) // changes signature of UpdateCredentials, adds ModifyCloudAccess
@@ -340,8 +344,9 @@ func AllFacades() *facade.Registry {
 	reg("Secrets", 1, secrets.NewSecretsAPI)
 	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
 
-	reg("SSHClient", 1, sshclient.NewFacade)
-	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.
+	reg("SSHClient", 1, sshclient.NewFacadeV2)
+	reg("SSHClient", 2, sshclient.NewFacadeV2) // v2 adds AllAddresses() method.
+	reg("SSHClient", 3, sshclient.NewFacade)   // v3 adds Leader() method.
 
 	reg("Spaces", 2, spaces.NewAPIv2)
 	reg("Spaces", 3, spaces.NewAPIv3)
@@ -391,12 +396,14 @@ func AllFacades() *facade.Registry {
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
 
-	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
+	regRaw("AllWatcher", 1, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
+	regRaw("AllWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
 	// but they are get under separate names as it possible the may
 	// diverge in the future (especially in terms of authorisation
 	// checks).
-	regRaw("AllModelWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
+	regRaw("AllModelWatcher", 2, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
+	regRaw("AllModelWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	regRaw("NotifyWatcher", 1, newNotifyWatcher, reflect.TypeOf((*srvNotifyWatcher)(nil)))
 	regRaw("StringsWatcher", 1, newStringsWatcher, reflect.TypeOf((*srvStringsWatcher)(nil)))
 	regRaw("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))

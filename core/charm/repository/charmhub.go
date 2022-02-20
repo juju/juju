@@ -4,7 +4,9 @@
 package repository
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"strings"
@@ -335,6 +337,126 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 	}
 
 	return results, nil
+}
+
+// GetEssentialMetadata resolves each provided MetadataRequest and returns back
+// a slice with the results. The results include the minimum set of metadata
+// that is required for deploying each charm.
+func (c *CharmHubRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
+	// Group reqs in batches based on the provided macaroons
+	var urlToReqIdx = make(map[*charm.URL]int)
+	var reqGroups = make(map[string][]corecharm.MetadataRequest)
+	for reqIdx, req := range reqs {
+		urlToReqIdx[req.CharmURL] = reqIdx
+		if len(req.Macaroons) == 0 {
+			reqGroups[""] = append(reqGroups[""], req)
+			continue
+		}
+
+		// Calculate the concatenated signatures for all specified
+		// macaroons, convert them to a hex string and use that as
+		// the map key; this allows us to group together requests that
+		// reference the same set of macaroons.
+		var macSigs []byte
+		for _, mac := range req.Macaroons {
+			macSigs = append(macSigs, mac.Signature()...)
+		}
+		macSig := hex.EncodeToString(macSigs)
+		reqGroups[macSig] = append(reqGroups[macSig], req)
+	}
+
+	// Make a batch request for each group
+	var res = make([]corecharm.EssentialMetadata, len(reqs))
+	for _, reqGroup := range reqGroups {
+		resGroup, err := c.getEssentialMetadataForBatch(reqGroup)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for groupResIdx, groupRes := range resGroup {
+			reqURL := reqGroup[groupResIdx].CharmURL
+			res[urlToReqIdx[reqURL]] = groupRes
+		}
+	}
+
+	return res, nil
+}
+
+func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
+	if len(reqs) == 0 {
+		return nil, nil
+	}
+
+	// TODO(achilleasa): this method is invoked with a batch of requests
+	// that share the same set of macaroons. Once charmhub adds support
+	// for macaroons they should be extracted from the first request entry
+	// and passed to the charmhub client.
+	//   macaroons := reqs[0].Macaroons
+
+	resolvedOrigins := make([]corecharm.Origin, len(reqs))
+	refreshCfgs := make([]charmhub.RefreshConfig, len(reqs))
+	for reqIdx, req := range reqs {
+		// TODO(achilleasa): We should add support for resolving origin
+		// batches and move this outside the loop.
+		_, resolvedOrigin, _, err := c.ResolveWithPreferredChannel(req.CharmURL, req.Origin, req.Macaroons)
+		if err != nil {
+			return nil, errors.Annotatef(err, "resolving origin for %q", req.CharmURL)
+		}
+
+		refreshCfg, err := refreshConfig(req.CharmURL, resolvedOrigin)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		resolvedOrigins[reqIdx] = resolvedOrigin
+		refreshCfgs[reqIdx] = refreshCfg
+	}
+
+	refreshResults, err := c.client.Refresh(context.TODO(), charmhub.RefreshMany(refreshCfgs...))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var metaRes = make([]corecharm.EssentialMetadata, len(reqs))
+	for resIdx, refreshResult := range refreshResults {
+		if len(refreshResult.Entity.MetadataYAML) == 0 {
+			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of metadata.yaml", reqs[resIdx].CharmURL)
+		}
+		chMeta, err := charm.ReadMeta(bytes.NewReader(refreshResult.Entity.MetadataYAML))
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing metadata.yaml for %q", reqs[resIdx].CharmURL)
+		}
+
+		if len(refreshResult.Entity.ConfigYAML) == 0 {
+			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of config.yaml", reqs[resIdx].CharmURL)
+		}
+		chConfig, err := charm.ReadConfig(bytes.NewReader(refreshResult.Entity.ConfigYAML))
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing config.yaml for %q", reqs[resIdx].CharmURL)
+		}
+
+		chManifest := new(charm.Manifest)
+		for _, base := range refreshResult.Entity.Bases {
+			baseCh, err := charm.ParseChannelNormalize(base.Channel)
+			if err != nil {
+				return nil, errors.Annotatef(err, "parsing base channel for %q", reqs[resIdx].CharmURL)
+			}
+
+			chManifest.Bases = append(chManifest.Bases, charm.Base{
+				Name:          base.Name,
+				Channel:       baseCh,
+				Architectures: []string{base.Architecture},
+			})
+		}
+
+		resolvedOrigins[resIdx].ID = refreshResult.ID
+		metaRes[resIdx].ResolvedOrigin = resolvedOrigins[resIdx]
+		metaRes[resIdx].Meta = chMeta
+		metaRes[resIdx].Config = chConfig
+		metaRes[resIdx].Manifest = chManifest
+	}
+
+	return metaRes, nil
 }
 
 func (c *CharmHubRepository) refreshOne(charmURL *charm.URL, origin corecharm.Origin, _ macaroon.Slice) (transport.RefreshResponse, error) {

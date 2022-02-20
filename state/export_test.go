@@ -22,9 +22,9 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn"
-	txntesting "github.com/juju/txn/testing"
-	jutils "github.com/juju/utils/v2"
+	jujutxn "github.com/juju/txn/v2"
+	txntesting "github.com/juju/txn/v2/testing"
+	jutils "github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -172,6 +172,14 @@ func ApplicationOffersRefCount(st *State, appName string) (int, error) {
 	defer closer()
 
 	key := applicationOffersRefCountKey(appName)
+	return nsRefcounts.read(refcounts, key)
+}
+
+func ControllerRefCount(st *State, controllerUUID string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := externalControllerRefCountKey(controllerUUID)
 	return nsRefcounts.read(refcounts, key)
 }
 

@@ -18,18 +18,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/lumberjack"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/symlink"
-	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/symlink"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -229,12 +229,15 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 	if !a.logToStdErr {
 		// the context's stderr is set as the loggo writer in github.com/juju/cmd/v3/logging.go
-		a.ctx.Stderr = &lumberjack.Logger{
-			Filename:   agent.LogFilename(config),
-			MaxSize:    300, // megabytes
-			MaxBackups: 2,
+		ljLogger := &lumberjack.Logger{
+			Filename:   agent.LogFilename(config), // eg: "/var/log/juju/machine-0.log"
+			MaxSize:    config.AgentLogfileMaxSizeMB(),
+			MaxBackups: config.AgentLogfileMaxBackups(),
 			Compress:   true,
 		}
+		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
+		a.ctx.Stderr = ljLogger
 	}
 
 	return nil
@@ -717,6 +720,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		IsFatal:       agenterrors.ConnectionIsFatal(logger, apiConn),
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
+		Logger:        logger.Child("runner"),
 	})
 	defer func() {
 		// If startAPIWorkers exits early with an error, stop the
@@ -1103,12 +1107,15 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		if err := paths.PrimeLogFile(logFilename); err != nil {
 			return nil, errors.Annotate(err, "unable to prime log file")
 		}
-		writer = &lumberjack.Logger{
+		ljLogger := &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),
 			MaxBackups: cfg.ControllerConfig.ModelLogfileMaxBackups(),
 			Compress:   true,
 		}
+		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
+		writer = ljLogger
 	}
 	if err := loggingContext.AddWriter(
 		"file", loggo.NewSimpleWriter(writer, loggo.DefaultFormatter)); err != nil {
@@ -1136,7 +1143,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
-		logger.Infof("setting short charmrevision worker interval: %v", interval)
+		logger.Debugf("setting short charmrevision worker interval: %v", interval)
 		manifoldsCfg.CharmRevisionUpdateInterval = interval
 	}
 

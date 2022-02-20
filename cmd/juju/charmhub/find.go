@@ -4,6 +4,7 @@
 package charmhub
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -11,11 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charmhub"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const (
@@ -34,23 +33,14 @@ See also:
 
 // NewFindCommand wraps findCommand with sane model settings.
 func NewFindCommand() cmd.Command {
-	cmd := &findCommand{
-		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
-			return charmhub.NewClient(api)
-		},
+	return &findCommand{
+		charmHubCommand: newCharmHubCommand(),
 	}
-	cmd.APIRootFunc = func() (base.APICallCloser, error) {
-		return cmd.NewAPIRoot()
-	}
-	return modelcmd.Wrap(cmd)
 }
 
 // findCommand supplies the "find" CLI command used to display find information.
 type findCommand struct {
-	modelcmd.ModelCommandBase
-
-	APIRootFunc        func() (base.APICallCloser, error)
-	CharmHubClientFunc func(base.APICallCloser) FindCommandAPI
+	*charmHubCommand
 
 	out        cmd.Output
 	warningLog Log
@@ -64,7 +54,7 @@ type findCommand struct {
 	columns string
 }
 
-// Find returns help related info about the command, it implements
+// Info returns help related info about the command, it implements
 // part of the cmd.Command interface.
 func (c *findCommand) Info() *cmd.Info {
 	info := &cmd.Info{
@@ -79,7 +69,7 @@ func (c *findCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the find command.
 // It implements part of the cmd.Command interface.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.charmHubCommand.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -111,6 +101,10 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the find command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *findCommand) Init(args []string) error {
+	if err := c.charmHubCommand.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+
 	// We allow searching of empty queries, which will return a list of
 	// "interesting charms".
 	if len(args) > 0 {
@@ -137,22 +131,24 @@ func (c *findCommand) Init(args []string) error {
 
 // Run is the business logic of the find command.  It implements the meaty
 // part of the cmd.Command interface.
-func (c *findCommand) Run(ctx *cmd.Context) error {
-	apiRoot, err := c.APIRootFunc()
+func (c *findCommand) Run(cmdContext *cmd.Context) error {
+	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = apiRoot.Close() }()
-	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
-		ctx.Warningf("juju find not supported with controllers < 2.9")
-		return nil
+
+	client, err := c.CharmHubClientFunc(config, charmhub.DefaultFileSystem())
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	charmHubClient := c.CharmHubClientFunc(apiRoot)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	options := populateFindOptions(c)
-	results, err := charmHubClient.Find(c.query, options...)
-	if params.IsCodeNotFound(err) {
+
+	results, err := client.Find(ctx, c.query, options...)
+	if errors.IsNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("Nothing found for query %q.", c.query))
 	} else if err != nil {
 		return errors.Trace(err)
@@ -162,12 +158,12 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 	// when we get invalid data from the API.
 	// We store it on the command before attempting to output, so we can pick
 	// it up later.
-	c.warningLog = ctx.Warningf
+	c.warningLog = cmdContext.Warningf
 
-	return c.output(ctx, results, c.query == "" && len(options) == 0)
+	return c.output(cmdContext, results, c.query == "" && len(options) == 0)
 }
 
-func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse, emptyQuery bool) error {
+func (c *findCommand) output(ctx *cmd.Context, results []transport.FindResponse, emptyQuery bool) error {
 	tabular := c.out.Name() == "tabular"
 	if tabular {
 		// If the results are empty, we should return a helpful message to the

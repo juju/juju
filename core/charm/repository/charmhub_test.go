@@ -5,10 +5,12 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,8 +22,17 @@ import (
 	"github.com/juju/juju/core/charm/repository/mocks"
 )
 
+var (
+	expRefreshFields = set.NewStrings(
+		"download", "id", "license", "name", "publisher", "resources",
+		"revision", "summary", "type", "version", "bases", "config-yaml",
+		"metadata-yaml",
+	).SortedValues()
+)
+
 type charmHubRepositorySuite struct {
 	testing.IsolationSuite
+
 	client *mocks.MockCharmHubClient
 	logger *mocks.MockLogger
 }
@@ -366,6 +377,40 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
 }
 
+func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl := charm.MustParseURL("ch:wordpress")
+	requestedOrigin := corecharm.Origin{
+		Source: "charm-hub",
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+		Channel: &charm.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+	}
+
+	s.expectCharmRefreshInstallOneFromChannel(c) // resolve the origin
+	s.expectCharmRefreshInstallOneFromChannel(c) // refresh and get metadata
+	repo := NewCharmHubRepository(s.logger, s.client)
+
+	got, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL: curl,
+		Origin:   requestedOrigin,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.HasLen, 1)
+	c.Assert(got[0].Meta.Name, gc.Equals, "wordpress")
+	c.Assert(got[0].Config.Options["blog-title"], gc.Not(gc.IsNil))
+	c.Assert(got[0].Manifest.Bases, gc.HasLen, 1)
+	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "charmCHARMcharmCHARMcharmCHARM01", gc.Commentf("expected origin to be resolved"))
+}
+
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *gc.C) {
 	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
@@ -392,6 +437,23 @@ func (s *charmHubRepositorySuite) expectCharmRefresh(c *gc.C, cfg charmhub.Refre
 					Size:       42,
 					URL:        "ch:amd64/focal/wordpress-42",
 				},
+				//
+				Bases: []transport.Base{
+					{
+						Name:         "ubuntu",
+						Architecture: "amd64",
+						Channel:      "20.04",
+					},
+				},
+				MetadataYAML: json.RawMessage([]byte(`
+name: wordpress
+summary: Blog engine
+description: Blog engine
+`[1:])),
+				ConfigYAML: json.RawMessage([]byte(`
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
+`[1:])),
 			},
 			EffectiveChannel: "latest/stable",
 		}}, nil
@@ -546,6 +608,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -579,6 +642,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 			},
 		}},
 		Context: []transport.RefreshRequestContext{},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -606,7 +670,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 			Revision:    &revision,
 		}},
 		Context: []transport.RefreshRequestContext{},
-		Fields:  []string{"bases", "download", "id", "revision", "version", "resources", "type"},
+		Fields:  expRefreshFields,
 	})
 }
 
@@ -648,6 +712,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 			},
 			TrackingChannel: channel.String(),
 		}},
+		Fields: expRefreshFields,
 	})
 }
 

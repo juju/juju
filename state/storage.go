@@ -16,7 +16,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn/v2"
 
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -130,7 +130,7 @@ type storageInstance struct {
 	doc storageInstanceDoc
 }
 
-// String returns a human readable string represting the type.
+// String returns a human-readable string representing the type.
 func (k StorageKind) String() string {
 	switch k {
 	case StorageKindBlock:
@@ -1169,8 +1169,8 @@ func (sb *storageBackend) attachStorageOps(
 	return ops, nil
 }
 
-// DetachStorage ensures that the existing storage attachments of
-// the specified unit are removed at some point.
+// DestroyUnitStorageAttachments ensures that the existing storage
+// attachments of the specified unit are removed at some point.
 func (sb *storageBackend) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy unit %s storage attachments", unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1218,7 +1218,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 		var ownerAssert bson.DocElem
 		switch owner := si.maybeOwner(); owner {
 		case nil:
-			ownerAssert = bson.DocElem{"owner", bson.D{{"$exists", false}}}
+			ownerAssert = bson.DocElem{Name: "owner", Value: bson.D{{"$exists", false}}}
 		case unit:
 			validateRemoveOps, err := validateRemoveOwnerStorageInstanceOps(si)
 			if err != nil {
@@ -1227,7 +1227,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 			ops = append(ops, validateRemoveOps...)
 			fallthrough
 		default:
-			ownerAssert = bson.DocElem{"owner", si.doc.Owner}
+			ownerAssert = bson.DocElem{Name: "owner", Value: si.doc.Owner}
 		}
 		ops = append(ops, txn.Op{
 			C:      storageInstancesC,
@@ -1360,9 +1360,10 @@ func (sb *storageBackend) storageHostAttachment(
 	}
 }
 
-// Remove removes the storage attachment from state, and may remove its storage
-// instance as well, if the storage instance is Dying and no other references to
-// it exist. It will fail if the storage attachment is not Dying.
+// RemoveStorageAttachment removes the storage attachment from state, and may
+// remove its storage instance as well, if the storage instance is Dying and
+// no other references to it exist.
+// It will fail if the storage attachment is not Dying.
 func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag, force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {

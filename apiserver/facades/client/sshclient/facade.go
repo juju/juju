@@ -7,10 +7,12 @@ package sshclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -23,25 +25,46 @@ type Facade struct {
 	backend     Backend
 	authorizer  facade.Authorizer
 	callContext context.ProviderCallContext
+
+	leadershipReader leadership.Reader
 }
 
-// NewFacade is used for API registration.
+type FacadeV2 struct {
+	*Facade
+}
+
 func NewFacade(ctx facade.Context) (*Facade, error) {
 	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	leadershipReader, err := ctx.LeadershipReader(m.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return internalFacade(
-		&backend{st, stateenvirons.EnvironConfigGetter{Model: m}, m.ModelTag()}, ctx.Auth(), context.CallContext(st))
+		&backend{st, stateenvirons.EnvironConfigGetter{Model: m}, m.ModelTag()},
+		leadershipReader,
+		ctx.Auth(),
+		context.CallContext(st))
 }
 
-func internalFacade(backend Backend, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {
+// NewFacade is used for API registration.
+func NewFacadeV2(ctx facade.Context) (*FacadeV2, error) {
+	f, err := NewFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &FacadeV2{Facade: f}, nil
+}
+
+func internalFacade(backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	return &Facade{backend: backend, authorizer: auth, callContext: callCtx}, nil
+	return &Facade{backend: backend, authorizer: auth, callContext: callCtx, leadershipReader: leadershipReader}, nil
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
@@ -214,4 +237,26 @@ func (facade *Facade) Proxy() (params.SSHProxyResult, error) {
 		return params.SSHProxyResult{}, err
 	}
 	return params.SSHProxyResult{UseProxy: config.ProxySSH()}, nil
+}
+
+// Leader is not available via the V2 Facade.
+func (a *FacadeV2) Leader(_ struct{}) {}
+
+// Leader returns the unit name of the leader for the given application.
+func (facade *Facade) Leader(entity params.Entity) (params.StringResult, error) {
+	result := params.StringResult{}
+	application, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return result, err
+	}
+	leaders, err := facade.leadershipReader.Leaders()
+	if err != nil {
+		return result, errors.Annotate(err, "could not fetch leaders")
+	}
+	var ok bool
+	result.Result, ok = leaders[application.Name]
+	if !ok || result.Result == "" {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
+	}
+	return result, nil
 }

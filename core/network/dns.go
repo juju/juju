@@ -84,7 +84,7 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 	}
 
 	return &DNSConfig{
-		Nameservers:   NewProviderAddresses(nameservers...),
+		Nameservers:   NewMachineAddresses(nameservers).AsProviderAddresses(),
 		SearchDomains: searchDomains,
 	}, nil
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/replicaset/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/voyeur"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/kr/pretty"
@@ -59,6 +59,8 @@ type workerSuite struct {
 	hub   Hub
 	idle  chan struct{}
 	mu    sync.Mutex
+
+	memberUpdates [][]replicaset.Member
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -136,8 +138,11 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 	memberWatcher := st.session.members.Watch()
-	mustNext(c, memberWatcher, "init")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
+	defer memberWatcher.Close()
+
+	s.recordMemberChanges(c, memberWatcher)
+	update := s.mustNext(c, "init")
+	assertMembers(c, update, mkMembers("0v", ipVersion))
 
 	logger.Infof("starting worker")
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
@@ -175,35 +180,35 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	}()
 
 	// Wait for the worker to set the initial members.
-	mustNext(c, memberWatcher, "initial members")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
+	update = s.mustNext(c, "initial members")
+	assertMembers(c, update, mkMembers("0v 1 2", ipVersion))
 
 	// Update the status of the new members
 	// and check that they become voting.
 	c.Logf("\nupdating new member status")
 	st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
-	mustNext(c, memberWatcher, "new member status")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
+	update = s.mustNext(c, "new member status")
+	assertMembers(c, update, mkMembers("0v 1v 2v", ipVersion))
 
 	c.Logf("\nadding another controller")
 	m13 := st.addController("13", false)
 	m13.setAddresses(network.NewSpaceAddress(fmt.Sprintf(ipVersion.formatHost, 13)))
 	st.setControllers("10", "11", "12", "13")
 
-	mustNext(c, memberWatcher, "waiting for new member to be added")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
+	update = s.mustNext(c, "waiting for new member to be added")
+	assertMembers(c, update, mkMembers("0v 1v 2v 3", ipVersion))
 
 	// Remove vote from an existing member; and give it to the new
 	// controller. Also set the status of the new controller to healthy.
 	c.Logf("\nremoving vote from controller 10 and adding it to controller 13")
 	st.controller("10").setWantsVote(false)
 	// Controller 11 or 12 becomes the new primary (it is randomised).
-	mustNext(c, memberWatcher, "waiting for vote switch")
+	update = s.mustNext(c, "waiting for vote switch")
 
 	if st.session.currentPrimary() == "11" {
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2 3", ipVersion))
+		assertMembers(c, update, mkMembers("0 1v 2 3", ipVersion))
 	} else {
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1 2v 3", ipVersion))
+		assertMembers(c, update, mkMembers("0 1 2v 3", ipVersion))
 	}
 
 	st.controller("13").setWantsVote(true)
@@ -212,8 +217,8 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 
 	// Check that the new controller gets the vote and the
 	// old controller loses it.
-	mustNext(c, memberWatcher, "waiting for vote switch")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
+	update = s.mustNext(c, "waiting for vote switch")
+	assertMembers(c, update, mkMembers("0 1v 2v 3v", ipVersion))
 
 	c.Logf("\nremoving old controller")
 	// Remove the old controller.
@@ -221,8 +226,8 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	st.setControllers("11", "12", "13")
 
 	// Check that it's removed from the members.
-	mustNext(c, memberWatcher, "waiting for removal")
-	assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v", ipVersion))
+	update = s.mustNext(c, "waiting for removal")
+	assertMembers(c, update, mkMembers("1v 2v 3v", ipVersion))
 }
 
 func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv4(c *gc.C) {
@@ -271,15 +276,18 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	st.errors.setErrorFor("Controller.SetHasVote * false", errors.New("frood"))
 
 	memberWatcher := st.session.members.Watch()
-	mustNext(c, memberWatcher, "waiting for SetHasVote failure")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
+	defer memberWatcher.Close()
+
+	s.recordMemberChanges(c, memberWatcher)
+	update := s.mustNext(c, "waiting for SetHasVote failure")
+	assertMembers(c, update, mkMembers("0v 1v 2v 3", ipVersion))
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.DirtyKill(c, w)
 
 	// Wait for the worker to set the initial members.
-	mustNext(c, memberWatcher, "initial members")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2v 3v", ipVersion))
+	update = s.mustNext(c, "initial members")
+	assertMembers(c, update, mkMembers("0v 1 2v 3v", ipVersion))
 
 	// The worker should encounter an error setting the
 	// has-vote status to false and exit.
@@ -335,25 +343,28 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		InitState(c, st, 3, ipVersion)
 
 		memberWatcher := st.session.members.Watch()
-		mustNext(c, memberWatcher, "init")
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
+		defer memberWatcher.Close()
+
+		s.recordMemberChanges(c, memberWatcher)
+		update := s.mustNext(c, "init")
+		assertMembers(c, update, mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
 		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 		defer workertest.CleanKill(c, w)
 
 		// Wait for the worker to set the initial members.
-		mustNext(c, memberWatcher, "initial members")
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
+		update = s.mustNext(c, "initial members")
+		assertMembers(c, update, mkMembers("0v 1 2", ipVersion))
 
 		// Change an address and wait for it to be changed in the
 		// members.
 		st.controller("11").setAddresses(network.NewSpaceAddress(ipVersion.extraHost))
 
-		mustNext(c, memberWatcher, "waiting for new address")
+		update = s.mustNext(c, "waiting for new address")
 		expectMembers := mkMembers("0v 1 2", ipVersion)
 		expectMembers[1].Address = net.JoinHostPort(ipVersion.extraHost, fmt.Sprint(mongoPort))
-		assertMembers(c, memberWatcher.Value(), expectMembers)
+		assertMembers(c, update, expectMembers)
 	})
 }
 
@@ -363,8 +374,11 @@ func (s *workerSuite) TestAddressChangeNoHA(c *gc.C) {
 		InitState(c, st, 3, ipVersion)
 
 		memberWatcher := st.session.members.Watch()
-		mustNext(c, memberWatcher, "init")
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
+		defer memberWatcher.Close()
+
+		s.recordMemberChanges(c, memberWatcher)
+		update := s.mustNext(c, "init")
+		assertMembers(c, update, mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
 		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, false)
@@ -806,12 +820,15 @@ func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestI
 	// change will not be broadcast via the hub.
 	// We watch the members collection, which *will* change.
 	memberWatcher := st.session.members.Watch()
-	mustNext(c, memberWatcher, "initial watch")
+	defer memberWatcher.Close()
+
+	s.recordMemberChanges(c, memberWatcher)
+	s.mustNext(c, "initial watch")
 
 	// HA space config change should invoke the worker.
 	// Replica set addresses should change to the new space.
 	st.setHASpace("three")
-	mustNext(c, memberWatcher, "waiting for members to be updated for space change")
+	s.mustNext(c, "waiting for members to be updated for space change")
 	assertMemberAddresses(c, st, ipVersion.formatHost, 3)
 }
 
@@ -957,8 +974,10 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	}()
 
 	memberWatcher := st.session.members.Watch()
-	mustNext(c, memberWatcher, "init")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v", testIPv4))
+	s.recordMemberChanges(c, memberWatcher)
+
+	update := s.mustNext(c, "init")
+	assertMembers(c, update, mkMembers("0v", testIPv4))
 	// Now that 1 has come up successfully, bring in the next 2
 	for i := 11; i < 13; i++ {
 		id := fmt.Sprint(i)
@@ -969,13 +988,13 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	// Now that we've added 2 more, flag them as started and mark them as participating
 	st.session.setStatus(mkStatuses("0p 1 2", testIPv4))
 	st.setControllers("10", "11", "12")
-	mustNext(c, memberWatcher, "nonvoting members")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
+	update = s.mustNext(c, "nonvoting members")
+	assertMembers(c, update, mkMembers("0v 1 2", testIPv4))
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
 	s.waitUntilIdle(c)
 	s.clock.Advance(pollInterval)
-	mustNext(c, memberWatcher, "status ok")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", testIPv4))
+	update = s.mustNext(c, "status ok")
+	assertMembers(c, update, mkMembers("0v 1v 2v", testIPv4))
 	err = st.controller("11").SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.controller("12").SetHasVote(true)
@@ -986,29 +1005,32 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
 	st, w, memberWatcher := s.initialize3Voters(c)
 	defer workertest.CleanKill(c, w)
-	// Now we have gotten to a prepared replicaset.
+	defer memberWatcher.Close()
 
 	// When we advance the lifecycle (aka controller.Destroy()), we should notice that the controller no longer wants a vote
 	// controller.Destroy() advances to both Dying and SetWantsVote(false)
 	st.controller("11").advanceLifecycle(state.Dying, false)
 	// we should notice that we want to remove the vote first
-	mustNext(c, memberWatcher, "removing vote")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
+	update := s.mustNext(c, "removing vote")
+	assertMembers(c, update, mkMembers("0v 1 2", testIPv4))
 	// And once we don't have the vote, and we see the controller is Dying we should remove it
-	mustNext(c, memberWatcher, "remove dying controller")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v 2", testIPv4))
+	update = s.mustNext(c, "remove dying controller")
+	assertMembers(c, update, mkMembers("0v 2", testIPv4))
 
 	// Now, controller 2 no longer has the vote, but if we now flag it as dying,
 	// then it should also get progressed to dead as well.
 	st.controller("12").advanceLifecycle(state.Dying, false)
-	mustNext(c, memberWatcher, "removing dying controller")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0v", testIPv4))
+	update = s.mustNext(c, "removing dying controller")
+	assertMembers(c, update, mkMembers("0v", testIPv4))
 }
 
 func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	st, w, memberWatcher := s.initialize3Voters(c)
 	defer workertest.CleanKill(c, w)
+	defer memberWatcher.Close()
+
 	statusWatcher := st.session.status.Watch()
+	defer statusWatcher.Close()
 	testStatus := mustNextStatus(c, statusWatcher, "init")
 	c.Check(testStatus.Members, gc.DeepEquals, mkStatuses("0p 1s 2s", testIPv4))
 	primaryMemberIndex := 0
@@ -1030,12 +1052,12 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// Now we have to wait for time to advance for us to reevaluate the system
 	s.waitUntilIdle(c)
 	s.clock.Advance(2 * pollInterval)
-	mustNext(c, memberWatcher, "reevaluting member post-step-down")
+	update := s.mustNext(c, "reevaluting member post-step-down")
 	// we should now have switch the vote over to whoever became the primary
 	if primaryMemberIndex == 1 {
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2", testIPv4))
+		assertMembers(c, update, mkMembers("0 1v 2", testIPv4))
 	} else {
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1 2v", testIPv4))
+		assertMembers(c, update, mkMembers("0 1 2v", testIPv4))
 	}
 	// Now we ask the primary to step down again, and we should first reconfigure the group to include
 	// the other secondary. We first unset the invariant checker, because we are intentionally going to an even number
@@ -1043,8 +1065,8 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	st.setCheck(nil)
 	st.controller(st.session.currentPrimary()).setWantsVote(false)
 	// member watcher must fire first
-	mustNext(c, memberWatcher, "observing member step down")
-	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v", testIPv4))
+	update = s.mustNext(c, "observing member step down")
+	assertMembers(c, update, mkMembers("0 1v 2v", testIPv4))
 	// as part of stepping down the only primary, we re-enable the vote for the other secondary, and then can call
 	// StepDownPrimary and then can remove its vote.
 	// now we timeout so that the system will notice we really do still want to step down the primary, and ask
@@ -1062,42 +1084,56 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// and then we again notice that the primary has been rescheduled and changed the member votes again
 	s.waitUntilIdle(c)
 	s.clock.Advance(pollInterval)
-	mustNext(c, memberWatcher, "reevaluting member post-step-down")
+	update = s.mustNext(c, "reevaluting member post-step-down")
 	if primaryMemberIndex == 1 {
 		// primary was 11, now it is 12 as the only voter
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1 2v", testIPv4))
+		assertMembers(c, update, mkMembers("0 1 2v", testIPv4))
 	} else {
 		// primary was 12, now it is 11 as the only voter
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2", testIPv4))
+		assertMembers(c, update, mkMembers("0 1v 2", testIPv4))
 	}
 }
 
-// mustNext waits for w's value to be set and returns it.
-func mustNext(c *gc.C, w *voyeur.Watcher, context string) (val interface{}) {
+// recordMemberChanges starts a go routine to record member changes.
+func (s *workerSuite) recordMemberChanges(c *gc.C, w *voyeur.Watcher) {
 	type voyeurResult struct {
 		ok  bool
 		val interface{}
 	}
-	done := make(chan voyeurResult)
 	go func() {
-		c.Logf("mustNext %v", context)
-		ok := w.Next()
-		val = w.Value()
-		if ok {
+		for {
+			c.Logf("waiting for next update")
+			ok := w.Next()
+			if !ok {
+				c.Logf("watcher closed")
+				return
+			}
+			val := w.Value()
 			members := val.([]replicaset.Member)
-			val = "\n" + prettyReplicaSetMembersSlice(members)
+			c.Logf("next update, val: %v", "\n"+prettyReplicaSetMembersSlice(members))
+			s.mu.Lock()
+			s.memberUpdates = append(s.memberUpdates, members)
+			s.mu.Unlock()
 		}
-		c.Logf("mustNext %v done, ok: %v, val: %v", context, ok, val)
-		done <- voyeurResult{ok, val}
 	}()
-	select {
-	case result := <-done:
-		c.Assert(result.ok, jc.IsTrue)
-		return result.val
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for value to be set %v", context)
+}
+
+// mustNext waits for w's value to be set and returns it.
+func (s *workerSuite) mustNext(c *gc.C, context string) []replicaset.Member {
+	c.Logf("waiting for next update: %v", context)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		s.mu.Lock()
+		if len(s.memberUpdates) == 0 {
+			s.mu.Unlock()
+			continue
+		}
+		update := s.memberUpdates[0]
+		s.memberUpdates = s.memberUpdates[1:]
+		s.mu.Unlock()
+		return update
 	}
-	panic("unreachable")
+	c.Fatalf("no replicaset update: %v", context)
+	return nil
 }
 
 func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Status {

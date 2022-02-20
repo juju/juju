@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v2"
+	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
@@ -83,6 +83,7 @@ func NewWorker(
 	isController bool,
 	openState func() (*state.StatePool, error),
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
+	retryStrategy retry.CallArgs,
 	entity StatusSetter,
 	isCaas bool,
 ) (worker.Worker, error) {
@@ -92,6 +93,7 @@ func NewWorker(
 		apiConn:         apiConn,
 		openState:       openState,
 		preUpgradeSteps: preUpgradeSteps,
+		retryStrategy:   retryStrategy,
 		entity:          entity,
 		tag:             agent.CurrentConfig().Tag(),
 		isController:    isController,
@@ -109,6 +111,7 @@ type upgradeSteps struct {
 	openState       func() (*state.StatePool, error)
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc
 	entity          StatusSetter
+	retryStrategy   retry.CallArgs
 
 	fromVersion version.Number
 	toVersion   version.Number
@@ -310,29 +313,38 @@ func (w *upgradeSteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 		return errors.Trace(err)
 	}
 
-	var upgradeErr error
 	stBackend := upgrades.NewStateBackend(w.pool)
 	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := upgradeTargets(w.isController)
-	attempts := getUpgradeRetryStrategy()
-	for attempt := attempts.Start(); attempt.Next(); {
-		upgradeErr = PerformUpgrade(w.fromVersion, targets, context)
-		if upgradeErr == nil {
-			break
-		}
-		if agenterrors.ConnectionIsDead(logger, w.apiConn) {
-			// API connection has gone away - abort!
-			return &apiLostDuringUpgrade{upgradeErr}
-		}
-		if attempt.HasNext() {
-			w.reportUpgradeFailure(upgradeErr, true)
+
+	retryStrategy := w.retryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		// Abort if API connection has gone away!
+		return agenterrors.ConnectionIsDead(logger, w.apiConn)
+	}
+	retryStrategy.NotifyFunc = func(lastErr error, attempt int) {
+		if retryStrategy.Attempts != 0 && attempt != retryStrategy.Attempts {
+			w.reportUpgradeFailure(lastErr, true)
 		}
 	}
-	if upgradeErr != nil {
-		return upgradeErr
+	retryStrategy.Func = func() error {
+		err := PerformUpgrade(w.fromVersion, targets, context)
+		// w.entity.SetStatus(status.Error, fmt.Sprintf("TEST inner %v", err), nil)
+		return err
 	}
+
+	err := retry.Call(retryStrategy)
+	// w.entity.SetStatus(status.Error, fmt.Sprintf("TEST outer %v", err), nil)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
+		return err
+	}
+	if err != nil {
+		return &apiLostDuringUpgrade{err}
+	}
+
 	agentConfig.SetUpgradedToVersion(w.toVersion)
 	return nil
 }
@@ -369,14 +381,6 @@ func (w *upgradeSteps) getUpgradeStartTimeout() time.Duration {
 		return time.Minute
 	}
 	return UpgradeStartTimeoutController
-}
-
-// TODO(katco): 2016-08-09: lp:1611427
-var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
-	return utils.AttemptStrategy{
-		Delay: 2 * time.Minute,
-		Min:   5,
-	}
 }
 
 // upgradeTargets determines the upgrade targets corresponding to the
