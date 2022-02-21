@@ -174,21 +174,21 @@ func (s *Subnet) SpaceID() string {
 	return s.spaceID
 }
 
-// UpdateSpaceOps returns operations that will ensure that
+// UpdateSubnetSpaceOps returns operations that will ensure that
 // the subnet is in the input space, provided the space exists.
-func (s *Subnet) UpdateSpaceOps(spaceID string) []txn.Op {
-	if s.spaceID == spaceID {
+func (st *State) UpdateSubnetSpaceOps(subnetID, spaceID string) []txn.Op {
+	if subnet, err := st.Subnet(subnetID); err == nil && subnet.SpaceID() == spaceID {
 		return nil
 	}
 	return []txn.Op{
 		{
 			C:      spacesC,
-			Id:     s.st.docID(spaceID),
+			Id:     st.docID(spaceID),
 			Assert: txn.DocExists,
 		},
 		{
 			C:      subnetsC,
-			Id:     s.doc.DocID,
+			Id:     st.docID(subnetID),
 			Update: bson.D{{"$set", bson.D{{"space-id", spaceID}}}},
 			Assert: isAliveDoc,
 		},
