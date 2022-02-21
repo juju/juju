@@ -6,7 +6,7 @@ package romulus
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/renamedcontroller"
+	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 

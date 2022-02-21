@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/credentialmanager"
 	"github.com/juju/juju/api/client/storage"
-	controllerapi "github.com/juju/juju/api/renamedcontroller"
+	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"

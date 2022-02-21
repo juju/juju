@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/usermanager"
+	controllerclient "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/controller/migrationtarget"
-	controllerclient "github.com/juju/juju/api/renamedcontroller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"

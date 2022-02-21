@@ -22,7 +22,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/client/modelconfig"
-	apicontroller "github.com/juju/juju/api/renamedcontroller"
+	apicontroller "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"

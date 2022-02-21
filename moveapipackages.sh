@@ -32,7 +32,7 @@ for g in $API_GROUPS; do
             oldp="renamed$p"
         fi
         >&2 echo -n "  looking for $oldp... "
-        if [ -d "api/$p" ]; then
+        if [ -d "api/$oldp" ]; then
             echo "found"
             movepackage "api/$oldp" "api/$g/$p"
         else

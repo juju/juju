@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/api/renamedcontroller"
+	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"

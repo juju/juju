@@ -15,7 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/environschema.v1"
 
-	apicontroller "github.com/juju/juju/api/renamedcontroller"
+	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"

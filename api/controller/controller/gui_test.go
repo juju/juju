@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/renamedcontroller"
+	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/apiserver/params"
 )
 

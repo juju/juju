@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/api/client/usermanager"
-	"github.com/juju/juju/api/renamedcontroller"
+	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
