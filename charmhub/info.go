@@ -94,7 +94,9 @@ func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOptio
 		return resp, errors.Errorf("unexpected response type %q, expected charm or bundle", resp.Type)
 	}
 
-	c.logger.Tracef("Info() unmarshalled: %s", pretty.Sprint(resp))
+	if c.logger.IsTraceEnabled() {
+		c.logger.Tracef("Info() unmarshalled: %s", pretty.Sprint(resp))
+	}
 	return resp, nil
 }
 

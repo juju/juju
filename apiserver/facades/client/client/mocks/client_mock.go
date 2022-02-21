@@ -682,17 +682,17 @@ func (mr *MockBackendMockRecorder) SetAnnotations(arg0, arg1 interface{}) *gomoc
 }
 
 // SetModelAgentVersion mocks base method.
-func (m *MockBackend) SetModelAgentVersion(arg0 version.Number, arg1 bool) error {
+func (m *MockBackend) SetModelAgentVersion(arg0 version.Number, arg1 *string, arg2 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetModelAgentVersion indicates an expected call of SetModelAgentVersion.
-func (mr *MockBackendMockRecorder) SetModelAgentVersion(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) SetModelAgentVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockBackend)(nil).SetModelAgentVersion), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockBackend)(nil).SetModelAgentVersion), arg0, arg1, arg2)
 }
 
 // SetModelConstraints mocks base method.

@@ -114,7 +114,7 @@ func (st *State) EnableHA(
 			}
 		}
 		if votingCount > desiredControllerCount {
-			return nil, errors.New("cannot reduce controller count")
+			return nil, errors.New("cannot remove controllers with enable-ha, use remove-machine and chose the controller(s) to remove")
 		}
 
 		controllerIds, err := st.ControllerIds()
@@ -149,7 +149,7 @@ func (st *State) EnableHA(
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
-		err = errors.Annotate(err, "failed to create new controller machines")
+		err = errors.Annotatef(err, "failed to enable HA with %d controllers", numControllers)
 		return ControllersChanges{}, err
 	}
 	return change, nil

@@ -403,6 +403,27 @@ func (st *State) WatchRemoteApplications() StringsWatcher {
 	return newLifecycleWatcher(st, remoteApplicationsC, nil, isLocalID(st), nil)
 }
 
+// WatchApplicationCharms notifies when application charm URLs change.
+// TODO(wallyworld) - use a filter to only trigger on charm URL changes.
+func (st *State) WatchApplicationCharms() StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{col: applicationsC})
+}
+
+// WatchUnits notifies when units change.
+func (st *State) WatchUnits() StringsWatcher {
+	return newLifecycleWatcher(st, unitsC, nil, isLocalID(st), nil)
+}
+
+// WatchMachines notifies when machines change.
+func (st *State) WatchMachines() StringsWatcher {
+	return newLifecycleWatcher(st, machinesC, nil, isLocalID(st), nil)
+}
+
+// WatchCharms notifies when charms change.
+func (st *State) WatchCharms() StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{col: charmsC})
+}
+
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.

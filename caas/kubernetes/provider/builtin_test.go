@@ -117,6 +117,17 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfigCallFails(c *gc.C) {
 	c.Assert(result, gc.HasLen, 0)
 }
 
+func (s *builtinSuite) TestGetLocalMicroK8sConfigNotRunning(c *gc.C) {
+	s.runner.Call("LookPath", "microk8s").Returns("", nil)
+	s.runner.Call("LookPath", "microk8s").Returns("", nil)
+	s.runner.Call(
+		"RunCommands",
+		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte("microk8s is not running")}, nil)
+	result, err := provider.GetLocalMicroK8sConfig(s.runner)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(string(result), gc.Equals, "")
+}
+
 func (s *builtinSuite) TestGetLocalMicroK8sConfig(c *gc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	s.runner.Call(

@@ -4,9 +4,12 @@
 package google
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 )
@@ -16,8 +19,8 @@ type rawConnSuite struct {
 
 	op      *compute.Operation
 	rawConn *rawConn
-	// TODO(katco): 2016-08-09: lp:1611427
-	strategy utils.AttemptStrategy
+
+	strategy retry.CallArgs
 
 	handleOperationErrorsF handleOperationErrors
 	callCount              int
@@ -38,7 +41,11 @@ func (s *rawConnSuite) SetUpTest(c *gc.C) {
 	service.RegionOperations = compute.NewRegionOperationsService(service)
 	service.GlobalOperations = compute.NewGlobalOperationsService(service)
 	s.rawConn = &rawConn{service}
-	s.strategy.Min = 4
+	s.strategy = retry.CallArgs{
+		Clock:    clock.WallClock,
+		Delay:    time.Millisecond,
+		Attempts: 4,
+	}
 
 	s.callCount = 0
 	s.opCallErr = nil

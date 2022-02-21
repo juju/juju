@@ -15517,7 +15517,7 @@
     {
         "Name": "Client",
         "Description": "Client serves client-specific API methods.",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -17658,6 +17658,9 @@
                 "SetModelAgentVersion": {
                     "type": "object",
                     "properties": {
+                        "agent-stream": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
                         },
@@ -24727,9 +24730,7 @@
         "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
+            "machine-agent"
         ],
         "Schema": {
             "type": "object",

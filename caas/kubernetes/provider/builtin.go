@@ -82,6 +82,10 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
 			return []byte{}, errors.NotFoundf("microk8s")
 		}
 		return []byte{}, errors.New(string(result.Stderr))
+	} else {
+		if strings.HasPrefix(strings.ToLower(string(result.Stdout)), "microk8s is not running") {
+			return []byte{}, errors.NotFoundf("microk8s is not running")
+		}
 	}
 	return result.Stdout, nil
 }

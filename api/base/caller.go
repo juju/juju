@@ -36,7 +36,7 @@ type APICaller interface {
 	// to if there is one. It returns false for a controller-only connection.
 	ModelTag() (names.ModelTag, bool)
 
-	// HTTPClient returns an httprequest.Client that can be used
+	// HTTPClient returns a httprequest.Client that can be used
 	// to make HTTP requests to the API. URLs passed to the client
 	// will be made relative to the API host and the current model.
 	//
@@ -91,7 +91,7 @@ type Stream interface {
 	io.Closer
 
 	// NextReader is used to get direct access to the underlying Read methods
-	// on the websocket. Mostly just to read the initial error resonse.
+	// on the websocket. Mostly just to read the initial error response.
 	NextReader() (messageType int, r io.Reader, err error)
 
 	// WriteJSON encodes the given value as JSON

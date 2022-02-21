@@ -165,7 +165,9 @@ func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 	doc := newCharmStoreResourceDoc(res)
 
-	logger.Tracef("updating charm store resource %s to %# v", res.id, pretty.Formatter(doc))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("updating charm store resource %s to %# v", res.id, pretty.Formatter(doc))
+	}
 	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
@@ -190,7 +192,9 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource, progress *in
 	doc := newUnitResourceDoc(unitID, stored)
 	doc.DownloadProgress = progress
 
-	logger.Tracef("updating unit resource %s to %# v", unitID, pretty.Formatter(doc))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("updating unit resource %s to %# v", unitID, pretty.Formatter(doc))
+	}
 	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,

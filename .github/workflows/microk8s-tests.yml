@@ -26,6 +26,7 @@ jobs:
   build:
     name: Test Kubeflow
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
@@ -42,7 +43,7 @@ jobs:
         echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
 
     - name: Set up Go
-      uses: actions/setup-go@v2.1.4
+      uses: actions/setup-go@v2.2.0
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
@@ -87,24 +88,24 @@ jobs:
       run: |
         sg microk8s <<EOF
           set -eux
-          git clone https://github.com/juju-solutions/bundle-kubeflow.git
-          cd bundle-kubeflow
 
-          # TODO: pin to this sha for now, update if we want to test newer Kubeflow.
-          git reset --hard a96fa2d
+          microk8s kubectl wait --for=condition=available -nkube-system deployment/coredns deployment/hostpath-provisioner --timeout=10m
+          juju bootstrap microk8s --debug uk8s --config=caas-image-repo=$DOCKER_USERNAME --config test-mode=true --model-default test-mode=true
 
-          git clone git://git.launchpad.net/canonical-osm
-          cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
-
-          sudo pip3 install -r requirements.txt -r test-requirements.txt
-          sudo pip3 install tox
-          python3 ./scripts/cli.py microk8s setup --test-mode --config caas-image-repo=$DOCKER_USERNAME --services ''
-          KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --build --bundle edge
+          juju add-model kubeflow microk8s --config logging-config="<root>=DEBUG;unit=DEBUG"
+          juju deploy kubeflow-lite --trust --revision 60
+          sleep 10
+          microk8s kubectl patch role -n kubeflow istio-ingressgateway-operator -p '{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"Role","metadata":{"name":"istio-ingressgateway-operator"},"rules":[{"apiGroups":["*"],"resources":["*"],"verbs":["*"]}]}'
+          sleep 6m
+          juju --debug wait -wv -m kubeflow -t 300
 
           microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
         EOF
 
     - name: Test kubeflow
+      # TODO: disable test for now because some files required by kubeflow tests are not accessible now.
+      # URL fetch failure on https://people.canonical.com/~knkski/train-images-idx3-ubyte.gz: 404 -- Not Found
+      if: ${{ false }}
       run: |
         sg microk8s <<EOF
           set -eux
@@ -114,35 +115,35 @@ jobs:
 
     - name: Juju status
       run: juju status --relations --color --storage
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Juju status (YAML)
       run: juju status --relations --color --storage --format=yaml
-      if: failure()
+      if: ${{ failure() }}
 
     - name: MicroK8s status
       run: sudo microk8s status
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Get MicroK8s pods
       run: |
         sudo microk8s kubectl get pods -A -o wide
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Describe MicroK8s pods
       run: sudo microk8s kubectl describe pods -nkubeflow
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Generate debug log
       run: juju debug-log --replay --no-tail > juju-debug.log
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Upload debug log
       uses: actions/upload-artifact@v2
       with:
         name: juju-debug-actions
         path: juju-debug.log
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Get pipeline logs
       run: |
@@ -156,21 +157,21 @@ jobs:
           done
           printf '\n\n'
         done
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Generate inspect tarball
       run: >
         sudo microk8s inspect |
         grep -Po "Report tarball is at \K.+" |
         sudo xargs -I {} mv {} inspection-report-${{ strategy.job-index }}.tar.gz
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Upload inspect tarball
       uses: actions/upload-artifact@v2
       with:
         name: inspection-report-actions
         path: ./inspection-report-${{ strategy.job-index }}.tar.gz
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Generate kubectl describe
       run: |
@@ -179,14 +180,14 @@ jobs:
         for resource in $(kubectl api-resources -o name | sort); do
             kubectl describe $resource -A > describe/"$resource".describe || true
         done
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Upload kubectl describe
       uses: actions/upload-artifact@v2
       with:
         name: kubectl-describe-actions
         path: describe/*.describe
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Generate kubeflow pod logs
       run: |
@@ -197,11 +198,11 @@ jobs:
               kubectl logs -nkubeflow --timestamps $pod -c $container > stdout/$pod-$container.log
             done
         done
-      if: failure()
+      if: ${{ failure() }}
 
     - name: Upload kubeflow pod logs
       uses: actions/upload-artifact@v2
       with:
         name: kubectl-stdout-actions
         path: stdout/*.log
-      if: failure()
+      if: ${{ failure() }}

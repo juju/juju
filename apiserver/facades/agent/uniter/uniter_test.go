@@ -930,13 +930,6 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	// The controller cache will have the charm url set by the time
-	// the SetCharmURL method returns.
-	model, err := s.Controller.Model(s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err := model.Unit("wordpress/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.CharmURL(), gc.Equals, s.wpCharm.String())
 
 	// Verify the charm URL was set.
 	err = s.wordpressUnit.Refresh()
@@ -1101,7 +1094,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				Changes:          []string{"754ed70cf17d2df2cc6a2dcb6cbfcb569a8357b97b5708e7a7ca0409505e1d0b"},
+				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -1366,8 +1359,6 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 }
 
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
-	// We must set the unit's charm URL via the API in order to ensure that the
-	// cache is synchronised. WaitForModelWatchersIdle is not sufficient.
 	res, err := s.uniter.SetCharmURL(params.EntitiesCharmURL{
 		Entities: []params.EntityCharmURL{
 			{

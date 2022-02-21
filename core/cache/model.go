@@ -96,8 +96,7 @@ type Model struct {
 
 // Type returns the model type for this model, either "iaas" or "caas".
 func (m *Model) Type() model.ModelType {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 	return m.details.Type
 }
 
@@ -145,8 +144,7 @@ func (m *Model) visibleTo(user string) bool {
 		return true
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	// Any permission is sufficient for the user to see the model.
 	// Read, Write, or Admin are all good for us. If the user doesn't
@@ -157,8 +155,7 @@ func (m *Model) visibleTo(user string) bool {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	return newConfigWatcher(keys, m.hashCache, m.hub, modelConfigChange, m.Resident)
 }
@@ -206,7 +203,7 @@ func (m *Model) Report() map[string]interface{} {
 
 // Branches returns all active branches in the model.
 func (m *Model) Branches() []Branch {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	branches := make([]Branch, len(m.branches))
 	i := 0
@@ -215,7 +212,6 @@ func (m *Model) Branches() []Branch {
 		i++
 	}
 
-	m.mu.Unlock()
 	return branches
 }
 
@@ -238,14 +234,13 @@ func (m *Model) Branch(name string) (Branch, error) {
 
 // Applications makes a copy of the model's application collection and returns it.
 func (m *Model) Applications() map[string]Application {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	apps := make(map[string]Application, len(m.applications))
 	for k, v := range m.applications {
 		apps[k] = v.copy()
 	}
 
-	m.mu.Unlock()
 	return apps
 }
 
@@ -269,20 +264,19 @@ func (m *Model) Metrics() *ControllerGauges {
 
 // Units returns all units in the model.
 func (m *Model) Units() map[string]Unit {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	units := make(map[string]Unit, len(m.units))
 	for name, u := range m.units {
 		units[name] = u.copy()
 	}
 
-	m.mu.Unlock()
 	return units
 }
 
 // applicationUnits returns all units for the specified application.
 func (m *Model) applicationUnits(appName string) []Unit {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	var result []Unit
 	for _, u := range m.units {
@@ -291,7 +285,6 @@ func (m *Model) applicationUnits(appName string) []Unit {
 		}
 	}
 
-	m.mu.Unlock()
 	return result
 }
 
@@ -309,14 +302,13 @@ func (m *Model) Unit(unitName string) (Unit, error) {
 
 // Machines makes a copy of the model's machine collection and returns it.
 func (m *Model) Machines() map[string]Machine {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	machines := make(map[string]Machine, len(m.machines))
 	for k, v := range m.machines {
 		machines[k] = v.copy()
 	}
 
-	m.mu.Unlock()
 	return machines
 }
 
@@ -381,7 +373,7 @@ func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 
 // updateApplication adds or updates the application in the model.
 func (m *Model) updateApplication(ch ApplicationChange, rm *residentManager) {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	app, found := m.applications[ch.Name]
 	if !found {
@@ -390,7 +382,6 @@ func (m *Model) updateApplication(ch ApplicationChange, rm *residentManager) {
 	}
 	app.setDetails(ch)
 	m.updateSummary()
-	m.mu.Unlock()
 }
 
 // removeApplication removes the application from the model.
@@ -410,7 +401,7 @@ func (m *Model) removeApplication(ch RemoveApplication) error {
 
 // updateCharm adds or updates the charm in the model.
 func (m *Model) updateCharm(ch CharmChange, rm *residentManager) {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	charm, found := m.charms[ch.CharmURL]
 	if !found {
@@ -418,8 +409,6 @@ func (m *Model) updateCharm(ch CharmChange, rm *residentManager) {
 		m.charms[ch.CharmURL] = charm
 	}
 	charm.setDetails(ch)
-
-	m.mu.Unlock()
 }
 
 // removeCharm removes the charm from the model.
@@ -438,7 +427,7 @@ func (m *Model) removeCharm(ch RemoveCharm) error {
 
 // updateUnit adds or updates the unit in the model.
 func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	unit, found := m.units[ch.Name]
 	if !found {
@@ -448,7 +437,6 @@ func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
 	unit.setDetails(ch)
 
 	m.updateSummary()
-	m.mu.Unlock()
 }
 
 // removeUnit removes the unit from the model.
@@ -481,20 +469,19 @@ func (m *Model) Relation(key string) (Relation, error) {
 
 // Relations returns all relations in the model.
 func (m *Model) Relations() map[string]Relation {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	relations := make(map[string]Relation, len(m.relations))
 	for key, r := range m.relations {
 		relations[key] = r.copy()
 	}
 
-	m.mu.Unlock()
 	return relations
 }
 
 // updateRelation adds or updates the relation in the model.
 func (m *Model) updateRelation(ch RelationChange, rm *residentManager) {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	relation, found := m.relations[ch.Key]
 	if !found {
@@ -502,8 +489,6 @@ func (m *Model) updateRelation(ch RelationChange, rm *residentManager) {
 		m.relations[ch.Key] = relation
 	}
 	relation.setDetails(ch)
-
-	m.mu.Unlock()
 }
 
 // removeRelation removes the relation from the model.
@@ -522,7 +507,7 @@ func (m *Model) removeRelation(ch RemoveRelation) error {
 
 // updateMachine adds or updates the machine in the model.
 func (m *Model) updateMachine(ch MachineChange, rm *residentManager) {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	machine, found := m.machines[ch.Id]
 	if !found {
@@ -533,7 +518,6 @@ func (m *Model) updateMachine(ch MachineChange, rm *residentManager) {
 	machine.setDetails(ch)
 
 	m.updateSummary()
-	m.mu.Unlock()
 }
 
 // removeMachine removes the machine from the model.
@@ -557,7 +541,7 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 // A committed or aborted branch (with a non-zero time-stamp for completion)
 // should be passed through by the cache worker as a deletion.
 func (m *Model) updateBranch(ch BranchChange, rm *residentManager) {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	branch, found := m.branches[ch.Id]
 	if !found {
@@ -565,8 +549,6 @@ func (m *Model) updateBranch(ch BranchChange, rm *residentManager) {
 		m.branches[ch.Id] = branch
 	}
 	branch.setDetails(ch)
-
-	m.mu.Unlock()
 }
 
 // removeBranch removes the branch from the model.
@@ -585,7 +567,7 @@ func (m *Model) removeBranch(ch RemoveBranch) error {
 }
 
 func (m *Model) setDetails(details ModelChange) {
-	m.mu.Lock()
+	defer m.doLocked()()
 
 	m.setRemovalMessage(RemoveModel{
 		ModelUUID: details.ModelUUID,
@@ -601,7 +583,6 @@ func (m *Model) setDetails(details ModelChange) {
 	}
 
 	m.updateSummary()
-	m.mu.Unlock()
 }
 
 func (m *Model) machineRegexp() (*regexp.Regexp, error) {

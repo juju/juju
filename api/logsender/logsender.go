@@ -47,33 +47,61 @@ func (api *API) LogWriter() (LogWriter, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /logsink")
 	}
-	logWriter := writer{conn}
-	go logWriter.readLoop()
+	logWriter := newWriter(conn)
 	return logWriter, nil
 }
 
 type writer struct {
-	conn base.Stream
+	conn     base.Stream
+	readErrs chan error
+}
+
+func newWriter(conn base.Stream) *writer {
+	w := &writer{
+		conn:     conn,
+		readErrs: make(chan error, 1),
+	}
+
+	go w.readLoop()
+	return w
 }
 
 // readLoop is necessary for the client to process websocket control messages.
+// If we get an error, enqueue it so that if a subsequent call to WriteLog
+// fails do to our closure of the socket, we can enhance the resulting error.
 // Close() is safe to call concurrently.
-func (w writer) readLoop() {
+func (w *writer) readLoop() {
 	for {
 		if _, _, err := w.conn.NextReader(); err != nil {
-			w.conn.Close()
+			select {
+			case w.readErrs <- err:
+			default:
+			}
+
+			_ = w.conn.Close()
 			break
 		}
 	}
 }
 
-func (w writer) WriteLog(m *params.LogRecord) error {
-	// Note: due to the fire-and-forget nature of the
-	// logsink API, it is possible that when the
-	// connection dies, any logs that were "in-flight"
-	// will not be recorded on the server side.
+// WriteLog streams the log record as JSON to the logsink endpoint.
+// Upon error, check to see if there is an enqueued read error that
+// we can use to enhance the output.
+func (w *writer) WriteLog(m *params.LogRecord) error {
+	// Note: due to the fire-and-forget nature of the logsink API,
+	// it is possible that when the connection dies, any logs that
+	// were "in-flight" will not be recorded on the server side.
 	if err := w.conn.WriteJSON(m); err != nil {
-		return errors.Annotatef(err, "cannot send log message")
+		var readErr error
+		select {
+		case readErr, _ = <-w.readErrs:
+		default:
+		}
+
+		if readErr != nil {
+			err = errors.Annotate(err, readErr.Error())
+		}
+		return errors.Annotate(err, "sending log message")
 	}
 	return nil
 }

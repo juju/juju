@@ -7,7 +7,6 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
@@ -18,6 +17,14 @@ type instanceMutaterStateShim struct {
 	*state.State
 }
 
+func (s *instanceMutaterStateShim) ModelName() (string, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return m.Name(), err
+}
+
 func (s *instanceMutaterStateShim) Application(appName string) (Application, error) {
 	app, err := s.State.Application(appName)
 	if err != nil {
@@ -25,6 +32,16 @@ func (s *instanceMutaterStateShim) Application(appName string) (Application, err
 	}
 	return &applicationShim{
 		Application: app,
+	}, nil
+}
+
+func (s *instanceMutaterStateShim) Unit(unitName string) (Unit, error) {
+	unit, err := s.State.Unit(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &unitShim{
+		Unit: unit,
 	}, nil
 }
 
@@ -46,40 +63,6 @@ func (s instanceMutaterStateShim) Machine(machineId string) (Machine, error) {
 	return &machineShim{
 		Machine: m,
 	}, nil
-}
-
-// modelCacheShim is used as a shim the model cache to enable better
-// mock testing.
-type modelCacheShim struct {
-	*cache.Model
-}
-
-func (s *modelCacheShim) WatchMachines() (cache.StringsWatcher, error) {
-	return s.Model.WatchMachines()
-}
-
-func (s modelCacheShim) Machine(machineId string) (ModelCacheMachine, error) {
-	machine, err := s.Model.Machine(machineId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &modelCacheMachineShim{
-		Machine: machine,
-	}, nil
-}
-
-// modelCacheMachineShim is used as a shim for model cache machines to
-// enable better mock testing.
-type modelCacheMachineShim struct {
-	cache.Machine
-}
-
-func (m *modelCacheMachineShim) WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error) {
-	return m.Machine.WatchLXDProfileVerificationNeeded()
-}
-
-func (m *modelCacheMachineShim) WatchContainers() (cache.StringsWatcher, error) {
-	return m.Machine.WatchContainers()
 }
 
 // charmShim is used as a shim for a state Charm to enable better
@@ -106,8 +89,12 @@ type unitShim struct {
 	*state.Unit
 }
 
-func (u *unitShim) Application() string {
-	return u.Unit.ApplicationName()
+func (u *unitShim) Application() (Application, error) {
+	app, err := u.Unit.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &applicationShim{app}, nil
 }
 
 // applicationShim is used as a shim for a state Application to enable better

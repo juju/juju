@@ -229,6 +229,7 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_operator_image "$$@"' build_operator_image
 OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
 OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
+UPDATE_MICROK8S_OPERATOR=sh -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 
 image-check-build:
 ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
@@ -254,9 +255,13 @@ host-install:
 ## install juju for host os/architecture
 	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make install
 
+minikube-operator-update: host-install operator-image
+## minikube-operator-update: Push up the newly built operator image for use with minikube
+	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | minikube image load --overwrite=true -
+
 microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
-	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
+	@${UPDATE_MICROK8S_OPERATOR}
 
 check-k8s-model:
 ## check-k8s-model: Check if k8s model is present in show-model

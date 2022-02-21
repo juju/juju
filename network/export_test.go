@@ -5,6 +5,5 @@ package network
 
 var (
 	NetListen                      = &netListen
-	RunCommand                     = runCommand
 	NewEtcNetworkInterfacesBridger = newEtcNetworkInterfacesBridger
 )

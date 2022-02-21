@@ -272,27 +272,33 @@ func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) 
 	return modelUser
 }
 
-func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expected string) {
+func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expectedVersion, expectedStream string) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
+	agentVersion, found := modelConfig.AllAttrs()["agent-version"].(string)
 	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, expected)
+	c.Assert(agentVersion, gc.Equals, expectedVersion)
+	var agentStream string
+	agentStream, found = modelConfig.AllAttrs()["agent-stream"].(string)
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentStream, gc.Equals, expectedStream)
+
 }
 
 func (s *serverSuite) TestSetModelAgentVersion(c *gc.C) {
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
+		Version:     version.MustParse(validVersion.String()),
+		AgentStream: "proposed",
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertModelVersion(c, s.State, validVersion.String())
+	s.assertModelVersion(c, s.State, validVersion.String(), "proposed")
 }
 
 func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
-	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), false)
+	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse(fmt.Sprintf("%d.0.0", jujuversion.Current.Major)),
@@ -331,7 +337,7 @@ func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
 	err = s.client.SetModelAgentVersion(args)
 	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: unit-wordpress-0")
 	// Version hasn't changed
-	s.assertModelVersion(c, s.State, currentVersion)
+	s.assertModelVersion(c, s.State, currentVersion, "released")
 	// But we can force it
 	to := validVersion
 	to.Minor++
@@ -341,7 +347,7 @@ func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
 	}
 	err = s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertModelVersion(c, s.State, to.String())
+	s.assertModelVersion(c, s.State, to.String(), "released")
 }
 
 func (s *serverSuite) makeMigratingModel(c *gc.C, name string, mode state.MigrationMode) {
@@ -395,7 +401,7 @@ func (s *serverSuite) TestUserModelSetModelAgentVersionNotAffectedByMigration(c 
 	err := client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertModelVersion(c, otherSt, "2.0.4")
+	s.assertModelVersion(c, otherSt, "2.0.4", "released")
 }
 
 func (s *serverSuite) TestControllerModelSetModelAgentVersionChecksReplicaset(c *gc.C) {
@@ -432,7 +438,7 @@ func (s *serverSuite) TestUserModelSetModelAgentVersionSkipsMongoCheck(c *gc.C) 
 	err := apiserverClient.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertModelVersion(c, otherSt, "2.0.4")
+	s.assertModelVersion(c, otherSt, "2.0.4", "released")
 }
 
 type mockEnviron struct {
@@ -1506,7 +1512,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 			Nonce:      "nonce",
 		}},
 	}
-	err := s.APIState.APICall("Client", 4, "", "AddMachines", args, &results)
+	err := s.APIState.APICall("Client", 5, "", "AddMachines", args, &results)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Machines, gc.HasLen, 1)
 }

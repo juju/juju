@@ -591,7 +591,7 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 // given version, only if the model is in a stable state (all agents are
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
-func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVersions bool) (err error) {
+func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) (err error) {
 	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
 		return errors.Errorf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 			newVersion.String(),
@@ -621,6 +621,14 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 			// Nothing to do.
 			return nil, jujutxn.ErrNoOperations
 		}
+		agentStream, _ := settings.Get("agent-stream")
+		currentStream, _ := agentStream.(string)
+		newStream := currentStream
+		if stream != nil {
+			if (*stream != "" || currentStream != "released") && (*stream != "released" || currentStream != "") {
+				newStream = *stream
+			}
+		}
 
 		if !ignoreAgentVersions {
 			if isCAAS {
@@ -645,7 +653,10 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 				Id:     st.docID(modelGlobalKey),
 				Assert: bson.D{{"version", settings.version}},
 				Update: bson.D{
-					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
+					{"$set", bson.D{
+						{"settings.agent-version", newVersion.String()},
+						{"settings.agent-stream", newStream},
+					}},
 				},
 			},
 		}

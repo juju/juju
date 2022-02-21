@@ -6,6 +6,7 @@ package instancemutater
 import (
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -13,6 +14,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,Charm
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher,StringsWatcher
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -22,25 +27,34 @@ func TestPackage(t *testing.T) {
 // to create an instance-mutater API facade.
 func NewTestAPI(
 	st InstanceMutaterState,
-	model ModelCache,
+	mutatorWatcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	machineFunc EntityMachineFunc,
 ) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
+
 	return &InstanceMutaterAPI{
 		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
 		st:          st,
-		model:       model,
+		watcher:     mutatorWatcher,
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
-		machineFunc: machineFunc,
 	}, nil
+}
+
+// NewTestLxdProfileWatcher is used by the lxd profile tests.
+func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState) *machineLXDProfileWatcher {
+	w, err := newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
+		backend: backend,
+		machine: machine,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 // NewEmptyCharmShim returns a charm shim that satisfies the Charm indirection.

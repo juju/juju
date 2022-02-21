@@ -51,7 +51,7 @@ import (
 )
 
 const (
-	clientFacadeVersion           = 4
+	clientFacadeVersion           = 5
 	userManagerFacadeVersion      = 2
 	sshClientFacadeVersion        = 3
 	pingerFacadeVersion           = 1

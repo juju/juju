@@ -535,7 +535,7 @@ func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 	s.setMachineAddresses(c, "2")
 
 	_, err = s.enableHA(c, 1, emptyCons, defaultSeries, nil)
-	c.Assert(err, gc.ErrorMatches, "failed to create new controller machines: cannot reduce controller count")
+	c.Assert(err, gc.ErrorMatches, "failed to enable HA with 1 controllers: cannot remove controllers with enable-ha, use remove-machine and chose the controller\\(s\\) to remove")
 }
 
 func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {

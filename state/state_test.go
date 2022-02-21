@@ -3933,7 +3933,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify machine0 and machine1 are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	expectErr := fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3960,7 +3960,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3974,7 +3974,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	}
 
 	// Verify only the units are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -4012,7 +4012,7 @@ func (s *StateSuite) changeEnviron(c *gc.C, modelConfig *config.Config, name str
 	c.Assert(s.Model.UpdateModelConfig(attrs, nil), gc.IsNil)
 }
 
-func assertAgentVersion(c *gc.C, st *state.State, vers string) {
+func assertAgentVersion(c *gc.C, st *state.State, vers, stream string) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelConfig, err := m.ModelConfig()
@@ -4020,6 +4020,9 @@ func assertAgentVersion(c *gc.C, st *state.State, vers string) {
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(agentVersion.String(), gc.Equals, vers)
+	agentStream := modelConfig.AgentStream()
+	c.Assert(agentStream, gc.Equals, stream)
+
 }
 
 func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
@@ -4033,9 +4036,9 @@ func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, s.State, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
@@ -4049,9 +4052,27 @@ func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and verify.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, s.State, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6", "released")
+}
+
+func (s *StateSuite) TestSetModelAgentVersionUpdateStream(c *gc.C) {
+	proposed := "proposed"
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &proposed, false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, s.State, "4.5.6", proposed)
+
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.7"), nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, s.State, "4.5.7", proposed)
+}
+
+func (s *StateSuite) TestSetModelAgentVersionUpdateStreamEmpty(c *gc.C) {
+	stream := ""
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &stream, false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
@@ -4067,17 +4088,17 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 	lower := version.MustParseBinary("1.24.6-ubuntu-amd64")
 
 	// Set other model version to < controller model version
-	err := otherSt.SetModelAgentVersion(lower.Number, false)
+	err := otherSt.SetModelAgentVersion(lower.Number, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, lower.Number.String())
+	assertAgentVersion(c, otherSt, lower.Number.String(), "released")
 
 	// Set other model version == controller version
-	err = otherSt.SetModelAgentVersion(jujuversion.Current, false)
+	err = otherSt.SetModelAgentVersion(jujuversion.Current, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, jujuversion.Current.String())
+	assertAgentVersion(c, otherSt, jujuversion.Current.String(), "released")
 
 	// Set other model version to > server version
-	err = otherSt.SetModelAgentVersion(higher.Number, false)
+	err = otherSt.SetModelAgentVersion(higher.Number, nil, false)
 	expected := fmt.Sprintf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 		higher.Number,
 		jujuversion.Current,
@@ -4096,10 +4117,10 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 		func() { s.changeEnviron(c, modelConfig, "default-series", "3") },
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
-	assertAgentVersion(c, s.State, currentVersion)
+	assertAgentVersion(c, s.State, currentVersion, "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
@@ -4110,14 +4131,14 @@ func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
 	err = machine.SetAgentVersion(version.MustParseBinary("1.0.1-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	// This should be refused because an agent doesn't match "currentVersion"
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: machine-0")
 	// Version hasn't changed
-	assertAgentVersion(c, s.State, currentVersion)
+	assertAgentVersion(c, s.State, currentVersion, "released")
 	// But we can force it
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), true)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, s.State, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
@@ -4141,7 +4162,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetModelAgentVersion(nextVersion, false)
+	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
 	c.Assert(err, jc.Satisfies, stateerrors.IsUpgradeInProgressError)
 }
 
@@ -4170,7 +4191,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetModelAgentVersion(nextVersion, false)
+	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
 	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current model version.+")
 }
 
