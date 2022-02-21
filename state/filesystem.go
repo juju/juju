@@ -757,22 +757,35 @@ func (sb *storageBackend) DestroyFilesystem(tag names.FilesystemTag, force bool)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		if !force && filesystem.Life() != Alive || filesystem.Life() == Dead {
 			return nil, jujutxn.ErrNoOperations
 		}
+
+		// If we are not forcing the destruction of this file system,
+		// it must not be attached to a storage instance.
 		if filesystem.doc.StorageId != "" {
-			return nil, errors.Errorf(
-				"filesystem is assigned to %s",
-				names.ReadableString(names.NewStorageTag(filesystem.doc.StorageId)),
-			)
+			err := errors.Errorf("filesystem is assigned to %s",
+				names.ReadableString(names.NewStorageTag(filesystem.doc.StorageId)))
+			if !force {
+				return nil, err
+			}
+			logger.Warningf("%s", err.Error())
 		}
-		hasNoStorageAssignment := bson.D{{"$or", []bson.D{
-			{{"storageid", ""}},
-			{{"storageid", bson.D{{"$exists", false}}}},
-		}}}
-		return destroyFilesystemOps(sb, filesystem, false, force, hasNoStorageAssignment)
+
+		var assertNoStorageAssignment bson.D
+		if !force {
+			assertNoStorageAssignment = bson.D{{"$or", []bson.D{
+				{{"storageid", ""}},
+				{{"storageid", bson.D{{"$exists", false}}}},
+			}}}
+		}
+
+		ops, err := destroyFilesystemOps(sb, filesystem, false, force, assertNoStorageAssignment)
+		return ops, errors.Trace(err)
 	}
-	return sb.mb.db().Run(buildTxn)
+
+	return errors.Trace(sb.mb.db().Run(buildTxn))
 }
 
 func destroyFilesystemOps(sb *storageBackend, f *filesystem, release, force bool, extraAssert bson.D) ([]txn.Op, error) {
