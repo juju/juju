@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/arch"
 
-	apiprovisioner "github.com/juju/juju/api/provisioner"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"

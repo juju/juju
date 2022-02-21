@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"

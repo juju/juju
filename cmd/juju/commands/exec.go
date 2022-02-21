@@ -16,7 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	actionapi "github.com/juju/juju/api/action"
+	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"

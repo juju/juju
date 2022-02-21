@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
-	cloudapi "github.com/juju/juju/api/cloud"
+	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"

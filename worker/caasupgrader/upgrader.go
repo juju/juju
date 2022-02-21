@@ -13,7 +13,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/agent/agent"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
 	jujuversion "github.com/juju/juju/version"

@@ -15,8 +15,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/api/common/charms"
+	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"

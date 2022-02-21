@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/undertaker"
+	"github.com/juju/juju/api/controller/undertaker"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"

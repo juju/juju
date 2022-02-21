@@ -17,7 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
 
-	apicloud "github.com/juju/juju/api/cloud"
+	apicloud "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"

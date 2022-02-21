@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	actionapi "github.com/juju/juju/api/action"
+	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"

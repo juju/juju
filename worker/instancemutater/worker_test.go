@@ -18,7 +18,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	apiinstancemutater "github.com/juju/juju/api/instancemutater"
+	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"

@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apiraftlease "github.com/juju/juju/api/raftlease"
+	apiraftlease "github.com/juju/juju/api/controller/raftlease"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/feature"

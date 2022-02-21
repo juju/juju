@@ -8,7 +8,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/renamedcontroller"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 

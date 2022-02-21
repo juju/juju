@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/version/v2"
 
-	apiprovisioner "github.com/juju/juju/api/provisioner"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"

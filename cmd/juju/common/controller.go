@@ -15,7 +15,7 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/block"
+	"github.com/juju/juju/api/client/block"
 	"github.com/juju/juju/apiserver/params"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/modelcmd"

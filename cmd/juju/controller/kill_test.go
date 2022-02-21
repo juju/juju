@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	apicontroller "github.com/juju/juju/api/controller"
+	apicontroller "github.com/juju/juju/api/renamedcontroller"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"

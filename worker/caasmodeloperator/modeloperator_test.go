@@ -9,7 +9,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	modeloperatorapi "github.com/juju/juju/api/caasmodeloperator"
+	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/worker/caasmodeloperator"

@@ -20,10 +20,10 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	apileadership "github.com/juju/juju/api/agent/leadership"
+	"github.com/juju/juju/api/agent/secretsmanager"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
-	apileadership "github.com/juju/juju/api/leadership"
-	"github.com/juju/juju/api/secretsmanager"
-	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"

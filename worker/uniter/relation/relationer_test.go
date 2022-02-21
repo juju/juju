@@ -15,7 +15,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	apiuniter "github.com/juju/juju/api/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
