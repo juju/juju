@@ -177,6 +177,9 @@ func (s *Subnet) SpaceID() string {
 // UpdateSubnetSpaceOps returns operations that will ensure that
 // the subnet is in the input space, provided the space exists.
 func (st *State) UpdateSubnetSpaceOps(subnetID, spaceID string) []txn.Op {
+	if subnet, err := st.Subnet(subnetID); err == nil && subnet.SpaceID() == spaceID {
+		return nil
+	}
 	return []txn.Op{
 		{
 			C:      spacesC,
