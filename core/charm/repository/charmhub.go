@@ -90,7 +90,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, re
 	case res.Error != nil:
 		retryResult, err := c.retryResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons, res.Error)
 		if err != nil {
-			return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "retry resolving with preferred channel")
+			return nil, corecharm.Origin{}, nil, errors.Trace(err)
 		}
 
 		res = retryResult.refreshResponse
@@ -226,7 +226,7 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	}
 
 	if len(bases) == 0 {
-		return nil, errors.Wrap(resErr, errors.Errorf("no channels available for selection"))
+		return nil, errors.Wrap(resErr, errors.Errorf("no releases found for channel %q", origin.Channel.String()))
 	}
 	base := bases[0]
 
@@ -526,7 +526,7 @@ func (c *CharmHubRepository) selectNextBasesFromReleases(releases []transport.Re
 		// If the user passed in a branch, but not enough information about the
 		// arch and series, then we can help by giving a better error message.
 		if origin.Channel != nil && origin.Channel.Branch != "" {
-			return nil, errors.Errorf("ambiguous arch and series with channel track/risk/branch. specify both arch and series along with channel")
+			return nil, errors.Errorf("ambiguous arch and series with channel %q, specify both arch and series along with channel", origin.Channel.String())
 		}
 		// If the origin is empty, then we want to help the user out
 		// by display a series of suggestions to try.

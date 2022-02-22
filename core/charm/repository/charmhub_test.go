@@ -6,6 +6,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -248,7 +249,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 
 	repo := NewCharmHubRepository(s.logger, s.client)
 	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
-	c.Assert(err, gc.ErrorMatches, `retry resolving with preferred channel: selecting releases: no charm or bundle matching channel or platform; suggestions: stable with focal`)
+	c.Assert(err, gc.ErrorMatches, `selecting releases: no charm or bundle matching channel or platform; suggestions: stable with focal`)
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -791,7 +792,7 @@ func (selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c 
 	}, corecharm.Origin{
 		Channel: &channel,
 	})
-	c.Assert(err, gc.ErrorMatches, `ambiguous arch and series with channel track/risk/branch. specify both arch and series along with channel`)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`ambiguous arch and series with channel %q. specify both arch and series along with channel`, channel.String()))
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *gc.C) {
