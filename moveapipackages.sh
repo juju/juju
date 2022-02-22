@@ -16,33 +16,57 @@ function movepackage() {
     done
 }
 
-for g in $API_GROUPS; do
-    if [[ -d api/$g ]]; then
-        >&2 echo "api/$g exists, moving it to api/renamed$g"
-        movepackage "api/$g" "api/renamed$g"
-    fi
-done
-
-for g in $API_GROUPS; do
-    >&2 echo "moving packages to $g"
-    mkdir -p "api/$g"
-    for p in $(findpackages "$g"); do
-        oldp="$p"
-        if [[ $p == $g ]]; then
-            oldp="renamed$p"
-        fi
-        >&2 echo -n "  looking for $oldp... "
-        if [ -d "api/$oldp" ]; then
-            echo "found"
-            movepackage "api/$oldp" "api/$g/$p"
-        else
-            echo "not found"
+# Group packages in api/ by api group.  Not safe to run twice :)
+function movepackages() {
+    for g in $API_GROUPS; do
+        if [[ -d api/$g ]]; then
+            >&2 echo "api/$g exists, moving it to api/renamed$g"
+            movepackage "api/$g" "api/renamed$g"
         fi
     done
-    >&2 echo "done moving packages to $g"
-done
 
-movepackage "api/machiner" "api/agent/machiner"
-movepackage "api/pubsub" "api/controller/pubsub"
+    for g in $API_GROUPS; do
+        >&2 echo "moving packages to $g"
+        mkdir -p "api/$g"
+        for p in $(findpackages "$g"); do
+            oldp="$p"
+            if [[ $p == $g ]]; then
+                oldp="renamed$p"
+            fi
+            >&2 echo -n "  looking for $oldp... "
+            if [ -d "api/$oldp" ]; then
+                echo "found"
+                movepackage "api/$oldp" "api/$g/$p"
+            else
+                echo "not found"
+            fi
+        done
+        >&2 echo "done moving packages to $g"
+    done
 
-gofmt -s -w .
+    movepackage "api/machiner" "api/agent/machiner"
+    movepackage "api/pubsub" "api/controller/pubsub"
+
+    gofmt -s -w .
+}
+
+# There are some tests in package_test.go files that check the package
+# dependencies against a hard-coded list of expected values.  This function
+# adjusts the hard-coded values if necessary.
+#
+# This function is idempotent
+function adjusttests() {
+    for l in $(grep -roE --include package_test.go '"api/[a-z]+"'); do
+        file=$(echo "$l" | cut -d: -f1)
+        path=$(echo "$l" | cut -d: -f2)
+        repl=$(find api -maxdepth 2 -mindepth 2 -type d -name ${path:5:-1})
+        if [[ $repl != "" ]]; then
+            repl="\"$repl\""
+            echo "$file: $path => $repl"
+            sed -i "s~$path~$repl~" "$file"
+        fi
+    done
+}
+
+movepackages
+adjusttests
