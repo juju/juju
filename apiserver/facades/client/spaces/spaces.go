@@ -313,7 +313,7 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 
 		result.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Subnets[i] = networkingcommon.BackingSubnetInfoToParamsSubnet(subnet)
+			result.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 		results.Results[i] = result
 	}
@@ -362,7 +362,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 
 		result.Space.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Space.Subnets[i] = networkingcommon.BackingSubnetInfoToParamsSubnet(subnet)
+			result.Space.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 
 		applications, err := api.applicationsBoundToSpace(space.Id())

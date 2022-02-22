@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/life"
 )
 
 // FanCIDRs describes the subnets relevant to a fan network.
@@ -82,6 +84,9 @@ type SubnetInfo struct {
 
 	// IsPublic describes whether a subnet is public or not.
 	IsPublic bool
+
+	// Life represents the current life-cycle status of the subnets.
+	Life life.Value
 }
 
 // SetFan sets the fan networking information for the subnet.

@@ -66,7 +66,6 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 				Life:              "alive",
 				SpaceTag:          args.Entities[0].Tag,
 				Zones:             []string{"bar", "bam"},
-				Status:            "in-use",
 			}}},
 			Error: nil,
 			// Applications = 2, as 2 applications are having a bind on that space.
@@ -519,7 +518,7 @@ func (s *APISuite) expectEndpointBindings(ctrl *gomock.Controller, spaceID strin
 
 // expectDefaultSpace configures a default space mock with default subnet settings
 func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spacesErr, subnetErr error) {
-	backingSubnets := []networkingcommon.BackingSubnetInfo{{
+	backingSubnets := network.SubnetInfos{{
 		ProviderId:        network.Id("0"),
 		ProviderNetworkId: network.Id("1"),
 		CIDR:              "192.168.0.0/24",
@@ -527,10 +526,9 @@ func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spac
 		AvailabilityZones: []string{"bar", "bam"},
 		SpaceName:         name,
 		SpaceID:           "1",
-		Status:            "in-use",
 		Life:              life.Value("alive"),
 	}}
-	backingSpaceInfo := networkingcommon.BackingSpaceInfo{
+	backingSpaceInfo := network.SpaceInfo{
 		ID:      "1",
 		Name:    network.SpaceName(name),
 		Subnets: backingSubnets,
@@ -951,7 +949,6 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 			CIDR:       "192.168.0.0/24",
 			ProviderId: "provider-192.168.0.0/24",
 			Zones:      []string{"foo"},
-			Status:     "in-use",
 			SpaceTag:   "space-default",
 		}, {
 			CIDR:       "192.168.3.0/24",
@@ -977,7 +974,6 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 			CIDR:       "192.168.2.0/24",
 			ProviderId: "provider-192.168.2.0/24",
 			Zones:      []string{"foo"},
-			Status:     "in-use",
 			SpaceTag:   "space-private",
 		}},
 	}}

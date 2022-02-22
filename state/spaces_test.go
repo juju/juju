@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
@@ -655,6 +656,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
 				ProviderSpaceId:   "some id 2",
+				Life:              life.Alive,
 			},
 			{
 				ID:                "2",
@@ -668,6 +670,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 					FanOverlay:       "253.0.0.0/8",
 				},
 				ProviderSpaceId: "some id 2",
+				Life:            life.Alive,
 			},
 			{
 				ID:                "1",
@@ -677,6 +680,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
 				ProviderSpaceId:   "some id 2",
+				Life:              life.Alive,
 			},
 		},
 	}

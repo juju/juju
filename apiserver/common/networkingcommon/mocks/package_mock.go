@@ -9,7 +9,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
-	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v2/txn"
@@ -66,6 +65,21 @@ func (mr *MockBackingSpaceMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockBackingSpace)(nil).Name))
 }
 
+// NetworkSpace mocks base method.
+func (m *MockBackingSpace) NetworkSpace() (network.SpaceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NetworkSpace")
+	ret0, _ := ret[0].(network.SpaceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NetworkSpace indicates an expected call of NetworkSpace.
+func (mr *MockBackingSpaceMockRecorder) NetworkSpace() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkSpace", reflect.TypeOf((*MockBackingSpace)(nil).NetworkSpace))
+}
+
 // ProviderId mocks base method.
 func (m *MockBackingSpace) ProviderId() network.Id {
 	m.ctrl.T.Helper()
@@ -78,21 +92,6 @@ func (m *MockBackingSpace) ProviderId() network.Id {
 func (mr *MockBackingSpaceMockRecorder) ProviderId() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderId", reflect.TypeOf((*MockBackingSpace)(nil).ProviderId))
-}
-
-// NetworkSpace mocks base method.
-func (m *MockBackingSpace) NetworkSpace() (networkingcommon.BackingSpaceInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NetworkSpace")
-	ret0, _ := ret[0].(networkingcommon.BackingSpaceInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NetworkSpace indicates an expected call of NetworkSpace.
-func (mr *MockBackingSpaceMockRecorder) NetworkSpace() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkSpace", reflect.TypeOf((*MockBackingSpace)(nil).NetworkSpace))
 }
 
 // MockBackingSubnet is a mock of BackingSubnet interface.
@@ -161,10 +160,10 @@ func (mr *MockBackingSubnetMockRecorder) ID() *gomock.Call {
 }
 
 // Life mocks base method.
-func (m *MockBackingSubnet) Life() life.Value {
+func (m *MockBackingSubnet) Life() state.Life {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Life")
-	ret0, _ := ret[0].(life.Value)
+	ret0, _ := ret[0].(state.Life)
 	return ret0
 }
 
@@ -228,20 +227,6 @@ func (m *MockBackingSubnet) SpaceName() string {
 func (mr *MockBackingSubnetMockRecorder) SpaceName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceName", reflect.TypeOf((*MockBackingSubnet)(nil).SpaceName))
-}
-
-// Status mocks base method.
-func (m *MockBackingSubnet) Status() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Status indicates an expected call of Status.
-func (mr *MockBackingSubnetMockRecorder) Status() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockBackingSubnet)(nil).Status))
 }
 
 // VLANTag mocks base method.
