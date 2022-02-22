@@ -22,7 +22,7 @@ function adjusttests() {
     repl='"rpc/params"'
     for file in $(grep -lrF --include package_test.go "$path"); do
         echo "$file: $path => $repl"
-        # sed -i "s~$path~$repl~" "$file"
+        sed -i "s~$path~$repl~" "$file"
     done
 }
 
