@@ -58,6 +58,13 @@ const (
 	agentProbePeriod       int32 = 10
 	agentProbeSuccess      int32 = 1
 	agentProbeFailure      int32 = 2
+
+	containerPebblePortStart   = 38813 // Arbitrary, but PEBBLE -> P38813 -> Port 38813
+	containerProbeInitialDelay = 30
+	containerProbeTimeout      = 1
+	containerProbePeriod       = 5
+	containerProbeSuccess      = 1
+	containerProbeFailure      = 1
 )
 
 type app struct {
@@ -1319,7 +1326,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		)
 	}
 
-	for _, v := range containers {
+	for i, v := range containers {
 		container := corev1.Container{
 			Name:            v.Name,
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -1329,6 +1336,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				"run",
 				"--create-dirs",
 				"--hold",
+				"--http", fmt.Sprintf(":%d", containerPebblePortStart+i),
 				"--verbose",
 			},
 			Env: []corev1.EnvVar{{
@@ -1338,6 +1346,32 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Name:  "PEBBLE_SOCKET",
 				Value: "/charm/container/pebble.socket",
 			}},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.FromInt(containerPebblePortStart + i),
+					},
+				},
+				InitialDelaySeconds: containerProbeInitialDelay,
+				TimeoutSeconds:      containerProbeTimeout,
+				PeriodSeconds:       containerProbePeriod,
+				SuccessThreshold:    containerProbeSuccess,
+				FailureThreshold:    containerProbeFailure,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=ready",
+						Port: intstr.FromInt(containerPebblePortStart + i),
+					},
+				},
+				InitialDelaySeconds: containerProbeInitialDelay,
+				TimeoutSeconds:      containerProbeTimeout,
+				PeriodSeconds:       containerProbePeriod,
+				SuccessThreshold:    containerProbeSuccess,
+				FailureThreshold:    containerProbeFailure,
+			},
 			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64Ptr(0),
