@@ -20,21 +20,18 @@ try:
 except ImportError:
     from urllib.request import urlopen
 
-from jujucharm import local_charm_path
 import logging
 import os
+
 import requests
 
+from jujucharm import local_charm_path
+from jujupy.utility import get_unit_public_ip, temp_dir
 from jujupy.wait_condition import (
     AgentsIdle,
     AllApplicationActive,
     AllApplicationWorkloads,
-    )
-from jujupy.utility import (
-    get_unit_public_ip,
-    temp_dir,
 )
-
 
 __metaclass__ = type
 
@@ -130,7 +127,7 @@ def deploy_simple_server_to_new_model(
     new_model.juju('add-relation', ('nrpe', application))
     new_model.juju('add-relation', ('nrpe', 'ubuntu'))
     # Need to wait for the subordinate charms too.
-    new_model.wait_for(AllApplicationActive())
+    new_model.wait_for(AllApplicationActive(timeout=600))
     new_model.wait_for(AllApplicationWorkloads())
     new_model.wait_for(AgentsIdle(['nrpe/0', 'nrpe/1']))
     assert_deployed_charm_is_responding(new_model, resource_contents)
