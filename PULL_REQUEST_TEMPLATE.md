@@ -4,7 +4,7 @@
 
 ## Checklist
 
-*A list of items to check. If you do not need this, delete it.*
+*A list of items to check. Only let those checks that are required. If no checks are required, indicate it with NA.*
 
  - [ ] Requires a [pylibjuju](https://github.com/juju/python-libjuju) change
  - [ ] Added [integration tests](https://github.com/juju/juju/tree/develop/tests) for the PR
