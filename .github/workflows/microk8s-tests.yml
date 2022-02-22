@@ -1,22 +1,8 @@
 name: Test Kubeflow
 
-on:
-  push:
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
-  pull_request:
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
+# The small `edge` bundle has been deprecated, `lite` bundle takes 40mins to run which is too slow for gh action.
+# Disable this one for now, please check `nw-deploy-kubeflow` on Jenkins.
+on: {}
 
 env:
   DOCKER_USERNAME: jujuqabot
