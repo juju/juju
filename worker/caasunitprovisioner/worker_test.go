@@ -1037,7 +1037,8 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	waitCharmGetterCalls("ApplicationCharmInfo")
 
 	// Ensure application worker exited due to charm becoming v2
-	aw, _ := caasunitprovisioner.AppWorker(w, "gitlab")
+	aw, ok := caasunitprovisioner.AppWorker(w, "gitlab")
+	c.Assert(ok, jc.IsTrue)
 	err = workertest.CheckKilled(c, aw)
 	c.Assert(err, jc.ErrorIsNil)
 }

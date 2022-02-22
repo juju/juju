@@ -23,48 +23,11 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	}
 
 	haveMachines := false
-	filesystemAttachmentInfos := make(filesystemAttachmentInfos, 0, len(infos))
+	var filesystemAttachmentInfos filesystemAttachmentInfos
 	for filesystemId, info := range infos {
-		filesystemAttachmentInfo := filesystemAttachmentInfo{
-			FilesystemId:   filesystemId,
-			FilesystemInfo: info,
-		}
-		if info.Attachments == nil {
-			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
-			continue
-		}
-		// Each unit attachment must have a corresponding filesystem
-		// attachment. Enumerate each of the filesystem attachments,
-		// and locate the corresponding unit attachment if any.
-		// Each filesystem attachment has at most one corresponding
-		// unit attachment.
-		for machineId, machineInfo := range info.Attachments.Machines {
-			filesystemAttachmentInfo := filesystemAttachmentInfo
-			filesystemAttachmentInfo.MachineId = machineId
-			filesystemAttachmentInfo.FilesystemAttachment = machineInfo
-			for unitId, unitInfo := range info.Attachments.Units {
-				if unitInfo.MachineId == machineId {
-					filesystemAttachmentInfo.UnitId = unitId
-					filesystemAttachmentInfo.UnitStorageAttachment = unitInfo
-					break
-				}
-			}
-			haveMachines = true
-			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
-		}
-
-		for hostId, containerInfo := range info.Attachments.Containers {
-			filesystemAttachmentInfo := filesystemAttachmentInfo
-			filesystemAttachmentInfo.FilesystemAttachment = containerInfo
-			for unitId, unitInfo := range info.Attachments.Units {
-				if hostId == unitId {
-					filesystemAttachmentInfo.UnitId = unitId
-					filesystemAttachmentInfo.UnitStorageAttachment = unitInfo
-					break
-				}
-			}
-			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
-		}
+		var withMachines bool
+		filesystemAttachmentInfos, withMachines = extractFilesystemAttachmentInfo(filesystemAttachmentInfos, filesystemId, info)
+		haveMachines = haveMachines || withMachines
 	}
 	sort.Sort(filesystemAttachmentInfos)
 
@@ -97,6 +60,48 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	}
 
 	return tw.Flush()
+}
+
+func extractFilesystemAttachmentInfo(infos filesystemAttachmentInfos, fileSystemId string, fsInfo FilesystemInfo) (filesystemAttachmentInfos, bool) {
+	// Each unit attachment must have a corresponding filesystem
+	// attachment. Enumerate each of the filesystem attachments,
+	// and locate the corresponding unit attachment if any.
+	// Each filesystem attachment has at most one corresponding
+	// unit attachment.
+	if fsInfo.Attachments == nil {
+		return infos, false
+	}
+	haveMachines := false
+	info := filesystemAttachmentInfo{
+		FilesystemId:   fileSystemId,
+		FilesystemInfo: fsInfo,
+	}
+	for machineId, machineInfo := range fsInfo.Attachments.Machines {
+		info.MachineId = machineId
+		info.FilesystemAttachment = machineInfo
+		for unitId, unitInfo := range info.Attachments.Units {
+			if unitInfo.MachineId == machineId {
+				info.UnitId = unitId
+				info.UnitStorageAttachment = unitInfo
+				break
+			}
+		}
+		infos = append(infos, info)
+		haveMachines = true
+	}
+
+	for hostId, containerInfo := range fsInfo.Attachments.Containers {
+		info.FilesystemAttachment = containerInfo
+		for unitId, unitInfo := range info.Attachments.Units {
+			if hostId == unitId {
+				info.UnitId = unitId
+				info.UnitStorageAttachment = unitInfo
+				break
+			}
+		}
+		infos = append(infos, info)
+	}
+	return infos, haveMachines
 }
 
 type filesystemAttachmentInfo struct {

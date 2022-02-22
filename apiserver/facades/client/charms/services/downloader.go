@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	corecharm "github.com/juju/juju/core/charm"
 	charmdownloader "github.com/juju/juju/core/charm/downloader"
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // CharmDownloaderConfig encapsulates the information required for creating a
@@ -46,7 +47,7 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 		}),
 	}
 
-	return charmdownloader.NewDownloader(cfg.Logger.Child("charmdownloader"), storage, repoFactory), nil
+	return charmdownloader.NewDownloader(cfg.Logger.ChildWithLabels("charmdownloader", corelogger.CHARMHUB), storage, repoFactory), nil
 }
 
 // repoFactoryShim wraps a CharmRepoFactory and is compatible with the

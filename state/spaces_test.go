@@ -89,11 +89,11 @@ func (s *SpacesSuite) assertSpaceMatchesArgs(c *gc.C, space *state.Space, args a
 	c.Assert(space.Name(), gc.Equals, args.Name)
 	c.Assert(space.ProviderId(), gc.Equals, args.ProviderId)
 
-	actualSubnets, err := space.Subnets()
+	actualSpaceInfo, err := space.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
-	actualSubnetIds := make([]string, len(actualSubnets))
-	for i, subnet := range actualSubnets {
-		actualSubnetIds[i] = subnet.CIDR()
+	actualSubnetIds := make([]string, len(actualSpaceInfo.Subnets))
+	for i, subnet := range actualSpaceInfo.Subnets {
+		actualSubnetIds[i] = subnet.CIDR
 	}
 	c.Assert(actualSubnetIds, jc.SameContents, args.SubnetCIDRs)
 	c.Assert(state.SpaceDoc(space).IsPublic, gc.Equals, args.IsPublic)
@@ -176,7 +176,7 @@ func (s *SpacesSuite) TestAddSpaceWithOneIPv4AndOneIPv6SubnetAndEmptyProviderId(
 	args := addSpaceArgs{
 		Name:        "my-space",
 		ProviderId:  "",
-		SubnetCIDRs: []string{"1.1.1.0/24", "fc00::123/64"},
+		SubnetCIDRs: []string{"1.1.1.0/24", "fc00::/64"},
 	}
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,7 +187,7 @@ func (s *SpacesSuite) TestAddSpaceWithOneIPv4AndOneIPv6SubnetAndNonEmptyProvider
 	args := addSpaceArgs{
 		Name:        "my-space",
 		ProviderId:  network.Id("foo bar"),
-		SubnetCIDRs: []string{"1.1.1.0/24", "fc00::123/64"},
+		SubnetCIDRs: []string{"1.1.1.0/24", "fc00::/64"},
 	}
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,7 +243,7 @@ func (s *SpacesSuite) TestAddSpaceWithMultipleIPv4AndIPv6SubnetsAndEmptyProvider
 	args := addSpaceArgs{
 		Name:        "my-space",
 		ProviderId:  "",
-		SubnetCIDRs: []string{"fc00:123::/64", "2.2.2.0/20", "fc00:321::/64", "1.1.1.0/24"},
+		SubnetCIDRs: []string{"fc00:123::/64", "2.2.0.0/20", "fc00:321::/64", "1.1.1.0/24"},
 	}
 	space, err := s.addSpaceWithSubnets(c, args)
 
@@ -256,7 +256,7 @@ func (s *SpacesSuite) TestAddSpaceWithMultipleIPv4AndIPv6SubnetsAndNonEmptyProvi
 	args := addSpaceArgs{
 		Name:        "my-space",
 		ProviderId:  network.Id("My Provider ID"),
-		SubnetCIDRs: []string{"fc00:123::/64", "2.2.2.0/20", "fc00:321::/64", "1.1.1.0/24"},
+		SubnetCIDRs: []string{"fc00:123::/64", "2.2.0.0/20", "fc00:321::/64", "1.1.1.0/24"},
 	}
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -604,17 +604,18 @@ func (s *SpacesSuite) TestFanSubnetInheritsSpace(c *gc.C) {
 
 	err = space.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	subnets, err := space.Subnets()
+	spaceInfo, err := space.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
-	var foundSubnet *state.Subnet
+	subnets := spaceInfo.Subnets
+	var foundSubnet network.SubnetInfo
 	for _, subnet := range subnets {
-		if subnet.CIDR() == "253.1.0.0/16" {
+		if subnet.CIDR == "253.1.0.0/16" {
 			foundSubnet = subnet
 			break
 		}
 	}
 	c.Assert(foundSubnet, gc.NotNil)
-	c.Assert(foundSubnet.SpaceID(), gc.Equals, space.Id())
+	c.Assert(foundSubnet.SpaceID, gc.Equals, space.Id())
 }
 
 func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {

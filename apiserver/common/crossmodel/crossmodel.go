@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network/firewall"
@@ -504,21 +503,9 @@ type offerGetter interface {
 	Application(string) (Application, error)
 }
 
-// CachedModel represents the methods that the StatusAPI needs on a
-// model from the model cache.
-type CachedModel interface {
-	Application(string) (CachedApplication, error)
-}
-
-// CachedApplication represents the methods that the StatusAPI needs on
-// an application from the model cache.
-type CachedApplication interface {
-	Status() status.StatusInfo
-}
-
 // GetOfferStatusChange returns a status change
 // struct for a specified offer name.
-func GetOfferStatusChange(model CachedModel, st offerGetter, offerUUID, offerName string) (*params.OfferStatusChange, error) {
+func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.OfferStatusChange, error) {
 	offer, err := st.ApplicationOfferForUUID(offerUUID)
 	if errors.IsNotFound(err) {
 		return &params.OfferStatusChange{
@@ -550,10 +537,20 @@ func GetOfferStatusChange(model CachedModel, st offerGetter, offerUUID, offerNam
 	sts := status.StatusInfo{
 		Status: status.Unknown,
 	}
-	cachedApp, err := model.Application(app.Name())
-	if err == nil {
-		sts = cachedApp.Status()
+
+	if appStatus, err := app.Status(); err == nil {
+		// If the status is set to unset, then we need to query all the
+		// units of the application to work out the correct series.
+		if appStatus.Status == status.Unset {
+			derived, err := getDerivedUnitsStatus(app)
+			if err == nil {
+				sts = derived
+			}
+		} else {
+			sts = appStatus
+		}
 	}
+
 	return &params.OfferStatusChange{
 		OfferName: offerName,
 		Status: params.EntityStatus{
@@ -565,17 +562,21 @@ func GetOfferStatusChange(model CachedModel, st offerGetter, offerUUID, offerNam
 	}, nil
 }
 
-// CacheShim exists to be able to replace the cache with a fake implementation
-// for tests.
-type CacheShim struct {
-	Model *cache.Model
-}
-
-// Application returns the CachedApplication for the name specified.
-func (c CacheShim) Application(name string) (CachedApplication, error) {
-	app, err := c.Model.Application(name)
+func getDerivedUnitsStatus(app Application) (status.StatusInfo, error) {
+	units, err := app.AllUnits()
 	if err != nil {
-		return nil, err
+		return status.StatusInfo{}, errors.Trace(err)
 	}
-	return &app, nil
+
+	statuses := make([]status.StatusInfo, len(units))
+	for _, unit := range units {
+		st, err := unit.Status()
+		if err != nil {
+			return status.StatusInfo{}, errors.Trace(err)
+		}
+
+		statuses = append(statuses, st)
+	}
+	derived := status.DeriveStatus(statuses)
+	return derived, nil
 }

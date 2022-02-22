@@ -539,7 +539,8 @@ func (r *mockRemoteApplication) DestroyOperation(force bool) state.ModelOperatio
 
 type mockApplication struct {
 	commoncrossmodel.Application
-	name string
+	name      string
+	appStatus status.Status
 	testing.Stub
 	life state.Life
 	eps  []state.Endpoint
@@ -562,7 +563,11 @@ func (a *mockApplication) Life() state.Life {
 
 func (a *mockApplication) Status() (status.StatusInfo, error) {
 	a.MethodCall(a, "Status")
-	return status.StatusInfo{Status: status.Terminated}, nil
+	s := status.Terminated
+	if a.appStatus != "" {
+		s = a.appStatus
+	}
+	return status.StatusInfo{Status: s}, nil
 }
 
 type mockOfferConnection struct {

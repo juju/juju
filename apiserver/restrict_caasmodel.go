@@ -20,6 +20,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Annotations",
 	"Application",
 	"Block",
+	"CharmDownloader",
 	"CharmRevisionUpdater",
 	"Charms",
 	"CharmDownloader",

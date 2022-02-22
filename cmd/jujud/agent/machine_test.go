@@ -402,7 +402,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
-	err := s.State.SetModelAgentVersion(newVers.Number, true)
+	err := s.State.SetModelAgentVersion(newVers.Number, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(c, agent)
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{

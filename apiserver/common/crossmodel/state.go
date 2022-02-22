@@ -92,6 +92,18 @@ func (a applicationShim) EndpointBindings() (Bindings, error) {
 	return a.Application.EndpointBindings()
 }
 
+func (a applicationShim) AllUnits() ([]Unit, error) {
+	all, err := a.Application.AllUnits()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Unit, len(all))
+	for i, u := range all {
+		result[i] = u
+	}
+	return result, nil
+}
+
 func (st stateShim) Application(name string) (Application, error) {
 	a, err := st.State.Application(name)
 	if err != nil {

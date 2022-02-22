@@ -119,6 +119,5 @@ func main() {
 		modelSt.Release()
 		_, _ = statePool.Remove(modelUUID)
 	}()
-
-	checkErr("set model agent version", modelSt.SetModelAgentVersion(agentVersion, true))
+	checkErr("set model agent version", modelSt.SetModelAgentVersion(agentVersion, nil, true))
 }

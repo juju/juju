@@ -255,7 +255,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	// This test checks when a controller is upgrading and one of
 	// the other controllers doesn't signal it is ready in time.
 
-	err := s.State.SetModelAgentVersion(jujuversion.Current, false)
+	err := s.State.SetModelAgentVersion(jujuversion.Current, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.create3Controllers(c)

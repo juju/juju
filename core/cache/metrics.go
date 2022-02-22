@@ -69,10 +69,6 @@ type ControllerGauges struct {
 
 	CharmConfigHashCacheHit  prometheus.Gauge
 	CharmConfigHashCacheMiss prometheus.Gauge
-
-	LXDProfileChangeError        prometheus.Gauge
-	LXDProfileChangeNotification prometheus.Gauge
-	LXDProfileNoChange           prometheus.Gauge
 }
 
 func createControllerGauges() *ControllerGauges {
@@ -133,27 +129,6 @@ func createControllerGauges() *ControllerGauges {
 				Help:      "The number of times the application config change hash was generated.",
 			},
 		),
-		LXDProfileChangeError: prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: metricsNamespace,
-				Name:      "lxdprofile_change_error",
-				Help:      "The number of times there was an error calculating LXD profile related changes.",
-			},
-		),
-		LXDProfileChangeNotification: prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: metricsNamespace,
-				Name:      "lxdprofile_change_notify",
-				Help:      "The number of times an LXD Profile related change triggered a notification.",
-			},
-		),
-		LXDProfileNoChange: prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: metricsNamespace,
-				Name:      "lxdprofile_no_change",
-				Help:      "The number of times an LXD Profile related change did not trigger a notification.",
-			},
-		),
 	}
 }
 
@@ -169,10 +144,6 @@ func (c *ControllerGauges) Describe(ch chan<- *prometheus.Desc) {
 	c.ApplicationConfigReads.Describe(ch)
 	c.ApplicationHashCacheHit.Describe(ch)
 	c.ApplicationHashCacheMiss.Describe(ch)
-
-	c.LXDProfileChangeError.Describe(ch)
-	c.LXDProfileChangeNotification.Describe(ch)
-	c.LXDProfileNoChange.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
@@ -187,10 +158,6 @@ func (c *ControllerGauges) Collect(ch chan<- prometheus.Metric) {
 	c.ApplicationConfigReads.Collect(ch)
 	c.ApplicationHashCacheHit.Collect(ch)
 	c.ApplicationHashCacheMiss.Collect(ch)
-
-	c.LXDProfileChangeError.Collect(ch)
-	c.LXDProfileChangeNotification.Collect(ch)
-	c.LXDProfileNoChange.Collect(ch)
 }
 
 // Collector is a prometheus.Collector that collects metrics about

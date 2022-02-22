@@ -494,6 +494,16 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	c.Check(users[6].Name(), gc.Equals, "test-admin")
 }
 
+func (s *UserSuite) TestAddDeletedUser(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
+
+	_ = s.State.RemoveUser(names.NewUserTag("bob"))
+
+	_, err := s.State.AddUser(
+		"bob", "ignored", "ignored", "ignored")
+	c.Assert(err, jc.Satisfies, state.IsDeletedUserError)
+}
+
 func (s *UserSuite) TestAddUserNoSecretKey(c *gc.C) {
 	u, err := s.State.AddUser("bob", "display", "pass", "admin")
 	c.Assert(err, jc.ErrorIsNil)

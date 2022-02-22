@@ -53,8 +53,9 @@ func (s *cmdSpaceSuite) AddSpace(c *gc.C, name string, ids []string, public bool
 	space, err := s.State.AddSpace(name, "", ids, public)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, name)
-	subnets, err := space.Subnets()
+	spaceInfo, err := space.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
+	subnets := spaceInfo.Subnets
 	c.Assert(subnets, gc.HasLen, len(ids))
 	return space
 }
@@ -142,8 +143,9 @@ func (s *cmdSpaceSuite) TestSpaceCreateNoSubnets(c *gc.C) {
 	space, err := s.State.SpaceByName("myspace")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, "myspace")
-	subnets, err := space.Subnets()
+	spaceInfo, err := space.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
+	subnets := spaceInfo.Subnets
 	c.Assert(subnets, gc.HasLen, 0)
 }
 
@@ -163,11 +165,12 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 	space, err := s.State.SpaceByName("myspace")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, "myspace")
-	subnets, err := space.Subnets()
+	spaceInfo, err := space.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
+	subnets := spaceInfo.Subnets
 	c.Assert(subnets, gc.HasLen, 2)
-	c.Assert(subnets[0].SpaceName(), gc.Equals, "myspace")
-	c.Assert(subnets[1].SpaceName(), gc.Equals, "myspace")
+	c.Assert(subnets[0].SpaceName, gc.Equals, "myspace")
+	c.Assert(subnets[1].SpaceName, gc.Equals, "myspace")
 }
 
 func (s *cmdSpaceSuite) TestSpaceListDefaultOnly(c *gc.C) {

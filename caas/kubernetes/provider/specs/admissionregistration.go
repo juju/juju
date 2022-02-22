@@ -57,6 +57,71 @@ func (wh K8sMutatingWebhookSpec) MarshalJSON() ([]byte, error) {
 	}
 }
 
+// UpgradeK8sMutatingWebhookSpecV1Beta1 converts a v1beta1 MutatingWebhook to v1.
+func UpgradeK8sMutatingWebhookSpecV1Beta1(spec admissionregistrationv1beta1.MutatingWebhook) admissionregistrationv1.MutatingWebhook {
+	hook := admissionregistrationv1.MutatingWebhook{
+		Name:                    spec.Name,
+		NamespaceSelector:       spec.NamespaceSelector,
+		ObjectSelector:          spec.ObjectSelector,
+		TimeoutSeconds:          spec.TimeoutSeconds,
+		AdmissionReviewVersions: spec.AdmissionReviewVersions,
+		ClientConfig: admissionregistrationv1.WebhookClientConfig{
+			URL:      spec.ClientConfig.URL,
+			CABundle: spec.ClientConfig.CABundle,
+		},
+	}
+	if len(hook.AdmissionReviewVersions) == 0 {
+		hook.AdmissionReviewVersions = []string{"v1beta1"}
+	}
+	if spec.ClientConfig.Service != nil {
+		hook.ClientConfig.Service = &admissionregistrationv1.ServiceReference{
+			Namespace: spec.ClientConfig.Service.Namespace,
+			Name:      spec.ClientConfig.Service.Name,
+			Path:      spec.ClientConfig.Service.Path,
+			Port:      spec.ClientConfig.Service.Port,
+		}
+	}
+	if len(spec.Rules) > 0 {
+		for _, rule := range spec.Rules {
+			newRule := admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   rule.APIGroups,
+					APIVersions: rule.APIVersions,
+					Resources:   rule.Resources,
+				},
+			}
+			if rule.Scope != nil {
+				scope := admissionregistrationv1.ScopeType(*rule.Scope)
+				newRule.Scope = &scope
+			}
+			for _, op := range rule.Operations {
+				newRule.Operations = append(newRule.Operations, admissionregistrationv1.OperationType(op))
+			}
+			hook.Rules = append(hook.Rules, newRule)
+		}
+	}
+	if spec.FailurePolicy != nil {
+		failurePolicy := admissionregistrationv1.FailurePolicyType(*spec.FailurePolicy)
+		hook.FailurePolicy = &failurePolicy
+	}
+	if spec.MatchPolicy != nil {
+		matchPolicy := admissionregistrationv1.MatchPolicyType(*spec.MatchPolicy)
+		hook.MatchPolicy = &matchPolicy
+	}
+	if spec.SideEffects != nil && *spec.SideEffects != "" {
+		sideEffects := admissionregistrationv1.SideEffectClass(*spec.SideEffects)
+		hook.SideEffects = &sideEffects
+	} else {
+		sideEffects := admissionregistrationv1.SideEffectClassNoneOnDryRun
+		hook.SideEffects = &sideEffects
+	}
+	if spec.ReinvocationPolicy != nil {
+		reinvocationPolicy := admissionregistrationv1.ReinvocationPolicyType(*spec.ReinvocationPolicy)
+		hook.ReinvocationPolicy = &reinvocationPolicy
+	}
+	return hook
+}
+
 // K8sValidatingWebhookSpec defines the spec details of ValidatingWebhook with the API version.
 type K8sValidatingWebhookSpec struct {
 	Version     APIVersion
@@ -112,6 +177,64 @@ func validatingWebhookFromV1Beta1(whs []admissionregistrationv1beta1.ValidatingW
 		})
 	}
 	return o
+}
+
+// UpgradeK8sValidatingWebhookSpecV1Beta1 converts a v1beta1 ValidatingWebhook to v1.
+func UpgradeK8sValidatingWebhookSpecV1Beta1(spec admissionregistrationv1beta1.ValidatingWebhook) admissionregistrationv1.ValidatingWebhook {
+	hook := admissionregistrationv1.ValidatingWebhook{
+		Name:                    spec.Name,
+		NamespaceSelector:       spec.NamespaceSelector,
+		ObjectSelector:          spec.ObjectSelector,
+		TimeoutSeconds:          spec.TimeoutSeconds,
+		AdmissionReviewVersions: spec.AdmissionReviewVersions,
+		ClientConfig: admissionregistrationv1.WebhookClientConfig{
+			URL:      spec.ClientConfig.URL,
+			CABundle: spec.ClientConfig.CABundle,
+		},
+	}
+	if len(hook.AdmissionReviewVersions) == 0 {
+		hook.AdmissionReviewVersions = []string{"v1beta1"}
+	}
+	if spec.ClientConfig.Service != nil {
+		hook.ClientConfig.Service = &admissionregistrationv1.ServiceReference{
+			Namespace: spec.ClientConfig.Service.Namespace,
+			Name:      spec.ClientConfig.Service.Name,
+			Path:      spec.ClientConfig.Service.Path,
+			Port:      spec.ClientConfig.Service.Port,
+		}
+	}
+	if len(spec.Rules) > 0 {
+		for _, rule := range spec.Rules {
+			newRule := admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   rule.APIGroups,
+					APIVersions: rule.APIVersions,
+					Resources:   rule.Resources,
+				},
+			}
+			if rule.Scope != nil {
+				scope := admissionregistrationv1.ScopeType(*rule.Scope)
+				newRule.Scope = &scope
+			}
+			for _, op := range rule.Operations {
+				newRule.Operations = append(newRule.Operations, admissionregistrationv1.OperationType(op))
+			}
+			hook.Rules = append(hook.Rules, newRule)
+		}
+	}
+	if spec.FailurePolicy != nil {
+		failurePolicy := admissionregistrationv1.FailurePolicyType(*spec.FailurePolicy)
+		hook.FailurePolicy = &failurePolicy
+	}
+	if spec.MatchPolicy != nil {
+		matchPolicy := admissionregistrationv1.MatchPolicyType(*spec.MatchPolicy)
+		hook.MatchPolicy = &matchPolicy
+	}
+	if spec.SideEffects != nil {
+		sideEffects := admissionregistrationv1.SideEffectClass(*spec.SideEffects)
+		hook.SideEffects = &sideEffects
+	}
+	return hook
 }
 
 // K8sMutatingWebhook defines spec for creating or updating an MutatingWebhook resource.

@@ -17,11 +17,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,Unit,Application,Charm
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher,StringsWatcher
-
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
 // InstanceMutaterV1 defines the methods on the instance mutater API facade, version 1.
@@ -51,14 +46,20 @@ type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
 	st          InstanceMutaterState
-	model       ModelCache
+	watcher     InstanceMutatorWatcher
 	resources   facade.Resources
 	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
-	machineFunc EntityMachineFunc
 }
 
-type EntityMachineFunc func(state.Entity) (Machine, error)
+// InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
+type InstanceMutatorWatcher interface {
+	WatchLXDProfileVerificationForMachine(Machine) (state.NotifyWatcher, error)
+}
+
+type instanceMutatorWatcher struct {
+	st InstanceMutaterState
+}
 
 type InstanceMutaterAPIV1 struct {
 	*InstanceMutaterAPI
@@ -74,13 +75,8 @@ var (
 func NewFacadeV2(ctx facade.Context) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
 
-	model, err := ctx.Controller().Model(st.ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelCache := &modelCacheShim{Model: model}
-
-	return NewInstanceMutaterAPI(st, modelCache, ctx.Resources(), ctx.Auth())
+	watcher := &instanceMutatorWatcher{st: st}
+	return NewInstanceMutaterAPI(st, watcher, ctx.Resources(), ctx.Auth())
 }
 
 // NewFacadeV1 is used for API registration.
@@ -95,7 +91,7 @@ func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPIV1, error) {
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
 func NewInstanceMutaterAPI(st InstanceMutaterState,
-	model ModelCache,
+	watcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*InstanceMutaterAPI, error) {
@@ -107,11 +103,10 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	return &InstanceMutaterAPI{
 		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
 		st:          st,
-		model:       model,
+		watcher:     watcher,
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
-		machineFunc: machineFromEntity,
 	}, nil
 }
 
@@ -163,7 +158,7 @@ func (api *InstanceMutaterAPI) ContainerType(arg params.Entity) (params.Containe
 		result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		return result, nil
 	}
-	m, err := api.getCacheMachine(canAccess, tag)
+	m, err := api.getMachine(canAccess, tag)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -218,10 +213,7 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 		return result, apiservererrors.ErrPerm
 	}
 
-	watch, err := api.model.WatchMachines()
-	if err != nil {
-		return result, err
-	}
+	watch := api.st.WatchMachines()
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = api.resources.Register(watch)
 		result.Changes = changes
@@ -243,14 +235,11 @@ func (api *InstanceMutaterAPI) WatchContainers(arg params.Entity) (params.String
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	machine, err := api.getCacheMachine(canAccess, tag)
+	machine, err := api.getMachine(canAccess, tag)
 	if err != nil {
 		return result, err
 	}
-	watch, err := machine.WatchContainers()
-	if err != nil {
-		return result, err
-	}
+	watch := machine.WatchContainers(instance.LXD)
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = api.resources.Register(watch)
 		result.Changes = changes
@@ -288,14 +277,18 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(args params.Ent
 
 func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	machine, err := api.getCacheMachine(canAccess, tag)
+	machine, err := api.getMachine(canAccess, tag)
 	if err != nil {
 		return result, err
 	}
-	if machine.IsManual() {
+	isManual, err := machine.IsManual()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if isManual {
 		return result, errors.NotSupportedf("watching lxd profiles on manual machines")
 	}
-	watch, err := machine.WatchLXDProfileVerificationNeeded()
+	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(machine)
 	if err != nil {
 		return result, err
 	}
@@ -308,39 +301,29 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	return result, nil
 }
 
-func (api *InstanceMutaterAPI) getCacheMachine(canAccess common.AuthFunc, tag names.MachineTag) (ModelCacheMachine, error) {
-	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	machine, err := api.model.Machine(tag.Id())
-	if err != nil {
-		return nil, err
-	}
-	return machine, nil
+// WatchLXDProfileVerificationForMachine notifies if any of the following happen
+// relative to the specified machine:
+//     1. A new unit whose charm has an LXD profile is added.
+//     2. A unit being removed has a profile and other units
+//        exist on the machine.
+//     3. The LXD profile of an application with a unit on the
+//        machine is added, removed, or exists. This also includes scenarios
+//        where the charm is being downloaded asynchronously and its metadata
+//        gets updated once the download is complete.
+//     4. The machine's instanceId is changed, indicating it
+//        has been provisioned.
+func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine) (state.NotifyWatcher, error) {
+	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
+		machine: machine,
+		backend: w.st,
+	})
 }
 
 func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
-	entity, err := api.st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	// The authorization function guarantees that the tag represents a
-	// machine.
-	// call a function, default to below... or pass in a func for the mocks to work.
-	// separate constructor in export
-	return api.machineFunc(entity)
-}
-
-func machineFromEntity(entity state.Entity) (Machine, error) {
-	var m *state.Machine
-	var ok bool
-	if m, ok = entity.(*state.Machine); !ok {
-		return nil, errors.NotValidf("machine entity")
-	}
-	return &machineShim{m}, nil
+	return api.st.Machine(tag.Id())
 }
 
 // lxdProfileInfo holds the profile information for the machineLXDProfileInfo
@@ -370,7 +353,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 	}
 	changeResults := make([]params.ProfileInfoResult, len(units))
 	for i, unit := range units {
-		appName := unit.Application()
+		appName := unit.ApplicationName()
 		app, err := api.st.Application(appName)
 		if err != nil {
 			changeResults[i].Error = apiservererrors.ServerError(err)
@@ -397,9 +380,13 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 			Profile:         normalised,
 		}
 	}
+	modelName, err := api.st.ModelName()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
 	return lxdProfileInfo{
 		InstanceId:      instId,
-		ModelName:       api.model.Name(),
+		ModelName:       modelName,
 		MachineProfiles: machineProfiles,
 		ProfileUnits:    changeResults,
 	}, nil

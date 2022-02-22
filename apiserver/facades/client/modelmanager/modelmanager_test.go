@@ -1076,7 +1076,7 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
-	err := s.BackingState.SetModelAgentVersion(coretesting.FakeVersionNumber, false)
+	err := s.BackingState.SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	admin := s.AdminUserTag(c)
