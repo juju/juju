@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/agent/metricsadder"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/metricsadder"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/names/v4"

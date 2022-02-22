@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	apiresources "github.com/juju/juju/api/resources"
+	apiresources "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"

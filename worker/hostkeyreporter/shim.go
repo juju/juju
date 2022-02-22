@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
+	apihostkeyreporter "github.com/juju/juju/api/agent/hostkeyreporter"
 	"github.com/juju/juju/api/base"
-	apihostkeyreporter "github.com/juju/juju/api/hostkeyreporter"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {

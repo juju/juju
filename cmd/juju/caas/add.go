@@ -22,7 +22,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	cloudapi "github.com/juju/juju/api/cloud"
+	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"

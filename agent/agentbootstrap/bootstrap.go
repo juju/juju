@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent"
+	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"

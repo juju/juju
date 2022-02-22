@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/watcher"

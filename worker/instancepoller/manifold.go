@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/instancepoller"
+	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"

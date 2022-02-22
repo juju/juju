@@ -11,8 +11,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/client/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	apiparams "github.com/juju/juju/apiserver/params"

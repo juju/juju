@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/crosscontroller"
+	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/externalcontrollerupdater"

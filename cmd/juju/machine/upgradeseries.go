@@ -19,7 +19,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/machinemanager"
+	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"

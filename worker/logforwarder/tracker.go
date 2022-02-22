@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	logfwdapi "github.com/juju/juju/api/logfwd"
+	logfwdapi "github.com/juju/juju/api/controller/logfwd"
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/logfwd/syslog"
 )

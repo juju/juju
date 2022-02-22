@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	caasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
 	charms "github.com/juju/juju/api/common/charms"
+	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	params "github.com/juju/juju/apiserver/params"
 	life "github.com/juju/juju/core/life"
 	resources "github.com/juju/juju/core/resources"

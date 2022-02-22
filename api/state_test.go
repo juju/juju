@@ -14,8 +14,8 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/client/usermanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"

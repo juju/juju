@@ -10,8 +10,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
 	"github.com/juju/juju/api/base"
-	apidiskmanager "github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 

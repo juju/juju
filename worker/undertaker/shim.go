@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/undertaker"
+	"github.com/juju/juju/api/controller/undertaker"
 	"github.com/juju/juju/api/watcher"
 )
 

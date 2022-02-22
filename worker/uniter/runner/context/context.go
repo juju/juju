@@ -19,9 +19,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/secretsmanager"
-	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"

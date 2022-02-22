@@ -23,9 +23,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/resources/client"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/resources/client"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
