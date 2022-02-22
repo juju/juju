@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
 	reboot "github.com/juju/juju/cmd/jujud/reboot"
 	container "github.com/juju/juju/container"
 	instance "github.com/juju/juju/core/instance"
 	instances "github.com/juju/juju/environs/instances"
+	params "github.com/juju/juju/rpc/params"
 	common "github.com/juju/juju/service/common"
 )
 

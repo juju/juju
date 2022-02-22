@@ -6,7 +6,7 @@ package authentication
 import (
 	"context"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/names/v4"
 )

@@ -15,11 +15,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )

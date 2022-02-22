@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 var _ = gc.Suite(&CredentialValidatorSuite{})

@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus/mocks"
 	meterstatustesting "github.com/juju/juju/apiserver/facades/agent/meterstatus/testing"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujufactory "github.com/juju/juju/testing/factory"
 )

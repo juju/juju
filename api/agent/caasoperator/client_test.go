@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/juju/api/agent/caasoperator"
 	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 )
 
 type operatorSuite struct {

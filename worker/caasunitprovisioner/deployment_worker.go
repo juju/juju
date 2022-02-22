@@ -12,12 +12,12 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 // deploymentWorker informs the CAAS broker of how many pods to run and their spec, and

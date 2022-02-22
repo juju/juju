@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 const apiName = "StatusHistory"

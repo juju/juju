@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
@@ -23,6 +22,7 @@ import (
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
 )

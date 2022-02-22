@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"

@@ -21,12 +21,12 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/apiserver/params"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	k8smocks "github.com/juju/juju/caas/kubernetes/provider/mocks"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

@@ -23,8 +23,8 @@ import (
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/logsink/mocks"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

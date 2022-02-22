@@ -16,8 +16,8 @@ import (
 	"github.com/juju/names/v4"
 
 	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/api/common/charms"
 	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/application"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasunitprovisioner"

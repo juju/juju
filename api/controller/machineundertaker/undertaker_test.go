@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/machineundertaker"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

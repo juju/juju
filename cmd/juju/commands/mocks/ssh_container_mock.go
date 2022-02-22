@@ -10,8 +10,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	application "github.com/juju/juju/api/client/application"
 	charms "github.com/juju/juju/api/common/charms"
-	params "github.com/juju/juju/apiserver/params"
 	cloud "github.com/juju/juju/cloud"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 )
 

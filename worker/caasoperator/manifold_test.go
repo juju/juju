@@ -22,10 +22,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/caasoperator/mocks"

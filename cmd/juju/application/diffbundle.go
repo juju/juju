@@ -23,7 +23,6 @@ import (
 	apicharms "github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/modelconfig"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
@@ -34,6 +33,7 @@ import (
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 )
 
 const (

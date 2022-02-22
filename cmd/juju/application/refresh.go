@@ -29,7 +29,6 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/refresher"
@@ -41,6 +40,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 

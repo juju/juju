@@ -11,8 +11,8 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/rpc/params"
 )
 
 type ModelOperatorSuite struct {

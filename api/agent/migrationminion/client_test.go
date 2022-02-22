@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api/agent/migrationminion"
 	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

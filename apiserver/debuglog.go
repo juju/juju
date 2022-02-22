@@ -17,8 +17,8 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

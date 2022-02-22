@@ -8,8 +8,8 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

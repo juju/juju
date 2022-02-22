@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
 	raftlease "github.com/juju/juju/core/raftlease"
+	params "github.com/juju/juju/rpc/params"
 )
 
 // MockRemote is a mock of Remote interface.

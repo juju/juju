@@ -61,7 +61,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/watcher",
 		"cmd/containeragent/utils",
 		"apiserver/errors",
-		"apiserver/params",
+		"rpc/params",
 		"apiserver/apiserverhttp",
 		"caas",
 		"caas/kubernetes/clientconfig",

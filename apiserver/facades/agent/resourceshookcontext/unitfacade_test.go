@@ -12,9 +12,9 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/rpc/params"
 )
 
 var _ = gc.Suite(&UnitFacadeSuite{})

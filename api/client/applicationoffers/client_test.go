@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/api/client/applicationoffers"
 	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

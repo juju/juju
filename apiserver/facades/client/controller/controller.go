@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	coremigration "github.com/juju/juju/core/migration"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
 )

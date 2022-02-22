@@ -20,12 +20,12 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 

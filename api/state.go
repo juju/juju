@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/instancepoller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
 

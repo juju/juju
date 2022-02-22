@@ -9,10 +9,10 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	uniter "github.com/juju/juju/api/agent/uniter"
-	params "github.com/juju/juju/apiserver/params"
 	life "github.com/juju/juju/core/life"
 	relation "github.com/juju/juju/core/relation"
 	watcher "github.com/juju/juju/core/watcher"
+	params "github.com/juju/juju/rpc/params"
 	relation0 "github.com/juju/juju/worker/uniter/relation"
 	names "github.com/juju/names/v4"
 )

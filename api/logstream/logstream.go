@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common/stream"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/rpc/params"
 )
 
 // jsonReadCloser provides the functionality to send JSON-serialized
