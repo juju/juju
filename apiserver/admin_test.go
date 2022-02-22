@@ -25,7 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	apimachiner "github.com/juju/juju/api/machiner"
+	apimachiner "github.com/juju/juju/api/agent/machiner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"

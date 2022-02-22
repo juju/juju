@@ -44,8 +44,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
-	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"

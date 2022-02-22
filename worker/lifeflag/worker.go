@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/lifeflag"
+	"github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 )

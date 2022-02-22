@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"

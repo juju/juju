@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
+	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"

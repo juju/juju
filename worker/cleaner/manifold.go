@@ -10,7 +10,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/cleaner"
+	"github.com/juju/juju/api/controller/cleaner"
 )
 
 // Logger represents the methods used by the worker to log information.

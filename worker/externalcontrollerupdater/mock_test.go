@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	tomb "gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/api/crosscontroller"
+	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
 )

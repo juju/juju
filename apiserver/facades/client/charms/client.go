@@ -16,7 +16,7 @@ import (
 	"github.com/juju/os/v2/series"
 	"gopkg.in/macaroon.v2"
 
-	apiresources "github.com/juju/juju/api/resources"
+	apiresources "github.com/juju/juju/api/client/resources"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"

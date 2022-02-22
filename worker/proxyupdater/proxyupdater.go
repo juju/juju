@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/snap"
 	"github.com/juju/juju/core/watcher"

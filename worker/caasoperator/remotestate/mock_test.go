@@ -9,7 +9,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	caasoperatorapi "github.com/juju/juju/api/caasoperator"
+	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/core/watcher"
 )
 

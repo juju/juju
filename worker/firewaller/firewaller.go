@@ -21,8 +21,8 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/api/controller/firewaller"
+	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"

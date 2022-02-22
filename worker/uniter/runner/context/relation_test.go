@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	apiuniter "github.com/juju/juju/api/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"

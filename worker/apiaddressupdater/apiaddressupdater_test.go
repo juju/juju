@@ -17,7 +17,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	apimachiner "github.com/juju/juju/api/machiner"
+	apimachiner "github.com/juju/juju/api/agent/machiner"
 	corenetwork "github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"

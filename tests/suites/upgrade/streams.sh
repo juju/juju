@@ -20,12 +20,12 @@ run_simplestream_metadata_prior_stable() {
 		action="refresh"
 	fi
 	for i in {1..3}; do
-			opts=""
-			if [ "${i}" -gt 1 ] && [ "${action}" == "refresh" ]; then
-				opts=" --amend"
-			fi
-			# shellcheck disable=SC2015
-			sudo snap "${action}" --classic juju --channel "${major}.${minor}/stable" "${opts}" 2>&1 && break || sleep 10
+		opts=""
+		if [ "${i}" -gt 1 ] && [ "${action}" == "refresh" ]; then
+			opts=" --amend"
+		fi
+		# shellcheck disable=SC2015
+		sudo snap "${action}" --classic juju --channel "${major}.${minor}/stable" "${opts}" 2>&1 && break || sleep 10
 	done
 
 	exec_simplestream_metadata "prior" "/snap/bin/juju" "${jujud_version}" "${previous_version}"
@@ -89,7 +89,7 @@ exec_simplestream_metadata() {
 		--config agent-metadata-url="http://${server_address}:8666/" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
-  juju add-model test-upgrade-"${test_name}"
+	juju add-model test-upgrade-"${test_name}"
 	juju deploy ./tests/suites/upgrade/charms/ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	uniter "github.com/juju/juju/api/uniter"
+	uniter "github.com/juju/juju/api/agent/uniter"
 	params "github.com/juju/juju/apiserver/params"
 	life "github.com/juju/juju/core/life"
 	relation "github.com/juju/juju/core/relation"

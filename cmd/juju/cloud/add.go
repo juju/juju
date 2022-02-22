@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/v3/cert"
 	"gopkg.in/yaml.v2"
 
-	cloudapi "github.com/juju/juju/api/cloud"
+	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"

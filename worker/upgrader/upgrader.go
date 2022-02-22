@@ -22,7 +22,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/api/agent/upgrader"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coreos "github.com/juju/juju/core/os"
 	coretools "github.com/juju/juju/tools"
