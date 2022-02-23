@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -55,12 +56,15 @@ type addModelCommand struct {
 	newCloudAPI      func(base.APICallCloser) CloudAPI
 	providerRegistry environs.ProviderRegistry
 
-	Name           string
-	Owner          string
-	CredentialName string
-	CloudRegion    string
-	Config         common.ConfigFlag
-	noSwitch       bool
+	Name              string
+	Owner             string
+	CredentialName    string
+	CloudRegion       string
+	Config            common.ConfigFlag
+	Constraints       constraints.Value
+	ConstraintsStr    string
+	constraintAliases map[string]string
+	noSwitch          bool
 }
 
 const addModelHelpDoc = `
@@ -119,6 +123,7 @@ func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Owner, "owner", "", "The owner of the new model if not the current user")
 	f.StringVar(&c.CredentialName, "credential", "", "Credential used to add the model")
 	f.Var(&c.Config, "config", "Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...])")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set the initial model constraints")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created model")
 }
 
@@ -140,6 +145,18 @@ func (c *addModelCommand) Init(args []string) error {
 		return errors.Errorf("%q is not a valid user", c.Owner)
 	}
 
+	if c.ConstraintsStr != "" {
+		c.constraintAliases = make(map[string]string)
+		cons, aliases, err := constraints.ParseWithAliases(c.ConstraintsStr)
+		for k, v := range aliases {
+			c.constraintAliases[k] = v
+		}
+		if err != nil {
+			return err
+		}
+		c.Constraints = cons
+	}
+
 	return cmd.CheckEmpty(args)
 }
 
@@ -148,6 +165,7 @@ type AddModelAPI interface {
 		name, owner, cloudName, cloudRegion string,
 		cloudCredential names.CloudCredentialTag,
 		config map[string]interface{},
+		cons constraints.Value,
 	) (base.ModelInfo, error)
 }
 
@@ -166,6 +184,11 @@ func (c *addModelCommand) newAPIRoot() (api.Connection, error) {
 }
 
 func (c *addModelCommand) Run(ctx *cmd.Context) error {
+	// Warn if we're using some constraint aliases that was not intended.
+	if len(c.constraintAliases) > 0 {
+		common.WarnConstraintAliases(ctx, c.constraintAliases)
+	}
+
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
@@ -246,7 +269,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	addModelClient := c.newAddModelAPI(root)
-	model, err := addModelClient.CreateModel(c.Name, modelOwner, cloudTag.Id(), cloudRegion, credentialTag, attrs)
+	model, err := addModelClient.CreateModel(c.Name, modelOwner, cloudTag.Id(), cloudRegion, credentialTag, attrs, c.Constraints)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "add a model")

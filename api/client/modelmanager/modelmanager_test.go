@@ -17,6 +17,8 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/modelmanager"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -33,17 +35,18 @@ var _ = gc.Suite(&modelmanagerSuite{})
 
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	client := modelmanager.NewClient(basetesting.BestVersionCaller{})
-	_, err := client.CreateModel("mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
+	_, err := client.CreateModel("mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
 func (s *modelmanagerSuite) TestCreateModelBadCloud(c *gc.C) {
 	client := modelmanager.NewClient(basetesting.BestVersionCaller{})
-	_, err := client.CreateModel("mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil)
+	_, err := client.CreateModel("mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, `invalid cloud name "123!"`)
 }
 
 func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
+	a := arch.DefaultArchitecture
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "ModelManager")
 		c.Check(id, gc.Equals, "")
@@ -54,6 +57,9 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 			Config:      map[string]interface{}{"abc": 123},
 			CloudTag:    "cloud-nimbus",
 			CloudRegion: "catbus",
+			Constraints: constraints.Value{
+				Arch: &a,
+			},
 		})
 		c.Check(result, gc.FitsTypeOf, &params.ModelInfo{})
 
@@ -79,6 +85,9 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 		"catbus",
 		names.CloudCredentialTag{},
 		map[string]interface{}{"abc": 123},
+		constraints.Value{
+			Arch: &a,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

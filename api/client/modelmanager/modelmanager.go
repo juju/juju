@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -48,6 +49,7 @@ func (c *Client) CreateModel(
 	name, owner, cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	config map[string]interface{},
+	cons constraints.Value,
 ) (base.ModelInfo, error) {
 	var result base.ModelInfo
 	if !names.IsValidUser(owner) {
@@ -71,6 +73,7 @@ func (c *Client) CreateModel(
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
+		Constraints:        cons,
 	}
 	var modelInfo params.ModelInfo
 	err := c.facade.FacadeCall("CreateModel", createArgs, &modelInfo)

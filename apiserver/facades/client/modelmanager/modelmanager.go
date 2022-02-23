@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -593,7 +594,8 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			cloudTag,
 			cloudRegionName,
 			cloudCredentialTag,
-			ownerTag)
+			ownerTag,
+			args.Constraints)
 	} else {
 		model, err = m.newModel(
 			cloudSpec,
@@ -602,11 +604,13 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			cloudTag,
 			cloudRegionName,
 			cloudCredentialTag,
-			ownerTag)
+			ownerTag,
+			args.Constraints)
 	}
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
 	return m.getModelInfo(model.ModelTag())
 }
 
@@ -618,6 +622,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
+	cons constraints.Value,
 ) (_ common.Model, err error) {
 	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
 	if err != nil {
@@ -667,6 +672,7 @@ Please choose a different model name.
 		Config:                  newConfig,
 		Owner:                   ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
+		Constraints:             cons,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create new model")
@@ -684,6 +690,7 @@ func (m *ModelManagerAPI) newModel(
 	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
+	cons constraints.Value,
 ) (common.Model, error) {
 	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
 	if err != nil {
@@ -728,6 +735,7 @@ func (m *ModelManagerAPI) newModel(
 		Owner:                   ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
 		EnvironVersion:          env.Provider().Version(),
+		Constraints:             cons,
 	})
 	if err != nil {
 		// Clean up the environ.

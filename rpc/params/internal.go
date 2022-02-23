@@ -144,6 +144,9 @@ type ModelCreateArgs struct {
 	// and the owner is the controller owner, the same credential
 	// used for the controller model will be used.
 	CloudCredentialTag string `json:"credential,omitempty"`
+
+	// Constraints allows setting the initial model constraints when creating.
+	Constraints constraints.Value `json:"constraints,omitempty"`
 }
 
 // Model holds the result of an API call returning a name and UUID
