@@ -63,6 +63,8 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 // CommitHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	switch {
+	case hi.Kind == hooks.Start:
+		opc.u.Probe.SetHasStarted()
 	case hi.Kind.IsWorkload():
 	case hi.Kind.IsRelation():
 		return opc.u.relationStateTracker.CommitHook(hi)
@@ -128,10 +130,6 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 		return nil, errors.Trace(err)
 	}
 	return ch, nil
-}
-
-func (opc *operationCallbacks) PostStartHook() {
-	opc.u.Probe.SetHasStarted()
 }
 
 // SetCurrentCharm is part of the operation.Callbacks interface.

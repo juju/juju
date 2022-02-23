@@ -244,9 +244,6 @@ type Callbacks interface {
 	// SetSecretRotated updates the time when the secret was rotated.
 	SetSecretRotated(url string, when time.Time) error
 
-	// PostStartHook indiciates that the charms start hook has successfully run
-	PostStartHook()
-
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error
 }
