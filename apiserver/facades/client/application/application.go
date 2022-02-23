@@ -1536,6 +1536,9 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 		if origin.Channel.Track != "" {
 			retOrigin.Track = &origin.Channel.Track
 		}
+		if origin.Channel.Branch != "" {
+			retOrigin.Branch = &origin.Channel.Branch
+		}
 	}
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
