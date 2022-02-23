@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 // NewAddModelCommand returns a command to add a model.

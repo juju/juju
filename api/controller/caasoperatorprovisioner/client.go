@@ -11,11 +11,11 @@ import (
 	"github.com/juju/juju/api/base"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 

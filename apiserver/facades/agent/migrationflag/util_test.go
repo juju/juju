@@ -7,8 +7,8 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

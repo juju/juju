@@ -9,9 +9,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/api/agent/provisioner"
-	params "github.com/juju/juju/apiserver/params"
 	network "github.com/juju/juju/core/network"
 	network0 "github.com/juju/juju/network"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 )
 

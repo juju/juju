@@ -14,7 +14,7 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	apicharm "github.com/juju/juju/api/common/charm"
 	commoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Client allows access to the charms API end point.

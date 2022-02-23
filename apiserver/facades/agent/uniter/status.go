@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

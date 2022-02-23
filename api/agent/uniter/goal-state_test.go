@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/rpc/params"
 )
 
 type goalStateSuite struct {

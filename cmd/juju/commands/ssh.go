@@ -16,12 +16,12 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/rpc/params"
 )
 
 var usageSSHSummary = `

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/api/logsender"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
 )
 

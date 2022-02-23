@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common/charms"
 	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

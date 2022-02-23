@@ -19,7 +19,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
-	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 type PersonalCloudMetadataStore interface {

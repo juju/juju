@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/subnets"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/params"
 )
 
 // SubnetAPI defines the necessary API methods needed by the subnet

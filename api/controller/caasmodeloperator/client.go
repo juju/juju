@@ -8,9 +8,9 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Client is a caas model operator facade client

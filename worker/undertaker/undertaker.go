@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
 )
 

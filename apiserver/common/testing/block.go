@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/block"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 )
 
 // BlockHelper helps manage blocks for apiserver tests.

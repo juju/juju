@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/api/controller/remoterelations"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
 )
 

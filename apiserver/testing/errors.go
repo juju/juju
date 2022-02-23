@@ -6,7 +6,7 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 var ErrUnauthorized = &params.Error{

@@ -18,8 +18,8 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	apicharm "github.com/juju/juju/api/common/charm"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/rpc/params"
 )
 
 // TODO(ericsnow) Move FacadeCaller to a component-central package.

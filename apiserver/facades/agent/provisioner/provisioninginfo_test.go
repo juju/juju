@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"

@@ -29,11 +29,11 @@ import (
 	"github.com/juju/juju/agent"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 

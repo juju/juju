@@ -9,9 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller/firewaller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

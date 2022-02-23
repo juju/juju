@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 type leadershipSuite struct {

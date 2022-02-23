@@ -21,10 +21,10 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Logger is a in place interface to represent a logger for consuming.

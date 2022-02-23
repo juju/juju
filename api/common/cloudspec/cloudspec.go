@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/rpc/params"
 )
 
 // CloudSpecAPI provides common client-side API functions

@@ -22,11 +22,11 @@ import (
 
 	actionapi "github.com/juju/juju/api/client/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

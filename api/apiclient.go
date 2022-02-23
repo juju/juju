@@ -35,8 +35,8 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/rpc/params"
 
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/proxy"

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 )
 

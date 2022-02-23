@@ -11,10 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
 	"github.com/juju/juju/payload/api/private/client"
+	"github.com/juju/juju/rpc/params"
 )
 
 type clientSuite struct {
