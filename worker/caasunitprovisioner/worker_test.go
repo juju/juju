@@ -1027,6 +1027,7 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 			break
 		}
 	}
+	c.Assert(appWorker, gc.NotNil)
 
 	// Make it a v2 charm (will make the application worker exit)
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
