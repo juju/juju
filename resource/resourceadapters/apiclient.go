@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/resources/client"
+	"github.com/juju/juju/api/client/resources/client"
 	"github.com/juju/juju/resource"
 )
 

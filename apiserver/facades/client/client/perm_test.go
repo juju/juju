@@ -15,9 +15,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/annotations"
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/client/annotations"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"

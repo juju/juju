@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	internalclient "github.com/juju/juju/api/resources/private/client"
+	internalclient "github.com/juju/juju/api/client/resources/private/client"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"

@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	apireboot "github.com/juju/juju/api/reboot"
+	apireboot "github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	jujutesting "github.com/juju/juju/juju/testing"

@@ -4,7 +4,7 @@
 package deployer
 
 import (
-	apideployer "github.com/juju/juju/api/deployer"
+	apideployer "github.com/juju/juju/api/agent/deployer"
 )
 
 func MakeAPIShim(st *apideployer.State) API {

@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"

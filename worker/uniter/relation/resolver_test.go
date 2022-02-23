@@ -19,9 +19,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/uniter"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"

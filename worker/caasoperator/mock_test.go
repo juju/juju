@@ -16,8 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
+	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/api/base"
-	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/status"

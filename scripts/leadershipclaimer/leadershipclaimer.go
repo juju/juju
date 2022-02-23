@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/leadership"
+	"github.com/juju/juju/api/agent/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 )

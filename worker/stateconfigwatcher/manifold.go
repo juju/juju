@@ -12,7 +12,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent"
+	apiagent "github.com/juju/juju/api/agent/agent"
 )
 
 var logger = loggo.GetLogger("juju.worker.stateconfigwatcher")

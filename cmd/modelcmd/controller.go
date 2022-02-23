@@ -15,9 +15,9 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/client/usermanager"
+	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/juju/osenv"

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	apideployer "github.com/juju/juju/api/agent/deployer"
 	"github.com/juju/juju/api/base"
-	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 

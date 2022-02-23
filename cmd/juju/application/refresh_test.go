@@ -29,11 +29,11 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/resources/client"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cmd/juju/application/deployer"

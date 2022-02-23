@@ -13,7 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	cloudapi "github.com/juju/juju/api/cloud"
+	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"

@@ -22,7 +22,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	apimachiner "github.com/juju/juju/api/machiner"
+	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"

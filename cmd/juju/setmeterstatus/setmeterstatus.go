@@ -11,7 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/metricsdebug"
+	"github.com/juju/juju/api/client/metricsdebug"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
