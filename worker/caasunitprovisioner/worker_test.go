@@ -1018,12 +1018,16 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	s.sendApplicationChanges(c, "gitlab")
 	waitCharmGetterCalls("ApplicationCharmInfo")
 
-	// Wait till Life() is called to synchronize (ensure charmInfo is done).
+	// Wait till application worker has started up
+	var appWorker worker.Worker
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.lifeGetter.Calls()) > 0 {
+		aw, ok := caasunitprovisioner.AppWorker(w, "gitlab")
+		if ok {
+			appWorker = aw
 			break
 		}
 	}
+	c.Assert(appWorker, gc.NotNil)
 
 	// Make it a v2 charm (will make the application worker exit)
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
@@ -1036,10 +1040,8 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	}
 	waitCharmGetterCalls("ApplicationCharmInfo")
 
-	// Ensure application worker exited due to charm becoming v2
-	aw, ok := caasunitprovisioner.AppWorker(w, "gitlab")
-	c.Assert(ok, jc.IsTrue)
-	err = workertest.CheckKilled(c, aw)
+	// Ensure application worker exits due to charm becoming v2
+	err = workertest.CheckKilled(c, appWorker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
