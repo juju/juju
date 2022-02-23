@@ -454,6 +454,14 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
 
+	// Validate the constraints of a model cam only be done after the state
+	// of the model has been started. This can leave us with a model partially
+	// created, but we can use destroy model to clean it up, before attempting
+	// again.
+	if _, err = newSt.validateConstraints(args.Constraints); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	newModel, err := newSt.Model()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
