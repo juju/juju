@@ -977,8 +977,9 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Source:   "local",
 		Revision: &rev,
 		Channel: &state.Channel{
-			Track: "latest",
-			Risk:  "stable",
+			Track:  "latest",
+			Risk:   "stable",
+			Branch: "foo",
 		},
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -991,13 +992,16 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.URL, gc.Equals, "local:quantal/wordpress-3")
+
 	latest := "latest"
+	branch := "foo"
 
 	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Risk:         "stable",
 		Revision:     &rev,
 		Track:        &latest,
+		Branch:       &branch,
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",

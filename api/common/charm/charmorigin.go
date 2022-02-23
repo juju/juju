@@ -42,6 +42,8 @@ type Origin struct {
 	Revision *int
 	// Track is a CharmHub channel track.
 	Track *string
+	// Branch is the CharmHub channel branch
+	Branch *string
 	// Architecture describes the architecture intended to be used by the charm.
 	Architecture string
 	// OS describes the OS intended to be used by the charm.
@@ -69,9 +71,14 @@ func (o Origin) CharmChannel() charm.Channel {
 	if o.Track != nil {
 		track = *o.Track
 	}
+	var branch string
+	if o.Branch != nil {
+		branch = *o.Branch
+	}
 	return charm.Channel{
-		Track: track,
-		Risk:  charm.Risk(o.Risk),
+		Track:  track,
+		Risk:   charm.Risk(o.Risk),
+		Branch: branch,
 	}
 }
 
@@ -86,6 +93,7 @@ func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 		Revision:     o.Revision,
 		Risk:         o.Risk,
 		Track:        o.Track,
+		Branch:       o.Branch,
 		Architecture: o.Architecture,
 		OS:           o.OS,
 		Series:       o.Series,
@@ -99,11 +107,16 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 	if o.Track != nil {
 		track = *o.Track
 	}
+	var branch string
+	if o.Branch != nil {
+		branch = *o.Branch
+	}
 	var channel *charm.Channel
 	if o.Risk != "" {
 		channel = &charm.Channel{
-			Risk:  charm.Risk(o.Risk),
-			Track: track,
+			Risk:   charm.Risk(o.Risk),
+			Track:  track,
+			Branch: branch,
 		}
 	}
 	return corecharm.Origin{
@@ -133,6 +146,7 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 		Risk:         origin.Risk,
 		Revision:     origin.Revision,
 		Track:        origin.Track,
+		Branch:       origin.Branch,
 		Architecture: origin.Architecture,
 		OS:           origin.OS,
 		Series:       origin.Series,
@@ -151,6 +165,10 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 	if ch.Track != "" {
 		track = &ch.Track
 	}
+	var branch *string
+	if ch.Branch != "" {
+		branch = &ch.Branch
+	}
 	return Origin{
 		Source:       OriginSource(origin.Source),
 		Type:         origin.Type,
@@ -159,6 +177,7 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 		Revision:     origin.Revision,
 		Risk:         string(ch.Risk),
 		Track:        track,
+		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
 		OS:           origin.Platform.OS,
 		Series:       origin.Platform.Series,

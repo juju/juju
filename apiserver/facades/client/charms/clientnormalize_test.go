@@ -19,11 +19,13 @@ var _ = gc.Suite(&clientNormalizeOriginSuite{})
 
 func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 	track := "1.0"
+	branch := "foo"
 	origin := params.CharmOrigin{
 		Source:       "charm-hub",
 		Type:         "charm",
 		Risk:         "edge",
 		Track:        &track,
+		Branch:       &branch,
 		Architecture: "all",
 		OS:           "all",
 		Series:       "all",

@@ -836,11 +836,15 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	if origin.Track != nil {
 		track = *origin.Track
 	}
+	var branch string
+	if origin.Branch != nil {
+		branch = *origin.Branch
+	}
 	// We do guarantee that there will be a risk value.
 	// Ignore the error, as only caused by risk as an
 	// empty string.
 	var channel *charm.Channel
-	if ch, err := charm.MakeChannel(track, origin.Risk, ""); err == nil {
+	if ch, err := charm.MakeChannel(track, origin.Risk, branch); err == nil {
 		channel = &ch
 	}
 
@@ -1531,6 +1535,9 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 		retOrigin.Risk = origin.Channel.Risk
 		if origin.Channel.Track != "" {
 			retOrigin.Track = &origin.Channel.Track
+		}
+		if origin.Channel.Branch != "" {
+			retOrigin.Branch = &origin.Channel.Branch
 		}
 	}
 	if origin.Platform != nil {
