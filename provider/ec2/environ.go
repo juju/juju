@@ -103,9 +103,6 @@ type environ struct {
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 
-	availabilityZonesMutex sync.Mutex
-	availabilityZones      network.AvailabilityZones
-
 	instTypesMutex sync.Mutex
 	instTypes      []instances.InstanceType
 
@@ -312,23 +309,19 @@ func (z *ec2AvailabilityZone) Available() bool {
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
 func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
-	e.availabilityZonesMutex.Lock()
-	defer e.availabilityZonesMutex.Unlock()
-	if e.availabilityZones == nil {
-		filter := makeFilter("region-name", e.cloud.Region)
-		resp, err := ec2AvailabilityZones(e.ec2Client, ctx, &ec2.DescribeAvailabilityZonesInput{
-			Filters: []types.Filter{filter},
-		})
-		if err != nil {
-			return nil, maybeConvertCredentialError(err, ctx)
-		}
-		logger.Debugf("availability zones: %s", pretty.Sprint(resp.AvailabilityZones))
-		e.availabilityZones = make(network.AvailabilityZones, len(resp.AvailabilityZones))
-		for i, z := range resp.AvailabilityZones {
-			e.availabilityZones[i] = &ec2AvailabilityZone{z}
-		}
+	filter := makeFilter("region-name", e.cloud.Region)
+	resp, err := ec2AvailabilityZones(e.ec2Client, ctx, &ec2.DescribeAvailabilityZonesInput{
+		Filters: []types.Filter{filter},
+	})
+	if err != nil {
+		return nil, maybeConvertCredentialError(err, ctx)
 	}
-	return e.availabilityZones, nil
+
+	zones := make(network.AvailabilityZones, len(resp.AvailabilityZones))
+	for i, z := range resp.AvailabilityZones {
+		zones[i] = &ec2AvailabilityZone{z}
+	}
+	return zones, nil
 }
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
