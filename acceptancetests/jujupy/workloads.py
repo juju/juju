@@ -111,10 +111,12 @@ def assert_keystone_is_responding(client):
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None, series='bionic'):
+        client, model_name, resource_contents=None, series='bionic', constraints=None):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
+    if constraints is not None:
+        new_model.set_model_constraints(constraints)
     new_model.deploy('cs:nrpe', series=series)
     new_model.deploy('cs:nagios', series=series)
     new_model.juju('add-relation', ('nrpe:monitors', 'nagios:monitors'))
@@ -160,8 +162,10 @@ def deploy_simple_resource_server(
     return application_name
 
 
-def deploy_dummy_source_to_new_model(client, model_name):
+def deploy_dummy_source_to_new_model(client, model_name, constraints=None):
     new_model_client = client.add_model(client.env.clone(model_name))
+    if constraints is not None:
+        new_model_client.set_model_constraints(constraints)
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=new_model_client.version)
     new_model_client.deploy(charm_path)
