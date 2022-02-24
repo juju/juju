@@ -13,7 +13,7 @@ import (
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
-	application0 "github.com/juju/juju/core/application"
+	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
@@ -91,10 +91,10 @@ func (mr *MockApplicationMockRecorder) AllUnits() *gomock.Call {
 }
 
 // ApplicationConfig mocks base method.
-func (m *MockApplication) ApplicationConfig() (application0.ConfigAttributes, error) {
+func (m *MockApplication) ApplicationConfig() (config.ConfigAttributes, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationConfig")
-	ret0, _ := ret[0].(application0.ConfigAttributes)
+	ret0, _ := ret[0].(config.ConfigAttributes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -507,7 +507,7 @@ func (mr *MockApplicationMockRecorder) UnsetExposeSettings(arg0 interface{}) *go
 }
 
 // UpdateApplicationConfig mocks base method.
-func (m *MockApplication) UpdateApplicationConfig(arg0 application0.ConfigAttributes, arg1 []string, arg2 environschema_v1.Fields, arg3 schema.Defaults) error {
+func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, arg1 []string, arg2 environschema_v1.Fields, arg3 schema.Defaults) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

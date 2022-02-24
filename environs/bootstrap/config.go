@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/caas"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/pki"
 )
@@ -141,7 +142,7 @@ var BootstrapConfigSchema = environschema.Fields{
 	ControllerExternalIPs: {
 		Description: "Specifies a comma separated list of external IPs for a " +
 			"k8s controller of type external",
-		Type: environschema.Tstring,
+		Type: environschema.Tlist,
 	},
 }
 
@@ -207,11 +208,11 @@ func (c Config) Validate() error {
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an
 // error is returned.
 func NewConfig(attrs map[string]interface{}) (Config, error) {
-	coerced, err := configChecker.Coerce(attrs, nil)
+	cfg, err := coreconfig.NewConfig(attrs, configSchema, configDefaults)
 	if err != nil {
 		return Config{}, errors.Trace(err)
 	}
-	attrs = coerced.(map[string]interface{})
+	attrs = cfg.Attributes()
 	config := Config{
 		BootstrapTimeout:        time.Duration(attrs[BootstrapTimeoutKey].(int)) * time.Second,
 		BootstrapRetryDelay:     time.Duration(attrs[BootstrapRetryDelayKey].(int)) * time.Second,
@@ -318,23 +319,59 @@ func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (conten
 	return string(data), userSpecified, nil
 }
 
-var configChecker = schema.FieldMap(schema.Fields{
-	AdminSecretKey:            schema.String(),
-	CACertKey:                 schema.String(),
-	CACertKey + "-path":       schema.String(),
-	CAPrivateKeyKey:           schema.String(),
-	CAPrivateKeyKey + "-path": schema.String(),
-	ControllerServiceType: schema.OneOf(
-		schema.Const(string(caas.ServiceCluster)),
-		schema.Const(string(caas.ServiceLoadBalancer)),
-		schema.Const(string(caas.ServiceExternal)),
-	),
-	ControllerExternalName:     schema.String(),
-	ControllerExternalIPs:      schema.List(schema.String()),
-	BootstrapTimeoutKey:        schema.ForceInt(),
-	BootstrapRetryDelayKey:     schema.ForceInt(),
-	BootstrapAddressesDelayKey: schema.ForceInt(),
-}, schema.Defaults{
+var configSchema = environschema.Fields{
+	AdminSecretKey: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	CACertKey: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	CACertKey + "-path": {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	CAPrivateKeyKey: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	CAPrivateKeyKey + "-path": {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	ControllerExternalName: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	ControllerExternalIPs: {
+		Type:  environschema.Tlist,
+		Group: environschema.JujuGroup,
+	},
+	ControllerServiceType: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+		Values: []interface{}{
+			string(caas.ServiceCluster),
+			string(caas.ServiceLoadBalancer),
+			string(caas.ServiceExternal),
+		},
+	},
+	BootstrapTimeoutKey: {
+		Type:  environschema.Tint,
+		Group: environschema.JujuGroup,
+	},
+	BootstrapRetryDelayKey: {
+		Type:  environschema.Tint,
+		Group: environschema.JujuGroup,
+	},
+	BootstrapAddressesDelayKey: {
+		Type:  environschema.Tint,
+		Group: environschema.JujuGroup,
+	},
+}
+
+var configDefaults = schema.Defaults{
 	AdminSecretKey:             schema.Omit,
 	CACertKey:                  schema.Omit,
 	CACertKey + "-path":        schema.Omit,
@@ -346,4 +383,4 @@ var configChecker = schema.FieldMap(schema.Fields{
 	BootstrapTimeoutKey:        DefaultBootstrapSSHTimeout,
 	BootstrapRetryDelayKey:     DefaultBootstrapSSHRetryDelay,
 	BootstrapAddressesDelayKey: DefaultBootstrapSSHAddressesDelay,
-})
+}

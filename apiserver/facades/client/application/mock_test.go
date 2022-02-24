@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -114,7 +114,7 @@ type mockApplication struct {
 	series           string
 	units            []*mockUnit
 	addedUnit        mockUnit
-	config           coreapplication.ConfigAttributes
+	config           coreconfig.ConfigAttributes
 	constraints      constraints.Value
 	channel          csparams.Channel
 	exposed          bool
@@ -235,13 +235,13 @@ func (a *mockApplication) Series() string {
 	return a.series
 }
 
-func (a *mockApplication) ApplicationConfig() (coreapplication.ConfigAttributes, error) {
+func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig")
 	return a.config, a.NextErr()
 }
 
 func (a *mockApplication) UpdateApplicationConfig(
-	changes coreapplication.ConfigAttributes,
+	changes coreconfig.ConfigAttributes,
 	reset []string,
 	extra environschema.Fields,
 	defaults schema.Defaults,

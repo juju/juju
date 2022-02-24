@@ -5,15 +5,15 @@ package application
 
 import (
 	"github.com/juju/charm/v8"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -131,7 +131,7 @@ func (api *APIBase) getConfig(
 }
 
 func describeAppConfig(
-	appConfig application.ConfigAttributes,
+	appConfig config.ConfigAttributes,
 	schema environschema.Fields,
 	defaults schema.Defaults,
 ) map[string]interface{} {

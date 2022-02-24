@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package config
 
 import (
 	"fmt"
@@ -10,12 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/yaml.v2"
 )
 
-// ConfigAttributes is the config for an application.
+// ConfigAttributes represents config for an entity.
 type ConfigAttributes map[string]interface{}
 
-// Config encapsulates config for an application.
+// Config encapsulates config for an entity.
 type Config struct {
 	attributes map[string]interface{}
 	schema     environschema.Fields
@@ -40,6 +41,20 @@ func (c *Config) setAttributes(attrs map[string]interface{}) error {
 	m := make(map[string]interface{})
 	for k, v := range attrs {
 		m[k] = v
+		field, ok := c.schema[k]
+		if !ok || field.Type == environschema.Tstring {
+			continue
+		}
+		str, ok := v.(string)
+		if !ok {
+			continue
+		}
+		var coerced interface{}
+		err := yaml.Unmarshal([]byte(str), &coerced)
+		if err != nil {
+			return errors.NewNotValid(err, fmt.Sprintf("value %q for attribute %q not valid", str, k))
+		}
+		m[k] = coerced
 	}
 	result, err := checker.Coerce(m, nil)
 	if err != nil {
@@ -49,7 +64,7 @@ func (c *Config) setAttributes(attrs map[string]interface{}) error {
 	return nil
 }
 
-// KnownConfigKeys returns the valid application config keys.
+// KnownConfigKeys returns the valid config keys.
 func KnownConfigKeys(schema environschema.Fields) set.Strings {
 	result := set.NewStrings()
 	for name := range schema {
@@ -94,7 +109,7 @@ func (c ConfigAttributes) Get(attrName string, defaultValue interface{}) interfa
 	return defaultValue
 }
 
-// GetInt gets the specified bool attribute.
+// GetBool gets the specified bool attribute.
 func (c ConfigAttributes) GetBool(attrName string, defaultValue bool) bool {
 	if val, ok := c[attrName]; ok {
 		return val.(bool)

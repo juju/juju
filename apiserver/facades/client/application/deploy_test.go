@@ -9,21 +9,21 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
-	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/controller"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
@@ -61,7 +61,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
 	s.assertSettings(c, app, charm.Settings{})
-	s.assertApplicationConfig(c, app, coreapplication.ConfigAttributes(nil))
+	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes(nil))
 	s.assertConstraints(c, app, constraints.Value{})
 	s.assertMachines(c, app, constraints.Value{})
 }
@@ -322,7 +322,7 @@ func sampleApplicationConfigSchema() environschema.Fields {
 }
 
 func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
-	cfg, err := coreapplication.NewConfig(map[string]interface{}{
+	cfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"outlook":     "good",
 		"skill-level": 1,
 	}, sampleApplicationConfigSchema(), nil)
@@ -339,7 +339,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 			ApplicationConfig: cfg,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertApplicationConfig(c, app, coreapplication.ConfigAttributes{
+	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes{
 		"outlook":     "good",
 		"skill-level": 1,
 	})
@@ -553,7 +553,7 @@ func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, 
 	c.Assert(settings, gc.DeepEquals, expected)
 }
 
-func (s *DeployLocalSuite) assertApplicationConfig(c *gc.C, app application.Application, wantCfg coreapplication.ConfigAttributes) {
+func (s *DeployLocalSuite) assertApplicationConfig(c *gc.C, app application.Application, wantCfg coreconfig.ConfigAttributes) {
 	cfg, err := app.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.DeepEquals, wantCfg)

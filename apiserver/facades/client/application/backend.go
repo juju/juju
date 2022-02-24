@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -73,7 +73,7 @@ type Application interface {
 	Name() string
 	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
-	ApplicationConfig() (application.ConfigAttributes, error)
+	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	ApplicationTag() names.ApplicationTag
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
@@ -99,7 +99,7 @@ type Application interface {
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
-	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
+	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int, int64, bool) error
 	ChangeScale(int) (int, error)
 	AgentTools() (*tools.Tools, error)
