@@ -57,7 +57,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 			Config:      map[string]interface{}{"abc": 123},
 			CloudTag:    "cloud-nimbus",
 			CloudRegion: "catbus",
-			Constraints: constraints.Value{
+			Constraints: &constraints.Value{
 				Arch: &a,
 			},
 		})

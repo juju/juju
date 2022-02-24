@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -702,6 +703,7 @@ type fakeAddClient struct {
 	cloudRegion     string
 	cloudCredential names.CloudCredentialTag
 	config          map[string]interface{}
+	cons            constraints.Value
 	err             error
 	model           base.ModelInfo
 }
@@ -712,7 +714,7 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
+func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}, cons constraints.Value) (base.ModelInfo, error) {
 	if f.err != nil {
 		return base.ModelInfo{}, f.err
 	}
@@ -721,6 +723,7 @@ func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, 
 	f.cloudName = cloudName
 	f.cloudRegion = cloudRegion
 	f.config = config
+	f.cons = cons
 	return f.model, nil
 }
 

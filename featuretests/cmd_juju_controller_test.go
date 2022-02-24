@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju"
@@ -53,7 +54,7 @@ func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isS
 	model, err := modelManager.CreateModel(
 		modelname, s.AdminUserTag(c).Id(), "", "", names.CloudCredentialTag{}, map[string]interface{}{
 			"controller": isServer,
-		},
+		}, constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return model
@@ -67,7 +68,7 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 		modelname, names.NewLocalUserTag("test").Id(), "", "", names.CloudCredentialTag{}, map[string]interface{}{
 			"authorized-keys": "ssh-key",
 			"controller":      isServer,
-		},
+		}, constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

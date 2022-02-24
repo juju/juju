@@ -73,7 +73,7 @@ func (c *Client) CreateModel(
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
-		Constraints:        cons,
+		Constraints:        &cons,
 	}
 	var modelInfo params.ModelInfo
 	err := c.facade.FacadeCall("CreateModel", createArgs, &modelInfo)

@@ -585,6 +585,11 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		return result, errors.Trace(err)
 	}
 
+	var cons constraints.Value
+	if args.Constraints != nil {
+		cons = *args.Constraints
+	}
+
 	var model common.Model
 	if jujucloud.CloudIsCAAS(cloud) {
 		model, err = m.newCAASModel(
@@ -595,7 +600,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			cloudRegionName,
 			cloudCredentialTag,
 			ownerTag,
-			args.Constraints)
+			cons)
 	} else {
 		model, err = m.newModel(
 			cloudSpec,
@@ -605,7 +610,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			cloudRegionName,
 			cloudCredentialTag,
 			ownerTag,
-			args.Constraints)
+			cons)
 	}
 	if err != nil {
 		return result, errors.Trace(err)

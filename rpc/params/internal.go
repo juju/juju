@@ -146,7 +146,7 @@ type ModelCreateArgs struct {
 	CloudCredentialTag string `json:"credential,omitempty"`
 
 	// Constraints allows setting the initial model constraints when creating.
-	Constraints constraints.Value `json:"constraints,omitempty"`
+	Constraints *constraints.Value `json:"constraints,omitempty"`
 }
 
 // Model holds the result of an API call returning a name and UUID
