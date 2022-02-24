@@ -111,15 +111,6 @@ func (a *applierMetrics) Record(start time.Time, result string) {
 	}).Observe(elapsedMS)
 }
 
-// RecordLeaderError calls out that there was a leader error, so didn't
-// follow the usual flow.
-func (a *applierMetrics) RecordLeaderError(start time.Time) {
-	elapsedMS := float64(a.clock.Now().Sub(start)) / float64(time.Millisecond)
-	a.applications.With(prometheus.Labels{
-		"result": "leader-error",
-	}).Observe(elapsedMS)
-}
-
 // Describe is part of the prometheus.Collector interface.
 func (a *applierMetrics) Describe(ch chan<- *prometheus.Desc) {
 	a.applications.Describe(ch)

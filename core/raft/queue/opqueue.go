@@ -16,13 +16,13 @@ const (
 	// EnqueueDefaultTimeout is the timeout for enqueueing an operation. If an
 	// operation can't be processed in the time, a ErrDeadlineExceeded is
 	// returned.
-	EnqueueDefaultTimeout time.Duration = time.Second * 3
+	EnqueueDefaultTimeout = time.Second * 3
 
 	// EnqueueExtendTimeout is the timeout for enqueueing an extended operation.
 	// We want a different timeout for extensions as we want to reduce the
 	// amount of application leadership churning. To give the operation a better
 	// chance of succeeding.
-	EnqueueExtendTimeout time.Duration = time.Second * 5
+	EnqueueExtendTimeout = time.Second * 5
 
 	// EnqueueBatchSize dictates how many operations can be processed at any
 	// one time.
@@ -127,7 +127,7 @@ func (q *OpQueue) Enqueue(op InOperation) error {
 }
 
 // Queue returns the queue of operations. Removing an item from the channel
-// will unblock to allow another to take it's place.
+// will unblock to allow another to take its place.
 func (q *OpQueue) Queue() <-chan []OutOperation {
 	return q.out
 }
@@ -244,7 +244,7 @@ type ringOp struct {
 }
 
 func makeRingOp(leaseType string, cmd []byte, stop func() <-chan struct{}, done func(error), now time.Time) ringOp {
-	// If we locate a extension in the queue, give it a larger timeout to prevent
+	// If we locate an extension in the queue, give it a larger timeout to prevent
 	// excessive lease churning.
 	timeout := EnqueueDefaultTimeout
 	if leaseType == "extend" {
