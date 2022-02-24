@@ -255,6 +255,9 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// Kubernetes probes
 		caasProberName: caasprober.Manifold(caasprober.ManifoldConfig{
 			MuxName: probeHTTPServerName,
+			Providers: []string{
+				uniterName,
+			},
 		}),
 
 		// The charmdir resource coordinates whether the charm directory is

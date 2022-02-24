@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/observability/probe"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
@@ -175,7 +176,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if uniter == nil {
 				return errors.Errorf("expected Uniter in")
 			}
+
 			switch outPtr := out.(type) {
+			case *probe.ProbeProvider:
+				*outPtr = &uniter.Probe
 			case **Uniter:
 				*outPtr = uniter
 			default:

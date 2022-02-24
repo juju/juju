@@ -4,14 +4,15 @@
 package caasprober
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/observability/probe"
 )
 
 type Mux interface {
@@ -24,12 +25,13 @@ type Controller struct {
 }
 
 const (
-	PathLivenessProbe  = "/liveness"
-	PathReadinessProbe = "/readiness"
-	PathStartupProbe   = "/startup"
+	DetailedResponseQueryKey = "detailed"
+	PathLivenessProbe        = "/liveness"
+	PathReadinessProbe       = "/readiness"
+	PathStartupProbe         = "/startup"
 )
 
-func NewController(probes CAASProbes, mux Mux) (*Controller, error) {
+func NewController(probes *CAASProbes, mux Mux) (*Controller, error) {
 	c := &Controller{}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -47,14 +49,14 @@ func (c *Controller) Kill() {
 }
 
 func (c *Controller) makeLoop(
-	probes CAASProbes,
+	probes *CAASProbes,
 	mux Mux,
 ) func() error {
 	return func() error {
 		if err := mux.AddHandler(
 			http.MethodGet,
 			k8sconstants.AgentHTTPPathLiveness,
-			ProbeHandler("liveness", probes.LivenessProbe)); err != nil {
+			ProbeHandler("liveness", probes.Liveness)); err != nil {
 			return jujuerrors.Trace(err)
 		}
 		defer mux.RemoveHandler(http.MethodGet, PathLivenessProbe)
@@ -62,7 +64,7 @@ func (c *Controller) makeLoop(
 		if err := mux.AddHandler(
 			http.MethodGet,
 			k8sconstants.AgentHTTPPathReadiness,
-			ProbeHandler("readiness", probes.ReadinessProbe)); err != nil {
+			ProbeHandler("readiness", probes.Readiness)); err != nil {
 			return jujuerrors.Trace(err)
 		}
 		defer mux.RemoveHandler(http.MethodGet, PathReadinessProbe)
@@ -70,7 +72,7 @@ func (c *Controller) makeLoop(
 		if err := mux.AddHandler(
 			http.MethodGet,
 			k8sconstants.AgentHTTPPathStartup,
-			ProbeHandler("startup", probes.StartupProbe)); err != nil {
+			ProbeHandler("startup", probes.Startup)); err != nil {
 			return jujuerrors.Trace(err)
 		}
 		defer mux.RemoveHandler(http.MethodGet, PathStartupProbe)
@@ -82,10 +84,54 @@ func (c *Controller) makeLoop(
 	}
 }
 
-func ProbeHandler(name string, supplier func() Prober) http.Handler {
+// ProbeHandler implements a http handler for the supplied probe and probe name.
+func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		good, err := supplier().Probe()
-		if errors.Is(err, ErrorProbeNotImplemented) {
+		shouldDetailResponse := false
+		detailedVals, exists := req.URL.Query()[DetailedResponseQueryKey]
+		if exists && len(detailedVals) == 1 {
+			val, err := strconv.ParseBool(detailedVals[0])
+			if err != nil {
+				http.Error(res, fmt.Sprintf("invalid detailed query value %s expected boolean", detailedVals[0]),
+					http.StatusBadRequest)
+				return
+			}
+			shouldDetailResponse = val
+		}
+
+		good, err := aggProbe.ProbeWithResultCallback(
+			probe.ProbeResultCallback(func(probeKey string, val bool, err error) {
+				if !shouldDetailResponse {
+					return
+				}
+
+				// We are trying to output 1 line here per probe called.
+				// The format should be:
+				// + uniter # for success
+				// - uniter: some error # for failure
+
+				if val {
+					// Print + on probe success
+					fmt.Fprintf(res, "+ ")
+				} else {
+					// Print - on probe failure
+					fmt.Fprintf(res, "- ")
+				}
+
+				// Print the probe name
+				fmt.Fprintf(res, probeKey)
+
+				// Print the error if one exists
+				if err != nil {
+					fmt.Fprintf(res, ": %s", err)
+				}
+
+				// Finish the current line
+				fmt.Fprintf(res, "\n")
+			}),
+		)
+
+		if jujuerrors.IsNotImplemented(err) {
 			http.Error(res, fmt.Sprintf("%s: probe %s",
 				http.StatusText(http.StatusNotImplemented), name),
 				http.StatusNotImplemented)

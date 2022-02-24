@@ -1,0 +1,80 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package probe
+
+import (
+	"github.com/juju/errors"
+)
+
+// LivenessProber is an interface for probing targets that implement liveness
+// probe support.
+type LivenessProber interface {
+	// LivenessProbe returns the Prober to use for Liveness probes.
+	LivenessProbe() Prober
+}
+
+// Prober represents something that can be probed and return a true or false
+// statement about it's success or optionally error if it's not able to
+// assertain a probes success.
+type Prober interface {
+	// Probe this thing and return true or false as to it's success.
+	// Alternatively an error can be raise when making this decision in which
+	// case the probe should be considered a failed with extra context through
+	// the error.
+	Probe() (bool, error)
+}
+
+// ProberProvider is implemented by entities that wish to controbute probes to
+// the overall applications probe support.
+type ProbeProvider interface {
+	SupportedProbes() SupportedProbes
+}
+
+// ProbeType is an alias type to describe the type of probe in question.
+type ProbeType string
+
+// SupportedProbes provides a map of supported probes to the caller referenced
+// on ProbeType.
+type SupportedProbes map[ProbeType]Prober
+
+const (
+	// ProbeLiveness represents a liveness probe
+	ProbeLiveness = ProbeType("liveness")
+
+	// ProbeLiveness represents a readiness probe
+	ProbeReadiness = ProbeType("readiness")
+
+	// ProbeLiveness represents a startup probe
+	ProbeStartup = ProbeType("startup")
+)
+
+// ProberFn is a convenience wrapper to transform a function into a Prober
+// interface
+type ProberFn func() (bool, error)
+
+var (
+	// NotImplemented is a convenience wrapper for supplying a probe that
+	// indiciates to it's caller that it's not implemented. Resulting error
+	// should hold true with errors.IsNotImplemented(err)
+	NotImplemented Prober = ProberFn(func() (bool, error) {
+		return false, errors.NotImplementedf("probe not implemented")
+	})
+
+	// Success is a convenience wrapper probe that always evalutates to success.
+	Success Prober = ProberFn(func() (bool, error) {
+		return true, nil
+	})
+)
+
+// Probe implements Prober interface
+func (p ProberFn) Probe() (bool, error) {
+	return p()
+}
+
+// Supports indicates if the supplied ProbeType is in the map of supported
+// probe types.
+func (s SupportedProbes) Supports(t ProbeType) bool {
+	_, has := s[t]
+	return has
+}
