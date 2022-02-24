@@ -542,7 +542,7 @@ func (r *remote) SetAddress(addr string) {
 // Request performs a request against a specific api.
 func (r *remote) Request(ctx context.Context, command *raftlease.Command) error {
 	if r.client == nil {
-		r.config.Logger.Errorf("No attached client instance; dropping command: %v", command)
+		r.config.Logger.Warningf("not currently connected to the controller raft engine; dropping lease command: %v", command)
 		return lease.ErrDropped
 	}
 
