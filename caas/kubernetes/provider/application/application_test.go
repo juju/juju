@@ -502,7 +502,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				RunAsGroup: int64Ptr(0),
 			},
 			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathLiveness,
 						Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -514,7 +514,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				FailureThreshold:    2,
 			},
 			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathReadiness,
 						Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -526,7 +526,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				FailureThreshold:    2,
 			},
 			StartupProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathStartup,
 						Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -576,7 +576,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				},
 			},
 			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/v1/health?level=alive",
 						Port: intstr.FromInt(38813),
@@ -589,7 +589,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				FailureThreshold:    1,
 			},
 			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/v1/health?level=ready",
 						Port: intstr.FromInt(38813),
@@ -639,7 +639,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				},
 			},
 			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/v1/health?level=alive",
 						Port: intstr.FromInt(38814),
@@ -652,7 +652,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				FailureThreshold:    1,
 			},
 			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/v1/health?level=ready",
 						Port: intstr.FromInt(38814),
@@ -1557,7 +1557,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 								RunAsGroup: int64Ptr(0),
 							},
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/liveness",
 										Port: intstr.FromString("3856"),
@@ -1569,7 +1569,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 								FailureThreshold:    2,
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/readiness",
 										Port: intstr.FromString("3856"),
@@ -1581,7 +1581,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 								FailureThreshold:    2,
 							},
 							StartupProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/startup",
 										Port: intstr.FromString("3856"),
@@ -1687,7 +1687,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 								RunAsGroup: int64Ptr(0),
 							},
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/liveness",
 										Port: intstr.FromString("3856"),
@@ -1699,7 +1699,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 								FailureThreshold:    2,
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/readiness",
 										Port: intstr.FromString("3856"),
@@ -1711,7 +1711,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 								FailureThreshold:    2,
 							},
 							StartupProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/startup",
 										Port: intstr.FromString("3856"),

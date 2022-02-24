@@ -631,7 +631,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				},
 			},
 			ReadinessProbe: &core.Probe{
-				Handler: core.Handler{
+				ProbeHandler: core.ProbeHandler{
 					Exec: probCmds,
 				},
 				FailureThreshold:    3,
@@ -641,7 +641,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				TimeoutSeconds:      1,
 			},
 			LivenessProbe: &core.Probe{
-				Handler: core.Handler{
+				ProbeHandler: core.ProbeHandler{
 					Exec: probCmds,
 				},
 				FailureThreshold:    3,

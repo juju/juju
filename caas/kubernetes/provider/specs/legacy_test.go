@@ -215,7 +215,7 @@ echo "do some stuff here for gitlab container"
 					},
 					LivenessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler: core.Handler{
+						ProbeHandler: core.ProbeHandler{
 							HTTPGet: &core.HTTPGetAction{
 								Path: "/ping",
 								Port: intstr.IntOrString{IntVal: 8080},
@@ -224,7 +224,7 @@ echo "do some stuff here for gitlab container"
 					},
 					ReadinessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler: core.Handler{
+						ProbeHandler: core.ProbeHandler{
 							HTTPGet: &core.HTTPGetAction{
 								Path: "/pingReady",
 								Port: intstr.IntOrString{StrVal: "www", Type: 1},
@@ -234,7 +234,7 @@ echo "do some stuff here for gitlab container"
 					StartupProbe: &core.Probe{
 						PeriodSeconds:    10,
 						FailureThreshold: 30,
-						Handler: core.Handler{
+						ProbeHandler: core.ProbeHandler{
 							HTTPGet: &core.HTTPGetAction{
 								Path: "/healthz",
 								Port: intstr.IntOrString{
