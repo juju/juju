@@ -60,6 +60,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MaxCharmStateSize,
 		controller.MaxAgentStateSize,
 		controller.NonSyncedWritesToRaftLog,
+		controller.BatchRaftFSM,
 		controller.MigrationMinionWaitMax,
 		controller.AgentLogfileMaxBackups,
 		controller.AgentLogfileMaxSize,
