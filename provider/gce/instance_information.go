@@ -35,19 +35,22 @@ var (
 	minMemoryHeuristic uint64 = 2048
 )
 
+func ensureDefaultConstraints(c constraints.Value) constraints.Value {
+	if c.HasInstanceType() || c.HasCpuCores() || c.HasMem() {
+		return c
+	}
+	c.CpuCores = &minCpuCores
+	c.Mem = &minMemoryHeuristic
+	return c
+}
+
 // InstanceTypes implements InstanceTypesFetcher
 func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	allInstanceTypes, err := env.getAllInstanceTypes(ctx, clock.WallClock)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
-	if c.CpuCores == nil {
-		c.CpuCores = &minCpuCores
-	}
-	if c.Mem == nil {
-		c.Mem = &minMemoryHeuristic
-	}
-	matches, err := instances.MatchingInstanceTypes(allInstanceTypes, "", c)
+	matches, err := instances.MatchingInstanceTypes(allInstanceTypes, "", ensureDefaultConstraints(c))
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
