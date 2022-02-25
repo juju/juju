@@ -14,12 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/raft/notifyproxy"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state"
-	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/worker/common"
-	workerstate "github.com/juju/juju/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run a raft
@@ -28,16 +25,15 @@ type ManifoldConfig struct {
 	ClockName     string
 	AgentName     string
 	TransportName string
-	StateName     string
 
 	FSM                  raft.FSM
 	Logger               Logger
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(Config) (worker.Worker, error)
-	NewTarget            func(*state.State, raftleasestore.Logger) raftlease.NotifyTarget
 	NewApplier           func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier
 
-	Queue Queue
+	Queue           Queue
+	NewNotifyTarget func() *notifyproxy.NotifyProxy
 }
 
 // Validate validates the manifold configuration.
@@ -63,8 +59,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.Queue == nil {
 		return errors.NotValidf("nil Queue")
 	}
-	if config.NewTarget == nil {
-		return errors.NotValidf("nil NewTarget")
+	if config.NewNotifyTarget == nil {
+		return errors.NotValidf("nil NewNotifyTarget")
 	}
 	if config.NewApplier == nil {
 		return errors.NotValidf("nil NewApplier")
@@ -79,7 +75,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ClockName,
 			config.AgentName,
 			config.TransportName,
-			config.StateName,
 		},
 		Start:  config.start,
 		Output: raftOutput,
@@ -106,25 +101,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-	statePool, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	st := statePool.SystemState()
-
-	// We require the controller config to get the feature flags.
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot fetch the controller config")
-	}
+	// TODO(axw) make the directory path configurable, so we can
+	// potentially have multiple Rafts. The dqlite raft should go
+	// in <data-dir>/dqlite.
+	agentConfig := agent.CurrentConfig()
 
 	fsm := config.FSM
-	if controllerConfig.Features().Contains(feature.RaftBatchFSM) {
+	if agentConfig.BatchRaftFSM() {
 		if raftLeaseFSM, ok := fsm.(*raftlease.FSM); ok {
 			fsm = raftlease.NewBatchFSM(raftLeaseFSM)
 			config.Logger.Infof("Using batching FSM for processing leases")
@@ -135,15 +118,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		}
 	}
 
-	// TODO(axw) make the directory path configurable, so we can
-	// potentially have multiple Rafts. The dqlite raft should go
-	// in <data-dir>/dqlite.
-	agentConfig := agent.CurrentConfig()
 	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
-
-	notifyTarget := config.NewTarget(st, config.Logger)
-
-	w, err := config.NewWorker(Config{
+	return config.NewWorker(Config{
 		FSM:                      fsm,
 		Logger:                   config.Logger,
 		StorageDir:               raftDir,
@@ -152,15 +128,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:                    clk,
 		PrometheusRegisterer:     config.PrometheusRegisterer,
 		Queue:                    config.Queue,
-		NotifyTarget:             notifyTarget,
+		NewNotifyTarget:          config.NewNotifyTarget,
 		NonSyncedWritesToRaftLog: agentConfig.NonSyncedWritesToRaftLog(),
 		NewApplier:               config.NewApplier,
 	})
-	if err != nil {
-		_ = stTracker.Done()
-		return nil, errors.Trace(err)
-	}
-	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 func raftOutput(in worker.Worker, out interface{}) error {
@@ -183,6 +154,12 @@ func raftOutput(in worker.Worker, out interface{}) error {
 			return err
 		}
 		*out = store
+	case *notifyproxy.NotificationProxy:
+		proxy, err := w.NotifyProxy()
+		if err != nil {
+			return err
+		}
+		*out = proxy
 	default:
 		return errors.Errorf("expected output of **raft.Raft or *raft.LogStore, got %T", out)
 	}
@@ -192,10 +169,9 @@ func raftOutput(in worker.Worker, out interface{}) error {
 type withRaftOutputs interface {
 	Raft() (*raft.Raft, error)
 	LogStore() (raft.LogStore, error)
+	NotifyProxy() (notifyproxy.NotificationProxy, error)
 }
 
-// NewTarget creates a new lease notify target using the dependencies in a late
-// fashion.
-func NewTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
-	return st.LeaseNotifyTarget(logger)
+func NewTarget() *notifyproxy.NotifyProxy {
+	return notifyproxy.New()
 }

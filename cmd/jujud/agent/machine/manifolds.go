@@ -83,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/raftforwarder"
+	"github.com/juju/juju/worker/raft/raftnotifier"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
@@ -774,16 +775,23 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Path:              "/raft",
 		})),
 
+		raftNotifyProxy: ifController(raftnotifier.Manifold(raftnotifier.ManifoldConfig{
+			StateName: stateName,
+			RaftName:  raftName,
+			Logger:    loggo.GetLogger("juju.worker.raft.raftnotifier"),
+			NewTarget: raftnotifier.NewTarget,
+			NewWorker: raftnotifier.NewWorker,
+		})),
+
 		raftName: ifFullyUpgraded(raft.Manifold(raft.ManifoldConfig{
 			ClockName:            clockName,
 			AgentName:            agentName,
 			TransportName:        raftTransportName,
-			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
 			Logger:               loggo.GetLogger("juju.worker.raft"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raft.NewWorker,
-			NewTarget:            raft.NewTarget,
+			NewNotifyTarget:      raft.NewTarget,
 			Queue:                config.RaftOpQueue,
 			NewApplier:           raft.NewApplier,
 		})),
@@ -1177,6 +1185,7 @@ const (
 	raftFlagName      = "raft-leader-flag"
 	raftBackstopName  = "raft-backstop"
 	raftForwarderName = "raft-forwarder"
+	raftNotifyProxy   = "raft-notifier"
 
 	validCredentialFlagName = "valid-credential-flag"
 

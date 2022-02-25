@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
+	"github.com/juju/juju/core/raft/notifyproxy"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	coretesting "github.com/juju/juju/testing"
@@ -26,10 +27,11 @@ import (
 
 type workerFixture struct {
 	testing.IsolationSuite
-	fsm        *raft.SimpleFSM
-	config     raft.Config
-	queue      *queue.OpQueue
-	operations chan []queue.OutOperation
+	fsm         *raft.SimpleFSM
+	config      raft.Config
+	queue       *queue.OpQueue
+	notifyProxy *notifyproxy.NotifyProxy
+	operations  chan []queue.OutOperation
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -37,17 +39,20 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 
 	s.fsm = &raft.SimpleFSM{}
 	s.queue = queue.NewOpQueue(clock.WallClock)
+	s.notifyProxy = notifyproxy.New()
 	s.operations = make(chan []queue.OutOperation)
 
 	s.config = raft.Config{
-		FSM:          s.fsm,
-		Logger:       loggo.GetLogger("juju.worker.raft_test"),
-		StorageDir:   c.MkDir(),
-		LocalID:      "123",
-		Transport:    s.newTransport("123"),
-		Clock:        testclock.NewClock(time.Time{}),
-		Queue:        s.queue,
-		NotifyTarget: &struct{ raftlease.NotifyTarget }{},
+		FSM:        s.fsm,
+		Logger:     loggo.GetLogger("juju.worker.raft_test"),
+		StorageDir: c.MkDir(),
+		LocalID:    "123",
+		Transport:  s.newTransport("123"),
+		Clock:      testclock.NewClock(time.Time{}),
+		Queue:      s.queue,
+		NewNotifyTarget: func() *notifyproxy.NotifyProxy {
+			return s.notifyProxy
+		},
 		NewApplier: func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier {
 			return testLeaseApplier{operations: s.operations}
 		},
@@ -111,8 +116,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *raft.Config) { cfg.Queue = nil },
 		"nil Queue not valid",
 	}, {
-		func(cfg *raft.Config) { cfg.NotifyTarget = nil },
-		"nil NotifyTarget not valid",
+		func(cfg *raft.Config) { cfg.NewNotifyTarget = nil },
+		"nil NewNotifyTarget not valid",
 	}, {
 		func(cfg *raft.Config) { cfg.NewApplier = nil },
 		"nil NewApplier not valid",
@@ -157,7 +162,7 @@ func (s *WorkerValidationSuite) TestBootstrapNotifyTarget(c *gc.C) {
 func (s *WorkerValidationSuite) TestBootstrapNewApplier(c *gc.C) {
 	s.config.Transport = nil
 	s.config.FSM = nil
-	s.config.NotifyTarget = nil
+	s.config.NewNotifyTarget = nil
 	err := raft.Bootstrap(s.config)
 	c.Assert(err, gc.ErrorMatches, "non-nil NewApplier during Bootstrap not valid")
 }
@@ -181,12 +186,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	// Bootstrap before starting the worker.
 	transport := s.config.Transport
 	fsm := s.config.FSM
-	notifyTarget := s.config.NotifyTarget
+	notifyTarget := s.config.NewNotifyTarget
 	applyOp := s.config.NewApplier
 
 	s.config.Transport = nil
 	s.config.FSM = nil
-	s.config.NotifyTarget = nil
+	s.config.NewNotifyTarget = nil
 	s.config.NewApplier = nil
 
 	err := raft.Bootstrap(s.config)
@@ -194,7 +199,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	s.config.Transport = transport
 	s.config.FSM = fsm
-	s.config.NotifyTarget = notifyTarget
+	s.config.NewNotifyTarget = notifyTarget
 	s.config.NewApplier = applyOp
 
 	// Make a new clock so the waits from the bootstrap aren't hanging
@@ -487,12 +492,12 @@ func (s *WorkerTimeoutSuite) SetUpTest(c *gc.C) {
 	// Bootstrap before starting the worker.
 	transport := s.config.Transport
 	fsm := s.config.FSM
-	notifyTarget := s.config.NotifyTarget
+	notifyTarget := s.config.NewNotifyTarget
 	applyOp := s.config.NewApplier
 
 	s.config.Transport = nil
 	s.config.FSM = nil
-	s.config.NotifyTarget = nil
+	s.config.NewNotifyTarget = nil
 	s.config.NewApplier = nil
 
 	err := raft.Bootstrap(s.config)
@@ -500,7 +505,7 @@ func (s *WorkerTimeoutSuite) SetUpTest(c *gc.C) {
 
 	s.config.Transport = transport
 	s.config.FSM = fsm
-	s.config.NotifyTarget = notifyTarget
+	s.config.NewNotifyTarget = notifyTarget
 	s.config.NewApplier = applyOp
 }
 
