@@ -15,9 +15,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
 )

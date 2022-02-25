@@ -16,13 +16,16 @@ var _ = gc.Suite(&originSuite{})
 
 func (originSuite) TestCoreChannel(c *gc.C) {
 	track := "latest"
+	branch := "foo"
 	origin := commoncharm.Origin{
-		Risk:  "edge",
-		Track: &track,
+		Risk:   "edge",
+		Track:  &track,
+		Branch: &branch,
 	}
 	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{
-		Risk:  charm.Edge,
-		Track: "latest",
+		Risk:   charm.Edge,
+		Track:  "latest",
+		Branch: "foo",
 	})
 }
 

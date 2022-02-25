@@ -6,7 +6,7 @@ package crossmodel
 import (
 	"github.com/juju/charm/v9"
 
-	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/api/client/applicationoffers"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 

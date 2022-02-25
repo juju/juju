@@ -4,10 +4,11 @@
 package caasunitprovisioner
 
 import (
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/watcher"
 )
 
 type ContainerBroker interface {
@@ -22,7 +23,7 @@ type ContainerBroker interface {
 
 type ServiceBroker interface {
 	Provider() caas.ContainerEnvironProvider
-	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config config.ConfigAttributes) error
 	DeleteService(appName string) error
 	UnexposeService(appName string) error
 

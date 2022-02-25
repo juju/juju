@@ -12,12 +12,12 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/spaces"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/spaces"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/rpc/params"
 )
 
 // NewBindCommand returns a command which changes the bindings for an application.

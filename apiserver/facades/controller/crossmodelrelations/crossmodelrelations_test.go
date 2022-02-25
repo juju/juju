@@ -23,13 +23,13 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -46,7 +46,6 @@ type crossmodelRelationsSuite struct {
 	mockStatePool *mockStatePool
 	bakery        *mockBakeryService
 	authContext   *commoncrossmodel.AuthContext
-	cachedModel   *fakeCachedModel
 	api           *crossmodelrelations.CrossModelRelationsAPI
 
 	watchedRelations params.Entities
@@ -64,7 +63,6 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	s.cachedModel = &fakeCachedModel{}
 
 	s.st = newMockState()
 	s.mockStatePool = &mockStatePool{map[string]commoncrossmodel.Backend{coretesting.ModelTag.Id(): s.st}}
@@ -93,7 +91,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
-		s.st, fw, s.resources, s.authorizer, s.cachedModel,
+		s.st, fw, s.resources, s.authorizer,
 		s.authContext, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher)
 	c.Assert(err, jc.ErrorIsNil)
@@ -549,7 +547,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	s.st.offers["mysql-uuid"] = &crossmodel.ApplicationOffer{
 		OfferName: "hosted-mysql", OfferUUID: "mysql-uuid", ApplicationName: "mysql"}
-	app := &mockApplication{name: "mysql"}
+	app := &mockApplication{name: "mysql", appStatus: status.Waiting}
 	s.st.applications["mysql"] = app
 	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-mysql")] = "token-hosted-mysql"
 	mac, err := s.bakery.NewMacaroon(
@@ -595,7 +593,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 		{"Application", []interface{}{"mysql"}},
 	})
 	app.CheckCalls(c, []testing.StubCall{
-		{"Name", nil},
+		{"Status", nil},
 	})
 }
 
@@ -782,21 +780,4 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out receiving change event")
 	}
-
-}
-
-type fakeCachedModel struct {
-	err  error
-	info status.StatusInfo
-}
-
-func (f *fakeCachedModel) Application(name string) (commoncrossmodel.CachedApplication, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-	return f, nil
-}
-
-func (f *fakeCachedModel) Status() status.StatusInfo {
-	return status.StatusInfo{Status: status.Waiting}
 }

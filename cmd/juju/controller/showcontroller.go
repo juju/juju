@@ -13,8 +13,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/pki"
+	"github.com/juju/juju/rpc/params"
 )
 
 var usageShowControllerSummary = `

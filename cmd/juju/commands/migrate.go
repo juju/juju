@@ -14,13 +14,13 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/client/usermanager"
+	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 func newMigrateCommand() modelcmd.ModelCommand {

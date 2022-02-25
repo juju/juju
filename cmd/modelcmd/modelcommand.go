@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"

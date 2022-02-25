@@ -5,9 +5,10 @@ package remotestate
 
 import (
 	"github.com/juju/charm/v9"
-	"github.com/juju/juju/apiserver/params"
+
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/names/v4"
 )
 

@@ -21,10 +21,10 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/ssh"
 
-	"github.com/juju/juju/api/sshclient"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/sshclient"
 	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.ssh")

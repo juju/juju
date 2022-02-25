@@ -6,14 +6,18 @@ package charms
 import (
 	"github.com/juju/charm/v9"
 
-	"github.com/juju/juju/apiserver/params"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/rpc/params"
 )
 
 func convertOrigin(origin corecharm.Origin) params.CharmOrigin {
 	var track *string
 	if origin.Channel != nil && origin.Channel.Track != "" {
 		track = &origin.Channel.Track
+	}
+	var branch *string
+	if origin.Channel != nil && origin.Channel.Branch != "" {
+		branch = &origin.Channel.Branch
 	}
 	var risk string
 	if origin.Channel != nil {
@@ -27,6 +31,7 @@ func convertOrigin(origin corecharm.Origin) params.CharmOrigin {
 		Risk:         risk,
 		Revision:     origin.Revision,
 		Track:        track,
+		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
 		OS:           origin.Platform.OS,
 		Series:       origin.Platform.Series,
@@ -39,6 +44,10 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 	if origin.Track != nil {
 		track = *origin.Track
 	}
+	var branch string
+	if origin.Branch != nil {
+		branch = *origin.Branch
+	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),
 		Type:     origin.Type,
@@ -46,8 +55,9 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
 		Channel: &charm.Channel{
-			Track: track,
-			Risk:  charm.Risk(origin.Risk),
+			Track:  track,
+			Risk:   charm.Risk(origin.Risk),
+			Branch: branch,
 		},
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,

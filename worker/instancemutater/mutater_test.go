@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiinstancemutater "github.com/juju/juju/api/instancemutater"
+	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"

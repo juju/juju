@@ -13,7 +13,7 @@ import (
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/charm"

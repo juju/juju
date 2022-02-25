@@ -564,7 +564,7 @@ func getPodSpec() corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "gitlab-image:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--verbose"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38813", "--verbose"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
@@ -574,6 +574,32 @@ func getPodSpec() corev1.PodSpec {
 					Name:  "PEBBLE_SOCKET",
 					Value: "/charm/container/pebble.socket",
 				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.FromInt(38813),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=ready",
+						Port: intstr.FromInt(38813),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),
@@ -601,7 +627,7 @@ func getPodSpec() corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "nginx-image:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--verbose"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38814", "--verbose"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
@@ -611,6 +637,32 @@ func getPodSpec() corev1.PodSpec {
 					Name:  "PEBBLE_SOCKET",
 					Value: "/charm/container/pebble.socket",
 				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.FromInt(38814),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=ready",
+						Port: intstr.FromInt(38814),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),

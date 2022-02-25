@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 type clientNormalizeOriginSuite struct {
@@ -19,11 +19,13 @@ var _ = gc.Suite(&clientNormalizeOriginSuite{})
 
 func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 	track := "1.0"
+	branch := "foo"
 	origin := params.CharmOrigin{
 		Source:       "charm-hub",
 		Type:         "charm",
 		Risk:         "edge",
 		Track:        &track,
+		Branch:       &branch,
 		Architecture: "all",
 		OS:           "all",
 		Series:       "all",

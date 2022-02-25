@@ -126,7 +126,8 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
     else:
         k8s_model.deploy(
             charm=bundle_info[bundle]['uri'],
-            channel="stable",
+            revision="60",
+            trust="true",
         )
 
     if application_exists(k8s_model, 'istio-ingressgateway'):
@@ -190,28 +191,31 @@ def deploy_kubeflow(caas_client, k8s_model, bundle, build):
     )
 
     pub_addr = get_pub_addr(caas_client, k8s_model.model_name)
-    password = "foobar"
     app_name_to_config = 'dex-auth'
     if application_exists(k8s_model, app_name_to_config):
         log.info("configuring %s application", app_name_to_config)
-        k8s_model.set_config(
-            app_name_to_config,
-            {
-                'public-url': f'http://{pub_addr}:80',
-                'static-password': f'{password}',
-            },
-        )
+        k8s_model.set_config(app_name_to_config, {'public-url': f'http://{pub_addr}'})
         log.info("application config of %s: \n%s", app_name_to_config, k8s_model.get_config(app_name_to_config))
 
     app_name_to_config = 'oidc-gatekeeper'
     if application_exists(k8s_model, app_name_to_config):
         log.info("configuring %s application", app_name_to_config)
-        k8s_model.set_config(app_name_to_config, {'public-url': f'http://{pub_addr}:80'})
+        k8s_model.set_config(app_name_to_config, {'public-url': f'http://{pub_addr}'})
         log.info("application config of %s: \n%s", app_name_to_config, k8s_model.get_config(app_name_to_config))
 
     log.info("Waiting for Kubeflow to become ready")
 
-    k8s_model.juju('wait', ('-wv', '-m', k8s_model.model_name, '-t', str(10 * 60)))
+    # See here for why loop is necessary:
+    # https://bugs.launchpad.net/juju/+bug/1921739
+    for _ in range(120):
+        try:
+            k8s_model.juju('wait', ('-wv', '-m', k8s_model.model_name, '-t', str(30)))
+            break
+        except subprocess.CalledProcessError:
+            time.sleep(5)
+    else:
+        k8s_model.juju('wait', ('-wv', '-m', k8s_model.model_name, '-t', str(300)))
+
     caas_client.kubectl(
         "wait",
         "--for=condition=available",
@@ -286,7 +290,7 @@ def get_pub_addr(caas_client, model_name):
         try:
             output = caas_client.kubectl('-n', model_name, 'get', f'svc/{charm}', '-ojson')
             pub_ip = json.loads(output)['status']['loadBalancer']['ingress'][0]['ip']
-            return '%s.xip.io' % pub_ip
+            return '%s.nip.io' % pub_ip
         except (KeyError, subprocess.CalledProcessError):
             pass
     log.warn("""

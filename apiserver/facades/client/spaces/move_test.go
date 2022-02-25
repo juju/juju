@@ -11,11 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	netmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	"github.com/juju/juju/apiserver/facades/client/spaces"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/params"
 )
 
 // moveSubsetOpSuite tests the model operation used to
@@ -30,28 +29,28 @@ func (s *moveSubnetsOpSuite) TestSuccess(c *gc.C) {
 
 	spaceID := "13"
 
-	space := netmocks.NewMockBackingSpace(ctrl)
-	space.EXPECT().Id().Return(spaceID).MinTimes(1)
-
 	sub1 := spaces.NewMockMovingSubnet(ctrl)
 	sub2 := spaces.NewMockMovingSubnet(ctrl)
 
-	// Here we are just testing that we get an op per subnet.
-	sub1.EXPECT().UpdateSpaceOps(spaceID).Return([]txn.Op{{}})
-	sub2.EXPECT().UpdateSpaceOps(spaceID).Return([]txn.Op{{}})
+	sub1.EXPECT().ID().Return("1").MinTimes(1)
+	sub2.EXPECT().ID().Return("2").MinTimes(1)
 
-	op := spaces.NewMoveSubnetsOp(space, []spaces.MovingSubnet{sub1, sub2})
+	subBacking1 := spaces.NewMockMovingSubnetBacking(ctrl)
+
+	// Here we are just testing that we get an op per subnet.
+	subBacking1.EXPECT().UpdateSubnetSpaceOps("1", spaceID).Return([]txn.Op{{}})
+	subBacking1.EXPECT().UpdateSubnetSpaceOps("2", spaceID).Return([]txn.Op{{}})
+
+	op := spaces.NewMoveSubnetsOp(subBacking1, spaceID, []spaces.MovingSubnet{sub1, sub2})
 
 	txnOps, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(txnOps, gc.HasLen, 2)
 
 	// Now test that we get the correct return for GetMovedSubnets.
-	sub1.EXPECT().ID().Return("1")
 	sub1.EXPECT().SpaceName().Return("space-1")
 	sub1.EXPECT().CIDR().Return("10.0.0.10/24")
 
-	sub2.EXPECT().ID().Return("2")
 	sub2.EXPECT().SpaceName().Return("space-2")
 	sub2.EXPECT().CIDR().Return("10.0.1.10/16")
 
@@ -76,13 +75,14 @@ func (s *moveSubnetsOpSuite) TestError(c *gc.C) {
 
 	spaceID := "13"
 
-	space := netmocks.NewMockBackingSpace(ctrl)
-	space.EXPECT().Id().Return(spaceID)
-
 	sub1 := spaces.NewMockMovingSubnet(ctrl)
-	sub1.EXPECT().UpdateSpaceOps(spaceID).Return([]txn.Op{{}})
+	sub1.EXPECT().ID().Return("1").AnyTimes()
 
-	op := spaces.NewMoveSubnetsOp(space, []spaces.MovingSubnet{sub1})
+	subBacking1 := spaces.NewMockMovingSubnetBacking(ctrl)
+
+	subBacking1.EXPECT().UpdateSubnetSpaceOps(sub1.ID(), spaceID).Return([]txn.Op{{}})
+
+	op := spaces.NewMoveSubnetsOp(subBacking1, spaceID, []spaces.MovingSubnet{sub1})
 
 	_, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)

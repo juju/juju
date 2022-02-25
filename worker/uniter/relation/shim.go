@@ -6,7 +6,7 @@ package relation
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/agent/uniter"
 )
 
 type stateTrackerStateShim struct {

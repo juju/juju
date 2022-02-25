@@ -12,10 +12,10 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
 )
 

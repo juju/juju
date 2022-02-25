@@ -12,7 +12,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
@@ -325,13 +325,13 @@ type ProxyManager interface {
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
 	// EnsureService creates or updates a service for pods with the given params.
-	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config config.ConfigAttributes) error
 
 	// DeleteService deletes the specified service with all related resources.
 	DeleteService(appName string) error
 
 	// ExposeService sets up external access to the specified service.
-	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
+	ExposeService(appName string, resourceTags map[string]string, config config.ConfigAttributes) error
 
 	// UnexposeService removes external access to the specified service.
 	UnexposeService(appName string) error

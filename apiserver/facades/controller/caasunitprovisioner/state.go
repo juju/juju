@@ -11,7 +11,7 @@ import (
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -76,7 +76,7 @@ type Application interface {
 	SetScale(int, int64, bool) error
 	WatchConfigSettingsHash() state.StringsWatcher
 	WatchScale() state.NotifyWatcher
-	ApplicationConfig() (application.ConfigAttributes, error)
+	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	AllUnits() (units []Unit, err error)
 	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation
 	UpdateUnits(*state.UpdateUnitsOperation) error

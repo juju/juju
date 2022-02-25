@@ -20,10 +20,9 @@ import (
 	"github.com/juju/romulus/api/budget"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/storage"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/modelconfig"
+	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/rpc/params"
 )
 
 const (

@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	actionapi "github.com/juju/juju/api/action"
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/rpc/params"
 )
 
 func NewShowOperationCommand() cmd.Command {

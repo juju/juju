@@ -35,23 +35,19 @@ func (*FlagsSuite) TestConfigFlagSet(c *gc.C) {
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": ""})
 	c.Assert(f.Set("k1=v1"), jc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "v1"})
-	c.Assert(f.Set(`k1=""`), jc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": ""})
 	c.Assert(f.Set("k1==v2"), jc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2"})
 	c.Assert(f.Set("k2=3"), jc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": 3})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3"})
 	c.Assert(f.Set("k3="), jc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": 3, "k3": ""})
-	f.SetPreserveStringValue(true)
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3", "k3": ""})
 	c.Assert(f.Set("k4=4.0"), jc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": 3, "k3": "", "k4": "4.0"})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3", "k3": "", "k4": "4.0"})
 }
 
 func (*FlagsSuite) TestConfigFlagSetErrors(c *gc.C) {
 	var f ConfigFlag
 	c.Assert(f.Set(""), gc.ErrorMatches, "empty string not valid")
-	c.Assert(f.Set("x=%"), gc.ErrorMatches, "yaml: could not find expected directive name")
 }
 
 func (*FlagsSuite) TestConfigFlagSetAttrsFromReader(c *gc.C) {

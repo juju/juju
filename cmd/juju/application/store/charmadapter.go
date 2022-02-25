@@ -11,7 +11,7 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 
-	apicharm "github.com/juju/juju/api/charms"
+	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"

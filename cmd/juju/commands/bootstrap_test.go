@@ -871,9 +871,9 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 	// provider default of false with true
 	s.bootstrapCmd.config.Set("use-default-secgroup=true")
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
-		"bootstrapModelConfig":     {key: true},
+		"bootstrapModelConfig":     {key: "true"},
 		"inheritedControllerAttrs": {},
-		"userConfigAttrs":          {key: true},
+		"userConfigAttrs":          {key: "true"},
 	})
 }
 
@@ -907,9 +907,9 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.bootstrapCmd.config.Set("use-default-secgroup=false")
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
-		"bootstrapModelConfig":     {key: false},
+		"bootstrapModelConfig":     {key: "false"},
 		"inheritedControllerAttrs": {key: true},
-		"userConfigAttrs":          {key: false},
+		"userConfigAttrs":          {key: "false"},
 	})
 }
 

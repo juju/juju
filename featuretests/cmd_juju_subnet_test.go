@@ -29,8 +29,9 @@ func (s *cmdSubnetSuite) AddSpace(c *gc.C, name string, ids []string, public boo
 	space, err := s.State.AddSpace(name, "", ids, public)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, name)
-	subnets, err := space.Subnets()
+	spaceInfo, err := space.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
+	subnets := spaceInfo.Subnets
 	c.Assert(subnets, gc.HasLen, len(ids))
 	return space
 }

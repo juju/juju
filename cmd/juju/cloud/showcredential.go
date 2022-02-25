@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	apicloud "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/apiserver/params"
+	apicloud "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 type showCredentialCommand struct {

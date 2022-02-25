@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -35,6 +35,8 @@ type UpgradeStepsV1 interface {
 	ResetKVMMachineModificationStatusIdle(params.Entity) (params.ErrorResult, error)
 }
 
+// UpgradeStepsAPI implements version 2 of the Upgrade Steps API,
+// which adds WriteUniterState.
 type UpgradeStepsAPI struct {
 	st                 UpgradeStepsState
 	resources          facade.Resources
@@ -43,9 +45,12 @@ type UpgradeStepsAPI struct {
 	getUnitAuthFunc    common.GetAuthFunc
 }
 
-var (
-	_ UpgradeStepsV2 = (*UpgradeStepsAPI)(nil)
-)
+// UpgradeStepsAPIV1 implements version 1 of the Upgrade Steps API.
+type UpgradeStepsAPIV1 struct {
+	*UpgradeStepsAPI
+}
+
+var _ UpgradeStepsV2 = (*UpgradeStepsAPI)(nil)
 
 // NewFacadeV2 is used for API registration.
 func NewFacadeV2(ctx facade.Context) (*UpgradeStepsAPI, error) {

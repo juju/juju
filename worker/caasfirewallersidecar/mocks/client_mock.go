@@ -7,7 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	charms "github.com/juju/juju/api/common/charms"
-	application "github.com/juju/juju/core/application"
+	config "github.com/juju/juju/core/config"
 	life "github.com/juju/juju/core/life"
 	watcher "github.com/juju/juju/core/watcher"
 	reflect "reflect"
@@ -52,10 +52,10 @@ func (mr *MockClientMockRecorder) ApplicationCharmInfo(arg0 interface{}) *gomock
 }
 
 // ApplicationConfig mocks base method.
-func (m *MockClient) ApplicationConfig(arg0 string) (application.ConfigAttributes, error) {
+func (m *MockClient) ApplicationConfig(arg0 string) (config.ConfigAttributes, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationConfig", arg0)
-	ret0, _ := ret[0].(application.ConfigAttributes)
+	ret0, _ := ret[0].(config.ConfigAttributes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -180,10 +180,10 @@ func (mr *MockCAASFirewallerAPIMockRecorder) ApplicationCharmInfo(arg0 interface
 }
 
 // ApplicationConfig mocks base method.
-func (m *MockCAASFirewallerAPI) ApplicationConfig(arg0 string) (application.ConfigAttributes, error) {
+func (m *MockCAASFirewallerAPI) ApplicationConfig(arg0 string) (config.ConfigAttributes, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationConfig", arg0)
-	ret0, _ := ret[0].(application.ConfigAttributes)
+	ret0, _ := ret[0].(config.ConfigAttributes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

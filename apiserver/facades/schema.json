@@ -2917,6 +2917,9 @@
                         "architecture": {
                             "type": "string"
                         },
+                        "branch": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -14881,6 +14884,9 @@
                         "architecture": {
                             "type": "string"
                         },
+                        "branch": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -15467,7 +15473,7 @@
                             "$ref": "#/definitions/NotifyWatchResult"
                         }
                     },
-                    "description": "WatchChanges watches for cleanups to be perfomed in state"
+                    "description": "WatchCleanups watches for cleanups to be performed in state."
                 }
             },
             "definitions": {
@@ -38329,6 +38335,9 @@
                         "architecture": {
                             "type": "string"
                         },
+                        "branch": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -48475,7 +48484,7 @@
     },
     {
         "Name": "UpgradeSteps",
-        "Description": "",
+        "Description": "UpgradeStepsAPI implements version 2 of the Upgrade Steps API,\nwhich adds WriteUniterState.",
         "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",

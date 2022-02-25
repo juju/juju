@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/firewallrules"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/firewallrules"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/rpc/params"
 )
 
 var setRuleHelpSummary = `

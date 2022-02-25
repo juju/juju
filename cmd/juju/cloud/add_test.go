@@ -22,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -33,6 +32,7 @@ import (
 	_ "github.com/juju/juju/provider/manual"
 	_ "github.com/juju/juju/provider/openstack"
 	_ "github.com/juju/juju/provider/vsphere"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

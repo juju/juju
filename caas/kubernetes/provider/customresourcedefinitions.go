@@ -65,19 +65,19 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 			Labels:      k8slabels.Merge(v.Labels, k.getAPIExtensionLabelsGlobal(appName)),
 			Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 		}
-		logger.Infof("ensuring custom resource definition %q with version %q", obj.GetName(), v.Spec.Version)
+		logger.Infof("ensuring custom resource definition %q with version %q on k8s %q", obj.GetName(), v.Spec.Version, k8sVersion.String())
 		var out metav1.Object
 		var crdCleanUps []func()
 		var err error
 		switch v.Spec.Version {
 		case k8sspecs.K8sCustomResourceDefinitionV1:
 			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
-				return cleanUps, errors.NotSupportedf("custom resource definition version %q", v.Spec.Version)
+				return cleanUps, errors.NotSupportedf("custom resource definition version %q for k8s %q", v.Spec.Version, k8sVersion.String())
 			} else {
 				out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1(obj, v.Spec.SpecV1)
 			}
 		case k8sspecs.K8sCustomResourceDefinitionV1Beta1:
-			if k8sVersion.Major == 1 && k8sVersion.Minor < 16 {
+			if k8sVersion.Major == 1 && k8sVersion.Minor < 22 {
 				out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1beta1(obj, v.Spec.SpecV1Beta1)
 			} else {
 				var newSpec apiextensionsv1.CustomResourceDefinitionSpec

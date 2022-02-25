@@ -9,54 +9,43 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 // RemoveSpace describes a space that can be removed.
 type RemoveSpace interface {
 	Refresh() error
-	RemoveSpaceOps() []txn.Op
+	RemoveSpaceOps() ([]txn.Op, error)
 }
 
 type spaceRemoveModelOp struct {
-	space   RemoveSpace
-	subnets []Subnet
-}
-
-type Subnet interface {
-	UpdateSpaceOps(spaceID string) []txn.Op
+	space RemoveSpace
 }
 
 func (o *spaceRemoveModelOp) Done(err error) error {
 	return err
 }
 
-func NewRemoveSpaceOp(space RemoveSpace, subnets []Subnet) *spaceRemoveModelOp {
+func NewRemoveSpaceOp(space RemoveSpace) *spaceRemoveModelOp {
 	return &spaceRemoveModelOp{
-		space:   space,
-		subnets: subnets,
+		space: space,
 	}
 }
 
 func (o *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
-	var totalOps []txn.Op
-
 	if attempt > 0 {
 		if err := o.space.Refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-
-	for _, subnet := range o.subnets {
-		totalOps = append(totalOps, subnet.UpdateSpaceOps(network.AlphaSpaceId)...)
+	removeOps, err := o.space.RemoveSpaceOps()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	removeOps := o.space.RemoveSpaceOps()
-	totalOps = append(totalOps, removeOps...)
-	return totalOps, nil
+	return removeOps, nil
 }
 
 // RemoveSpace removes a space.

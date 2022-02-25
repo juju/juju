@@ -12,14 +12,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apicloud "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/apiserver/params"
+	apicloud "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/rackspace"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing/factory"
 )
 

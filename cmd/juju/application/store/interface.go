@@ -9,7 +9,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"gopkg.in/macaroon.v2"
 
-	apicharm "github.com/juju/juju/api/charms"
+	apicharm "github.com/juju/juju/api/client/charms"
 )
 
 // CharmAdder defines a subset of the api client needed to add a

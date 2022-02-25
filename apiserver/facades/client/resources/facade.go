@@ -10,14 +10,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	apiresources "github.com/juju/juju/api/resources"
+	apiresources "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -94,7 +95,7 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return newCharmHubClient(chClient, logger.ChildWithLabels("charmhub", "charmhub")), nil
+			return newCharmHubClient(chClient, logger.ChildWithLabels("charmhub", corelogger.CHARMHUB)), nil
 
 		case charm.CharmStore.Matches(schema):
 			cl, err := charmstore.NewCachingClient(state.MacaroonCache{

@@ -19,17 +19,17 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/apiserver/params"
+	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasunitprovisioner"
@@ -331,7 +331,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.serviceBroker.CheckCallNames(c, "WatchService", "EnsureService", "GetService")
 	s.serviceBroker.CheckCall(c, 1, "EnsureService",
-		"gitlab", getExpectedServiceParams(), 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", getExpectedServiceParams(), 1, config.ConfigAttributes{"juju-external-hostname": "exthost"})
 	s.serviceBroker.CheckCall(c, 2, "GetService", "gitlab", caas.ModeWorkload)
 
 	s.serviceBroker.ResetCalls()
@@ -352,7 +352,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	newExpectedParams := getExpectedServiceParams()
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", newExpectedParams, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", newExpectedParams, 2, config.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -371,7 +371,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", newExpectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", newExpectedParams, 1, config.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func intPtr(i int) *int {
@@ -537,7 +537,7 @@ containers:
 	}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 1, config.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestInvalidDeploymentChange(c *gc.C) {
@@ -633,7 +633,7 @@ func (s *WorkerSuite) TestScaleZero(c *gc.C) {
 	}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &caas.ServiceParams{}, 0, application.ConfigAttributes(nil))
+		"gitlab", &caas.ServiceParams{}, 0, config.ConfigAttributes(nil))
 }
 
 func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
@@ -1018,12 +1018,16 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	s.sendApplicationChanges(c, "gitlab")
 	waitCharmGetterCalls("ApplicationCharmInfo")
 
-	// Wait till Life() is called to synchronize (ensure charmInfo is done).
+	// Wait till application worker has started up
+	var appWorker worker.Worker
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.lifeGetter.Calls()) > 0 {
+		aw, ok := caasunitprovisioner.AppWorker(w, "gitlab")
+		if ok {
+			appWorker = aw
 			break
 		}
 	}
+	c.Assert(appWorker, gc.NotNil)
 
 	// Make it a v2 charm (will make the application worker exit)
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
@@ -1036,10 +1040,8 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	}
 	waitCharmGetterCalls("ApplicationCharmInfo")
 
-	// Ensure application worker exited due to charm becoming v2
-	aw, ok := caasunitprovisioner.AppWorker(w, "gitlab")
-	c.Assert(ok, jc.IsTrue)
-	err = workertest.CheckKilled(c, aw)
+	// Ensure application worker exits due to charm becoming v2
+	err = workertest.CheckKilled(c, appWorker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

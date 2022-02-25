@@ -12,9 +12,8 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/agent"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/common"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 	workercommon "github.com/juju/juju/worker/common"
 )
 

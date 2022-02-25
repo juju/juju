@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -63,6 +63,8 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 // CommitHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	switch {
+	case hi.Kind == hooks.Start:
+		opc.u.Probe.SetHasStarted()
 	case hi.Kind.IsWorkload():
 	case hi.Kind.IsRelation():
 		return opc.u.relationStateTracker.CommitHook(hi)
@@ -128,10 +130,6 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 		return nil, errors.Trace(err)
 	}
 	return ch, nil
-}
-
-func (opc *operationCallbacks) PostStartHook() {
-	opc.u.Probe.SetHasStarted()
 }
 
 // SetCurrentCharm is part of the operation.Callbacks interface.

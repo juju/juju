@@ -9,11 +9,12 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Get returns the charm configuration for an application.
@@ -82,6 +83,16 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
+	appChannel := string(app.Channel())
+
+	// If the applications charm origin is from charm-hub, then build the real
+	// channel and send that back.
+	origin := app.CharmOrigin()
+	if origin != nil && corecharm.CharmHub.Matches(origin.Source) && origin.Channel != nil {
+		ch := charm.MakePermissiveChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
+		appChannel = ch.String()
+	}
+
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
 		Charm:             ch.Meta().Name,
@@ -89,13 +100,13 @@ func (api *APIBase) getConfig(
 		ApplicationConfig: appConfigInfo,
 		Constraints:       cons,
 		Series:            app.Series(),
-		Channel:           string(app.Channel()),
+		Channel:           appChannel,
 		EndpointBindings:  bindingMap,
 	}, nil
 }
 
 func describeAppConfig(
-	appConfig application.ConfigAttributes,
+	appConfig config.ConfigAttributes,
 	schema environschema.Fields,
 	defaults schema.Defaults,
 ) map[string]interface{} {

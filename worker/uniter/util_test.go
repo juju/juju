@@ -32,8 +32,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/secretsmanager"
-	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/agent/secretsmanager"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"

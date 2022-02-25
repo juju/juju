@@ -15,7 +15,7 @@ import (
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/juju/dashboard"
 	"github.com/juju/juju/jujuclient"
 	proxytesting "github.com/juju/juju/proxy/testing"

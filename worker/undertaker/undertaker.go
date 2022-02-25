@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -243,14 +243,14 @@ func (u *Undertaker) processDyingModel(timeout *time.Duration) error {
 		timeoutAfter = u.config.Clock.After(*timeout)
 	}
 
-	watcher, err := u.config.Facade.WatchModelResources()
+	watch, err := u.config.Facade.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.catacomb.Add(watcher); err != nil {
+	if err := u.catacomb.Add(watch); err != nil {
 		return errors.Trace(err)
 	}
-	defer watcher.Kill()
+	defer watch.Kill()
 	attempt := 1
 	for {
 		select {
@@ -258,7 +258,7 @@ func (u *Undertaker) processDyingModel(timeout *time.Duration) error {
 			return u.catacomb.ErrDying()
 		case <-timeoutAfter:
 			return errors.Timeoutf("process dying model")
-		case <-watcher.Changes():
+		case <-watch.Changes():
 			err := u.config.Facade.ProcessDyingModel()
 			if err == nil {
 				// ProcessDyingModel succeeded. We're free to

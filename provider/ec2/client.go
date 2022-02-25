@@ -6,6 +6,7 @@ package ec2
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -123,10 +124,14 @@ func configFromCloudSpec(
 		)
 	}
 
+	// The default retry attempts and max backoff are a little too low
+	// on a busy system, especially running CI tests.
+	retrier := retry.AddWithMaxAttempts(retry.NewStandard(), 10)
+	retrier = retry.AddWithMaxBackoffDelay(retrier, time.Minute)
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(spec.Region),
 		config.WithRetryer(func() aws.Retryer {
-			return retry.NewStandard()
+			return retrier
 		}),
 		config.WithCredentialsProvider(credentialProvider),
 	)

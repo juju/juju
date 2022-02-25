@@ -9,12 +9,16 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+// MovingSubnetBacking describes the state backing required to move a subnet
+type MovingSubnetBacking interface {
+	UpdateSubnetSpaceOps(string, string) []txn.Op
+}
 
 // MovingSubnet describes a subnet that is to be relocated to a new space.
 type MovingSubnet interface {
@@ -24,11 +28,10 @@ type MovingSubnet interface {
 	SpaceID() string
 	FanLocalUnderlay() string
 
-	UpdateSpaceOps(spaceID string) []txn.Op
 	Refresh() error
 }
 
-// MovedSubnet identifies a subnet and the space it was move from.
+// MovedSubnet identifies a subnet and the space it was moved from.
 type MovedSubnet struct {
 	ID        string
 	FromSpace string
@@ -48,16 +51,20 @@ type MoveSubnetsOp interface {
 // It is a model operation that updates the subnets collection to indicate
 // subnets moving from one space to another.
 type moveSubnetsOp struct {
-	space   networkingcommon.BackingSpace
+	backing MovingSubnetBacking
+	spaceID string
 	subnets []MovingSubnet
 	results []MovedSubnet
 }
 
-// NewMoveSubnetOp returns an operation reference that can be
-// used to move the the input subnets into the input space.
-func NewMoveSubnetsOp(space networkingcommon.BackingSpace, subnets []MovingSubnet) *moveSubnetsOp {
+// NewMoveSubnetsOp returns an operation reference that can be
+// used to move the input subnets into the input space.
+func NewMoveSubnetsOp(
+	backing MovingSubnetBacking, spaceID string, subnets []MovingSubnet,
+) *moveSubnetsOp {
 	return &moveSubnetsOp{
-		space:   space,
+		backing: backing,
+		spaceID: spaceID,
 		subnets: subnets,
 	}
 }
@@ -75,7 +82,7 @@ func (o *moveSubnetsOp) Build(attempt int) ([]txn.Op, error) {
 
 	var ops []txn.Op
 	for _, subnet := range o.subnets {
-		ops = append(ops, subnet.UpdateSpaceOps(o.space.Id())...)
+		ops = append(ops, o.backing.UpdateSubnetSpaceOps(subnet.ID(), o.spaceID)...)
 	}
 	return ops, nil
 }

@@ -12,13 +12,13 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/arch"
 
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver/params"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc/params"
 	coretools "github.com/juju/juju/tools"
 )
 

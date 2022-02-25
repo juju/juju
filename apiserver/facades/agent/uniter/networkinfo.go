@@ -14,8 +14,8 @@ import (
 	"github.com/juju/retry"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 

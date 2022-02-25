@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	machineactions "github.com/juju/juju/api/machineactions"
-	params "github.com/juju/juju/apiserver/params"
+	machineactions "github.com/juju/juju/api/agent/machineactions"
 	watcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 )
 

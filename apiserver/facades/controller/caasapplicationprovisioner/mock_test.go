@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
@@ -192,7 +192,7 @@ type mockApplication struct {
 	storageConstraints   map[string]state.StorageConstraints
 	deviceConstraints    map[string]state.DeviceConstraints
 	charmModifiedVersion int
-	config               application.ConfigAttributes
+	config               coreconfig.ConfigAttributes
 	scale                int
 }
 
@@ -294,7 +294,7 @@ func (a *mockApplication) CharmURL() (curl *charm.URL, force bool) {
 	return a.charm.URL(), false
 }
 
-func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
+func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig")
 	return a.config, a.NextErr()
 }

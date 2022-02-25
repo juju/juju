@@ -9,12 +9,12 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
-	application "github.com/juju/juju/core/application"
+	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	watcher "github.com/juju/juju/core/watcher"
 	docker "github.com/juju/juju/docker"
 	environs "github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
+	config0 "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	proxy "github.com/juju/juju/proxy"
 	storage "github.com/juju/juju/storage"
@@ -132,10 +132,10 @@ func (mr *MockBrokerMockRecorder) CheckCloudCredentials() *gomock.Call {
 }
 
 // Config mocks base method.
-func (m *MockBroker) Config() *config.Config {
+func (m *MockBroker) Config() *config0.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*config.Config)
+	ret0, _ := ret[0].(*config0.Config)
 	return ret0
 }
 
@@ -273,7 +273,7 @@ func (mr *MockBrokerMockRecorder) EnsureOperator(arg0, arg1, arg2 interface{}) *
 }
 
 // EnsureService mocks base method.
-func (m *MockBroker) EnsureService(arg0 string, arg1 caas.StatusCallbackFunc, arg2 *caas.ServiceParams, arg3 int, arg4 application.ConfigAttributes) error {
+func (m *MockBroker) EnsureService(arg0 string, arg1 caas.StatusCallbackFunc, arg2 *caas.ServiceParams, arg3 int, arg4 config.ConfigAttributes) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureService", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -287,7 +287,7 @@ func (mr *MockBrokerMockRecorder) EnsureService(arg0, arg1, arg2, arg3, arg4 int
 }
 
 // ExposeService mocks base method.
-func (m *MockBroker) ExposeService(arg0 string, arg1 map[string]string, arg2 application.ConfigAttributes) error {
+func (m *MockBroker) ExposeService(arg0 string, arg1 map[string]string, arg2 config.ConfigAttributes) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExposeService", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -433,7 +433,7 @@ func (mr *MockBrokerMockRecorder) ProxyToApplication(arg0, arg1 interface{}) *go
 }
 
 // SetConfig mocks base method.
-func (m *MockBroker) SetConfig(arg0 *config.Config) error {
+func (m *MockBroker) SetConfig(arg0 *config0.Config) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetConfig", arg0)
 	ret0, _ := ret[0].(error)

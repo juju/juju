@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/usermanager"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 // All of the functionality of the UserInfo api call is contained elsewhere.
