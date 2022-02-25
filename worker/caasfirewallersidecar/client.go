@@ -5,7 +5,7 @@ package caasfirewallersidecar
 
 import (
 	charmscommon "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 )
@@ -32,7 +32,7 @@ type CAASFirewallerAPI interface {
 	WatchOpenedPorts() (watcher.StringsWatcher, error)
 
 	IsExposed(string) (bool, error)
-	ApplicationConfig(string) (application.ConfigAttributes, error)
+	ApplicationConfig(string) (config.ConfigAttributes, error)
 
 	ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error)
 }

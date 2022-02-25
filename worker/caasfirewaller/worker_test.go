@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
@@ -175,7 +175,7 @@ func (s *WorkerSuite) TestExposedChange(c *gc.C) {
 		map[string]string{
 			"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			"juju-model-uuid":      coretesting.ModelTag.Id()},
-		application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		config.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestUnexposedChange(c *gc.C) {

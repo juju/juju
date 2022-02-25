@@ -49,8 +49,8 @@ import (
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
@@ -1049,7 +1049,7 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	statusCallback caas.StatusCallbackFunc,
 	params *caas.ServiceParams,
 	numUnits int,
-	config application.ConfigAttributes,
+	config coreconfig.ConfigAttributes,
 ) (err error) {
 	if k.namespace == "" {
 		return errNoNamespace
@@ -1098,7 +1098,7 @@ func (k *kubernetesClient) EnsureService(
 	statusCallback caas.StatusCallbackFunc,
 	params *caas.ServiceParams,
 	numUnits int,
-	config application.ConfigAttributes,
+	config coreconfig.ConfigAttributes,
 ) (err error) {
 	defer func() {
 		if err != nil {
@@ -1134,7 +1134,7 @@ func (k *kubernetesClient) ensureService(
 	statusCallback caas.StatusCallbackFunc,
 	params *caas.ServiceParams,
 	numUnits int,
-	config application.ConfigAttributes,
+	config coreconfig.ConfigAttributes,
 ) (err error) {
 
 	if params == nil || params.PodSpec == nil {
@@ -2009,7 +2009,7 @@ func (k *kubernetesClient) configureService(
 	appName, deploymentName string,
 	containerPorts []core.ContainerPort,
 	params *caas.ServiceParams,
-	config application.ConfigAttributes,
+	config coreconfig.ConfigAttributes,
 ) error {
 	logger.Debugf("creating/updating service for %s", appName)
 
@@ -2097,7 +2097,7 @@ func (k *kubernetesClient) findDefaultIngressClassResource() (*string, error) {
 }
 
 // ExposeService sets up external access to the specified application.
-func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error {
+func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string]string, config coreconfig.ConfigAttributes) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}

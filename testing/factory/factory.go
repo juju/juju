@@ -21,8 +21,8 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -505,7 +505,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		resourceMap[name] = pendingID
 	}
 
-	appConfig, err := application.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
+	appConfig, err := coreconfig.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:              params.Name,

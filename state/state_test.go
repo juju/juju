@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -1591,7 +1591,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
-	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	inconfig, err := coreconfig.NewConfig(coreconfig.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress, err := s.State.AddApplication(
@@ -1640,7 +1640,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 
 	insettings := charm.Settings{"tuning": "optimized"}
-	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	inconfig, err := coreconfig.NewConfig(coreconfig.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	gitlab, err := st.AddApplication(

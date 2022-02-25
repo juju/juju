@@ -7,7 +7,7 @@ import (
 	"github.com/juju/names/v4"
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/state"
 )
 
@@ -25,7 +25,7 @@ type CAASFirewallerState interface {
 // required by the CAAS operator facade.
 type Application interface {
 	IsExposed() bool
-	ApplicationConfig() (application.ConfigAttributes, error)
+	ApplicationConfig() (config.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
 	Charm() (ch charmscommon.Charm, force bool, err error)
 }

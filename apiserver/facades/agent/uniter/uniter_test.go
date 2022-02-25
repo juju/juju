@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -1115,7 +1115,7 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	schema := environschema.Fields{
 		"trust": environschema.Attr{Type: environschema.Tbool},
 	}
-	err := s.wordpress.UpdateApplicationConfig(coreapplication.ConfigAttributes{
+	err := s.wordpress.UpdateApplicationConfig(coreconfig.ConfigAttributes{
 		"trust": true,
 	}, nil, schema, nil)
 	c.Assert(err, jc.ErrorIsNil)

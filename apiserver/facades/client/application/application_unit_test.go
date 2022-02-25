@@ -27,9 +27,9 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	coreapplication "github.com/juju/juju/core/application"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -421,7 +421,7 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
 	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "foo",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -460,7 +460,7 @@ func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
 	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "foo",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1969,7 +1969,7 @@ func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) 
 	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2005,7 +2005,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2040,7 +2040,7 @@ func (s *ApplicationSuite) TestSetApplicationsEmptyConfigMasterBranch(c *gc.C) {
 	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2072,7 +2072,7 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2106,7 +2106,7 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"juju-external-hostname": "value",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2156,7 +2156,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	schema, defaults, err = application.AddTrustSchemaAndDefaults(schema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
+	app.CheckCall(c, 0, "UpdateApplicationConfig", coreconfig.ConfigAttributes(nil),
 		[]string{"juju-external-hostname"}, schema, defaults)
 	app.CheckCall(c, 1, "UpdateCharmConfig", "new-branch", charm.Settings{"stringVal": nil})
 }
@@ -2248,7 +2248,7 @@ func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
 func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
 	app := s.backend.applications["postgresql"]
-	app.config = coreapplication.ConfigAttributes{"juju-external-hostname": "exthost"}
+	app.config = coreconfig.ConfigAttributes{"juju-external-hostname": "exthost"}
 	err := s.api.Expose(params.ApplicationExpose{
 		ApplicationName: "postgresql",
 	})

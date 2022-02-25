@@ -23,7 +23,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
@@ -4213,45 +4213,45 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 
 var updateApplicationConfigTests = []struct {
 	about   string
-	initial application.ConfigAttributes
-	update  application.ConfigAttributes
-	expect  application.ConfigAttributes
+	initial config.ConfigAttributes
+	update  config.ConfigAttributes
+	expect  config.ConfigAttributes
 	err     string
 }{{
 	about:  "set string",
-	update: application.ConfigAttributes{"outlook": "positive"},
-	expect: application.ConfigAttributes{"outlook": "positive"},
+	update: config.ConfigAttributes{"outlook": "positive"},
+	expect: config.ConfigAttributes{"outlook": "positive"},
 }, {
 	about:   "unset string and set another",
-	initial: application.ConfigAttributes{"outlook": "positive"},
-	update:  application.ConfigAttributes{"outlook": nil, "title": "sir"},
-	expect:  application.ConfigAttributes{"title": "sir"},
+	initial: config.ConfigAttributes{"outlook": "positive"},
+	update:  config.ConfigAttributes{"outlook": nil, "title": "sir"},
+	expect:  config.ConfigAttributes{"title": "sir"},
 }, {
 	about:  "unset missing string",
-	update: application.ConfigAttributes{"outlook": nil},
+	update: config.ConfigAttributes{"outlook": nil},
 }, {
 	about:   `empty strings are valid`,
-	initial: application.ConfigAttributes{"outlook": "positive"},
-	update:  application.ConfigAttributes{"outlook": "", "title": ""},
-	expect:  application.ConfigAttributes{"outlook": "", "title": ""},
+	initial: config.ConfigAttributes{"outlook": "positive"},
+	update:  config.ConfigAttributes{"outlook": "", "title": ""},
+	expect:  config.ConfigAttributes{"outlook": "", "title": ""},
 }, {
 	about:   "preserve existing value",
-	initial: application.ConfigAttributes{"title": "sir"},
-	update:  application.ConfigAttributes{"username": "admin001"},
-	expect:  application.ConfigAttributes{"username": "admin001", "title": "sir"},
+	initial: config.ConfigAttributes{"title": "sir"},
+	update:  config.ConfigAttributes{"username": "admin001"},
+	expect:  config.ConfigAttributes{"username": "admin001", "title": "sir"},
 }, {
 	about:   "unset a default value, set a different default",
-	initial: application.ConfigAttributes{"username": "admin001", "title": "sir"},
-	update:  application.ConfigAttributes{"username": nil, "title": "My Title"},
-	expect:  application.ConfigAttributes{"title": "My Title"},
+	initial: config.ConfigAttributes{"username": "admin001", "title": "sir"},
+	update:  config.ConfigAttributes{"username": nil, "title": "My Title"},
+	expect:  config.ConfigAttributes{"title": "My Title"},
 }, {
 	about:  "non-string type",
-	update: application.ConfigAttributes{"skill-level": 303},
-	expect: application.ConfigAttributes{"skill-level": 303},
+	update: config.ConfigAttributes{"skill-level": 303},
+	expect: config.ConfigAttributes{"skill-level": 303},
 }, {
 	about:   "unset non-string type",
-	initial: application.ConfigAttributes{"skill-level": 303},
-	update:  application.ConfigAttributes{"skill-level": nil},
+	initial: config.ConfigAttributes{"skill-level": 303},
+	update:  config.ConfigAttributes{"skill-level": nil},
 }}
 
 func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
@@ -4366,12 +4366,12 @@ func (s *ApplicationSuite) TestUpdateApplicationConfigWithDyingApplication(c *gc
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
-	err = s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
+	err = s.mysql.UpdateApplicationConfig(config.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
-	err := s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
+	err := s.mysql.UpdateApplicationConfig(config.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	appConfig := state.GetApplicationConfig(s.State, s.mysql)
 	err = appConfig.Read()
@@ -5313,7 +5313,7 @@ func (s *ApplicationSuite) TestWatch(c *gc.C) {
 		"options":     environschema.Attr{Type: environschema.Tattrs},
 	}
 
-	err := s.mysql.UpdateApplicationConfig(application.ConfigAttributes{
+	err := s.mysql.UpdateApplicationConfig(config.ConfigAttributes{
 		"username":    "abbas",
 		"alive":       true,
 		"skill-level": 23,

@@ -14,7 +14,7 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/model"
-	coreapplication "github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -271,7 +271,7 @@ settings:
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab-application", Charm: ch})
 	schema, err := caas.ConfigSchema(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
+	err = app.UpdateApplicationConfig(coreconfig.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "-m", "caas-model", "gitlab-application")

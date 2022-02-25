@@ -12,7 +12,7 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
@@ -83,7 +83,7 @@ func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error)
 }
 
 // ApplicationConfig returns the config for the specified application.
-func (c *Client) ApplicationConfig(applicationName string) (application.ConfigAttributes, error) {
+func (c *Client) ApplicationConfig(applicationName string) (config.ConfigAttributes, error) {
 	var results params.ApplicationGetConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
@@ -95,7 +95,7 @@ func (c *Client) ApplicationConfig(applicationName string) (application.ConfigAt
 	if len(results.Results) != len(args.Entities) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
 	}
-	return application.ConfigAttributes(results.Results[0].Config), nil
+	return config.ConfigAttributes(results.Results[0].Config), nil
 }
 
 // WatchApplicationScale returns a NotifyWatcher that notifies of

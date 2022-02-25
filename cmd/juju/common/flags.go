@@ -20,18 +20,8 @@ import (
 // ConfigFlag records k=v attributes from command arguments
 // and/or specified files containing key values.
 type ConfigFlag struct {
-	files               []string
-	attrs               map[string]interface{}
-	preserveStringValue bool
-}
-
-// SetPreserveStringValue sets whether name values should be
-// converted to a type that is inferred from their
-// string value, by way of YAML unmarshalling,or kept as
-// the original string value. The default behaviour is to
-// apply YAML unmarshalling to the value.
-func (f *ConfigFlag) SetPreserveStringValue(val bool) {
-	f.preserveStringValue = val
+	files []string
+	attrs map[string]interface{}
 }
 
 // Set implements gnuflag.Value.Set.
@@ -52,16 +42,7 @@ func (f *ConfigFlag) Set(s string) error {
 		return nil
 	}
 
-	// It's assumed that we have a set of key value pairs. So attempt to extract
-	// the key value pairs accordingly.
-	var value interface{}
-	if fields[1] == "" || f.preserveStringValue {
-		value = fields[1]
-	} else {
-		if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
-			return errors.Trace(err)
-		}
-	}
+	var value interface{} = fields[1]
 	if f.attrs == nil {
 		f.attrs = make(map[string]interface{})
 	}

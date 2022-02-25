@@ -5,7 +5,7 @@ package caasfirewaller
 
 import (
 	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 )
@@ -27,7 +27,7 @@ type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	WatchApplication(string) (watcher.NotifyWatcher, error)
 	IsExposed(string) (bool, error)
-	ApplicationConfig(string) (application.ConfigAttributes, error)
+	ApplicationConfig(string) (config.ConfigAttributes, error)
 }
 
 // LifeGetter provides an interface for getting the

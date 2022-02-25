@@ -2465,7 +2465,6 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageContainer(c *gc.C) {
 
 func basicDeployerConfig(charmOrBundle string) deployer.DeployerConfig {
 	cfgOps := common.ConfigFlag{}
-	cfgOps.SetPreserveStringValue(true)
 	return deployer.DeployerConfig{
 		BundleMachines:     map[string]string{},
 		CharmOrBundle:      charmOrBundle,

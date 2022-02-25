@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	coreapplication "github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -197,7 +197,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	schemaFields, defaults, err = application.AddTrustSchemaAndDefaults(schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appConfig, err := coreapplication.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
+	appConfig, err := coreconfig.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)

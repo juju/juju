@@ -607,7 +607,6 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ConfigOptions.SetPreserveStringValue(true)
 	// Keep CharmOnlyFlags and BundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
