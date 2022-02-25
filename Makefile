@@ -232,12 +232,15 @@ OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_
 OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=sh -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 
-image-check-build:
-ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
-	make build
-else
-	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
+image_check_prereq=build
+ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)
+	image_check_prereq=image-check-build-skip
 endif
+
+image-check-build: $(image_check_prereq)
+
+image-check-build-skip:
+	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
 
 operator-image: image-check-build
 ## operator-image: Build operator image via docker
