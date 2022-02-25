@@ -163,6 +163,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 // Report returns information that is used in the dependency engine report.
 func (c *cacheWorker) Report() map[string]interface{} {
+	if c.controller == nil {
+		return nil
+	}
 	return c.controller.Report()
 }
 

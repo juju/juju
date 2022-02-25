@@ -689,18 +689,25 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 
 	relationsInfo := make(map[string]interface{})
 	for rel, info := range w.relations {
-		relationsInfo[rel] = map[string]interface{}{
-			"relation-id":        info.relationId,
-			"local-dead":         info.localDead,
-			"suspended":          info.suspended,
-			"application-token":  info.applicationToken,
-			"relation-token":     info.relationToken,
-			"local-endpoint":     info.localEndpoint.Name,
-			"remote-endpoint":    info.remoteEndpointName,
-			"last-status-event":  info.remoteRrw.Report(),
-			"last-local-change":  info.localRuw.Report(),
-			"last-remote-change": info.remoteRuw.Report(),
+		report := map[string]interface{}{
+			"relation-id":       info.relationId,
+			"local-dead":        info.localDead,
+			"suspended":         info.suspended,
+			"application-token": info.applicationToken,
+			"relation-token":    info.relationToken,
+			"local-endpoint":    info.localEndpoint.Name,
+			"remote-endpoint":   info.remoteEndpointName,
 		}
+		if info.remoteRrw != nil {
+			report["last-status-event"] = info.remoteRrw.Report()
+		}
+		if info.localRuw != nil {
+			report["last-local-change"] = info.localRuw.Report()
+		}
+		if info.remoteRuw != nil {
+			report["last-remote-change"] = info.remoteRuw.Report()
+		}
+		relationsInfo[rel] = report
 	}
 	if len(relationsInfo) > 0 {
 		result["relations"] = relationsInfo
