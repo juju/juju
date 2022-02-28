@@ -44,7 +44,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 		google.NewZone("home-zone", google.StatusUp, "", ""),
 	}
 
-	cons := constraints.MustParse("instance-type=n1-standard-1 arch=amd64 root-disk=1G")
+	cons := constraints.MustParse("instance-type=n1-standard-2 arch=amd64 root-disk=1G")
 	placement := "zone=home-zone"
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons, Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
-	cons := constraints.MustParse("instance-type=n1-standard-1")
+	cons := constraints.MustParse("instance-type=n1-standard-2")
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
-	cons := constraints.MustParse("instance-type=n1-standard-1 root-disk=1G")
+	cons := constraints.MustParse("instance-type=n1-standard-2 root-disk=1G")
 	placement := ""
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons, Placement: placement})
 
@@ -84,7 +84,7 @@ func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
-	cons := constraints.MustParse("instance-type=n1-standard-1 arch=i386")
+	cons := constraints.MustParse("instance-type=n1-standard-2 arch=i386")
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
@@ -217,7 +217,7 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	validator, err := s.Env.ConstraintsValidator(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := constraints.MustParse("instance-type=n1-standard-1")
+	cons := constraints.MustParse("instance-type=n1-standard-2")
 	// We do not check arch or container since there is only one valid
 	// value for each and will always match.
 	consFallback := constraints.MustParse("cores=2 cpu-power=1000 mem=10000 tags=bar")
@@ -225,7 +225,7 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// tags is not supported, but we're not validating here...
-	expected := constraints.MustParse("instance-type=n1-standard-1 tags=bar")
+	expected := constraints.MustParse("instance-type=n1-standard-2 tags=bar")
 	c.Check(merged, jc.DeepEquals, expected)
 }
 
