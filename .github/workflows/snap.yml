@@ -32,7 +32,7 @@ jobs:
 
     - name: Set up Go
       if: env.RUN_TEST == 'RUN'
-      uses: actions/setup-go@v2.2.0
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
