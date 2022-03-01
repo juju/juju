@@ -14,7 +14,9 @@ import (
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	v12 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	v12 "k8s.io/client-go/applyconfigurations/apps/v1"
+	v13 "k8s.io/client-go/applyconfigurations/autoscaling/v1"
+	v14 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -42,10 +44,10 @@ func (m *MockAppsV1Interface) EXPECT() *MockAppsV1InterfaceMockRecorder {
 }
 
 // ControllerRevisions mocks base method.
-func (m *MockAppsV1Interface) ControllerRevisions(arg0 string) v12.ControllerRevisionInterface {
+func (m *MockAppsV1Interface) ControllerRevisions(arg0 string) v14.ControllerRevisionInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerRevisions", arg0)
-	ret0, _ := ret[0].(v12.ControllerRevisionInterface)
+	ret0, _ := ret[0].(v14.ControllerRevisionInterface)
 	return ret0
 }
 
@@ -56,10 +58,10 @@ func (mr *MockAppsV1InterfaceMockRecorder) ControllerRevisions(arg0 interface{})
 }
 
 // DaemonSets mocks base method.
-func (m *MockAppsV1Interface) DaemonSets(arg0 string) v12.DaemonSetInterface {
+func (m *MockAppsV1Interface) DaemonSets(arg0 string) v14.DaemonSetInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DaemonSets", arg0)
-	ret0, _ := ret[0].(v12.DaemonSetInterface)
+	ret0, _ := ret[0].(v14.DaemonSetInterface)
 	return ret0
 }
 
@@ -70,10 +72,10 @@ func (mr *MockAppsV1InterfaceMockRecorder) DaemonSets(arg0 interface{}) *gomock.
 }
 
 // Deployments mocks base method.
-func (m *MockAppsV1Interface) Deployments(arg0 string) v12.DeploymentInterface {
+func (m *MockAppsV1Interface) Deployments(arg0 string) v14.DeploymentInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Deployments", arg0)
-	ret0, _ := ret[0].(v12.DeploymentInterface)
+	ret0, _ := ret[0].(v14.DeploymentInterface)
 	return ret0
 }
 
@@ -98,10 +100,10 @@ func (mr *MockAppsV1InterfaceMockRecorder) RESTClient() *gomock.Call {
 }
 
 // ReplicaSets mocks base method.
-func (m *MockAppsV1Interface) ReplicaSets(arg0 string) v12.ReplicaSetInterface {
+func (m *MockAppsV1Interface) ReplicaSets(arg0 string) v14.ReplicaSetInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReplicaSets", arg0)
-	ret0, _ := ret[0].(v12.ReplicaSetInterface)
+	ret0, _ := ret[0].(v14.ReplicaSetInterface)
 	return ret0
 }
 
@@ -112,10 +114,10 @@ func (mr *MockAppsV1InterfaceMockRecorder) ReplicaSets(arg0 interface{}) *gomock
 }
 
 // StatefulSets mocks base method.
-func (m *MockAppsV1Interface) StatefulSets(arg0 string) v12.StatefulSetInterface {
+func (m *MockAppsV1Interface) StatefulSets(arg0 string) v14.StatefulSetInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatefulSets", arg0)
-	ret0, _ := ret[0].(v12.StatefulSetInterface)
+	ret0, _ := ret[0].(v14.StatefulSetInterface)
 	return ret0
 }
 
@@ -146,6 +148,51 @@ func NewMockDeploymentInterface(ctrl *gomock.Controller) *MockDeploymentInterfac
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDeploymentInterface) EXPECT() *MockDeploymentInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockDeploymentInterface) Apply(arg0 context.Context, arg1 *v12.DeploymentApplyConfiguration, arg2 v11.ApplyOptions) (*v1.Deployment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.Deployment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockDeploymentInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockDeploymentInterface)(nil).Apply), arg0, arg1, arg2)
+}
+
+// ApplyScale mocks base method.
+func (m *MockDeploymentInterface) ApplyScale(arg0 context.Context, arg1 string, arg2 *v13.ScaleApplyConfiguration, arg3 v11.ApplyOptions) (*v10.Scale, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyScale", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*v10.Scale)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyScale indicates an expected call of ApplyScale.
+func (mr *MockDeploymentInterfaceMockRecorder) ApplyScale(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyScale", reflect.TypeOf((*MockDeploymentInterface)(nil).ApplyScale), arg0, arg1, arg2, arg3)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockDeploymentInterface) ApplyStatus(arg0 context.Context, arg1 *v12.DeploymentApplyConfiguration, arg2 v11.ApplyOptions) (*v1.Deployment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.Deployment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockDeploymentInterfaceMockRecorder) ApplyStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockDeploymentInterface)(nil).ApplyStatus), arg0, arg1, arg2)
 }
 
 // Create mocks base method.
@@ -339,6 +386,51 @@ func (m *MockStatefulSetInterface) EXPECT() *MockStatefulSetInterfaceMockRecorde
 	return m.recorder
 }
 
+// Apply mocks base method.
+func (m *MockStatefulSetInterface) Apply(arg0 context.Context, arg1 *v12.StatefulSetApplyConfiguration, arg2 v11.ApplyOptions) (*v1.StatefulSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.StatefulSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockStatefulSetInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockStatefulSetInterface)(nil).Apply), arg0, arg1, arg2)
+}
+
+// ApplyScale mocks base method.
+func (m *MockStatefulSetInterface) ApplyScale(arg0 context.Context, arg1 string, arg2 *v13.ScaleApplyConfiguration, arg3 v11.ApplyOptions) (*v10.Scale, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyScale", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*v10.Scale)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyScale indicates an expected call of ApplyScale.
+func (mr *MockStatefulSetInterfaceMockRecorder) ApplyScale(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyScale", reflect.TypeOf((*MockStatefulSetInterface)(nil).ApplyScale), arg0, arg1, arg2, arg3)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockStatefulSetInterface) ApplyStatus(arg0 context.Context, arg1 *v12.StatefulSetApplyConfiguration, arg2 v11.ApplyOptions) (*v1.StatefulSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.StatefulSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockStatefulSetInterfaceMockRecorder) ApplyStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockStatefulSetInterface)(nil).ApplyStatus), arg0, arg1, arg2)
+}
+
 // Create mocks base method.
 func (m *MockStatefulSetInterface) Create(arg0 context.Context, arg1 *v1.StatefulSet, arg2 v11.CreateOptions) (*v1.StatefulSet, error) {
 	m.ctrl.T.Helper()
@@ -528,6 +620,36 @@ func NewMockDaemonSetInterface(ctrl *gomock.Controller) *MockDaemonSetInterface 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDaemonSetInterface) EXPECT() *MockDaemonSetInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockDaemonSetInterface) Apply(arg0 context.Context, arg1 *v12.DaemonSetApplyConfiguration, arg2 v11.ApplyOptions) (*v1.DaemonSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.DaemonSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockDaemonSetInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockDaemonSetInterface)(nil).Apply), arg0, arg1, arg2)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockDaemonSetInterface) ApplyStatus(arg0 context.Context, arg1 *v12.DaemonSetApplyConfiguration, arg2 v11.ApplyOptions) (*v1.DaemonSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.DaemonSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockDaemonSetInterfaceMockRecorder) ApplyStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockDaemonSetInterface)(nil).ApplyStatus), arg0, arg1, arg2)
 }
 
 // Create mocks base method.

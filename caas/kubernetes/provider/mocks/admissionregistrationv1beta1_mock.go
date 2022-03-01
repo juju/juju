@@ -13,7 +13,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	v1beta10 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	v1beta10 "k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1"
+	v1beta11 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -41,10 +42,10 @@ func (m *MockAdmissionregistrationV1beta1Interface) EXPECT() *MockAdmissionregis
 }
 
 // MutatingWebhookConfigurations mocks base method.
-func (m *MockAdmissionregistrationV1beta1Interface) MutatingWebhookConfigurations() v1beta10.MutatingWebhookConfigurationInterface {
+func (m *MockAdmissionregistrationV1beta1Interface) MutatingWebhookConfigurations() v1beta11.MutatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MutatingWebhookConfigurations")
-	ret0, _ := ret[0].(v1beta10.MutatingWebhookConfigurationInterface)
+	ret0, _ := ret[0].(v1beta11.MutatingWebhookConfigurationInterface)
 	return ret0
 }
 
@@ -69,10 +70,10 @@ func (mr *MockAdmissionregistrationV1beta1InterfaceMockRecorder) RESTClient() *g
 }
 
 // ValidatingWebhookConfigurations mocks base method.
-func (m *MockAdmissionregistrationV1beta1Interface) ValidatingWebhookConfigurations() v1beta10.ValidatingWebhookConfigurationInterface {
+func (m *MockAdmissionregistrationV1beta1Interface) ValidatingWebhookConfigurations() v1beta11.ValidatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidatingWebhookConfigurations")
-	ret0, _ := ret[0].(v1beta10.ValidatingWebhookConfigurationInterface)
+	ret0, _ := ret[0].(v1beta11.ValidatingWebhookConfigurationInterface)
 	return ret0
 }
 
@@ -103,6 +104,21 @@ func NewMockMutatingWebhookConfigurationV1Beta1Interface(ctrl *gomock.Controller
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMutatingWebhookConfigurationV1Beta1Interface) EXPECT() *MockMutatingWebhookConfigurationV1Beta1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockMutatingWebhookConfigurationV1Beta1Interface) Apply(arg0 context.Context, arg1 *v1beta10.MutatingWebhookConfigurationApplyConfiguration, arg2 v1.ApplyOptions) (*v1beta1.MutatingWebhookConfiguration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1beta1.MutatingWebhookConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockMutatingWebhookConfigurationV1Beta1InterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Beta1Interface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.
@@ -249,6 +265,21 @@ func NewMockValidatingWebhookConfigurationV1Beta1Interface(ctrl *gomock.Controll
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockValidatingWebhookConfigurationV1Beta1Interface) EXPECT() *MockValidatingWebhookConfigurationV1Beta1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockValidatingWebhookConfigurationV1Beta1Interface) Apply(arg0 context.Context, arg1 *v1beta10.ValidatingWebhookConfigurationApplyConfiguration, arg2 v1.ApplyOptions) (*v1beta1.ValidatingWebhookConfiguration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1beta1.ValidatingWebhookConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockValidatingWebhookConfigurationV1Beta1InterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Beta1Interface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.

@@ -14,6 +14,7 @@ import (
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
+	v12 "k8s.io/client-go/applyconfigurations/core/v1"
 )
 
 // MockServiceAccountInterface is a mock of ServiceAccountInterface interface.
@@ -37,6 +38,21 @@ func NewMockServiceAccountInterface(ctrl *gomock.Controller) *MockServiceAccount
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockServiceAccountInterface) EXPECT() *MockServiceAccountInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockServiceAccountInterface) Apply(arg0 context.Context, arg1 *v12.ServiceAccountApplyConfiguration, arg2 v11.ApplyOptions) (*v10.ServiceAccount, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v10.ServiceAccount)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockServiceAccountInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockServiceAccountInterface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.

@@ -13,7 +13,8 @@ import (
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	v11 "k8s.io/client-go/kubernetes/typed/storage/v1"
+	v11 "k8s.io/client-go/applyconfigurations/storage/v1"
+	v12 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -41,10 +42,10 @@ func (m *MockStorageV1Interface) EXPECT() *MockStorageV1InterfaceMockRecorder {
 }
 
 // CSIDrivers mocks base method.
-func (m *MockStorageV1Interface) CSIDrivers() v11.CSIDriverInterface {
+func (m *MockStorageV1Interface) CSIDrivers() v12.CSIDriverInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CSIDrivers")
-	ret0, _ := ret[0].(v11.CSIDriverInterface)
+	ret0, _ := ret[0].(v12.CSIDriverInterface)
 	return ret0
 }
 
@@ -55,10 +56,10 @@ func (mr *MockStorageV1InterfaceMockRecorder) CSIDrivers() *gomock.Call {
 }
 
 // CSINodes mocks base method.
-func (m *MockStorageV1Interface) CSINodes() v11.CSINodeInterface {
+func (m *MockStorageV1Interface) CSINodes() v12.CSINodeInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CSINodes")
-	ret0, _ := ret[0].(v11.CSINodeInterface)
+	ret0, _ := ret[0].(v12.CSINodeInterface)
 	return ret0
 }
 
@@ -83,10 +84,10 @@ func (mr *MockStorageV1InterfaceMockRecorder) RESTClient() *gomock.Call {
 }
 
 // StorageClasses mocks base method.
-func (m *MockStorageV1Interface) StorageClasses() v11.StorageClassInterface {
+func (m *MockStorageV1Interface) StorageClasses() v12.StorageClassInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageClasses")
-	ret0, _ := ret[0].(v11.StorageClassInterface)
+	ret0, _ := ret[0].(v12.StorageClassInterface)
 	return ret0
 }
 
@@ -97,10 +98,10 @@ func (mr *MockStorageV1InterfaceMockRecorder) StorageClasses() *gomock.Call {
 }
 
 // VolumeAttachments mocks base method.
-func (m *MockStorageV1Interface) VolumeAttachments() v11.VolumeAttachmentInterface {
+func (m *MockStorageV1Interface) VolumeAttachments() v12.VolumeAttachmentInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VolumeAttachments")
-	ret0, _ := ret[0].(v11.VolumeAttachmentInterface)
+	ret0, _ := ret[0].(v12.VolumeAttachmentInterface)
 	return ret0
 }
 
@@ -131,6 +132,21 @@ func NewMockStorageClassInterface(ctrl *gomock.Controller) *MockStorageClassInte
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStorageClassInterface) EXPECT() *MockStorageClassInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockStorageClassInterface) Apply(arg0 context.Context, arg1 *v11.StorageClassApplyConfiguration, arg2 v10.ApplyOptions) (*v1.StorageClass, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.StorageClass)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockStorageClassInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockStorageClassInterface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.
