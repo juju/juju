@@ -22,7 +22,7 @@ jobs:
         lxc network set lxdbr0 ipv6.address none
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Find required go version
       id: go-version
@@ -98,7 +98,7 @@ jobs:
 
     - name: Checkout
       if: env.RUN_TEST == 'RUN'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set some variables
       if: env.RUN_TEST == 'RUN'
