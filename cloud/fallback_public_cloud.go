@@ -111,6 +111,8 @@ clouds:
         endpoint: https://www.googleapis.com
       australia-southeast1:
         endpoint: https://www.googleapis.com
+      europe-central2:
+        endpoint: https://www.googleapis.com
       europe-north1:
         endpoint: https://www.googleapis.com
       europe-west1:
