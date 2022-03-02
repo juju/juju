@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -244,6 +245,20 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 					Macaroons: accountDetails.Macaroons,
 				}
 			}
+		} else if len(accountDetails.Macaroons) == 0 {
+			jar, err := store.CookieJar(controllerName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			controllerDetails, err := store.ControllerByName(controllerName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			accountDetails.Macaroons = httpbakery.MacaroonsForURL(jar, &url.URL{
+				Scheme: "https",
+				Host:   controllerDetails.ControllerUUID,
+				Path:   "/",
+			})
 		}
 	}
 
