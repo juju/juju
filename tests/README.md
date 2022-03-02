@@ -60,7 +60,7 @@ Running a full sweep of the integration tests (which will take a long time), can
 be done by running:
 
 ```sh
-cd test && ./main.sh
+cd tests && ./main.sh -A
 ```
 
 ### Running tests
