@@ -6,7 +6,9 @@ package utils
 import (
 	"context"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -41,7 +43,9 @@ func HasLabels(src, has labels.Set) bool {
 // IsLegacyModelLabels checks to see if the provided model is running on an older
 // labeling scheme or a newer one.
 func IsLegacyModelLabels(namespace, model string, namespaceI core.NamespaceInterface) (bool, error) {
+	loggo.GetLogger("***").Criticalf("???? %v", spew.Sdump(namespaceI))
 	ns, err := namespaceI.Get(context.TODO(), namespace, meta.GetOptions{})
+	loggo.GetLogger("***").Criticalf("!!!!! %v, %v", ns, err)
 	if k8serrors.IsNotFound(err) {
 		return false, nil
 	}
