@@ -4,7 +4,7 @@ set -euf
 # Path variables
 BASE_DIR=$(realpath $(dirname "$0"))
 PROJECT_DIR=${PROJECT_DIR:-${BASE_DIR}}
-BUILD_DIR=${BUILD_DIR:-${PROJECT_DIR}/_build/$(go env GOOS)_$(go env GOARCH)}
+BUILD_DIR=${BUILD_DIR:-${PROJECT_DIR}/_build}
 JUJUD_BIN_DIR=${JUJUD_BIN_DIR:-${BUILD_DIR}/bin}
 
 # Versioning variables
@@ -15,22 +15,24 @@ DOCKER_USERNAME=${DOCKER_USERNAME:-jujusolutions}
 DOCKER_STAGING_DIR="${BUILD_DIR}/docker-staging"
 DOCKER_BIN=${DOCKER_BIN:-$(which docker || true)}
 
-_base_image() {
-    IMG_linux_amd64="amd64/ubuntu:20.04" \
-    IMG_linux_arm64="arm64v8/ubuntu:20.04" \
-    IMG_linux_ppc64le="ppc64le/ubuntu:20.04" \
-    IMG_linux_s390x="s390x/ubuntu:20.04" \
-    printenv "IMG_$(go env GOOS)_$(go env GOARCH)"
+# _make_docker_staging_dir is responsible for ensuring that there exists a
+# Docker staging directory under the build path. The staging directory's path
+# is returned as the output of this function.
+_make_docker_staging_dir() {
+  dir="${PROJECT_DIR}/_build/docker-staging"
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  echo "$dir"
 }
 
 _juju_version() {
-    "${JUJUD_BIN_DIR}/jujud" version | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}(\.[[:digit:]]{1,9})?"
+    echo "$1" | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}(\.[[:digit:]]{1,9})?"
 }
 _strip_build_version() {
     echo "$1" | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}"
 }
 _image_version() {
-    _strip_build_version "$(_juju_version)"
+    _strip_build_version "$(_juju_version $@)"
 }
 
 microk8s_operator_update() {
@@ -49,41 +51,50 @@ microk8s_operator_update() {
   docker save "$(operator_image_path)" | microk8s.ctr --namespace k8s.io image import -
 }
 
+juju_version() {
+    echo $(go run ${PROJECT_DIR}/version/helper/main.go)
+}
+
 operator_image_release_path() {
-    echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version)"
+    juju_version=$(juju_version)
+    echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version $juju_version)"
 }
 
 operator_image_path() {
+    juju_version=$(juju_version)
     if [ -z "${JUJU_BUILD_NUMBER}" ] || [ ${JUJU_BUILD_NUMBER} -eq 0 ]; then
-        operator_image_release_path
+        operator_image_release_path "$juju_version"
     else
-        echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version).${JUJU_BUILD_NUMBER}"
+        echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
     fi
 }
 
+
+# build_operator_image is responsible for doing the heavy lifiting when it
+# comes time to build the Juju oci operator image. This function can also build
+# the operator image for multiple architectures at once. Takes 2 arguments
+# - $1 juju-version to take the image
+# - $2 comma seperated list of os/arch to build the image for. Follow the GO
+#   idiom for naming. Example linux/amd64,linux/arm64. The only supported OS
+#   is linux at the moment. If no argument is provided defaults to GOOS & GOARCH
 build_operator_image() {
-    WORKDIR="${DOCKER_STAGING_DIR}/jujud-operator"
-    rm -rf "${WORKDIR}"
-    mkdir -p "${WORKDIR}"
-
-    # Populate docker build context
-    cp "${JUJUD_BIN_DIR}/jujud" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/jujuc" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/containeragent" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/pebble" "${WORKDIR}/"
-    cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
-    cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
-
-    # Build image. We tar up the build context to support docker snap confinement.
-    tar cf - -C "${WORKDIR}" . | "${DOCKER_BIN}" build \
-        --build-arg BASE_IMAGE=$(_base_image) \
-        -t "$(operator_image_path)" - 
-    if [ "$(operator_image_path)" != "$(operator_image_release_path)" ]; then
-        "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_release_path)"
+    build_multi_osarch=${1-""}
+    if [ -z "$build_multi_osarch" ]; then
+      build_multi_osarch="$(go env GOOS)/$(go env GOARCH)"
     fi
 
-    # Cleanup
-    rm -rf "${WORKDIR}"
+    WORKDIR=$(_make_docker_staging_dir)
+    cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
+    cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
+    for build_osarch in ${build_multi_osarch}; do
+      tar cf - -C "${BUILD_DIR}" . | "${DOCKER_BIN}" build \
+          -f "docker-staging/Dockerfile" \
+          --platform "$build_osarch" \
+          -t "$(operator_image_path)" -
+    done
+    if [ "$(operator_image_path)" != "$(operator_image_release_path)" ]; then
+        "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_release_path $juju_version)"
+    fi
 }
 
 wait_for_dpkg() {
