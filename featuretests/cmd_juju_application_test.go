@@ -69,6 +69,8 @@ func (s *cmdApplicationSuite) TestShowApplicationOne(c *gc.C) {
 wordpress:
   charm: wordpress
   series: quantal
+  constraints:
+    arch: amd64
   principal: true
   exposed: false
   remote: false
@@ -106,6 +108,8 @@ logging:
 wordpress:
   charm: wordpress
   series: quantal
+  constraints:
+    arch: amd64
   principal: true
   exposed: false
   remote: false

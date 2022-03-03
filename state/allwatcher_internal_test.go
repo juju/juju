@@ -688,11 +688,12 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
-						ModelUUID: caasSt.ModelUUID(),
-						Name:      "mysql",
-						CharmURL:  "local:kubernetes/kubernetes-mysql-0",
-						Life:      "alive",
-						Config:    map[string]interface{}{},
+						ModelUUID:   caasSt.ModelUUID(),
+						Name:        "mysql",
+						CharmURL:    "local:kubernetes/kubernetes-mysql-0",
+						Life:        "alive",
+						Config:      map[string]interface{}{},
+						Constraints: constraints.MustParse("arch=amd64"),
 						Status: multiwatcher.StatusInfo{
 							Current: "unset",
 							Data:    map[string]interface{}{},
@@ -2116,13 +2117,14 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress",
-						Exposed:   true,
-						CharmURL:  "local:quantal/quantal-wordpress-3",
-						Life:      life.Alive,
-						MinUnits:  42,
-						Config:    charm.Settings{},
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress",
+						Exposed:     true,
+						CharmURL:    "local:quantal/quantal-wordpress-3",
+						Life:        life.Alive,
+						MinUnits:    42,
+						Config:      charm.Settings{},
+						Constraints: constraints.MustParse("arch=amd64"),
 						Status: multiwatcher.StatusInfo{
 							Current: "unset",
 							Message: "",

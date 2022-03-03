@@ -421,7 +421,7 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
@@ -501,7 +501,7 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
@@ -537,10 +537,17 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
+}
+
+func (s *applicationSuite) constraintsWithDefaultArch(c *gc.C) constraints.Value {
+	a := arch.DefaultArchitecture
+	return constraints.Value{
+		Arch: &a,
+	}
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
@@ -693,6 +700,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Config:          config,
+		Constraints:     cons,
 		Placement: []*instance.Placement{
 			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 		},
@@ -705,7 +713,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 
 	appConfig, err := app.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -729,6 +737,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
+		Constraints:     cons,
 		Placement: []*instance.Placement{
 			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 		},
@@ -741,7 +750,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	appConfig, err := app.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	trust := appConfig.GetBool(application.TrustConfigOptionName, true)

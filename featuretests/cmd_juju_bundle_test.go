@@ -72,6 +72,7 @@ applications:
     revision: 43
     options:
       foo: bar
+    constraints: arch=amd64
     bindings:
       "": alpha
       info: vlan2
@@ -80,6 +81,7 @@ applications:
   wordpress:
     charm: cs:quantal/wordpress
     revision: 23
+    constraints: arch=amd64
     bindings:
       "": alpha
       admin-api: alpha
