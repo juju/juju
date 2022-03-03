@@ -29,6 +29,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -1200,6 +1201,21 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	if err := validateDeviceConstraints(deviceb, args.Devices, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// Always ensure that we snapshot the application architecture when adding
+	// the application. If no architecture in the constraints, then look at
+	// the model constraints. If no architecture is found in the model, use the
+	// default architecture (amd64).
+	cons := args.Constraints
+	if !cons.HasArch() {
+		modelConstraints, err := st.ModelConstraints()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		a := arch.ConstraintArch(cons, &modelConstraints)
+		cons.Arch = &a
+		args.Constraints = cons
 	}
 
 	// Perform model specific arg processing.
