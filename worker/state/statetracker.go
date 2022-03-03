@@ -81,5 +81,8 @@ func (c *stateTracker) Done() error {
 func (c *stateTracker) Report() map[string]interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.pool == nil {
+		return nil
+	}
 	return c.pool.Report()
 }

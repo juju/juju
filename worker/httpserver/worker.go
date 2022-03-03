@@ -137,7 +137,9 @@ func (w *Worker) Report() map[string]interface{} {
 	result := map[string]interface{}{
 		"api-port": w.config.APIPort,
 		"status":   w.status,
-		"ports":    w.holdable.report(),
+	}
+	if w.holdable != nil {
+		result["ports"] = w.holdable.report()
 	}
 	if w.config.ControllerAPIPort != 0 {
 		result["api-port-open-delay"] = w.config.APIPortOpenDelay
