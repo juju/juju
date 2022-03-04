@@ -987,6 +987,9 @@ func (u *Uniter) Report() map[string]interface{} {
 	if u.unit != nil {
 		result["unit"] = u.unit.Name()
 	}
+	if u.operationExecutor != nil {
+		result["local-state"] = u.operationExecutor.State().Report()
+	}
 	if u.relationStateTracker != nil {
 		result["relations"] = u.relationStateTracker.Report()
 	}
