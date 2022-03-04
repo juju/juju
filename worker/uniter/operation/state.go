@@ -176,6 +176,18 @@ func (st State) Validate() (err error) {
 	return nil
 }
 
+func (st State) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	result["started"] = st.Started
+	result["stopped"] = st.Stopped
+	result["installed"] = st.Installed
+	result["removed"] = st.Removed
+	result["hook-kind"] = st.Kind
+	result["hook-step"] = st.Step
+	result["leader"] = st.Leader
+	return result
+}
+
 func (st State) match(otherState State) bool {
 	stateYaml, _ := yaml.Marshal(st)
 	otherStateYaml, _ := yaml.Marshal(otherState)
