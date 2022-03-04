@@ -382,11 +382,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	mysql := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
 	curl := applicationCharmURL(mysql)
 	add(&multiwatcher.ApplicationInfo{
-		ModelUUID: modelUUID,
-		Name:      "mysql",
-		CharmURL:  curl.String(),
-		Life:      life.Alive,
-		Config:    charm.Settings{},
+		ModelUUID:   modelUUID,
+		Name:        "mysql",
+		CharmURL:    curl.String(),
+		Life:        life.Alive,
+		Config:      charm.Settings{},
+		Constraints: constraints.MustParse("arch=amd64"),
 		Status: multiwatcher.StatusInfo{
 			Current: "unset",
 			Message: "",

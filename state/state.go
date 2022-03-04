@@ -1207,8 +1207,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	// the application. If no architecture in the constraints, then look at
 	// the model constraints. If no architecture is found in the model, use the
 	// default architecture (amd64).
-	cons := args.Constraints
-	if !cons.HasArch() {
+	var (
+		cons        = args.Constraints
+		subordinate = args.Charm.Meta().Subordinate
+	)
+	if !subordinate && !cons.HasArch() {
 		modelConstraints, err := st.ModelConstraints()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1260,7 +1263,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Name:          args.Name,
 		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
-		Subordinate:   args.Charm.Meta().Subordinate,
+		Subordinate:   subordinate,
 		CharmURL:      args.Charm.URL(),
 		CharmOrigin:   args.CharmOrigin,
 		Channel:       string(args.Channel),

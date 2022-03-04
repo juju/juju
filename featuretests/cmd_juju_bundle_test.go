@@ -72,7 +72,6 @@ applications:
     revision: 43
     options:
       foo: bar
-    constraints: arch=amd64
     bindings:
       "": alpha
       info: vlan2
