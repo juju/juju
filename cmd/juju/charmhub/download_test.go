@@ -46,11 +46,27 @@ func (s *downloadSuite) TestInitNoArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected a charm or bundle name")
 }
 
-func (s *downloadSuite) TestInitSuccess(c *gc.C) {
+func (s *downloadSuite) TestInitErrorCSSchema(c *gc.C) {
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
 	}
-	err := command.Init([]string{"test"})
+	err := command.Init([]string{"cs:test"})
+	c.Assert(err, gc.ErrorMatches, ".* is not a Charmhub charm")
+}
+
+func (s *downloadSuite) TestInitSuccess(c *gc.C) {
+	s.testInitSuccess(c, "test")
+}
+
+func (s *downloadSuite) TestInitSuccessWithSchema(c *gc.C) {
+	s.testInitSuccess(c, "ch:test")
+}
+
+func (s *downloadSuite) testInitSuccess(c *gc.C, charmName string) {
+	command := &downloadCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+	}
+	err := command.Init([]string{charmName})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
