@@ -400,3 +400,44 @@ func (s *mongoLeaseSuite) TestExtendLeaseOtherHeld(c *gc.C) {
 	c.Check(holder.Lease, gc.Equals, "app")
 	c.Check(holder.Holder, gc.Equals, "mytest")
 }
+
+func (s *mongoLeaseSuite) TestAllLeases(c *gc.C) {
+	s.SetupLeaseStore(c, func() int64 { return 12345 })
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "app",
+	}
+	req := lease.Request{
+		Holder:   "app/0",
+		Duration: time.Second,
+	}
+	err := s.leaseStore.ClaimLease(key, req, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	key2 := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "other",
+	}
+	req2 := lease.Request{
+		Holder:   "other/1",
+		Duration: time.Second,
+	}
+	err = s.leaseStore.ClaimLease(key2, req2, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	entries := s.getExpiries(c)
+	c.Check(entries, gc.HasLen, 2)
+	leases := s.leaseStore.Leases()
+	c.Check(leases, gc.DeepEquals, map[lease.Key]lease.Info{
+		key: lease.Info{
+			Holder:   "app/0",
+			Expiry:   time.Unix(0, int64(12345+time.Second)),
+			Trapdoor: nil,
+		},
+		key2: lease.Info{
+			Holder:   "other/1",
+			Expiry:   time.Unix(0, int64(12345+time.Second)),
+			Trapdoor: nil,
+		},
+	})
+}

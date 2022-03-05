@@ -93,6 +93,7 @@ type Mongo interface {
 }
 
 type logger interface {
+	Errorf(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
@@ -121,7 +122,7 @@ type mongoLeaseStore struct {
 var _ (lease.Store) = (*mongoLeaseStore)(nil)
 
 func leaseDBId(key lease.Key) string {
-	return key.ModelUUID + "#" + key.Namespace + "#" + key.Namespace
+	return key.ModelUUID + "#" + key.Namespace + "#" + key.Lease
 }
 
 func (mls *mongoLeaseStore) ClaimLease(key lease.Key, request lease.Request, stop <-chan struct{}) error {
@@ -135,14 +136,22 @@ func (mls *mongoLeaseStore) ClaimLease(key lease.Key, request lease.Request, sto
 	// TODO: (jam 2022-03-05) should we just look this up by leaseId?,
 	//  we should probably also check if it does exist that it has the right fields
 	leaseId := leaseDBId(key)
-	mls.logger.Tracef("claiming lease [%v] %v %q for %q duration %s",
-		key.ModelUUID[6:], key.Namespace, key.Lease, request.Holder, request.Duration)
+	expiryTime := mls.getExpiryTime(request.Duration)
+	maybeExpiry := leaseExpiryDoc{
+		Namespace: key.Namespace,
+		ModelUUID: key.ModelUUID,
+		Lease:     key.Lease,
+		Holder:    request.Holder,
+		Expiry:    expiryTime,
+		Pinned:    false, // unknown
+	}
+	mls.logger.Debugf("claiming: %q %v", leaseId, maybeExpiry)
 	err := mls.expiryCollection.FindId(leaseId).One(&expiry)
 	if err == nil {
 		// Lease already held
 		// TODO: (jam 2022-03-05) is it better to explicitly format the error than defer to another string function?
 		// Probably we shouldn't trace here if we are returning an error, as the caller should log
-		mls.logger.Tracef("claiming lease for %q %s failed: held by %v", request.Holder, request.Duration, expiry)
+		mls.logger.Debugf("claiming lease for %v %q %s failed: held by %v", key, request.Holder, request.Duration, expiry)
 		return errors.Annotatef(lease.ErrClaimDenied, "unable to claim: %v", expiry.String())
 	} else if errors.Cause(err) != mgo.ErrNotFound {
 		// TODO: (jam 2022-03-05) Are there special errors here that we should treat differently?
@@ -161,7 +170,7 @@ func (mls *mongoLeaseStore) ClaimLease(key lease.Key, request lease.Request, sto
 		Namespace: key.Namespace,
 		Lease:     key.Lease,
 		Holder:    request.Holder,
-		Expiry:    mls.getExpiryTime(request.Duration),
+		Expiry:    expiryTime,
 		Pinned:    false,
 	}
 	err = mls.expiryCollection.Writeable().Insert(newExpiry)
@@ -284,12 +293,65 @@ func (mls *mongoLeaseStore) RevokeLease(key lease.Key, holder string, stop <-cha
 	return nil
 }
 
+func iterToMap(iter mongo.Iterator) map[lease.Key]lease.Info {
+	leases := make(map[lease.Key]lease.Info)
+	var expiry leaseExpiryDoc
+	for iter.Next(&expiry) {
+		key := lease.Key{
+			Namespace: expiry.Namespace,
+			ModelUUID: expiry.ModelUUID,
+			Lease:     expiry.Lease,
+		}
+		info := lease.Info{
+			Holder: expiry.Holder,
+			// TODO: (jam 2022-03-05) This is probably an incorrect mapping to time
+			Expiry: time.Unix(0, expiry.Expiry),
+			// Not sure what to put here
+			Trapdoor: nil,
+		}
+		leases[key] = info
+	}
+	return leases
+}
+
 func (mls *mongoLeaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
-	return nil
+	var iter mongo.Iterator
+	if len(keys) == 0 {
+		// return all
+		query := mls.expiryCollection.Find(nil)
+		iter = query.Iter()
+	} else {
+		// Do we query all and just return some? or do we assume that the list is short and just query those?
+		ids := make([]string, len(keys))
+		for i, key := range keys {
+			ids[i] = leaseDBId(key)
+		}
+		query := mls.expiryCollection.Find(bson.M{"_id": bson.M{"$in": ids}})
+		iter = query.Iter()
+	}
+	leases := iterToMap(iter)
+	err := iter.Close()
+	if err != nil {
+		// Leases interface doesn't allow returning errors :(
+		mls.logger.Errorf("failed while reading leases (error suppressed): %v", err)
+	}
+	return leases
 }
+
 func (mls *mongoLeaseStore) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
-	return nil
+	query := mls.expiryCollection.Find(
+		bson.M{"namespace": namespace, "model-uuid": modelUUID},
+	)
+	iter := query.Iter()
+	leases := iterToMap(iter)
+	err := iter.Close()
+	if err != nil {
+		// TODO: (jam 2022-03-05) LeaseGroup interface doesn't allow returning errors :(
+		mls.logger.Errorf("failed while reading leases (error suppressed): %v", err)
+	}
+	return leases
 }
+
 func (mls *mongoLeaseStore) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return nil
 }
