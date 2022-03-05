@@ -441,3 +441,103 @@ func (s *mongoLeaseSuite) TestAllLeases(c *gc.C) {
 		},
 	})
 }
+
+func (s *mongoLeaseSuite) TestLeaseSubset(c *gc.C) {
+	s.SetupLeaseStore(c, func() int64 { return 12345 })
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "app",
+	}
+	req := lease.Request{
+		Holder:   "app/0",
+		Duration: time.Second,
+	}
+	err := s.leaseStore.ClaimLease(key, req, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	key2 := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "other",
+	}
+	req2 := lease.Request{
+		Holder:   "other/1",
+		Duration: time.Second,
+	}
+	err = s.leaseStore.ClaimLease(key2, req2, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	entries := s.getExpiries(c)
+	c.Check(entries, gc.HasLen, 2)
+	leases := s.leaseStore.Leases(key)
+	c.Check(leases, gc.DeepEquals, map[lease.Key]lease.Info{
+		key: lease.Info{
+			Holder:   "app/0",
+			Expiry:   time.Unix(0, int64(12345+time.Second)),
+			Trapdoor: nil,
+		},
+	})
+}
+
+func (s *mongoLeaseSuite) addLease(c *gc.C, namespace, modeluuid, name, holder string, duration time.Duration) {
+	key := lease.Key{
+		Namespace: namespace,
+		ModelUUID: modeluuid,
+		Lease:     name,
+	}
+	request := lease.Request{
+		Holder:   holder,
+		Duration: duration,
+	}
+	err := s.leaseStore.ClaimLease(key, request, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *mongoLeaseSuite) TestLeaseGroup(c *gc.C) {
+	s.SetupLeaseStore(c, func() int64 { return 12345 })
+	// Add a couple leases in different groups, some with the same model-uuid, some with the same namespace, etc.
+	s.addLease(c, "name1", "deadbeef", "app", "app/0", time.Second)
+	s.addLease(c, "name1", "deadbeef", "other", "other/1", time.Second)
+	s.addLease(c, "name2", "deadbeef", "app", "app/0", time.Second)
+	s.addLease(c, "name1", "beefface", "app", "app/0", time.Second)
+	s.addLease(c, "name1", "beefface", "other", "other/2", time.Second)
+	expiryTime := time.Unix(0, int64(time.Second+12345))
+	expiries := s.getExpiries(c)
+	c.Assert(expiries, gc.HasLen, 5)
+	leases := s.leaseStore.LeaseGroup("name1", "deadbeef")
+	c.Check(leases, gc.HasLen, 2)
+	c.Check(leases, gc.DeepEquals, map[lease.Key]lease.Info{
+		lease.Key{Namespace: "name1", ModelUUID: "deadbeef", Lease: "app"}:   lease.Info{Holder: "app/0", Expiry: expiryTime},
+		lease.Key{Namespace: "name1", ModelUUID: "deadbeef", Lease: "other"}: lease.Info{Holder: "other/1", Expiry: expiryTime},
+	})
+	leases = s.leaseStore.LeaseGroup("name2", "deadbeef")
+	c.Check(leases, gc.HasLen, 1)
+	c.Check(leases, gc.DeepEquals, map[lease.Key]lease.Info{
+		lease.Key{Namespace: "name2", ModelUUID: "deadbeef", Lease: "app"}: lease.Info{Holder: "app/0", Expiry: expiryTime},
+	})
+	leases = s.leaseStore.LeaseGroup("name1", "beefface")
+	c.Check(leases, gc.HasLen, 2)
+	c.Check(leases, gc.DeepEquals, map[lease.Key]lease.Info{
+		lease.Key{Namespace: "name1", ModelUUID: "beefface", Lease: "app"}:   lease.Info{Holder: "app/0", Expiry: expiryTime},
+		lease.Key{Namespace: "name1", ModelUUID: "beefface", Lease: "other"}: lease.Info{Holder: "other/2", Expiry: expiryTime},
+	})
+	leases = s.leaseStore.LeaseGroup("name2", "beefface")
+	c.Check(leases, gc.HasLen, 0)
+	c.Check(leases, gc.DeepEquals, map[lease.Key]lease.Info{})
+}
+
+func (s *mongoLeaseSuite) TestExpireOne(c *gc.C) {
+	s.SetupLeaseStore(c, func() int64 { return 12345 })
+	expiryTime := time.Unix(0, int64(time.Second+12345))
+	s.addLease(c, "name1", "deadbeef", "app", "app/0", time.Second)
+	result, err := s.leaseStore.ExpireLeases(int64(time.Second + 12346))
+	c.Assert(err, jc.ErrorIsNil)
+	key := lease.Key{Namespace: "name1", ModelUUID: "deadbeef", Lease: "app"}
+	c.Check(result, gc.DeepEquals, map[lease.Key]lease.Info{
+		key: lease.Info{Holder: "app/0", Expiry: expiryTime},
+	})
+	// No expiries, no holders at this point
+	expiries := s.getExpiries(c)
+	c.Assert(expiries, gc.HasLen, 0)
+	holders := s.getHolders(c)
+	c.Assert(holders, gc.HasLen, 0)
+}

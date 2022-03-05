@@ -234,8 +234,9 @@ func allCollections() CollectionSchema {
 			global:    true,
 			indexes: []mgo.Index{{
 				// We want fast access for finding leases that have expired
-				// TODO: (jam 2022-03-05 Do we want to track if they are pinned in the same index?)
-				Key: []string{"model-uuid", "expiry_timestamp", "pinned"},
+				// TODO: (jam 2022-03-05) Do we want to track if they are pinned in the same index?
+				// TODO: (jam 2022-03-05) Do we want to expire per-model or expire all models at the same time?
+				Key: []string{"expiry_timestamp", "pinned"},
 			}, {
 				Key: []string{"model-uuid", "namespace"},
 			}},

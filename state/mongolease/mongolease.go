@@ -94,6 +94,7 @@ type Mongo interface {
 
 type logger interface {
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
@@ -115,8 +116,9 @@ type mongoLeaseStore struct {
 	expiryCollection  mongo.Collection
 	holdersCollection mongo.Collection
 	mongo             Mongo
-	globalTimeFunc    func() int64 // A function to get the 'global' time
-	logger            logger
+	// TODO (jam 2022-03-05): this should be a getExpiryTime(time.Duration) rather than a global time offset.
+	globalTimeFunc func() int64 // A function to get the 'global' time
+	logger         logger
 }
 
 var _ (lease.Store) = (*mongoLeaseStore)(nil)
@@ -360,4 +362,172 @@ func (mls *mongoLeaseStore) UnpinLease(key lease.Key, entity string, stop <-chan
 }
 func (mls *mongoLeaseStore) Pinned() map[lease.Key][]string {
 	return nil
+}
+
+// expireOne removes a single entry from the expiriesCollection
+// it will update doc with the actual value of what was removed. It will also return 'bool' false if
+// something happened that we did not delete the document. This could happen for a variety
+// of reasons. (someone updated the doc while we were thinking about deleting it)
+// Generally it is ok to not expire something. If it really does need expiration the next
+// run will find it, too.
+func (mls *mongoLeaseStore) expireOne(doc *leaseExpiryDoc) (bool, error) {
+
+	// Check one more time that the value really is what we think it is
+	qq := mls.expiryCollection.Find(bson.M{
+		"_id": doc.Id,
+		// The _id handles model-uuid, namespace, lease name.
+		// We just need to make sure the holder and Expiry aren't changing while we remove it
+		"holder":           doc.Holder,
+		"expiry_timestamp": doc.Expiry,
+	})
+	mls.logger.Debugf("expiring: %v", *doc)
+	changeInfo, err := qq.Apply(mgo.Change{Remove: true}, doc)
+	if err == nil {
+		if changeInfo.Removed != 1 {
+			// TODO: (jam 2022-03-05) Confirm if we get NotFound or we get Removed = 0
+			mls.logger.Debugf("expired lease not removed: %v", doc)
+			return false, nil
+		}
+		mls.logger.Tracef("removed from expiries: %v", *doc)
+		return true, nil
+	}
+	if errors.Cause(err) == mgo.ErrNotFound {
+		// The expectation is either someone else expired this, in which case there is nothing to do, or the
+		// least was extended, in which case there is again, nothing to do.
+		mls.logger.Debugf("expired lease not found: %v", *doc)
+		return false, nil
+	}
+	// TODO: (jam 2022-03-05) Probably needs some testing to figure out what other
+	//  relevant errors we might see.
+	mls.logger.Debugf("error while expiring: %v", *doc)
+	return false, errors.Annotatef(err, "while removing %v", *doc)
+}
+
+func (mls *mongoLeaseStore) removeHolders(removed map[lease.Key]lease.Info) error {
+	// Note that we generally will suppress txn errors at this point, because expiries is always
+	// the source of truth, we just need txns on holders to make everything else play nice.
+	// However, we should at least report if they get out of sync
+	failed := false
+	err := mls.mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			// If we have to retry, we switch back to a one-by-one pattern
+			failed = true
+			return nil, jujutxn.ErrNoOperations
+		}
+		ops := make([]txn.Op, 0, len(removed))
+		for key, info := range removed {
+			ops = append(ops, txn.Op{
+				C:      mls.holdersCollection.Name(),
+				Id:     leaseDBId(key),
+				Remove: true,
+				Assert: bson.M{
+					"holder": info.Holder,
+				},
+			})
+		}
+		return ops, nil
+	})
+	// TODO (jam 2022-03-05): Does ErrNoOperations bubble up or does it just become err nil?
+	if err != nil {
+		// it may be that we should just treat this as a logged error and not do anything else
+		return errors.Trace(err)
+	}
+	if !failed {
+		return nil
+	}
+	// Something went wrong with our all-in-one attempt, do them one by one and report any issues
+	for key, info := range removed {
+		err := mls.mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+			var holder leaseHolderDoc
+			err := mls.holdersCollection.FindId(leaseDBId(key)).One(&holder)
+			if err != nil {
+				if errors.Cause(err) == mgo.ErrNotFound {
+					mls.logger.Debugf("trying to remove %v we got 'not found', ignoring", key)
+					return nil, jujutxn.ErrNoOperations
+				} else {
+					// Not sure what to do, this could be db disconnected, EOF, something else
+					// For example, we might notice EOF, and trigger a session.Refresh
+					mls.logger.Debugf("error while removing lease holder %v: %v", key, err)
+					return nil, errors.Trace(err)
+				}
+			}
+			if holder.Holder != info.Holder {
+				mls.logger.Warningf("we tried to expire %v with holder %q but holder is now %q, removing anyway",
+					key, info.Holder, holder.Holder)
+			}
+
+			// TODO(jam 2022-03-05): do we want to report the holder that we removed from Expiry, or the holder
+			//   that we removed from holders? They shouldn't be different, but they were...
+			// removed[key] = lease.Info{
+			// 	Holder: holder.Holder,
+			// 	Expiry: info.Expiry,
+			// }
+			return []txn.Op{{
+				C:      mls.holdersCollection.Name(),
+				Id:     leaseDBId(key),
+				Remove: true,
+				Assert: bson.M{
+					"holder": holder.Holder,
+				},
+			}}, nil
+		})
+		if err != nil {
+			mls.logger.Warningf("failed to cleanup lease holders collection for %v: %v",
+				key, err)
+			// Note, we don't bubble up this error, because we want to make sure to
+			// delete all of the other holder records that we can.
+		}
+	}
+	return nil
+}
+
+// ExpireLeases removes leases that have expired before the given timestamp
+// The records will be removed from the database (along with the holder records),
+// and the list of what has been expired will be returned.
+// TODO (jam 2022-03-05) What is the right data type to return? For now I'm just returning
+//  map[Key]Info because we use that in a bunch of other interactions
+func (mls *mongoLeaseStore) ExpireLeases(before int64) (map[lease.Key]lease.Info, error) {
+	// New versions of Mongo have 'findOneAndDelete' which might be an interesting way to implement this.
+	// https://docs.mongodb.com/realm/mongodb/actions/collection.findOneAndDelete/#collection.findoneanddelete--
+	// However, we'd like to do it in larger batches.
+	// That said, mgo does support 'findAndModify' which is essentialy the more generic operation.
+	// It lets you remove an entry and return the original value, based on a query.
+	// We also have to watch out for items getting extended while we are expiring them.
+	// First, we start by finding all of the entries that may want to be expired
+	query := mls.expiryCollection.Find(bson.M{
+		"expiry_timestamp": bson.M{"$lt": before},
+		// TODO: (jam 2022-03-05) We shouldn't expire entries that are pinned
+		// "pinned":           false,
+	})
+	iter := query.Iter()
+	removed := make(map[lease.Key]lease.Info)
+	var expiry leaseExpiryDoc
+	for iter.Next(&expiry) {
+		// confirm that the expiry time is still old
+		if expiry.Expiry > before {
+			// This entry was modified since we started the query, ignore it
+			mls.logger.Debugf("lease %v moved past threshold %d", expiry, before)
+			continue
+		}
+		isRemoved, err := mls.expireOne(&expiry)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if isRemoved {
+			// if we get to this point, then we've just removed this entry from the db, record it
+			key := lease.Key{Namespace: expiry.Namespace, ModelUUID: expiry.ModelUUID, Lease: expiry.Lease}
+			info := lease.Info{Holder: expiry.Holder, Expiry: time.Unix(0, expiry.Expiry)}
+			removed[key] = info
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotatef(err, "while expiring leases")
+	}
+	// Now we have a bunch of leases that we really did remove, lets create the TXNs to remove
+	// it from the other collection
+	err := mls.removeHolders(removed)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return removed, nil
 }
