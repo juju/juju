@@ -40,13 +40,17 @@ type leaseExpiryDoc struct {
 	ModelUUID string `bson:"model-uuid"`
 	Lease     string `bson:"lease"`
 	Holder    string `bson:"holder"`
-	Expiry    int    `bson:"expiry_timestamp"`
+	Expiry    int64  `bson:"expiry_timestamp"`
 	Pinned    bool   `bson:"pinned"`
 }
 
 func (led leaseExpiryDoc) String() string {
+	shortUUID := led.ModelUUID
+	if len(shortUUID) > 6 {
+		shortUUID = shortUUID[:6]
+	}
 	return fmt.Sprintf("lease [%s] %s %q held by %q until %d (pinned: %t)",
-		led.ModelUUID[:6], led.Namespace, led.Lease, led.Holder, led.Expiry, led.Pinned)
+		shortUUID, led.Namespace, led.Lease, led.Holder, led.Expiry, led.Pinned)
 }
 
 const (
@@ -110,7 +114,7 @@ type mongoLeaseStore struct {
 	expiryCollection  mongo.Collection
 	holdersCollection mongo.Collection
 	mongo             Mongo
-	globalTimeFunc    func() int // A function to get the 'global' time
+	globalTimeFunc    func() int64 // A function to get the 'global' time
 	logger            logger
 }
 
@@ -121,10 +125,12 @@ func leaseDBId(key lease.Key) string {
 }
 
 func (mls *mongoLeaseStore) ClaimLease(key lease.Key, request lease.Request, stop <-chan struct{}) error {
+	// TODO: (jam 2022-03-05) We should probably be validating key and request
 	// When claiming a lease, we can only claim a lease that is not currently held. It is not currently allowed to
 	// *claim* a lease that you currently hold (you must request to Extend the lease)
 	// TODO: (jam 2022-03-05) should we support claiming a lease that has 'expired'?
-	//  for now, the lease must not exist for you to claim it
+	//  for now, the lease must not exist for you to claim it. However, we could change it to allow claiming
+	//  any lease that has already expired and is not pinned
 	var expiry leaseExpiryDoc
 	// TODO: (jam 2022-03-05) should we just look this up by leaseId?,
 	//  we should probably also check if it does exist that it has the right fields
@@ -136,8 +142,7 @@ func (mls *mongoLeaseStore) ClaimLease(key lease.Key, request lease.Request, sto
 		// Lease already held
 		// TODO: (jam 2022-03-05) is it better to explicitly format the error than defer to another string function?
 		// Probably we shouldn't trace here if we are returning an error, as the caller should log
-		mls.logger.Tracef("claiming lease for %q %s failed: held by %v",
-			request.Holder, request.Duration, expiry)
+		mls.logger.Tracef("claiming lease for %q %s failed: held by %v", request.Holder, request.Duration, expiry)
 		return errors.Annotatef(lease.ErrClaimDenied, "unable to claim: %v", expiry.String())
 	} else if errors.Cause(err) != mgo.ErrNotFound {
 		// TODO: (jam 2022-03-05) Are there special errors here that we should treat differently?
@@ -161,6 +166,10 @@ func (mls *mongoLeaseStore) ClaimLease(key lease.Key, request lease.Request, sto
 	}
 	err = mls.expiryCollection.Writeable().Insert(newExpiry)
 	if err != nil {
+		if mgo.IsDup(err) {
+			// ... Error: E11000 duplicate key error collection: .*
+			return errors.Annotatef(lease.ErrClaimDenied, "unable to claim (duplicate): %v", expiry.String())
+		}
 		mls.logger.Tracef("claiming %s failed: %v", newExpiry, err)
 		return errors.Trace(err)
 	}
@@ -213,16 +222,64 @@ func (mls *mongoLeaseStore) ClaimLease(key lease.Key, request lease.Request, sto
 			newExpiry, err)
 		return errors.Trace(err)
 	}
+	mls.logger.Debugf("claimed: %v", newExpiry)
 	return nil
 }
 
-func (mls *mongoLeaseStore) getExpiryTime(t time.Duration) int {
-	return mls.globalTimeFunc() + int(t)
+func (mls *mongoLeaseStore) getExpiryTime(t time.Duration) int64 {
+	return mls.globalTimeFunc() + int64(t)
 }
 
 func (mls *mongoLeaseStore) ExtendLease(key lease.Key, request lease.Request, stop <-chan struct{}) error {
-	return nil
+	// TODO: (jam 2022-03-05) We should probably be validating key and request
+	// We default to assuming the extend is correct
+	leaseId := leaseDBId(key)
+	newExpiry := mls.getExpiryTime(request.Duration)
+	// TODO: (jam 2022-03-05) One check we could do, is to include
+	//  current expiry time is < requested expiry time.
+	//  It would be an error to 'extend' a lease into the past
+	// TODO: (jam 2022-03-05) Retries?
+	// TODO: (jam 2022-03-05) We should respect stop channel
+	err := mls.expiryCollection.Writeable().Update(
+		bson.M{"_id": leaseId, "holder": request.Holder}, // "expiry": bson.M{"$lt": newExpiry}
+		bson.M{"$set": bson.M{"expiry_timestamp": newExpiry}},
+	)
+	if err == nil {
+		// We successfully extended the expiration, job done
+		doc := leaseExpiryDoc{
+			Namespace: key.Namespace,
+			ModelUUID: key.ModelUUID,
+			Lease:     key.Lease,
+			Holder:    request.Holder,
+			Expiry:    newExpiry,
+			Pinned:    false, // technically unknown, is that a problem?
+		}
+		// We didn't read back from the database, but this is what we expect to be true after doing the update
+		mls.logger.Debugf("extended lease: %v", doc)
+		return nil
+	}
+	if errors.Cause(err) == mgo.ErrNotFound {
+		// Check to see if the lease is actually held by someone else
+		var existing leaseExpiryDoc
+		err2 := mls.expiryCollection.FindId(leaseId).One(&existing)
+		if errors.Cause(err2) == mgo.ErrNotFound {
+			// The least wasn't held by anyone
+			// TODO: (jam 2022-03-05) Validate the content here, we should be giving the short form of model-uuid, etc.
+			mls.logger.Tracef("extending lease failed to find lease: %v, not held", key)
+			return errors.Annotatef(lease.ErrNotHeld, "lease %v not held by anything", key)
+		}
+		// TODO: (jam 2022-03-05) Validate the content here, we should be giving the short form of model-uuid, etc.
+		// TODO: (jam 2022-03-05) If we do trap based on expiry time, we should check if existing.holder == request.holder
+		mls.logger.Tracef("extending lease failed to find lease: %v, held by %v", key, existing.Holder)
+		return errors.Annotatef(lease.ErrNotHeld, "lease held by: %v", existing)
+	}
+	// I don't know what other failures we might hit
+	// TODO: (jam 2022-03-05) This should probably not be leaseId, but be 'short lease identifier' with the short model-uuid
+	mls.logger.Tracef("db error extending lease %v: %v", key, err)
+	return errors.Annotatef(err, "error updating lease expiry document %q", leaseId)
 }
+
+// TODO: (jam 2022-03-05) we should probably build an API that would let you extend multiple at once
 func (mls *mongoLeaseStore) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) error {
 	return nil
 }

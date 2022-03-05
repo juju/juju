@@ -4,10 +4,11 @@
 package mongolease
 
 import (
-	"github.com/juju/loggo"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/testing"
@@ -87,15 +88,16 @@ func (m *TestMongo) RunTransaction(getTxn jujutxn.TransactionSource) error {
 	return m.runner.Run(getTxn)
 }
 
-func (s *mongoLeaseSuite) SetupLeaseStore(c *gc.C, timeFunc func() int) {
-	expiryCollection, close1 := mongo.CollectionFromName(s.db, expiriesC)
+func (s *mongoLeaseSuite) SetupLeaseStore(_ *gc.C, timeFunc func() int64) {
+	tm := NewTestMongo(s.db)
+	expiryCollection, close1 := tm.GetCollection(expiriesC)
 	s.AddCleanup(func(*gc.C) { close1() })
 	holdersCollection, close2 := mongo.CollectionFromName(s.db, leasesC)
 	s.AddCleanup(func(*gc.C) { close2() })
 	s.leaseStore = &mongoLeaseStore{
 		expiryCollection:  expiryCollection,
 		holdersCollection: holdersCollection,
-		mongo:             NewTestMongo(s.db),
+		mongo:             tm,
 		globalTimeFunc:    timeFunc,
 		logger:            loggo.GetLogger("mongo-leases"),
 	}
@@ -130,7 +132,7 @@ func (s *mongoLeaseSuite) expectOneHolder(c *gc.C) leaseHolderDoc {
 }
 
 func (s *mongoLeaseSuite) TestClaimLease(c *gc.C) {
-	s.SetupLeaseStore(c, func() int { return 12345 })
+	s.SetupLeaseStore(c, func() int64 { return 12345 })
 	stopChan := make(chan struct{})
 	err := s.leaseStore.ClaimLease(lease.Key{
 		Namespace: "application",
@@ -147,7 +149,7 @@ func (s *mongoLeaseSuite) TestClaimLease(c *gc.C) {
 	c.Check(entry.Namespace, gc.Equals, "application")
 	c.Check(entry.Lease, gc.Equals, "app")
 	c.Check(entry.Holder, gc.Equals, "mytest")
-	c.Check(entry.Expiry, gc.Equals, 12345+int(time.Second))
+	c.Check(entry.Expiry, gc.Equals, int64(12345+time.Second))
 	holder := s.expectOneHolder(c)
 	c.Check(holder.ModelUUID, gc.Equals, "deadbeef")
 	c.Check(holder.Namespace, gc.Equals, "application")
@@ -156,7 +158,7 @@ func (s *mongoLeaseSuite) TestClaimLease(c *gc.C) {
 }
 
 func (s *mongoLeaseSuite) TestClaimClaimedLease(c *gc.C) {
-	s.SetupLeaseStore(c, func() int { return 12345 })
+	s.SetupLeaseStore(c, func() int64 { return 12345 })
 	key := lease.Key{
 		Namespace: "application",
 		ModelUUID: "deadbeef",
@@ -185,6 +187,215 @@ func (s *mongoLeaseSuite) TestClaimClaimedLease(c *gc.C) {
 	entry = s.expectOneExpiry(c)
 	c.Check(entry.Lease, gc.Equals, "app")
 	c.Check(entry.Holder, gc.Equals, "mytest")
+	holder = s.expectOneHolder(c)
+	c.Check(holder.Lease, gc.Equals, "app")
+	c.Check(holder.Holder, gc.Equals, "mytest")
+}
+
+func (s *mongoLeaseSuite) TestClaimExpiredLease(c *gc.C) {
+	s.SetupLeaseStore(c, func() int64 { return 12345 })
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "app",
+	}
+	req := lease.Request{
+		Holder:   "mytest",
+		Duration: time.Second,
+	}
+	stopChan := make(chan struct{})
+	err := s.leaseStore.ClaimLease(key, req, stopChan)
+	c.Assert(err, jc.ErrorIsNil)
+	entry := s.expectOneExpiry(c)
+	c.Check(entry.Lease, gc.Equals, "app")
+	c.Check(entry.Holder, gc.Equals, "mytest")
+	holder := s.expectOneHolder(c)
+	c.Check(holder.Lease, gc.Equals, "app")
+	c.Check(holder.Holder, gc.Equals, "mytest")
+	// To mimic an expired lease, we delete the 'expiries' record (easiest to just remove everything)
+	_, err = s.leaseStore.expiryCollection.Writeable().RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	req = lease.Request{
+		Holder:   "othertest",
+		Duration: time.Minute,
+	}
+	err = s.leaseStore.ClaimLease(key, req, stopChan)
+	c.Assert(err, jc.ErrorIsNil)
+	// The lease holder should not have changed
+	entry = s.expectOneExpiry(c)
+	c.Check(entry.Lease, gc.Equals, "app")
+	c.Check(entry.Holder, gc.Equals, "othertest")
+	c.Check(entry.Expiry, gc.Equals, int64(12345+time.Minute))
+	holder = s.expectOneHolder(c)
+	c.Check(holder.Lease, gc.Equals, "app")
+	c.Check(holder.Holder, gc.Equals, "othertest")
+}
+
+func (s *mongoLeaseSuite) TestClaimContendedLease(c *gc.C) {
+	// We create a bunch of claimer objects, and have them all try to claim the same lease with a different holder
+	// This should test whether or presumptions around atomicity are handled.
+	// start with the normal one
+	timeFunc := func() int64 { return 12345 }
+	s.SetupLeaseStore(c, timeFunc)
+	const concurrent = 10
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "app",
+	}
+	claims := make(chan string)
+	done := make(chan bool)
+	tryClaim := func(store *mongoLeaseStore, holder string) {
+		defer func() {
+			select {
+			case done <- true:
+			case <-time.After(5 * time.Second):
+				c.Errorf("timed out trying to report Done")
+			}
+		}()
+		req := lease.Request{
+			Holder:   holder,
+			Duration: time.Second,
+		}
+		err := store.ClaimLease(key, req, nil)
+		if err == nil {
+			select {
+			case claims <- holder:
+			case <-time.After(5 * time.Second):
+				c.Errorf("timed out trying to record a claimed lease for %q", holder)
+			}
+		} else if errors.Cause(err) == lease.ErrClaimDenied {
+			// when having contention, most of them should fail with ErrClaimeDenied
+		} else {
+			c.Errorf("claiming failed for the wrong reason: %v", err)
+		}
+	}
+	for i := 0; i < concurrent; i++ {
+		session := s.db.Session.Copy()
+		// These defers are correct, because we want them to exist until all goroutines finish
+		defer session.Close()
+		db := s.db.With(session)
+		tm := NewTestMongo(db)
+		holders, close1 := tm.GetCollection(leasesC)
+		defer close1()
+		expiries, close2 := tm.GetCollection(expiriesC)
+		defer close2()
+		store := &mongoLeaseStore{
+			holdersCollection: holders,
+			expiryCollection:  expiries,
+			mongo:             tm,
+			globalTimeFunc:    timeFunc,
+			logger:            loggo.GetLogger("mongo-leases"),
+		}
+		go tryClaim(store, fmt.Sprintf("holder/%d", i))
+	}
+	leftToFinish := concurrent
+	firstClaim := ""
+	timeout := time.After(5 * time.Second)
+	for leftToFinish > 0 {
+		select {
+		case claim := <-claims:
+			if firstClaim == "" {
+				firstClaim = claim
+			} else {
+				c.Errorf("claim succeeded for %q while already succeeded for %q")
+			}
+		case <-done:
+			leftToFinish--
+		case <-timeout:
+			c.Fatalf("timed out waiting for all stores to respond")
+		}
+	}
+	// At least one of them should have succeeded
+	c.Check(firstClaim, gc.Not(gc.Equals), "")
+}
+
+// TODO (jam 2022-03-05): We should test that ClaimLease exits early if stopChan is closed
+
+func (s *mongoLeaseSuite) TestExtendLease(c *gc.C) {
+	currentTime := int64(12345)
+	s.SetupLeaseStore(c, func() int64 { return currentTime })
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "app",
+	}
+	req := lease.Request{
+		Holder:   "mytest",
+		Duration: time.Second,
+	}
+	err := s.leaseStore.ClaimLease(key, req, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	entry := s.expectOneExpiry(c)
+	c.Check(entry.Lease, gc.Equals, "app")
+	c.Check(entry.Holder, gc.Equals, "mytest")
+	c.Check(entry.Expiry, gc.Equals, int64(12345+time.Second))
+	holder := s.expectOneHolder(c)
+	c.Check(holder.Lease, gc.Equals, "app")
+	c.Check(holder.Holder, gc.Equals, "mytest")
+	currentTime += int64(500 * time.Millisecond)
+	err = s.leaseStore.ExtendLease(key, req, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	entry = s.expectOneExpiry(c)
+	c.Check(entry.Lease, gc.Equals, "app")
+	c.Check(entry.Holder, gc.Equals, "mytest")
+	c.Check(entry.Expiry, gc.Equals, currentTime+int64(time.Second))
+	holder = s.expectOneHolder(c)
+	c.Check(holder.Lease, gc.Equals, "app")
+	c.Check(holder.Holder, gc.Equals, "mytest")
+}
+
+func (s *mongoLeaseSuite) TestExtendLeaseNotHeld(c *gc.C) {
+	currentTime := int64(12345)
+	s.SetupLeaseStore(c, func() int64 { return currentTime })
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "app",
+	}
+	req := lease.Request{
+		Holder:   "mytest",
+		Duration: time.Second,
+	}
+	err := s.leaseStore.ExtendLease(key, req, nil)
+	// Denied because we aren't the current holder
+	c.Assert(errors.Cause(err), gc.Equals, lease.ErrNotHeld)
+	expiries := s.getExpiries(c)
+	c.Check(expiries, gc.HasLen, 0)
+	holders := s.getHolders(c)
+	c.Check(holders, gc.HasLen, 0)
+}
+
+func (s *mongoLeaseSuite) TestExtendLeaseOtherHeld(c *gc.C) {
+	currentTime := int64(12345)
+	s.SetupLeaseStore(c, func() int64 { return currentTime })
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "deadbeef",
+		Lease:     "app",
+	}
+	req := lease.Request{
+		Holder:   "mytest",
+		Duration: time.Second,
+	}
+	err := s.leaseStore.ClaimLease(key, req, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	entry := s.expectOneExpiry(c)
+	c.Check(entry.Lease, gc.Equals, "app")
+	c.Check(entry.Holder, gc.Equals, "mytest")
+	c.Check(entry.Expiry, gc.Equals, int64(12345+time.Second))
+	holder := s.expectOneHolder(c)
+	c.Check(holder.Lease, gc.Equals, "app")
+	c.Check(holder.Holder, gc.Equals, "mytest")
+	currentTime += int64(500 * time.Millisecond)
+	req.Holder = "otherholder"
+	err = s.leaseStore.ExtendLease(key, req, nil)
+	// Denied because we aren't the current holder
+	c.Assert(errors.Cause(err), gc.Equals, lease.ErrNotHeld)
+	entry = s.expectOneExpiry(c)
+	c.Check(entry.Lease, gc.Equals, "app")
+	c.Check(entry.Holder, gc.Equals, "mytest")
+	c.Check(entry.Expiry, gc.Equals, int64(12345+time.Second))
 	holder = s.expectOneHolder(c)
 	c.Check(holder.Lease, gc.Equals, "app")
 	c.Check(holder.Holder, gc.Equals, "mytest")
