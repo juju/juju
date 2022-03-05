@@ -227,6 +227,18 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
+		// This collection tracks the expiration and pinned status of leases. Note that we access this collection
+		// directly, without mgo/txn.
+		leaseExpiriesC: {
+			rawAccess: true,
+			global:    true,
+			indexes: []mgo.Index{{
+				// We want fast access for finding leases that have expired
+				// TODO: (jam 2022-03-05 Do we want to track if they are pinned in the same index?)
+				Key: []string{"model-uuid", "expiry_timestamp", "pinned"},
+			}},
+		},
+
 		// This collection holds the last time the model user connected
 		// to the model.
 		modelUserLastConnectionC: {
@@ -636,6 +648,7 @@ const (
 	guisettingsC               = "guisettings"
 	instanceDataC              = "instanceData"
 	leaseHoldersC              = "leaseholders"
+	leaseExpiriesC             = "leaseexpiries"
 	machinesC                  = "machines"
 	machineRemovalsC           = "machineremovals"
 	machineUpgradeSeriesLocksC = "machineUpgradeSeriesLocks"
