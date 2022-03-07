@@ -62,7 +62,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertCharm(c, app, s.charm.URL())
 	s.assertSettings(c, app, charm.Settings{})
 	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes(nil))
-	s.assertConstraints(c, app, constraints.Value{})
+	s.assertConstraints(c, app, constraints.MustParse("arch=amd64"))
 	s.assertMachines(c, app, constraints.Value{})
 }
 
@@ -361,7 +361,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 			Constraints:     applicationCons,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertConstraints(c, app, applicationCons)
+	s.assertConstraints(c, app, constraints.MustParse("cores=2 arch=amd64"))
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {

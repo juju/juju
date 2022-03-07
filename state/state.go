@@ -29,6 +29,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -1202,6 +1203,24 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Trace(err)
 	}
 
+	// Always ensure that we snapshot the application architecture when adding
+	// the application. If no architecture in the constraints, then look at
+	// the model constraints. If no architecture is found in the model, use the
+	// default architecture (amd64).
+	var (
+		cons        = args.Constraints
+		subordinate = args.Charm.Meta().Subordinate
+	)
+	if !subordinate && !cons.HasArch() {
+		modelConstraints, err := st.ModelConstraints()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		a := arch.ConstraintArch(cons, &modelConstraints)
+		cons.Arch = &a
+		args.Constraints = cons
+	}
+
 	// Perform model specific arg processing.
 	var (
 		scale             int
@@ -1244,7 +1263,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Name:          args.Name,
 		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
-		Subordinate:   args.Charm.Meta().Subordinate,
+		Subordinate:   subordinate,
 		CharmURL:      args.Charm.URL(),
 		CharmOrigin:   args.CharmOrigin,
 		Channel:       string(args.Channel),
