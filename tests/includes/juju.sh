@@ -152,9 +152,9 @@ add_model() {
 
 	OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${cloud}" || true)
 	if [[ -n ${OUT} ]]; then
-		juju add-model -c "${controller}" "${model}" "${cloud}" 2>&1 | OUTPUT "${output}"
-	else
 		juju add-model -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
+	else
+		juju add-model -c "${controller}" "${model}" "${cloud}" 2>&1 | OUTPUT "${output}"
 	fi
 
 	post_add_model
