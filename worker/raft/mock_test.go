@@ -8,6 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/raft/notifyproxy"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 )
@@ -50,6 +51,7 @@ type mockRaftWorker struct {
 	testing.Stub
 	r  *raft.Raft
 	ls raft.LogStore
+	np notifyproxy.NotificationProxy
 }
 
 func (r *mockRaftWorker) Raft() (*raft.Raft, error) {
@@ -60,6 +62,11 @@ func (r *mockRaftWorker) Raft() (*raft.Raft, error) {
 func (r *mockRaftWorker) LogStore() (raft.LogStore, error) {
 	r.MethodCall(r, "LogStore")
 	return r.ls, r.NextErr()
+}
+
+func (r *mockRaftWorker) NotifyProxy() (notifyproxy.NotificationProxy, error) {
+	r.MethodCall(r, "NotifyProxy")
+	return r.np, r.NextErr()
 }
 
 func (r *mockRaftWorker) Kill() {

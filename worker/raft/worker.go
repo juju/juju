@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raft/notifyproxy"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/raft/raftutil"
@@ -108,6 +109,21 @@ type LeaseApplier interface {
 	ApplyOperation([]queue.OutOperation, time.Duration)
 }
 
+type NotifyProxy interface {
+	// Claimed will be called when a new lease has been claimed.
+	Claimed(key lease.Key, holder string) error
+
+	// Expiries will be called when a set of existing leases have expired.
+	Expiries(expiries []raftlease.Expired) error
+
+	// Notifications returns a channel of notifications from a given notify
+	// target.
+	Notifications() <-chan []notifyproxy.Notification
+
+	// Close the NotifyProxy.
+	Close() error
+}
+
 // Config is the configuration required for running a raft worker.
 type Config struct {
 	// FSM is the raft.FSM to use for this raft worker. This
@@ -172,9 +188,9 @@ type Config struct {
 	// Queue is a blocking queue to apply raft operations.
 	Queue Queue
 
-	// NotifyTarget is used to notify the changes from the raft operation
+	// NewNotifyTarget is used to notify the changes from the raft operation
 	// applications.
-	NotifyTarget raftlease.NotifyTarget
+	NewNotifyTarget func() NotifyProxy
 
 	// NewApplier is used to apply the raft operations on to the raft
 	// instance, before notifying a target of the changes.
@@ -207,8 +223,8 @@ func (config Config) Validate() error {
 	if config.Queue == nil {
 		return errors.NotValidf("nil Queue")
 	}
-	if config.NotifyTarget == nil {
-		return errors.NotValidf("nil NotifyTarget")
+	if config.NewNotifyTarget == nil {
+		return errors.NotValidf("nil NewNotifyTarget")
 	}
 	if config.NewApplier == nil {
 		return errors.NotValidf("nil NewApplier")
@@ -227,8 +243,8 @@ func Bootstrap(config Config) error {
 	if config.Transport != nil {
 		return errors.NotValidf("non-nil Transport during Bootstrap")
 	}
-	if config.NotifyTarget != nil {
-		return errors.NotValidf("non-nil NotifyTarget during Bootstrap")
+	if config.NewNotifyTarget != nil {
+		return errors.NotValidf("non-nil NewNotifyTarget during Bootstrap")
 	}
 	if config.NewApplier != nil {
 		return errors.NotValidf("non-nil NewApplier during Bootstrap")
@@ -242,7 +258,9 @@ func Bootstrap(config Config) error {
 
 	// During bootstrap, we do not require an FSM.
 	config.FSM = BootstrapFSM{}
-	config.NotifyTarget = BootstrapNotifyTarget{}
+	config.NewNotifyTarget = func() NotifyProxy {
+		return BootstrapNotifyTarget{}
+	}
 	config.NewApplier = func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier {
 		return BootstrapLeaseApplier{}
 	}
@@ -286,9 +304,10 @@ func newWorker(config Config) (*Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &Worker{
-		config:     config,
-		raftCh:     make(chan *raft.Raft),
-		logStoreCh: make(chan raft.LogStore),
+		config:        config,
+		raftCh:        make(chan *raft.Raft),
+		logStoreCh:    make(chan raft.LogStore),
+		notifyProxyCh: make(chan NotifyProxy),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -313,8 +332,9 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	raftCh     chan *raft.Raft
-	logStoreCh chan raft.LogStore
+	raftCh        chan *raft.Raft
+	logStoreCh    chan raft.LogStore
+	notifyProxyCh chan NotifyProxy
 }
 
 // Raft returns the raft.Raft managed by this worker, or
@@ -347,6 +367,19 @@ func (w *Worker) LogStore() (raft.LogStore, error) {
 	}
 }
 
+func (w *Worker) NotifyProxy() (notifyproxy.NotificationProxy, error) {
+	select {
+	case <-w.catacomb.Dying():
+		err := w.catacomb.Err()
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrWorkerStopped
+	case notifyProxy := <-w.notifyProxyCh:
+		return notifyProxy, nil
+	}
+}
+
 // Kill is part of the worker.Worker interface.
 func (w *Worker) Kill() {
 	w.catacomb.Kill(nil)
@@ -358,6 +391,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
+	loggo.GetLogger("***").Criticalf("RAFT RESTART")
 	// Register the metrics.
 	if registry := w.config.PrometheusRegisterer; registry != nil {
 		registerRaftMetrics(registry, w.config.Logger)
@@ -383,6 +417,10 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	// to the StableStore - only the raft instance uses it.
 	logStore := &syncLogStore{store: rawLogStore}
 	defer func() { _ = logStore.Close() }()
+
+	// Create a new notify target for every new raft instance.
+	notifyProxy := w.config.NewNotifyTarget()
+	defer func() { _ = notifyProxy.Close() }()
 
 	snapshotRetention := w.config.SnapshotRetention
 	if snapshotRetention == 0 {
@@ -414,7 +452,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	}()
 
 	applierMetrics := newApplierMetrics(w.config.Clock)
-	applier := w.config.NewApplier(r, w.config.NotifyTarget, applierMetrics, w.config.Clock, w.config.Logger)
+	applier := w.config.NewApplier(r, notifyProxy, applierMetrics, w.config.Clock, w.config.Logger)
 	if registry := w.config.PrometheusRegisterer; registry != nil {
 		registerApplierMetrics(registry, applierMetrics, w.config.Logger)
 	}
@@ -479,6 +517,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 
 		case w.raftCh <- r:
 		case w.logStoreCh <- logStore:
+		case w.notifyProxyCh <- notifyProxy:
 		}
 	}
 }
@@ -577,15 +616,11 @@ func (BootstrapFSM) Restore(io.ReadCloser) error {
 	panic("Restore should not be called during bootstrap")
 }
 
-type BootstrapNotifyTarget struct{}
-
-// Claimed will be called when a new lease has been claimed.
-func (BootstrapNotifyTarget) Claimed(lease.Key, string) error {
-	return nil
+type BootstrapNotifyTarget struct {
+	NotifyProxy
 }
 
-// Expiries will be called when a set of existing leases have expired.
-func (BootstrapNotifyTarget) Expiries([]raftlease.Expired) error {
+func (BootstrapNotifyTarget) Close() error {
 	return nil
 }
 

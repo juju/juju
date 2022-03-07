@@ -18,35 +18,30 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/raft/notifyproxy"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
-	raftleasestore "github.com/juju/juju/state/raftlease"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/raft"
 )
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
 
-	manifold     dependency.Manifold
-	context      dependency.Context
-	agent        *mockAgent
-	transport    *coreraft.InmemTransport
-	clock        *testclock.Clock
-	fsm          *raft.SimpleFSM
-	logger       loggo.Logger
-	worker       *mockRaftWorker
-	stateTracker *stubStateTracker
-	target       raftlease.NotifyTarget
-	queue        *queue.OpQueue
-	apply        func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier
-	stub         testing.Stub
+	manifold  dependency.Manifold
+	context   dependency.Context
+	agent     *mockAgent
+	transport *coreraft.InmemTransport
+	clock     *testclock.Clock
+	fsm       *raft.SimpleFSM
+	logger    loggo.Logger
+	worker    *mockRaftWorker
+	target    *notifyproxy.NotifyProxy
+	queue     *queue.OpQueue
+	apply     func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier
+	stub      testing.Stub
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -61,18 +56,15 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			dataDir: filepath.Join("data", "dir"),
 		},
 	}
+	s.target = notifyproxy.New()
 	s.fsm = &raft.SimpleFSM{}
 	s.logger = loggo.GetLogger("juju.worker.raft_test")
 	s.worker = &mockRaftWorker{
 		r:  &coreraft.Raft{},
 		ls: &mockLogStore{},
+		np: s.target,
 	}
-	s.target = &struct{ raftlease.NotifyTarget }{}
 	s.queue = queue.NewOpQueue(s.clock)
-	s.stateTracker = &stubStateTracker{
-		pool: s.StatePool,
-		done: make(chan struct{}),
-	}
 	s.apply = func(raft.Raft, raftlease.NotifyTarget, raft.ApplierMetrics, clock.Clock, raft.Logger) raft.LeaseApplier {
 		return nil
 	}
@@ -91,13 +83,14 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ClockName:     "clock",
 		AgentName:     "agent",
 		TransportName: "transport",
-		StateName:     "state",
 		FSM:           s.fsm,
 		Logger:        s.logger,
 		NewWorker:     s.newWorker,
-		NewTarget:     s.newTarget,
-		Queue:         s.queue,
-		NewApplier:    s.apply,
+		NewNotifyTarget: func() raft.NotifyProxy {
+			return s.target
+		},
+		Queue:      s.queue,
+		NewApplier: s.apply,
 	})
 }
 
@@ -106,7 +99,6 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"agent":     s.agent,
 		"transport": s.transport,
 		"clock":     s.clock,
-		"state":     s.stateTracker,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -122,13 +114,8 @@ func (s *ManifoldSuite) newWorker(config raft.Config) (worker.Worker, error) {
 	return s.worker, nil
 }
 
-func (s *ManifoldSuite) newTarget(st *state.State, logger raftleasestore.Logger) raftlease.NotifyTarget {
-	s.stub.MethodCall(s, "NewTarget", st, logger)
-	return s.target
-}
-
 var expectedInputs = []string{
-	"clock", "agent", "transport", "state",
+	"clock", "agent", "transport",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -148,8 +135,8 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 func (s *ManifoldSuite) TestStart(c *gc.C) {
 	s.startWorkerClean(c)
 
-	s.stub.CheckCallNames(c, "NewTarget", "NewWorker")
-	args := s.stub.Calls()[1].Args
+	s.stub.CheckCallNames(c, "NewWorker")
+	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, raft.Config{})
 	config := args[0].(raft.Config)
@@ -157,35 +144,17 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	// We can't compare apply operations functions, so just check it's not nil.
 	c.Assert(config.NewApplier, gc.NotNil)
 	config.NewApplier = nil
+	config.NewNotifyTarget = nil
 
 	c.Assert(config, jc.DeepEquals, raft.Config{
-		FSM:          s.fsm,
-		Logger:       s.logger,
-		StorageDir:   filepath.Join(s.agent.conf.dataDir, "raft"),
-		LocalID:      "99",
-		Transport:    s.transport,
-		Clock:        s.clock,
-		Queue:        s.queue,
-		NotifyTarget: s.target,
+		FSM:        s.fsm,
+		Logger:     s.logger,
+		StorageDir: filepath.Join(s.agent.conf.dataDir, "raft"),
+		LocalID:    "99",
+		Transport:  s.transport,
+		Clock:      s.clock,
+		Queue:      s.queue,
 	})
-}
-
-func (s *ManifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
-	w := s.startWorkerClean(c)
-
-	s.stateTracker.CheckCallNames(c, "Use")
-	select {
-	case <-s.stateTracker.done:
-		c.Fatal("unexpected state release")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	// Stopping the worker should cause the state to
-	// eventually be released.
-	workertest.CleanKill(c, w)
-
-	s.stateTracker.waitDone(c)
-	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) TestOutput(c *gc.C) {
@@ -223,38 +192,6 @@ func (s *ManifoldSuite) TestOutputRaftError(c *gc.C) {
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanupW, ok := w.(*common.CleanupWorker)
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(cleanupW.Worker, gc.Equals, s.worker)
+	c.Assert(w, gc.Equals, s.worker)
 	return w
-}
-
-type stubStateTracker struct {
-	testing.Stub
-	pool *state.StatePool
-	done chan struct{}
-}
-
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
-	s.MethodCall(s, "Use")
-	return s.pool, s.NextErr()
-}
-
-func (s *stubStateTracker) Done() error {
-	s.MethodCall(s, "Done")
-	err := s.NextErr()
-	close(s.done)
-	return err
-}
-
-func (s *stubStateTracker) Report() map[string]interface{} {
-	return map[string]interface{}{"hey": "mum"}
-}
-
-func (s *stubStateTracker) waitDone(c *gc.C) {
-	select {
-	case <-s.done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for state to be released")
-	}
 }
