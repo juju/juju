@@ -27,14 +27,17 @@ type klogAdapter struct {
 }
 
 // newKlogAdapter creates a new klog adapter to juju loggo
-func newKlogAdapter() *klogAdapter {
-	return &klogAdapter{
+func newKlogAdapter() logr.Logger {
+	return logr.New(&klogAdapter{
 		Logger: loggo.GetLogger("juju.kubernetes.klog"),
-	}
+	})
+}
+
+func (k *klogAdapter) Init(info logr.RuntimeInfo) {
 }
 
 // Enabled see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) Enabled() bool {
+func (k *klogAdapter) Enabled(level int) bool {
 	return true
 }
 
@@ -52,7 +55,7 @@ func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{})
 }
 
 // Info see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) Info(msg string, keysAndValues ...interface{}) {
+func (k *klogAdapter) Info(level int, msg string, keysAndValues ...interface{}) {
 	k.Logger.Infof(msg, keysAndValues...)
 }
 
@@ -66,16 +69,16 @@ func (k KlogMessagePrefixes) Matches(log string) bool {
 }
 
 // V see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) V(level int) logr.Logger {
+func (k *klogAdapter) V(level int) logr.LogSink {
 	return k
 }
 
 // WithValues see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) WithValues(keysAndValues ...interface{}) logr.Logger {
+func (k *klogAdapter) WithValues(keysAndValues ...interface{}) logr.LogSink {
 	return k
 }
 
 // WithName see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) WithName(name string) logr.Logger {
+func (k *klogAdapter) WithName(name string) logr.LogSink {
 	return k
 }

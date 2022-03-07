@@ -99,6 +99,24 @@ func (k *kubernetesClient) ensureIngressResources(
 	return cleanUps, nil
 }
 
+// Pulled from https://github.com/kubernetes/kubernetes/blob/04969280beb16951793cb64a1aa7fd0cc4b1b60c/plugin/pkg/admission/podnodeselector/admission.go#L263
+func isSubset(subSet, superSet k8slabels.Set) bool {
+	if len(superSet) == 0 {
+		return true
+	}
+
+	for k, v := range subSet {
+		value, ok := superSet[k]
+		if !ok {
+			return false
+		}
+		if value != v {
+			return false
+		}
+	}
+	return true
+}
+
 func (k *kubernetesClient) ensureIngressV1beta1(appName string, spec *networkingv1beta1.Ingress, force bool) (func(), error) {
 	cleanUp := func() {}
 	if k.namespace == "" {
@@ -121,7 +139,7 @@ func (k *kubernetesClient) ensureIngressV1beta1(appName string, spec *networking
 		if err != nil {
 			return cleanUp, errors.Trace(err)
 		}
-		if len(existing.GetLabels()) == 0 || !k8slabels.AreLabelsInWhiteList(k.getIngressLabels(appName), existing.GetLabels()) {
+		if len(existing.GetLabels()) == 0 || !isSubset(k.getIngressLabels(appName), existing.GetLabels()) {
 			return cleanUp, errors.NewAlreadyExists(nil, fmt.Sprintf("existing ingress %q found which does not belong to %q", spec.GetName(), appName))
 		}
 	}
@@ -157,7 +175,7 @@ func (k *kubernetesClient) ensureIngressV1(appName string, spec *networkingv1.In
 		if err != nil {
 			return cleanUp, errors.Trace(err)
 		}
-		if len(existing.GetLabels()) == 0 || !k8slabels.AreLabelsInWhiteList(k.getIngressLabels(appName), existing.GetLabels()) {
+		if len(existing.GetLabels()) == 0 || !isSubset(k.getIngressLabels(appName), existing.GetLabels()) {
 			return cleanUp, errors.NewAlreadyExists(nil, fmt.Sprintf("existing ingress %q found which does not belong to %q", spec.GetName(), appName))
 		}
 	}

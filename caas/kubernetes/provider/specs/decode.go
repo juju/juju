@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"strings"
 
 	"github.com/juju/errors"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -54,23 +52,9 @@ func (d *YAMLOrJSONDecoder) processError(err error, decoder *json.Decoder) error
 	if !ok {
 		return err
 	}
-	data, readErr := ioutil.ReadAll(decoder.Buffered())
-	if readErr != nil {
-		logger.Debugf("reading stream failed: %v", readErr)
-	}
-	jsonData := string(data)
-
-	// if contents from io.Reader are not complete,
-	// use the original raw data to prevent panic
-	if int64(len(jsonData)) <= syntax.Offset {
-		jsonData = string(d.rawData)
-	}
-
-	start := strings.LastIndex(jsonData[:syntax.Offset], "\n") + 1
-	line := strings.Count(jsonData[:start], "\n")
 	return k8syaml.JSONSyntaxError{
-		Line: line,
-		Err:  fmt.Errorf(syntax.Error()),
+		Offset: syntax.Offset,
+		Err:    fmt.Errorf(syntax.Error()),
 	}
 }
 

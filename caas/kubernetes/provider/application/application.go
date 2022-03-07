@@ -1242,7 +1242,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			RunAsGroup: pointer.Int64Ptr(0),
 		},
 		LivenessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: constants.AgentHTTPPathLiveness,
 					Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -1254,7 +1254,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			FailureThreshold:    agentProbeFailure,
 		},
 		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: constants.AgentHTTPPathReadiness,
 					Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -1266,7 +1266,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			FailureThreshold:    agentProbeFailure,
 		},
 		StartupProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: constants.AgentHTTPPathStartup,
 					Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -1325,7 +1325,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Value: "/charm/container/pebble.socket",
 			}},
 			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/v1/health?level=alive",
 						Port: intstr.FromInt(containerPebblePortStart + i),
@@ -1338,7 +1338,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				FailureThreshold:    containerProbeFailure,
 			},
 			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/v1/health?level=ready",
 						Port: intstr.FromInt(containerPebblePortStart + i),

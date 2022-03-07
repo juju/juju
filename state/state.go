@@ -2310,6 +2310,9 @@ func (st *State) AliveRelationKeys() []string {
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
 // what is going on at runtime.
 func (st *State) Report() map[string]interface{} {
+	if st.workers == nil {
+		return nil
+	}
 	return st.workers.Report()
 }
 

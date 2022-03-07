@@ -108,11 +108,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot: pointer.BoolPtr(true),
@@ -162,11 +162,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 					},
 					ReadinessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+						ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 					},
 					LivenessProbe: &core.Probe{
 						SuccessThreshold: 20,
-						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+						ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 					},
 					VolumeMounts: dataVolumeMounts(),
 				}, {
@@ -312,11 +312,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot: pointer.BoolPtr(true),
@@ -362,11 +362,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 					},
 					ReadinessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+						ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 					},
 					LivenessProbe: &core.Probe{
 						SuccessThreshold: 20,
-						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+						ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 					},
 					VolumeMounts: dataVolumeMounts(),
 					Env: []core.EnvVar{
@@ -427,11 +427,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot: pointer.BoolPtr(true),
@@ -466,11 +466,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 					ImagePullPolicy: core.PullAlways,
 					ReadinessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+						ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 					},
 					LivenessProbe: &core.Probe{
 						SuccessThreshold: 20,
-						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+						ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 					},
 					SecurityContext: &core.SecurityContext{
 						RunAsNonRoot: pointer.BoolPtr(true),
@@ -1267,11 +1267,11 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			},
 			ReadinessProbe: &core.Probe{
 				InitialDelaySeconds: 10,
-				Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 			},
 			LivenessProbe: &core.Probe{
 				SuccessThreshold: 20,
-				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 			},
 			VolumeMounts: dataVolumeMounts(),
 		},
@@ -1332,11 +1332,11 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			},
 			ReadinessProbe: &core.Probe{
 				InitialDelaySeconds: 10,
-				Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 			},
 			LivenessProbe: &core.Probe{
 				SuccessThreshold: 20,
-				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 			},
 			VolumeMounts: append(dataVolumeMounts(), []core.VolumeMount{
 				{Name: "myhostpath", MountPath: "/host/etc/cni/net.d"},
