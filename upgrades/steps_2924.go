@@ -7,13 +7,6 @@ package upgrades
 func stateStepsFor2924() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "update remote application external controller info",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return context.State().UpdateExternalControllerInfo()
-			},
-		},
-		&upgradeStep{
 			description: "remove invalid charm placeholders",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {

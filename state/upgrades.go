@@ -3969,6 +3969,7 @@ func UpdateExternalControllerInfo(pool *StatePool) error {
 		for iter.Next(&appDoc) {
 			if appDoc.SourceControllerUUID != "" {
 				orphanedControllers.Remove(appDoc.SourceControllerUUID)
+				refCountPerController[appDoc.SourceControllerUUID] = refCountPerController[appDoc.SourceControllerUUID] + 1
 				continue
 			}
 			controllerUUID, ok := modelControllers[appDoc.SourceModelUUID]
@@ -4007,7 +4008,7 @@ func UpdateExternalControllerInfo(pool *StatePool) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		ops = append(ops, incRefOp)
+		ops = append(ops, incRefOp...)
 	}
 	if len(ops) > 0 {
 		err := st.db().RunTransaction(ops)
@@ -4030,17 +4031,20 @@ func UpdateExternalControllerInfo(pool *StatePool) error {
 // setExternalControllersRefOp returns a txn.Op that sets the reference
 // count for an external controller, incrementing any existing value as needed.
 // These ref counts are controller wide.
-func setExternalControllersRefOp(mb modelBackend, controllerUUID string, count int) (txn.Op, error) {
+func setExternalControllersRefOp(mb modelBackend, controllerUUID string, count int) ([]txn.Op, error) {
 	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
 	defer closer()
 	refCountKey := externalControllerRefCountKey(controllerUUID)
 	existing, err := nsRefcounts.read(refcounts, refCountKey)
 	if err != nil && !errors.IsNotFound(err) {
-		return txn.Op{}, errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+	if count == existing {
+		return nil, nil
 	}
 	newCount := count - existing
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, refCountKey, newCount)
-	return incRefOp, errors.Trace(err)
+	return []txn.Op{incRefOp}, errors.Trace(err)
 }
 
 // RemoveInvalidCharmPlaceholders removes invalid charms that have invalid charm
