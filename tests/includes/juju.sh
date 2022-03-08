@@ -129,8 +129,14 @@ bootstrap() {
 		add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
 		name="${bootstrapped_name}"
 	else
-		echo "====> Bootstrapping juju ($(green "${version}:${cloud}"))"
-		juju_bootstrap "${cloud}" "${name}" "${model}" "${output}"
+		local cloud_region
+		if [[ -n ${BOOTSTRAP_REGION:-} ]]; then
+			cloud_region="${cloud}/${BOOTSTRAP_REGION}"
+		else
+			cloud_region="${cloud}"
+		fi
+		echo "====> Bootstrapping juju ($(green "${version}:${cloud_region}"))"
+		juju_bootstrap "${cloud_region}" "${name}" "${model}" "${output}"
 	fi
 
 	END_TIME=$(date +%s)
@@ -191,9 +197,9 @@ setup_vsphere_simplestreams() {
 # juju_bootstrap is used to bootstrap a model for tracking. This is for internal
 # use only and shouldn't be used by any of the tests directly.
 juju_bootstrap() {
-	local cloud name model output
+	local cloud_region name model output
 
-	cloud=${1}
+	cloud_region=${1}
 	shift
 
 	name=${1}
@@ -231,7 +237,7 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${model_default_series} --build-agent=${BUILD_AGENT} ${cloud} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${model_default_series} --build-agent=${BUILD_AGENT} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
