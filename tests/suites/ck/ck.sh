@@ -18,6 +18,7 @@ run_deploy_ck() {
 	fi
 
 	wait_for "active" '.applications["kubernetes-master"] | ."application-status".current'
+	wait_for "active" '.applications["kubernetes-worker"] | ."application-status".current'
 
 	juju scp kubernetes-master/0:config ~/.kube/config
 	
@@ -26,7 +27,6 @@ run_deploy_ck() {
 	storage_path="./tests/suites/ck/storage/${BOOTSTRAP_PROVIDER}.yaml"
 	kubectl create -f "${storage_path}"
 	kubectl get sc -o yaml
-	# destroy_model "${model_name}"
 }
 
 run_deploy_caas_workload() {
