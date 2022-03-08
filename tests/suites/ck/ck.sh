@@ -9,7 +9,6 @@ run_deploy_ck() {
 	ensure "${model_name}" "${file}"
 	
 	echo "BOOTSTRAP_PROVIDER => $BOOTSTRAP_PROVIDER"
-	# echo "BOOTSTRAP_CLOUD => $BOOTSTRAP_CLOUD"
 	overlay_path="./tests/suites/ck/overlay/${BOOTSTRAP_PROVIDER}.yaml"
 	juju deploy charmed-kubernetes  --overlay "${overlay_path}" --trust
 	

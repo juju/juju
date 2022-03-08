@@ -58,6 +58,12 @@ bootstrap() {
 	"aws" | "ec2")
 		cloud="aws"
 		;;
+	"google" | "gce")
+		cloud="google"
+		;;
+	"azure")
+		cloud="azure"
+		;;
 	"localhost" | "lxd")
 		cloud="lxd"
 		;;
