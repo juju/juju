@@ -51,6 +51,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.RaftName,
 			config.StateName,
 		},
 		Start: config.start,
@@ -80,8 +81,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	notifyTarget := config.NewTarget(statePool.SystemState(), config.Logger)
 
 	w, err := config.NewWorker(Config{
-		Logger:       config.Logger,
+		NotifyProxy:  notifyProxy,
 		NotifyTarget: notifyTarget,
+		Logger:       config.Logger,
 	})
 	if err != nil {
 		_ = stTracker.Done()

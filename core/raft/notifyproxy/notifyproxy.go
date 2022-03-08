@@ -16,6 +16,14 @@ const (
 	// BufferSize is the amount of notifications to enqueue before dropping the
 	// oldest.
 	BufferSize int = 512
+
+	// ClaimedTimeout defines how long we should wait for a claimed timeout
+	// response.
+	ClaimedTimeout = time.Second * 15
+	// ExpiriesTimeout defines how long we should wait for a expiries timeout
+	// response. This is longer than a claimed timeout, because we're processing
+	// multiple records rather than ne.
+	ExpiriesTimeout = time.Second * 30
 )
 
 // NotifyType defines a notification type.
@@ -104,7 +112,7 @@ func New() *NotifyProxy {
 
 // Claimed will be called when a new lease has been claimed.
 func (p *NotifyProxy) Claimed(key lease.Key, holder string) error {
-	var err error
+	err := make(chan error, 1)
 	select {
 	case <-p.tomb.Dying():
 		return tomb.ErrDying
@@ -114,16 +122,21 @@ func (p *NotifyProxy) Claimed(key lease.Key, holder string) error {
 		Key:    key,
 		Holder: holder,
 		response: func(e error) {
-			err = e
+			err <- e
 		},
 	}:
 	}
-	return errors.Trace(err)
+	select {
+	case e := <-err:
+		return errors.Trace(e)
+	case <-time.After(ClaimedTimeout):
+		return errors.Errorf("claimed timed out for key %v with holder %s", key, holder)
+	}
 }
 
 // Expiries will be called when a set of existing leases have expired.
 func (p *NotifyProxy) Expiries(expiries []raftlease.Expired) error {
-	var err error
+	err := make(chan error, 1)
 	select {
 	case <-p.tomb.Dying():
 		return tomb.ErrDying
@@ -132,11 +145,16 @@ func (p *NotifyProxy) Expiries(expiries []raftlease.Expired) error {
 	case p.in <- ExpiriesNote{
 		Expiries: expiries,
 		response: func(e error) {
-			err = e
+			err <- e
 		},
 	}:
 	}
-	return errors.Trace(err)
+	select {
+	case e := <-err:
+		return errors.Trace(e)
+	case <-time.After(ExpiriesTimeout):
+		return errors.Errorf("expiries timed out")
+	}
 }
 
 // Notifications returns a channel of notifications from a given notify
