@@ -87,7 +87,7 @@ build_operator_image() {
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
     for build_osarch in ${build_multi_osarch}; do
-      tar cf - -C "${BUILD_DIR}" . | "${DOCKER_BIN}" build \
+      tar cf - -C "${BUILD_DIR}" . | DOCKER_BUILDKIT=1 "${DOCKER_BIN}" build \
           -f "docker-staging/Dockerfile" \
           --platform "$build_osarch" \
           -t "$(operator_image_path)" -
