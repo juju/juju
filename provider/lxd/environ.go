@@ -193,7 +193,8 @@ func (env *environ) ValidateCloudEndpoint(ctx context.ProviderCallContext) error
 	if err != nil {
 		return err
 	}
-	return env.provider.Ping(ctx, info.URL)
+	err = env.provider.Ping(ctx, info.URL)
+	return errors.Trace(err)
 }
 
 // PrepareForBootstrap implements environs.Environ.

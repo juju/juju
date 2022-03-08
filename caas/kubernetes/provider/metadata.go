@@ -116,7 +116,7 @@ func toCaaSStorageProvisioner(sc storage.StorageClass) *caas.StorageProvisioner 
 // Implements environs.CloudEndpointChecker
 func (k *kubernetesClient) ValidateCloudEndpoint(_ environscontext.ProviderCallContext) error {
 	_, err := k.GetClusterMetadata("")
-	return err
+	return errors.Trace(err)
 }
 
 // GetClusterMetadata implements ClusterMetadataChecker.

@@ -2375,5 +2375,6 @@ func (e *Environ) SupportsRulesWithIPV6CIDRs(ctx context.ProviderCallContext) (b
 // endpoint. Used as validation during model upgrades.
 // Implements environs.CloudEndpointChecker
 func (env *Environ) ValidateCloudEndpoint(ctx context.ProviderCallContext) error {
-	return env.Provider().Ping(ctx, env.cloud().Endpoint)
+	err := env.Provider().Ping(ctx, env.cloud().Endpoint)
+	return errors.Trace(err)
 }

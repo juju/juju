@@ -339,7 +339,7 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 // Implements environs.CloudEndpointChecker
 func (env *maasEnviron) ValidateCloudEndpoint(ctx context.ProviderCallContext) error {
 	_, _, err := env.maasController.APIVersionInfo()
-	return err
+	return errors.Trace(err)
 }
 
 func (env *maasEnviron) getSupportedArchitectures(ctx context.ProviderCallContext) ([]string, error) {
