@@ -600,7 +600,7 @@ func OpenAPIFuncWithMacaroons(apiOpen api.OpenFunc, store jujuclient.ClientStore
 		// When attempting to connect to the non websocket fronted HTTPS
 		// endpoints, we need to ensure that we have a series of macaroons
 		// correctly set if there isn't a password.
-		if info.Password == "" && len(info.Macaroons) == 0 {
+		if info != nil && info.Password == "" && len(info.Macaroons) == 0 {
 			cookieJar, err := store.CookieJar(controllerName)
 			if err != nil {
 				return nil, errors.Trace(err)
