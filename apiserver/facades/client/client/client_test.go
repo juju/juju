@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/facades/client/client/mocks"
 	"github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -50,7 +49,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -445,13 +443,13 @@ func (s *serverSuite) TestUserModelSetModelAgentVersionSkipsMongoCheck(c *gc.C) 
 
 type mockEnviron struct {
 	environs.Environ
-	allInstancesCalled bool
-	err                error
+	validateCloudEndpointCalled bool
+	err                         error
 }
 
-func (m *mockEnviron) AllInstances(context.ProviderCallContext) ([]instances.Instance, error) {
-	m.allInstancesCalled = true
-	return nil, m.err
+func (m *mockEnviron) ValidateCloudEndpoint(context.ProviderCallContext) error {
+	m.validateCloudEndpointCalled = true
+	return m.err
 }
 
 func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr string) {
@@ -463,7 +461,7 @@ func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr 
 		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
-	c.Assert(env.allInstancesCalled, jc.IsTrue)
+	c.Assert(env.validateCloudEndpointCalled, jc.IsTrue)
 	if expectErr != "" {
 		c.Assert(err, gc.ErrorMatches, expectErr)
 	} else {
@@ -473,48 +471,10 @@ func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr 
 
 func (s *serverSuite) TestCheckProviderAPISuccess(c *gc.C) {
 	s.assertCheckProviderAPI(c, nil, "")
-	s.assertCheckProviderAPI(c, environs.ErrPartialInstances, "")
-	s.assertCheckProviderAPI(c, environs.ErrNoInstances, "")
 }
 
 func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
-	s.assertCheckProviderAPI(c, errors.New("instances error"), "cannot make API call to provider: instances error")
-}
-
-type mockBroker struct {
-	caas.Broker
-	getMetadataCalled bool
-	err               error
-}
-
-func (m *mockBroker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
-	m.getMetadataCalled = true
-	return nil, m.err
-}
-
-func (s *serverSuite) assertCheckCAASProviderAPI(c *gc.C, envError error, expectErr string) {
-	env := &mockBroker{err: envError}
-	s.newEnviron = func() (environs.BootstrapEnviron, error) {
-		return env, nil
-	}
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err := s.client.SetModelAgentVersion(args)
-	c.Assert(env.getMetadataCalled, jc.IsTrue)
-	if expectErr != "" {
-		c.Assert(err, gc.ErrorMatches, expectErr)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *serverSuite) TestCheckCAASProviderAPISuccess(c *gc.C) {
-	s.assertCheckCAASProviderAPI(c, nil, "")
-}
-
-func (s *serverSuite) TestCheckCAASProviderAPIFail(c *gc.C) {
-	s.assertCheckCAASProviderAPI(c, errors.New("metadata error"), "cannot make API call to provider: metadata error")
+	s.assertCheckProviderAPI(c, errors.New("failme"), "cannot make API call to provider: failme")
 }
 
 func (s *serverSuite) assertSetModelAgentVersion(c *gc.C) {
