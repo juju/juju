@@ -2,13 +2,12 @@ run_deploy_ck() {
 	echo
 
 	local name model_name file overlay_path storage_path
-	name="deploy-ck"
-	model_name="test-${name}"
+	name="${2}"
+	model_name="${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
 	
-	echo "BOOTSTRAP_PROVIDER => $BOOTSTRAP_PROVIDER"
 	overlay_path="./tests/suites/ck/overlay/${BOOTSTRAP_PROVIDER}.yaml"
 	juju deploy charmed-kubernetes  --overlay "${overlay_path}" --trust
 	
@@ -65,8 +64,11 @@ test_deploy_ck() {
 		set_verbosity
 
 		cd .. || exit
+		local run_deploy_ck_name="deploy-ck"
+		run "run_deploy_ck" "${run_deploy_ck_name}"
 
-		run "run_deploy_ck"
 		run "run_deploy_caas_workload"
+
+		destroy_model "${run_deploy_ck_name}"
 	)
 }
