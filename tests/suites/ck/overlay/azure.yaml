@@ -7,6 +7,24 @@ applications:
     charm: cs:~containers/azure-integrator
     num_units: 1
     trust: true
+  kubernetes-worker:
+    annotations:
+      gui-x: '90'
+      gui-y: '850'
+    charm: cs:~containers/kubernetes-worker-838
+    constraints: cores=2 mem=4G root-disk=16G
+    expose: true
+    num_units: 3
+    options:
+      channel: 1.23/stable
+    resources:
+      cni-amd64: 983
+      cni-arm64: 974
+      cni-s390x: 986
+      core: 0
+      kube-proxy: 0
+      kubectl: 0
+      kubelet: 0
 relations:
   - ['azure-integrator', 'kubernetes-master:azure']
   - ['azure-integrator', 'kubernetes-worker:azure']
