@@ -65,6 +65,7 @@ type format_2_0Serialization struct {
 	MongoMemoryProfile       string `yaml:"mongomemoryprofile,omitempty"`
 	JujuDBSnapChannel        string `yaml:"juju-db-snap-channel,omitempty"`
 	NonSyncedWritesToRaftLog bool   `yaml:"no-sync-writes-to-raft-log,omitempty"`
+	BatchRaftFSM             bool   `yaml:"batch-raft-fsm,omitempty"`
 }
 
 func init() {
@@ -117,6 +118,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		agentLogfileMaxBackups: format.AgentLogfileMaxBackups,
 
 		nonSyncedWritesToRaftLog: format.NonSyncedWritesToRaftLog,
+		batchRaftFSM:             format.BatchRaftFSM,
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -195,6 +197,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		AgentLogfileMaxBackups: config.agentLogfileMaxBackups,
 
 		NonSyncedWritesToRaftLog: config.nonSyncedWritesToRaftLog,
+		BatchRaftFSM:             config.batchRaftFSM,
 	}
 	if config.servingInfo != nil {
 		format.ControllerCert = config.servingInfo.Cert

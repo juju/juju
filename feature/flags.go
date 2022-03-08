@@ -54,10 +54,6 @@ const ActionsV2 = "actions-v2"
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
 
-// RaftBatchFSM will use the batching FSM instead of the singular FSM to attempt
-// to commit logs.
-const RaftBatchFSM = "raft-batch-fsm"
-
 // RaftAPILeases will switch all lease store management transport, currently
 // handled by Pubsub to facade API interaction.
 const RaftAPILeases = "raft-api-leases"
