@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	apischema "k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
@@ -36,11 +35,6 @@ var (
 	metadataAccessor = meta.NewAccessor()
 )
 
-type metadataOnlyObject struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-}
-
 func processRawData(data []byte, defaults *apischema.GroupVersionKind, into runtime.Object) (obj runtime.Object, gvk *apischema.GroupVersionKind, err error) {
 	obj, gvk, err = codec.Decode(data, defaults, into)
 	if err != nil {
@@ -51,11 +45,6 @@ func processRawData(data []byte, defaults *apischema.GroupVersionKind, into runt
 		return obj, gvk, errors.Trace(nil)
 	}
 
-	// Make sure the data can decode into ObjectMeta.
-	v := &metadataOnlyObject{}
-	if err = json.CaseSensitiveJsonIterator().Unmarshal(data, v); err != nil {
-		return obj, gvk, errors.Trace(err)
-	}
 	return obj, gvk, nil
 }
 

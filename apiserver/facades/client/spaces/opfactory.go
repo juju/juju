@@ -6,7 +6,6 @@ package spaces
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/state"
 )
 
@@ -38,15 +37,7 @@ func (f *opFactory) NewRemoveSpaceOp(spaceName string) (state.ModelOperation, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnets, err := space.Subnets()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	n := make([]Subnet, len(subnets))
-	for i, subnet := range subnets {
-		n[i] = subnet
-	}
-	return NewRemoveSpaceOp(space, n), nil
+	return NewRemoveSpaceOp(space), nil
 }
 
 // NewRenameSpaceOp (OpFactory) returns an operation
@@ -67,5 +58,5 @@ func (f *opFactory) NewMoveSubnetsOp(spaceName string, subnets []MovingSubnet) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewMoveSubnetsOp(networkingcommon.NewSpaceShim(space), subnets), nil
+	return NewMoveSubnetsOp(f.st, space.Id(), subnets), nil
 }

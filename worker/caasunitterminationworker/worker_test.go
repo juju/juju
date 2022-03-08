@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/caasapplication"
+	"github.com/juju/juju/api/agent/caasapplication"
 	"github.com/juju/juju/worker/caasunitterminationworker"
 )
 

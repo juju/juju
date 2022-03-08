@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

@@ -1,22 +1,8 @@
 name: Test Kubeflow
 
-on:
-  push:
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
-  pull_request:
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
+# The small `edge` bundle has been deprecated, `lite` bundle takes 40mins to run which is too slow for gh action.
+# Disable this one for now, please check `nw-deploy-kubeflow` on Jenkins.
+on: {}
 
 env:
   DOCKER_USERNAME: jujuqabot
@@ -34,7 +20,7 @@ jobs:
 
     steps:
     - name: Checking out repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Find required go version
       id: go-version
@@ -43,7 +29,7 @@ jobs:
         echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
 
     - name: Set up Go
-      uses: actions/setup-go@v2.2.0
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
@@ -97,7 +83,7 @@ jobs:
           sleep 10
           microk8s kubectl patch role -n kubeflow istio-ingressgateway-operator -p '{"apiVersion":"rbac.authorization.k8s.io/v1","kind":"Role","metadata":{"name":"istio-ingressgateway-operator"},"rules":[{"apiGroups":["*"],"resources":["*"],"verbs":["*"]}]}'
           sleep 6m
-          juju --debug wait -wv -m kubeflow -t 300
+          juju --debug wait -wv -m kubeflow -t 1200
 
           microk8s kubectl get pods -l 'juju-operator' -A -o custom-columns='Name:metadata.name,Image:spec.containers[0].image'
         EOF

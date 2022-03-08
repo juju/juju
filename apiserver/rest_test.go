@@ -19,9 +19,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"

@@ -158,7 +158,7 @@ func (m jujuMain) Run(args []string) int {
 		if _, _, err := cloud.FetchAndMaybeUpdatePublicClouds(cloud.PublicCloudsAccess(), true); err != nil {
 			cmd.WriteError(ctx.Stderr, err)
 		}
-		jujuMsg = fmt.Sprintf("Since Juju %v is being run for the first time, downloaded the latest public cloud information.\n", jujuversion.Current.Major)
+		jujuMsg = fmt.Sprintf("Since Juju %v is being run for the first time, it has downloaded the latest public cloud information.\n", jujuversion.Current.Major)
 	}
 
 	for i := range x {

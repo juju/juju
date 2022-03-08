@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 // AllWatch represents methods used on the AllWatcher

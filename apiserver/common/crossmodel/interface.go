@@ -220,6 +220,15 @@ type Application interface {
 
 	// Status returns the status of the application.
 	Status() (status.StatusInfo, error)
+
+	// AllUnits returns all units of the application.
+	AllUnits() ([]Unit, error)
+}
+
+// Unit represents the state of a unit hosted in the local model.
+type Unit interface {
+	// Status returns the status of the unit.
+	Status() (status.StatusInfo, error)
 }
 
 // Bindings defines a subset of the functionality provided by the

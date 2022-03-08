@@ -231,7 +231,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 3 is being run for the first time, downloaded the latest public cloud information.`[1:]+"\n")
+Since Juju 3 is being run for the first time, it has downloaded the latest public cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 

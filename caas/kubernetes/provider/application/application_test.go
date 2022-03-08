@@ -502,7 +502,7 @@ func getPodSpec() corev1.PodSpec {
 				RunAsGroup: int64Ptr(0),
 			},
 			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathLiveness,
 						Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -514,7 +514,7 @@ func getPodSpec() corev1.PodSpec {
 				FailureThreshold:    2,
 			},
 			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathReadiness,
 						Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -526,7 +526,7 @@ func getPodSpec() corev1.PodSpec {
 				FailureThreshold:    2,
 			},
 			StartupProbe: &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathStartup,
 						Port: intstr.Parse(constants.AgentHTTPProbePort),
@@ -564,7 +564,7 @@ func getPodSpec() corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "gitlab-image:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--verbose"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38813", "--verbose"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
@@ -574,6 +574,32 @@ func getPodSpec() corev1.PodSpec {
 					Name:  "PEBBLE_SOCKET",
 					Value: "/charm/container/pebble.socket",
 				},
+			},
+			LivenessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.FromInt(38813),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			},
+			ReadinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=ready",
+						Port: intstr.FromInt(38813),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),
@@ -601,7 +627,7 @@ func getPodSpec() corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "nginx-image:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--verbose"},
+			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38814", "--verbose"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
@@ -611,6 +637,32 @@ func getPodSpec() corev1.PodSpec {
 					Name:  "PEBBLE_SOCKET",
 					Value: "/charm/container/pebble.socket",
 				},
+			},
+			LivenessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.FromInt(38814),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			},
+			ReadinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/v1/health?level=ready",
+						Port: intstr.FromInt(38814),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),
@@ -1505,7 +1557,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 								RunAsGroup: int64Ptr(0),
 							},
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/liveness",
 										Port: intstr.FromString("3856"),
@@ -1517,7 +1569,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 								FailureThreshold:    2,
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/readiness",
 										Port: intstr.FromString("3856"),
@@ -1529,7 +1581,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 								FailureThreshold:    2,
 							},
 							StartupProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/startup",
 										Port: intstr.FromString("3856"),
@@ -1635,7 +1687,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 								RunAsGroup: int64Ptr(0),
 							},
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/liveness",
 										Port: intstr.FromString("3856"),
@@ -1647,7 +1699,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 								FailureThreshold:    2,
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/readiness",
 										Port: intstr.FromString("3856"),
@@ -1659,7 +1711,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 								FailureThreshold:    2,
 							},
 							StartupProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/startup",
 										Port: intstr.FromString("3856"),

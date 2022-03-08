@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
@@ -707,8 +707,9 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Source:   "local",
 		Revision: &rev,
 		Channel: &state.Channel{
-			Track: "latest",
-			Risk:  "stable",
+			Track:  "latest",
+			Risk:   "stable",
+			Branch: "foo",
 		},
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -721,13 +722,16 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.URL, gc.Equals, "local:quantal/wordpress-3")
+
 	latest := "latest"
+	branch := "foo"
 
 	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Risk:         "stable",
 		Revision:     &rev,
 		Track:        &latest,
+		Branch:       &branch,
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",

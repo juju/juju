@@ -15,12 +15,12 @@ import (
 
 	"github.com/juju/juju/api"
 	apibase "github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/pki"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

@@ -24,8 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver/params"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common/mocks"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"

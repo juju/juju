@@ -89,6 +89,9 @@ func (c *Config) Validate() error {
 	if c.PrometheusGatherer == nil {
 		return errors.NotValidf("nil PrometheusGatherer")
 	}
+	if c.LocalHub != nil && c.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	return nil
 }
 
@@ -194,37 +197,63 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 	handle("/depengine", depengineHandler{w.depEngine})
-	handle("/statepool", introspectionReporterHandler{
-		name:     "State Pool Report",
-		reporter: w.statePool,
-	})
-	handle("/pubsub", introspectionReporterHandler{
-		name:     "PubSub Report",
-		reporter: w.pubsub,
-	})
 	handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
+	handle("/machinelock", machineLockHandler{w.machineLock})
 	// The trailing slash is kept for metrics because we don't want to
 	// break the metrics exporting that is using the internal charm. Since
 	// we don't know if it is using the exported shell function, or calling
 	// the introspection endpoint directly.
 	handle("/metrics/", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
-	// Unit agents don't have a presence recorder to pass in.
+
+	// Only machine or controller agents support the following.
+	if w.statePool != nil {
+		handle("/statepool", introspectionReporterHandler{
+			name:     "State Pool Report",
+			reporter: w.statePool,
+		})
+	} else {
+		handle("/statepool", notSupportedHandler{"State Pool"})
+	}
+	if w.pubsub != nil {
+		handle("/pubsub", introspectionReporterHandler{
+			name:     "PubSub Report",
+			reporter: w.pubsub,
+		})
+	} else {
+		handle("/pubsub", notSupportedHandler{"PubSub Report"})
+	}
 	if w.presence != nil {
 		handle("/presence", presenceHandler{w.presence})
+	} else {
+		handle("/presence", notSupportedHandler{"Presence"})
 	}
-	handle("/machinelock", machineLockHandler{w.machineLock})
 	if w.localHub != nil {
 		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
+	} else {
+		handle("/units", notSupportedHandler{"Units"})
 	}
-	leases := leaseHandler{
-		leases: w.leases,
-		hub:    w.centralHub,
-		clock:  w.clock,
+	if w.leases != nil {
+		leases := leaseHandler{
+			leases: w.leases,
+			hub:    w.centralHub,
+			clock:  w.clock,
+		}
+		handle("/leases", http.HandlerFunc(leases.list))
+		if w.centralHub != nil {
+			handle("/leases/revoke", http.HandlerFunc(leases.revoke))
+		}
+	} else {
+		handle("/leases", notSupportedHandler{"Leases"})
 	}
-	handle("/leases", http.HandlerFunc(leases.list))
-	if w.centralHub != nil {
-		handle("/leases/revoke", http.HandlerFunc(leases.revoke))
-	}
+}
+
+type notSupportedHandler struct {
+	name string
+}
+
+// ServeHTTP is part of the http.Handler interface.
+func (h notSupportedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, fmt.Sprintf("%q introspection not supported", h.name), http.StatusNotFound)
 }
 
 type depengineHandler struct {

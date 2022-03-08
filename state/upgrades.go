@@ -2968,6 +2968,7 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 
 // AddOriginToIPAddresses ensures that all ip address have an origin associated
 // with them.
+// NOTE: See SetContainerAddressOriginToMachine for a correction to this step.
 func AddOriginToIPAddresses(pool *StatePool) error {
 	st := pool.SystemState()
 	coll, closer := st.db().GetRawCollection(ipAddressesC)
@@ -4082,5 +4083,90 @@ func RemoveInvalidCharmPlaceholders(pool *StatePool) error {
 		}
 
 		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+// SetContainerAddressOriginToMachine corrects a prior upgrade step that ran
+// AddOriginToIPAddresses. It was incorrect to set "provider" as the source of
+// container addresses, because we do not run the instance-poller for
+// containers. The effect for VIPs added by Corosync/Pacemaker was to freeze
+// such addresses to the machine, because they were never relinquished and in
+// turn never deleted by the machine address updates.
+func SetContainerAddressOriginToMachine(pool *StatePool) error {
+	st := pool.SystemState()
+	coll, closer := st.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	// Get all addresses assigned to container machines
+	// that have a provider origin.
+	iter := coll.Find(bson.D{
+		{"machine-id", bson.D{{"$regex", `\/(lxd|kvm)\/`}}},
+		{"origin", network.OriginProvider},
+	}).Iter()
+
+	type idDoc struct {
+		DocID string `bson:"_id"`
+	}
+
+	var doc idDoc
+	var ids []string
+	for iter.Next(&doc) {
+		ids = append(ids, doc.DocID)
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, id := range ids {
+		ops = append(ops, txn.Op{
+			C:      ipAddressesC,
+			Id:     id,
+			Update: bson.M{"$set": bson.M{"origin": network.OriginMachine}},
+		})
+	}
+
+	if len(ops) == 0 {
+		return nil
+	}
+	return st.runRawTransaction(ops)
+}
+
+// UpdateCharmOriginAfterSetSeries updates application's charm origin platform series
+// if it doesn't match the application series.  E.G. after set-series is called.
+func UpdateCharmOriginAfterSetSeries(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, application := range docs {
+
+			appSeries := application.Series
+			if application.CharmOrigin == nil || application.CharmOrigin.Platform == nil {
+				logger.Errorf("%s has no platform in the charm origin", application.Name)
+				continue
+			}
+			if appSeries == application.CharmOrigin.Platform.Series {
+				continue
+			}
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     application.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{
+					"charm-origin.platform.series", appSeries,
+				}}}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }

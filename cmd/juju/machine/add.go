@@ -15,9 +15,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/winrm"
 
-	"github.com/juju/juju/api/machinemanager"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/machinemanager"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 

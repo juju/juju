@@ -45,6 +45,18 @@ func (s *suite) TestConfigValidation(c *gc.C) {
 	w, err := introspection.NewWorker(introspection.Config{})
 	c.Check(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "empty SocketName not valid")
+	w, err = introspection.NewWorker(introspection.Config{
+		SocketName: "socket",
+	})
+	c.Check(w, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "nil PrometheusGatherer not valid")
+	w, err = introspection.NewWorker(introspection.Config{
+		SocketName:         "socket",
+		PrometheusGatherer: newPrometheusGatherer(),
+		LocalHub:           pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{}),
+	})
+	c.Check(w, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "nil Clock not valid")
 }
 
 func (s *suite) TestStartStop(c *gc.C) {
@@ -179,13 +191,13 @@ func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
 func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 	response := s.call(c, "/statepool")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, "State Pool Report: missing reporter")
+	s.assertBody(c, response, `"State Pool" introspection not supported`)
 }
 
 func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
 	response := s.call(c, "/pubsub")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, "PubSub Report: missing reporter")
+	s.assertBody(c, response, `"PubSub Report" introspection not supported`)
 }
 
 func (s *introspectionSuite) TestMissingMachineLock(c *gc.C) {
@@ -223,7 +235,7 @@ working: true`[1:])
 func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
 	response := s.call(c, "/presence")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, "404 page not found")
+	s.assertBody(c, response, `"Presence" introspection not supported`)
 }
 
 func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {

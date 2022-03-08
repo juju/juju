@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/statushistory"
+	"github.com/juju/juju/api/controller/statushistory"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/pruner"
 )

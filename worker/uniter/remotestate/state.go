@@ -9,11 +9,11 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 type Waiter interface {

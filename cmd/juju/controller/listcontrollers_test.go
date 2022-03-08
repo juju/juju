@@ -183,9 +183,23 @@ controllers:
     user: admin
     access: superuser
     recent-server: this-is-another-of-many-api-endpoints
-    controller-uuid: this-is-another-uuid
+    controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
-    ca-cert: this-is-another-ca-cert
+    ca-cert: |-
+      -----BEGIN CERTIFICATE-----
+      MIICHDCCAcagAwIBAgIUfzWn5ktGMxD6OiTgfiZyvKdM+ZYwDQYJKoZIhvcNAQEL
+      BQAwazENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0Eg
+      Zm9yIG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMt
+      Tk9ULUEtUkVBTC1VVUlEMB4XDTE2MDkyMTEwNDgyN1oXDTI2MDkyODEwNDgyN1ow
+      azENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0EgZm9y
+      IG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMtTk9U
+      LUEtUkVBTC1VVUlEMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAL+0X+1zl2vt1wI4
+      1Q+RnlltJyaJmtwCbHRhREXVGU7t0kTMMNERxqLnuNUyWRz90Rg8s9XvOtCqNYW7
+      mypGrFECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8w
+      HQYDVR0OBBYEFHueMLZ1QJ/2sKiPIJ28TzjIMRENMA0GCSqGSIb3DQEBCwUAA0EA
+      ovZN0RbUHrO8q9Eazh0qPO4mwW9jbGTDz126uNrLoz1g3TyWxIas1wRJ8IbCgxLy
+      XUrBZO5UPZab66lJWXyseA==
+      -----END CERTIFICATE-----
     cloud: mallards
     region: mallards1
     model-count: 2
@@ -212,6 +226,21 @@ func intPtr(i int) *int {
 	return &i
 }
 
+const testCert = `-----BEGIN CERTIFICATE-----
+MIICHDCCAcagAwIBAgIUfzWn5ktGMxD6OiTgfiZyvKdM+ZYwDQYJKoZIhvcNAQEL
+BQAwazENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0Eg
+Zm9yIG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMt
+Tk9ULUEtUkVBTC1VVUlEMB4XDTE2MDkyMTEwNDgyN1oXDTI2MDkyODEwNDgyN1ow
+azENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0EgZm9y
+IG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMtTk9U
+LUEtUkVBTC1VVUlEMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAL+0X+1zl2vt1wI4
+1Q+RnlltJyaJmtwCbHRhREXVGU7t0kTMMNERxqLnuNUyWRz90Rg8s9XvOtCqNYW7
+mypGrFECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8w
+HQYDVR0OBBYEFHueMLZ1QJ/2sKiPIJ28TzjIMRENMA0GCSqGSIb3DQEBCwUAA0EA
+ovZN0RbUHrO8q9Eazh0qPO4mwW9jbGTDz126uNrLoz1g3TyWxIas1wRJ8IbCgxLy
+XUrBZO5UPZab66lJWXyseA==
+-----END CERTIFICATE-----`
+
 func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 	s.expectedOutput = ""
 	s.createTestClientStore(c)
@@ -235,13 +264,13 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				MachineCount:   intPtr(5),
 			},
 			"mallards": {
-				ControllerUUID: "this-is-another-uuid",
+				ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 				ModelName:      "my-model",
 				User:           "admin",
 				Access:         "superuser",
 				Server:         "this-is-another-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-another-of-many-api-endpoints", "this-is-one-more-of-many-api-endpoints"},
-				CACert:         "this-is-another-ca-cert",
+				CACert:         testCert,
 				Cloud:          "mallards",
 				CloudRegion:    "mallards1",
 				ModelCount:     intPtr(2),

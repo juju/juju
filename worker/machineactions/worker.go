@@ -13,10 +13,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/machineactions"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/agent/machineactions"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineactions")

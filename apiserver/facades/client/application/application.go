@@ -30,14 +30,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -52,6 +51,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -341,7 +341,7 @@ func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[stri
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	appConfigKeys := application.KnownConfigKeys(providerSchema)
+	appConfigKeys := config.KnownConfigKeys(providerSchema)
 
 	appConfigAttrs := make(map[string]interface{})
 	charmConfig := make(map[string]string)
@@ -380,7 +380,7 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	appConfigKeys := application.KnownConfigKeys(providerSchema)
+	appConfigKeys := config.KnownConfigKeys(providerSchema)
 
 	appConfigAttrs := make(map[string]interface{})
 	for k, v := range settings {
@@ -623,11 +623,15 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	if origin.Track != nil {
 		track = *origin.Track
 	}
+	var branch string
+	if origin.Branch != nil {
+		branch = *origin.Branch
+	}
 	// We do guarantee that there will be a risk value.
 	// Ignore the error, as only caused by risk as an
 	// empty string.
 	var channel *charm.Channel
-	if ch, err := charm.MakeChannel(track, origin.Risk, ""); err == nil {
+	if ch, err := charm.MakeChannel(track, origin.Risk, branch); err == nil {
 		channel = &ch
 	}
 
@@ -646,7 +650,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string, defaults environsconfig.Defaulting) (*application.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
+func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
@@ -654,8 +658,8 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		charmConfig       map[string]string
 		err               error
 	)
-	if len(config) > 0 {
-		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, config); err != nil {
+	if len(cfg) > 0 {
+		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, cfg); err != nil {
 			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
@@ -689,7 +693,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		}
 		return nil
 	}
-	appConfig, err := application.NewConfig(appSettings, appCfgSchema, getDefaults())
+	appConfig, err := config.NewConfig(appSettings, appCfgSchema, getDefaults())
 	if err != nil {
 		return nil, nil, nil, nil, errors.Trace(err)
 	}
@@ -1242,6 +1246,9 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 		retOrigin.Risk = origin.Channel.Risk
 		if origin.Channel.Track != "" {
 			retOrigin.Track = &origin.Channel.Track
+		}
+		if origin.Channel.Branch != "" {
+			retOrigin.Branch = &origin.Channel.Branch
 		}
 	}
 	if origin.Platform != nil {
@@ -2364,7 +2371,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	appConfigFields := application.KnownConfigKeys(configSchema)
+	appConfigFields := config.KnownConfigKeys(configSchema)
 
 	var appConfigKeys []string
 	charmSettings := make(charm.Settings)

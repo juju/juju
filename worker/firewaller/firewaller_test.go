@@ -23,13 +23,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agent/credentialvalidator"
 	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/credentialvalidator"
-	"github.com/juju/juju/api/crossmodelrelations"
-	apifirewaller "github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/api/controller/crossmodelrelations"
+	apifirewaller "github.com/juju/juju/api/controller/firewaller"
+	"github.com/juju/juju/api/controller/remoterelations"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -1464,7 +1464,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	})
 
 	// Trigger a space topology change by moving subnet-2 into space 1
-	moveOps := sub2.UpdateSpaceOps(sp1.Id())
+	moveOps := s.State.UpdateSubnetSpaceOps(sub2.ID(), sp1.Id())
 	c.Assert(s.State.ApplyOperation(modelOp{moveOps}), jc.ErrorIsNil)
 
 	// Check that worker picked up the change and updated the rules
@@ -1524,8 +1524,9 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	})
 
 	// Simulate the deletion of a space, with subnets moving back to alpha.
-	moveOps := sub1.UpdateSpaceOps(network.AlphaSpaceId)
-	deleteOps := sp1.RemoveSpaceOps()
+	moveOps := s.State.UpdateSubnetSpaceOps(sub1.ID(), network.AlphaSpaceId)
+	deleteOps, err := sp1.RemoveSpaceOps()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ApplyOperation(modelOp{append(moveOps, deleteOps...)}), jc.ErrorIsNil)
 
 	// We expect to see NO ingress rules as the referenced space does not exist.
@@ -1579,7 +1580,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 
 	// Move endpoint back to alpha space. This will leave space-1 with no
 	// endpoints.
-	moveOps := sub1.UpdateSpaceOps(network.AlphaSpaceId)
+	moveOps := s.State.UpdateSubnetSpaceOps(sub1.ID(), network.AlphaSpaceId)
 	c.Assert(s.State.ApplyOperation(modelOp{moveOps}), jc.ErrorIsNil)
 
 	// We expect to see NO ingress rules (and warnings in the logs) as

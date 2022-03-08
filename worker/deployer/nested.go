@@ -294,14 +294,13 @@ func (c *nestedContext) Wait() error {
 func (c *nestedContext) Report() map[string]interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	running := c.runner.Report()
 
 	deployed := c.deployedUnits()
-	stopped := c.stoppedUnits()
-
 	result := map[string]interface{}{
 		"deployed": deployed.SortedValues(),
-		"units":    running,
+	}
+	if c.runner != nil {
+		result["units"] = c.runner.Report()
 	}
 	if len(c.errors) > 0 {
 		errors := make(map[string]string)
@@ -310,6 +309,7 @@ func (c *nestedContext) Report() map[string]interface{} {
 		}
 		result["errors"] = errors
 	}
+	stopped := c.stoppedUnits()
 	if len(stopped) > 0 {
 		result["stopped"] = stopped.SortedValues()
 	}

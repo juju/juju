@@ -11,4 +11,5 @@ test_upgrade() {
 	check_juju_dependencies metadata
 
 	test_upgrade_simplestream
+	test_upgrade_simplestream_previous
 }

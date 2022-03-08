@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 
 	"github.com/juju/juju/api"
-	actionapi "github.com/juju/juju/api/action"
+	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )

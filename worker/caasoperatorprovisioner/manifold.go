@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/caasoperatorprovisioner"
+	"github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 )
 

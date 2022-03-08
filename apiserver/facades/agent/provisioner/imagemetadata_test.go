@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 

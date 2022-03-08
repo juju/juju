@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/client/application"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 )
 

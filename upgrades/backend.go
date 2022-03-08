@@ -104,6 +104,8 @@ type StateBackend interface {
 	RemoveOrphanedLinkLayerDevices() error
 	UpdateExternalControllerInfo() error
 	RemoveInvalidCharmPlaceholders() error
+	SetContainerAddressOriginToMachine() error
+	UpdateCharmOriginAfterSetSeries() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -452,4 +454,12 @@ func (s stateBackend) UpdateExternalControllerInfo() error {
 
 func (s stateBackend) RemoveInvalidCharmPlaceholders() error {
 	return state.RemoveInvalidCharmPlaceholders(s.pool)
+}
+
+func (s stateBackend) SetContainerAddressOriginToMachine() error {
+	return state.SetContainerAddressOriginToMachine(s.pool)
+}
+
+func (s stateBackend) UpdateCharmOriginAfterSetSeries() error {
+	return state.UpdateCharmOriginAfterSetSeries(s.pool)
 }

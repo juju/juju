@@ -283,5 +283,8 @@ func isModelActive(m Model) bool {
 
 // Report shows up in the dependency engine report.
 func (m *modelWorkerManager) Report() map[string]interface{} {
+	if m.runner == nil {
+		return nil
+	}
 	return m.runner.Report()
 }

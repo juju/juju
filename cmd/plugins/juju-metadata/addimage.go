@@ -8,11 +8,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/rpc/params"
 )
 
 func newAddImageMetadataCommand() cmd.Command {

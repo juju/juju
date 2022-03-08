@@ -1250,7 +1250,7 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 			},
 		},
 		ReadinessProbe: &core.Probe{
-			Handler: core.Handler{
+			ProbeHandler: core.ProbeHandler{
 				Exec: probCmds,
 			},
 			FailureThreshold:    3,
@@ -1260,7 +1260,7 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 			TimeoutSeconds:      1,
 		},
 		LivenessProbe: &core.Probe{
-			Handler: core.Handler{
+			ProbeHandler: core.ProbeHandler{
 				Exec: probCmds,
 			},
 			FailureThreshold:    3,

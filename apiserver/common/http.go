@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 // JujuClientVersionFromRequest returns the Juju client version

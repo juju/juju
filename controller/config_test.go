@@ -101,6 +101,12 @@ var newConfigTests = []struct {
 		controller.IdentityURL:       "http://0.1.2.3/foo",
 	},
 }, {
+	about: "feature flags mys be a list",
+	config: controller.Config{
+		controller.Features: "foo",
+	},
+	expectError: `features: expected list, got string\("foo"\)`,
+}, {
 	about: "invalid identity public key",
 	config: controller.Config{
 		controller.IdentityPublicKey: `xxxx`,
@@ -803,6 +809,18 @@ func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *gc.C) {
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, `max-debug-log-duration: conversion to duration: time: missing unit in duration "?12"?`)
+}
+
+func (s *ConfigSuite) TestFeatureFlags(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.Features: `["foo","bar"]`,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.Features().Values(), jc.SameContents, []string{"foo", "bar"})
 }
 
 func (s *ConfigSuite) TestDefaults(c *gc.C) {

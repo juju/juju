@@ -19,12 +19,12 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/api/agent/reboot"
+	"github.com/juju/juju/api/agent/unitassigner"
+	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/unitassigner"
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -219,6 +219,16 @@ func DefaultDialOpts() DialOpts {
 		DialAddressInterval: 50 * time.Millisecond,
 		Timeout:             10 * time.Minute,
 		RetryDelay:          2 * time.Second,
+	}
+}
+
+// DialOption is the type of functions that mutate DialOpts
+type DialOption func(*DialOpts)
+
+// WithDialOpts sets the DialOpts to the one specified
+func WithDialOpts(newOpts DialOpts) DialOption {
+	return func(opts *DialOpts) {
+		*opts = newOpts
 	}
 }
 

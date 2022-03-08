@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/cmd/juju/application"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

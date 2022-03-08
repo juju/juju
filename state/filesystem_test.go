@@ -867,7 +867,7 @@ func (s *FilesystemStateSuite) TestDestroyFilesystemNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssigned(c *gc.C) {
+func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssignedNoForce(c *gc.C) {
 	// Create a filesystem-type storage instance, and show that we
 	// cannot destroy the filesystem while there is storage assigned.
 	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "rootfs")
@@ -882,6 +882,17 @@ func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssigned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dying)
+}
+
+func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssignedWithForce(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "rootfs")
+	s.maybeAssignUnit(c, u)
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+
+	err := s.storageBackend.DestroyFilesystem(filesystem.FilesystemTag(), true)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(filesystem.Life(), gc.Equals, state.Dying)
 }
 
 func (s *FilesystemIAASModelSuite) TestDestroyFilesystemNoAttachments(c *gc.C) {

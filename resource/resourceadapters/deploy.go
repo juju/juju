@@ -11,7 +11,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/resources/client"
+	"github.com/juju/juju/api/client/resources/client"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
 )

@@ -13,7 +13,8 @@ import (
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	v11 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
+	v11 "k8s.io/client-go/applyconfigurations/admissionregistration/v1"
+	v12 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -41,10 +42,10 @@ func (m *MockAdmissionregistrationV1Interface) EXPECT() *MockAdmissionregistrati
 }
 
 // MutatingWebhookConfigurations mocks base method.
-func (m *MockAdmissionregistrationV1Interface) MutatingWebhookConfigurations() v11.MutatingWebhookConfigurationInterface {
+func (m *MockAdmissionregistrationV1Interface) MutatingWebhookConfigurations() v12.MutatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MutatingWebhookConfigurations")
-	ret0, _ := ret[0].(v11.MutatingWebhookConfigurationInterface)
+	ret0, _ := ret[0].(v12.MutatingWebhookConfigurationInterface)
 	return ret0
 }
 
@@ -69,10 +70,10 @@ func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) RESTClient() *gomock
 }
 
 // ValidatingWebhookConfigurations mocks base method.
-func (m *MockAdmissionregistrationV1Interface) ValidatingWebhookConfigurations() v11.ValidatingWebhookConfigurationInterface {
+func (m *MockAdmissionregistrationV1Interface) ValidatingWebhookConfigurations() v12.ValidatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidatingWebhookConfigurations")
-	ret0, _ := ret[0].(v11.ValidatingWebhookConfigurationInterface)
+	ret0, _ := ret[0].(v12.ValidatingWebhookConfigurationInterface)
 	return ret0
 }
 
@@ -103,6 +104,21 @@ func NewMockMutatingWebhookConfigurationV1Interface(ctrl *gomock.Controller) *Mo
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMutatingWebhookConfigurationV1Interface) EXPECT() *MockMutatingWebhookConfigurationV1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockMutatingWebhookConfigurationV1Interface) Apply(arg0 context.Context, arg1 *v11.MutatingWebhookConfigurationApplyConfiguration, arg2 v10.ApplyOptions) (*v1.MutatingWebhookConfiguration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.MutatingWebhookConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockMutatingWebhookConfigurationV1InterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockMutatingWebhookConfigurationV1Interface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.
@@ -249,6 +265,21 @@ func NewMockValidatingWebhookConfigurationV1Interface(ctrl *gomock.Controller) *
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockValidatingWebhookConfigurationV1Interface) EXPECT() *MockValidatingWebhookConfigurationV1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockValidatingWebhookConfigurationV1Interface) Apply(arg0 context.Context, arg1 *v11.ValidatingWebhookConfigurationApplyConfiguration, arg2 v10.ApplyOptions) (*v1.ValidatingWebhookConfiguration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.ValidatingWebhookConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockValidatingWebhookConfigurationV1InterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockValidatingWebhookConfigurationV1Interface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.

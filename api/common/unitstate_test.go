@@ -13,7 +13,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc/params"
 )
 
 type unitStateSuite struct {

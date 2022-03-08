@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/client"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 

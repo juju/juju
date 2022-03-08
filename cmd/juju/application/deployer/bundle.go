@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/client/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"

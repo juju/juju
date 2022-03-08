@@ -9,7 +9,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/machineundertaker"
+	"github.com/juju/juju/api/controller/machineundertaker"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/common"

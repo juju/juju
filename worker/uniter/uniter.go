@@ -18,9 +18,8 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/secretsmanager"
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/agent/secretsmanager"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
@@ -984,8 +984,14 @@ func (u *Uniter) Terminate() error {
 func (u *Uniter) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 
-	result["unit"] = u.unit.Name()
-	result["relations"] = u.relationStateTracker.Report()
+	// We need to guard against attempting to report when setting up or dying,
+	// so we don't end up panic'ing with missing information.
+	if u.unit != nil {
+		result["unit"] = u.unit.Name()
+	}
+	if u.relationStateTracker != nil {
+		result["relations"] = u.relationStateTracker.Report()
+	}
 
 	return result
 }

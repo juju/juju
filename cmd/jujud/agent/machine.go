@@ -36,11 +36,10 @@ import (
 	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
+	apiagent "github.com/juju/juju/api/agent/agent"
+	apimachiner "github.com/juju/juju/api/agent/machiner"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
-	apimachiner "github.com/juju/juju/api/machiner"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
@@ -71,6 +70,7 @@ import (
 	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/pubsub/centralhub"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1143,7 +1143,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
-		logger.Infof("setting short charmrevision worker interval: %v", interval)
+		logger.Debugf("setting short charmrevision worker interval: %v", interval)
 		manifoldsCfg.CharmRevisionUpdateInterval = interval
 	}
 

@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/version/v2"
 
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver/params"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {

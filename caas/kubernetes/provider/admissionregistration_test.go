@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
 )
@@ -121,7 +121,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, e string, _ map[string]interface{}) error {
 		c.Logf("EnsureService error -> %q", e)
 		return nil
-	}, params, 2, application.ConfigAttributes{
+	}, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -768,7 +768,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, e string, _ map[string]interface{}) error {
 		c.Logf("EnsureService error -> %q", e)
 		return nil
-	}, params, 2, application.ConfigAttributes{
+	}, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})

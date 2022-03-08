@@ -125,15 +125,3 @@ func (mr *MockApplierMetricsMockRecorder) Record(arg0, arg1 interface{}) *gomock
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockApplierMetrics)(nil).Record), arg0, arg1)
 }
-
-// RecordLeaderError mocks base method.
-func (m *MockApplierMetrics) RecordLeaderError(arg0 time.Time) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RecordLeaderError", arg0)
-}
-
-// RecordLeaderError indicates an expected call of RecordLeaderError.
-func (mr *MockApplierMetricsMockRecorder) RecordLeaderError(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordLeaderError", reflect.TypeOf((*MockApplierMetrics)(nil).RecordLeaderError), arg0)
-}

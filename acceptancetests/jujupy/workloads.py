@@ -20,21 +20,18 @@ try:
 except ImportError:
     from urllib.request import urlopen
 
-from jujucharm import local_charm_path
 import logging
 import os
+
 import requests
 
+from jujucharm import local_charm_path
+from jujupy.utility import get_unit_public_ip, temp_dir
 from jujupy.wait_condition import (
     AgentsIdle,
     AllApplicationActive,
     AllApplicationWorkloads,
-    )
-from jujupy.utility import (
-    get_unit_public_ip,
-    temp_dir,
 )
-
 
 __metaclass__ = type
 
@@ -114,10 +111,12 @@ def assert_keystone_is_responding(client):
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None, series='bionic'):
+        client, model_name, resource_contents=None, series='bionic', constraints=None):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
+    if constraints is not None:
+        new_model.set_model_constraints(constraints)
     new_model.deploy('cs:nrpe', series=series)
     new_model.deploy('cs:nagios', series=series)
     new_model.juju('add-relation', ('nrpe:monitors', 'nagios:monitors'))
@@ -130,7 +129,7 @@ def deploy_simple_server_to_new_model(
     new_model.juju('add-relation', ('nrpe', application))
     new_model.juju('add-relation', ('nrpe', 'ubuntu'))
     # Need to wait for the subordinate charms too.
-    new_model.wait_for(AllApplicationActive())
+    new_model.wait_for(AllApplicationActive(timeout=600))
     new_model.wait_for(AllApplicationWorkloads())
     new_model.wait_for(AgentsIdle(['nrpe/0', 'nrpe/1']))
     assert_deployed_charm_is_responding(new_model, resource_contents)
@@ -163,8 +162,10 @@ def deploy_simple_resource_server(
     return application_name
 
 
-def deploy_dummy_source_to_new_model(client, model_name):
+def deploy_dummy_source_to_new_model(client, model_name, constraints=None):
     new_model_client = client.add_model(client.env.clone(model_name))
+    if constraints is not None:
+        new_model_client.set_model_constraints(constraints)
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=new_model_client.version)
     new_model_client.deploy(charm_path)

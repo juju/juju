@@ -16,10 +16,10 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/application"
-	applicationapi "github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/client/application"
+	applicationapi "github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/resources/client"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/resources/client"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"

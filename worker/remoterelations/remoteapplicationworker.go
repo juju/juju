@@ -15,12 +15,12 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 // remoteApplicationWorker listens for localChanges to relations
@@ -689,18 +689,25 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 
 	relationsInfo := make(map[string]interface{})
 	for rel, info := range w.relations {
-		relationsInfo[rel] = map[string]interface{}{
-			"relation-id":        info.relationId,
-			"local-dead":         info.localDead,
-			"suspended":          info.suspended,
-			"application-token":  info.applicationToken,
-			"relation-token":     info.relationToken,
-			"local-endpoint":     info.localEndpoint.Name,
-			"remote-endpoint":    info.remoteEndpointName,
-			"last-status-event":  info.remoteRrw.Report(),
-			"last-local-change":  info.localRuw.Report(),
-			"last-remote-change": info.remoteRuw.Report(),
+		report := map[string]interface{}{
+			"relation-id":       info.relationId,
+			"local-dead":        info.localDead,
+			"suspended":         info.suspended,
+			"application-token": info.applicationToken,
+			"relation-token":    info.relationToken,
+			"local-endpoint":    info.localEndpoint.Name,
+			"remote-endpoint":   info.remoteEndpointName,
 		}
+		if info.remoteRrw != nil {
+			report["last-status-event"] = info.remoteRrw.Report()
+		}
+		if info.localRuw != nil {
+			report["last-local-change"] = info.localRuw.Report()
+		}
+		if info.remoteRuw != nil {
+			report["last-remote-change"] = info.remoteRuw.Report()
+		}
+		relationsInfo[rel] = report
 	}
 	if len(relationsInfo) > 0 {
 		result["relations"] = relationsInfo

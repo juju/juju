@@ -7,11 +7,11 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/machiner"
 )
 

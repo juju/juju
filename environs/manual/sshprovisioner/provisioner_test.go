@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/facades/client/client"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/instance"
@@ -24,6 +23,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
 

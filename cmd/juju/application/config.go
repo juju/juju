@@ -14,8 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/v3/keyvalues"
 
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/rpc/params"
 )
 
 const (

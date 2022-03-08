@@ -657,7 +657,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				RunAsGroup: int64Ptr(0),
 			},
 			LivenessProbe: &core.Probe{
-				Handler: core.Handler{
+				ProbeHandler: core.ProbeHandler{
 					HTTPGet: &core.HTTPGetAction{
 						Path: "/liveness",
 						Port: intstr.Parse("3856"),
@@ -669,7 +669,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				FailureThreshold:    2,
 			},
 			ReadinessProbe: &core.Probe{
-				Handler: core.Handler{
+				ProbeHandler: core.ProbeHandler{
 					HTTPGet: &core.HTTPGetAction{
 						Path: "/readiness",
 						Port: intstr.Parse("3856"),
@@ -681,7 +681,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				FailureThreshold:    2,
 			},
 			StartupProbe: &core.Probe{
-				Handler: core.Handler{
+				ProbeHandler: core.ProbeHandler{
 					HTTPGet: &core.HTTPGetAction{
 						Path: "/startup",
 						Port: intstr.Parse("3856"),
@@ -735,7 +735,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				},
 			},
 			ReadinessProbe: &core.Probe{
-				Handler: core.Handler{
+				ProbeHandler: core.ProbeHandler{
 					Exec: probCmds,
 				},
 				FailureThreshold:    3,
@@ -745,7 +745,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				TimeoutSeconds:      1,
 			},
 			LivenessProbe: &core.Probe{
-				Handler: core.Handler{
+				ProbeHandler: core.ProbeHandler{
 					Exec: probCmds,
 				},
 				FailureThreshold:    3,

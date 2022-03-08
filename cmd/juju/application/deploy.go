@@ -15,16 +15,15 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/annotations"
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/api/base"
-	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/client/annotations"
+	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/applicationoffers"
+	apicharms "github.com/juju/juju/api/client/charms"
+	"github.com/juju/juju/api/client/modelconfig"
+	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/api/spaces"
-	apiparams "github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
+	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 
@@ -598,7 +598,6 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ConfigOptions.SetPreserveStringValue(true)
 	// Keep CharmOnlyFlags and BundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)

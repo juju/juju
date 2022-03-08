@@ -15,19 +15,19 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/api/application"
-	apicharms "github.com/juju/juju/api/charms"
-	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/api/client/application"
+	apicharms "github.com/juju/juju/api/client/charms"
+	apicloud "github.com/juju/juju/api/client/cloud"
+	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/client/sshclient"
 	commoncharm "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/sshclient"
-	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/rpc/params"
 )
 
 // sshContainer implements functionality shared by sshCommand, SCPCommand

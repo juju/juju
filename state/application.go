@@ -25,9 +25,9 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -1893,7 +1893,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			}
 		}
 		// Exit early if the Application series doesn't need to change.
-		if a.Series() == series {
+		if a.Series() == series && a.CharmOrigin().Platform.Series == series {
 			return nil, jujutxn.ErrNoOperations
 		}
 
@@ -1932,7 +1932,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			Assert: bson.D{{"life", Alive},
 				{"charmurl", a.doc.CharmURL},
 				{"unitcount", a.doc.UnitCount}},
-			Update: bson.D{{"$set", bson.D{{"series", series}}}},
+			Update: bson.D{{"$set", bson.D{{"series", series},
+				{"charm-origin.platform.series", series}}}},
 		}}
 
 		if unit != nil {
@@ -1951,7 +1952,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				Assert: bson.D{{"life", Alive},
 					{"charmurl", sub.doc.CharmURL},
 					{"unitcount", sub.doc.UnitCount}},
-				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+				Update: bson.D{{"$set", bson.D{{"series", series},
+					{"charm-origin.platform.series", series}}}},
 			})
 		}
 		return ops, nil
@@ -2855,25 +2857,25 @@ func (a *Application) updateBranchConfig(branchName string, current *Settings, v
 }
 
 // ApplicationConfig returns the configuration for the application itself.
-func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) {
-	config, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
+func (a *Application) ApplicationConfig() (config.ConfigAttributes, error) {
+	cfg, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return application.ConfigAttributes(nil), nil
+			return config.ConfigAttributes(nil), nil
 		}
 		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
 	}
 
-	if len(config.Keys()) == 0 {
-		return application.ConfigAttributes(nil), nil
+	if len(cfg.Keys()) == 0 {
+		return config.ConfigAttributes(nil), nil
 	}
-	return config.Map(), nil
+	return cfg.Map(), nil
 }
 
 // UpdateApplicationConfig changes an application's config settings.
 // Unknown and invalid values will return an error.
 func (a *Application) UpdateApplicationConfig(
-	changes application.ConfigAttributes,
+	changes config.ConfigAttributes,
 	reset []string,
 	schema environschema.Fields,
 	defaults schema.Defaults,
@@ -2894,7 +2896,7 @@ func (a *Application) UpdateApplicationConfig(
 	for _, name := range reset {
 		node.Delete(name)
 	}
-	newConfig, err := application.NewConfig(node.Map(), schema, defaults)
+	newConfig, err := config.NewConfig(node.Map(), schema, defaults)
 	if err != nil {
 		return errors.Trace(err)
 	}

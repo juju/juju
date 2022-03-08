@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/introspection"
 )
 
@@ -42,9 +40,9 @@ type IntrospectionConfig struct {
 	PrometheusGatherer prometheus.Gatherer
 	PresenceRecorder   presence.Recorder
 	Clock              clock.Clock
-	LocalHub           *pubsub.SimpleHub
-	CentralHub         *pubsub.StructuredHub
-	LeaseFSM           *raftlease.FSM
+	LocalHub           introspection.SimpleHub
+	CentralHub         introspection.StructuredHub
+	LeaseFSM           introspection.Leases
 
 	NewSocketName func(names.Tag) string
 	WorkerFunc    func(config introspection.Config) (worker.Worker, error)

@@ -12,11 +12,11 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/machinemanager"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/rpc/params"
 )
 
 // NewRemoveCommand returns a command used to remove a specified machine.

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -24,8 +25,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	apicaasoperator "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/api/base"
-	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -251,6 +252,9 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
+	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+		Logger: loggo.GetLogger("juju.localhub"),
+	})
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		AgentTag:           op.CurrentConfig().Tag(),
 		Engine:             engine,
@@ -258,6 +262,8 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: op.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
+		Clock:              clock.WallClock,
+		LocalHub:           localHub,
 		// If the caas operator gains the ability to interact with the
 		// introspection worker, the introspection worker should be configured
 		// with a clock and hub. See the machine agent.

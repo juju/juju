@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -741,7 +741,7 @@ func (s *UnitSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
 		"options":     environschema.Attr{Type: environschema.Tattrs},
 	}
 
-	err = s.application.UpdateApplicationConfig(application.ConfigAttributes{
+	err = s.application.UpdateApplicationConfig(config.ConfigAttributes{
 		"username":    "abbas",
 		"alive":       true,
 		"skill-level": 23,
@@ -758,7 +758,7 @@ func (s *UnitSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
 	// For reasons that I don't understand, application config
 	// converts int64s to int while charm config converts ints to
 	// int64 - I'm not going to try to untangle that now.
-	err = s.application.UpdateApplicationConfig(application.ConfigAttributes{
+	err = s.application.UpdateApplicationConfig(config.ConfigAttributes{
 		"username":    "bob",
 		"skill-level": int64(23),
 	}, nil, schema, nil)

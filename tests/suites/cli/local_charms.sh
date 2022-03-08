@@ -163,6 +163,10 @@ run_deploy_local_charm_revision_invalid_git() {
 
 create_local_git_folder() {
 	git init .
+	if [ -z "$(git config --global user.email)" ]; then
+		git config --global user.email "john@doe.com"
+		git config --global user.name "John Doe"
+	fi
 	touch rand_file
 	git add rand_file
 	git commit -am "rand_file"

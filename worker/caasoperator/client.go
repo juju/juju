@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/version/v2"
 
-	caasoperatorapi "github.com/juju/juju/api/caasoperator"
+	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"

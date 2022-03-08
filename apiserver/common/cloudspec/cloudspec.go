@@ -10,10 +10,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )

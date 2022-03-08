@@ -19,13 +19,13 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/machinemanager"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Actions

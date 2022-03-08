@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/charmhub"
-	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
@@ -283,7 +283,7 @@ func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm
 			Type: environschema.Tbool,
 		},
 	}
-	appCfg, err := coreapplication.NewConfig(nil, configSchema, schema.Defaults{
+	appCfg, err := config.NewConfig(nil, configSchema, schema.Defaults{
 		application.TrustConfigOptionName: true,
 	})
 	if err != nil {

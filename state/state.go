@@ -29,8 +29,8 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
@@ -1081,7 +1081,7 @@ type AddApplicationArgs struct {
 	Devices           map[string]DeviceConstraints
 	AttachStorage     []names.StorageTag
 	EndpointBindings  map[string]string
-	ApplicationConfig *application.Config
+	ApplicationConfig *config.Config
 	CharmConfig       charm.Settings
 	NumUnits          int
 	Placement         []*instance.Placement
@@ -2310,6 +2310,9 @@ func (st *State) AliveRelationKeys() []string {
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
 // what is going on at runtime.
 func (st *State) Report() map[string]interface{} {
+	if st.workers == nil {
+		return nil
+	}
 	return st.workers.Report()
 }
 

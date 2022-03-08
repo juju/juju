@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/rpc/params"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
@@ -23,8 +25,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	actionapi "github.com/juju/juju/api/action"
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
 )

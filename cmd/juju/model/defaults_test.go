@@ -327,7 +327,7 @@ func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 
 func (s *DefaultsCommandSuite) TestSetValueWithSlash(c *gc.C) {
 	// A value with a "/" might be interpreted as a cloud/region.
-	_, err := s.run(c, `juju-no-proxy="localhost,127.0.0.1,127.0.0.53,10.0.8.0/24"`)
+	_, err := s.run(c, `juju-no-proxy=localhost,127.0.0.1,127.0.0.53,10.0.8.0/24`)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{

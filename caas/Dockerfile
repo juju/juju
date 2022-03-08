@@ -1,5 +1,7 @@
-ARG BASE_IMAGE
-FROM $BASE_IMAGE
+FROM ubuntu:20.04
+ARG TARGETOS
+ARG TARGETARCH
+ARG BUILDOS
 
 # Add the syslog user for audit logging.
 RUN useradd --system -M syslog
@@ -25,13 +27,14 @@ ENV WHEELHOUSE=/tmp/wheelhouse
 ENV PIP_WHEEL_DIR=/tmp/wheelhouse
 ENV PIP_FIND_LINKS=/tmp/wheelhouse
 
-COPY requirements.txt /tmp/wheelhouse/requirements.txt
+RUN mkdir -p /tmp/wheelhouse
+COPY docker-staging/requirements.txt /tmp/wheelhouse/requirements.txt
 RUN pip3 install -r /tmp/wheelhouse/requirements.txt
 
 WORKDIR /var/lib/juju
-COPY jujud /opt/
-COPY jujuc /opt/
-COPY containeragent /opt/
-COPY pebble /opt/
+COPY ${TARGETOS}_${TARGETARCH}/bin/jujud /opt/
+COPY ${TARGETOS}_${TARGETARCH}/bin/jujuc /opt/
+COPY ${TARGETOS}_${TARGETARCH}/bin/containeragent /opt/
+COPY ${TARGETOS}_${TARGETARCH}/bin/pebble /opt/
 
 ENTRYPOINT ["sh", "-c"]

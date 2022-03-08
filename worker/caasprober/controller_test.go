@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/observability/probe"
 	"github.com/juju/juju/worker/caasprober"
 )
 
@@ -24,12 +25,6 @@ type dummyMux struct {
 	RemoveHandlerFunc func(string, string)
 }
 
-type dummyProbes struct {
-	Liveness  caasprober.Prober
-	Readiness caasprober.Prober
-	Startup   caasprober.Prober
-}
-
 var _ = gc.Suite(&ControllerSuite{})
 
 func (d *dummyMux) AddHandler(i, j string, h http.Handler) error {
@@ -39,22 +34,10 @@ func (d *dummyMux) AddHandler(i, j string, h http.Handler) error {
 	return d.AddHandlerFunc(i, j, h)
 }
 
-func (c *dummyProbes) LivenessProbe() caasprober.Prober {
-	return c.Liveness
-}
-
-func (c *dummyProbes) ReadinessProbe() caasprober.Prober {
-	return c.Readiness
-}
-
 func (d *dummyMux) RemoveHandler(i, j string) {
 	if d.RemoveHandlerFunc != nil {
 		d.RemoveHandlerFunc(i, j)
 	}
-}
-
-func (c *dummyProbes) StartupProbe() caasprober.Prober {
-	return c.Startup
 }
 
 func (s *ControllerSuite) TestControllerMuxRegistration(c *gc.C) {
@@ -111,13 +94,12 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *gc.C) {
 		},
 	}
 
-	probes := dummyProbes{
-		Liveness:  &caasprober.ProbeNotImplemented{},
-		Readiness: &caasprober.ProbeNotImplemented{},
-		Startup:   &caasprober.ProbeNotImplemented{},
-	}
+	probes := caasprober.NewCAASProbes()
+	probes.Liveness.Probes["test"] = probe.NotImplemented
+	probes.Readiness.Probes["test"] = probe.NotImplemented
+	probes.Startup.Probes["test"] = probe.NotImplemented
 
-	controller, err := caasprober.NewController(&probes, &mux)
+	controller, err := caasprober.NewController(probes, &mux)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -152,13 +134,12 @@ func (s *ControllerSuite) TestControllerNotImplemented(c *gc.C) {
 		RemoveHandlerFunc: func(m, p string) {},
 	}
 
-	probes := dummyProbes{
-		Liveness:  &caasprober.ProbeNotImplemented{},
-		Readiness: &caasprober.ProbeNotImplemented{},
-		Startup:   &caasprober.ProbeNotImplemented{},
-	}
+	probes := caasprober.NewCAASProbes()
+	probes.Liveness.Probes["test"] = probe.NotImplemented
+	probes.Readiness.Probes["test"] = probe.NotImplemented
+	probes.Startup.Probes["test"] = probe.NotImplemented
 
-	controller, err := caasprober.NewController(&probes, &mux)
+	controller, err := caasprober.NewController(probes, &mux)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -183,17 +164,16 @@ func (s *ControllerSuite) TestControllerProbeError(c *gc.C) {
 		RemoveHandlerFunc: func(m, p string) {},
 	}
 
-	probeErr := caasprober.ProberFunc(func() (bool, error) {
+	probeErr := probe.ProberFn(func() (bool, error) {
 		return false, errors.New("test error")
 	})
 
-	probes := dummyProbes{
-		Liveness:  probeErr,
-		Readiness: probeErr,
-		Startup:   probeErr,
-	}
+	probes := caasprober.NewCAASProbes()
+	probes.Liveness.Probes["test"] = probeErr
+	probes.Readiness.Probes["test"] = probeErr
+	probes.Startup.Probes["test"] = probeErr
 
-	controller, err := caasprober.NewController(&probes, &mux)
+	controller, err := caasprober.NewController(probes, &mux)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -218,17 +198,16 @@ func (s *ControllerSuite) TestControllerProbeFail(c *gc.C) {
 		RemoveHandlerFunc: func(m, p string) {},
 	}
 
-	probeFail := caasprober.ProberFunc(func() (bool, error) {
+	probeFail := probe.ProberFn(func() (bool, error) {
 		return false, nil
 	})
 
-	probes := dummyProbes{
-		Liveness:  probeFail,
-		Readiness: probeFail,
-		Startup:   probeFail,
-	}
+	probes := caasprober.NewCAASProbes()
+	probes.Liveness.Probes["test"] = probeFail
+	probes.Readiness.Probes["test"] = probeFail
+	probes.Startup.Probes["test"] = probeFail
 
-	controller, err := caasprober.NewController(&probes, &mux)
+	controller, err := caasprober.NewController(probes, &mux)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -253,13 +232,80 @@ func (s *ControllerSuite) TestControllerProbePass(c *gc.C) {
 		RemoveHandlerFunc: func(m, p string) {},
 	}
 
-	probes := dummyProbes{
-		Liveness:  &caasprober.ProbeSuccess{},
-		Readiness: &caasprober.ProbeSuccess{},
-		Startup:   &caasprober.ProbeSuccess{},
+	probes := caasprober.NewCAASProbes()
+	probes.Liveness.Probes["test"] = probe.Success
+	probes.Readiness.Probes["test"] = probe.Success
+	probes.Startup.Probes["test"] = probe.Success
+
+	controller, err := caasprober.NewController(probes, &mux)
+	c.Assert(err, jc.ErrorIsNil)
+
+	waitGroup.Wait()
+	controller.Kill()
+	err = controller.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ControllerSuite) TestControllerProbePassDetailed(c *gc.C) {
+	waitGroup := sync.WaitGroup{}
+	waitGroup.Add(3)
+
+	mux := dummyMux{
+		AddHandlerFunc: func(m, p string, h http.Handler) error {
+			req := httptest.NewRequest(m, p+"?detailed=true", nil)
+			recorder := httptest.NewRecorder()
+			h.ServeHTTP(recorder, req)
+			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusOK)
+			c.Check(recorder.Body.String(), jc.HasPrefix, `+ test
+OK: probe`)
+			waitGroup.Done()
+			return nil
+		},
+		RemoveHandlerFunc: func(m, p string) {},
 	}
 
-	controller, err := caasprober.NewController(&probes, &mux)
+	probes := caasprober.NewCAASProbes()
+	probes.Liveness.Probes["test"] = probe.Success
+	probes.Readiness.Probes["test"] = probe.Success
+	probes.Startup.Probes["test"] = probe.Success
+
+	controller, err := caasprober.NewController(probes, &mux)
+	c.Assert(err, jc.ErrorIsNil)
+
+	waitGroup.Wait()
+	controller.Kill()
+	err = controller.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ControllerSuite) TestControllerProbeFailDetailed(c *gc.C) {
+	waitGroup := sync.WaitGroup{}
+	waitGroup.Add(3)
+
+	mux := dummyMux{
+		AddHandlerFunc: func(m, p string, h http.Handler) error {
+			req := httptest.NewRequest(m, p+"?detailed=true", nil)
+			recorder := httptest.NewRecorder()
+			h.ServeHTTP(recorder, req)
+			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusOK)
+			c.Check(recorder.Body.String(), jc.HasPrefix, `- test: test error
+Internal Server Error: probe`)
+			waitGroup.Done()
+			return nil
+		},
+		RemoveHandlerFunc: func(m, p string) {},
+	}
+
+	probeFail := probe.ProberFn(func() (bool, error) {
+		return false, errors.New("test error")
+	})
+
+	probes := caasprober.NewCAASProbes()
+	probes.Liveness.Probes["test"] = probeFail
+	probes.Readiness.Probes["test"] = probeFail
+	probes.Startup.Probes["test"] = probeFail
+
+	controller, err := caasprober.NewController(probes, &mux)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()

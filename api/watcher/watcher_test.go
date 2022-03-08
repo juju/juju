@@ -18,11 +18,10 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/crossmodelrelations"
-	"github.com/juju/juju/api/migrationminion"
-	"github.com/juju/juju/api/secretsmanager"
+	"github.com/juju/juju/api/agent/migrationminion"
+	"github.com/juju/juju/api/agent/secretsmanager"
+	"github.com/juju/juju/api/controller/crossmodelrelations"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
@@ -32,6 +31,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -496,13 +496,10 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertChange, assertNoChange, stop := s.setupOfferStatusWatch(c)
 	defer stop()
 
-	// watcher needs to come from model cache: https://bugs.launchpad.net/juju/+bug/1883625"
-	// Until then, the status checking is bypassed.
-	var err error
-	// err := mysql.SetStatus(status.StatusInfo{Status: status.Unknown, Message: "another message"})
-	// c.Assert(err, jc.ErrorIsNil)
+	err := mysql.SetStatus(status.StatusInfo{Status: status.Unknown, Message: "another message"})
+	c.Assert(err, jc.ErrorIsNil)
 
-	// assertChange(status.Waiting, "another message")
+	assertChange(status.Unknown, "another message")
 
 	// Removing offer and application both trigger events.
 	offers := state.NewApplicationOffers(s.State)

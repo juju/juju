@@ -137,15 +137,22 @@ func (s *Space) networkSpace(subnets network.SubnetInfos) (network.SpaceInfo, er
 }
 
 // RemoveSpaceOps returns txn.Ops to remove the space
-func (s *Space) RemoveSpaceOps() []txn.Op {
-	return []txn.Op{
-		{
-			C:      spacesC,
-			Id:     s.doc.DocId,
-			Assert: txn.DocExists,
-			Remove: true,
-		},
+func (s *Space) RemoveSpaceOps() ([]txn.Op, error) {
+	spaceInfo, err := s.NetworkSpace()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	var ops []txn.Op
+	for _, subnet := range spaceInfo.Subnets {
+		ops = append(ops, s.st.UpdateSubnetSpaceOps(subnet.ID.String(), s.Id())...)
+	}
+
+	return append(ops, txn.Op{
+		C:      spacesC,
+		Id:     s.doc.DocId,
+		Assert: txn.DocExists,
+		Remove: true,
+	}), nil
 }
 
 // RenameSpaceOps returns the database transaction operations required to

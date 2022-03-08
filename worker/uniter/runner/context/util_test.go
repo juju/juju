@@ -17,8 +17,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/block"
-	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/client/block"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"

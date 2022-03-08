@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/apiserver/params"
 	constraints "github.com/juju/juju/core/constraints"
+	params "github.com/juju/juju/rpc/params"
 )
 
 // MockModelExtractor is a mock of ModelExtractor interface.

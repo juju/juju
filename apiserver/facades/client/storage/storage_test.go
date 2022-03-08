@@ -14,11 +14,11 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"

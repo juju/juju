@@ -13,8 +13,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -38,7 +38,7 @@ type DeployApplicationParams struct {
 	Charm             *state.Charm
 	CharmOrigin       corecharm.Origin
 	Channel           csparams.Channel
-	ApplicationConfig *application.Config
+	ApplicationConfig *config.Config
 	CharmConfig       charm.Settings
 	Constraints       constraints.Value
 	NumUnits          int

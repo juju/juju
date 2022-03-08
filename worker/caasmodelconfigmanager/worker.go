@@ -14,7 +14,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api/base"
-	api "github.com/juju/juju/api/caasmodelconfigmanager"
+	api "github.com/juju/juju/api/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"

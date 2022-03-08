@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )

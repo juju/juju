@@ -38,16 +38,15 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/annotations"
-	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/client/annotations"
+	"github.com/juju/juju/api/client/application"
+	apicharms "github.com/juju/juju/api/client/charms"
+	"github.com/juju/juju/api/client/modelconfig"
+	"github.com/juju/juju/api/client/resources/client"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/api/resources/client"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -67,6 +66,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -2456,7 +2456,6 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageContainer(c *gc.C) {
 
 func basicDeployerConfig(charmOrBundle string) deployer.DeployerConfig {
 	cfgOps := common.ConfigFlag{}
-	cfgOps.SetPreserveStringValue(true)
 	return deployer.DeployerConfig{
 		BundleMachines:     map[string]string{},
 		CharmOrBundle:      charmOrBundle,

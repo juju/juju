@@ -4,14 +4,14 @@
 package caasunitprovisioner
 
 import (
-	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/apiserver/params"
+	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Client provides an interface for interacting with the
@@ -34,7 +34,7 @@ type Client interface {
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	WatchApplication(appName string) (watcher.NotifyWatcher, error)
-	ApplicationConfig(string) (application.ConfigAttributes, error)
+	ApplicationConfig(string) (config.ConfigAttributes, error)
 	DeploymentMode(string) (caas.DeploymentMode, error)
 	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
 	ApplicationScale(string) (int, error)

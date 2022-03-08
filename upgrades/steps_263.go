@@ -4,7 +4,7 @@
 package upgrades
 
 import (
-	"github.com/juju/juju/api/upgradesteps"
+	"github.com/juju/juju/api/agent/upgradesteps"
 	"github.com/juju/names/v4"
 )
 

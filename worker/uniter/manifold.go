@@ -13,12 +13,13 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/secretsmanager"
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/agent/secretsmanager"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/secretrotate"
@@ -175,7 +176,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if uniter == nil {
 				return errors.Errorf("expected Uniter in")
 			}
+
 			switch outPtr := out.(type) {
+			case *probe.ProbeProvider:
+				*outPtr = &uniter.Probe
 			case **Uniter:
 				*outPtr = uniter
 			default:
