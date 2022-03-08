@@ -78,7 +78,8 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
 	}
 	if result.Code != 0 {
 		// TODO - confined snaps can't execute other commands.
-		if strings.HasSuffix(strings.ToLower(string(result.Stderr)), "permission denied") {
+		errMessage := strings.ReplaceAll(string(result.Stderr), "\n", "")
+		if strings.HasSuffix(strings.ToLower(errMessage), "permission denied") {
 			return []byte{}, errors.NotFoundf("microk8s")
 		}
 		return []byte{}, errors.New(string(result.Stderr))
