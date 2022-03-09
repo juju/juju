@@ -65,7 +65,7 @@ operator_image_release_path() {
 operator_image_path() {
     juju_version=$(juju_version)
     if [ -z "${JUJU_BUILD_NUMBER}" ] || [ ${JUJU_BUILD_NUMBER} -eq 0 ]; then
-        operator_image_release_path "$juju_version"
+        operator_image_release_path
     else
         echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
     fi
@@ -95,7 +95,7 @@ build_operator_image() {
           -t "$(operator_image_path)" -
     done
     if [ "$(operator_image_path)" != "$(operator_image_release_path)" ]; then
-        "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_release_path $juju_version)"
+        "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_release_path)"
     fi
 }
 
