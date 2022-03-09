@@ -284,6 +284,30 @@ func (w *upgradeDB) watchUpgrade() error {
 		return err
 	}
 
+	// To be here, this node previously returned false for isPrimary
+	// Sometimes our primary changes, or is reported as false when called too
+	// early. In the case that a node state changes whilst watching,
+	// escalate an error which will result in the worker being restarted
+	stateChanged := make(chan struct{})
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case <-done:
+			case <-w.clock.After(5 * time.Second):
+				isPrimary, err := w.pool.IsPrimary(w.tag.Id())
+				if isPrimary || err != nil {
+					if err != nil {
+						w.logger.Errorf("Failed to check is this node is primary: %v", err)
+					}
+					close(stateChanged)
+					return
+				}
+			}
+		}
+	}()
+
 	for {
 		// If the primary has already run the database steps then the status
 		// will be "db-complete", however it may have progressed further on to
@@ -304,11 +328,14 @@ func (w *upgradeDB) watchUpgrade() error {
 				w.setFailStatus()
 				return errors.Trace(err)
 			}
+		case <-stateChanged:
+			w.logger.Infof("primary changed mid-upgrade to this watching host. Restart upgrade")
+			return errors.New("mongo primary state changed")
 		case <-timeout:
 			w.setFailStatus()
 			return errors.New("timed out waiting for primary database upgrade")
 		case <-w.tomb.Dying():
-			return nil
+			return tomb.ErrDying
 		}
 	}
 }
