@@ -15,11 +15,13 @@ DOCKER_USERNAME=${DOCKER_USERNAME:-jujusolutions}
 DOCKER_STAGING_DIR="${BUILD_DIR}/docker-staging"
 DOCKER_BIN=${DOCKER_BIN:-$(which docker || true)}
 
+readonly docker_staging_dir="docker-staging"
+
 # _make_docker_staging_dir is responsible for ensuring that there exists a
 # Docker staging directory under the build path. The staging directory's path
 # is returned as the output of this function.
 _make_docker_staging_dir() {
-  dir="${PROJECT_DIR}/_build/docker-staging"
+  dir="${BUILD_DIR}/${docker_staging_dir}"
   rm -rf "$dir"
   mkdir -p "$dir"
   echo "$dir"
@@ -52,7 +54,7 @@ microk8s_operator_update() {
 }
 
 juju_version() {
-    echo $(go run ${PROJECT_DIR}/version/helper/main.go)
+  (cd "${PROJECT_DIR}" && go run version/helper/main.go)
 }
 
 operator_image_release_path() {
@@ -88,7 +90,7 @@ build_operator_image() {
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
     for build_osarch in ${build_multi_osarch}; do
       tar cf - -C "${BUILD_DIR}" . | DOCKER_BUILDKIT=1 "${DOCKER_BIN}" build \
-          -f "docker-staging/Dockerfile" \
+          -f "${docker_staging_dir}/Dockerfile" \
           --platform "$build_osarch" \
           -t "$(operator_image_path)" -
     done
