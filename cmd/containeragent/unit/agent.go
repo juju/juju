@@ -18,6 +18,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -34,6 +35,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/paths"
 	jnames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -44,7 +46,12 @@ import (
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
-var logger = loggo.GetLogger("juju.cmd.containeragent.unit")
+var (
+	logger = loggo.GetLogger("juju.cmd.containeragent.unit")
+
+	jujuRun        = paths.JujuRun(paths.CurrentOS())
+	jujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
+)
 
 type containerUnitAgent struct {
 	cmd.CommandBase
@@ -193,6 +200,11 @@ func (c *containerUnitAgent) Init(args []string) error {
 	if len(containerNames) > 0 {
 		c.containerNames = strings.Split(containerNames, ",")
 	}
+
+	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
+		// This isn't fatal, just annoying.
+		logger.Errorf("failed to write profile funcs: %v", err)
+	}
 	return nil
 }
 
@@ -210,12 +222,10 @@ func (c *containerUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag
 	}
 
 	for _, link := range []string{
-		jnames.ContainerAgent,
-		jnames.JujuRun,
-		jnames.JujuIntrospect,
+		path.Join(toolsDir, jnames.ContainerAgent),
+		jujuRun, jujuIntrospect,
 	} {
-		newName := path.Join(toolsDir, link)
-		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), newName); err != nil {
+		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), link); err != nil {
 			return errors.Annotatef(err, "ensuring symlink %q", link)
 		}
 	}
@@ -302,6 +312,10 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
+	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+		Logger: logger.Child("juju.localhub"),
+		Clock:  c.clk,
+	})
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		AgentTag:           c.CurrentConfig().Tag(),
 		Engine:             eng,
@@ -309,6 +323,8 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: c.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
+		Clock:              c.clk,
+		LocalHub:           localHub,
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world
