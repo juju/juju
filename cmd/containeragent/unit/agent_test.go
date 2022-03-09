@@ -104,8 +104,8 @@ func (s *containerUnitAgentSuite) TestParseSuccess(c *gc.C) {
 		s.fileReaderWriter.EXPECT().RemoveAll(toolsDir).Return(nil),
 		s.fileReaderWriter.EXPECT().MkdirAll(toolsDir, os.FileMode(0755)).Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.ContainerAgent)).Return(nil),
-		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuRun)).Return(nil),
-		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuIntrospect)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), "/usr/bin/juju-run").Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), "/usr/bin/juju-introspect").Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.Jujuc)).Return(nil),
 		s.environment.EXPECT().Getenv("JUJU_CONTAINER_NAMES").Return("a,b,c"),
 	)
@@ -140,8 +140,8 @@ func (s *containerUnitAgentSuite) TestParseSuccessNoContainer(c *gc.C) {
 		s.fileReaderWriter.EXPECT().RemoveAll(toolsDir).Return(nil),
 		s.fileReaderWriter.EXPECT().MkdirAll(toolsDir, os.FileMode(0755)).Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.ContainerAgent)).Return(nil),
-		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuRun)).Return(nil),
-		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuIntrospect)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), "/usr/bin/juju-run").Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), "/usr/bin/juju-introspect").Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.Jujuc)).Return(nil),
 		s.environment.EXPECT().Getenv("JUJU_CONTAINER_NAMES").Return(""),
 	)
