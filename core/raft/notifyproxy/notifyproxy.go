@@ -7,15 +7,17 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/tomb.v2"
+
+	"github.com/juju/clock"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
-	"gopkg.in/tomb.v2"
 )
 
 const (
 	// BufferSize is the amount of notifications to enqueue before dropping the
 	// oldest.
-	BufferSize int = 512
+	BufferSize = 512
 
 	// ClaimedTimeout defines how long we should wait for a claimed timeout
 	// response.
@@ -94,17 +96,32 @@ func (n ExpiriesNote) ErrorResponse(err error) {
 }
 
 type NotifyProxy struct {
-	tomb *tomb.Tomb
-	in   chan Notification
-	out  chan []Notification
+	tomb     *tomb.Tomb
+	in       chan Notification
+	out      chan []Notification
+	blocking bool
+	clock    clock.Clock
 }
 
-// New creates a new NotifyProxy.
-func New() *NotifyProxy {
+// NewBlocking creates a new NotifyProxy, that blocks waiting for a response
+// back from the queries.
+func NewBlocking(clock clock.Clock) *NotifyProxy {
+	return newProxy(true, clock)
+}
+
+// NewNonBlocking creates a new NotifyProxy that doesn't block waiting for a
+// response.
+func NewNonBlocking(clock clock.Clock) *NotifyProxy {
+	return newProxy(false, clock)
+}
+
+func newProxy(blocking bool, clock clock.Clock) *NotifyProxy {
 	proxy := &NotifyProxy{
-		tomb: new(tomb.Tomb),
-		in:   make(chan Notification),
-		out:  make(chan []Notification),
+		tomb:     new(tomb.Tomb),
+		in:       make(chan Notification),
+		out:      make(chan []Notification),
+		blocking: blocking,
+		clock:    clock,
 	}
 	proxy.tomb.Go(proxy.loop)
 	return proxy
@@ -112,20 +129,30 @@ func New() *NotifyProxy {
 
 // Claimed will be called when a new lease has been claimed.
 func (p *NotifyProxy) Claimed(key lease.Key, holder string) error {
-	err := make(chan error, 1)
+	var (
+		response func(error)
+		err      = make(chan error, 1)
+	)
+	if p.blocking {
+		response = func(e error) {
+			err <- e
+		}
+	} else {
+		close(err)
+	}
+
 	select {
 	case <-p.tomb.Dying():
 		return tomb.ErrDying
 	case <-p.tomb.Dead():
 		return p.tomb.Err()
 	case p.in <- ClaimedNote{
-		Key:    key,
-		Holder: holder,
-		response: func(e error) {
-			err <- e
-		},
+		Key:      key,
+		Holder:   holder,
+		response: response,
 	}:
 	}
+
 	select {
 	case e := <-err:
 		return errors.Trace(e)
@@ -136,7 +163,18 @@ func (p *NotifyProxy) Claimed(key lease.Key, holder string) error {
 
 // Expiries will be called when a set of existing leases have expired.
 func (p *NotifyProxy) Expiries(expiries []raftlease.Expired) error {
-	err := make(chan error, 1)
+	var (
+		response func(error)
+		err      = make(chan error, 1)
+	)
+	if p.blocking {
+		response = func(e error) {
+			err <- e
+		}
+	} else {
+		close(err)
+	}
+
 	select {
 	case <-p.tomb.Dying():
 		return tomb.ErrDying
@@ -144,11 +182,10 @@ func (p *NotifyProxy) Expiries(expiries []raftlease.Expired) error {
 		return p.tomb.Err()
 	case p.in <- ExpiriesNote{
 		Expiries: expiries,
-		response: func(e error) {
-			err <- e
-		},
+		response: response,
 	}:
 	}
+
 	select {
 	case e := <-err:
 		return errors.Trace(e)
@@ -197,8 +234,12 @@ func (p *NotifyProxy) loop() error {
 			// This would be better a linked list, so that we can just grab
 			// the tail and drop the head.
 			if len(buffer) == BufferSize {
+				entity := buffer[0]
+				entity.ErrorResponse(errors.Errorf("timed out waiting to be processed"))
+
 				buffer = buffer[1:]
 			}
+
 			buffer = append(buffer, note)
 			out = p.out
 

@@ -56,7 +56,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			dataDir: filepath.Join("data", "dir"),
 		},
 	}
-	s.target = notifyproxy.New()
+	s.target = notifyproxy.NewNonBlocking(clock.WallClock)
 	s.fsm = &raft.SimpleFSM{}
 	s.logger = loggo.GetLogger("juju.worker.raft_test")
 	s.worker = &mockRaftWorker{

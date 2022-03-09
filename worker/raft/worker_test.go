@@ -40,7 +40,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.fsm = &raft.SimpleFSM{}
 	s.queue = queue.NewOpQueue(clock.WallClock)
 	s.operations = make(chan []queue.OutOperation)
-	s.target = notifyproxy.New()
+	s.target = notifyproxy.NewNonBlocking(clock.WallClock)
 
 	s.config = raft.Config{
 		FSM:        s.fsm,

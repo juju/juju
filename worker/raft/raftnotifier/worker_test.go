@@ -4,6 +4,7 @@
 package raftnotifier_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -32,7 +33,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.target = &fakeTarget{}
-	s.notifyProxy = notifyproxy.New()
+	s.notifyProxy = notifyproxy.NewBlocking(clock.WallClock)
 
 	s.config = raftnotifier.Config{
 		Logger:       loggo.GetLogger("raftnotifier_test"),

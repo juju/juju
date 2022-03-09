@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -55,7 +56,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.raft = &raft.Raft{}
-	s.raftNotifyProxy = notifyproxy.New()
+	s.raftNotifyProxy = notifyproxy.NewNonBlocking(clock.WallClock)
 
 	s.worker = &mockWorker{}
 	s.logger = loggo.GetLogger("juju.worker.raftnotifier_test")

@@ -179,5 +179,5 @@ type withRaftOutputs interface {
 // NewTarget creates a new lease notify proxy target using the dependencies in
 // a late fashion.
 func NewTarget() NotifyProxy {
-	return notifyproxy.New()
+	return notifyproxy.NewNonBlocking(clock.WallClock)
 }
