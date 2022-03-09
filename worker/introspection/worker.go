@@ -89,7 +89,10 @@ func (c *Config) Validate() error {
 	if c.PrometheusGatherer == nil {
 		return errors.NotValidf("nil PrometheusGatherer")
 	}
-	if c.LocalHub != nil && c.Clock == nil {
+	if c.LocalHub == nil {
+		return errors.NotValidf("nil LocalHub")
+	}
+	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
 	return nil
