@@ -412,7 +412,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dying, nil
 		}),
-		tc.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
+		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
 			tc.notifyReady <- struct{}{}
 			return nil
 		}),
@@ -420,6 +420,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		// 2nd Notify() - dead.
 		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dead, nil
+		}),
+		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
+			return nil
 		}),
 		tc.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
 			return nil
@@ -751,7 +754,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDyingApplic
 		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dying, nil
 		}),
-		tc.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
+		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
 			close(done)
 			return nil
 		}),
@@ -768,6 +771,9 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplica
 	s.assertRefreshApplicationStatus(c, tc, newAppWorker,
 		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dead, nil
+		}),
+		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
+			return nil
 		}),
 		tc.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
 			return nil
