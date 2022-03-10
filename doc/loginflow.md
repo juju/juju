@@ -49,7 +49,7 @@ authenticate the user. This macaroon is made in
 From looking at that code, The condition of the 3rd party caveat is
 `need-declared username admin`
 
-Q: I guess it's encoded in the "v64" value below?
+> Q: I guess it's encoded in the "v64" value below?
 
 Response:
 ```json
