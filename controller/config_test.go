@@ -371,6 +371,12 @@ var newConfigTests = []struct {
 		},
 		expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
 	}, {
+		about: "invalid batch-raft-fsm - string",
+		config: controller.Config{
+			controller.BatchRaftFSM: "I live dangerously",
+		},
+		expectError: `batch-raft-fsm: expected bool, got string\("I live dangerously"\)`,
+	}, {
 		about: "public-dns-address: expect string, got number",
 		config: controller.Config{
 			controller.PublicDNSAddress: 42,

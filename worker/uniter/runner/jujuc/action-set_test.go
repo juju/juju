@@ -73,6 +73,11 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 		errMsg:  "ERROR key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods\n",
 		code:    2,
 	}, {
+		summary: "reserved key is an error",
+		command: []string{"stdout=foo"},
+		errMsg:  "ERROR cannot set reserved action key \"stdout\"\n",
+		code:    2,
+	}, {
 		summary: "empty values are not an error",
 		command: []string{"result="},
 		expected: [][]string{
@@ -153,7 +158,8 @@ Details:
 action-set adds the given values to the results map of the Action. This map
 is returned to the user after the completion of the Action. Keys must start
 and end with lowercase alphanumeric, and contain only lowercase alphanumeric,
-hyphens and periods.
+hyphens and periods.  The following special keys are reserved for internal use: 
+"stdout", "stdout-encoding", "stderr", "stderr-encoding".
 
 Example usage:
  action-set outfile.size=10G

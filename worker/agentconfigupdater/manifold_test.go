@@ -357,6 +357,9 @@ type mockConfig struct {
 
 	nonSyncedWritesToRaftLog    bool
 	nonSyncedWritesToRaftLogSet bool
+
+	batchRaftFSM    bool
+	batchRaftFSMSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -410,6 +413,15 @@ func (mc *mockConfig) NonSyncedWritesToRaftLog() bool {
 func (mc *mockConfig) SetNonSyncedWritesToRaftLog(nonSynced bool) {
 	mc.nonSyncedWritesToRaftLog = nonSynced
 	mc.nonSyncedWritesToRaftLogSet = true
+}
+
+func (mc *mockConfig) BatchRaftFSM() bool {
+	return mc.batchRaftFSM
+}
+
+func (mc *mockConfig) SetBatchRaftFSM(batchRaftFSM bool) {
+	mc.batchRaftFSM = batchRaftFSM
+	mc.batchRaftFSMSet = true
 }
 
 func (mc *mockConfig) LogDir() string {

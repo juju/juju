@@ -244,27 +244,19 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		fallback: http.DefaultTransport,
 	}
 
-	// Prefer the SNI hostname or controller name for the cookie URL
-	// so that it is stable when used with a HA controller cluster.
-	host := info.SNIHostName
-	if host == "" && info.ControllerUUID != "" {
-		host = info.ControllerUUID
-	}
+	host := PerferredHost(info)
 	if host == "" {
 		host = dialResult.addr
 	}
+
 	st := &state{
-		ctx:    context.Background(),
-		client: client,
-		conn:   dialResult.conn,
-		clock:  opts.Clock,
-		addr:   dialResult.addr,
-		ipAddr: dialResult.ipAddr,
-		cookieURL: &url.URL{
-			Scheme: "https",
-			Host:   host,
-			Path:   "/",
-		},
+		ctx:                 context.Background(),
+		client:              client,
+		conn:                dialResult.conn,
+		clock:               opts.Clock,
+		addr:                dialResult.addr,
+		ipAddr:              dialResult.ipAddr,
+		cookieURL:           CookieURLFromHost(host),
 		pingerFacadeVersion: facadeVersions["Pinger"],
 		serverScheme:        "https",
 		serverRootAddress:   dialResult.addr,
@@ -301,6 +293,29 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		broken:      st.broken,
 	}).run()
 	return st, nil
+}
+
+// CookieURLFromHost creates a url.URL from a given host.
+func CookieURLFromHost(host string) *url.URL {
+	return &url.URL{
+		Scheme: "https",
+		Host:   host,
+		Path:   "/",
+	}
+}
+
+// PerferredHost returns the SNI hostname or controller name for the cookie URL
+// so that it is stable when used with a HA controller cluster.
+func PerferredHost(info *Info) string {
+	if info == nil {
+		return ""
+	}
+
+	host := info.SNIHostName
+	if host == "" && info.ControllerUUID != "" {
+		host = info.ControllerUUID
+	}
+	return host
 }
 
 // loginWithContext wraps st.Login with code that terminates

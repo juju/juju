@@ -17,6 +17,7 @@ import (
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	environscontext "github.com/juju/juju/environs/context"
 )
 
 // newLabelRequirements creates a list of k8s node label requirements.
@@ -108,6 +109,14 @@ func toCaaSStorageProvisioner(sc storage.StorageClass) *k8s.StorageProvisioner {
 		caasSc.ReclaimPolicy = string(*sc.ReclaimPolicy)
 	}
 	return caasSc
+}
+
+// ValidateCloudEndpoint returns nil if the current model can talk to the kubernetes
+// endpoint.  Used as validation during model upgrades.
+// Implements environs.CloudEndpointChecker
+func (k *kubernetesClient) ValidateCloudEndpoint(_ environscontext.ProviderCallContext) error {
+	_, err := k.GetClusterMetadata("")
+	return errors.Trace(err)
 }
 
 // GetClusterMetadata implements ClusterMetadataChecker.

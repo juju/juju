@@ -137,11 +137,13 @@ define run_go_build
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
 	@@mkdir -p ${BBIN_DIR}
-	env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
+	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
+	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
 endef
 
 define run_go_install
-	go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
+	@echo "Installing ${PACKAGE}"
+	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
 endef
 
 default: build

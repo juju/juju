@@ -19,7 +19,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
@@ -656,18 +655,10 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Check IAAS clouds.
-	if env, ok := envOrBroker.(environs.InstanceBroker); ok {
-		if err := environs.CheckProviderAPI(env, c.callContext); err != nil {
-			return err
-		}
+	if err := environs.CheckProviderAPI(envOrBroker, c.callContext); err != nil {
+		return err
 	}
-	// Check credentials against the container broker
-	if env, ok := envOrBroker.(caas.CredentialChecker); ok {
-		if err := env.CheckCloudCredentials(); err != nil {
-			return errors.Annotate(err, "cannot make API call to provider")
-		}
-	}
+
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
 	// For major version upgrades, also check that all models are at a version high

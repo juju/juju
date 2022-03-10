@@ -126,6 +126,10 @@ func (c *configFromEnv) NonSyncedWritesToRaftLog() bool {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) BatchRaftFSM() bool {
+	panic("not implemented")
+}
+
 func (c *configFromEnv) AgentLogfileMaxSizeMB() int {
 	panic("not implemented")
 }

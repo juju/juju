@@ -19,6 +19,9 @@ description: |
    - https://discourse.charmhub.io/
    - https://github.com/juju/juju
 
+  ** Note **
+  This snap needs to read any relevant locally stored cloud credentials in order to manage resources on your behalf in a specified cloud. 
+
 confinement: classic
 grade: devel
 base: core18
@@ -29,27 +32,32 @@ apps:
       # Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
       PATH: "$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH"
     command: bin/juju
-    # Even though the snap is being build as classic, the store still places the
-    # snap in a review queue despite these not being needed in classic.
-    # plugs:
-      # - network
-      # - ssh-keys
-      # - lxd
+    plugs:
+      - network
+      - network-bind
+      - ssh-public-keys
+      - lxd
       # Needed so that juju can still use the real ~/.local/share/juju.
-      # - config-juju
+      - dot-local-share-juju
       # Needed to read lxd config.
-      # - config-lxd
+      - config-lxd
       # Needed to read ~/.kube, ~/.novarc, ~/.aws etc.
-      # - cloud-credentials-juju
-      # Needed so that arbitrary cloud/credential yaml files can be read.
-      # - home
+      - dot-aws
+      - dot-azure
+      - dot-google
+      - dot-kubernetes
+      - dot-maas
+      - dot-openstack
+      - dot-oracle
+      # Needed so that arbitrary cloud/credential yaml files can be read and backups written.
+      - home
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
     start-timeout: 1m
     stop-timeout: 35s
-#    plugs:
-#      - network
+    plugs:
+      - network
 
 parts:
   wrappers:
@@ -120,26 +128,47 @@ plugs:
     content: microk8s
     target: $SNAP_COMMON/.peers
 
-# Even though the snap is being build as classic, the store still places the
-# snap in a review queue despite these not being needed in classic.
-#  config-juju:
-#    interface: personal-files
-#    write:
-#      - $HOME/.local/share/juju
-#
-#  config-lxd:
-#    interface: personal-files
-#    read:
-#      - $HOME/snap/lxd/current/.config/lxc
-#      - $HOME/snap/lxd/common/config
-#
-#  cloud-credentials-juju:
-#    interface: personal-files
-#    read:
-#      - $HOME/.aws
-#      - $HOME/.azure
-#      - $HOME/.config
-#      - $HOME/.kube
-#      - $HOME/.maasrc
-#      - $HOME/.oci
-#      - $HOME/.novarc
+  dot-local-share-juju:
+    interface: personal-files
+    write:
+      - $HOME/.local/share/juju
+
+  config-lxd:
+    interface: personal-files
+    read:
+      - $HOME/snap/lxd/common/config
+
+  dot-aws:
+    interface: personal-files
+    read:
+      - $HOME/.aws
+
+  dot-azure:
+    interface: personal-files
+    read:
+      - $HOME/.azure
+
+  dot-google:
+    interface: personal-files
+    read:
+      - $HOME/.config/gcloud
+
+  dot-kubernetes:
+    interface: personal-files
+    read:
+      - $HOME/.kube
+
+  dot-maas:
+    interface: personal-files
+    read:
+      - $HOME/.maasrc
+
+  dot-oracle:
+    interface: personal-files
+    read:
+      - $HOME/.oci
+
+  dot-openstack:
+    interface: personal-files
+    read:
+      - $HOME/.novarc

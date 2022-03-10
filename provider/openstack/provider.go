@@ -2370,3 +2370,11 @@ func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.
 func (e *Environ) SupportsRulesWithIPV6CIDRs(ctx context.ProviderCallContext) (bool, error) {
 	return true, nil
 }
+
+// ValidateCloudEndpoint returns nil if the current model can talk to the openstack
+// endpoint. Used as validation during model upgrades.
+// Implements environs.CloudEndpointChecker
+func (env *Environ) ValidateCloudEndpoint(ctx context.ProviderCallContext) error {
+	err := env.Provider().Ping(ctx, env.cloud().Endpoint)
+	return errors.Trace(err)
+}
