@@ -65,7 +65,7 @@ bootstrap() {
 		cloud="azure"
 		;;
 	"localhost" | "lxd")
-		cloud="lxd"
+		cloud="localhost"
 		;;
 	"lxd-remote" | "vsphere" | "openstack" | "k8s" | "maas")
 		cloud="${BOOTSTRAP_CLOUD}"
