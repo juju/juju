@@ -312,6 +312,7 @@ trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
+export TEST_DIR
 
 run_test() {
 	TEST_CURRENT=${1}
