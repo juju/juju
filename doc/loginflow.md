@@ -8,6 +8,11 @@ http requests the client makes to the controller.
 In the following the controller host is `CONTROLLER_HOST` and the admin password
 is `PASSWORD`.
 
+Read this document for an easy intro to macaroons:
+https://github.com/rescrv/libmacaroons/blob/master/README.  For a more
+theoretical approach you can read this:
+https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/41892.pdf.
+
 ## 1. Get websocket connection
 Open a websocket connection to `wss://CONTROLLER_HOST:17070/api`
 
