@@ -187,6 +187,9 @@ token=05af55437661da9a2d0c1092
 token-kind=juju_userpass
 ```
 
+Note that the value of `token` in the query params is the base64 decoded value
+of the value of the "value" field in the previous step's json response.
+
 Response:
 ```json
 {
