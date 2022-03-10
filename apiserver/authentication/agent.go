@@ -29,7 +29,7 @@ type taggedAuthenticator interface {
 func (*EntityAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
-		logger.Debugf("cannot authenticate unknown agent: %v", tag)
+		logger.Debugf("cannot authenticate unknown entity: %v", tag)
 		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	}
 	if err != nil {
