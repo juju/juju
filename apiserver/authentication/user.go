@@ -27,9 +27,9 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.authentication")
 
-// UserAuthenticator performs authentication for local users. If a password
-type UserAuthenticator struct {
-	AgentAuthenticator
+// LocalUserAuthenticator performs authentication for local users. If a password
+type LocalUserAuthenticator struct {
+	EntityAuthenticator
 
 	// Bakery holds the bakery that is used to mint and verify macaroons.
 	Bakery ExpirableStorageBakery
@@ -61,24 +61,27 @@ const (
 	externalLoginExpiryTime = 1 * time.Hour
 )
 
-var _ EntityAuthenticator = (*UserAuthenticator)(nil)
+var _ Authenticator = (*LocalUserAuthenticator)(nil)
 
 // Authenticate authenticates the entity with the specified tag, and returns an
 // error on authentication failure.
 //
 // If and only if no password is supplied, then Authenticate will check for any
 // valid macaroons. Otherwise, password authentication will be performed.
-func (u *UserAuthenticator) Authenticate(
+func (u *LocalUserAuthenticator) Authenticate(
 	ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest,
 ) (state.Entity, error) {
 	userTag, ok := tag.(names.UserTag)
 	if !ok {
 		return nil, errors.Errorf("invalid request")
 	}
-	if req.Credentials == "" && userTag.IsLocal() {
+	if !userTag.IsLocal() {
+		return nil, errors.Errorf("invalid request - expected local user")
+	}
+	if req.Credentials == "" {
 		return u.authenticateMacaroons(ctx, entityFinder, userTag, req)
 	}
-	return u.AgentAuthenticator.Authenticate(ctx, entityFinder, tag, req)
+	return u.EntityAuthenticator.Authenticate(ctx, entityFinder, tag, req)
 }
 
 // CreateLocalLoginMacaroon creates a macaroon that may be provided to a
@@ -157,7 +160,7 @@ func DischargeCaveats(tag names.UserTag, clock clock.Clock) []checkers.Caveat {
 	return firstPartyCaveats
 }
 
-func (u *UserAuthenticator) authenticateMacaroons(
+func (u *LocalUserAuthenticator) authenticateMacaroons(
 	ctx context.Context, entityFinder EntityFinder, tag names.UserTag, req params.LoginRequest,
 ) (state.Entity, error) {
 	// Check for a valid request macaroon.
@@ -241,11 +244,11 @@ type ExternalMacaroonAuthenticator struct {
 	Clock clock.Clock
 }
 
-var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
+var _ Authenticator = (*ExternalMacaroonAuthenticator)(nil)
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
-func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
+func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, _ EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
 	authChecker := m.Bakery.Checker.Auth(req.Macaroons...)
 	ai, identErr := authChecker.Allow(ctx, identchecker.LoginOp)
 	if de, ok := errors.Cause(identErr).(*bakery.DischargeRequiredError); ok {
@@ -262,6 +265,7 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, entity
 		return nil, errors.Trace(identErr)
 	}
 	username := ai.Identity.Id()
+	logger.Debugf("authenticated external user %q", username)
 	var tag names.UserTag
 	if names.IsValidUserName(username) {
 		// The name is a local name without an explicit @local suffix.
@@ -282,13 +286,15 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, entity
 			return nil, errors.Errorf("external identity provider has provided ostensibly local name %q", username)
 		}
 	}
-	entity, err := entityFinder.FindEntity(tag)
-	if errors.IsNotFound(err) {
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return entity, nil
+	return externalUser{tag}, nil
+}
+
+type externalUser struct {
+	tag names.Tag
+}
+
+func (e externalUser) Tag() names.Tag {
+	return e.tag
 }
 
 // IdentityFromContext implements IdentityClient.IdentityFromContext.

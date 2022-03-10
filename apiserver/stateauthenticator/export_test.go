@@ -6,13 +6,14 @@ package stateauthenticator
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/identchecker"
 
-	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/apiserver/authentication"
 )
 
 // TODO update the tests moved from apiserver to test via the public
 // interface, and then get rid of these.
-func EntityAuthenticator(authenticator *Authenticator, tag names.Tag) (authentication.EntityAuthenticator, error) {
+func EntityAuthenticator(authenticator *Authenticator, tag names.Tag) (authentication.Authenticator, error) {
 	return authenticator.authContext.authenticator("testing.invalid:1234").authenticatorForTag(tag)
 }
 
