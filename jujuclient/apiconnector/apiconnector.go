@@ -69,7 +69,7 @@ func (c *Connector) Connect(dialOptions ...api.DialOption) (api.Connection, erro
 		f(&opts)
 	}
 
-	// By default there is no bakey client in the dial options, so we reproduce
+	// By default there is no bakery client in the dial options, so we reproduce
 	// behaviour that is scattered around the code to obtain a bakery client
 	// with a cookie jar from the client store.
 	jar, err := c.config.ClientStore.CookieJar(c.config.ControllerName)
