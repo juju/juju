@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// AgentAuthenticator performs authentication for machine and unit agents.
-type AgentAuthenticator struct{}
+// EntityAuthenticator performs authentication for juju entities.
+type EntityAuthenticator struct{}
 
-var _ EntityAuthenticator = (*AgentAuthenticator)(nil)
+var _ Authenticator = (*EntityAuthenticator)(nil)
 
 type taggedAuthenticator interface {
 	state.Entity
@@ -26,9 +26,10 @@ type taggedAuthenticator interface {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (*AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
+func (*EntityAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
+		logger.Debugf("cannot authenticate unknown agent: %v", tag)
 		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	}
 	if err != nil {
