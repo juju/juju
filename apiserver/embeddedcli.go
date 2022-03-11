@@ -243,7 +243,7 @@ func runCLICommands(m *state.Model, errCh chan<- error, commands params.CLIComma
 	// Set up a juju client store used to configure the
 	// embedded command to give it the controller, model
 	// and account details to use.
-	store := jujuclient.NewMemStore()
+	store := jujuclient.NewEmbeddedMemStore()
 	cert, _ := cfg.CACert()
 	controllerName := cfg.ControllerName()
 	if controllerName == "" {
