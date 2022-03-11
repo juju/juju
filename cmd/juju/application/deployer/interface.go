@@ -100,7 +100,7 @@ type ConsumeDetails interface {
 var supportedJujuSeries = series.WorkloadSeries
 
 type DeployerAPI interface {
-	// Needed for BestFacadeVersion and for the DeployResourcesFunc.
+	// APICallCloser is needed for BestFacadeVersion and for the DeployResourcesFunc.
 	base.APICallCloser
 
 	ApplicationAPI
