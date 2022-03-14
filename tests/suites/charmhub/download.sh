@@ -22,7 +22,7 @@ run_charmstore_download() {
 	ensure "test-${name}" "${file}"
 
 	output=$(juju download cs:meshuggah 2>&1 || echo "not found")
-	check_contains "${output}" '"cs:meshuggah" is not a Charm Hub charm'
+	check_contains "${output}" '"cs:meshuggah" is not a Charmhub charm'
 }
 
 run_unknown_download() {
@@ -39,7 +39,7 @@ run_unknown_download() {
 
 test_charmhub_download() {
 	if [ "$(skip 'test_charmhub_download')" ]; then
-		echo "==> TEST SKIPPED: Charm Hub download"
+		echo "==> TEST SKIPPED: Charmhub download"
 		return
 	fi
 
