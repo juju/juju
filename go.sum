@@ -495,7 +495,6 @@ github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823 h1:Sv0+v4107/GHA0S25
 github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823/go.mod h1:xpkrQpHbz1DGY+0Geo32ZnyognGA/2vSB++rpu/Z+Lc=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b h1:Ow9ltIspVQvDdGAmZRkbL8q62jqOo3MOLtWASCFc//4=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b/go.mod h1:Zqa/vGkXr78k47zM6tFmU9phhxKz/PIdqBzpLhJ86zc=
-github.com/juju/os/v2 v2.2.1 h1:6FrLTloQMA25q65t7qlDBLdwjLe33i0xLyGhM47yclk=
 github.com/juju/os/v2 v2.2.1/go.mod h1:xGfP9I+Xb/A03NcGBsoJgwr084hPckkQHecaHuV3wBQ=
 github.com/juju/os/v2 v2.2.2 h1:h2WYDtC4Ch8OM83kNrca485hq9BYGtNkz6VSzTGlHCI=
 github.com/juju/os/v2 v2.2.2/go.mod h1:xGfP9I+Xb/A03NcGBsoJgwr084hPckkQHecaHuV3wBQ=
