@@ -1,7 +1,7 @@
 run_deploy_ck() {
 	echo
 
-	local name model_name file overlay_path storage_path
+	local name model_name file overlay_path kube_home storage_path
 	name="${2}"
 	model_name="${name}"
 	file="${TEST_DIR}/${model_name}.log"
@@ -18,7 +18,9 @@ run_deploy_ck() {
 	wait_for "active" '.applications["kubernetes-master"] | ."application-status".current'
 	wait_for "active" '.applications["kubernetes-worker"] | ."application-status".current'
 
-	juju scp kubernetes-master/0:config ~/.kube/config
+	kube_home="${HOME}/.kube"
+	mkdir -p "${kube_home}"
+	juju scp kubernetes-master/0:config "${kube_home}/config"
 	
 	kubectl cluster-info
 	kubectl get ns
