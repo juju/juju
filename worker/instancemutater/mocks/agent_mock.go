@@ -150,6 +150,20 @@ func (mr *MockConfigMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfig)(nil).AgentLogfileMaxSizeMB))
 }
 
+// BatchRaftFSM mocks base method.
+func (m *MockConfig) BatchRaftFSM() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchRaftFSM")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// BatchRaftFSM indicates an expected call of BatchRaftFSM.
+func (mr *MockConfigMockRecorder) BatchRaftFSM() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchRaftFSM", reflect.TypeOf((*MockConfig)(nil).BatchRaftFSM))
+}
+
 // CACert mocks base method.
 func (m *MockConfig) CACert() string {
 	m.ctrl.T.Helper()

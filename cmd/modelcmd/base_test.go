@@ -5,16 +5,23 @@ package modelcmd_test
 
 import (
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -267,4 +274,134 @@ func (p *mockEnvironProvider) FinalizeCredential(
 
 func (p *mockEnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
+}
+
+type OpenAPIFuncSuite struct {
+	testing.IsolationSuite
+	store *jujuclient.MemStore
+}
+
+var _ = gc.Suite(&OpenAPIFuncSuite{})
+
+func (s *OpenAPIFuncSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.store = jujuclient.NewMemStore()
+}
+
+func (s *OpenAPIFuncSuite) TestOpenAPIFunc(c *gc.C) {
+	var (
+		expected = &api.Info{
+			Password:  "meshuggah",
+			Macaroons: []macaroon.Slice{{}},
+		}
+		received *api.Info
+	)
+	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+		received = info
+		return nil, nil
+	}
+	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
+	_, err := openFunc(expected, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(received, jc.DeepEquals, expected)
+}
+
+func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoPassword(c *gc.C) {
+	var (
+		expected = &api.Info{
+			Macaroons: []macaroon.Slice{{}},
+		}
+		received *api.Info
+	)
+	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+		received = info
+		return nil, nil
+	}
+	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
+	_, err := openFunc(expected, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(received, jc.DeepEquals, expected)
+}
+
+func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoMacaroons(c *gc.C) {
+	var (
+		expected = &api.Info{
+			Password: "meshuggah",
+		}
+		received *api.Info
+	)
+	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+		received = info
+		return nil, nil
+	}
+	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
+	_, err := openFunc(expected, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(received, jc.DeepEquals, expected)
+}
+
+func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStore(c *gc.C) {
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+	jar, err := cookiejar.New(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addCookie(c, jar, mac, api.CookieURLFromHost("foo"))
+	s.store.CookieJars["foo"] = jar
+
+	var (
+		expected = &api.Info{
+			ControllerUUID: "foo",
+			Macaroons:      []macaroon.Slice{{mac}},
+		}
+		received *api.Info
+	)
+	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+		received = info
+		return nil, nil
+	}
+	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
+	_, err = openFunc(&api.Info{
+		ControllerUUID: "foo",
+	}, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(received, jc.DeepEquals, expected)
+}
+
+func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStoreWithSNIHost(c *gc.C) {
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+	jar, err := cookiejar.New(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addCookie(c, jar, mac, api.CookieURLFromHost("foo"))
+	s.store.CookieJars["foo"] = jar
+
+	var (
+		expected = &api.Info{
+			SNIHostName:    "foo",
+			ControllerUUID: "bar",
+			Macaroons:      []macaroon.Slice{{mac}},
+		}
+		received *api.Info
+	)
+	origin := func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+		received = info
+		return nil, nil
+	}
+	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
+	_, err = openFunc(&api.Info{
+		SNIHostName:    "foo",
+		ControllerUUID: "bar",
+	}, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(received, jc.DeepEquals, expected)
+}
+
+func addCookie(c *gc.C, jar http.CookieJar, mac *macaroon.Macaroon, url *url.URL) {
+	cookie, err := httpbakery.NewCookie(nil, macaroon.Slice{mac})
+	c.Assert(err, jc.ErrorIsNil)
+	cookie.Expires = time.Now().Add(time.Hour) // only persistent cookies are stored
+	jar.SetCookies(url, []*http.Cookie{cookie})
 }

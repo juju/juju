@@ -278,6 +278,14 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 	return nil
 }
 
+// ValidateCloudEndpoint returns nil if the current model can talk to the maas
+// endpoint.  Used as validation during model upgrades.
+// Implements environs.CloudEndpointChecker
+func (env *maasEnviron) ValidateCloudEndpoint(ctx context.ProviderCallContext) error {
+	_, _, err := env.maasController.APIVersionInfo()
+	return errors.Trace(err)
+}
+
 func (env *maasEnviron) getSupportedArchitectures(ctx context.ProviderCallContext) ([]string, error) {
 	env.archMutex.Lock()
 	defer env.archMutex.Unlock()

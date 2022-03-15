@@ -387,6 +387,7 @@ var attributeParams = agent.AgentConfigParams{
 	Model:                    testing.ModelTag,
 	JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
 	NonSyncedWritesToRaftLog: false,
+	BatchRaftFSM:             false,
 	AgentLogfileMaxSizeMB:    150,
 	AgentLogfileMaxBackups:   4,
 }
@@ -404,6 +405,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
 	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "5.0/stable")
 	c.Assert(conf.NonSyncedWritesToRaftLog(), jc.IsFalse)
+	c.Assert(conf.BatchRaftFSM(), jc.IsFalse)
 	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
 	c.Assert(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
 }
@@ -713,4 +715,16 @@ func (*suite) TestSetSyncWritesToRaftLog(c *gc.C) {
 	conf.SetNonSyncedWritesToRaftLog(true)
 	nonSyncedWritesToRaftLog = conf.NonSyncedWritesToRaftLog()
 	c.Assert(nonSyncedWritesToRaftLog, jc.IsTrue, gc.Commentf("sync writes to raft log settings not updated"))
+}
+
+func (*suite) TestSetBatchRaftFSM(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nonSyncedWritesToRaftLog := conf.BatchRaftFSM()
+	c.Assert(nonSyncedWritesToRaftLog, jc.IsFalse)
+
+	conf.SetBatchRaftFSM(true)
+	nonSyncedWritesToRaftLog = conf.BatchRaftFSM()
+	c.Assert(nonSyncedWritesToRaftLog, jc.IsTrue, gc.Commentf("batch raft FSM settings not updated"))
 }

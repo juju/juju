@@ -95,13 +95,18 @@ func APIInfo(
 
 // CheckProviderAPI returns an error if a simple API call
 // to check a basic response from the specified environ fails.
-func CheckProviderAPI(env InstanceBroker, ctx context.ProviderCallContext) error {
-	// We will make a simple API call to the provider
-	// to ensure the underlying substrate is ok.
-	_, err := env.AllInstances(ctx)
-	switch err {
-	case nil, ErrPartialInstances, ErrNoInstances:
-		return nil
+func CheckProviderAPI(envOrBroker BootstrapEnviron, ctx context.ProviderCallContext) error {
+	var err error
+	if checker, ok := envOrBroker.(CloudEndpointChecker); ok {
+		err = checker.ValidateCloudEndpoint(ctx)
+	} else if env, ok := envOrBroker.(CheckProvider); ok {
+		// We will make a simple API call to the provider
+		// to ensure the underlying substrate is ok.
+		_, err = env.AllInstances(ctx)
+		switch err {
+		case nil, ErrPartialInstances, ErrNoInstances:
+			return nil
+		}
 	}
 	return errors.Annotate(err, "cannot make API call to provider")
 }

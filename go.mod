@@ -51,7 +51,7 @@ require (
 	github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
-	github.com/juju/gomaasapi/v2 v2.0.0-20220207023642-10dd7f190313
+	github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471
 	github.com/juju/http/v2 v2.0.0-20220207005632-792b5de45d16
 	github.com/juju/idmclient/v2 v2.0.0-20220207024613-525e1ac3a890
 	github.com/juju/jsonschema v0.0.0-20220207021905-6f321f9146b3
@@ -106,6 +106,7 @@ require (
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.51.0
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a
+	gopkg.in/macaroon-bakery.v2 v2.3.0
 	gopkg.in/macaroon.v2 v2.1.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/retry.v1 v1.0.3
@@ -216,7 +217,6 @@ require (
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/macaroon-bakery.v2 v2.3.0 // indirect
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect

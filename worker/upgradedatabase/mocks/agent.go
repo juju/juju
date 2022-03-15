@@ -151,6 +151,20 @@ func (mr *MockConfigMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfig)(nil).AgentLogfileMaxSizeMB))
 }
 
+// BatchRaftFSM mocks base method.
+func (m *MockConfig) BatchRaftFSM() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchRaftFSM")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// BatchRaftFSM indicates an expected call of BatchRaftFSM.
+func (mr *MockConfigMockRecorder) BatchRaftFSM() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchRaftFSM", reflect.TypeOf((*MockConfig)(nil).BatchRaftFSM))
+}
+
 // CACert mocks base method.
 func (m *MockConfig) CACert() string {
 	m.ctrl.T.Helper()
@@ -543,6 +557,20 @@ func (mr *MockConfigSetterMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfigSetter)(nil).AgentLogfileMaxSizeMB))
 }
 
+// BatchRaftFSM mocks base method.
+func (m *MockConfigSetter) BatchRaftFSM() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchRaftFSM")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// BatchRaftFSM indicates an expected call of BatchRaftFSM.
+func (mr *MockConfigSetterMockRecorder) BatchRaftFSM() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchRaftFSM", reflect.TypeOf((*MockConfigSetter)(nil).BatchRaftFSM))
+}
+
 // CACert mocks base method.
 func (m *MockConfigSetter) CACert() string {
 	m.ctrl.T.Helper()
@@ -780,6 +808,18 @@ func (m *MockConfigSetter) SetAPIHostPorts(arg0 []network.HostPorts) error {
 func (mr *MockConfigSetterMockRecorder) SetAPIHostPorts(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIHostPorts", reflect.TypeOf((*MockConfigSetter)(nil).SetAPIHostPorts), arg0)
+}
+
+// SetBatchRaftFSM mocks base method.
+func (m *MockConfigSetter) SetBatchRaftFSM(arg0 bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBatchRaftFSM", arg0)
+}
+
+// SetBatchRaftFSM indicates an expected call of SetBatchRaftFSM.
+func (mr *MockConfigSetterMockRecorder) SetBatchRaftFSM(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBatchRaftFSM", reflect.TypeOf((*MockConfigSetter)(nil).SetBatchRaftFSM), arg0)
 }
 
 // SetCACert mocks base method.

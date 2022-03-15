@@ -1609,14 +1609,26 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	outconfig, err := wordpress.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
+	cons, err := wordpress.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	a := corearch.DefaultArchitecture
+	c.Assert(cons, jc.DeepEquals, constraints.Value{
+		Arch: &a,
+	})
 
-	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
+	mysqlArch := arch.ARM64
+	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch, Constraints: constraints.Value{Arch: &mysqlArch}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 	sInfo, err := mysql.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sInfo.Status, gc.Equals, status.Unset)
 	c.Assert(sInfo.Message, gc.Equals, "")
+	cons, err = mysql.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, constraints.Value{
+		Arch: &mysqlArch,
+	})
 
 	// Check that retrieving the new created applications works correctly.
 	wordpress, err = s.State.Application("wordpress")
@@ -1661,6 +1673,13 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	outconfig, err := gitlab.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
+
+	cons, err := gitlab.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	a := corearch.DefaultArchitecture
+	c.Assert(cons, jc.DeepEquals, constraints.Value{
+		Arch: &a,
+	})
 
 	sInfo, err := gitlab.Status()
 	c.Assert(err, jc.ErrorIsNil)
