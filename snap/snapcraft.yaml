@@ -19,7 +19,7 @@ description: |
    - https://discourse.charmhub.io/
    - https://github.com/juju/juju
 
-  ** Note **
+  **Note**
   This snap needs to read any relevant locally stored cloud credentials in order to manage resources on your behalf in a specified cloud. 
 
 confinement: classic
@@ -51,6 +51,8 @@ apps:
       - dot-oracle
       # Needed so that arbitrary cloud/credential yaml files can be read and backups written.
       - home
+      # Needed to that SSO via the web browser can work.
+      - desktop
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
