@@ -11,6 +11,9 @@ test_ck() {
 
 	file="${TEST_DIR}/test-ck.log"
 
+	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
+	fi
 	bootstrap "test-ck" "${file}"
 
 	test_deploy_ck
