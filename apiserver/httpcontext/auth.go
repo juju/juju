@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
@@ -86,11 +85,6 @@ type Entity interface {
 type AuthInfo struct {
 	// Entity is the user/machine/unit/etc that has authenticated.
 	Entity Entity
-
-	// LastConnection returns the time of the last connection for
-	// the authenticated entity. If it's the zero value, then the
-	// entity has not previously logged in.
-	LastConnection time.Time
 
 	// Controller reports whether or not the authenticated
 	// entity is a controller agent.

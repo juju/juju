@@ -159,7 +159,7 @@ func newDeployCommand() *DeployCommand {
 		Steps: deployer.Steps(),
 	}
 	deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
-		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		controllerAPIRoot, err := deployCmd.newControllerAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -177,7 +177,7 @@ func newDeployCommand() *DeployCommand {
 		return modelconfig.NewClient(api)
 	}
 	deployCmd.NewDownloadClient = func() (store.DownloadBundleClient, error) {
-		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		apiRoot, err := deployCmd.newAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -194,12 +194,12 @@ func newDeployCommand() *DeployCommand {
 
 		return charmhub.NewClient(cfg)
 	}
-	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+	deployCmd.NewDeployAPI = func() (DeployAPI, error) {
+		apiRoot, err := deployCmd.newAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		controllerAPIRoot, err := deployCmd.newControllerAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -231,6 +231,27 @@ func newDeployCommand() *DeployCommand {
 		return store.NewCharmAdaptor(charmsAPI, charmRepoFn, downloadClientFn)
 	}
 	return deployCmd
+}
+func (c *DeployCommand) newAPIRoot() (api.Connection, error) {
+	if c.apiRoot == nil {
+		var err error
+		c.apiRoot, err = c.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return c.apiRoot, nil
+}
+
+func (c *DeployCommand) newControllerAPIRoot() (api.Connection, error) {
+	if c.controllerAPIRoot == nil {
+		var err error
+		c.controllerAPIRoot, err = c.NewControllerAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return c.controllerAPIRoot, nil
 }
 
 type DeployCommand struct {
@@ -304,8 +325,8 @@ type DeployCommand struct {
 	// in the model.
 	BundleMachines map[string]string
 
-	// NewAPIRoot stores a function which returns a new API root.
-	NewAPIRoot func() (DeployAPI, error)
+	// NewDeployAPI stores a function which returns a new deploy client.
+	NewDeployAPI func() (DeployAPI, error)
 
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
@@ -341,6 +362,9 @@ type DeployCommand struct {
 	flagSet    *gnuflag.FlagSet
 
 	unknownModel bool
+
+	controllerAPIRoot api.Connection
+	apiRoot           api.Connection
 }
 
 const deployDoc = `
@@ -761,22 +785,22 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	apiRoot, err := c.NewAPIRoot()
+	deployAPI, err := c.NewDeployAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = apiRoot.Close() }()
+	defer func() { _ = deployAPI.Close() }()
 
-	if c.ModelConstraints, err = apiRoot.GetModelConstraints(); err != nil {
+	if c.ModelConstraints, err = deployAPI.GetModelConstraints(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.parseBindFlag(apiRoot); err != nil {
+	if err := c.parseBindFlag(deployAPI); err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, step := range c.Steps {
-		step.SetPlanURL(apiRoot.PlanURL())
+		step.SetPlanURL(deployAPI.PlanURL())
 	}
 
 	csRepoFn := func() (store.CharmrepoForDeploy, error) {
@@ -786,16 +810,16 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return c.NewDownloadClient()
 	}
 
-	charmAPIClient := apicharms.NewClient(apiRoot)
+	charmAPIClient := apicharms.NewClient(deployAPI)
 	charmAdapter := c.NewResolver(charmAPIClient, csRepoFn, downloadClientFn)
 
 	factory, cfg := c.getDeployerFactory(charm.CharmHub)
-	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)
+	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdapter)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, apiRoot, charmAdapter, cstoreAPI.MacaroonGetter), block.BlockChange)
+	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdapter, cstoreAPI.MacaroonGetter), block.BlockChange)
 }
 
 func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {

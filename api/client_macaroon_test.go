@@ -75,15 +75,3 @@ func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 }
-
-func (s *clientMacaroonSuite) TestAddLocalCharmUnauthorized(c *gc.C) {
-	client := s.createTestClient(c)
-	s.DischargerLogin = func() string { return "baduser" }
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	// Upload an archive with its original revision.
-	_, err := client.AddLocalCharm(curl, charmArchive, false)
-	c.Assert(err, gc.ErrorMatches, `.*invalid entity name or password$`)
-}

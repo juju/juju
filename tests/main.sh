@@ -45,6 +45,7 @@ TEST_NAMES="agents \
             charmhub \
             cli \
             controller \
+            ck \
             deploy \
             expose_ec2 \
             hooks \
@@ -92,7 +93,7 @@ show_help() {
 	echo "¯¯¯¯¯¯"
 	echo "Flags should appear $(red 'before') arguments."
 	echo ""
-	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|manual|microk8s|vsphere|maas>]"
+	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|google|azure|manual|microk8s|vsphere|maas>]"
 	echo ""
 	echo "    $(green './main.sh -h')        Display this help message"
 	echo "    $(green './main.sh -v')        Verbose and debug messages"
@@ -102,7 +103,7 @@ show_help() {
 	echo "    $(green './main.sh -x')        Output file from streaming the output"
 	echo "    $(green './main.sh -r')        Reuse bootstrapped controller between testing suites"
 	echo "    $(green './main.sh -l')        Local bootstrapped controller name to reuse"
-	echo "    $(green './main.sh -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|k8s|openstack|vsphere|maas>"
+	echo "    $(green './main.sh -p')        Bootstrap provider to use when bootstrapping <lxd|aws|google|azure|manual|k8s|openstack|vsphere|maas>"
 	echo "                                     vsphere assumes juju boston vsphere for image metadata generation"
 	echo "                                     openstack assumes providing image data directly is not required"
 	echo "    $(green './main.sh -c')        Cloud name to use when bootstrapping, must be one of provider types listed above"

@@ -33,15 +33,15 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelUser, err := f.st.UserAccess(utag, model.ModelTag())
+	modelAccess, err := f.st.UserAccess(utag, model.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 
 	// No model user found, so see if the user has been granted
 	// access to the controller.
-	if permission.IsEmptyUserAccess(modelUser) {
-		controllerUser, err := state.ControllerAccess(f.st, utag)
+	if permission.IsEmptyUserAccess(modelAccess) {
+		controllerAccess, err := state.ControllerAccess(f.st, utag)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -50,22 +50,22 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		// ControllerUser when logging in from an external user that has not been granted
 		// permissions on the controller but there are permissions for the special
 		// everyone group.
-		if permission.IsEmptyUserAccess(controllerUser) && !utag.IsLocal() {
+		if permission.IsEmptyUserAccess(controllerAccess) && !utag.IsLocal() {
 			everyoneTag := names.NewUserTag(common.EveryoneTagName)
-			controllerUser, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
+			controllerAccess, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
 			if err != nil && !errors.IsNotFound(err) {
 				return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 			}
 		}
-		if permission.IsEmptyUserAccess(controllerUser) {
+		if permission.IsEmptyUserAccess(controllerAccess) {
 			return nil, errors.NotFoundf("model or controller user")
 		}
 	}
 
 	u := &modelUserEntity{
-		st:        f.st,
-		modelUser: modelUser,
-		tag:       utag,
+		st:          f.st,
+		modelAccess: modelAccess,
+		tag:         utag,
 	}
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
@@ -77,7 +77,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	return u, nil
 }
 
-// modelUserEntity encapsulates an model user
+// modelUserEntity encapsulates a model user
 // and, if the user is local, the local state user
 // as well. This enables us to implement FindEntity
 // in such a way that the authentication mechanisms
@@ -85,9 +85,11 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 type modelUserEntity struct {
 	st *state.State
 
-	modelUser permission.UserAccess
-	user      *state.User
-	tag       names.Tag
+	modelAccess permission.UserAccess
+	tag         names.Tag
+
+	// user is nil for external users.
+	user *state.User
 }
 
 // Refresh implements state.Authenticator.Refresh.
@@ -132,12 +134,12 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 		return t, errors.Trace(err)
 	}
 
-	if !permission.IsEmptyUserAccess(u.modelUser) {
-		t, err = model.LastModelConnection(u.modelUser.UserTag)
+	if !permission.IsEmptyUserAccess(u.modelAccess) {
+		t, err = model.LastModelConnection(u.modelAccess.UserTag)
 	} else {
 		err = stateerrors.NewNeverConnectedError("controller user")
 	}
-	if stateerrors.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelUser) {
+	if stateerrors.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelAccess) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
 			return u.user.LastLogin()
@@ -163,9 +165,9 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 		return nil
 	}
 
-	if !permission.IsEmptyUserAccess(u.modelUser) {
-		if u.modelUser.Object.Kind() != names.ModelTagKind {
-			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
+	if !permission.IsEmptyUserAccess(u.modelAccess) {
+		if u.modelAccess.Object.Kind() != names.ModelTagKind {
+			return errors.NotValidf("%s as model user", u.modelAccess.Object.Kind())
 		}
 
 		model, err := u.st.Model()
@@ -173,7 +175,7 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 			return errors.Trace(err)
 		}
 
-		if err := model.UpdateLastModelConnection(u.modelUser.UserTag); err != nil {
+		if err := model.UpdateLastModelConnection(u.modelAccess.UserTag); err != nil {
 			// Attempt to update the users last login data, if the update
 			// fails, then just report it as a log message and return the
 			// original error message.

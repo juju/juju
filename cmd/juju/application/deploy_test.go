@@ -98,7 +98,7 @@ type DeploySuiteBase struct {
 // charm store and the controller deploy API.
 func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 	deploy := s.deployCommandForState()
-	deploy.NewAPIRoot = func() (DeployAPI, error) {
+	deploy.NewDeployAPI = func() (DeployAPI, error) {
 		return s.fakeAPI, nil
 	}
 	return deploy
@@ -1044,7 +1044,7 @@ func (s *CAASDeploySuiteBase) makeCharmDir(c *gc.C, cloneCharm string) *charm.Ch
 
 func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
 	deployCmd := &DeployCommand{
-		NewAPIRoot: func() (DeployAPI, error) {
+		NewDeployAPI: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
 		DeployResources: s.DeployResources,
@@ -2513,7 +2513,7 @@ func newWrappedDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelComman
 // newDeployCommandForTest returns a command to deploy applications.
 func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 	deployCmd := &DeployCommand{
-		NewAPIRoot: func() (DeployAPI, error) {
+		NewDeployAPI: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
 		DeployResources: func(
@@ -2532,7 +2532,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		},
 	}
 	if fakeAPI == nil {
-		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+		deployCmd.NewDeployAPI = func() (DeployAPI, error) {
 			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
