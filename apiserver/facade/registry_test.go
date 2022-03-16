@@ -226,7 +226,7 @@ func (s *RegistrySuite) TestRegisterStandardError(c *gc.C) {
 	registry := &facade.Registry{}
 	err := registry.RegisterStandard("badtest", 0, noArgs)
 	c.Assert(err, gc.ErrorMatches,
-		`function ".*noArgs" does not have the signature .* or .*`)
+		`function ".*noArgs" does not have the signature .*`)
 
 	_, err = registry.GetFactory("badtest", 0)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

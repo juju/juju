@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -26,7 +27,7 @@ type authorisedKeysSuite struct {
 	unrelatedMachine *state.Machine
 	keyupdater       *keyupdater.KeyUpdaterAPI
 	resources        *common.Resources
-	authoriser       apiservertesting.FakeAuthorizer
+	authorizer       apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&authorisedKeysSuite{})
@@ -44,23 +45,35 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as a controller
-	s.authoriser = apiservertesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawMachine.Tag(),
 	}
-	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
+	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsController(c *gc.C) {
-	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
+	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C) {
-	anAuthoriser := s.authoriser
+	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUnitTag("ubuntu/1")
-	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

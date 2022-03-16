@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -56,7 +57,11 @@ func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	strategy, err := retrystrategy.NewRetryStrategyAPI(s.State, s.resources, s.authorizer)
+	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.strategy = strategy
 }
@@ -99,7 +104,11 @@ func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
 		Tag: app.Tag(),
 	}
 
-	strategy, err := retrystrategy.NewRetryStrategyAPI(s.State, s.resources, s.authorizer)
+	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.strategy = strategy
 
