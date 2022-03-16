@@ -6,15 +6,16 @@ package authentication
 import (
 	"context"
 
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/names/v4"
 )
 
-// EntityAuthenticator is the interface all entity authenticators need to implement
+// Authenticator is the interface all entity authenticators need to implement
 // to authenticate juju entities.
-type EntityAuthenticator interface {
-	// Authenticate authenticates the given entity
+type Authenticator interface {
+	// Authenticate authenticates the given entity.
 	Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error)
 }
 

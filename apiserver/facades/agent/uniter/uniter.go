@@ -2541,49 +2541,13 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 // needs to be run (or whether this was just an agent restart with no
 // substantive config change).
 func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
+		return unit.WatchConfigSettingsHash()
 	}
-	canAccess, err := u.accessUnit()
+	result, err := u.watchHashes(args, getWatcher)
 	if err != nil {
-		return params.StringsWatchResults{}, err
+		return params.StringsWatchResults{}, errors.Trace(err)
 	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil || !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		// TODO(cache) - we were using the model cache but due to
-		// issues with propagating the charm URL, use the state model.
-		unit, err := u.st.Unit(tag.Id())
-		if errors.IsNotFound(err) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		w, err := unit.WatchConfigSettingsHash()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Consume the initial event.
-		changes, ok := <-w.Changes()
-		if !ok {
-			result.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
-			continue
-		}
-
-		result.Results[i].Changes = changes
-		result.Results[i].StringsWatcherId = u.resources.Register(w)
-	}
-
 	return result, nil
 }
 

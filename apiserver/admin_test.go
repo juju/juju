@@ -1194,25 +1194,6 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
-	// Note that currently we cannot use macaroon auth
-	// to log into the controller rather than a model
-	// because there's no place to store the fact that
-	// a given external user is allowed access to the controller.
-	s.DischargerLogin = func() string {
-		return "test@somewhere"
-	}
-	info := s.APIInfo(c)
-
-	// Zero the model tag so that we log into the controller
-	// not the model.
-	info.ModelTag = names.ModelTag{}
-
-	client, err := api.Open(info, api.DialOpts{})
-	assertInvalidEntityPassword(c, err)
-	c.Assert(client, gc.Equals, nil)
-}
-
 func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult, error) {
 	cookieJar := apitesting.NewClearableCookieJar()
 
@@ -1270,7 +1251,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 	info.ModelTag = names.ModelTag{}
 
 	_, err := s.login(c, info)
-	assertInvalidEntityPassword(c, err)
+	assertPermissionDenied(c, err)
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
@@ -1419,15 +1400,6 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 	}
 	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(client, gc.Equals, nil)
-}
-
-func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return "testUnknown@somewhere"
-	}
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
-	assertInvalidEntityPassword(c, err)
 	c.Assert(client, gc.Equals, nil)
 }
 

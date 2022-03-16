@@ -405,7 +405,7 @@ def assert_logs_appear_in_client_model(client, expected_logs, timeout):
         expected_logs.splitlines(keepends=True),
         current_logs.splitlines(keepends=True),
     )
-    log.error(f'log migration failed, diff of the logs: \n{"".join(diff)}')
+    log.error('log migration failed, diff of the logs: \n%s', "".join(diff))
     raise JujuAssertionError(
         'Logs failed to be migrated after {}'.format(timeout))
 

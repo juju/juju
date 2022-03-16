@@ -127,4 +127,4 @@ Follow our [code and contribution guidelines](CONTRIBUTING.md) to learn how
 to make code changes. File bugs in
 [Launchpad](https://bugs.launchpad.net/juju/+filebug) or ask questions on
 our [Freenode IRC channel](https://webchat.freenode.net/#juju), and
-[Mattermost](chat.charmhub.io/).
+[Mattermost](https://chat.charmhub.io/).

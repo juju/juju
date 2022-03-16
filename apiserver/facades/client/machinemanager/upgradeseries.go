@@ -284,13 +284,13 @@ func (s upgradeSeriesState) ApplicationsFromMachine(machine Machine) ([]Applicat
 
 type upgradeSeriesValidator struct {
 	localValidator  ApplicationValidator
-	removeValidator ApplicationValidator
+	remoteValidator ApplicationValidator
 }
 
 func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
 	return upgradeSeriesValidator{
 		localValidator: stateSeriesValidator{},
-		removeValidator: charmhubSeriesValidator{
+		remoteValidator: charmhubSeriesValidator{
 			client: client,
 		},
 	}
@@ -367,7 +367,7 @@ func (s upgradeSeriesValidator) ValidateApplications(applications []Application,
 		return errors.Trace(err)
 	}
 
-	return s.removeValidator.ValidateApplications(requestApps, series, force)
+	return s.remoteValidator.ValidateApplications(requestApps, series, force)
 }
 
 // ValidateMachine validates a given machine for ensuring it meets a given

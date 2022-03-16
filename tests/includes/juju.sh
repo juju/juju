@@ -58,8 +58,14 @@ bootstrap() {
 	"aws" | "ec2")
 		cloud="aws"
 		;;
+	"google" | "gce")
+		cloud="google"
+		;;
+	"azure")
+		cloud="azure"
+		;;
 	"localhost" | "lxd")
-		cloud="lxd"
+		cloud="localhost"
 		;;
 	"lxd-remote" | "vsphere" | "openstack" | "k8s" | "maas")
 		cloud="${BOOTSTRAP_CLOUD}"
@@ -129,8 +135,14 @@ bootstrap() {
 		add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
 		name="${bootstrapped_name}"
 	else
-		echo "====> Bootstrapping juju ($(green "${version}:${cloud}"))"
-		juju_bootstrap "${cloud}" "${name}" "${model}" "${output}"
+		local cloud_region
+		if [[ -n ${BOOTSTRAP_REGION:-} ]]; then
+			cloud_region="${cloud}/${BOOTSTRAP_REGION}"
+		else
+			cloud_region="${cloud}"
+		fi
+		echo "====> Bootstrapping juju ($(green "${version}:${cloud_region}"))"
+		juju_bootstrap "${cloud_region}" "${name}" "${model}" "${output}"
 	fi
 
 	END_TIME=$(date +%s)
@@ -152,9 +164,9 @@ add_model() {
 
 	OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${cloud}" || true)
 	if [[ -n ${OUT} ]]; then
-		juju add-model -c "${controller}" "${model}" "${cloud}" 2>&1 | OUTPUT "${output}"
-	else
 		juju add-model -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
+	else
+		juju add-model -c "${controller}" "${model}" "${cloud}" 2>&1 | OUTPUT "${output}"
 	fi
 
 	post_add_model
@@ -191,9 +203,9 @@ setup_vsphere_simplestreams() {
 # juju_bootstrap is used to bootstrap a model for tracking. This is for internal
 # use only and shouldn't be used by any of the tests directly.
 juju_bootstrap() {
-	local cloud name model output
+	local cloud_region name model output
 
-	cloud=${1}
+	cloud_region=${1}
 	shift
 
 	name=${1}
@@ -231,7 +243,7 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${model_default_series} --build-agent=${BUILD_AGENT} ${cloud} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${model_default_series} --build-agent=${BUILD_AGENT} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
@@ -299,7 +311,7 @@ destroy_model() {
 	output="${TEST_DIR}/${name}-destroy.log"
 
 	echo "====> Destroying juju model ${name}"
-	echo "${name}" | xargs -I % juju destroy-model -y % >"${output}" 2>&1 || true
+	echo "${name}" | xargs -I % juju destroy-model -y --destroy-storage % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'

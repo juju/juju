@@ -8,7 +8,6 @@ import (
 	"net/url"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/rpc"
 )
 
 var _ = gc.Suite(&macaroonLoginSuite{})
@@ -56,17 +54,6 @@ func (s *macaroonLoginSuite) TestSuccessfulLogin(c *gc.C) {
 func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 	err := s.client.Login(nil, "", "", s.macSlice)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-}
-
-func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return "testUnknown"
-	}
-	err := s.client.Login(nil, "", "", s.macSlice)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "invalid entity name or password",
-		Code:    "unauthorized access",
-	})
 }
 
 func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
