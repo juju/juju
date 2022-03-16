@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -87,7 +87,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				Logger:          cfg.Logger,
 				OpenState:       openState,
 				PerformUpgrade:  performUpgrade,
-				RetryStrategy:   utils.AttemptStrategy{Delay: 2 * time.Minute, Min: 5},
+				RetryStrategy:   retry.CallArgs{Clock: cfg.Clock, Delay: 2 * time.Minute, Attempts: 5},
 				Clock:           cfg.Clock,
 			}
 			w, err := NewWorker(workerCfg)
