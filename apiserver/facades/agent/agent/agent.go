@@ -41,17 +41,18 @@ type AgentAPIV2 struct {
 
 // NewAgentAPIV2 returns an object implementing version 2 of the Agent API
 // with the given authorizer representing the currently logged in client.
-func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Authorizer) (*AgentAPIV2, error) {
-	v3, err := NewAgentAPIV3(st, resources, auth)
+func NewAgentAPIV2(ctx facade.Context) (*AgentAPIV2, error) {
+	v3, err := NewAgentAPIV3(ctx)
 	if err != nil {
 		return nil, err
 	}
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	v3.CloudSpecer = cloudspec.NewCloudSpecV1(
-		resources,
+		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
@@ -65,7 +66,8 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 
 // NewAgentAPIV3 returns an object implementing version 2 of the Agent API
 // with the given authorizer representing the currently logged in client.
-func NewAgentAPIV3(st *state.State, resources facade.Resources, auth facade.Authorizer) (*AgentAPIV3, error) {
+func NewAgentAPIV3(ctx facade.Context) (*AgentAPIV3, error) {
+	auth := ctx.Auth()
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -74,10 +76,13 @@ func NewAgentAPIV3(st *state.State, resources facade.Resources, auth facade.Auth
 		return auth.AuthOwner, nil
 	}
 
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	resources := ctx.Resources()
 	return &AgentAPIV3{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),

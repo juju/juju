@@ -10,11 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -196,7 +193,7 @@ func (*RegistrySuite) TestWrapNewFacadeFailure(c *gc.C) {
 }
 
 func (*RegistrySuite) TestWrapNewFacadeHandlesId(c *gc.C) {
-	wrapped, _, err := facade.WrapNewFacade(validFactory)
+	wrapped, _, err := facade.WrapNewFacade(validContextFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	val, err := wrapped(facadetest.Context{
 		ID_: "badId",
@@ -206,7 +203,7 @@ func (*RegistrySuite) TestWrapNewFacadeHandlesId(c *gc.C) {
 }
 
 func (*RegistrySuite) TestWrapNewFacadeCallsFunc(c *gc.C) {
-	for _, function := range []interface{}{validFactory, validContextFactory} {
+	for _, function := range []interface{}{validContextFactory} {
 		wrapped, _, err := facade.WrapNewFacade(function)
 		c.Assert(err, jc.ErrorIsNil)
 		val, err := wrapped(facadetest.Context{})
@@ -215,34 +212,9 @@ func (*RegistrySuite) TestWrapNewFacadeCallsFunc(c *gc.C) {
 	}
 }
 
-func (*RegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
-	authorizer := apiservertesting.FakeAuthorizer{}
-	resources := common.NewResources()
-	testFunc := func(
-		st *state.State,
-		resources facade.Resources,
-		authorizer facade.Authorizer,
-	) (*myResult, error) {
-		return &myResult{st, resources, authorizer}, nil
-	}
-	wrapped, facadeType, err := facade.WrapNewFacade(testFunc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(facadeType, gc.Equals, reflect.TypeOf((*myResult)(nil)))
-
-	val, err := wrapped(facadetest.Context{
-		Resources_: resources,
-		Auth_:      authorizer,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	asResult := val.(*myResult)
-	c.Check(asResult.st, gc.IsNil)
-	c.Check(asResult.resources, gc.Equals, resources)
-	c.Check(asResult.auth, gc.Equals, authorizer)
-}
-
 func (s *RegistrySuite) TestRegisterStandard(c *gc.C) {
 	registry := &facade.Registry{}
-	registry.RegisterStandard("testing", 0, validFactory)
+	registry.RegisterStandard("testing", 0, validContextFactory)
 	wrapped, err := registry.GetFactory("testing", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	val, err := wrapped(facadetest.Context{})
@@ -279,19 +251,7 @@ func validIdFactory(_ facade.Context) (facade.Facade, error) {
 	return &i, nil
 }
 
-type myResult struct {
-	st        *state.State
-	resources facade.Resources
-	auth      facade.Authorizer
-}
-
-func noArgs() {
-}
-
-func validFactory(_ *state.State, _ facade.Resources, _ facade.Authorizer) (*int, error) {
-	var i = 100
-	return &i, nil
-}
+func noArgs() {}
 
 func validContextFactory(_ facade.Context) (*int, error) {
 	var i = 100

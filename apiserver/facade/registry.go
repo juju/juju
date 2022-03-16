@@ -10,8 +10,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/state"
 )
 
 // record represents an entry in a Registry.
@@ -30,9 +28,8 @@ type Registry struct {
 }
 
 // RegisterStandard is the more convenient way of registering
-// facades. newFunc should have one of the following signatures:
+// facades. newFunc should have one of the following signature:
 //   func (facade.Context) (*Type, error)
-//   func (*state.State, facade.Resources, facade.Authorizer) (*Type, error)
 func (f *Registry) RegisterStandard(name string, version int, newFunc interface{}) error {
 	wrapped, facadeType, err := wrapNewFacade(newFunc)
 	if err != nil {
@@ -189,46 +186,38 @@ func (f *Registry) Discard(name string, version int) {
 	}
 }
 
-// niceFactory defines the preferred facade registration function signature.
-type niceFactory func(Context) (interface{}, error)
-
-// nastyFactory defines the legacy facade registration function signature.
-type nastyFactory func(*state.State, Resources, Authorizer) (interface{}, error)
+// contextFactory defines the preferred facade registration function signature.
+type contextFactory func(Context) (interface{}, error)
 
 // validateNewFacade ensures that the facade factory we have has the right
 // input and output parameters for being used as a NewFoo function.
-func validateNewFacade(funcValue reflect.Value) (bool, error) {
+func validateNewFacade(funcValue reflect.Value) error {
 	if !funcValue.IsValid() {
-		return false, fmt.Errorf("cannot wrap nil")
+		return fmt.Errorf("cannot wrap nil")
 	}
 	if funcValue.Kind() != reflect.Func {
-		return false, fmt.Errorf("wrong type %q is not a function", funcValue.Kind())
+		return fmt.Errorf("wrong type %q is not a function", funcValue.Kind())
 	}
 	funcType := funcValue.Type()
 	funcName := runtime.FuncForPC(funcValue.Pointer()).Name()
 
 	badSigError := errors.Errorf(""+
 		"function %q does not have the signature "+
-		"func (facade.Context) (*Type, error), or "+
-		"func (*state.State, facade.Resources, facade.Authorizer) (*Type, error)", funcName)
+		"func (facade.Context) (*Type, error)", funcName)
 
 	if funcType.NumOut() != 2 {
-		return false, errors.Trace(badSigError)
+		return errors.Trace(badSigError)
 	}
 	var (
 		facadeType reflect.Type
-		nice       bool
+		inArgCount = funcType.NumIn()
 	)
-	inArgCount := funcType.NumIn()
 
 	switch inArgCount {
 	case 1:
-		facadeType = reflect.TypeOf((*niceFactory)(nil)).Elem()
-		nice = true
-	case 3:
-		facadeType = reflect.TypeOf((*nastyFactory)(nil)).Elem()
+		facadeType = reflect.TypeOf((*contextFactory)(nil)).Elem()
 	default:
-		return false, errors.Trace(badSigError)
+		return errors.Trace(badSigError)
 	}
 
 	isSame := true
@@ -242,60 +231,29 @@ func validateNewFacade(funcValue reflect.Value) (bool, error) {
 		isSame = false
 	}
 	if !isSame {
-		return false, errors.Trace(badSigError)
+		return errors.Trace(badSigError)
 	}
-	return nice, nil
+	return nil
 }
 
 // wrapNewFacade turns a given NewFoo(st, resources, authorizer) (*Instance, error)
 // function and wraps it into a proper facade.Factory function.
 func wrapNewFacade(newFunc interface{}) (Factory, reflect.Type, error) {
 	funcValue := reflect.ValueOf(newFunc)
-	nice, err := validateNewFacade(funcValue)
-	if err != nil {
+	if err := validateNewFacade(funcValue); err != nil {
 		return nil, reflect.TypeOf(nil), err
 	}
-	var wrapped Factory
-	if nice {
-		wrapped = func(context Context) (Facade, error) {
-			if context.ID() != "" {
-				return nil, errors.New("id not expected")
-			}
-			in := []reflect.Value{reflect.ValueOf(context)}
-			out := funcValue.Call(in)
-			if out[1].Interface() != nil {
-				err := out[1].Interface().(error)
-				return nil, err
-			}
-			return out[0].Interface(), nil
+	wrapped := func(context Context) (Facade, error) {
+		if context.ID() != "" {
+			return nil, errors.New("id not expected")
 		}
-	} else {
-		// So we know newFunc is a func with the right args in and out, so
-		// wrap it into a helper function that matches the Factory.
-		wrapped = func(context Context) (Facade, error) {
-			if context.ID() != "" {
-				return nil, errors.New("id not expected")
-			}
-			st := context.State()
-			auth := context.Auth()
-			resources := context.Resources()
-			// st, resources, or auth is nil, then reflect.Call dies
-			// because reflect.ValueOf(anynil) is the Zero Value.
-			// So we use &obj.Elem() which gives us a concrete Value object
-			// that can refer to nil.
-			in := []reflect.Value{
-				reflect.ValueOf(&st).Elem(),
-				reflect.ValueOf(&resources).Elem(),
-				reflect.ValueOf(&auth).Elem(),
-			}
-			out := funcValue.Call(in)
-			if out[1].Interface() != nil {
-				err := out[1].Interface().(error)
-				return nil, err
-			}
-			return out[0].Interface(), nil
+		in := []reflect.Value{reflect.ValueOf(context)}
+		out := funcValue.Call(in)
+		if out[1].Interface() != nil {
+			err := out[1].Interface().(error)
+			return nil, err
 		}
-
+		return out[0].Interface(), nil
 	}
 	return wrapped, funcValue.Type().Out(0), nil
 }

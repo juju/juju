@@ -18,14 +18,16 @@ type API struct {
 	authorizer facade.Authorizer
 }
 
-func NewAPI(st *state.State, r facade.Resources, auth facade.Authorizer) (*API, error) {
+func NewAPI(ctx facade.Context) (*API, error) {
+	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
 
+	auth := ctx.Auth()
 	return &API{
-		ModelWatcher: common.NewModelWatcher(m, r, auth),
+		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), auth),
 		st:           st,
 		authorizer:   auth,
 	}, nil

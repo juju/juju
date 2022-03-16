@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
@@ -61,8 +60,8 @@ type API struct {
 }
 
 // NewAPIv2 is a wrapper that creates a V2 spaces API.
-func NewAPIv2(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPIv3(st, res, auth)
+func NewAPIv2(ctx facade.Context) (*APIv2, error) {
+	api, err := NewAPIv3(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,8 +69,8 @@ func NewAPIv2(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 }
 
 // NewAPIv3 is a wrapper that creates a V3 spaces API.
-func NewAPIv3(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv3, error) {
-	api, err := NewAPIv4(st, res, auth)
+func NewAPIv3(ctx facade.Context) (*APIv3, error) {
+	api, err := NewAPIv4(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,8 +78,8 @@ func NewAPIv3(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 }
 
 // NewAPIv4 is a wrapper that creates a V4 spaces API.
-func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv4, error) {
-	api, err := NewAPIv5(st, res, auth)
+func NewAPIv4(ctx facade.Context) (*APIv4, error) {
+	api, err := NewAPIv5(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,8 +87,8 @@ func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 }
 
 // NewAPIv5 is a wrapper that creates a V5 spaces API.
-func NewAPIv5(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv5, error) {
-	api, err := NewAPI(st, res, auth)
+func NewAPIv5(ctx facade.Context) (*APIv5, error) {
+	api, err := NewAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -98,25 +97,28 @@ func NewAPIv5(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 
 // NewAPI creates a new Space API server-side facade with a
 // state.State backing.
-func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
+func NewAPI(ctx facade.Context) (*API, error) {
+	st := ctx.State()
 	stateShim, err := NewStateShim(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	check := common.NewBlockChecker(st)
-	ctx := context.CallContext(st)
+	callContext := context.CallContext(st)
 
 	reloadSpacesEnvirons, err := DefaultReloadSpacesEnvirons(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	auth := ctx.Auth()
 	reloadSpacesAuth := DefaultReloadSpacesAuthorizer(auth, check, stateShim)
 	reloadSpacesAPI := NewReloadSpacesAPI(
 		space.NewState(st),
 		reloadSpacesEnvirons,
 		EnvironSpacesAdapter{},
-		ctx,
+		callContext,
 		reloadSpacesAuth,
 	)
 
@@ -124,8 +126,8 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API
 		ReloadSpacesAPI: reloadSpacesAPI,
 		Backing:         stateShim,
 		Check:           check,
-		Context:         ctx,
-		Resources:       res,
+		Context:         callContext,
+		Resources:       ctx.Resources(),
 		Authorizer:      auth,
 		Factory:         newOpFactory(st),
 	})
