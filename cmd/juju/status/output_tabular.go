@@ -132,7 +132,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	units := make(map[string]unitStatus)
 	var w output.Wrapper
 	if fs.Model.Type == caasModelType {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Channel", "Rev", "Exposed", "Address", "Message")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Channel", "Rev", "Address", "Exposed", "Message")
 	} else {
 		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Channel", "Rev", "Exposed", "Message")
 	}
@@ -201,18 +201,16 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print(scale)
 		}
 
+		w.Print(app.CharmName, app.CharmChannel, app.CharmRev)
+		if fs.Model.Type == caasModelType {
+			w.Print(app.Address)
+		}
+
 		exposed := "no"
 		if app.Exposed {
 			exposed = "yes"
 		}
-
-		w.Print(app.CharmName,
-			app.CharmChannel,
-			app.CharmRev,
-			exposed)
-		if fs.Model.Type == caasModelType {
-			w.Print(app.Address)
-		}
+		w.Print(exposed)
 
 		w.Println(app.StatusInfo.Message)
 		for un, u := range app.Units {

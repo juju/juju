@@ -5307,8 +5307,8 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version         Status  Scale  Charm  Channel  Rev  Exposed  Address    Message
-foo  user/image:tag            1/2                    0  no       54.32.1.2  
+App  Version         Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo  user/image:tag            1/2                    0  54.32.1.2  no       
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
@@ -5378,10 +5378,10 @@ func (s *StatusSuite) TestFormatTabularCAASModelTruncatedVersion(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version                         Status  Scale  Charm  Channel  Rev  Exposed  Address    Message
-bar  res:image:0.5                             0/1                    0  no       54.32.1.3  
-baz  .../image:0.6                             0/1                    0  no       54.32.1.4  
-foo  .../mysql/mysql_image:tag@3...            0/1                    0  no       54.32.1.2  
+App  Version                         Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+bar  res:image:0.5                             0/1                    0  54.32.1.3  no       
+baz  .../image:0.6                             0/1                    0  54.32.1.4  no       
+foo  .../mysql/mysql_image:tag@3...            0/1                    0  54.32.1.2  no       
 
 Unit   Workload  Agent       Address  Ports  Message
 bar/0  active    allocating                  
@@ -5424,8 +5424,8 @@ func (s *StatusSuite) TestFormatTabularStatusMessage(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Channel  Rev  Exposed  Address    Message
-foo                     0/1                    0  no       54.32.1.2  Error: ImagePullBackOff
+App  Version  Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo                     0/1                    0  54.32.1.2  no       Error: ImagePullBackOff
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  waiting   allocating  10.0.0.1  80/TCP  
