@@ -132,12 +132,12 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	units := make(map[string]unitStatus)
 	var w output.Wrapper
 	if fs.Model.Type == caasModelType {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Channel", "Rev", "OS", "Address", "Message")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Channel", "Rev", "Exposed", "Address", "Message")
 	} else {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Channel", "Rev", "OS", "Message")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Channel", "Rev", "Exposed", "Message")
 	}
 	tw.SetColumnAlignRight(3)
-	tw.SetColumnAlignRight(7)
+	tw.SetColumnAlignRight(6)
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		// Workload version might be multi-line; we only want the first line for tabular.
@@ -201,11 +201,15 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print(scale)
 		}
 
+		exposed := "no"
+		if app.Exposed {
+			exposed = "yes"
+		}
+
 		w.Print(app.CharmName,
-			app.CharmOrigin,
 			app.CharmChannel,
 			app.CharmRev,
-			app.OS)
+			exposed)
 		if fs.Model.Type == caasModelType {
 			w.Print(app.Address)
 		}
