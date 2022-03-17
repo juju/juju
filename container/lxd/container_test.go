@@ -319,6 +319,8 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now())
 
 	// Operation arrangements.
 	createOp := lxdtesting.NewMockRemoteOperation(ctrl)
@@ -364,10 +366,11 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
 				Devices:  spec.Devices,
 				Config:   spec.Config,
 			},
+			StatusCode: api.Running,
 		}, lxdtesting.ETag, nil),
 	)
 
-	jujuSvr, err := lxd.NewServer(cSvr)
+	jujuSvr, err := lxd.NewTestingServer(cSvr, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
@@ -379,6 +382,8 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now())
 
 	// Operation arrangements.
 	createOp := lxdtesting.NewMockRemoteOperation(ctrl)
@@ -418,10 +423,12 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(
 	exp := cSvr.EXPECT()
 	gomock.InOrder(
 		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("already exists")),
-		exp.GetContainer(spec.Name).Return(&api.Container{}, lxdtesting.ETag, nil),
+		exp.GetContainer(spec.Name).Return(&api.Container{
+			StatusCode: api.Running,
+		}, lxdtesting.ETag, nil),
 	)
 
-	jujuSvr, err := lxd.NewServer(cSvr)
+	jujuSvr, err := lxd.NewTestingServer(cSvr, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = jujuSvr.CreateContainerFromSpec(spec)
