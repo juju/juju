@@ -108,12 +108,17 @@ func (r *remoteServer) Report() map[string]interface{} {
 	} else {
 		status = "connected"
 	}
-	return map[string]interface{}{
-		"status":    status,
-		"addresses": r.info.Addrs,
-		"queue-len": r.pending.Len(),
-		"sent":      r.sent,
+	result := map[string]interface{}{
+		"status": status,
+		"sent":   r.sent,
 	}
+	if r.info != nil {
+		result["addresses"] = r.info.Addrs
+	}
+	if r.pending != nil {
+		result["queue-len"] = r.pending.Len()
+	}
+	return result
 }
 
 // IntrospectionReport is the method called by the subscriber to get

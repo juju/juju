@@ -161,7 +161,7 @@ func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) (
 
 	// Any proxies for applications on the consuming side also need to be removed.
 	offer, err := offerStore.ApplicationOffer(offerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var associatedAppProxies []*DestroyRemoteApplicationOperation

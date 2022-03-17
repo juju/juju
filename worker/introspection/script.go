@@ -60,6 +60,11 @@ juju_application_agent_name () {
   echo $application
 }
 
+juju_unit_agent_name () {
+  local unit=$(find /var/lib/juju/agents -type d -name 'unit*' -printf %f)
+  echo $unit
+}
+
 juju_agent () {
   local agent=$(juju_machine_agent_name)
   if [ -z "$agent" ]; then
@@ -67,6 +72,9 @@ juju_agent () {
   fi
   if [ -z "$agent" ]; then
     agent=$(juju_application_agent_name)
+  fi
+  if [ -z "$agent" ]; then
+    agent=$(juju_unit_agent_name)
   fi
   juju_agent_call $agent $@
 }

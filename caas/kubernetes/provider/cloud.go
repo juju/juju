@@ -246,7 +246,12 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 			return cld, err
 		}
 
-		credentials = creds[cld.Name].AuthCredentials[creds[cld.Name].DefaultCredential]
+		cloudCred, exists := creds[cld.Name]
+		if !exists {
+			return cld, nil
+		}
+
+		credentials = cloudCred.AuthCredentials[creds[cld.Name].DefaultCredential]
 	} else {
 		if err := ensureMicroK8sSuitable(p.cmdRunner); err != nil {
 			return cld, errors.Trace(err)

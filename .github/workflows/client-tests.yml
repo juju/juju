@@ -35,7 +35,7 @@ jobs:
     steps:
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Find required go version
       id: go-version
@@ -44,7 +44,7 @@ jobs:
         echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
 
     - name: Set up Go
-      uses: actions/setup-go@v2.2.0
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go

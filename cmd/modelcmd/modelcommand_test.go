@@ -541,14 +541,3 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*", gc.Commentf("%s", errors.Details(err)))
 }
-
-func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return "testUnknown@nowhere"
-	}
-
-	cmd := s.newModelCommandBase()
-	cmd.SetAPIOpen(s.apiOpen)
-	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)", gc.Commentf("details: %s", errors.Details(err)))
-}

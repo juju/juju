@@ -3308,7 +3308,8 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	// Constraints are initially empty (for now).
 	cons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&cons, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=amd64"))
 
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
@@ -3339,7 +3340,8 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&cons6, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Assert(cons6, gc.DeepEquals, constraints.MustParse("arch=amd64"))
 }
 
 func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
@@ -3371,7 +3373,8 @@ func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(constraints.IsEmpty(&cons6), jc.IsTrue)
+	c.Assert(constraints.IsEmpty(&cons6), jc.IsFalse)
+	c.Assert(cons6, jc.DeepEquals, cons2)
 }
 
 func (s *ApplicationSuite) TestSetInvalidConstraints(c *gc.C) {
@@ -3413,7 +3416,8 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(&scons, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Assert(scons, gc.DeepEquals, constraints.MustParse("arch=amd64"))
 
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)

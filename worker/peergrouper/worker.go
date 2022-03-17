@@ -237,6 +237,9 @@ func (w *pgWorker) Wait() error {
 
 // Report is shown in the engine report.
 func (w *pgWorker) Report() map[string]interface{} {
+	if w.metrics == nil {
+		return nil
+	}
 	return w.metrics.report()
 }
 

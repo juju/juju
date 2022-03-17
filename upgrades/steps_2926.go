@@ -20,5 +20,12 @@ func stateStepsFor2926() []Step {
 				return context.State().UpdateCharmOriginAfterSetSeries()
 			},
 		},
+		&upgradeStep{
+			description: "update remote application external controller info",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().UpdateExternalControllerInfo()
+			},
+		},
 	}
 }

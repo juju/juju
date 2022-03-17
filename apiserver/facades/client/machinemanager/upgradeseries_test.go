@@ -277,12 +277,12 @@ func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
 
 	localValidator := NewMockUpgradeSeriesValidator(ctrl)
 	localValidator.EXPECT().ValidateApplications([]Application{localApp, storeApp}, "focal", false)
-	removeValidator := NewMockUpgradeSeriesValidator(ctrl)
-	removeValidator.EXPECT().ValidateApplications([]Application{charmhubApp}, "focal", false)
+	remoteValidator := NewMockUpgradeSeriesValidator(ctrl)
+	remoteValidator.EXPECT().ValidateApplications([]Application{charmhubApp}, "focal", false)
 
 	validator := upgradeSeriesValidator{
 		localValidator:  localValidator,
-		removeValidator: removeValidator,
+		remoteValidator: remoteValidator,
 	}
 
 	err := validator.ValidateApplications(applications, "focal", false)
@@ -299,12 +299,12 @@ func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
 
 	localValidator := NewMockUpgradeSeriesValidator(ctrl)
 	localValidator.EXPECT().ValidateApplications(applications, "focal", false)
-	removeValidator := NewMockUpgradeSeriesValidator(ctrl)
-	removeValidator.EXPECT().ValidateApplications([]Application(nil), "focal", false)
+	remoteValidator := NewMockUpgradeSeriesValidator(ctrl)
+	remoteValidator.EXPECT().ValidateApplications([]Application(nil), "focal", false)
 
 	validator := upgradeSeriesValidator{
 		localValidator:  localValidator,
-		removeValidator: removeValidator,
+		remoteValidator: remoteValidator,
 	}
 
 	err := validator.ValidateApplications(applications, "focal", false)

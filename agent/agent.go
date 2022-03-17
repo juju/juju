@@ -286,6 +286,10 @@ type Config interface {
 	// performed after each write to the raft log.
 	NonSyncedWritesToRaftLog() bool
 
+	// BatchRaftFSM returns true if the raft calls should use the batching
+	// FSM.
+	BatchRaftFSM() bool
+
 	// AgentLogfileMaxSizeMB returns the maximum file size in MB of each
 	// agent/controller log file.
 	AgentLogfileMaxSizeMB() int
@@ -347,6 +351,10 @@ type configSetterOnly interface {
 	// SetNonSyncedWritesToRaftLog selects whether fsync calls are performed
 	// after each write to the raft log.
 	SetNonSyncedWritesToRaftLog(bool)
+
+	// SetBatchRaftFSM select whether raft should use the batching for writing
+	// to the FSM.
+	SetBatchRaftFSM(bool)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -422,6 +430,7 @@ type configInternal struct {
 	mongoMemoryProfile       string
 	jujuDBSnapChannel        string
 	nonSyncedWritesToRaftLog bool
+	batchRaftFSM             bool
 	agentLogfileMaxSizeMB    int
 	agentLogfileMaxBackups   int
 }
@@ -444,6 +453,7 @@ type AgentConfigParams struct {
 	MongoMemoryProfile       mongo.MemoryProfile
 	JujuDBSnapChannel        string
 	NonSyncedWritesToRaftLog bool
+	BatchRaftFSM             bool
 	AgentLogfileMaxSizeMB    int
 	AgentLogfileMaxBackups   int
 }
@@ -509,6 +519,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		mongoMemoryProfile:       configParams.MongoMemoryProfile.String(),
 		jujuDBSnapChannel:        configParams.JujuDBSnapChannel,
 		nonSyncedWritesToRaftLog: configParams.NonSyncedWritesToRaftLog,
+		batchRaftFSM:             configParams.BatchRaftFSM,
 		agentLogfileMaxSizeMB:    configParams.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups:   configParams.AgentLogfileMaxBackups,
 	}
@@ -845,6 +856,16 @@ func (c *configInternal) NonSyncedWritesToRaftLog() bool {
 // SetNonSyncedWritesToRaftLog implements configSetterOnly.
 func (c *configInternal) SetNonSyncedWritesToRaftLog(nonSyncedWrites bool) {
 	c.nonSyncedWritesToRaftLog = nonSyncedWrites
+}
+
+// BatchRaftFSM implements Config.
+func (c *configInternal) BatchRaftFSM() bool {
+	return c.batchRaftFSM
+}
+
+// SetBatchRaftFSM implements configSetterOnly.
+func (c *configInternal) SetBatchRaftFSM(batchRaftFSM bool) {
+	c.batchRaftFSM = batchRaftFSM
 }
 
 // AgentLogfileMaxSizeMB implements Config.

@@ -158,11 +158,14 @@ func (w *Worker) Report() map[string]interface{} {
 	for _, err := range w.errors {
 		errors = append(errors, err.Error())
 	}
-	queueSize := w.pending.Len()
 	var queueAge float64
-	if front, exists := w.pending.Front(); exists {
-		entry := front.(*queueEntry)
-		queueAge = w.config.Clock.Now().Sub(entry.created).Seconds()
+	var queueSize int
+	if w.pending != nil {
+		queueSize = w.pending.Len()
+		if front, exists := w.pending.Front(); exists {
+			entry := front.(*queueEntry)
+			queueAge = w.config.Clock.Now().Sub(entry.created).Seconds()
+		}
 	}
 	w.mu.Unlock()
 

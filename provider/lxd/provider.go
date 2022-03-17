@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -221,7 +222,9 @@ func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
 		configPath := filepath.Join(dir, "config.yml")
 		config, err := p.lxcConfigReader.ReadConfig(configPath)
 		if err != nil {
-			logger.Warningf("unable to read/parse LXC config file (%s): %s", configPath, err)
+			if !strings.HasSuffix(err.Error(), "permission denied") {
+				logger.Warningf("unable to read/parse LXC config file (%s): %s", configPath, err)
+			}
 		}
 		for name, remote := range config.Remotes {
 			if remote.Protocol != lxdnames.ProviderType {

@@ -467,8 +467,12 @@ func (p *StatePool) IntrospectionReport() string {
 func (p *StatePool) Report() map[string]interface{} {
 	p.mu.Lock()
 	report := make(map[string]interface{})
-	report["txn-watcher"] = p.watcherRunner.Report()
-	report["system"] = p.systemState.Report()
+	if p.watcherRunner != nil {
+		report["txn-watcher"] = p.watcherRunner.Report()
+	}
+	if p.systemState != nil {
+		report["system"] = p.systemState.Report()
+	}
 	report["pool-size"] = len(p.pool)
 	for uuid, item := range p.pool {
 		modelReport := item.state.Report()

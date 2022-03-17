@@ -98,8 +98,14 @@ type DeploySuiteBase struct {
 // charm store and the controller deploy API.
 func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 	deploy := s.deployCommandForState()
-	deploy.NewAPIRoot = func() (DeployAPI, error) {
+	deploy.NewDeployAPI = func() (DeployAPI, error) {
 		return s.fakeAPI, nil
+	}
+	deploy.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
+		return s.fakeAPI
+	}
+	deploy.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+		return apicharms.NewClient(s.fakeAPI)
 	}
 	return deploy
 }
@@ -619,7 +625,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	app, _ := s.AssertApplication(c, "multi-series", curl, 1, 0)
 	cons, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cores=2"))
+	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cores=2 arch=amd64"))
 }
 
 func (s *DeploySuite) TestResources(c *gc.C) {
@@ -1044,7 +1050,7 @@ func (s *CAASDeploySuiteBase) makeCharmDir(c *gc.C, cloneCharm string) *charm.Ch
 
 func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
 	deployCmd := &DeployCommand{
-		NewAPIRoot: func() (DeployAPI, error) {
+		NewDeployAPI: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
 		DeployResources: s.DeployResources,
@@ -1055,6 +1061,12 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 			return fakeAPI
 		},
 		NewDeployerFactory: fakeAPI.deployerFactoryFunc,
+		NewModelConfigAPI: func(api base.APICallCloser) ModelConfigGetter {
+			return fakeAPI
+		},
+		NewCharmsAPI: func(api base.APICallCloser) CharmsAPI {
+			return apicharms.NewClient(fakeAPI)
+		},
 	}
 	deployCmd.SetClientStore(s.Store)
 	return cmdtesting.RunCommand(c, modelcmd.Wrap(deployCmd), args...)
@@ -2522,7 +2534,7 @@ func newWrappedDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelComman
 // newDeployCommandForTest returns a command to deploy applications.
 func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 	deployCmd := &DeployCommand{
-		NewAPIRoot: func() (DeployAPI, error) {
+		NewDeployAPI: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
 		DeployResources: func(
@@ -2541,7 +2553,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		},
 	}
 	if fakeAPI == nil {
-		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+		deployCmd.NewDeployAPI = func() (DeployAPI, error) {
 			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -2594,6 +2606,12 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		deployCmd.NewCharmRepo = fakeAPI.charmRepoFunc
 		deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
 			return fakeAPI
+		}
+		deployCmd.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
+			return fakeAPI
+		}
+		deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+			return apicharms.NewClient(fakeAPI)
 		}
 	}
 	return deployCmd

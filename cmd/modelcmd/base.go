@@ -589,8 +589,29 @@ func newAPIConnectionParams(
 		AccountDetails: accountDetails,
 		ModelUUID:      modelUUID,
 		DialOpts:       dialOpts,
-		OpenAPI:        apiOpen,
+		OpenAPI:        OpenAPIFuncWithMacaroons(apiOpen, store, controllerName),
 	}, nil
+}
+
+// OpenAPIFuncWithMacaroons is a middleware to ensure that we have a set of
+// macaroons for a given open request.
+func OpenAPIFuncWithMacaroons(apiOpen api.OpenFunc, store jujuclient.ClientStore, controllerName string) api.OpenFunc {
+	return func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+		// When attempting to connect to the non websocket fronted HTTPS
+		// endpoints, we need to ensure that we have a series of macaroons
+		// correctly set if there isn't a password.
+		if info != nil && info.Password == "" && len(info.Macaroons) == 0 {
+			cookieJar, err := store.CookieJar(controllerName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			cookieURL := api.CookieURLFromHost(api.PerferredHost(info))
+			info.Macaroons = httpbakery.MacaroonsForURL(cookieJar, cookieURL)
+		}
+
+		return apiOpen(info, dialOpts)
+	}
 }
 
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,

@@ -638,3 +638,24 @@ type HardwareCharacteristicsDetector interface {
 type SupportedFeatureEnumerator interface {
 	SupportedFeatures() (assumes.FeatureSet, error)
 }
+
+// CheckProvider defines the old and/or public cloud style of cloud
+// endpoint validation.  This check is a heavy weight method to
+// verify the current cloud connectivity.
+// Typically used with public clouds which have not implemented the
+// CloudEndpointChecker.
+type CheckProvider interface {
+	// AllInstances returns all instances currently known to the broker.
+	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
+}
+
+// CloudEndpointChecker defines a method for cloud endpoint validation.
+//
+// TODO: hml 09-Feb-22
+// Implement this interface for all providers, including the public
+// clouds.
+type CloudEndpointChecker interface {
+	// ValidateCloudEndpoint validates connectivity with the cloud's
+	// endpoint and returns nil if no problems.
+	ValidateCloudEndpoint(ctx context.ProviderCallContext) error
+}

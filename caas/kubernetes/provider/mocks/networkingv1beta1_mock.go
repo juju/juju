@@ -13,7 +13,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	v1beta10 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
+	v1beta10 "k8s.io/client-go/applyconfigurations/networking/v1beta1"
+	v1beta11 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -41,10 +42,10 @@ func (m *MockNetworkingV1beta1Interface) EXPECT() *MockNetworkingV1beta1Interfac
 }
 
 // IngressClasses mocks base method.
-func (m *MockNetworkingV1beta1Interface) IngressClasses() v1beta10.IngressClassInterface {
+func (m *MockNetworkingV1beta1Interface) IngressClasses() v1beta11.IngressClassInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressClasses")
-	ret0, _ := ret[0].(v1beta10.IngressClassInterface)
+	ret0, _ := ret[0].(v1beta11.IngressClassInterface)
 	return ret0
 }
 
@@ -55,10 +56,10 @@ func (mr *MockNetworkingV1beta1InterfaceMockRecorder) IngressClasses() *gomock.C
 }
 
 // Ingresses mocks base method.
-func (m *MockNetworkingV1beta1Interface) Ingresses(arg0 string) v1beta10.IngressInterface {
+func (m *MockNetworkingV1beta1Interface) Ingresses(arg0 string) v1beta11.IngressInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Ingresses", arg0)
-	ret0, _ := ret[0].(v1beta10.IngressInterface)
+	ret0, _ := ret[0].(v1beta11.IngressInterface)
 	return ret0
 }
 
@@ -103,6 +104,36 @@ func NewMockIngressV1Beta1Interface(ctrl *gomock.Controller) *MockIngressV1Beta1
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockIngressV1Beta1Interface) EXPECT() *MockIngressV1Beta1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockIngressV1Beta1Interface) Apply(arg0 context.Context, arg1 *v1beta10.IngressApplyConfiguration, arg2 v1.ApplyOptions) (*v1beta1.Ingress, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1beta1.Ingress)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockIngressV1Beta1InterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockIngressV1Beta1Interface)(nil).Apply), arg0, arg1, arg2)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockIngressV1Beta1Interface) ApplyStatus(arg0 context.Context, arg1 *v1beta10.IngressApplyConfiguration, arg2 v1.ApplyOptions) (*v1beta1.Ingress, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1beta1.Ingress)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockIngressV1Beta1InterfaceMockRecorder) ApplyStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockIngressV1Beta1Interface)(nil).ApplyStatus), arg0, arg1, arg2)
 }
 
 // Create mocks base method.

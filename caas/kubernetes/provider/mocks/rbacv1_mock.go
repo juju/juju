@@ -13,7 +13,8 @@ import (
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	v11 "k8s.io/client-go/kubernetes/typed/rbac/v1"
+	v11 "k8s.io/client-go/applyconfigurations/rbac/v1"
+	v12 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -41,10 +42,10 @@ func (m *MockRbacV1Interface) EXPECT() *MockRbacV1InterfaceMockRecorder {
 }
 
 // ClusterRoleBindings mocks base method.
-func (m *MockRbacV1Interface) ClusterRoleBindings() v11.ClusterRoleBindingInterface {
+func (m *MockRbacV1Interface) ClusterRoleBindings() v12.ClusterRoleBindingInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClusterRoleBindings")
-	ret0, _ := ret[0].(v11.ClusterRoleBindingInterface)
+	ret0, _ := ret[0].(v12.ClusterRoleBindingInterface)
 	return ret0
 }
 
@@ -55,10 +56,10 @@ func (mr *MockRbacV1InterfaceMockRecorder) ClusterRoleBindings() *gomock.Call {
 }
 
 // ClusterRoles mocks base method.
-func (m *MockRbacV1Interface) ClusterRoles() v11.ClusterRoleInterface {
+func (m *MockRbacV1Interface) ClusterRoles() v12.ClusterRoleInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClusterRoles")
-	ret0, _ := ret[0].(v11.ClusterRoleInterface)
+	ret0, _ := ret[0].(v12.ClusterRoleInterface)
 	return ret0
 }
 
@@ -83,10 +84,10 @@ func (mr *MockRbacV1InterfaceMockRecorder) RESTClient() *gomock.Call {
 }
 
 // RoleBindings mocks base method.
-func (m *MockRbacV1Interface) RoleBindings(arg0 string) v11.RoleBindingInterface {
+func (m *MockRbacV1Interface) RoleBindings(arg0 string) v12.RoleBindingInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RoleBindings", arg0)
-	ret0, _ := ret[0].(v11.RoleBindingInterface)
+	ret0, _ := ret[0].(v12.RoleBindingInterface)
 	return ret0
 }
 
@@ -97,10 +98,10 @@ func (mr *MockRbacV1InterfaceMockRecorder) RoleBindings(arg0 interface{}) *gomoc
 }
 
 // Roles mocks base method.
-func (m *MockRbacV1Interface) Roles(arg0 string) v11.RoleInterface {
+func (m *MockRbacV1Interface) Roles(arg0 string) v12.RoleInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Roles", arg0)
-	ret0, _ := ret[0].(v11.RoleInterface)
+	ret0, _ := ret[0].(v12.RoleInterface)
 	return ret0
 }
 
@@ -131,6 +132,21 @@ func NewMockClusterRoleBindingInterface(ctrl *gomock.Controller) *MockClusterRol
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClusterRoleBindingInterface) EXPECT() *MockClusterRoleBindingInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockClusterRoleBindingInterface) Apply(arg0 context.Context, arg1 *v11.ClusterRoleBindingApplyConfiguration, arg2 v10.ApplyOptions) (*v1.ClusterRoleBinding, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.ClusterRoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockClusterRoleBindingInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClusterRoleBindingInterface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.
@@ -279,6 +295,21 @@ func (m *MockClusterRoleInterface) EXPECT() *MockClusterRoleInterfaceMockRecorde
 	return m.recorder
 }
 
+// Apply mocks base method.
+func (m *MockClusterRoleInterface) Apply(arg0 context.Context, arg1 *v11.ClusterRoleApplyConfiguration, arg2 v10.ApplyOptions) (*v1.ClusterRole, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.ClusterRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockClusterRoleInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClusterRoleInterface)(nil).Apply), arg0, arg1, arg2)
+}
+
 // Create mocks base method.
 func (m *MockClusterRoleInterface) Create(arg0 context.Context, arg1 *v1.ClusterRole, arg2 v10.CreateOptions) (*v1.ClusterRole, error) {
 	m.ctrl.T.Helper()
@@ -425,6 +456,21 @@ func (m *MockRoleInterface) EXPECT() *MockRoleInterfaceMockRecorder {
 	return m.recorder
 }
 
+// Apply mocks base method.
+func (m *MockRoleInterface) Apply(arg0 context.Context, arg1 *v11.RoleApplyConfiguration, arg2 v10.ApplyOptions) (*v1.Role, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockRoleInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockRoleInterface)(nil).Apply), arg0, arg1, arg2)
+}
+
 // Create mocks base method.
 func (m *MockRoleInterface) Create(arg0 context.Context, arg1 *v1.Role, arg2 v10.CreateOptions) (*v1.Role, error) {
 	m.ctrl.T.Helper()
@@ -569,6 +615,21 @@ func NewMockRoleBindingInterface(ctrl *gomock.Controller) *MockRoleBindingInterf
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRoleBindingInterface) EXPECT() *MockRoleBindingInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockRoleBindingInterface) Apply(arg0 context.Context, arg1 *v11.RoleBindingApplyConfiguration, arg2 v10.ApplyOptions) (*v1.RoleBinding, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*v1.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockRoleBindingInterfaceMockRecorder) Apply(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockRoleBindingInterface)(nil).Apply), arg0, arg1, arg2)
 }
 
 // Create mocks base method.
