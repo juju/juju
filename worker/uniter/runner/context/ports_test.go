@@ -4,6 +4,7 @@
 package context
 
 import (
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -129,7 +130,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
@@ -257,7 +258,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 

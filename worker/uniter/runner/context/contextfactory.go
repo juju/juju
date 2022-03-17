@@ -363,7 +363,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		}
 	}
 
-	ctx.portRangeChanges = newPortRangeChangeRecorder(f.unit.Tag(), machPortRanges)
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
 	return nil
 }
 
