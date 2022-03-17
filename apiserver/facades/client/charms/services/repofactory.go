@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	corecharm "github.com/juju/juju/core/charm"
 	charmrepo "github.com/juju/juju/core/charm/repository"
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // CharmRepoFactoryConfig encapsulates the information required for creating a
@@ -103,7 +104,7 @@ func (f *CharmRepoFactory) GetCharmRepository(src corecharm.Source) (corecharm.R
 		}
 
 		repo = charmrepo.NewCharmHubRepository(
-			f.logger.Child("charmhubrepo"),
+			f.logger.ChildWithLabels("charmhubrepo", corelogger.CHARMHUB),
 			chClient,
 		)
 	default:
