@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
@@ -357,7 +356,6 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 	}
 
 	creator := func(id string) (reflect.Value, error) {
-		loggo.GetLogger("***").Criticalf("ID %v %v %v %v", id, rootName, version, methodName)
 		objKey := objectKey{name: rootName, version: version, objId: id}
 		r.objectMutex.RLock()
 		objValue, ok := r.objectCache[objKey]
