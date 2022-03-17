@@ -14,6 +14,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/charmhub"
@@ -240,7 +241,7 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 		return nil, errors.NotValidf("series for %s", charmURL.Name)
 	}
 
-	c.logger.Tracef("Refresh again with %q %v", charmURL, origin)
+	loggo.GetLogger("***").Criticalf("Refresh again with %q %v", charmURL, origin)
 	res, err := c.refreshOne(charmURL, origin, macaroons)
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrying")
@@ -248,6 +249,14 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	if resErr := res.Error; resErr != nil {
 		return nil, errors.Errorf("resolving retry error: %s", resErr.Message)
 	}
+
+	if base.OS == "centos" && len(base.Series) == 1 {
+		p := origin.Platform
+		p.OS = base.OS
+		p.Series = base.OS + base.Series
+		origin.Platform = p
+	}
+
 	return &retryResolveResult{
 		refreshResponse: res,
 		origin:          origin,
@@ -702,10 +711,10 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 
 func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	var (
-		empty   = origin.Channel == nil
-		channel charm.Channel
+		channelEmpty = origin.Channel == nil
+		channel      charm.Channel
 	)
-	if !empty {
+	if !channelEmpty {
 		channel = origin.Channel.Normalize()
 	}
 	var results []corecharm.Platform
@@ -713,15 +722,26 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		base := release.Base
 
 		arch, os := base.Architecture, base.Name
+		// If the OS doesn't match what we're originally looking for, then
+		// just skip over it.
+		if origin.Platform.OS != "" && origin.Platform.OS != os {
+			continue
+		}
+
 		track, err := channelTrack(base.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		series, err := coreseries.VersionSeries(track)
 		if err != nil {
-			return nil, errors.Trace(err)
+			series = track
 		}
-		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
+		osType, err := coreseries.GetOSFromSeries(series)
+		if err != nil || (origin.Platform.OS != "" && os != "" && strings.ToLower(osType.String()) != os) {
+			series = track
+		}
+
+		if (channelEmpty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
 			results = append(results, corecharm.Platform{
 				Architecture: origin.Platform.Architecture,
 				OS:           os,

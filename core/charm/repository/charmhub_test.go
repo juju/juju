@@ -971,15 +971,49 @@ func (selectReleaseByChannelSuite) TestNoReleases(c *gc.C) {
 }
 
 func (selectReleaseByChannelSuite) TestInvalidChannel(c *gc.C) {
-	_, err := selectReleaseByArchAndChannel([]transport.Release{{
+	release, err := selectReleaseByArchAndChannel([]transport.Release{{
 		Base: transport.Base{
-			Name:         "os",
-			Channel:      "series",
-			Architecture: "arch",
+			Name:         "centos",
+			Channel:      "7",
+			Architecture: "amd64",
 		},
 		Channel: "",
-	}}, corecharm.Origin{})
-	c.Assert(err, gc.ErrorMatches, `unknown series for version: "series"`)
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			Series:       "centos7",
+			OS:           "centos",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "amd64",
+		OS:           "centos",
+		Series:       "7",
+	}})
+}
+
+func (selectReleaseByChannelSuite) TestCentosChannel(c *gc.C) {
+	release, err := selectReleaseByArchAndChannel([]transport.Release{{
+		Base: transport.Base{
+			Name:         "centos",
+			Channel:      "centos7",
+			Architecture: "amd64",
+		},
+		Channel: "",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			Series:       "centos7",
+			OS:           "centos",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "amd64",
+		OS:           "centos",
+		Series:       "centos7",
+	}})
 }
 
 func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
@@ -1077,6 +1111,53 @@ func (selectReleaseByChannelSuite) TestMultipleSelectionMultipleReturned(c *gc.C
 		Architecture: "h",
 		OS:           "g",
 		Series:       "focal",
+	}})
+}
+
+func (selectReleaseByChannelSuite) TestMultipleSelectionMultipleReturnedWithOS(c *gc.C) {
+	release, err := selectReleaseByArchAndChannel([]transport.Release{{
+		Base: transport.Base{
+			Name:         "centos",
+			Channel:      "7",
+			Architecture: "c",
+		},
+		Channel: "1.0/edge",
+	}, {
+		Base: transport.Base{
+			Name:         "osx",
+			Channel:      "10",
+			Architecture: "all",
+		},
+		Channel: "2.0/stable",
+	}, {
+		Base: transport.Base{
+			Name:         "ubuntu",
+			Channel:      "18.04",
+			Architecture: "h",
+		},
+		Channel: "3.0/stable",
+	}, {
+		Base: transport.Base{
+			Name:         "windows",
+			Channel:      "7",
+			Architecture: "h",
+		},
+		Channel: "3.0/stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "h",
+			OS:           "ubuntu",
+		},
+		Channel: &charm.Channel{
+			Track: "3.0",
+			Risk:  "stable",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "h",
+		OS:           "ubuntu",
+		Series:       "bionic",
 	}})
 }
 
