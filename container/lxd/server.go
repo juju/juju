@@ -335,6 +335,22 @@ func IsLXDNotFound(err error) bool {
 	return strings.ToLower(err.Error()) == "not found"
 }
 
+// IsLXDAlreadyExists checks if an error from the LXD API indicates that a
+// requested entity already exists.
+func IsLXDAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// TODO (stickupkid): This is a hack until we can correctly upstream the
+	// lxd project.
+	if statusErr, ok := errors.Cause(err).(lxdStatusError); ok && statusErr.Status() == http.StatusConflict {
+		return true
+	}
+
+	return strings.ToLower(err.Error()) == "already exists"
+}
+
 // lxdStatusError allows us to check if an error conforms to the lxd status
 // error type.
 type lxdStatusError interface {

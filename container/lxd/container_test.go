@@ -4,10 +4,10 @@
 package lxd_test
 
 import (
-	"errors"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
@@ -313,6 +313,119 @@ func (s *containerSuite) TestCreateContainerFromSpecSuccess(c *gc.C) {
 	container, err := jujuSvr.CreateContainerFromSpec(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(container, gc.NotNil)
+}
+
+func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	// Operation arrangements.
+	createOp := lxdtesting.NewMockRemoteOperation(ctrl)
+
+	// Request data.
+	image := api.Image{Filename: "container-image"}
+	spec := lxd.ContainerSpec{
+		Name: "c1",
+		Image: lxd.SourcedImage{
+			Image:     &image,
+			LXDServer: cSvr,
+		},
+		Profiles: []string{"default"},
+		Devices: map[string]map[string]string{
+			"eth0": {
+				"parent":  network.DefaultLXDBridge,
+				"type":    "nic",
+				"nictype": "bridged",
+			},
+		},
+		Config: map[string]string{
+			"limits.cpu": "2",
+		},
+	}
+
+	createReq := api.ContainersPost{
+		Name: spec.Name,
+		ContainerPut: api.ContainerPut{
+			Profiles:  spec.Profiles,
+			Devices:   spec.Devices,
+			Config:    spec.Config,
+			Ephemeral: false,
+		},
+	}
+
+	// Container created, started and returned.
+	exp := cSvr.EXPECT()
+	gomock.InOrder(
+		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("already exists")),
+		exp.GetContainer(spec.Name).Return(&api.Container{
+			ContainerPut: api.ContainerPut{
+				Profiles: spec.Profiles,
+				Devices:  spec.Devices,
+				Config:   spec.Config,
+			},
+		}, lxdtesting.ETag, nil),
+	)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	container, err := jujuSvr.CreateContainerFromSpec(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(container, gc.NotNil)
+}
+
+func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	// Operation arrangements.
+	createOp := lxdtesting.NewMockRemoteOperation(ctrl)
+
+	// Request data.
+	image := api.Image{Filename: "container-image"}
+	spec := lxd.ContainerSpec{
+		Name: "c1",
+		Image: lxd.SourcedImage{
+			Image:     &image,
+			LXDServer: cSvr,
+		},
+		Profiles: []string{"default"},
+		Devices: map[string]map[string]string{
+			"eth0": {
+				"parent":  network.DefaultLXDBridge,
+				"type":    "nic",
+				"nictype": "bridged",
+			},
+		},
+		Config: map[string]string{
+			"limits.cpu": "2",
+		},
+	}
+
+	createReq := api.ContainersPost{
+		Name: spec.Name,
+		ContainerPut: api.ContainerPut{
+			Profiles:  spec.Profiles,
+			Devices:   spec.Devices,
+			Config:    spec.Config,
+			Ephemeral: false,
+		},
+	}
+
+	// Container created, started and returned.
+	exp := cSvr.EXPECT()
+	gomock.InOrder(
+		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("already exists")),
+		exp.GetContainer(spec.Name).Return(&api.Container{}, lxdtesting.ETag, nil),
+	)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = jujuSvr.CreateContainerFromSpec(spec)
+	c.Assert(err, gc.ErrorMatches, `already exists`)
 }
 
 func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *gc.C) {

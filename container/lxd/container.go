@@ -6,6 +6,7 @@ package lxd
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"time"
 
@@ -254,6 +255,7 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
 	logger.Infof("starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
 	logger.Debugf("new container has profiles %v", spec.Profiles)
+	ephemeral := false
 	req := api.ContainersPost{
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
@@ -262,11 +264,30 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 			Profiles:     spec.Profiles,
 			Devices:      spec.Devices,
 			Config:       spec.Config,
-			Ephemeral:    false,
+			Ephemeral:    ephemeral,
 		},
 	}
 	op, err := s.CreateContainerFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
 	if err != nil {
+		if IsLXDAlreadyExists(err) {
+			container, _, conErr := s.GetContainer(spec.Name)
+			if conErr != nil {
+				return nil, errors.Trace(conErr)
+			}
+
+			// If we don't match the spec from the container, then we're not
+			// sure what we've got here. Return the original error message.
+			if container.Architecture != spec.Architecture ||
+				container.Ephemeral != ephemeral ||
+				!reflect.DeepEqual(container.Profiles, spec.Profiles) ||
+				!reflect.DeepEqual(container.Devices, spec.Devices) ||
+				!reflect.DeepEqual(container.Config, spec.Config) {
+				return nil, errors.Trace(err)
+			}
+
+			c := Container{*container}
+			return &c, nil
+		}
 		return nil, errors.Trace(err)
 	}
 
