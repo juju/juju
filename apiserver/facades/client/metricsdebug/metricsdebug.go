@@ -54,17 +54,14 @@ type MetricsDebugAPI struct {
 var _ MetricsDebug = (*MetricsDebugAPI)(nil)
 
 // NewMetricsDebugAPI creates a new API endpoint for calling metrics debug functions.
-func NewMetricsDebugAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*MetricsDebugAPI, error) {
+func NewMetricsDebugAPI(ctx facade.Context) (*MetricsDebugAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &MetricsDebugAPI{
-		state: st,
+		state: ctx.State(),
 	}, nil
 }
 

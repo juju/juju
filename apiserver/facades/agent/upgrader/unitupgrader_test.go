@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
@@ -69,7 +70,11 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawUnit.Tag(),
 	}
-	s.upgrader, err = upgrader.NewUnitUpgraderAPI(s.State, s.resources, s.authorizer)
+	s.upgrader, err = upgrader.NewUnitUpgraderAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -114,7 +119,11 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("7")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthorizer,
+	})
 	c.Check(err, gc.NotNil)
 	c.Check(anUpgrader, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -124,7 +133,11 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a unit agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthorizer,
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
@@ -147,7 +160,11 @@ func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthorizer,
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
@@ -193,7 +210,11 @@ func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthorizer,
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -251,7 +272,11 @@ func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthorizer,
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},

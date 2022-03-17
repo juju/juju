@@ -5,10 +5,9 @@ package lifeflag
 
 import (
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
 )
 
 // NewExternalFacade is for API registration.
-func NewExternalFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
-	return NewFacade(st, resources, authorizer)
+func NewExternalFacade(ctx facade.Context) (*Facade, error) {
+	return NewFacade(ctx.State(), ctx.Resources(), ctx.Auth())
 }

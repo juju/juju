@@ -36,7 +36,8 @@ type AgentToolsAPI struct {
 }
 
 // NewFacade is used to register the facade.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
+func NewFacade(ctx facade.Context) (*AgentToolsAPI, error) {
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -45,7 +46,7 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 		return newEnviron(model)
 	}
-	return NewAgentToolsAPI(st, newEnviron, findTools, envVersionUpdate, authorizer)
+	return NewAgentToolsAPI(st, newEnviron, findTools, envVersionUpdate, ctx.Auth())
 }
 
 // NewAgentToolsAPI creates a new instance of the Model API.

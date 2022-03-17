@@ -37,21 +37,23 @@ func (s *stateShim) MachineSeries(id string) (string, error) {
 }
 
 // NewFacadeV2 provides the required signature for version 2 facade registration.
-func NewFacadeV2(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
+func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewAPIv2(&stateShim{st, model}, resources, authorizer)
+	return NewAPIv2(&stateShim{st, model}, ctx.Resources(), ctx.Auth())
 }
 
 // NewFacade provides the required signature for facade registration.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewFacade(ctx facade.Context) (*API, error) {
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewAPI(&stateShim{st, model}, resources, authorizer)
+	return NewAPI(&stateShim{st, model}, ctx.Resources(), ctx.Auth())
 }
 
 // ControllerTag disambiguates the ControllerTag method pending further

@@ -11,14 +11,13 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
 )
 
 // NewPinger returns an object that can be pinged by calling its Ping method.
 // If this method is not called frequently enough, the connection will be
 // dropped.
-func NewPinger(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (Pinger, error) {
-	pingTimeout, ok := resources.Get("pingTimeout").(*pingTimeout)
+func NewPinger(ctx facade.Context) (Pinger, error) {
+	pingTimeout, ok := ctx.Resources().Get("pingTimeout").(*pingTimeout)
 	if !ok {
 		return nullPinger{}, nil
 	}

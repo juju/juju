@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/annotations"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -34,7 +35,10 @@ func (s *annotationSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.annotationsAPI, err = annotations.NewAPI(s.State, nil, s.authorizer)
+	s.annotationsAPI, err = annotations.NewAPI(facadetest.Context{
+		State_: s.State,
+		Auth_:  s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

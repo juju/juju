@@ -10,7 +10,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -21,17 +20,14 @@ type CleanerAPI struct {
 }
 
 // NewCleanerAPI creates a new instance of the Cleaner API.
-func NewCleanerAPI(
-	st *state.State,
-	res facade.Resources,
-	authorizer facade.Authorizer,
-) (*CleanerAPI, error) {
+func NewCleanerAPI(ctx facade.Context) (*CleanerAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &CleanerAPI{
-		st:        getState(st),
-		resources: res,
+		st:        getState(ctx.State()),
+		resources: ctx.Resources(),
 	}, nil
 }
 

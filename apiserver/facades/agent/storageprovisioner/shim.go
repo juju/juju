@@ -25,7 +25,8 @@ import (
 // *trivially* correct, you would be Doing It Wrong.
 
 // NewFacadeV3 provides the signature required for facade registration.
-func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPIv3, error) {
+func NewFacadeV3(ctx facade.Context) (*StorageProvisionerAPIv3, error) {
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -44,12 +45,12 @@ func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
-	return NewStorageProvisionerAPIv3(backend, storageBackend, resources, authorizer, registry, pm)
+	return NewStorageProvisionerAPIv3(backend, storageBackend, ctx.Resources(), ctx.Auth(), registry, pm)
 }
 
 // NewFacadeV4 provides the signature required for facade registration.
-func NewFacadeV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPIv4, error) {
-	v3, err := NewFacadeV3(st, resources, authorizer)
+func NewFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
+	v3, err := NewFacadeV3(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

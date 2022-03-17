@@ -16,8 +16,8 @@ import (
 )
 
 // NewFacade creates a new LogForwardingAPI. It is used for API registration.
-func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*LogForwardingAPI, error) {
-	return NewLogForwardingAPI(&stateAdapter{st}, auth)
+func NewFacade(ctx facade.Context) (*LogForwardingAPI, error) {
+	return NewLogForwardingAPI(&stateAdapter{ctx.State()}, ctx.Auth())
 }
 
 // LastSentTracker exposes the functionality of state.LastSentTracker.

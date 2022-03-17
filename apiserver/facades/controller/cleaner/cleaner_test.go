@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/rpc/params"
@@ -38,7 +39,10 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	cleaner.PatchState(s, s.st)
 	var err error
 	res := common.NewResources()
-	s.api, err = cleaner.NewCleanerAPI(nil, res, s.authoriser)
+	s.api, err = cleaner.NewCleanerAPI(facadetest.Context{
+		Resources_: res,
+		Auth_:      s.authoriser,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api, gc.NotNil)
 }
@@ -46,7 +50,9 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := cleaner.NewCleanerAPI(nil, nil, anAuthoriser)
+	api, err := cleaner.NewCleanerAPI(facadetest.Context{
+		Auth_: anAuthoriser,
+	})
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(apiservererrors.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)

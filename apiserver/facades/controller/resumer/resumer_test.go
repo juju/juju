@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/resumer"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -34,14 +35,18 @@ func (s *ResumerSuite) SetUpTest(c *gc.C) {
 	s.st = &mockState{&testing.Stub{}}
 	resumer.PatchState(s, s.st)
 	var err error
-	s.api, err = resumer.NewResumerAPI(nil, nil, s.authoriser)
+	s.api, err = resumer.NewResumerAPI(facadetest.Context{
+		Auth_: s.authoriser,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ResumerSuite) TestNewResumerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := resumer.NewResumerAPI(nil, nil, anAuthoriser)
+	api, err := resumer.NewResumerAPI(facadetest.Context{
+		Auth_: anAuthoriser,
+	})
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

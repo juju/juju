@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -29,7 +30,7 @@ type keyManagerSuite struct {
 
 	keymanager *keymanager.KeyManagerAPI
 	resources  *common.Resources
-	authoriser apiservertesting.FakeAuthorizer
+	authorizer apiservertesting.FakeAuthorizer
 
 	commontesting.BlockHelper
 }
@@ -41,11 +42,15 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.authoriser = apiservertesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
+	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
@@ -53,7 +58,11 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
-	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
+	endPoint, err := keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
@@ -75,7 +84,11 @@ func (s *keyManagerSuite) testNewKeyManagerAPIRefuses(c *gc.C, tag names.Tag, co
 		Tag:        tag,
 		Controller: controller,
 	}
-	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, auth)
+	endPoint, err := keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      auth,
+	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -139,10 +152,14 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestListJujuSystemKey(c *gc.C) {
-	anAuthoriser := s.authoriser
+	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUserTag("fred")
 	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	key1 := sshtesting.ValidKeyOne.Key
 	s.setAuthorisedKeys(c, key1)
@@ -179,10 +196,14 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C, st *state.State, apiUser names.
 	initialKeys := []string{key1, key2, "bad key"}
 	s.setAuthorisedKeysForModel(c, st, strings.Join(initialKeys, "\n"))
 
-	anAuthoriser := s.authoriser
+	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = apiUser
 	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(st, s.resources, anAuthoriser)
+	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     st,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
@@ -253,10 +274,14 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
-	anAuthoriser := s.authoriser
+	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUserTag("fred")
 	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	key1 := sshtesting.ValidKeyOne.Key
 	s.setAuthorisedKeys(c, key1)
@@ -273,10 +298,14 @@ func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 }
 
 func (s *keyManagerSuite) assertDeleteKeys(c *gc.C, st *state.State, apiUser names.UserTag, ok bool) {
-	anAuthoriser := s.authoriser
+	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = apiUser
 	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(st, s.resources, anAuthoriser)
+	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     st,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
@@ -446,10 +475,14 @@ func (s *keyManagerSuite) assertImportKeys(c *gc.C, st *state.State, apiUser nam
 		},
 	}
 
-	anAuthoriser := s.authoriser
+	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = apiUser
 	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(st, s.resources, anAuthoriser)
+	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
+		State_:     st,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.keymanager.ImportKeys(args)
