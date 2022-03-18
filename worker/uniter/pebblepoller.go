@@ -95,7 +95,10 @@ func (p *pebblePoller) run(containerName string) error {
 		case <-timer.Chan():
 			timer.Reset(pebblePollInterval)
 			err := p.poll(containerName)
-			if err != nil && err != tomb.ErrDying {
+			var socketNotFound *client.SocketNotFoundError
+			if errors.As(err, &socketNotFound) {
+				p.logger.Debugf("pebble still starting up on container %q: %v", containerName, socketNotFound)
+			} else if err != nil && err != tomb.ErrDying {
 				p.logger.Errorf("pebble poll failed for container %q: %v", containerName, err)
 			}
 		}

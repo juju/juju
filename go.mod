@@ -20,7 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20220220221114-a922aaf20c76
+	github.com/canonical/pebble v0.0.0-20220316083406-c50b1edca41f
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.7.1+incompatible
@@ -48,7 +48,7 @@ require (
 	github.com/juju/cmd/v3 v3.0.0-20220203030511-039f3566372a
 	github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a
 	github.com/juju/description/v3 v3.0.0-20220207013250-e60bc7b1c242
-	github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9
+	github.com/juju/errors v0.0.0-20220316043928-e10eb17a9eeb
 	github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
