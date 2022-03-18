@@ -88,7 +88,7 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 
 	// If an open request is pending for this port, remove it.
 	for i, pr := range r.pendingOpenRanges[endpointName] {
-		r.logger.Tracef("close-port %q and cancel the pending open-port", portRange)
+		r.logger.Tracef("closing port %q for endpoint %q, so cancel the pending opening port", portRange, endpointName)
 		if pr == portRange {
 			r.pendingOpenRanges[endpointName] = append(r.pendingOpenRanges[endpointName][:i], r.pendingOpenRanges[endpointName][i+1:]...)
 			break
