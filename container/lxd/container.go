@@ -270,7 +270,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	op, err := s.CreateContainerFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
 	if err != nil {
 		if IsLXDAlreadyExists(err) {
-			container, runningErr := s.waitForContainerToRunningState(spec, ephemeral)
+			container, runningErr := s.waitForRunningContainer(spec, ephemeral)
 			if runningErr != nil {
 				// It's actually more helpful to display the original error
 				// message, but we'll also log out what the new error message
@@ -312,7 +312,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	return &c, nil
 }
 
-func (s *Server) waitForContainerToRunningState(spec ContainerSpec, ephemeral bool) (*api.Container, error) {
+func (s *Server) waitForRunningContainer(spec ContainerSpec, ephemeral bool) (*api.Container, error) {
 	var container *api.Container
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
