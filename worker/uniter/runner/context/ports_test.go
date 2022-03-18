@@ -4,6 +4,7 @@
 package context
 
 import (
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -69,6 +70,22 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			},
 		},
 		{
+			about:           "open an existing range with pending close port",
+			targetEndpoint:  "foo",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			pendingCloseRanges: network.GroupedPortRanges{
+				"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): {
+					"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectPendingClose: network.GroupedPortRanges{
+				"foo": []network.PortRange{},
+			},
+		},
+		{
 			about:           "open a range pending to be closed",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
@@ -129,7 +146,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
@@ -179,6 +196,17 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			},
 			expectPendingClose: network.GroupedPortRanges{
 				"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+		},
+		{
+			about:           "close an non-existing range with pending open port(remove the pending open then do nothing)",
+			targetEndpoint:  "foo",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			pendingOpenRanges: network.GroupedPortRanges{
+				"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectPendingOpen: network.GroupedPortRanges{
+				"foo": []network.PortRange{},
 			},
 		},
 		{
@@ -257,7 +285,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
