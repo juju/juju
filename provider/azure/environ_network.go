@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"strings"
 
-	azurenetwork "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	azurenetwork "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -113,7 +113,7 @@ func (env *azureEnviron) allPublicIPs(ctx context.ProviderCallContext) (map[stri
 		}
 
 		var cfgMethod = network.ConfigDHCP
-		if ipRes.PublicIPAllocationMethod == azurenetwork.Static {
+		if ipRes.PublicIPAllocationMethod == azurenetwork.IPAllocationMethodStatic {
 			cfgMethod = network.ConfigStatic
 		}
 
@@ -270,7 +270,7 @@ func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[strin
 			}
 
 			var cfgMethod = network.ConfigDHCP
-			if ipConf.PrivateIPAllocationMethod == azurenetwork.Static {
+			if ipConf.PrivateIPAllocationMethod == azurenetwork.IPAllocationMethodStatic {
 				cfgMethod = network.ConfigStatic
 			}
 

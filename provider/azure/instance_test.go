@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
@@ -216,14 +216,19 @@ func (s *instanceSuite) TestInstanceStatusDeploying(c *gc.C) {
 
 func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
 	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateFailed
+	s.deployments[1].Properties.Error = &resources.ErrorResponse{
+		Details: &[]resources.ErrorResponse{{
+			Message: to.StringPtr("boom"),
+		}},
+	}
 	inst := s.getInstance(c, "machine-1")
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Failed")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "boom")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
 	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateCanceled
 	inst := s.getInstance(c, "machine-1")
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Failed")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Canceled")
 }
 
 func (s *instanceSuite) TestInstanceStatusUnsetProvisioningState(c *gc.C) {

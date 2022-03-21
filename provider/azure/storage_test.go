@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
-	armstorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
+	armstorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-08-01/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	autorestazure "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/mocks"
@@ -131,11 +131,11 @@ func (s *storageSuite) accountKeysSender() *azuretesting.MockSender {
 	keys := []armstorage.AccountKey{{
 		KeyName:     to.StringPtr(fakeStorageAccountKey + "-name"),
 		Value:       to.StringPtr(fakeStorageAccountKey),
-		Permissions: armstorage.Full,
+		Permissions: armstorage.KeyPermissionFull,
 	}, {
 		KeyName:     to.StringPtr("key2-name"),
 		Value:       to.StringPtr("key2"),
-		Permissions: armstorage.Full,
+		Permissions: armstorage.KeyPermissionFull,
 	}}
 	result := armstorage.AccountListKeysResult{Keys: &keys}
 	keysSender := azuretesting.NewSenderWithValue(&result)
@@ -263,7 +263,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 			DiskProperties: &compute.DiskProperties{
 				DiskSizeGB: to.Int32Ptr(size),
 				CreationData: &compute.CreationData{
-					CreateOption: compute.Empty,
+					CreateOption: compute.DiskCreateOptionEmpty,
 				},
 			},
 		}
@@ -340,7 +340,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 			DiskProperties: &compute.DiskProperties{
 				DiskSizeGB: to.Int32Ptr(size),
 				CreationData: &compute.CreationData{
-					CreateOption: compute.Empty,
+					CreateOption: compute.DiskCreateOptionEmpty,
 				},
 			},
 			Sku: &compute.DiskSku{

@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute" // This is the version supporting disk encryption sets.
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute" // This is the version supporting disk encryption sets.
 	keyvaultservices "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2018-02-14/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2019-09-01/keyvault"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	legacystorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage" // Pin this legacy storage API to 2017-10-01 since it's only used for unmanaged storage in models was created in 2.2 or earlier.
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest"
@@ -76,12 +76,12 @@ const (
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
 
-	computeAPIVersion = "2019-07-01"
-	networkAPIVersion = "2018-08-01"
+	computeAPIVersion = "2021-11-01"
+	networkAPIVersion = "2021-05-01"
 	// Note: do not upgrade this storage API anymore because Juju uses managed storage since 2.3 and this API is only used
 	// for models upgraded from 2.2.
 	// Upgrading the storage API may break those upgraded old models.
-	storageAPIVersion = "2017-10-01"
+	storageAPIVersion = "2021-08-01"
 )
 
 type azureEnviron struct {
@@ -611,7 +611,11 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	// Note: the instance is initialised without addresses to keep the
 	// API chatter down. We will refresh the instance if we need to know
 	// the addresses.
-	inst := &azureInstance{vmName, compute.ProvisioningStateCreating, env, nil, nil}
+	inst := &azureInstance{
+		vmName:            vmName,
+		provisioningState: compute.ProvisioningStateCreating,
+		env:               env,
+	}
 	amd64 := arch.AMD64
 	hc := &instance.HardwareCharacteristics{
 		Arch:     &amd64,
@@ -793,9 +797,9 @@ func (env *azureEnviron) createVirtualMachine(
 		publicIPAddressName := vmName + "-public-ip"
 		publicIPAddressId = fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 		// Default to static public IP so address is preserved across reboots.
-		publicIPAddressAllocationMethod := network.Static
+		publicIPAddressAllocationMethod := network.IPAllocationMethodStatic
 		if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
-			publicIPAddressAllocationMethod = network.Dynamic // preserve the settings that were used in Juju 2.4 and earlier
+			publicIPAddressAllocationMethod = network.IPAllocationMethodDynamic // preserve the settings that were used in Juju 2.4 and earlier
 		}
 		res = append(res, armtemplates.Resource{
 			APIVersion: networkAPIVersion,
@@ -805,7 +809,7 @@ func (env *azureEnviron) createVirtualMachine(
 			Tags:       vmTags,
 			Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
 			Properties: &network.PublicIPAddressPropertiesFormat{
-				PublicIPAddressVersion:   network.IPv4,
+				PublicIPAddressVersion:   network.IPVersionIPv4,
 				PublicIPAllocationMethod: publicIPAddressAllocationMethod,
 			},
 		})
@@ -818,7 +822,7 @@ func (env *azureEnviron) createVirtualMachine(
 		primary := i == 0
 		ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
 			Primary:                   to.BoolPtr(primary),
-			PrivateIPAllocationMethod: network.Dynamic,
+			PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
 			Subnet:                    &network.Subnet{ID: to.StringPtr(string(subnetID))},
 		}
 		if primary && usePublicIP {
@@ -870,9 +874,11 @@ func (env *azureEnviron) createVirtualMachine(
 					instanceSpec.InstanceType.Name,
 				),
 			},
-			StorageProfile:  storageProfile,
-			OsProfile:       osProfile,
-			NetworkProfile:  &compute.NetworkProfile{NetworkInterfaces: &nics},
+			StorageProfile: storageProfile,
+			OsProfile:      osProfile,
+			NetworkProfile: &compute.NetworkProfile{
+				NetworkInterfaces: &nics,
+			},
 			AvailabilitySet: availabilitySetSubResource,
 		},
 		DependsOn: vmDependsOn,
@@ -1352,7 +1358,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
 	vmErrMsg := "deleting virtual machine"
-	vmFuture, err := vmClient.Delete(ctx, env.resourceGroup, vmName)
+	vmFuture, err := vmClient.Delete(ctx, env.resourceGroup, vmName, nil)
 	if err != nil {
 		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(vmFuture.Response()) {
 			return errors.Annotate(err, vmErrMsg)
@@ -1761,8 +1767,16 @@ func (env *azureEnviron) allQueuedInstances(
 		}
 		deployment := deploymentsResult.Value()
 		deployProvisioningState := resources.ProvisioningStateNotSpecified
+		deployError := "Failed"
 		if deployment.Properties != nil {
 			deployProvisioningState = deployment.Properties.ProvisioningState
+			deployError = string(deployProvisioningState)
+			if deployment.Properties.Error != nil {
+				deployError = to.String(deployment.Properties.Error.Message)
+				if deployment.Properties.Error.Details != nil && len(*deployment.Properties.Error.Details) > 0 {
+					deployError = to.String((*deployment.Properties.Error.Details)[0].Message)
+				}
+			}
 		}
 		switch deployProvisioningState {
 		case resources.ProvisioningStateAccepted,
@@ -1794,7 +1808,12 @@ func (env *azureEnviron) allQueuedInstances(
 			resources.ProvisioningStateCanceled:
 			provisioningState = compute.ProvisioningStateFailed
 		}
-		inst := &azureInstance{name, provisioningState, env, nil, nil}
+		inst := &azureInstance{
+			vmName:            name,
+			provisioningState: provisioningState,
+			provisioningError: deployError,
+			env:               env,
+		}
 		azureInstances = append(azureInstances, inst)
 	}
 	return azureInstances, nil
@@ -1829,7 +1848,7 @@ func (env *azureEnviron) allProvisionedInstances(
 	instStates ...compute.ProvisioningState,
 ) ([]*azureInstance, error) {
 	vmClient := compute.VirtualMachinesClient{BaseClient: env.compute}
-	vmResult, err := vmClient.ListComplete(ctx, resourceGroup)
+	vmResult, err := vmClient.ListComplete(ctx, resourceGroup, "")
 	if err != nil {
 		if isNotFoundResult(vmResult.Response().Response) {
 			// This will occur if the resource group does not
@@ -1865,7 +1884,11 @@ func (env *azureEnviron) allProvisionedInstances(
 		if !isControllerInstance(vm, controllerUUID) {
 			continue
 		}
-		inst := &azureInstance{name, provisioningState, env, nil, nil}
+		inst := &azureInstance{
+			vmName:            name,
+			provisioningState: provisioningState,
+			env:               env,
+		}
 		azureInstances = append(azureInstances, inst)
 	}
 	return azureInstances, nil
@@ -2243,7 +2266,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 
 	client := compute.ResourceSkusClient{env.compute}
 
-	res, err := client.ListComplete(ctx, "")
+	res, err := client.ListComplete(ctx, "", "")
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
 	}
@@ -2259,7 +2282,7 @@ nextResource:
 		}
 		if resource.Restrictions != nil {
 			for _, r := range *resource.Restrictions {
-				if r.ReasonCode == compute.NotAvailableForSubscription {
+				if r.ReasonCode == compute.ResourceSkuRestrictionsReasonCodeNotAvailableForSubscription {
 					continue nextResource
 				}
 			}
