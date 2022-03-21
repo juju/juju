@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.subnets")
@@ -63,12 +62,13 @@ type API struct {
 
 // NewAPI creates a new Subnets API server-side facade with a
 // state.State backing.
-func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
+func NewAPI(ctx facade.Context) (*API, error) {
+	st := ctx.State()
 	stateShim, err := NewStateShim(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, context.CallContext(st), res, auth)
+	return newAPIWithBacking(stateShim, context.CallContext(st), ctx.Resources(), ctx.Auth())
 }
 
 func (api *API) checkCanRead() error {

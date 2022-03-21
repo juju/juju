@@ -15,19 +15,17 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
 	keyvaultservices "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2018-02-14/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2019-09-01/keyvault"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	autorestazure "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock/testclock"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -35,6 +33,9 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+
+	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -64,8 +65,8 @@ const (
 	storageAccountName = "juju400d80004b1d0d06f00d"
 	fakeTenantId       = "11111111-1111-1111-1111-111111111111"
 
-	computeAPIVersion = "2019-07-01"
-	networkAPIVersion = "2018-08-01"
+	computeAPIVersion = "2021-11-01"
+	networkAPIVersion = "2021-05-01"
 )
 
 var (
@@ -206,7 +207,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Locations:    to.StringSlicePtr([]string{"westus"}),
 		ResourceType: to.StringPtr("virtualMachines"),
 		Restrictions: &[]compute.ResourceSkuRestrictions{{
-			ReasonCode: compute.NotAvailableForSubscription,
+			ReasonCode: compute.ResourceSkuRestrictionsReasonCodeNotAvailableForSubscription,
 		}},
 		Capabilities: &[]compute.ResourceSkuCapabilities{{
 			Name:  to.StringPtr("MemoryGB"),
@@ -1266,7 +1267,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Name: to.StringPtr(name),
 			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 				Primary:                   to.BoolPtr(primary),
-				PrivateIPAllocationMethod: network.Dynamic,
+				PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
 				Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
 			},
 		}}
@@ -1320,7 +1321,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Location:   "westus",
 			Tags:       to.StringMap(s.vmTags),
 			Properties: &network.PublicIPAddressPropertiesFormat{
-				PublicIPAllocationMethod: network.Static,
+				PublicIPAllocationMethod: network.IPAllocationMethodStatic,
 				PublicIPAddressVersion:   "IPv4",
 			},
 			Sku: &armtemplates.Sku{Name: "Standard"},
@@ -1341,8 +1342,10 @@ func (s *environSuite) assertStartInstanceRequests(
 				ImageReference: args.imageReference,
 				OsDisk:         osDisk,
 			},
-			OsProfile:       args.osProfile,
-			NetworkProfile:  &compute.NetworkProfile{&nics},
+			OsProfile: args.osProfile,
+			NetworkProfile: &compute.NetworkProfile{
+				NetworkInterfaces: &nics,
+			},
 			AvailabilitySet: availabilitySetSubResource,
 		},
 		DependsOn: vmDependsOn,
@@ -1366,7 +1369,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	deployment := &resources.Deployment{
 		Properties: &resources.DeploymentProperties{
 			Template: &templateMap,
-			Mode:     resources.Incremental,
+			Mode:     resources.DeploymentModeIncremental,
 		},
 	}
 
@@ -2218,13 +2221,13 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		c.Check(req.URL.Query().Get("api-version"), gc.Equals, expectedVersion)
 	}
 	// Resource group get and update.
-	checkAPIVersion(0, "GET", "2020-06-01")
-	checkAPIVersion(1, "PUT", "2020-06-01")
+	checkAPIVersion(0, "GET", "2020-10-01")
+	checkAPIVersion(1, "PUT", "2020-10-01")
 	// Resources.
-	checkAPIVersion(4, "GET", "2020-06-01")
-	checkAPIVersion(5, "PUT", "2020-06-01")
-	checkAPIVersion(6, "GET", "2020-06-01")
-	checkAPIVersion(7, "PUT", "2020-06-01")
+	checkAPIVersion(4, "GET", "2021-07-01")
+	checkAPIVersion(5, "PUT", "2021-07-01")
+	checkAPIVersion(6, "GET", "2021-07-01")
+	checkAPIVersion(7, "PUT", "2021-07-01")
 
 	checkTagsAndProperties := func(ix uint) {
 		req := s.requests[ix]
@@ -2270,7 +2273,7 @@ func makeProvidersResult() resources.ProviderListResult {
 			APIVersions:  &[]string{"2016-12-15", "2014-02-02"},
 		}, {
 			ResourceType: to.StringPtr("liars/scissor"),
-			APIVersions:  &[]string{"2020-06-01", "2015-03-02"},
+			APIVersions:  &[]string{"2021-07-01", "2015-03-02"},
 		}},
 	}, {
 		Namespace: to.StringPtr("Tuneyards.Bizness"),
@@ -2279,7 +2282,7 @@ func makeProvidersResult() resources.ProviderListResult {
 			APIVersions:  &[]string{"2016-12-14", "2014-04-02"},
 		}, {
 			ResourceType: to.StringPtr("micachu"),
-			APIVersions:  &[]string{"2020-06-01", "2015-05-02"},
+			APIVersions:  &[]string{"2021-07-01", "2015-05-02"},
 		}},
 	}}
 	return resources.ProviderListResult{Value: &providers}

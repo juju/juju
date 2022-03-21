@@ -444,7 +444,7 @@ func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 
 	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
@@ -456,7 +456,7 @@ func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C
 
 	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
@@ -467,7 +467,7 @@ func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 	s.makeManagerForConfig(c, cfg)
 	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote, lxd.CloudImagesLinuxContainersRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
@@ -488,6 +488,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c
 		},
 		lxd.CloudImagesRemote,
 		lxd.CloudImagesDailyRemote,
+		lxd.CloudImagesLinuxContainersRemote,
 	}
 	c.Check(sources, gc.DeepEquals, expectedSources)
 }
@@ -510,6 +511,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 			Protocol: lxd.SimpleStreamsProtocol,
 		},
 		lxd.CloudImagesDailyRemote,
+		lxd.CloudImagesLinuxContainersRemote,
 	}
 	c.Check(sources, gc.DeepEquals, expectedSources)
 }

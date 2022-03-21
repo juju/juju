@@ -8,7 +8,6 @@ package resumer
 import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
 )
 
 // ResumerAPI implements the API used by the resumer worker.
@@ -18,12 +17,13 @@ type ResumerAPI struct {
 }
 
 // NewResumerAPI creates a new instance of the Resumer API.
-func NewResumerAPI(st *state.State, _ facade.Resources, authorizer facade.Authorizer) (*ResumerAPI, error) {
+func NewResumerAPI(ctx facade.Context) (*ResumerAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &ResumerAPI{
-		st:   getState(st),
+		st:   getState(ctx.State()),
 		auth: authorizer,
 	}, nil
 }

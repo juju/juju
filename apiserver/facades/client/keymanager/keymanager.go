@@ -50,11 +50,13 @@ type KeyManagerAPI struct {
 var _ KeyManager = (*KeyManagerAPI)(nil)
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
-func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*KeyManagerAPI, error) {
+func NewKeyManagerAPI(ctx facade.Context) (*KeyManagerAPI, error) {
 	// Only clients can access the key manager service.
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
+	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -62,7 +64,7 @@ func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer fa
 	return &KeyManagerAPI{
 		state:      st,
 		model:      m,
-		resources:  resources,
+		resources:  ctx.Resources(),
 		authorizer: authorizer,
 		apiUser:    authorizer.GetAuthTag().(names.UserTag),
 		check:      common.NewBlockChecker(st),

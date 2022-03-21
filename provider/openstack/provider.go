@@ -981,7 +981,7 @@ func identityClientVersion(authURL string) (int, error) {
 		_, tail = path.Split(strings.TrimRight(urlpath, "/"))
 	}
 	versionNumStr := strings.TrimPrefix(tail, "v")
-	logger.Tracef("authURL: %s", authURL)
+	logger.Debugf("authURL: %s", authURL)
 	major, _, err := version.ParseMajorMinor(versionNumStr)
 	if len(tail) < 2 || tail[0] != 'v' || err != nil {
 		// There must be a '/v' in the URL path.

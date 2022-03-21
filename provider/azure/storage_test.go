@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
 	autorestazure "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -203,7 +203,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 			DiskProperties: &compute.DiskProperties{
 				DiskSizeGB: to.Int32Ptr(size),
 				CreationData: &compute.CreationData{
-					CreateOption: compute.Empty,
+					CreateOption: compute.DiskCreateOptionEmpty,
 				},
 			},
 		}
@@ -280,7 +280,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 			DiskProperties: &compute.DiskProperties{
 				DiskSizeGB: to.Int32Ptr(size),
 				CreationData: &compute.CreationData{
-					CreateOption: compute.Empty,
+					CreateOption: compute.DiskCreateOptionEmpty,
 				},
 			},
 			Sku: &compute.DiskSku{

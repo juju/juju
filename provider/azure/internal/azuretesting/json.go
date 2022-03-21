@@ -5,6 +5,7 @@ package azuretesting
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 )
 
@@ -82,6 +83,15 @@ func (m rawValueMaker) rawStructValue(v reflect.Value) reflect.Value {
 		rv := m.rawValue(v.Field(i))
 		sf.Type = rv.Type()
 		sf.Anonymous = false
+		// Azure auth tokens use json.Number for strings and ints which confuses the SDK
+		// so send across the wire as string for affected fields.
+		if t.Name() == "Token" && (sf.Name == "ExpiresOn" || sf.Name == "ExpiresIn") {
+			val := fmt.Sprint(v.Field(i).Interface())
+			if val != "" {
+				sf.Type = reflect.TypeOf("")
+				rv = reflect.ValueOf(fmt.Sprint(v.Field(i).Interface()))
+			}
+		}
 		fields = append(fields, sf)
 		values = append(values, rv)
 	}

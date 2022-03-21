@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -94,7 +94,7 @@ func SeriesImage(
 		publisher = centOSPublisher
 		offering = centOSOffering
 		switch series {
-		case "centos7", "centos8":
+		case "centos7", "centos8": // TODO: this doesn't look right. Add support for centos 9 stream.
 			sku = "7.3"
 		default:
 			return nil, errors.NotSupportedf("deploying %s", series)

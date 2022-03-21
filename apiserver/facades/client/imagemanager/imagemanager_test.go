@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -26,7 +27,7 @@ type imageManagerSuite struct {
 
 	imagemanager *imagemanager.ImageManagerAPI
 	resources    *common.Resources
-	authoriser   apiservertesting.FakeAuthorizer
+	authorizer   apiservertesting.FakeAuthorizer
 
 	commontesting.BlockHelper
 }
@@ -38,11 +39,15 @@ func (s *imageManagerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.authoriser = apiservertesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.imagemanager, err = imagemanager.NewImageManagerAPI(s.State, s.resources, s.authoriser)
+	s.imagemanager, err = imagemanager.NewImageManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
@@ -50,16 +55,24 @@ func (s *imageManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *imageManagerSuite) TestNewImageManagerAPIAcceptsClient(c *gc.C) {
-	endPoint, err := imagemanager.NewImageManagerAPI(s.State, s.resources, s.authoriser)
+	endPoint, err := imagemanager.NewImageManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
 func (s *imageManagerSuite) TestNewImageManagerAPIRefusesNonClient(c *gc.C) {
-	anAuthoriser := s.authoriser
+	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	anAuthoriser.Controller = false
-	endPoint, err := imagemanager.NewImageManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := imagemanager.NewImageManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

@@ -6,8 +6,8 @@ package azure
 import (
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
@@ -102,7 +102,7 @@ func existingSecurityRules(
 func isControllerEnviron(env *azureEnviron, ctx context.ProviderCallContext) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
-	result, err := client.ListComplete(ctx, env.resourceGroup)
+	result, err := client.ListComplete(ctx, env.resourceGroup, "")
 	if err != nil {
 		return false, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
 	}

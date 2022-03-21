@@ -31,7 +31,7 @@ func (dep mongoDependency) PackageList(series string) ([]packaging.Package, erro
 	)
 
 	switch series {
-	case "centos7", "centos8", "opensuseleap", "precise", "trusty":
+	case "centos7", "centos8", "centos9", "opensuseleap", "precise", "trusty":
 		return nil, errors.NotSupportedf("installing mongo on series %q", series)
 	default: // Xenial and beyond always use snaps
 		if dep.snapChannel == "" {
