@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -59,8 +60,7 @@ func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
 	sExp.ProviderId().Return(network.Id("0"))
 	sExp.ProviderNetworkId().Return(network.Id("1"))
 	sExp.AvailabilityZones().Return([]string{"bar", "bam"})
-	sExp.Status().Return("in-use")
-	sExp.Life().Return(life.Value("alive"))
+	sExp.Life().Return(state.Alive)
 
 	bExp := s.mockBacking.EXPECT()
 	gomock.InOrder(
@@ -626,19 +626,17 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 		ProviderId:        "sn-zadf00d",
 		ProviderNetworkId: "godspeed",
 		VLANTag:           0,
-		Life:              "",
+		Life:              life.Alive,
 		SpaceTag:          "space-private",
 		Zones:             []string{"zone1"},
-		Status:            "",
 	}, {
 		CIDR:              "2001:db8::/32",
 		ProviderId:        "sn-ipv6",
 		ProviderNetworkId: "",
 		VLANTag:           0,
-		Life:              "",
+		Life:              life.Alive,
 		SpaceTag:          "space-dmz",
 		Zones:             []string{"zone1", "zone3"},
-		Status:            "",
 	}}
 	// No filtering.
 	args := params.SubnetsFilters{}

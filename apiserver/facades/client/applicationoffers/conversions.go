@@ -4,9 +4,6 @@
 package applicationoffers
 
 import (
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 )
@@ -32,28 +29,4 @@ func paramsFromProviderSpaceInfo(info *environs.ProviderSpaceInfo) params.Remote
 		result.Subnets = append(result.Subnets, resultSubnet)
 	}
 	return result
-}
-
-// spaceInfoFromState converts a state.Space into the equivalent
-// network.SpaceInfo.
-func spaceInfoFromState(space Space) (*network.SpaceInfo, error) {
-	result := &network.SpaceInfo{
-		Name:       network.SpaceName(space.Name()),
-		ProviderId: space.ProviderId(),
-	}
-	subnets, err := space.Subnets()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, subnet := range subnets {
-		resultSubnet := network.SubnetInfo{
-			CIDR:              subnet.CIDR(),
-			ProviderId:        subnet.ProviderId(),
-			ProviderNetworkId: subnet.ProviderNetworkId(),
-			VLANTag:           subnet.VLANTag(),
-			AvailabilityZones: subnet.AvailabilityZones(),
-		}
-		result.Subnets = append(result.Subnets, resultSubnet)
-	}
-	return result, nil
 }
