@@ -265,7 +265,7 @@ pre_bootstrap() {
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS} --metadata-source ${image_streams_dir}"
 		;;
 	esac
-	
+
 	if [[ ${BUILD_AGENT:-} == true ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --build-agent=${BUILD_AGENT}"
 	else
