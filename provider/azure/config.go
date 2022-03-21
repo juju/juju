@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-08-01/storage"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -67,7 +67,7 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	configAttrStorageAccountType:  string(storage.StandardLRS),
+	configAttrStorageAccountType:  string(storage.SkuNameStandardLRS),
 	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
 	configAttrResourceGroupName:   schema.Omit,
 	configAttrNetwork:             schema.Omit,
