@@ -26,16 +26,6 @@ const (
 	maxLeaseRequest = 5 * time.Minute
 )
 
-// NewLeadershipServiceFacade constructs a new LeadershipService and presents
-// a signature that can be used for facade registration.
-func NewLeadershipServiceFacade(context facade.Context) (LeadershipService, error) {
-	claimer, err := context.LeadershipClaimer(context.State().ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewLeadershipService(claimer, context.Auth())
-}
-
 // NewLeadershipService constructs a new LeadershipService.
 func NewLeadershipService(
 	claimer leadership.Claimer, authorizer facade.Authorizer,

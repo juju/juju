@@ -71,23 +71,6 @@ var (
 	_ InstanceMutaterV1 = (*InstanceMutaterAPIV1)(nil)
 )
 
-// NewFacadeV2 is used for API registration.
-func NewFacadeV2(ctx facade.Context) (*InstanceMutaterAPI, error) {
-	st := &instanceMutaterStateShim{State: ctx.State()}
-
-	watcher := &instanceMutatorWatcher{st: st}
-	return NewInstanceMutaterAPI(st, watcher, ctx.Resources(), ctx.Auth())
-}
-
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPIV1, error) {
-	v2, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &InstanceMutaterAPIV1{v2}, nil
-}
-
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
 func NewInstanceMutaterAPI(st InstanceMutaterState,

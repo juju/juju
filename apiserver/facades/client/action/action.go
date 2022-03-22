@@ -50,51 +50,6 @@ type APIv6 struct {
 	*ActionAPI
 }
 
-// NewActionAPIV2 returns an initialized ActionAPI for version 2.
-func NewActionAPIV2(ctx facade.Context) (*APIv2, error) {
-	api, err := NewActionAPIV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
-
-// NewActionAPIV3 returns an initialized ActionAPI for version 3.
-func NewActionAPIV3(ctx facade.Context) (*APIv3, error) {
-	api, err := NewActionAPIV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewActionAPIV4 returns an initialized ActionAPI for version 4.
-func NewActionAPIV4(ctx facade.Context) (*APIv4, error) {
-	api, err := NewActionAPIV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv4{api}, nil
-}
-
-// NewActionAPIV5 returns an initialized ActionAPI for version 5.
-func NewActionAPIV5(ctx facade.Context) (*APIv5, error) {
-	api, err := NewActionAPIV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv5{api}, nil
-}
-
-// NewActionAPIV6 returns an initialized ActionAPI for version 6.
-func NewActionAPIV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv6{api}, nil
-}
-
 func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

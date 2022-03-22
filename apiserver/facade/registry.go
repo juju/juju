@@ -6,7 +6,6 @@ package facade
 import (
 	"fmt"
 	"reflect"
-	"runtime"
 	"sort"
 
 	"github.com/juju/errors"
@@ -27,24 +26,10 @@ type Registry struct {
 	facades map[string]versions
 }
 
-// RegisterStandard is the more convenient way of registering
-// facades. newFunc should have one of the following signature:
-//   func (facade.Context) (*Type, error)
-func (f *Registry) RegisterStandard(name string, version int, newFunc interface{}) error {
-	wrapped, facadeType, err := wrapNewFacade(newFunc)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = f.Register(name, version, wrapped, facadeType)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // Register adds a single named facade at a given version to the registry.
 // Factory will be called when someone wants to instantiate an object of
-// this facade, and facadeType defines the concrete type that the returned object will be.
+// this facade, and facadeType defines the concrete type that the returned
+// object will be.
 // The Type information is used to define what methods will be exported in the
 // API, and it must exactly match the actual object returned by the factory.
 func (f *Registry) Register(name string, version int, factory Factory, facadeType reflect.Type) error {
@@ -65,6 +50,15 @@ func (f *Registry) Register(name string, version int, factory Factory, facadeTyp
 		f.facades[name] = versions{version: record}
 	}
 	return nil
+}
+
+// MustRegister adds a single named facade at a given version to the registry
+// and panics if it fails.
+// See: Register.
+func (f *Registry) MustRegister(name string, version int, factory Factory, facadeType reflect.Type) {
+	if err := f.Register(name, version, factory, facadeType); err != nil {
+		panic(err)
+	}
 }
 
 // lookup translates a facade name and version into a record.
@@ -184,76 +178,4 @@ func (f *Registry) Discard(name string, version int) {
 			delete(f.facades, name)
 		}
 	}
-}
-
-// contextFactory defines the preferred facade registration function signature.
-type contextFactory func(Context) (interface{}, error)
-
-// validateNewFacade ensures that the facade factory we have has the right
-// input and output parameters for being used as a NewFoo function.
-func validateNewFacade(funcValue reflect.Value) error {
-	if !funcValue.IsValid() {
-		return fmt.Errorf("cannot wrap nil")
-	}
-	if funcValue.Kind() != reflect.Func {
-		return fmt.Errorf("wrong type %q is not a function", funcValue.Kind())
-	}
-	funcType := funcValue.Type()
-	funcName := runtime.FuncForPC(funcValue.Pointer()).Name()
-
-	badSigError := errors.Errorf(""+
-		"function %q does not have the signature "+
-		"func (facade.Context) (*Type, error)", funcName)
-
-	if funcType.NumOut() != 2 {
-		return errors.Trace(badSigError)
-	}
-	var (
-		facadeType reflect.Type
-		inArgCount = funcType.NumIn()
-	)
-
-	switch inArgCount {
-	case 1:
-		facadeType = reflect.TypeOf((*contextFactory)(nil)).Elem()
-	default:
-		return errors.Trace(badSigError)
-	}
-
-	isSame := true
-	for i := 0; i < inArgCount; i++ {
-		if funcType.In(i) != facadeType.In(i) {
-			isSame = false
-			break
-		}
-	}
-	if funcType.Out(1) != facadeType.Out(1) {
-		isSame = false
-	}
-	if !isSame {
-		return errors.Trace(badSigError)
-	}
-	return nil
-}
-
-// wrapNewFacade turns a given NewFoo(st, resources, authorizer) (*Instance, error)
-// function and wraps it into a proper facade.Factory function.
-func wrapNewFacade(newFunc interface{}) (Factory, reflect.Type, error) {
-	funcValue := reflect.ValueOf(newFunc)
-	if err := validateNewFacade(funcValue); err != nil {
-		return nil, reflect.TypeOf(nil), err
-	}
-	wrapped := func(context Context) (Facade, error) {
-		if context.ID() != "" {
-			return nil, errors.New("id not expected")
-		}
-		in := []reflect.Value{reflect.ValueOf(context)}
-		out := funcValue.Call(in)
-		if out[1].Interface() != nil {
-			err := out[1].Interface().(error)
-			return nil, err
-		}
-		return out[0].Interface(), nil
-	}
-	return wrapped, funcValue.Type().Out(0), nil
 }

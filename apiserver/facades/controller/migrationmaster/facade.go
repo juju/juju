@@ -43,44 +43,6 @@ type APIV2 struct {
 	*API
 }
 
-// NewMigrationMasterFacadeV1 exists to provide the required signature for API
-// registration, converting st to backend.
-func NewMigrationMasterFacadeV1(ctx facade.Context) (*APIV1, error) {
-	v2, err := NewMigrationMasterFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV1{v2}, nil
-}
-
-// NewMigrationMasterFacadeV2 exists to provide the required signature for API
-// registration, converting st to backend.
-func NewMigrationMasterFacadeV2(ctx facade.Context) (*APIV2, error) {
-	v3, err := NewMigrationMasterFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV2{v3}, nil
-}
-
-// NewMigrationMasterFacadeV2 exists to provide the required signature for API
-// registration, converting st to backend.
-func NewMigrationMasterFacade(ctx facade.Context) (*API, error) {
-	controllerState := ctx.StatePool().SystemState()
-	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating precheck backend")
-	}
-	return NewAPI(
-		newBacked(ctx.State()),
-		precheckBackend,
-		migration.PoolShim(ctx.StatePool()),
-		ctx.Resources(),
-		ctx.Auth(),
-		ctx.Presence(),
-	)
-}
-
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(

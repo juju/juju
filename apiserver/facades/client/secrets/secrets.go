@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	"github.com/juju/juju/secrets/provider/juju"
 )
 
 // SecretsAPI is the backend for the Secrets facade.
@@ -26,26 +24,6 @@ type SecretsAPI struct {
 	modelUUID      string
 
 	secretsService secrets.SecretsService
-}
-
-// NewSecretsAPI creates a SecretsAPI.
-func NewSecretsAPI(context facade.Context) (*SecretsAPI, error) {
-	if !context.Auth().AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-	// For now we just support the Juju secrets provider.
-	service, err := provider.NewSecretProvider(juju.Provider, secrets.ProviderConfig{
-		juju.ParamBackend: context.State(),
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "creating juju secrets service")
-	}
-	return &SecretsAPI{
-		authorizer:     context.Auth(),
-		controllerUUID: context.State().ControllerUUID(),
-		modelUUID:      context.State().ModelUUID(),
-		secretsService: service,
-	}, nil
 }
 
 func (s *SecretsAPI) checkCanRead() error {

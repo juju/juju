@@ -14,7 +14,6 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -22,8 +21,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -64,48 +61,6 @@ type API struct {
 	state              CAASOperatorProvisionerState
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
-}
-
-// NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting caas client")
-	}
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
-
-	commonState := &charmscommon.StateShim{st}
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer,
-		stateShim{ctx.StatePool().SystemState()},
-		stateShim{ctx.State()},
-		pm, registry)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &APIGroup{
-		charmInfoAPI:    commonCharmsAPI,
-		appCharmInfoAPI: appCharmInfoAPI,
-		API:             api,
-	}, nil
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.

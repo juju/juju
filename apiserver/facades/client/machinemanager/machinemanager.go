@@ -154,33 +154,6 @@ type MachineManagerAPIV6 struct {
 	*MachineManagerAPI
 }
 
-// NewFacadeV4 creates a new server-side MachineManager API facade.
-func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
-	machineManagerAPIV5, err := NewFacadeV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV4{machineManagerAPIV5}, nil
-}
-
-// NewFacadeV5 creates a new server-side MachineManager API facade.
-func NewFacadeV5(ctx facade.Context) (*MachineManagerAPIV5, error) {
-	machineManagerAPIv6, err := NewFacadeV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV5{machineManagerAPIv6}, nil
-}
-
-// NewFacadeV6 creates a new server-side MachineManager API facade.
-func NewFacadeV6(ctx facade.Context) (*MachineManagerAPIV6, error) {
-	machineManagerAPI, err := NewFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV6{machineManagerAPI}, nil
-}
-
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
 	backend Backend,

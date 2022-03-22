@@ -42,30 +42,6 @@ type HighAvailabilityAPI struct {
 
 var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 
-// NewHighAvailabilityAPI creates a new server-side highavailability API end point.
-func NewHighAvailabilityAPI(ctx facade.Context) (*HighAvailabilityAPI, error) {
-	// Only clients can access the high availability facade.
-	authorizer := ctx.Auth()
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if model.Type() == state.ModelTypeCAAS {
-		return nil, errors.NotSupportedf("high availability on kubernetes controllers")
-	}
-
-	return &HighAvailabilityAPI{
-		state:      st,
-		resources:  ctx.Resources(),
-		authorizer: authorizer,
-	}, nil
-}
-
 // EnableHA adds controller machines as necessary to ensure the
 // controller has the number of machines specified.
 func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {

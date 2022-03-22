@@ -18,7 +18,7 @@ type API struct {
 	authorizer facade.Authorizer
 }
 
-func NewAPI(ctx facade.Context) (*API, error) {
+func newAPI(ctx facade.Context) (*API, error) {
 	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {

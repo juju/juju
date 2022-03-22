@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -54,54 +52,6 @@ type Facade struct {
 	registry           storage.ProviderRegistry
 	devices            DeviceBackend
 	clock              clock.Clock
-}
-
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	sb, err := state.NewStorageBackend(ctx.State())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	db, err := state.NewDeviceBackend(ctx.State())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting caas client")
-	}
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
-
-	commonState := &charmscommon.StateShim{ctx.State()}
-	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return NewFacade(
-		resources,
-		authorizer,
-		stateShim{ctx.State()},
-		sb,
-		db,
-		pm,
-		registry,
-		charmInfoAPI,
-		appCharmInfoAPI,
-		clock.WallClock,
-	)
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.

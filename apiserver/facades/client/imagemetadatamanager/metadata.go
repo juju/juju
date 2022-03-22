@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // API is the concrete implementation of the api end point
@@ -47,19 +46,6 @@ func createAPI(
 		metadata:   st,
 		newEnviron: newEnviron,
 	}, nil
-}
-
-// NewAPI returns a new cloud image metadata API facade.
-func NewAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newEnviron := func() (environs.Environ, error) {
-		return stateenvirons.GetNewEnvironFunc(environs.New)(model)
-	}
-	return createAPI(getState(st), newEnviron, ctx.Resources(), ctx.Auth())
 }
 
 // List returns all found cloud image metadata that satisfy

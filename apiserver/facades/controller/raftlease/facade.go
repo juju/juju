@@ -6,7 +6,6 @@ package raftlease
 import (
 	"context"
 
-	"github.com/juju/errors"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/raftlease"
@@ -37,24 +36,6 @@ type APIv2 struct {
 type Facade struct {
 	auth facade.Authorizer
 	raft facade.RaftContext
-}
-
-// NewFacade create a facade for handling raft leases.
-func NewFacadeV1(context facade.Context) (*APIv1, error) {
-	api, err := NewFacadeV2(context)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv1{api}, nil
-}
-
-// NewFacade create a facade for handling raft leases.
-func NewFacadeV2(context facade.Context) (*APIv2, error) {
-	api, err := NewFacade(context)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
 }
 
 // NewFacade create a Facade from just the required dependencies.

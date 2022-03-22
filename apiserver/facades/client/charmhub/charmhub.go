@@ -52,18 +52,6 @@ type CharmHubAPI struct {
 	client Client
 }
 
-// NewFacade creates a new CharmHubAPI facade.
-func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
-	m, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{
-		requestRecorder: ctx.RequestRecorder(),
-	})
-}
-
 func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory ClientFactory) (*CharmHubAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

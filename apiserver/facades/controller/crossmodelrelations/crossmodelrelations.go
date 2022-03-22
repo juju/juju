@@ -55,40 +55,6 @@ type CrossModelRelationsAPIV1 struct {
 	*CrossModelRelationsAPI
 }
 
-// NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
-// backed by global state.
-func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
-	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCrossModelRelationsAPI(
-		stateShim{
-			st:      st,
-			Backend: commoncrossmodel.GetBackend(st),
-		},
-		firewall.StateShim(st, model),
-		ctx.Resources(), ctx.Auth(),
-		authCtxt.(*commoncrossmodel.AuthContext),
-		firewall.WatchEgressAddressesForRelations,
-		watchRelationLifeSuspendedStatus,
-		watchOfferStatus,
-	)
-}
-
-// NewStateCrossModelRelationsAPIV1 creates a new server-side
-// CrossModelRelations v1 API facade backed by state.
-func NewStateCrossModelRelationsAPIV1(ctx facade.Context) (*CrossModelRelationsAPIV1, error) {
-	api, err := NewStateCrossModelRelationsAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &CrossModelRelationsAPIV1{api}, nil
-}
-
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
 func NewCrossModelRelationsAPI(
 	st CrossModelRelationsState,
