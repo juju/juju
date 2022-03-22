@@ -12,12 +12,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 )
@@ -224,7 +226,10 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 	p.sourceKey++
 	key := p.sourceKey
 
-	source := string(debug.Stack())
+	var source string
+	if featureflag.Enabled(feature.DeveloperMode) {
+		source = string(debug.Stack())
+	}
 
 	// Already have a state in the pool for this model; use it.
 	if ok {
@@ -373,7 +378,9 @@ func (p *StatePool) Close() error {
 		p.mu.Unlock()
 		return nil
 	}
-	logger.Tracef("state pool closed from:\n%s", debug.Stack())
+	if logger.IsTraceEnabled() {
+		logger.Tracef("state pool closed from:\n%s", debug.Stack())
+	}
 
 	// Before we go through and close the state pool objects, we need to
 	// stop all the workers running in the state objects. If anyone had asked

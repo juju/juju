@@ -105,7 +105,7 @@ func (q *queryTracker) TrackRead(collectionName string, query interface{}) {
 			Type:           "read",
 			CollectionName: collectionName,
 			Query:          query,
-			Traceback:      string(debug.Stack()),
+			Traceback:      traceback,
 		})
 	}
 }
