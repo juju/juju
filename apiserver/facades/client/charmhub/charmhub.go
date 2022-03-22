@@ -60,7 +60,7 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 	}
 
 	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{
-		httpTransport: charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy()),
+		requestRecorder: ctx.RequestRecorder(),
 	})
 }
 
@@ -131,12 +131,13 @@ func (api *CharmHubAPI) Find(ctx context.Context, arg params.Query) (params.Char
 }
 
 type charmHubClientFactory struct {
-	httpTransport func(charmhub.Logger) charmhub.Transport
+	requestRecorder facade.RequestRecorder
 }
 
 func (f charmHubClientFactory) Client(url string) (Client, error) {
+	transport := charmhub.RequestHTTPTransport(f.requestRecorder, charmhub.DefaultRetryPolicy())
 	cfg, err := charmhub.CharmHubConfigFromURL(url, logger,
-		charmhub.WithHTTPTransport(f.httpTransport),
+		charmhub.WithHTTPTransport(transport),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
