@@ -424,10 +424,7 @@ var machineSizeCost = []string{
 
 // newInstanceType creates an InstanceType based on a VirtualMachineSize.
 func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
-	// Anything not in the list is more expensive that is in the list.
-	cost := len(machineSizeCost)
 	sizeName := to.String(size.Name)
-
 	// Actual instance type names often are suffixed with _v3, _v4 etc. We always
 	// prefer the highest version number.
 	namePart := instSizeVersionRegexp.ReplaceAllString(sizeName, "$name")
@@ -440,17 +437,24 @@ func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
 			vers, _ = strconv.Atoi(versStr)
 		}
 	}
+
+	var (
+		cost  int
+		found bool
+	)
 	for i, name := range machineSizeCost {
 		if namePart == name {
 			// Space out the relative costs and make a small subtraction
 			// so the higher versions of the same instance have a lower cost.
 			cost = 100*i - vers
+			found = true
 			break
 		}
 	}
-	if cost == len(machineSizeCost) {
+	// Anything not in the list is more expensive that is in the list.
+	if !found {
 		logger.Debugf("got VM for which we don't have relative cost data: %q", sizeName)
-		cost = 100 * cost
+		cost = 100 * len(machineSizeCost)
 	}
 
 	vtype := "Hyper-V"
