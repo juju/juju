@@ -34,7 +34,7 @@ func Register(registry Registry) {
 	}, reflect.TypeOf((*CrossModelRelationsAPIV1)(nil)))
 	registry.MustRegister("CrossModelRelations", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateCrossModelRelationsAPI(ctx) // Adds WatchRelationChanges, removes WatchRelationUnits
-	}, reflect.TypeOf((*CrossModelRelationsAPIV1)(nil)))
+	}, reflect.TypeOf((*CrossModelRelationsAPI)(nil)))
 }
 
 // newStateCrossModelRelationsAPIV1 creates a new server-side

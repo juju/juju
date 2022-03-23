@@ -28,15 +28,6 @@ type API struct {
 	leadership *common.LeadershipPinning
 }
 
-// NewAPI creates a new instance of the API with the given context
-func NewAPI(ctx facade.Context) (*API, error) {
-	leadership, err := common.NewLeadershipPinningFromContext(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership)
-}
-
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
 // dedicated state indirection.
 func NewUpgradeSeriesAPI(
@@ -368,21 +359,3 @@ type APIv2 struct {
 
 // SetInstanceStatus was not available on version 2 of the API.
 func (api *APIv2) SetInstanceStatus(_, _ struct{}) {}
-
-// NewAPIv1 is a wrapper that creates a V1 upgrade-series API.
-func NewAPIv1(ctx facade.Context) (*APIv1, error) {
-	api, err := NewAPIv2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv1{api}, nil
-}
-
-// NewAPIv2 is a wrapper that creates a V2 upgrade-series API.
-func NewAPIv2(ctx facade.Context) (*APIv2, error) {
-	api, err := NewAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}

@@ -149,7 +149,6 @@ func AllFacades() *facade.Registry {
 	credentialmanager.Register(registry)
 	credentialvalidator.Register(registry)
 	externalcontrollerupdater.Register(registry)
-
 	deployer.Register(registry)
 	diskmanager.Register(registry)
 	fanconfigurer.Register(registry)
@@ -197,58 +196,19 @@ func AllFacades() *facade.Registry {
 	singular.Register(registry)
 	secrets.Register(registry)
 	secretsmanager.Register(registry)
-
-	reg("SSHClient", 1, sshclient.NewFacadeV2)
-	reg("SSHClient", 2, sshclient.NewFacadeV2) // v2 adds AllAddresses() method.
-	reg("SSHClient", 3, sshclient.NewFacade)   // v3 adds Leader() method.
-
-	reg("Spaces", 2, spaces.NewAPIv2)
-	reg("Spaces", 3, spaces.NewAPIv3)
-	reg("Spaces", 4, spaces.NewAPIv4)
-	reg("Spaces", 5, spaces.NewAPIv5)
-	reg("Spaces", 6, spaces.NewAPI)
-
-	reg("StatusHistory", 2, statushistory.NewAPI)
-
-	reg("Storage", 3, storage.NewStorageAPIV3)
-	reg("Storage", 4, storage.NewStorageAPIV4) // changes Destroy() method signature.
-	reg("Storage", 5, storage.NewStorageAPIV5) // Update and Delete storage pools and CreatePool bulk calls.
-	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
-
-	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
-	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
-	reg("Subnets", 2, subnets.NewAPIv2)
-	reg("Subnets", 3, subnets.NewAPIv3)
-	reg("Subnets", 4, subnets.NewAPI) // Adds SubnetsByCIDR; removes AllSpaces.
-	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
-	reg("UnitAssigner", 1, unitassigner.New)
-
-	reg("Uniter", 4, uniter.NewUniterAPIV4)
-	reg("Uniter", 5, uniter.NewUniterAPIV5)
-	reg("Uniter", 6, uniter.NewUniterAPIV6)
-	reg("Uniter", 7, uniter.NewUniterAPIV7)
-	reg("Uniter", 8, uniter.NewUniterAPIV8)
-	reg("Uniter", 9, uniter.NewUniterAPIV9)
-	reg("Uniter", 10, uniter.NewUniterAPIV10)
-	reg("Uniter", 11, uniter.NewUniterAPIV11)
-	reg("Uniter", 12, uniter.NewUniterAPIV12)
-	reg("Uniter", 13, uniter.NewUniterAPIV13)
-	reg("Uniter", 14, uniter.NewUniterAPIV14)
-	reg("Uniter", 15, uniter.NewUniterAPIV15)
-	reg("Uniter", 16, uniter.NewUniterAPIV16)
-	reg("Uniter", 17, uniter.NewUniterAPIV17)
-	reg("Uniter", 18, uniter.NewUniterAPI)
-
-	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
-
-	reg("UpgradeSeries", 1, upgradeseries.NewAPIv1)
-	reg("UpgradeSeries", 2, upgradeseries.NewAPIv2) // Adds CurrentSeries.
-	reg("UpgradeSeries", 3, upgradeseries.NewAPI)   // Adds SetStatus.
-
-	reg("UpgradeSteps", 1, upgradesteps.NewFacadeV1)
-	reg("UpgradeSteps", 2, upgradesteps.NewFacadeV2)
-	reg("UserManager", 1, usermanager.NewUserManagerAPI)
-	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
+	sshclient.Register(registry)
+	spaces.Register(registry)
+	statushistory.Register(registry)
+	storage.Register(registry)
+	storageprovisioner.Register(registry)
+	subnets.Register(registry)
+	undertaker.Register(registry)
+	unitassigner.Register(registry)
+	uniter.Register(registry)
+	upgrader.Register(registry)
+	upgradeseries.Register(registry)
+	upgradesteps.Register(registry)
+	usermanager.Register(registry)
 
 	// TODO (stickupkid): The following should be moved into a package.
 	registry.MustRegister("Pinger", 1, func(ctx facade.Context) (facade.Facade, error) {

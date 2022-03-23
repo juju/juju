@@ -30,13 +30,13 @@ func Register(registry Registry) {
 	}, reflect.TypeOf((*APIV1)(nil)))
 	registry.MustRegister("ModelGeneration", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newModelGenerationFacadeV2(ctx)
-	}, reflect.TypeOf((*APIV1)(nil)))
+	}, reflect.TypeOf((*APIV2)(nil)))
 	registry.MustRegister("ModelGeneration", 3, func(ctx facade.Context) (facade.Facade, error) {
 		return newModelGenerationFacadeV3(ctx)
-	}, reflect.TypeOf((*APIV1)(nil)))
+	}, reflect.TypeOf((*APIV3)(nil)))
 	registry.MustRegister("ModelGeneration", 4, func(ctx facade.Context) (facade.Facade, error) {
 		return newModelGenerationFacadeV4(ctx)
-	}, reflect.TypeOf((*APIV1)(nil)))
+	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newModelGenerationFacadeV4 provides the signature required for facade registration.

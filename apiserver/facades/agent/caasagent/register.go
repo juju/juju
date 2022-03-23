@@ -34,7 +34,7 @@ func Register(registry Registry) {
 	}, reflect.TypeOf((*FacadeV1)(nil)))
 	registry.MustRegister("CAASAgent", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateFacadeV2(ctx)
-	}, reflect.TypeOf((*FacadeV1)(nil)))
+	}, reflect.TypeOf((*FacadeV2)(nil)))
 }
 
 // newStateFacadeV2 provides the signature required for facade registration of
