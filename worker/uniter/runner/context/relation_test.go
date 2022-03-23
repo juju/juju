@@ -65,7 +65,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter, err = s.st.Uniter()
+	s.uniter, err = api.ConnectionUniter(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 

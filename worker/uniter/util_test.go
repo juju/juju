@@ -202,7 +202,7 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	apiConn := ctx.s.OpenAPIAs(c, ctx.unit.Tag(), password)
 	c.Assert(apiConn, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
-	testApi, err := apiConn.Uniter()
+	testApi, err := api.ConnectionUniter(apiConn)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testApi, gc.NotNil)
 	ctx.api = testApi

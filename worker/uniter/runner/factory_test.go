@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -162,7 +163,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := st.Uniter()
+	uniter, err := api.ConnectionUniter(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))

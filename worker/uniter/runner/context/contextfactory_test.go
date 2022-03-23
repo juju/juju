@@ -263,7 +263,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := st.Uniter()
+	uniter, err := api.ConnectionUniter(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
@@ -352,7 +352,7 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	uniter, err := apiState.Uniter()
+	uniter, err := api.ConnectionUniter(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
@@ -560,7 +560,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	uniter, err := apiState.Uniter()
+	uniter, err := api.ConnectionUniter(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))

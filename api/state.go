@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
-	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/instancepoller"
@@ -318,16 +317,6 @@ func (st *state) Client() *Client {
 // required by the unitassigner worker.
 func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
-}
-
-// Uniter returns a version of the state that provides functionality
-// required by the uniter worker.
-func (st *state) Uniter() (*uniter.State, error) {
-	unitTag, ok := st.authTag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
-	}
-	return uniter.NewState(st, unitTag), nil
 }
 
 // Upgrader returns access to the Upgrader API

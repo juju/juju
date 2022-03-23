@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/cmd/juju/application"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -70,7 +71,7 @@ func (s *ApplicationConfigSuite) assertApplicationDeployed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := st.Uniter()
+	uniter, err := api.ConnectionUniter(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 
