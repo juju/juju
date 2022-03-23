@@ -19,6 +19,8 @@ type ClientStoreConnector struct {
 	defaultDialOpts api.DialOpts
 }
 
+var _ Connector = (*ClientStoreConnector)(nil)
+
 // ClientStoreConfig provides configuration for a Connector.
 type ClientStoreConfig struct {
 	// Controller to connect to.  Required
