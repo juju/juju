@@ -9,9 +9,10 @@ import (
 
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
-	"github.com/juju/juju/provider/azure/internal/azurecli"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/provider/azure/internal/azurecli"
 )
 
 type azSuite struct{}
@@ -47,11 +48,11 @@ func (s *azSuite) TestGetAccessToken(c *gc.C) {
 	})
 }
 
-func (s *azSuite) TestGetAccessTokenWithSubscriptionAndResource(c *gc.C) {
+func (s *azSuite) TestGetAccessTokenWithTenantAndResource(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account get-access-token --subscription 5544b9a5-0000-0000-0000-fedceb5d3696 --resource resid -o json": {
+				"az account get-access-token --tenant 5544b9a5-0000-0000-0000-fedceb5d3696 --resource resid -o json": {
 					stdout: []byte(`
 {
   "accessToken": "ACCESSTOKEN",
@@ -293,6 +294,7 @@ func (s *azSuite) TestFindAccountsWithCloudName(c *gc.C) {
     "name": "Free Trial",
     "state": "Enabled",
     "tenantId": "b7bb0664-0000-0000-0000-4d5f1481ef22",
+    "homeTenantId": "b7bb0664-0000-0000-0000-4d5f1481ef66",
     "user": {
       "name": "user@example.com",
       "type": "user"
@@ -319,12 +321,13 @@ func (s *azSuite) TestFindAccountsWithCloudName(c *gc.C) {
 	accs, err := azcli.FindAccountsWithCloudName("AzureCloud")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(accs, jc.DeepEquals, []azurecli.Account{{
-		CloudName: "AzureCloud",
-		ID:        "d7ad3057-0000-0000-0000-513d7136eec5",
-		IsDefault: false,
-		Name:      "Free Trial",
-		State:     "Enabled",
-		TenantId:  "b7bb0664-0000-0000-0000-4d5f1481ef22",
+		CloudName:    "AzureCloud",
+		ID:           "d7ad3057-0000-0000-0000-513d7136eec5",
+		IsDefault:    false,
+		Name:         "Free Trial",
+		State:        "Enabled",
+		TenantId:     "b7bb0664-0000-0000-0000-4d5f1481ef22",
+		HomeTenantId: "b7bb0664-0000-0000-0000-4d5f1481ef66",
 	}, {
 		CloudName: "AzureCloud",
 		ID:        "5af17b7d-0000-0000-0000-5cd99887fdf7",
@@ -333,6 +336,8 @@ func (s *azSuite) TestFindAccountsWithCloudName(c *gc.C) {
 		State:     "Enabled",
 		TenantId:  "2da419a9-0000-0000-0000-ac7c24bbe2e7",
 	}})
+	c.Assert(accs[0].AuthTenantId(), gc.Equals, accs[0].HomeTenantId)
+	c.Assert(accs[1].AuthTenantId(), gc.Equals, accs[1].TenantId)
 }
 
 func (s *azSuite) TestFindAccountsWithCloudNameError(c *gc.C) {

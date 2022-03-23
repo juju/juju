@@ -885,7 +885,7 @@ func (s *storageSuite) testAttachVolumes(c *gc.C, legacy bool) {
 			return nil
 		}
 		return &compute.ManagedDiskParameters{
-			ID: to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/" + volumeName),
+			ID: to.StringPtr(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
 		}
 	}
 

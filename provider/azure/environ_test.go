@@ -1978,7 +1978,7 @@ func (s *environSuite) TestStopInstancesNoSecurityGroup(c *gc.C) {
 	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
 	nic0IPConfiguration.Primary = to.BoolPtr(true)
 	internalSubnetId := path.Join(
-		"/subscriptions", fakeSubscriptionId,
+		"/subscriptions", fakeManagedSubscriptionId,
 		"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"providers/Microsoft.Network/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet",
 	)

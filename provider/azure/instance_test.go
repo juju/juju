@@ -659,13 +659,13 @@ func (s *instanceSuite) TestControllerInstances(c *gc.C) {
 }
 
 var internalSecurityGroupPath = path.Join(
-	"/subscriptions", fakeSubscriptionId,
+	"/subscriptions", fakeManagedSubscriptionId,
 	"resourceGroups", "juju-testmodel-"+testing.ModelTag.Id()[:8],
 	"providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg",
 )
 
 var internalSubnetPath = path.Join(
-	"/subscriptions", fakeSubscriptionId,
+	"/subscriptions", fakeManagedSubscriptionId,
 	"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 	"providers/Microsoft.Network/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet",
 )
