@@ -185,7 +185,8 @@ Examples:
     juju bootstrap --config controller-service-type=external --config controller-service-name=controller.juju.is
 
 See also:
-    add-credentials
+    add-credential
+    autoload-credentials
     add-model
     controller-config
     model-config
