@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/charm/v8"
@@ -50,6 +51,7 @@ type API struct {
 	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
 	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
 
+	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
 }
 
@@ -603,9 +605,14 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 }
 
 func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	// The following is only required for testing, as we generate a new http
+	// client here for production.
+	a.mu.Lock()
 	if a.repoFactory != nil {
+		defer a.mu.Unlock()
 		return a.repoFactory.GetCharmRepository(src)
 	}
+	a.mu.Unlock()
 
 	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
