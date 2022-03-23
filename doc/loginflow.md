@@ -13,6 +13,19 @@ https://github.com/rescrv/libmacaroons/blob/master/README.  For a more
 theoretical approach you can read this:
 https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/41892.pdf.
 
+## Overview
+
+Login with just username and no creds:
+- triggers macaroon discharge workflow to ultimately, all going well, get a
+  macaroon with a TTL of 24 hours and username caveat, stored in client cookie
+  jar
+- first step is for client to prompt for password and redirect to trusted 3rd
+  party identity provider to validate identity
+- results in short lived "login macaroon" which proves the user has logged in
+- controller then mints the "real" macaroon to return to the client with
+  declared username caveat and op set to login
+- client logs in again with this newly minted macaroon and auth passes and login succeeds
+
 ## 1. Get websocket connection
 Open a websocket connection to `wss://CONTROLLER_HOST:17070/api`
 
