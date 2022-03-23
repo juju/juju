@@ -9,9 +9,9 @@ import (
 	"gopkg.in/macaroon.v2"
 )
 
-// SimpleConnectorConfig aims to provide the same API surface as pilot juju for
+// SimpleConfig aims to provide the same API surface as pilot juju for
 // obtaining an api connection.
-type SimpleConnectorConfig struct {
+type SimpleConfig struct {
 
 	// Address of the controller (required)
 	ControllerAddress string
@@ -39,7 +39,7 @@ var _ Connector = (*SimpleConnector)(nil)
 // NewSimple returns an instance of *SimpleConnector configured to
 // connect according to the specified options.  If some options are invalid an
 // error is returned.
-func NewSimple(opts SimpleConnectorConfig, dialOptions ...api.DialOption) (*SimpleConnector, error) {
+func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnector, error) {
 	info := api.Info{
 		Addrs:    []string{opts.ControllerAddress},
 		CACert:   opts.CACert,

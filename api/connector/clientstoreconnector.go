@@ -15,12 +15,12 @@ var ErrEmptyControllerName = errors.New("empty controller name")
 
 // A Connector can provie api.Connection instances based on a ClientStore
 type ClientStoreConnector struct {
-	config          ClientStoreConnectorConfig
+	config          ClientStoreConfig
 	defaultDialOpts api.DialOpts
 }
 
-// ClientStoreConnectorConfig provides configuration for a Connector.
-type ClientStoreConnectorConfig struct {
+// ClientStoreConfig provides configuration for a Connector.
+type ClientStoreConfig struct {
 	// Controller to connect to.  Required
 	ControllerName string
 
@@ -36,7 +36,7 @@ type ClientStoreConnectorConfig struct {
 
 // NewClientStore returns a new *ClientStoreConnector instance for the given config, or an error if
 // there was a problem setting up the connector.
-func NewClientStore(config ClientStoreConnectorConfig, dialOptions ...api.DialOption) (*ClientStoreConnector, error) {
+func NewClientStore(config ClientStoreConfig, dialOptions ...api.DialOption) (*ClientStoreConnector, error) {
 	if config.ControllerName == "" {
 		return nil, ErrEmptyControllerName
 	}
