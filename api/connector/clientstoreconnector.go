@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiconnector
+package connector
 
 import (
 	"errors"
@@ -14,13 +14,13 @@ import (
 var ErrEmptyControllerName = errors.New("empty controller name")
 
 // A Connector can provie api.Connection instances based on a ClientStore
-type Connector struct {
-	config          Config
+type ClientStoreConnector struct {
+	config          ClientStoreConnectorConfig
 	defaultDialOpts api.DialOpts
 }
 
-// Config provides configuration for a Connector.
-type Config struct {
+// ClientStoreConnectorConfig provides configuration for a Connector.
+type ClientStoreConnectorConfig struct {
 	// Controller to connect to.  Required
 	ControllerName string
 
@@ -34,9 +34,9 @@ type Config struct {
 	AccountDetails *jujuclient.AccountDetails
 }
 
-// New returns a new *Connector instance for the given config, or an error if
+// NewClientStore returns a new *ClientStoreConnector instance for the given config, or an error if
 // there was a problem setting up the connector.
-func New(config Config, dialOptions ...api.DialOption) (*Connector, error) {
+func NewClientStore(config ClientStoreConnectorConfig, dialOptions ...api.DialOption) (*ClientStoreConnector, error) {
 	if config.ControllerName == "" {
 		return nil, ErrEmptyControllerName
 	}
@@ -50,7 +50,7 @@ func New(config Config, dialOptions ...api.DialOption) (*Connector, error) {
 		}
 		config.AccountDetails = d
 	}
-	conn := &Connector{
+	conn := &ClientStoreConnector{
 		config:          config,
 		defaultDialOpts: api.DefaultDialOpts(),
 	}
@@ -62,7 +62,7 @@ func New(config Config, dialOptions ...api.DialOption) (*Connector, error) {
 
 // Connect returns an api.Connection to the controller / model specified in c's
 // config, or an error if there was a problem opening the connection.
-func (c *Connector) Connect(dialOptions ...api.DialOption) (api.Connection, error) {
+func (c *ClientStoreConnector) Connect(dialOptions ...api.DialOption) (api.Connection, error) {
 	opts := c.defaultDialOpts
 	for _, f := range dialOptions {
 		f(&opts)
