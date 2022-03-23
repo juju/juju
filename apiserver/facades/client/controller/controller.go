@@ -109,6 +109,11 @@ type ControllerAPIv3 struct {
 // controller API.
 var LatestAPI = newControllerAPIv11
 
+// TestingAPI is an escape hatch for requesting a controller API that won't
+// allow auth to correctly happen for ModelStatus. I'm not convicned this
+// should exist at all.
+var TestingAPI = newControllerAPIv6
+
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
 func NewControllerAPI(
