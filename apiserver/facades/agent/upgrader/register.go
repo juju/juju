@@ -31,7 +31,7 @@ type Registry interface {
 func Register(registry Registry) {
 	registry.MustRegister("Upgrader", 1, func(ctx facade.Context) (facade.Facade, error) {
 		return newUpgraderFacade(ctx)
-	}, reflect.TypeOf((Upgrader)(nil)))
+	}, reflect.TypeOf((*Upgrader)(nil)).Elem())
 }
 
 // The upgrader facade is a bit unique vs the other API Facades, as it

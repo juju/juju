@@ -31,7 +31,7 @@ type Registry interface {
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry Registry) {
-	registry.MustRegister("CharmRevisionUpdater", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CharmRevisionUpdater", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newCharmRevisionUpdaterAPI(ctx)
 	}, reflect.TypeOf((*CharmRevisionUpdaterAPI)(nil)))
 }

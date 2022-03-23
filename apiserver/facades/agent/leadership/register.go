@@ -27,7 +27,7 @@ type Registry interface {
 func Register(registry Registry) {
 	registry.MustRegister("LeadershipService", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newLeadershipServiceFacade(ctx)
-	}, reflect.TypeOf((*LeadershipService)(nil)))
+	}, reflect.TypeOf((*LeadershipService)(nil)).Elem())
 }
 
 // newLeadershipServiceFacade constructs a new LeadershipService and presents

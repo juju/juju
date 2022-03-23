@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
+	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
@@ -132,16 +133,17 @@ func AllFacades() *facade.Registry {
 	cloud.Register(registry)
 
 	// CAAS related facades.
+	caasadmission.Register(registry)
+	caasagent.Register(registry)
+	caasapplication.Register(registry)
+	caasapplicationprovisioner.Register(registry)
 	caasfirewaller.Register(registry)
 	caasoperator.Register(registry)
-	caasagent.Register(registry)
 	caasmodeloperator.Register(registry)
+	caasmodelconfigmanager.Register(registry)
 	caasoperatorprovisioner.Register(registry)
 	caasoperatorupgrader.Register(registry)
 	caasunitprovisioner.Register(registry)
-	caasapplication.Register(registry)
-	caasapplicationprovisioner.Register(registry)
-	caasmodelconfigmanager.Register(registry)
 
 	controller.Register(registry)
 	crossmodelrelations.Register(registry)
@@ -213,7 +215,7 @@ func AllFacades() *facade.Registry {
 	// TODO (stickupkid): The following should be moved into a package.
 	registry.MustRegister("Pinger", 1, func(ctx facade.Context) (facade.Facade, error) {
 		return NewPinger(ctx)
-	}, reflect.TypeOf((Pinger)(nil)))
+	}, reflect.TypeOf((*Pinger)(nil)).Elem())
 
 	registry.MustRegister("AllWatcher", 1, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
 	registry.MustRegister("AllWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
