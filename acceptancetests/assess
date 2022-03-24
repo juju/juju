@@ -70,11 +70,10 @@ def list_tests():
 
 
 def default_juju_bin():
-    try:
-        gopath = os.environ["GOPATH"]
-    except LookupError:
-        return
-    return os.path.join(gopath, "bin", "juju")
+    home = os.environ.get("HOME")
+    if not home:
+        return None
+    return os.path.join(home, "go", "bin", "juju")
 
 
 def tempdir_prefix(test=""):
@@ -365,7 +364,6 @@ def main():
 
     testrun_env = {
         "PATH": os.environ["PATH"],
-        "GOPATH": os.environ["GOPATH"],
         "JUJU_HOME": args.juju_home,
         "JUJU_DATA": args.juju_data,
         "JUJU_REPOSITORY": args.juju_repository,
