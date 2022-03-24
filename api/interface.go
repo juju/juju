@@ -43,9 +43,10 @@ type Info struct {
 	// ControllerUUID is the UUID of the controller.
 	ControllerUUID string
 
-	// SNIHostName optionally holds the host name to use for server name
-	// indication (SNI) when connecting to the addresses in Addrs above. If
-	// CACert is non-empty, this field is ignored.
+	// SNIHostName optionally holds the host name to use for
+	// server name indication (SNI) when connecting
+	// to the addresses in Addrs above. If CACert is non-empty,
+	// this field is ignored.
 	SNIHostName string
 
 	// CACert holds the CA certificate that will be used
