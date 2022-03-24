@@ -21,6 +21,19 @@ type record struct {
 // single facade. We use a map to be able to quickly lookup a version.
 type versions map[int]record
 
+// FacadeRegistry describes the API facades exposed by some API server.
+type FacadeRegistry interface {
+	// MustRegister adds a single named facade at a given version to the
+	// registry.
+	// Factory will be called when someone wants to instantiate an object of
+	// this facade, and facadeType defines the concrete type that the returned
+	// object will be.
+	// The Type information is used to define what methods will be exported in
+	// the API, and it must exactly match the actual object returned by the
+	// factory.
+	MustRegister(string, int, Factory, reflect.Type)
+}
+
 // Registry describes the API facades exposed by some API server.
 type Registry struct {
 	facades map[string]versions
