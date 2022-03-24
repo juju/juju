@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	upgraderapi "github.com/juju/juju/api/agent/upgrader"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/simplestreams"
@@ -42,7 +43,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/upgrader"
-	upgraderapi "github.com/juju/juju/api/agent/upgrader"
 )
 
 func TestPackage(t *stdtesting.T) {
