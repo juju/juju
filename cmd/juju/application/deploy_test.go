@@ -72,6 +72,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/unitassigner"
 )
 
 // defaultSupportedJujuSeries is used to return canned information about what
@@ -1223,7 +1224,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("dummy/0")})
+	errs, err := unitassigner.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("dummy/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1273,7 +1274,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
+	errs, err := unitassigner.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 

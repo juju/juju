@@ -20,7 +20,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
@@ -336,5 +335,4 @@ type Connection interface {
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	InstancePoller() *instancepoller.API
-	UnitAssigner() unitassigner.API
 }

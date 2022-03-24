@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/worker/unitassigner"
 )
 
 type RefreshResourceSuite struct {
@@ -163,7 +164,7 @@ Deploying charm "cs:bionic/starsay-1".`
 	unit, err := s.State.Unit("starsay/0")
 	c.Assert(err, jc.ErrorIsNil)
 	tags := []names.UnitTag{unit.UnitTag()}
-	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	errs, err := unitassigner.New(s.APIState).AssignUnits(tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 

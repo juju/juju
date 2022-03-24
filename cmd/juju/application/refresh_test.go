@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/unitassigner"
 )
 
 type BaseRefreshSuite struct {
@@ -712,7 +713,7 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 	tags := []names.UnitTag{unit.UnitTag()}
-	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	errs, err := unitassigner.New(s.APIState).AssignUnits(tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
 
