@@ -28,7 +28,6 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -2798,11 +2797,11 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	)
 
 	var err error
-	e.ec2Client, err = e.ec2ClientFunc(ctx, spec, WithHTTPClient(api.NewClient(httpClient)))
+	e.ec2Client, err = e.ec2ClientFunc(ctx, spec, WithHTTPClient(httpClient.Client()))
 	if err != nil {
 		return errors.Annotate(err, "creating aws ec2 client")
 	}
-	e.iamClient, err = e.iamClientFunc(ctx, spec, WithHTTPClient(api.NewClient(httpClient)))
+	e.iamClient, err = e.iamClientFunc(ctx, spec, WithHTTPClient(httpClient.Client()))
 	if err != nil {
 		return errors.Annotate(err, "creating aws iam client")
 	}

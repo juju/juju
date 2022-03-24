@@ -44,7 +44,7 @@ func (s *HandlerSuite) TestHandler(c *gc.C) {
 	u, err := url.Parse(s.server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	dialRaw := func(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
-		tlsConfig := api.NewClient(s.server).Transport.(*http.Transport).TLSClientConfig
+		tlsConfig := s.server.Client().Transport.(*http.Transport).TLSClientConfig
 		return tls.Dial("tcp", u.Host, tlsConfig)
 	}
 	dialer := rafttransport.Dialer{

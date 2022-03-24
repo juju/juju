@@ -18,7 +18,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
@@ -120,7 +119,7 @@ func NewProvider() environs.CloudEnvironProvider {
 		jujuhttp.WithLogger(logger.Child("http")),
 	)
 	configReader := lxcConfigReader{}
-	factory := NewServerFactory(api.NewClient(httpClient))
+	factory := NewServerFactory(httpClient.Client())
 	credentials := environProviderCredentials{
 		certReadWriter:  certificateReadWriter{},
 		certGenerator:   certificateGenerator{},
