@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/unitassigner"
 )
 
 type RepoSuite struct {
@@ -73,7 +73,7 @@ func (s *RepoSuite) AssertUnitMachines(c *gc.C, units []*state.Unit) {
 
 	// manually assign all units to machines.  This replaces work normally done
 	// by the unitassigner code.
-	errs, err := unitassigner.New(s.APIState).AssignUnits(tags)
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits(tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
 
