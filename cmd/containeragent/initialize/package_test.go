@@ -40,7 +40,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/controller/instancepoller",
 		"api/agent/keyupdater",
 		"api/agent/reboot",
-		"api/agent/unitassigner",
 		"api/agent/uniter",
 		"api/agent/upgrader",
 		"api/watcher",
