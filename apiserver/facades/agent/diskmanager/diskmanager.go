@@ -26,12 +26,8 @@ var getState = func(st *state.State) stateInterface {
 }
 
 // NewDiskManagerAPI creates a new server-side DiskManager API facade.
-func NewDiskManagerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*DiskManagerAPI, error) {
-
+func NewDiskManagerAPI(ctx facade.Context) (*DiskManagerAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -44,6 +40,7 @@ func NewDiskManagerAPI(
 		}, nil
 	}
 
+	st := ctx.State()
 	return &DiskManagerAPI{
 		st:          getState(st),
 		authorizer:  authorizer,

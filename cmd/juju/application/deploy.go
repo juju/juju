@@ -55,6 +55,11 @@ type DeployAPI interface {
 	PlanURL() string
 }
 
+type CharmsAPI interface {
+	store.CharmsAPI
+	BestAPIVersion() int
+}
+
 // The following structs exist purely because Go cannot create a
 // struct with a field named the same as a method name. The DeployAPI
 // needs to both embed a *<package>.Client and provide the
@@ -173,16 +178,19 @@ func newDeployCommand() *DeployCommand {
 		}
 		return store.NewCharmStoreAdaptor(bakeryClient, url), nil
 	}
-	deployCmd.NewModelConfigClient = func(api base.APICallCloser) ModelConfigClient {
+	deployCmd.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
 		return modelconfig.NewClient(api)
+	}
+	deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+		return apicharms.NewClient(api)
 	}
 	deployCmd.NewDownloadClient = func() (store.DownloadBundleClient, error) {
 		apiRoot, err := deployCmd.newAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		charmHubURL, err := deployCmd.getCharmHubURL(apiRoot)
+		modelConfigClient := deployCmd.NewModelConfigAPI(apiRoot)
+		charmHubURL, err := deployCmd.getCharmHubURL(modelConfigClient)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -334,9 +342,12 @@ type DeployCommand struct {
 	// NewDownloadClient stores a function for getting a charm/bundle.
 	NewDownloadClient func() (store.DownloadBundleClient, error)
 
-	// NewModelConfigClient stores a function which returns a new model config
+	// NewModelConfigAPI stores a function which returns a new model config
 	// client. This is used to get the model config.
-	NewModelConfigClient func(base.APICallCloser) ModelConfigClient
+	NewModelConfigAPI func(base.APICallCloser) ModelConfigGetter
+
+	// NewCharmsAPI stores a function for getting info about charms.
+	NewCharmsAPI func(caller base.APICallCloser) CharmsAPI
 
 	// NewResolver stores a function which returns a charm adaptor.
 	NewResolver func(store.CharmsAPI, store.CharmStoreRepoFunc, store.DownloadBundleClientFunc) deployer.Resolver
@@ -789,7 +800,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = deployAPI.Close() }()
+	defer func() {
+		if c.apiRoot != nil {
+			_ = c.apiRoot.Close()
+		}
+		if c.controllerAPIRoot != nil {
+			_ = c.controllerAPIRoot.Close()
+		}
+	}()
 
 	if c.ModelConstraints, err = deployAPI.GetModelConstraints(); err != nil {
 		return errors.Trace(err)
@@ -810,7 +828,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return c.NewDownloadClient()
 	}
 
-	charmAPIClient := apicharms.NewClient(deployAPI)
+	charmAPIClient := c.NewCharmsAPI(c.apiRoot)
 	charmAdapter := c.NewResolver(charmAPIClient, csRepoFn, downloadClientFn)
 
 	factory, cfg := c.getDeployerFactory(charm.CharmHub)
@@ -896,10 +914,7 @@ func (c *DeployCommand) getDeployerFactory(defaultCharmSchema charm.Schema) (dep
 	return c.NewDeployerFactory(dep), cfg
 }
 
-func (c *DeployCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
-	modelConfigClient := c.NewModelConfigClient(apiRoot)
-	defer func() { _ = modelConfigClient.Close() }()
-
+func (c *DeployCommand) getCharmHubURL(modelConfigClient ModelConfigGetter) (string, error) {
 	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {
 		return "", errors.Trace(err)

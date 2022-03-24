@@ -41,7 +41,7 @@ func (s *configSuite) TestValidateNew(c *gc.C) {
 func (s *configSuite) TestValidateInvalidLoadBalancerSkuName(c *gc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"load-balancer-sku-name": "premium"},
-		`invalid load balancer SKU name "Premium", expected one of: \["Basic" "Standard"\]`,
+		`invalid load balancer SKU name "Premium", expected one of: \["Basic" "Gateway" "Standard"\]`,
 	)
 }
 

@@ -25,12 +25,12 @@ type FanConfigurerAPI struct {
 var _ FanConfigurer = (*FanConfigurerAPI)(nil)
 
 // NewFanConfigurerAPI creates a new FanConfigurer API endpoint on server-side.
-func NewFanConfigurerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*FanConfigurerAPI, error) {
-	model, err := st.Model()
+func NewFanConfigurerAPI(ctx facade.Context) (*FanConfigurerAPI, error) {
+	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, err
 	}
-	return NewFanConfigurerAPIForModel(model, resources, authorizer)
+	return NewFanConfigurerAPIForModel(model, ctx.Resources(), ctx.Auth())
 }
 
 func NewFanConfigurerAPIForModel(model state.ModelAccessor, resources facade.Resources, authorizer facade.Authorizer) (*FanConfigurerAPI, error) {

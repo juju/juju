@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
@@ -48,7 +49,11 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 
 	resources := common.NewResources()
 
-	rebootAPI, err := reboot.NewRebootAPI(s.State, resources, authorizer)
+	rebootAPI, err := reboot.NewRebootAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: resources,
+		Auth_:      authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

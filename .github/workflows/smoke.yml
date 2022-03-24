@@ -60,8 +60,7 @@ jobs:
     strategy:
       matrix:
         snap_version: ["latest/stable", "latest/beta"]
-        # TODO - microk8s upgrade test is broken
-        model_type: ["localhost"] #, "microk8s"]
+        model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
@@ -199,13 +198,18 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       env:
         JUJU_DB_TAG: ${{ steps.vars.outputs.juju-db-version }}
+
+      # TODO: Enabling developer-mode is a bit of a hack to get this working for now.
+      # Ideally, we would mock our own simplestream, similar to Jenkins, to select
+      # and filter with as standard, instead of skipping over them with this flag
       run: |
         set -euxo pipefail
 
         sg microk8s <<EOF
           juju bootstrap microk8s c \
-            --config caas-image-repo="'{\"repository\": \"${DOCKER_REGISTRY}/test-repo\", \"serveraddress\": \"https://${DOCKER_REGISTRY}/\"}'" \
-            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable"
+            --config caas-image-repo='{"repository": "${DOCKER_REGISTRY}/test-repo", "serveraddress": "https://${DOCKER_REGISTRY}/"}' \
+            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
+            --config features="[developer-mode]"
         EOF
         juju add-model m
 
@@ -283,7 +287,7 @@ jobs:
 
         attempt=0
         while true; do
-          UPDATED=$(juju show-controller --format=json | jq -r '.c.details."agent-version"')
+          UPDATED=$((juju show-controller --format=json || echo "") | jq -r '.c.details."agent-version"')
           if [[ $UPDATED == $UPSTREAM_JUJU_TAG* ]]; then
               break
           fi
@@ -309,8 +313,6 @@ jobs:
       shell: bash
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
-        UPGRADE_PARAMS_localhost: "--build-agent"
-        UPGRADE_PARAMS_microk8s: ""
       run: |
         set -euxo pipefail
 
@@ -324,7 +326,7 @@ jobs:
 
         attempt=0
         while true; do
-          UPDATED=$(juju show-model m --format=json | jq -r '.m."agent-version"')
+          UPDATED=$((juju show-model m --format=json || echo "") | jq -r '.m."agent-version"')
           if [[ $UPDATED == $UPSTREAM_JUJU_TAG* ]]; then
             break
           fi

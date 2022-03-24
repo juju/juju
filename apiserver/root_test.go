@@ -210,11 +210,7 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	registry := new(facade.Registry)
 	var count int64
-	newCounter := func(
-		*state.State, facade.Resources, facade.Authorizer,
-	) (
-		*countingType, error,
-	) {
+	newCounter := func(facade.Context) (*countingType, error) {
 		count += 1
 		return &countingType{count: count, id: ""}, nil
 	}
@@ -330,18 +326,10 @@ func (*secondImpl) OneMethod() stringVar {
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 	registry := new(facade.Registry)
-	registry.RegisterStandard("my-interface-facade", 0, func(
-		*state.State, facade.Resources, facade.Authorizer,
-	) (
-		smallInterface, error,
-	) {
+	registry.RegisterStandard("my-interface-facade", 0, func(_ facade.Context) (smallInterface, error) {
 		return &firstImpl{}, nil
 	})
-	registry.RegisterStandard("my-interface-facade", 1, func(
-		*state.State, facade.Resources, facade.Authorizer,
-	) (
-		smallInterface, error,
-	) {
+	registry.RegisterStandard("my-interface-facade", 1, func(_ facade.Context) (smallInterface, error) {
 		return &secondImpl{}, nil
 	})
 	srvRoot := apiserver.TestingAPIRoot(registry)

@@ -159,6 +159,8 @@ func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 		// https://github.com/lxc/lxd/issues/1763
 		remotes = append(remotes, lxd.MakeSimpleStreamsServerSpec(source.Description(), url))
 	}
+	// Required for CentOS images.
+	remotes = append(remotes, lxd.CloudImagesLinuxContainersRemote)
 	return remotes, nil
 }
 

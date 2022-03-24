@@ -429,14 +429,14 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		origin.Series = r.deployedSeries
 	}
 
-	curl, _, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
+	curl, actualOrigin, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &CharmID{
 		URL:    curl,
-		Origin: origin.CoreCharmOrigin(),
+		Origin: actualOrigin.CoreCharmOrigin(),
 	}, nil
 }
 

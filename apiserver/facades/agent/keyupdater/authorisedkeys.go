@@ -35,11 +35,8 @@ type KeyUpdaterAPI struct {
 var _ KeyUpdater = (*KeyUpdaterAPI)(nil)
 
 // NewKeyUpdaterAPI creates a new server-side keyupdater API end point.
-func NewKeyUpdaterAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*KeyUpdaterAPI, error) {
+func NewKeyUpdaterAPI(ctx facade.Context) (*KeyUpdaterAPI, error) {
+	authorizer := ctx.Auth()
 	// Only machine agents have access to the keyupdater service.
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -48,11 +45,18 @@ func NewKeyUpdaterAPI(
 	getCanRead := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &KeyUpdaterAPI{state: st, model: m, resources: resources, authorizer: authorizer, getCanRead: getCanRead}, nil
+	return &KeyUpdaterAPI{
+		state:      st,
+		model:      m,
+		resources:  ctx.Resources(),
+		authorizer: authorizer,
+		getCanRead: getCanRead,
+	}, nil
 }
 
 // WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh keys

@@ -249,11 +249,11 @@ func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 	// an empty image metadata URL results in a search of the default sources.
 	if imURL == "" && m.imageStream != "daily" {
 		logger.Debugf("checking default image metadata sources")
-		return []ServerSpec{CloudImagesRemote, CloudImagesDailyRemote}, nil
+		return []ServerSpec{CloudImagesRemote, CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
 	}
 	// Otherwise only check the daily stream.
 	if imURL == "" {
-		return []ServerSpec{CloudImagesDailyRemote}, nil
+		return []ServerSpec{CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
 	}
 
 	imURL, err := imagemetadata.ImageMetadataURL(imURL, m.imageStream)
@@ -270,9 +270,9 @@ func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 	// If the daily stream was configured with custom image metadata URL,
 	// only use the Ubuntu daily as a fallback.
 	if m.imageStream == "daily" {
-		return []ServerSpec{remote, CloudImagesDailyRemote}, nil
+		return []ServerSpec{remote, CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
 	}
-	return []ServerSpec{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
+	return []ServerSpec{remote, CloudImagesRemote, CloudImagesDailyRemote, CloudImagesLinuxContainersRemote}, nil
 }
 
 // networkDevicesFromConfig uses the input container network configuration to

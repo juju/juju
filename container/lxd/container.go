@@ -6,6 +6,7 @@ package lxd
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"time"
 
@@ -254,6 +255,7 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
 	logger.Infof("starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
 	logger.Debugf("new container has profiles %v", spec.Profiles)
+	ephemeral := false
 	req := api.ContainersPost{
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
@@ -262,11 +264,23 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 			Profiles:     spec.Profiles,
 			Devices:      spec.Devices,
 			Config:       spec.Config,
-			Ephemeral:    false,
+			Ephemeral:    ephemeral,
 		},
 	}
 	op, err := s.CreateContainerFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
 	if err != nil {
+		if IsLXDAlreadyExists(err) {
+			container, runningErr := s.waitForRunningContainer(spec, ephemeral)
+			if runningErr != nil {
+				// It's actually more helpful to display the original error
+				// message, but we'll also log out what the new error message
+				// was, when attempting to wait for it.
+				logger.Debugf("waiting for container to be running: %v", runningErr)
+				return nil, errors.Trace(err)
+			}
+			c := Container{*container}
+			return &c, nil
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -296,6 +310,50 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	}
 	c := Container{*container}
 	return &c, nil
+}
+
+func (s *Server) waitForRunningContainer(spec ContainerSpec, ephemeral bool) (*api.Container, error) {
+	var container *api.Container
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			var err error
+			container, _, err = s.GetContainer(spec.Name)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			switch container.StatusCode {
+			case api.Running:
+				return nil
+			case api.Started, api.Starting, api.Success:
+				return errors.Errorf("waiting for container to be running")
+			default:
+				return errors.Errorf("waiting for container")
+			}
+		},
+		Attempts:    60,
+		MaxDuration: time.Minute * 5,
+		Delay:       time.Second * 10,
+		Clock:       s.clock,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Ensure that the container matches the spec we launched it with.
+	if matchesContainerSpec(container, spec, ephemeral) {
+		return container, nil
+	}
+	return nil, errors.Errorf("container %q does not match container spec", spec.Name)
+}
+
+func matchesContainerSpec(container *api.Container, spec ContainerSpec, ephemeral bool) bool {
+	// If we don't match the spec from the container, then we're not
+	// sure what we've got here. Return the original error message.
+	return container.Architecture == spec.Architecture &&
+		container.Ephemeral == ephemeral &&
+		reflect.DeepEqual(container.Profiles, spec.Profiles) &&
+		reflect.DeepEqual(container.Devices, spec.Devices) &&
+		reflect.DeepEqual(container.Config, spec.Config)
 }
 
 // StartContainer starts the extant container identified by the input name.

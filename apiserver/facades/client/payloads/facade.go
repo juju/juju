@@ -11,15 +11,15 @@ import (
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // NewFacade provides the signature required for facade registration.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewFacade(ctx facade.Context) (*API, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	backend, err := st.ModelPayloads()
+	backend, err := ctx.State().ModelPayloads()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

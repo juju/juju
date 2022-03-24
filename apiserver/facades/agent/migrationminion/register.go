@@ -5,14 +5,9 @@ package migrationminion
 
 import (
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
 )
 
 // NewFacade provides the signature required for facade registration.
-func NewFacade(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-	return NewAPI(st, resources, authorizer)
+func NewFacade(ctx facade.Context) (*API, error) {
+	return NewAPI(ctx.State(), ctx.Resources(), ctx.Auth())
 }

@@ -8,7 +8,7 @@ import (
 	"path"
 	"sync"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -183,7 +183,7 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallCont
 			Name: cfg.storageType,
 		},
 		DiskProperties: &compute.DiskProperties{
-			CreationData: &compute.CreationData{CreateOption: compute.Empty},
+			CreationData: &compute.CreationData{CreateOption: compute.DiskCreateOptionEmpty},
 			DiskSizeGB:   to.Int32Ptr(int32(sizeInGib)),
 		},
 	}
@@ -569,7 +569,7 @@ type maybeVirtualMachine struct {
 // errors, for each of the specified instance IDs.
 func (v *azureVolumeSource) virtualMachines(ctx context.ProviderCallContext, instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
 	vmsClient := compute.VirtualMachinesClient{v.env.compute}
-	result, err := vmsClient.ListComplete(ctx, v.env.resourceGroup)
+	result, err := vmsClient.ListComplete(ctx, v.env.resourceGroup, "")
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
 	}

@@ -190,9 +190,11 @@ func seriesRemoteAliases(series, arch string) ([]string, error) {
 		if arch == jujuarch.AMD64 {
 			switch series {
 			case "centos7":
-				return []string{"centos/7/amd64"}, nil
+				return []string{"centos/7/cloud/amd64"}, nil
 			case "centos8":
-				return []string{"centos/8/amd64"}, nil
+				return []string{"centos/8/cloud/amd64"}, nil
+			case "centos9":
+				return []string{"centos/9-Stream/cloud/amd64"}, nil
 			default:
 				return nil, errors.NotSupportedf("series %q", series)
 			}

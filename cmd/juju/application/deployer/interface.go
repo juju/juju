@@ -91,7 +91,7 @@ type OfferAPI interface {
 	GrantOffer(user, access string, offerURLs ...string) error
 }
 
-// ConsumeDetails
+// ConsumeDetails represents methods needed to consume an offer.
 type ConsumeDetails interface {
 	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
 	Close() error

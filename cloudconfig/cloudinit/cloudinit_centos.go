@@ -33,10 +33,9 @@ type centOSHelper struct {
 func (helper centOSHelper) getRequiredPackages() []string {
 	return []string{
 		"curl",
-		"bridge-utils",
-		"cloud-utils",
 		"nmap-ncat",
 		"tmux",
+		"tar",
 	}
 }
 

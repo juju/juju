@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -33,7 +34,7 @@ type clientSuite struct {
 	testing.JujuConnSuite
 
 	resources  *common.Resources
-	authoriser apiservertesting.FakeAuthorizer
+	authorizer apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
 
 	commontesting.BlockHelper
@@ -54,12 +55,16 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.authoriser = apiservertesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
 	}
 
-	s.haServer, err = highavailability.NewHighAvailabilityAPI(s.State, s.resources, s.authoriser)
+	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddMachines(state.MachineTemplate{
@@ -542,7 +547,11 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
-	haServer, err := highavailability.NewHighAvailabilityAPI(st2, s.resources, s.authoriser)
+	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
+		State_:     st2,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := enableHA(c, haServer, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
@@ -597,6 +606,10 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 
-	_, err := highavailability.NewHighAvailabilityAPI(st, s.resources, s.authoriser)
+	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
+		State_:     st,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }

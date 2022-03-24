@@ -101,6 +101,12 @@ func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 	deploy.NewDeployAPI = func() (DeployAPI, error) {
 		return s.fakeAPI, nil
 	}
+	deploy.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
+		return s.fakeAPI
+	}
+	deploy.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+		return apicharms.NewClient(s.fakeAPI)
+	}
 	return deploy
 }
 
@@ -1055,6 +1061,12 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 			return fakeAPI
 		},
 		NewDeployerFactory: fakeAPI.deployerFactoryFunc,
+		NewModelConfigAPI: func(api base.APICallCloser) ModelConfigGetter {
+			return fakeAPI
+		},
+		NewCharmsAPI: func(api base.APICallCloser) CharmsAPI {
+			return apicharms.NewClient(fakeAPI)
+		},
 	}
 	deployCmd.SetClientStore(s.Store)
 	return cmdtesting.RunCommand(c, modelcmd.Wrap(deployCmd), args...)
@@ -2585,6 +2597,12 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		deployCmd.NewCharmRepo = fakeAPI.charmRepoFunc
 		deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
 			return fakeAPI
+		}
+		deployCmd.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
+			return fakeAPI
+		}
+		deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+			return apicharms.NewClient(fakeAPI)
 		}
 	}
 	return deployCmd

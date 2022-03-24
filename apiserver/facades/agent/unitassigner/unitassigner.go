@@ -34,11 +34,12 @@ type API struct {
 }
 
 // New returns a new unitAssigner api instance.
-func New(st *state.State, res facade.Resources, _ facade.Authorizer) (*API, error) {
-	setter := common.NewStatusSetter(&common.UnitAgentFinder{st}, common.AuthAlways())
+func New(ctx facade.Context) (*API, error) {
+	st := ctx.State()
+	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
 	return &API{
 		st:           st,
-		res:          res,
+		res:          ctx.Resources(),
 		statusSetter: setter,
 	}, nil
 }

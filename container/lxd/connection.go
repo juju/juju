@@ -120,6 +120,14 @@ var CloudImagesDailyRemote = ServerSpec{
 	Protocol: SimpleStreamsProtocol,
 }
 
+// CloudImagesLinuxContainersRemote hosts images for other distributions.
+// These will be used for pulling CentOS images.
+var CloudImagesLinuxContainersRemote = ServerSpec{
+	Name:     "images.linuxcontainers.org",
+	Host:     "https://images.linuxcontainers.org",
+	Protocol: SimpleStreamsProtocol,
+}
+
 // ConnectImageRemote connects to a remote ImageServer using specified protocol.
 var ConnectImageRemote = connectImageRemote
 

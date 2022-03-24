@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -48,7 +49,11 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 		Tag: adminTag,
 	}
 	var err error
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.resources, s.authorizer)
+	s.usermanager, err = usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
@@ -58,7 +63,11 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewMachineTag("1")
-	endPoint, err := usermanager.NewUserManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -147,8 +156,11 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.AddUsers{
@@ -299,8 +311,11 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
@@ -318,8 +333,11 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 
 func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
@@ -478,7 +496,11 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: userAardvark.Tag(),
 	}
-	usermanager, err := usermanager.NewUserManagerAPI(s.State, s.resources, authorizer)
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{Entities: []params.Entity{
@@ -587,8 +609,11 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{
@@ -610,8 +635,11 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{
@@ -697,10 +725,11 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	})
 
 	// Authenticate as chuck.
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{
-			Tag: chuck.Tag(),
-		})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: chuck.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the user exists.
@@ -727,10 +756,11 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 		Name:        "jimmyjam",
 		NoModelUser: true,
 	})
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{
-			Tag: jjam.Tag(),
-		})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: jjam.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the user exists.
@@ -912,8 +942,11 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
 	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
-	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

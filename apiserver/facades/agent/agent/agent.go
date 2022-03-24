@@ -37,7 +37,8 @@ type AgentAPI struct {
 
 // NewAgentAPIV3 returns an object implementing version 2 of the Agent API
 // with the given authorizer representing the currently logged in client.
-func NewAgentAPIV3(st *state.State, resources facade.Resources, auth facade.Authorizer) (*AgentAPI, error) {
+func NewAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
+	auth := ctx.Auth()
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -46,10 +47,12 @@ func NewAgentAPIV3(st *state.State, resources facade.Resources, auth facade.Auth
 		return auth.AuthOwner, nil
 	}
 
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	resources := ctx.Resources()
 	return &AgentAPI{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
