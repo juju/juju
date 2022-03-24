@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agent/uniter"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
@@ -65,7 +66,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter, err = api.ConnectionUniter(s.st)
+	s.uniter, err = uniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 

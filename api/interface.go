@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
-	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/instancepoller"
@@ -336,15 +335,4 @@ type Connection interface {
 	Reboot() (reboot.State, error)
 	InstancePoller() *instancepoller.API
 	UnitAssigner() unitassigner.API
-}
-
-// ConnectionUniter returns a version of the Connection that provides
-// functionality required by the uniter worker if possible else a non-nil error.
-func ConnectionUniter(c Connection) (*uniter.State, error) {
-	authTag := c.AuthTag()
-	unitTag, ok := authTag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("expected UnitTag, got %T %v", authTag, authTag)
-	}
-	return uniter.NewState(c, unitTag), nil
 }

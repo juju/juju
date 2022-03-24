@@ -78,7 +78,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
-	s.uniter, err = api.ConnectionUniter(s.st)
+	s.uniter, err = uniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
@@ -87,7 +87,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	err = meteredUnit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
-	meteredUniter, err := api.ConnectionUniter(meteredState)
+	meteredUniter, err := uniter.NewFromConnection(meteredState)
 	c.Assert(err, jc.ErrorIsNil)
 	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,7 +187,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	facade, err := api.ConnectionUniter(s.st)
+	facade, err := uniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	relctxs := map[int]*runnercontext.ContextRelation{}
@@ -231,7 +231,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	facade, err := api.ConnectionUniter(s.st)
+	facade, err := uniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	relctxs := map[int]*runnercontext.ContextRelation{}
