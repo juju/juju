@@ -457,7 +457,8 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs = map[string]interface{}{
-		"apt-mirror": "http://different-mirror",
+		"apt-mirror":            "http://different-mirror",
+		"num-provision-workers": 666,
 	}
 	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -485,6 +486,10 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 			Name:  "dummy-region",
 			Value: "dummy-proxy",
 		}}}
+	expectedValues["num-provision-workers"] = config.AttributeDefaultValues{
+		Controller: 666,
+		Default:    16,
+	}
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 }
 
