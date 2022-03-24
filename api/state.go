@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
@@ -328,11 +327,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
-}
-
-// Upgrader returns access to the Upgrader API
-func (st *state) Upgrader() *upgrader.State {
-	return upgrader.NewState(st)
 }
 
 // Reboot returns access to the Reboot API
