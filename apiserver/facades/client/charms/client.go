@@ -4,13 +4,15 @@
 package charms
 
 import (
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
@@ -42,8 +44,8 @@ type API struct {
 	backendState charmsinterfaces.BackendState
 	backendModel charmsinterfaces.BackendModel
 
-	tag        names.ModelTag
-	httpClient http.HTTPClient
+	tag             names.ModelTag
+	requestRecorder facade.RequestRecorder
 
 	newStorage     func(modelUUID string) services.Storage
 	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
@@ -135,8 +137,6 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
-
 	return &API{
 		charmInfoAPI: charmInfoAPI,
 		authorizer:   authorizer,
@@ -151,8 +151,8 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 		newDownloader: func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
 			return services.NewCharmDownloader(cfg)
 		},
-		tag:        m.ModelTag(),
-		httpClient: httpTransport(logger),
+		tag:             m.ModelTag(),
+		requestRecorder: ctx.RequestRecorder(),
 	}, nil
 }
 
@@ -168,14 +168,14 @@ func NewCharmsAPI(
 	newDownloader func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error),
 ) (*API, error) {
 	return &API{
-		authorizer:    authorizer,
-		backendState:  st,
-		backendModel:  m,
-		newStorage:    newStorage,
-		repoFactory:   repoFactory,
-		newDownloader: newDownloader,
-		tag:           m.ModelTag(),
-		httpClient:    charmhub.DefaultHTTPTransport(logger),
+		authorizer:      authorizer,
+		backendState:    st,
+		backendModel:    m,
+		newStorage:      newStorage,
+		newDownloader:   newDownloader,
+		tag:             m.ModelTag(),
+		requestRecorder: noopRequestRecorder{},
+		repoFactory:     repoFactory,
 	}, nil
 }
 
@@ -384,9 +384,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		}, nil
 	}
 
+	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
+
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
 		Logger:         logger,
-		Transport:      a.httpClient,
+		Transport:      httpTransport(logger),
 		StorageFactory: a.newStorage,
 		StateBackend:   a.backendState,
 		ModelBackend:   a.backendModel,
@@ -603,19 +605,24 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 }
 
 func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	// The following is only required for testing, as we generate a new http
+	// client here for production.
 	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if a.repoFactory == nil {
-		a.repoFactory = a.newRepoFactory(services.CharmRepoFactoryConfig{
-			Logger:       logger,
-			Transport:    a.httpClient,
-			StateBackend: a.backendState,
-			ModelBackend: a.backendModel,
-		})
+	if a.repoFactory != nil {
+		defer a.mu.Unlock()
+		return a.repoFactory.GetCharmRepository(src)
 	}
+	a.mu.Unlock()
 
-	return a.repoFactory.GetCharmRepository(src)
+	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
+	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
+		Logger:       logger,
+		Transport:    httpTransport(logger),
+		StateBackend: a.backendState,
+		ModelBackend: a.backendModel,
+	})
+
+	return repoFactory.GetCharmRepository(src)
 }
 
 // IsMetered returns whether or not the charm is metered.
@@ -845,3 +852,12 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 
 	return results, nil
 }
+
+type noopRequestRecorder struct{}
+
+// Record an outgoing request which produced an http.Response.
+func (noopRequestRecorder) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
+}
+
+// Record an outgoing request which returned back an error.
+func (noopRequestRecorder) RecordError(method string, url *url.URL, err error) {}
