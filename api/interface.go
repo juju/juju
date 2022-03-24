@@ -328,9 +328,8 @@ type Connection interface {
 
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.
-	// Client in particular is intimately coupled with State -- and the others
-	// will be easy to remove, but until we're using them via manifolds it's
-	// prohibitively ugly to do so.
+	// They will be easy to remove, but until we're using them via manifolds
+	// it's prohibitively ugly to do so.
 	Uniter() (*uniter.State, error)
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
