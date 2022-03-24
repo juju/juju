@@ -42,6 +42,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/upgrader"
+	upgraderapi "github.com/juju/juju/api/agent/upgrader"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -113,7 +114,7 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 	w, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
 		Logger:                      loggo.GetLogger("test"),
-		State:                       upgrader.NewState(s.state),
+		State:                       upgraderapi.NewState(s.state),
 		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
@@ -489,7 +490,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
 		Logger:                      loggo.GetLogger("test"),
-		State:                       upgrader.NewState(s.state),
+		State:                       upgraderapi.NewState(s.state),
 		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
