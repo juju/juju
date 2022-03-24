@@ -621,7 +621,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 			"steady state unit dying",
 			quickStart{},
 			unitDying,
-			waitHooks{"leader-settings-changed", "stop"},
+			waitHooks{"stop"},
 			waitUniterDead{},
 		), ut(
 			"steady state unit dead",
@@ -636,7 +636,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 			verifyWaiting{},
 			fixHook{"start"},
 			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"start", "leader-settings-changed", "stop"},
+			waitHooks{"start", "stop"},
 			waitUniterDead{},
 		), ut(
 			"hook error unit dead",
@@ -944,7 +944,7 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			verifyWaitingUpgradeError{revision: 1},
 			fixUpgradeError{},
 			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed", "leader-settings-changed", "stop"},
+			waitHooks{"upgrade-charm", "config-changed", "stop"},
 			waitUniterDead{},
 		), ut(
 			"upgrade conflict unit dead",
@@ -1289,7 +1289,7 @@ func (s *UniterSuite) TestUniterSubordinates(c *gc.C) {
 			waitSubordinateExists{"logging/0"},
 			unitDying,
 			waitSubordinateDying{},
-			waitHooks{"leader-settings-changed", "stop"},
+			waitHooks{"stop"},
 			verifyWaiting{},
 			removeSubordinate{},
 			waitUniterDead{},
@@ -1455,7 +1455,6 @@ storage:
 			waitHooks{"wp-content-storage-attached"},
 			waitHooks(startupHooks(false)),
 			unitDying,
-			waitHooks{"leader-settings-changed"},
 			// "stop" hook is not called until storage is detached
 			waitHooks{"wp-content-storage-detaching", "stop"},
 			verifyStorageDetached{},
@@ -1474,7 +1473,7 @@ storage:
 			waitHooks(startupHooks(false)),
 			unitDying,
 			// storage-detaching is not called because it was never attached
-			waitHooks{"leader-settings-changed", "stop"},
+			waitHooks{"stop"},
 			verifyStorageDetached{},
 			waitUniterDead{},
 		), ut(
