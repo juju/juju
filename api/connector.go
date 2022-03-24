@@ -18,8 +18,12 @@ type Connector interface {
 // obtaining an api connection.
 type SimpleConnectorConfig struct {
 
-	// Address of the controller (required)
+	// Address of the controller, convenient when there is a single controller.
+	// At least one address is required.
 	ControllerAddress string
+
+	// Addresses of controllers (for HA)
+	ControllerAddresses []string
 
 	// I don't know if that's required
 	CACert string
@@ -45,8 +49,13 @@ var _ Connector = (*SimpleConnector)(nil)
 // connect according to the specified options.  If some options are invalid an
 // error is returned.
 func NewSimpleConnector(opts SimpleConnectorConfig, dialOptions ...DialOption) (*SimpleConnector, error) {
+	var addrs []string
+	if opts.ControllerAddress != "" {
+		addrs = append(addrs, opts.ControllerAddress)
+	}
+	addrs = append(addrs, opts.ControllerAddresses...)
 	info := Info{
-		Addrs:    []string{opts.ControllerAddress},
+		Addrs:    addrs,
 		CACert:   opts.CACert,
 		ModelTag: names.NewModelTag(opts.ModelUUID),
 
