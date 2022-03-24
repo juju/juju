@@ -60,7 +60,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller, machineLock machinelock.
 	if !ok {
 		return nil, errors.New("unable to obtain api.Connection")
 	}
-	rebootState, err := apiConn.Reboot()
+	rebootState, err := api.ConnectionReboot(apiConn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

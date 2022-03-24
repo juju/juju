@@ -20,7 +20,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/keyupdater"
-	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/agent/upgrader"
@@ -333,16 +332,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 // Upgrader returns access to the Upgrader API
 func (st *state) Upgrader() *upgrader.State {
 	return upgrader.NewState(st)
-}
-
-// Reboot returns access to the Reboot API
-func (st *state) Reboot() (reboot.State, error) {
-	switch tag := st.authTag.(type) {
-	case names.MachineTag:
-		return reboot.NewState(st, tag), nil
-	default:
-		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
-	}
 }
 
 // KeyUpdater returns access to the KeyUpdater API

@@ -334,7 +334,16 @@ type Connection interface {
 	Client() *Client
 	Uniter() (*uniter.State, error)
 	Upgrader() *upgrader.State
-	Reboot() (reboot.State, error)
 	InstancePoller() *instancepoller.API
 	UnitAssigner() unitassigner.API
+}
+
+// ConnectionReboot returns access to the Reboot API
+func ConnectionReboot(c Connection) (reboot.State, error) {
+	switch tag := c.AuthTag().(type) {
+	case names.MachineTag:
+		return reboot.NewState(c, tag), nil
+	default:
+		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
+	}
 }
