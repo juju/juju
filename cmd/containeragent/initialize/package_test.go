@@ -37,6 +37,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/agent/caasapplication",
 		"api/common",
 		"api/common/cloudspec",
+		"api/controller/instancepoller",
 		"api/agent/keyupdater",
 		"api/agent/reboot",
 		"api/agent/uniter",
