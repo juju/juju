@@ -19,7 +19,6 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/agent/upgrader"
@@ -336,14 +335,4 @@ type Connection interface {
 	Upgrader() *upgrader.State
 	InstancePoller() *instancepoller.API
 	UnitAssigner() unitassigner.API
-}
-
-// ConnectionReboot returns access to the Reboot API
-func ConnectionReboot(c Connection) (reboot.State, error) {
-	switch tag := c.AuthTag().(type) {
-	case names.MachineTag:
-		return reboot.NewState(c, tag), nil
-	default:
-		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
-	}
 }

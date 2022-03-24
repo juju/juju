@@ -40,7 +40,7 @@ func (s *machineRebootSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
-	s.reboot, err = api.ConnectionReboot(s.st)
+	s.reboot, err = reboot.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.reboot, gc.NotNil)
 }
