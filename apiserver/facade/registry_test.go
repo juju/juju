@@ -203,10 +203,3 @@ func validIdFactory(_ facade.Context) (facade.Facade, error) {
 	var i = 100
 	return &i, nil
 }
-
-func noArgs() {}
-
-func validContextFactory(_ facade.Context) (*int, error) {
-	var i = 100
-	return &i, nil
-}
