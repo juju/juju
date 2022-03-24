@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -97,7 +98,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 
 		return func() (done bool, err error) {
 			labelSelector := utils.LabelsToSelector(labelSet).String()
-			podList, err := broker.Client().CoreV1().Pods(broker.Namespace()).
+			podList, err := api.NewClient(broker).CoreV1().Pods(broker.Namespace()).
 				List(context.TODO(), meta.ListOptions{
 					LabelSelector: labelSelector,
 				})
@@ -126,7 +127,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		}
 	}
 
-	ssInterface := broker.Client().AppsV1().StatefulSets(broker.Namespace())
+	ssInterface := api.NewClient(broker).AppsV1().StatefulSets(broker.Namespace())
 	sResource, err := ssInterface.Get(context.TODO(), deploymentName, meta.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Annotatef(err, "getting statefulset %q", deploymentName)
@@ -139,7 +140,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 
-	deInterface := broker.Client().AppsV1().Deployments(broker.Namespace())
+	deInterface := api.NewClient(broker).AppsV1().Deployments(broker.Namespace())
 	deResource, err := deInterface.Get(context.TODO(), deploymentName, meta.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -152,7 +153,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 
-	dsInterface := broker.Client().AppsV1().DaemonSets(broker.Namespace())
+	dsInterface := api.NewClient(broker).AppsV1().DaemonSets(broker.Namespace())
 	dsResource, err := dsInterface.Get(context.TODO(), deploymentName, meta.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -212,7 +213,7 @@ func operatorUpgrade(
 					operatorImagePath,
 					vers,
 					broker.IsLegacyLabels(),
-					broker.Client().AppsV1().StatefulSets(broker.Namespace())))
+					api.NewClient(broker).AppsV1().StatefulSets(broker.Namespace())))
 			}
 		}
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/juju/api"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/compute/v1"
@@ -37,7 +38,7 @@ func newComputeService(ctx context.Context, creds *Credentials, httpClient *juju
 
 	// We're substituting the transport, with a wrapped GCE specific version of
 	// the original http.Client.
-	newClient := *httpClient.Client()
+	newClient := *api.NewClient(httpClient)
 
 	tsOpt := option.WithTokenSource(cfg.TokenSource(ctx))
 	if newClient.Transport, err = transporthttp.NewTransport(ctx, newClient.Transport, tsOpt); err != nil {

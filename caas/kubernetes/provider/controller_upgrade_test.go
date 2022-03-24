@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 )
@@ -58,7 +59,7 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
-	_, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).Create(context.TODO(),
+	_, err := api.NewClient(s.broker).AppsV1().StatefulSets(s.broker.Namespace()).Create(context.TODO(),
 		&apps.StatefulSet{
 			ObjectMeta: meta.ObjectMeta{
 				Name: appName,
@@ -85,7 +86,7 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 
 	c.Assert(controllerUpgrade(appName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
 
-	ss, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).
+	ss, err := api.NewClient(s.broker).AppsV1().StatefulSets(s.broker.Namespace()).
 		Get(context.TODO(), appName, meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)

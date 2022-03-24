@@ -11,6 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/environs/bootstrap"
@@ -54,7 +55,7 @@ func controllerUpgrade(appName string, vers version.Number, broker UpgradeCAASCo
 		"",
 		vers,
 		broker.IsLegacyLabels(),
-		broker.Client().AppsV1().StatefulSets(broker.Namespace()))
+		api.NewClient(broker).AppsV1().StatefulSets(broker.Namespace()))
 }
 
 func (k *kubernetesClient) upgradeController(vers version.Number) error {

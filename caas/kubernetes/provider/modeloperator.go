@@ -22,6 +22,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
@@ -592,7 +593,7 @@ func ensureModelOperatorRBAC(
 
 	c, err = clusterRole.Ensure(
 		ctx,
-		broker.Client(),
+		api.NewClient(broker),
 		resources.ClaimJujuOwnership,
 	)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
@@ -619,7 +620,7 @@ func ensureModelOperatorRBAC(
 		},
 	})
 
-	c, err = clusterRoleBinding.Ensure(ctx, broker.Client(), resources.ClaimJujuOwnership)
+	c, err = clusterRoleBinding.Ensure(ctx, api.NewClient(broker), resources.ClaimJujuOwnership)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
 	if err != nil {
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role binding")

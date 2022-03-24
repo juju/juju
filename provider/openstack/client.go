@@ -16,6 +16,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/api"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
@@ -251,7 +252,7 @@ func newClient(
 		jujuhttp.WithLogger(logger.Child("http")),
 	)
 	return client.NewClient(&cred, authMode, gooseLogger,
-		client.WithHTTPClient(httpClient.Client()),
+		client.WithHTTPClient(api.NewClient(httpClient)),
 		client.WithHTTPHeadersFunc(opts.httpHeadersFunc),
 	), nil
 }

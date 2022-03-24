@@ -597,11 +597,11 @@ func (c *refreshCommand) upgradeResources(
 }
 
 func newCharmAdder(
-	api api.Connection,
+	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{api: &apiClient{Client: api.Client()}}
-	if api.BestFacadeVersion("Charms") > 2 {
-		adder.charms = &charmsClient{Client: apicharms.NewClient(api)}
+	adder := &charmAdderShim{api: &apiClient{Client: api.NewClient(conn)}}
+	if conn.BestFacadeVersion("Charms") > 2 {
+		adder.charms = &charmsClient{Client: apicharms.NewClient(conn)}
 	}
 	return adder
 }

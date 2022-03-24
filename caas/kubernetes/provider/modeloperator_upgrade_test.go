@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 )
@@ -56,7 +57,7 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
 
-	_, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).Create(context.TODO(),
+	_, err := api.NewClient(s.broker).AppsV1().Deployments(s.broker.Namespace()).Create(context.TODO(),
 		&apps.Deployment{
 			ObjectMeta: meta.ObjectMeta{
 				Name: operatorName,
@@ -82,7 +83,7 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(modelOperatorUpgrade(operatorName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
-	de, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).
+	de, err := api.NewClient(s.broker).AppsV1().Deployments(s.broker.Namespace()).
 		Get(context.TODO(), operatorName, meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)

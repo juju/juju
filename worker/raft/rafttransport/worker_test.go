@@ -158,7 +158,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) {
 		s.server.Close()
 	})
-	clientTransport := s.server.Client().Transport.(*http.Transport)
+	clientTransport := api.NewClient(s.server).Transport.(*http.Transport)
 	s.config.TLSConfig = clientTransport.TLSClientConfig
 
 	s.reqs = make(chan apiserver.DetailsRequest, 10)
@@ -309,7 +309,7 @@ func (s *WorkerTimeoutSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) {
 		s.server.Close()
 	})
-	clientTransport := s.server.Client().Transport.(*http.Transport)
+	clientTransport := api.NewClient(s.server).Transport.(*http.Transport)
 	s.config.TLSConfig = clientTransport.TLSClientConfig
 }
 
