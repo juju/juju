@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
-	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
@@ -317,11 +316,6 @@ func (st *state) Client() *Client {
 // required by the unitassigner worker.
 func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
-}
-
-// Upgrader returns access to the Upgrader API
-func (st *state) Upgrader() *upgrader.State {
-	return upgrader.NewState(st)
 }
 
 // Reboot returns access to the Reboot API

@@ -41,7 +41,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/agent/keyupdater",
 		"api/agent/reboot",
 		"api/agent/unitassigner",
-		"api/agent/upgrader",
 		"api/watcher",
 		"apiserver/errors",
 		"rpc/params",
