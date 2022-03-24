@@ -57,7 +57,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"cloud",
 		"cmd",
 		"controller",
-		"core/application",
 		"core/charm/metrics",
 		"core/constraints",
 		"core/devices",
