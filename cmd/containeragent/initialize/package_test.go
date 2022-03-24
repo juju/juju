@@ -42,7 +42,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/agent/reboot",
 		"api/agent/unitassigner",
 		"api/agent/uniter",
-		"api/agent/upgrader",
 		"api/watcher",
 		"apiserver/errors",
 		"rpc/params",
