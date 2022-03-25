@@ -19,7 +19,7 @@ import (
 type migrationLoggingStrategy struct {
 	dbloggers *dbloggers
 
-	dblogger recordLogger
+	dblogger StateLogger
 	releaser func()
 	tracker  *logTracker
 }

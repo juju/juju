@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
@@ -183,6 +184,10 @@ type ServerConfig struct {
 	// DefaultLogSinkConfig() will be used.
 	LogSinkConfig *LogSinkConfig
 
+	// SysLogger is a logger that will tee the output from logging
+	// to the local syslog.
+	SysLogger syslogger.SysLogger
+
 	// GetAuditConfig holds a function that returns the current audit
 	// logging config. The function may return updated values, so
 	// should be called every time a new login is handled.
@@ -246,6 +251,9 @@ func (c ServerConfig) Validate() error {
 		if err := c.LogSinkConfig.Validate(); err != nil {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
+	}
+	if c.SysLogger == nil {
+		return errors.NotValidf("nil SysLogger")
 	}
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
@@ -325,6 +333,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		},
 		getAuditConfig: cfg.GetAuditConfig,
 		dbloggers: dbloggers{
+			syslogger:             cfg.SysLogger,
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,

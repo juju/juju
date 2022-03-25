@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/logdb"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 const (
@@ -31,14 +32,14 @@ type agentLoggingStrategy struct {
 	dbloggers  *dbloggers
 	fileLogger io.Writer
 
-	dblogger   recordLogger
+	dblogger   StateLogger
 	releaser   func()
 	version    version.Number
 	entity     string
 	filePrefix string
 }
 
-type recordLogger interface {
+type StateLogger interface {
 	Log([]state.LogRecord) error
 }
 
@@ -47,6 +48,7 @@ type recordLogger interface {
 // When the State corresponding to the DB logger is removed from the
 // state pool, the strategies must call the dbloggers.remove method.
 type dbloggers struct {
+	syslogger             syslogger.SysLogger
 	clock                 clock.Clock
 	dbLoggerBufferSize    int
 	dbLoggerFlushInterval time.Duration
@@ -54,7 +56,7 @@ type dbloggers struct {
 	loggers               map[*state.State]*bufferedDbLogger
 }
 
-func (d *dbloggers) get(st *state.State) recordLogger {
+func (d *dbloggers) get(st *state.State) StateLogger {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.loggers[st]; ok {
@@ -64,14 +66,14 @@ func (d *dbloggers) get(st *state.State) recordLogger {
 		d.loggers = make(map[*state.State]*bufferedDbLogger)
 	}
 	dbl := state.NewDbLogger(st)
-	l := &bufferedDbLogger{dbl, logdb.NewBufferedLogger(
-		dbl,
+	bufferedLogger := &bufferedDbLogger{dbl, logdb.NewBufferedLogger(
+		logdb.NewTeeLogger(dbl, d.syslogger),
 		d.dbLoggerBufferSize,
 		d.dbLoggerFlushInterval,
 		d.clock,
 	)}
-	d.loggers[st] = l
-	return l
+	d.loggers[st] = bufferedLogger
+	return bufferedLogger
 }
 
 func (d *dbloggers) remove(st *state.State) {
