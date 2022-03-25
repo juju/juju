@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
@@ -309,12 +308,6 @@ func addAddress(servers []network.MachineHostPorts, addr string) ([]network.Mach
 func (st *state) Client() *Client {
 	frontend, backend := base.NewClientFacade(st, "Client")
 	return &Client{ClientFacade: frontend, facade: backend, st: st}
-}
-
-// UnitAssigner returns a version of the state that provides functionality
-// required by the unitassigner worker.
-func (st *state) UnitAssigner() unitassigner.API {
-	return unitassigner.New(st)
 }
 
 // Reboot returns access to the Reboot API

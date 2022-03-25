@@ -20,7 +20,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
@@ -330,5 +329,4 @@ type Connection interface {
 	// prohibitively ugly to do so.
 	Client() *Client
 	Reboot() (reboot.State, error)
-	UnitAssigner() unitassigner.API
 }
