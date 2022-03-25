@@ -20,10 +20,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -331,8 +328,5 @@ type Connection interface {
 	// will be easy to remove, but until we're using them via manifolds it's
 	// prohibitively ugly to do so.
 	Client() *Client
-	Uniter() (*uniter.State, error)
-	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
-	InstancePoller() *instancepoller.API
 }
