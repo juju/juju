@@ -5,6 +5,7 @@ package modelworkermanager
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/loggo"
@@ -48,9 +49,9 @@ type Model interface {
 
 // DBLogger writes into the log collections.
 type DBLogger interface {
+	io.Closer
 	// Log writes the given log records to the logger's storage.
 	Log([]state.LogRecord) error
-	Close()
 }
 
 // ModelLogger is a database backed loggo Writer.

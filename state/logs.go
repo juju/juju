@@ -418,10 +418,11 @@ func validateInputLogRecord(r LogRecord) error {
 }
 
 // Close cleans up resources used by the DbLogger instance.
-func (logger *DbLogger) Close() {
+func (logger *DbLogger) Close() error {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
+	return nil
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It

@@ -732,7 +732,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
-		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{}),
+		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
+			NewWorker: syslogger.NewWorker,
+			NewLogger: syslogger.NewSyslog,
+		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,

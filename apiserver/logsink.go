@@ -24,59 +24,55 @@ import (
 )
 
 const (
-	defaultDBLoggerBufferSize    = 1000
-	defaultDBLoggerFlushInterval = 2 * time.Second
+	defaultLoggerBufferSize    = 1000
+	defaultLoggerFlushInterval = 2 * time.Second
 )
 
-type agentLoggingStrategy struct {
-	dbloggers  *dbloggers
-	fileLogger io.Writer
-
-	dblogger   StateLogger
-	releaser   func()
-	version    version.Number
-	entity     string
-	filePrefix string
-}
-
-type StateLogger interface {
+// RecordLogger defines an interface for logging a singular log record.
+type RecordLogger interface {
 	Log([]state.LogRecord) error
 }
 
-// dbloggers contains a map of buffered DB loggers. When one of the
+// apiServerLoggers contains a map of buffered DB loggers. When one of the
 // logging strategies requires a DB logger, it uses this to get it.
 // When the State corresponding to the DB logger is removed from the
-// state pool, the strategies must call the dbloggers.remove method.
-type dbloggers struct {
-	syslogger             syslogger.SysLogger
-	clock                 clock.Clock
-	dbLoggerBufferSize    int
-	dbLoggerFlushInterval time.Duration
-	mu                    sync.Mutex
-	loggers               map[*state.State]*bufferedDbLogger
+// state pool, the strategies must call the apiServerLoggers.remove method.
+type apiServerLoggers struct {
+	syslogger           syslogger.SysLogger
+	loggingOutputs      []string
+	clock               clock.Clock
+	loggerBufferSize    int
+	loggerFlushInterval time.Duration
+	mu                  sync.Mutex
+	loggers             map[*state.State]*bufferedLogger
 }
 
-func (d *dbloggers) get(st *state.State) StateLogger {
+func (d *apiServerLoggers) get(st *state.State) RecordLogger {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.loggers[st]; ok {
 		return l
 	}
 	if d.loggers == nil {
-		d.loggers = make(map[*state.State]*bufferedDbLogger)
+		d.loggers = make(map[*state.State]*bufferedLogger)
 	}
-	dbl := state.NewDbLogger(st)
-	bufferedLogger := &bufferedDbLogger{dbl, logdb.NewBufferedLogger(
-		logdb.NewTeeLogger(dbl, d.syslogger),
-		d.dbLoggerBufferSize,
-		d.dbLoggerFlushInterval,
-		d.clock,
-	)}
+
+	outputs := d.getLoggers(st)
+
+	bufferedLogger := &bufferedLogger{
+		BufferedLogger: logdb.NewBufferedLogger(
+			outputs,
+			d.loggerBufferSize,
+			d.loggerFlushInterval,
+			d.clock,
+		),
+		closer: outputs,
+	}
 	d.loggers[st] = bufferedLogger
 	return bufferedLogger
 }
 
-func (d *dbloggers) remove(st *state.State) {
+func (d *apiServerLoggers) remove(st *state.State) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.loggers[st]; ok {
@@ -85,24 +81,68 @@ func (d *dbloggers) remove(st *state.State) {
 	}
 }
 
-// dispose closes all dbloggers in the map, and clears the memory. This
-// must not be called concurrently with any other dbloggers methods.
-func (d *dbloggers) dispose() {
+type loggerOutput interface {
+	logdb.Logger
+	io.Closer
+}
+
+func (d *apiServerLoggers) getLoggers(st *state.State) loggerOutput {
+	// If the logging output is empty, then send it to state.
+	if len(d.loggingOutputs) == 0 {
+		return state.NewDbLogger(st)
+	}
+
+	loggers := make(map[string]logdb.Logger)
+loop:
+	for _, output := range d.loggingOutputs {
+		switch output {
+		case "syslog":
+			loggers["syslog"] = d.syslogger
+		default:
+			// We only ever want one db logger.
+			if _, ok := loggers["database"]; ok {
+				continue loop
+			}
+			loggers["database"] = state.NewDbLogger(st)
+		}
+	}
+	outputs := make([]logdb.Logger, 0, len(loggers))
+	for _, output := range loggers {
+		outputs = append(outputs, output)
+	}
+
+	return logdb.NewTeeLogger(outputs...)
+}
+
+// dispose closes all apiServerLoggers in the map, and clears the memory. This
+// must not be called concurrently with any other apiServerLoggers methods.
+func (d *apiServerLoggers) dispose() {
 	for _, l := range d.loggers {
-		l.Close()
+		_ = l.Close()
 	}
 	d.loggers = nil
 }
 
-type bufferedDbLogger struct {
-	dbl *state.DbLogger
+type bufferedLogger struct {
 	*logdb.BufferedLogger
+	closer io.Closer
 }
 
-func (b *bufferedDbLogger) Close() error {
-	err := errors.Trace(b.Flush())
-	b.dbl.Close()
+func (b *bufferedLogger) Close() error {
+	err := errors.Trace(b.BufferedLogger.Flush())
+	_ = b.closer.Close()
 	return err
+}
+
+type agentLoggingStrategy struct {
+	apiServerLoggers *apiServerLoggers
+	fileLogger       io.Writer
+
+	recordLogger RecordLogger
+	releaser     func()
+	version      version.Number
+	entity       string
+	filePrefix   string
 }
 
 // newAgentLogWriteCloserFunc returns a function that will create a
@@ -111,12 +151,12 @@ func (b *bufferedDbLogger) Close() error {
 func newAgentLogWriteCloserFunc(
 	ctxt httpContext,
 	fileLogger io.Writer,
-	dbloggers *dbloggers,
+	apiServerLoggers *apiServerLoggers,
 ) logsink.NewLogWriteCloserFunc {
 	return func(req *http.Request) (logsink.LogWriteCloser, error) {
 		strategy := &agentLoggingStrategy{
-			dbloggers:  dbloggers,
-			fileLogger: fileLogger,
+			apiServerLoggers: apiServerLoggers,
+			fileLogger:       fileLogger,
 		}
 		if err := strategy.init(ctxt, req); err != nil {
 			return nil, errors.Annotate(err, "initialising agent logsink session")
@@ -146,10 +186,10 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	s.version = ver
 	s.entity = entity.Tag().String()
 	s.filePrefix = st.ModelUUID() + ":"
-	s.dblogger = s.dbloggers.get(st.State)
+	s.recordLogger = s.apiServerLoggers.get(st.State)
 	s.releaser = func() {
 		if removed := st.Release(); removed {
-			s.dbloggers.remove(st.State)
+			s.apiServerLoggers.remove(st.State)
 		}
 	}
 	return nil
@@ -168,7 +208,7 @@ func (s *agentLoggingStrategy) Close() error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	dbErr := errors.Annotate(s.dblogger.Log([]state.LogRecord{{
+	dbErr := errors.Annotate(s.recordLogger.Log([]state.LogRecord{{
 		Time:     m.Time,
 		Entity:   s.entity,
 		Version:  s.version,

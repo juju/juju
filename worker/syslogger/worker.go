@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 )
 
@@ -53,7 +54,7 @@ var syslogLoggoLevels = map[loggo.Level]syslog.Priority{
 	loggo.UNSPECIFIED: syslog.LOG_DEBUG,
 }
 
-func NewWorker(cfg WorkerConfig) (*syslogWorker, error) {
+func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
 	var err error
 	if err = cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -63,7 +64,7 @@ func NewWorker(cfg WorkerConfig) (*syslogWorker, error) {
 	// process.
 	writers := make(map[loggo.Level]io.WriteCloser)
 	for level, priority := range syslogLoggoLevels {
-		writer, err := cfg.NewLogger(priority, "juju")
+		writer, err := cfg.NewLogger(priority, "juju.daemon")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

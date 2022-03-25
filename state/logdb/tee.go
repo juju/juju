@@ -3,7 +3,11 @@
 
 package logdb
 
-import "github.com/juju/juju/state"
+import (
+	"io"
+
+	"github.com/juju/juju/state"
+)
 
 // TeeLogger forwards log request to each underlying logger.
 type TeeLogger struct {
@@ -20,6 +24,15 @@ func (t *TeeLogger) Log(records []state.LogRecord) error {
 	for _, l := range t.loggers {
 		if err := l.Log(records); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (t *TeeLogger) Close() error {
+	for _, l := range t.loggers {
+		if closer, ok := l.(io.Closer); ok {
+			_ = closer.Close()
 		}
 	}
 	return nil

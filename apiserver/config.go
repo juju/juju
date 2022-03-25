@@ -54,8 +54,8 @@ func (cfg LogSinkConfig) Validate() error {
 // DefaultLogSinkConfig returns a LogSinkConfig with default values.
 func DefaultLogSinkConfig() LogSinkConfig {
 	return LogSinkConfig{
-		DBLoggerBufferSize:    defaultDBLoggerBufferSize,
-		DBLoggerFlushInterval: defaultDBLoggerFlushInterval,
+		DBLoggerBufferSize:    defaultLoggerBufferSize,
+		DBLoggerFlushInterval: defaultLoggerFlushInterval,
 		RateLimitBurst:        defaultLogSinkRateLimitBurst,
 		RateLimitRefill:       defaultLogSinkRateLimitRefill,
 	}
