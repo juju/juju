@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -1045,7 +1046,7 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
 		names.NewUnitTag("application/2"),
@@ -1088,7 +1089,7 @@ func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
 		names.NewUnitTag("application/2"),
@@ -1169,7 +1170,7 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
 		names.NewUnitTag("application/2"),
@@ -1559,7 +1560,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1617,7 +1618,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 		Devices:     expectedProfile.Devices,
 	})
 
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1684,7 +1685,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 		Devices:     expectedProfile.Devices,
 	})
 
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 

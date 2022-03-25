@@ -38,6 +38,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/annotations"
 	"github.com/juju/juju/api/client/application"
@@ -1223,7 +1224,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("dummy/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("dummy/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1273,7 +1274,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 

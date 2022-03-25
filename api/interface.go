@@ -20,11 +20,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/api/agent/unitassigner"
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -326,13 +322,7 @@ type Connection interface {
 	// associated with.
 	CookieURL() *url.URL
 
-	// These methods expose a bunch of worker-specific facades, and basically
-	// just should not exist; but removing them is too noisy for a single CL.
-	// They will be easy to remove, but until we're using them via manifolds
-	// it's prohibitively ugly to do so.
-	Uniter() (*uniter.State, error)
-	Upgrader() *upgrader.State
+	// These method exposes aworker-specific facade, and basically just should
+	// not exist; but removing it is too noisy for a single CL.
 	Reboot() (reboot.State, error)
-	InstancePoller() *instancepoller.API
-	UnitAssigner() unitassigner.API
 }
