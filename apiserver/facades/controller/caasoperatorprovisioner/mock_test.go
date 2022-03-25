@@ -121,7 +121,7 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig()
 	attrs["operator-storage"] = "k8s-storage"
-	attrs["agent-version"] = "2.6-beta3"
+	attrs["agent-version"] = "2.6-beta3.666"
 	return config.New(config.UseDefaults, attrs)
 }
 
