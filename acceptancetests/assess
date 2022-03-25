@@ -206,7 +206,7 @@ def parse_args():
     pass_through.add_argument("--secondary-env", metavar="ENV",
                               help="(Only relevant for the cross_model_relations test)")
     pass_through.add_argument("--secondary-region", "--other-region", metavar="REGION", dest="secondary_region",
-                              help="(Only relevant for the cross_model_relations, model_defaults tests)")
+                              help="(Only relevant for the cross_model_relations tests)")
     pass_through.add_argument("--reporting-uri", metavar="URI",
                               help="URI to send metrics to. (Only relevant for webscale_deploy test) [default: \"http://root:root@localhost:8086\"]",
                               default="http://root:root@localhost:8086")
@@ -489,9 +489,6 @@ def main():
     elif assess == "mixed_images":
         if args.image_metadata_url:
             testrun_argv.extend(["--image-metadata-url", args.image_metadata_url])
-    elif assess == "model_defaults":
-        if args.secondary_region:
-            testrun_argv.extend(["--other-region", args.secondary_region])
     elif assess == "model_migration_versions":
         if args.stable_juju_bin:
             testrun_argv.extend(["--stable-juju-bin", args.stable_juju_bin])
