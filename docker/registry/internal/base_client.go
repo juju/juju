@@ -195,7 +195,7 @@ func (c baseClient) Ping() error {
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	return errors.Trace(err)
+	return errors.Trace(unwrapNetError(err))
 }
 
 func (c baseClient) ImageRepoDetails() (o docker.ImageRepoDetails) {
@@ -217,7 +217,7 @@ func (c baseClient) getPaginatedJSON(url string, response interface{}) (string, 
 	resp, err := c.client.Get(url)
 	logger.Tracef("getPaginatedJSON for %q, err %v", url, err)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(unwrapNetError(err))
 	}
 	defer resp.Body.Close()
 

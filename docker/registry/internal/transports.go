@@ -269,6 +269,18 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 		errNew = errors.Forbiddenf
 	case http.StatusUnauthorized:
 		errNew = errors.Unauthorizedf
+	case http.StatusNotFound:
+		errNew = errors.NotFoundf
 	}
 	return nil, errNew(errMsg)
+}
+
+func unwrapNetError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if neturlErr, ok := err.(*url.Error); ok {
+		return errors.Annotatef(neturlErr.Unwrap(), "%s %q", neturlErr.Op, neturlErr.URL)
+	}
+	return err
 }
