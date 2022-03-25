@@ -2570,7 +2570,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
-				apiClient:         &apiClient{Client: apiRoot.Client()},
+				apiClient:         &apiClient{Client: api.NewClient(apiRoot)},
 				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
