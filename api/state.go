@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
@@ -301,13 +300,6 @@ func addAddress(servers []network.MachineHostPorts, addr string) ([]network.Mach
 	result = append(result, network.NewMachineHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
-}
-
-// Client returns an object that can be used
-// to access client-specific functionality.
-func (st *state) Client() *Client {
-	frontend, backend := base.NewClientFacade(st, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, st: st}
 }
 
 // Reboot returns access to the Reboot API

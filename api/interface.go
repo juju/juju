@@ -322,11 +322,7 @@ type Connection interface {
 	// associated with.
 	CookieURL() *url.URL
 
-	// These methods expose a bunch of worker-specific facades, and basically
-	// just should not exist; but removing them is too noisy for a single CL.
-	// Client in particular is intimately coupled with State -- and the others
-	// will be easy to remove, but until we're using them via manifolds it's
-	// prohibitively ugly to do so.
-	Client() *Client
+	// These method exposes aworker-specific facade, and basically just should
+	// not exist; but removing it is too noisy for a single CL.
 	Reboot() (reboot.State, error)
 }
