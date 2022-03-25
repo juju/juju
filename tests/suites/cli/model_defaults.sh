@@ -33,7 +33,7 @@ run_model_defaults_boolean() {
 	juju model-defaults automatically-retry-hooks --format=yaml | grep 'controller: false'
 }
 
-run_model_defaults_region() {
+run_model_defaults_region_aws() {
 	echo
 
 	juju model-defaults --format=json test-mode | jq '."test-mode"."default"'
@@ -59,10 +59,10 @@ test_model_defaults() {
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"aws")
-			run "run_model_defaults_region"
+			run "run_model_defaults_region_aws"
 			;;
 		*)
-			echo "==> TEST SKIPPED: run_model_defaults_region for AWS only"
+			echo "==> TEST SKIPPED: run_model_defaults_region_aws runs on AWS only"
 			;;
 		esac
 	)
