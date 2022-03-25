@@ -14,13 +14,14 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.common.crossmodel")
+var logger = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodel", corelogger.CMR)
 
 // PublishRelationChange applies the relation change event to the specified backend.
 func PublishRelationChange(backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
