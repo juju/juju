@@ -1,4 +1,6 @@
-# Juju Functional Tests
+# Juju Legacy Functional Tests
+
+**These are the legacy acceptance tests written in Python. The new functional tests are in the top-level `tests` directory and are written in Bash.**
 
 ## Running Test Scripts 
 
@@ -29,8 +31,9 @@ $ sudo apt install python-simplestreams
      * Create a **JUJU_DATA** dir for use for the duration of the test. The directory is created in: $JUJU_HOME/juju-homes/.
   * **JUJU_REPOSITORY**: The directory containing the local dummy charms. You can use '\<juju root\>/acceptancetests/repository'.
 
-### Quick run using `access.py`
-`access.py` encapsulate the creating of yaml and env vars which can be further seen below, by setting some sane defaults 
+### Quick run using `./assess`
+
+The `./assess` script encapsulates the creating of yaml and env vars which can be further seen below, by setting some sane defaults 
 which you have to set yourself else.
 
 Defaults currently are:  `(lxd, bionic, tempdir..)`. Those can be changed during each run by setting the respective parameter.
@@ -38,7 +41,7 @@ Defaults currently are:  `(lxd, bionic, tempdir..)`. Those can be changed during
 
 To run `assess_min_version.py` test locally with lxd and locally compiled juju:
 ```shell script
-cd $GOPATH/src/github.com/juju/juju/acceptancetests
+cd acceptancetests
 ./assess min_version
 ```
 

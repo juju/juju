@@ -829,8 +829,7 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-
-	repo, err := a.getCharmRepository(corecharm.Source(curl.Schema))
+	repo, err := a.getCharmRepository(corecharm.Source(charmOrigin.Source))
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
