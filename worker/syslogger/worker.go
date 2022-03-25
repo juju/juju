@@ -5,6 +5,7 @@ package syslogger
 
 import (
 	"fmt"
+	"io"
 	"log/syslog"
 	"time"
 
@@ -15,12 +16,19 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 )
 
+type NewLogger func(syslog.Priority, string) (io.WriteCloser, error)
+
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
-type WorkerConfig struct{}
+type WorkerConfig struct {
+	NewLogger NewLogger
+}
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
+	if c.NewLogger == nil {
+		return errors.NotValidf("nil NewLogger")
+	}
 	return nil
 }
 
@@ -32,7 +40,7 @@ type syslogWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
 
-	writers map[loggo.Level]*syslog.Writer
+	writers map[loggo.Level]io.WriteCloser
 }
 
 var syslogLoggoLevels = map[loggo.Level]syslog.Priority{
@@ -53,9 +61,9 @@ func NewWorker(cfg WorkerConfig) (*syslogWorker, error) {
 
 	// Create a writer for every log level, so we can stream line the logging
 	// process.
-	writers := make(map[loggo.Level]*syslog.Writer)
+	writers := make(map[loggo.Level]io.WriteCloser)
 	for level, priority := range syslogLoggoLevels {
-		writer, err := syslog.New(priority, "juju")
+		writer, err := cfg.NewLogger(priority, "juju")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
