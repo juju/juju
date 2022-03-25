@@ -19,7 +19,6 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
@@ -322,11 +321,10 @@ type Connection interface {
 	// associated with.
 	CookieURL() *url.URL
 
-	// These methods expose a bunch of worker-specific facades, and basically
+	// This methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.
 	// Client in particular is intimately coupled with State -- and the others
 	// will be easy to remove, but until we're using them via manifolds it's
 	// prohibitively ugly to do so.
 	Client() *Client
-	UnitAssigner() unitassigner.API
 }
