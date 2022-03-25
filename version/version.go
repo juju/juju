@@ -63,6 +63,15 @@ var GitCommit string
 var GitTreeState string = TreeStateDirty
 
 func init() {
+	defer func() {
+		if Current.Build != 0 && OfficialBuild != 0 {
+			panic(fmt.Sprintf("unexpected Build %d and OfficialBuild %d", Current.Build, OfficialBuild))
+		}
+		if Current.Build == 0 {
+			Current.Build = OfficialBuild
+		}
+	}()
+
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
 	if err != nil {
