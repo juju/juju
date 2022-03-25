@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -331,6 +330,5 @@ type Connection interface {
 	// prohibitively ugly to do so.
 	Client() *Client
 	Reboot() (reboot.State, error)
-	InstancePoller() *instancepoller.API
 	UnitAssigner() unitassigner.API
 }

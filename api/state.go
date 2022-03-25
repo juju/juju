@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
@@ -331,11 +330,6 @@ func (st *state) Reboot() (reboot.State, error) {
 // KeyUpdater returns access to the KeyUpdater API
 func (st *state) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
-}
-
-// InstancePoller returns access to the InstancePoller API
-func (st *state) InstancePoller() *instancepoller.API {
-	return instancepoller.NewAPI(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.
