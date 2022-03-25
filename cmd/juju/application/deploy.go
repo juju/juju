@@ -720,7 +720,16 @@ func (c *DeployCommand) Init(args []string) error {
 		// do a late validation at Run().
 		c.unknownModel = true
 	}
-	if c.channelStr != "" {
+	if c.channelStr == "" {
+		if c.Revision != -1 {
+			// Tell the user they need to specify a channel
+			return errors.BadRequestf(
+				"If a revision is specified, a channel must also be specified for store\n" +
+					"charms and bundles. Do this using the --channel option, e.g.\n" +
+					"    juju deploy <charm> --revision=5 --channel=stable",
+			)
+		}
+	} else {
 		c.Channel, err = charm.ParseChannelNormalize(c.channelStr)
 		if err != nil {
 			return errors.Annotate(err, "error in --channel")
