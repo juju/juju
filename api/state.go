@@ -20,7 +20,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/keyupdater"
-	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
@@ -300,16 +299,6 @@ func addAddress(servers []network.MachineHostPorts, addr string) ([]network.Mach
 	result = append(result, network.NewMachineHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
-}
-
-// Reboot returns access to the Reboot API
-func (st *state) Reboot() (reboot.State, error) {
-	switch tag := st.authTag.(type) {
-	case names.MachineTag:
-		return reboot.NewState(st, tag), nil
-	default:
-		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
-	}
 }
 
 // KeyUpdater returns access to the KeyUpdater API

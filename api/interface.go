@@ -19,7 +19,6 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/proxy"
@@ -321,8 +320,4 @@ type Connection interface {
 	// CookieURL returns the URL that HTTP cookies for the API will be
 	// associated with.
 	CookieURL() *url.URL
-
-	// These method exposes aworker-specific facade, and basically just should
-	// not exist; but removing it is too noisy for a single CL.
-	Reboot() (reboot.State, error)
 }
