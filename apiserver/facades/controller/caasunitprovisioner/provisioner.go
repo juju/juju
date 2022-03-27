@@ -442,7 +442,6 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("provisioningInfo operatorImagePath => %#v", operatorImagePath)
 
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {

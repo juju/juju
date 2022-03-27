@@ -61,7 +61,7 @@ func IsJujuOCIImage(imagePath string) bool {
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (o string, err error) {
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
 	imagePath, err := RebuildOldOperatorImagePath(
 		controllerCfg.CAASOperatorImagePath().Repository, ver,
