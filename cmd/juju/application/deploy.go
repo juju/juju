@@ -720,6 +720,12 @@ func (c *DeployCommand) Init(args []string) error {
 		// do a late validation at Run().
 		c.unknownModel = true
 	}
+	if c.channelStr == "" && c.Revision != -1 {
+		// Tell the user they need to specify a channel
+		return errors.New(
+			`when using --revision option, you must also use --channel option`,
+		)
+	}
 	if c.channelStr != "" {
 		c.Channel, err = charm.ParseChannelNormalize(c.channelStr)
 		if err != nil {
