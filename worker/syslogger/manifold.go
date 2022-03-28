@@ -8,9 +8,10 @@ import (
 	"log/syslog"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
@@ -54,7 +55,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 type withOutputs interface {
-	Log([]state.LogRecord) error
+	Log([]corelogger.LogRecord) error
 }
 
 func output(in worker.Worker, out interface{}) error {

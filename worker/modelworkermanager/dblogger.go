@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/state"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state/logdb"
 )
 
@@ -51,7 +51,7 @@ type dbLogger struct {
 }
 
 func (l *dbLogger) Write(entry loggo.Entry) {
-	err := l.buffer.Log([]state.LogRecord{{
+	err := l.buffer.Log([]corelogger.LogRecord{{
 		Time:     entry.Timestamp,
 		Entity:   l.name,
 		Module:   entry.Module,

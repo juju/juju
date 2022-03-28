@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/state"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 )
@@ -34,7 +34,7 @@ func (c *WorkerConfig) Validate() error {
 }
 
 type SysLogger interface {
-	Log([]state.LogRecord) error
+	Log([]corelogger.LogRecord) error
 }
 
 type syslogWorker struct {
@@ -100,7 +100,7 @@ func (w *syslogWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *syslogWorker) Log(logs []state.LogRecord) error {
+func (w *syslogWorker) Log(logs []corelogger.LogRecord) error {
 	for _, log := range logs {
 		writer, ok := w.writers[log.Level]
 		if !ok {

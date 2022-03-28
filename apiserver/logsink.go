@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/logsink"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/logdb"
@@ -30,7 +31,7 @@ const (
 
 // RecordLogger defines an interface for logging a singular log record.
 type RecordLogger interface {
-	Log([]state.LogRecord) error
+	Log([]corelogger.LogRecord) error
 }
 
 // apiServerLoggers contains a map of buffered DB loggers. When one of the
@@ -208,7 +209,7 @@ func (s *agentLoggingStrategy) Close() error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	dbErr := errors.Annotate(s.recordLogger.Log([]state.LogRecord{{
+	dbErr := errors.Annotate(s.recordLogger.Log([]corelogger.LogRecord{{
 		Time:     m.Time,
 		Entity:   s.entity,
 		Version:  s.version,

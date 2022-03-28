@@ -15,6 +15,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 type LogsInternalSuite struct {
@@ -112,11 +114,11 @@ func (s *LogsInternalSuite) dbLogger(coll *mgo.Collection) *DbLogger {
 }
 
 func writeSomeLogs(c *gc.C, logger *DbLogger, count int) {
-	toWrite := make([]LogRecord, 0, count)
+	toWrite := make([]corelogger.LogRecord, 0, count)
 	when := time.Now()
 	c.Logf("writing %d logs to the db\n", count)
 	for i := 0; i < count; i++ {
-		toWrite = append(toWrite, LogRecord{
+		toWrite = append(toWrite, corelogger.LogRecord{
 			Time:     when,
 			Entity:   "some-entity",
 			Level:    loggo.DEBUG,

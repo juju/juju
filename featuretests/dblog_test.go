@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -170,7 +171,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	defer dbLogger.Close()
 
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)
-	err := dbLogger.Log([]state.LogRecord{{
+	err := dbLogger.Log([]corelogger.LogRecord{{
 		Time:     t,
 		Entity:   "not-a-tag",
 		Version:  jujuversion.Current,
@@ -228,7 +229,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	})
 
 	// Now write and observe another log. This should be read from the oplog.
-	err = dbLogger.Log([]state.LogRecord{{
+	err = dbLogger.Log([]corelogger.LogRecord{{
 		Time:     t.Add(2 * time.Second),
 		Entity:   "not-a-tag",
 		Version:  jujuversion.Current,
@@ -265,7 +266,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	t2 := time.Date(2015, 6, 23, 13, 8, 51, 50, time.UTC)
 	t3 := t1.Add(2 * time.Second)
 	t4 := t1.Add(4 * time.Second)
-	err := dbLogger.Log([]state.LogRecord{{
+	err := dbLogger.Log([]corelogger.LogRecord{{
 		Time:     t1,
 		Entity:   entity,
 		Version:  vers,

@@ -11,10 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+
+	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 type WorkerSuite struct {
@@ -51,7 +52,8 @@ func (s *WorkerSuite) TestLog(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	err = w.Log([]state.LogRecord{{
+	wrk := w.(syslogger.SysLogger)
+	err = wrk.Log([]corelogger.LogRecord{{
 		Time:    now,
 		Entity:  "foo",
 		Module:  "bar",

@@ -6,7 +6,7 @@ package logdb
 import (
 	"io"
 
-	"github.com/juju/juju/state"
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // TeeLogger forwards log request to each underlying logger.
@@ -20,7 +20,7 @@ func NewTeeLogger(loggers ...Logger) *TeeLogger {
 	return &TeeLogger{loggers: loggers}
 }
 
-func (t *TeeLogger) Log(records []state.LogRecord) error {
+func (t *TeeLogger) Log(records []corelogger.LogRecord) error {
 	for _, l := range t.loggers {
 		if err := l.Log(records); err != nil {
 			return err

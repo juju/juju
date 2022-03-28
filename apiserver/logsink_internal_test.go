@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type loggingStrategySuite struct{}
@@ -40,6 +40,6 @@ func (s *loggingStrategySuite) TestLoggingOfDBInsertFailures(c *gc.C) {
 
 type failingRecordLogger struct{}
 
-func (failingRecordLogger) Log([]state.LogRecord) error {
+func (failingRecordLogger) Log([]corelogger.LogRecord) error {
 	return errors.New("spawn more overlords")
 }

@@ -15,7 +15,7 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/worker/syslogger"
 )
 
@@ -111,7 +111,7 @@ type mockWorker struct {
 	testing.Stub
 }
 
-func (r *mockWorker) Log(logs []state.LogRecord) error {
+func (r *mockWorker) Log(logs []corelogger.LogRecord) error {
 	r.MethodCall(r, "Log", logs)
 	return r.NextErr()
 }

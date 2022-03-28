@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 )
@@ -51,7 +52,7 @@ type Model interface {
 type DBLogger interface {
 	io.Closer
 	// Log writes the given log records to the logger's storage.
-	Log([]state.LogRecord) error
+	Log([]corelogger.LogRecord) error
 }
 
 // ModelLogger is a database backed loggo Writer.

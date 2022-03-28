@@ -16,6 +16,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -147,7 +148,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 
 	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
 	t1 := t0.Add(time.Second)
-	err := logger.Log([]state.LogRecord{{
+	err := logger.Log([]corelogger.LogRecord{{
 		Time:     t0,
 		Entity:   "machine-45",
 		Module:   "some.where",
