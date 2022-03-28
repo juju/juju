@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -2038,7 +2039,7 @@ func (s *findToolsSuite) getModelConfig(c *gc.C, agentVersion string) *config.Co
 	return mCfg
 }
 
-func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2114,6 +2115,90 @@ func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
 		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		},
+	})
+}
+
+func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	backend := mocks.NewMockBackend(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	registryProvider := registrymocks.NewMockRegistry(ctrl)
+	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		},
+	}
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(true, nil),
+		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
+		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
+
+		backend.EXPECT().Model().Return(model, nil),
+		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
+			Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9.1"), nil),
+
+		backend.EXPECT().ControllerConfig().Return(controller.Config{
+			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
+			controller.CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
+		}, nil),
+		registryProvider.EXPECT().Tags("jujud-operator").Return(tools.Versions{
+			image.NewImageInfo(version.MustParse("2.9.8")), // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.9")), // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.10.1")),
+			image.NewImageInfo(version.MustParse("2.9.10")),
+			image.NewImageInfo(version.MustParse("2.9.11")),
+			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
+		}, nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		registryProvider.EXPECT().Close().Return(nil),
+	)
+
+	api, err := client.NewClient(
+		backend,
+		nil, nil, nil,
+		authorizer, nil, toolsFinder,
+		nil, nil, nil, nil, nil, nil, nil,
+		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
+			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
+				Repository:    "test-account",
+				ServerAddress: "quay.io",
+				BasicAuthConfig: docker.BasicAuthConfig{
+					Auth: docker.NewToken("xxxxx=="),
+				},
+			})
+			return registryProvider, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
+		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.10.1-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 		},

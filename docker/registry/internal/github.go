@@ -80,5 +80,5 @@ func (c githubContainerRegistry) Ping() error {
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	return err
+	return unwrapNetError(err)
 }

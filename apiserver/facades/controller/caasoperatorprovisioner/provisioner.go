@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
@@ -187,11 +186,10 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		IdentityToken: imageRepo.IdentityToken.Content(),
 		RegistryToken: imageRepo.RegistryToken.Content(),
 	}
-	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(
-		cfg, vers.ToPatch(), version.OfficialBuild,
-	); err != nil {
+	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(cfg, vers); err != nil {
 		return result, errors.Trace(err)
 	}
+	logger.Tracef("imageInfo %v", imageInfo)
 
 	apiAddresses, err := a.APIAddresses()
 	if err == nil && apiAddresses.Error != nil {

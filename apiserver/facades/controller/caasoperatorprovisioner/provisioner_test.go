@@ -42,7 +42,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-	s.PatchValue(&jujuversion.OfficialBuild, 666)
+	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -139,7 +139,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 			ImageDetails: params.DockerImageInfo{
 				RegistryPath: "jujusolutions/jujud-operator:2.6-beta3.666",
 			},
-			Version:      version.MustParse("2.6-beta3"),
+			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
@@ -173,7 +173,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 				Repository:   s.st.operatorRepo,
 			},
-			Version:      version.MustParse("2.6-beta3"),
+			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
@@ -208,7 +208,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 				Repository:   s.st.operatorRepo,
 			},
-			Version:      version.MustParse("2.6-beta3"),
+			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
@@ -232,7 +232,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoSidecarNoStorage(c *g
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 				Repository:   s.st.operatorRepo,
 			},
-			Version:      version.MustParse("2.6-beta3"),
+			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
@@ -256,7 +256,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 				Repository:   s.st.operatorRepo,
 			},
-			Version:      version.MustParse("2.6-beta3"),
+			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),

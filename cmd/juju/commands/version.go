@@ -80,11 +80,10 @@ func (v *versionCommand) Init(args []string) error {
 		Release: coreos.HostOSTypeName(),
 	}
 	detail := versionDetail{
-		Version:       current,
-		GitCommit:     jujuversion.GitCommit,
-		GitTreeState:  jujuversion.GitTreeState,
-		Compiler:      jujuversion.Compiler,
-		OfficialBuild: jujuversion.OfficialBuild,
+		Version:      current,
+		GitCommit:    jujuversion.GitCommit,
+		GitTreeState: jujuversion.GitTreeState,
+		Compiler:     jujuversion.Compiler,
 	}
 
 	v.version = detail.Version

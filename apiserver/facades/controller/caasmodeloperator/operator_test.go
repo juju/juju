@@ -13,7 +13,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type ModelOperatorSuite struct {
@@ -60,7 +59,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	controllerConf, err := m.state.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version, version.OfficialBuild)
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
 
