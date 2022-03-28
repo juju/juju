@@ -13,8 +13,8 @@ import (
 // obtaining an api connection.
 type SimpleConfig struct {
 
-	// Address of the controller (required)
-	ControllerAddress string
+	// Addresses of controllers (at least one required, more than one for HA).
+	ControllerAddresses []string
 
 	// I don't know if that's required
 	CACert string
@@ -41,7 +41,7 @@ var _ Connector = (*SimpleConnector)(nil)
 // error is returned.
 func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnector, error) {
 	info := api.Info{
-		Addrs:    []string{opts.ControllerAddress},
+		Addrs:    opts.ControllerAddresses,
 		CACert:   opts.CACert,
 		ModelTag: names.NewModelTag(opts.ModelUUID),
 
