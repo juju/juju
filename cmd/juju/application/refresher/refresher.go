@@ -22,6 +22,9 @@ import (
 // it is expected to attempt another refresher.
 var ErrExhausted = errors.Errorf("exhausted")
 
+// ErrAlreadyUpToDate indicates a charm is already up-to-date.
+var ErrAlreadyUpToDate = errors.Errorf("already up-to-date")
+
 // RefresherDependencies are required for any deployer to be run.
 type RefresherDependencies struct {
 	Authorizer    store.MacaroonGetter
@@ -288,12 +291,14 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 	if *newURL == *r.charmURL {
 		if refURL.Revision != -1 {
-			return nil, commoncharm.Origin{}, errors.AlreadyExistsf("already running specified charm %q, revision %d", newURL.Name, newURL.Revision)
+			return nil, commoncharm.Origin{}, errors.Annotatef(ErrAlreadyUpToDate,
+				"charm %q, revision %d", newURL.Name, newURL.Revision)
 		}
 		// No point in trying to upgrade a charm store charm when
 		// we just determined that's the latest revision
 		// available.
-		return nil, commoncharm.Origin{}, errors.AlreadyExistsf("already running latest charm %q", newURL.Name)
+		return nil, commoncharm.Origin{}, errors.Annotatef(ErrAlreadyUpToDate,
+			"charm %q", newURL.Name)
 	}
 	r.logger.Verbosef("Using channel %q", origin.CharmChannel().String())
 	return newURL, origin, nil

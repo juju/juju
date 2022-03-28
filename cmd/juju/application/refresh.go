@@ -412,10 +412,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	charmID, err := factory.Run(cfg)
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
+		if errors.Is(err, refresher.ErrAlreadyUpToDate) {
 			// Charm already up-to-date - success
-			ctx.Infof("Charm %q (revision %d, channel %s) already up-to-date",
-				c.ApplicationName, c.Revision, c.Channel)
+			ctx.Infof(err.Error())
 			return nil
 		}
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
