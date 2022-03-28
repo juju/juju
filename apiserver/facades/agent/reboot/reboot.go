@@ -66,7 +66,7 @@ func NewRebootAPI(ctx facade.Context) (*RebootAPI, error) {
 // WatchForRebootEvent starts a watcher to track if there is a new
 // reboot request on the machines ID or any of its parents (in case we are a container).
 func (r *RebootAPI) WatchForRebootEvent() (params.NotifyWatchResult, error) {
-	err := apiservererrors.ErrPerm
+	var err error = apiservererrors.ErrPerm
 	var watch state.NotifyWatcher
 	var result params.NotifyWatchResult
 

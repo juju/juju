@@ -19,6 +19,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -1254,7 +1255,7 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
 
 	err := s.storageBackend.DestroyStorageInstance(storageTag, false, false, dontWait)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "data/0": storage is attached`)
-	c.Assert(err, jc.Satisfies, state.IsStorageAttachedError)
+	c.Assert(errors.Is(err, stateerrors.StorageAttachedError), jc.IsTrue)
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {

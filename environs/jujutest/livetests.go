@@ -768,7 +768,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 		if err == nil {
 			break
 		}
-		c.Assert(err, jc.Satisfies, stateerrors.IsHasAssignedUnitsError)
+		c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
 		time.Sleep(5 * time.Second)
 		err = m1.Refresh()
 		if errors.IsNotFound(err) {

@@ -98,7 +98,7 @@ func (dt discoveryTest) checkService(c *gc.C, svc service.Service, err error, na
 
 func (dt discoveryTest) checkInitSystem(c *gc.C, name string, err error) {
 	if dt.expected == "" {
-		if !c.Check(err, jc.Satisfies, errors.IsNotFound) {
+		if !c.Check(errors.Is(err, errors.NotFound), jc.IsTrue) {
 			c.Logf("found init system %q", name)
 		}
 	} else {

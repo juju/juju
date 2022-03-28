@@ -198,7 +198,7 @@ func (s *RaftLeaseClientSuite) TestRequestWithDeadlineExceededError(c *gc.C) {
 		"1": s.remote,
 	}
 	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(nil)
-	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.NewDeadlineExceededError("deadline exceeded"))
+	s.remote.EXPECT().Request(gomock.Any(), cmd).Return(apiservererrors.DeadlineExceededError)
 
 	defer func() {
 		_ = client.Close()

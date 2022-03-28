@@ -263,7 +263,7 @@ var guiHandlerTests = []struct {
 	currentVersion: "1.0.0",
 	pathAndQuery:   "combo?foo&%%",
 	expectedStatus: http.StatusBadRequest,
-	expectedError:  `cannot combine files: invalid file name "%": invalid URL escape "%%"`,
+	expectedError:  `cannot combine files: invalid file name "%%": invalid URL escape "%%"`,
 }, {
 	about: "combo: invalid file path",
 	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {

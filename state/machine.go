@@ -866,10 +866,11 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			}
 
 			if canDie && !dyingAllowContainers {
-				if err := m.advanceLifecycleIfNoContainers(); err != nil && !IsHasContainersError(err) {
-					return nil, err
-				} else if IsHasContainersError(err) {
+				err := m.advanceLifecycleIfNoContainers()
+				if errors.Is(err, stateerrors.HasContainersError) {
 					canDie = false
+				} else if err != nil {
+					return nil, err
 				}
 				ops = append(ops, m.noContainersOp())
 			}
@@ -885,7 +886,7 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		}
 
 		if len(m.doc.Principals) > 0 {
-			return nil, newHasAssignedUnitsError(m.doc.Id, m.doc.Principals)
+			return nil, stateerrors.NewHasAssignedUnitsError(m.doc.Id, m.doc.Principals)
 		}
 		asserts = append(asserts, noUnitAsserts())
 
@@ -1025,7 +1026,7 @@ func (m *Machine) advanceLifecycleIfNoContainers() error {
 	}
 
 	if len(containers) > 0 {
-		return newHasContainersError(m.doc.Id, containers)
+		return stateerrors.NewHasContainersError(m.doc.Id, containers)
 	}
 	return nil
 }
@@ -1056,7 +1057,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 		}
 	}
 	if len(attachments) > 0 {
-		return nil, newHasAttachmentsError(m.doc.Id, attachments.SortedValues())
+		return nil, stateerrors.NewHasAttachmentsError(m.doc.Id, attachments.SortedValues())
 	}
 	if m.doc.Life == Dying {
 		return nil, nil

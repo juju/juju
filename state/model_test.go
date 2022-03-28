@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -833,7 +834,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	assertModel(controllerModel, s.State, state.Dying, 0, 0)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(err, jc.Satisfies, state.IsHasHostedModelsError)
+	c.Assert(errors.Is(err, stateerrors.HasHostedModelsError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	assertCleanupCount(c, otherSt, 3)
@@ -874,7 +875,7 @@ func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage
 		DestroyHostedModels: true,
 		Force:               force,
 	})
-	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C) {
@@ -993,7 +994,7 @@ func (s *ModelSuite) assertDestroyModelPersistentStorage(c *gc.C, force *bool) {
 	})
 
 	err = m.Destroy(state.DestroyModelParams{Force: force})
-	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
 }
@@ -1311,7 +1312,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	defer state.SetAfterHooks(c, st, func() {
 		assertModel(state.Dying, 1, 1)
 		err := st.ProcessDyingModel()
-		c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
+		c.Assert(errors.Is(err, stateerrors.ModelNotEmptyError), jc.IsTrue)
 		c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine, 1 application`)
 	}).Check()
 
@@ -1345,7 +1346,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	c.Assert(filesystems, gc.HasLen, 1)
 
 	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 
 	destroyStorage := true
 	c.Assert(model.Destroy(state.DestroyModelParams{
@@ -1366,7 +1367,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
 	err = st.ProcessDyingModel()
-	c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
+	c.Assert(errors.Is(err, stateerrors.ModelNotEmptyError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume, 1 filesystem`)
 }
 
@@ -1397,7 +1398,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	volumeTag := volumes[0].VolumeTag()
 
 	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 
 	destroyStorage := true
 	c.Assert(model.Destroy(state.DestroyModelParams{
@@ -1414,7 +1415,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
 	err = st.ProcessDyingModel()
-	c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
+	c.Assert(errors.Is(err, stateerrors.ModelNotEmptyError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume`)
 }
 
@@ -1431,7 +1432,7 @@ func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C
 	}), jc.ErrorIsNil)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(err, jc.Satisfies, state.IsHasHostedModelsError)
+	c.Assert(errors.Is(err, stateerrors.HasHostedModelsError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)

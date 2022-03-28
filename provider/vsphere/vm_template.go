@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 )
 
@@ -184,7 +183,7 @@ func (v *vmTemplateManager) downloadAndImportTemplate(
 	}
 	img, err := findImageMetadata(v.env, arch, series)
 	if err != nil {
-		return nil, "", common.ZoneIndependentError(err)
+		return nil, "", environs.ZoneIndependentError(err)
 	}
 
 	readOVA := func() (string, io.ReadCloser, error) {

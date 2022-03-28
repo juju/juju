@@ -194,7 +194,7 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 			w.config.Logger.Debugf("validation failed (retrying): %v", err)
 		}
 	}
-	if apiservererrors.IsErrTryAgain(err) || params.IsCodeTryAgain(err) {
+	if errors.Is(err, apiservererrors.ErrTryAgain) || params.IsCodeTryAgain(err) {
 		// We treat TryAgainError as a retriable error,
 		// so ingore it and don't report to the migration master.
 		w.config.Logger.Errorf("validation failed due to rate limit reached: %v", err)

@@ -1827,7 +1827,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.
 	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationSeries("xenial", false)
-	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
 	assertApplicationSeriesUpdate(c, app, "precise")
 	assertApplicationSeriesUpdate(c, subApp, "precise")
 }
@@ -1911,7 +1911,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 	).Check()
 
 	err = app.UpdateApplicationSeries("yakkety", false)
-	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
 	assertApplicationSeriesUpdate(c, app, "precise")
 	assertApplicationSeriesUpdate(c, subApp, "precise")
 

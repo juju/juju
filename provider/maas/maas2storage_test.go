@@ -57,7 +57,7 @@ func (s *maas2StorageSuite) TestGetNotFound(c *gc.C) {
 		gomaasapi.NewNoMatchError("wee"),
 	))
 	_, err := storage.Get("grasshopper.avi")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *maas2StorageSuite) TestGetSuccess(c *gc.C) {

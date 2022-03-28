@@ -33,22 +33,23 @@ type errorsSuite struct {
 var _ = gc.Suite(&errorsSuite{})
 
 var errorTransformTests = []struct {
-	err        error
-	code       string
-	status     int
-	helperFunc func(error) bool
+	err          error
+	code         string
+	status       int
+	helperFunc   func(error) bool
+	targetTester func(error) bool
 }{{
-	err:        errors.NotFoundf("hello"),
+	err:        errors.NotFound,
 	code:       params.CodeNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
 }, {
-	err:        errors.UserNotFoundf("xxxx"),
+	err:        errors.UserNotFound,
 	code:       params.CodeUserNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeUserNotFound,
 }, {
-	err:        errors.Unauthorizedf("hello"),
+	err:        errors.Unauthorized,
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
@@ -83,10 +84,13 @@ var errorTransformTests = []struct {
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
 }, {
-	err:        apiservererrors.NoAddressSetError(names.NewUnitTag("mysql/0"), "public"),
+	err:        apiservererrors.NewNoAddressSetError(names.NewUnitTag("mysql/0"), "public"),
 	code:       params.CodeNoAddressSet,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeNoAddressSet,
+	targetTester: func(e error) bool {
+		return errors.Is(e, apiservererrors.NoAddressSetError)
+	},
 }, {
 	err:        apiservererrors.ErrBadCreds,
 	code:       params.CodeUnauthorized,
@@ -103,12 +107,12 @@ var errorTransformTests = []struct {
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
 }, {
-	err:        errors.NotProvisionedf("machine 0"),
+	err:        errors.NotProvisioned,
 	code:       params.CodeNotProvisioned,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeNotProvisioned,
 }, {
-	err:        errors.AlreadyExistsf("blah"),
+	err:        errors.AlreadyExists,
 	code:       params.CodeAlreadyExists,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeAlreadyExists,
@@ -118,7 +122,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
 }, {
-	err:        errors.NotAssignedf("unit mysql/0"),
+	err:        errors.NotAssigned,
 	code:       params.CodeNotAssigned,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeNotAssigned,
@@ -132,6 +136,9 @@ var errorTransformTests = []struct {
 	code:       params.CodeHasAssignedUnits,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeHasAssignedUnits,
+	targetTester: func(e error) bool {
+		return errors.Is(e, stateerrors.HasAssignedUnitsError)
+	},
 }, {
 	err:        apiservererrors.ErrTryAgain,
 	code:       params.CodeTryAgain,
@@ -152,18 +159,21 @@ var errorTransformTests = []struct {
 	code:       params.CodeOperationBlocked,
 	status:     http.StatusBadRequest,
 	helperFunc: params.IsCodeOperationBlocked,
+	targetTester: func(e error) bool {
+		return errors.HasType[*params.Error](e)
+	},
 }, {
-	err:        errors.NotSupportedf("needed feature"),
+	err:        errors.NotSupported,
 	code:       params.CodeNotSupported,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeNotSupported,
 }, {
-	err:        errors.BadRequestf("something"),
+	err:        errors.BadRequest,
 	code:       params.CodeBadRequest,
 	status:     http.StatusBadRequest,
 	helperFunc: params.IsBadRequest,
 }, {
-	err:        errors.MethodNotAllowedf("something"),
+	err:        errors.MethodNotAllowed,
 	code:       params.CodeMethodNotAllowed,
 	status:     http.StatusMethodNotAllowed,
 	helperFunc: params.IsMethodNotAllowed,
@@ -171,6 +181,9 @@ var errorTransformTests = []struct {
 	err:    stderrors.New("an error"),
 	status: http.StatusInternalServerError,
 	code:   "",
+	targetTester: func(e error) bool {
+		return e.Error() == "an error"
+	},
 }, {
 	err: &apiservererrors.DischargeRequiredError{
 		Cause:          errors.New("something"),
@@ -186,12 +199,18 @@ var errorTransformTests = []struct {
 		}
 		return true
 	},
+	targetTester: func(e error) bool {
+		return errors.HasType[*apiservererrors.DischargeRequiredError](e)
+	},
 }, {
 	err:    unhashableError{"foo"},
 	status: http.StatusInternalServerError,
 	code:   "",
+	targetTester: func(e error) bool {
+		return e.Error() == "foo"
+	},
 }, {
-	err:        apiservererrors.UnknownModelError("dead-beef-123456"),
+	err:        apiservererrors.UnknownModelError,
 	code:       params.CodeModelNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeModelNotFound,
@@ -211,12 +230,12 @@ var errorTransformTests = []struct {
 		return true
 	},
 }, {
-	err:        errors.QuotaLimitExceededf("mailbox full"),
+	err:        errors.QuotaLimitExceeded,
 	code:       params.CodeQuotaLimitExceeded,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeQuotaLimitExceeded,
 }, {
-	err:        errors.NotYetAvailablef("try again later"),
+	err:        errors.NotYetAvailable,
 	code:       params.CodeNotYetAvailable,
 	status:     http.StatusConflict,
 	helperFunc: params.IsCodeNotYetAvailable,
@@ -236,12 +255,18 @@ var errorTransformTests = []struct {
 		}
 		return true
 	},
+	targetTester: func(e error) bool {
+		return errors.HasType[*params.IncompatibleClientError](e)
+	},
 }, {
 	err:    apiservererrors.NewNotLeaderError("1.1.1.1", "1"),
 	code:   params.CodeNotLeader,
 	status: http.StatusTemporaryRedirect,
+	targetTester: func(e error) bool {
+		return errors.HasType[*apiservererrors.NotLeaderError](e)
+	},
 }, {
-	err:    apiservererrors.NewDeadlineExceededError("enqueueing deadline exceeded"),
+	err:    apiservererrors.DeadlineExceededError,
 	code:   params.CodeDeadlineExceeded,
 	status: http.StatusInternalServerError,
 }, {
@@ -362,17 +387,16 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			c.Check(restored, jc.ErrorIsNil)
 		} else if t.code == "" {
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
+		}
+
+		if t.targetTester == nil {
+			c.Check(errors.Is(restored, t.err), jc.IsTrue)
+			c.Check(restored.Error(), gc.Equals, t.err.Error())
 		} else {
-			// TODO(ericsnow) Use a stricter DeepEquals check.
-			c.Check(errors.Cause(restored), gc.FitsTypeOf, t.err)
+			c.Check(t.targetTester(restored), jc.IsTrue)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
 		}
 	}
-}
-
-func (s *errorsSuite) TestUnknownModel(c *gc.C) {
-	err := apiservererrors.UnknownModelError("dead-beef")
-	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef"`)
 }
 
 func (s *errorsSuite) TestDestroyErr(c *gc.C) {
