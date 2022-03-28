@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logdb
+package logger
 
 import (
 	"sync"
@@ -9,14 +9,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-
-	corelogger "github.com/juju/juju/core/logger"
 )
 
 // Logger provides an interface for writing log records.
 type Logger interface {
 	// Log writes the given log records to the logger's storage.
-	Log([]corelogger.LogRecord) error
+	Log([]LogRecord) error
 }
 
 // BufferedLogger wraps a Logger, providing a buffer that
@@ -28,7 +26,7 @@ type BufferedLogger struct {
 	flushInterval time.Duration
 
 	mu         sync.Mutex
-	buf        []corelogger.LogRecord
+	buf        []LogRecord
 	flushTimer clock.Timer
 }
 
@@ -42,7 +40,7 @@ func NewBufferedLogger(
 ) *BufferedLogger {
 	return &BufferedLogger{
 		l:             l,
-		buf:           make([]corelogger.LogRecord, 0, bufferSize),
+		buf:           make([]LogRecord, 0, bufferSize),
 		clock:         clock,
 		flushInterval: flushInterval,
 	}
@@ -53,7 +51,7 @@ func NewBufferedLogger(
 // BufferedLogger's Log implementation will buffer log records up to
 // the specified capacity and duration; after either of which is exceeded,
 // the records will be flushed to the underlying logger.
-func (b *BufferedLogger) Log(in []corelogger.LogRecord) error {
+func (b *BufferedLogger) Log(in []LogRecord) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for len(in) > 0 {

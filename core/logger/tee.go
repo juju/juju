@@ -1,12 +1,10 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logdb
+package logger
 
 import (
 	"io"
-
-	corelogger "github.com/juju/juju/core/logger"
 )
 
 // TeeLogger forwards log request to each underlying logger.
@@ -20,7 +18,7 @@ func NewTeeLogger(loggers ...Logger) *TeeLogger {
 	return &TeeLogger{loggers: loggers}
 }
 
-func (t *TeeLogger) Log(records []corelogger.LogRecord) error {
+func (t *TeeLogger) Log(records []LogRecord) error {
 	for _, l := range t.loggers {
 		if err := l.Log(records); err != nil {
 			return err

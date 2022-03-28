@@ -20,7 +20,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/logdb"
 	"github.com/juju/juju/worker/syslogger"
 )
 
@@ -61,7 +60,7 @@ func (d *apiServerLoggers) get(st *state.State) RecordLogger {
 	outputs := d.getLoggers(st)
 
 	bufferedLogger := &bufferedLogger{
-		BufferedLogger: logdb.NewBufferedLogger(
+		BufferedLogger: corelogger.NewBufferedLogger(
 			outputs,
 			d.loggerBufferSize,
 			d.loggerFlushInterval,
@@ -83,7 +82,7 @@ func (d *apiServerLoggers) remove(st *state.State) {
 }
 
 type loggerOutput interface {
-	logdb.Logger
+	corelogger.Logger
 	io.Closer
 }
 
@@ -93,7 +92,7 @@ func (d *apiServerLoggers) getLoggers(st *state.State) loggerOutput {
 		return state.NewDbLogger(st)
 	}
 
-	loggers := make(map[string]logdb.Logger)
+	loggers := make(map[string]corelogger.Logger)
 loop:
 	for _, output := range d.loggingOutputs {
 		switch output {
@@ -107,12 +106,12 @@ loop:
 			loggers["database"] = state.NewDbLogger(st)
 		}
 	}
-	outputs := make([]logdb.Logger, 0, len(loggers))
+	outputs := make([]corelogger.Logger, 0, len(loggers))
 	for _, output := range loggers {
 		outputs = append(outputs, output)
 	}
 
-	return logdb.NewTeeLogger(outputs...)
+	return corelogger.NewTeeLogger(outputs...)
 }
 
 // dispose closes all apiServerLoggers in the map, and clears the memory. This
@@ -125,7 +124,7 @@ func (d *apiServerLoggers) dispose() {
 }
 
 type bufferedLogger struct {
-	*logdb.BufferedLogger
+	*corelogger.BufferedLogger
 	closer io.Closer
 }
 

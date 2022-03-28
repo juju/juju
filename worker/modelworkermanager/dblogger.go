@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/state/logdb"
 )
 
 // newModelLogger returns a buffered database logger that uses the name
@@ -27,7 +26,7 @@ func newModelLogger(
 ) *dbLogger {
 
 	// Write to the database every second, or 1024 entries, whichever comes first.
-	buffered := logdb.NewBufferedLogger(base, 1024, time.Second, clock)
+	buffered := corelogger.NewBufferedLogger(base, 1024, time.Second, clock)
 
 	return &dbLogger{
 		dbLogger:  base,
@@ -40,10 +39,10 @@ func newModelLogger(
 
 type dbLogger struct {
 	dbLogger DBLogger
-	buffer   *logdb.BufferedLogger
+	buffer   *corelogger.BufferedLogger
 
 	// Use struct embedding to get the Close method.
-	logdb.Logger
+	corelogger.Logger
 	// "controller-0" for machine-0 in the controller model.
 	name      string
 	modelUUID string
