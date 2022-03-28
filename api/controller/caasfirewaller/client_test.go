@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasfirewaller"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -30,7 +30,7 @@ type clientCommmon interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	WatchApplication(string) (watcher.NotifyWatcher, error)
 	IsExposed(string) (bool, error)
-	ApplicationConfig(string) (application.ConfigAttributes, error)
+	ApplicationConfig(string) (config.ConfigAttributes, error)
 	Life(string) (life.Value, error)
 }
 
@@ -257,5 +257,5 @@ func (s *firewallerBaseSuite) TestApplicationConfig(c *gc.C) {
 	client := s.newFunc(apiCaller)
 	cfg, err := client.ApplicationConfig("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, application.ConfigAttributes{"foo": "bar"})
+	c.Assert(cfg, jc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
 }

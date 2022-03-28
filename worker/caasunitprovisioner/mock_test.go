@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -57,7 +57,7 @@ func (m *mockServiceBroker) Provider() caas.ContainerEnvironProvider {
 	return m
 }
 
-func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
+func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config config.ConfigAttributes) error {
 	m.MethodCall(m, "EnsureService", appName, params, numUnits, config)
 	statusCallback(appName, status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
 	m.ensured <- struct{}{}
@@ -175,9 +175,9 @@ func (m *mockApplicationGetter) WatchApplication(appName string) (watcher.Notify
 	return m.appWatcher, nil
 }
 
-func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.ConfigAttributes, error) {
+func (a *mockApplicationGetter) ApplicationConfig(appName string) (config.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig", appName)
-	return application.ConfigAttributes{
+	return config.ConfigAttributes{
 		"juju-external-hostname": "exthost",
 	}, a.NextErr()
 }

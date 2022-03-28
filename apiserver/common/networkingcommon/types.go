@@ -28,10 +28,9 @@ type BackingSubnet interface {
 	ProviderId() network.Id
 	ProviderNetworkId() network.Id
 	AvailabilityZones() []string
-	Status() string
 	SpaceName() string
 	SpaceID() string
-	Life() life.Value
+	Life() state.Life
 }
 
 // BackingSubnetInfo describes a single subnet to be added in the
@@ -70,10 +69,6 @@ type BackingSubnetInfo struct {
 	SpaceName string
 	SpaceID   string
 
-	// Status holds the status of the subnet. Normally this will be
-	// calculated from the reference count and Life of a subnet.
-	Status string
-
 	// Live holds the life of the subnet
 	Life life.Value
 }
@@ -87,8 +82,8 @@ type BackingSpace interface {
 	// Name returns the space name.
 	Name() string
 
-	// Subnets returns the subnets in the space
-	Subnets() ([]BackingSubnet, error)
+	// NetworkSpace maps the space into network.SpaceInfo
+	NetworkSpace() (network.SpaceInfo, error)
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() network.Id
@@ -142,9 +137,20 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 		ProviderId:        subnet.ProviderId().String(),
 		ProviderNetworkId: subnet.ProviderNetworkId().String(),
 		Zones:             subnet.AvailabilityZones(),
-		Status:            subnet.Status(),
 		SpaceTag:          names.NewSpaceTag(subnet.SpaceName()).String(),
-		Life:              subnet.Life(),
+		Life:              subnet.Life().Value(),
+	}
+}
+
+func SubnetInfoToParamsSubnet(subnet network.SubnetInfo) params.Subnet {
+	return params.Subnet{
+		CIDR:              subnet.CIDR,
+		VLANTag:           subnet.VLANTag,
+		ProviderId:        subnet.ProviderId.String(),
+		ProviderNetworkId: subnet.ProviderNetworkId.String(),
+		Zones:             subnet.AvailabilityZones,
+		SpaceTag:          names.NewSpaceTag(subnet.SpaceName).String(),
+		Life:              subnet.Life,
 	}
 }
 

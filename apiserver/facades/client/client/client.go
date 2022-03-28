@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
@@ -719,18 +718,10 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Check IAAS clouds.
-	if env, ok := envOrBroker.(environs.InstanceBroker); ok {
-		if err := environs.CheckProviderAPI(env, c.callContext); err != nil {
-			return err
-		}
+	if err := environs.CheckProviderAPI(envOrBroker, c.callContext); err != nil {
+		return err
 	}
-	// Check k8s clusters.
-	if env, ok := envOrBroker.(caas.ClusterMetadataChecker); ok {
-		if _, err := env.GetClusterMetadata(""); err != nil {
-			return errors.Annotate(err, "cannot make API call to provider")
-		}
-	}
+
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
 	// For major version upgrades, also check that all models are at a version high
@@ -898,15 +889,16 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		if number.Compare(current) <= 0 {
 			continue
 		}
-		if jujuversion.OfficialBuild == 0 && number.Build > 0 {
+		if current.Build == 0 && number.Build > 0 {
 			continue
 		}
 		if args.MajorVersion != -1 && number.Major != args.MajorVersion {
 			continue
 		}
-		number.Build = 0
 		if !controllerCfg.Features().Contains(feature.DeveloperMode) && streamsVersions.Size() > 0 {
-			if !streamsVersions.Contains(number.String()) {
+			numberCopy := number
+			numberCopy.Build = 0
+			if !streamsVersions.Contains(numberCopy.String()) {
 				continue
 			}
 		} else {
@@ -917,8 +909,11 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 			}
 		}
 		arch, err := reg.GetArchitecture(imageName, number.String())
+		if errors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
-			return result, errors.Annotatef(err, "cannot get architecture for %q:%q", imageName, number.String())
+			return result, errors.Annotatef(err, "cannot get architecture for %s:%s", imageName, number.String())
 		}
 		if args.Arch != "" && arch != args.Arch {
 			continue

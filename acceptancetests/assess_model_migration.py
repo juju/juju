@@ -33,6 +33,13 @@ __metaclass__ = type
 log = logging.getLogger("assess_model_migration")
 
 
+model_constraints = dict(
+    arch="amd64",
+    cores=2,
+    mem="4096M",
+)
+
+
 def assess_model_migration(bs1, bs2, args):
     with bs1.booted_context(args.upload_tools):
         bs2.client.env.juju_home = bs1.client.env.juju_home
@@ -43,12 +50,12 @@ def assess_model_migration(bs1, bs2, args):
             # continues to operate after the originating controller is torn
             # down.
             results = ensure_migration_with_resources_succeeds(
-                source_client,
-                dest_client)
+                source_client, dest_client, model_constraints,
+            )
             migrated_client, application, resource_contents = results
 
-            ensure_model_logs_are_migrated(source_client, dest_client)
-            ensure_api_login_redirects(source_client, dest_client)
+            ensure_model_logs_are_migrated(source_client, dest_client, constraints=model_constraints)
+            ensure_api_login_redirects(source_client, dest_client, model_constraints)
 
         # Continue test where we ensure that a migrated model continues to
         # work after it's originating controller has been destroyed.
@@ -162,11 +169,13 @@ def wait_for_migrating(client, timeout=600):
                 ))
 
 
-def ensure_api_login_redirects(source_client, dest_client):
+def ensure_api_login_redirects(source_client, dest_client, constraints=None):
     """Login attempts must get transparently redirected to the new controller.
     """
     new_model_client = deploy_dummy_source_to_new_model(
-        source_client, 'api-redirection')
+        source_client, 'api-redirection',
+        constraints=constraints,
+    )
 
     # show model controller details
     before_model_details = source_client.show_model()
@@ -221,7 +230,7 @@ def assert_model_has_correct_controller_uuid(client):
         raise JujuAssertionError()
 
 
-def ensure_migration_with_resources_succeeds(source_client, dest_client):
+def ensure_migration_with_resources_succeeds(source_client, dest_client, constraints=None):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application, that uses resources,
@@ -242,7 +251,7 @@ def ensure_migration_with_resources_succeeds(source_client, dest_client):
     """
     resource_contents = get_random_string()
     test_model, application = deploy_simple_server_to_new_model(
-        source_client, 'example-model-resource', resource_contents)
+        source_client, 'example-model-resource', resource_contents, constraints=constraints)
     migration_target_client = migrate_model_to_controller(
         test_model, source_client, dest_client)
     assert_model_migrated_successfully(
@@ -351,7 +360,7 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Application units reside on the same machine')
 
 
-def ensure_model_logs_are_migrated(source_client, dest_client, timeout=600):
+def ensure_model_logs_are_migrated(source_client, dest_client, timeout=600, constraints=None):
     """Ensure logs are migrated when a model is migrated between controllers.
 
     :param source_client: ModelClient representing source controller to create
@@ -360,7 +369,9 @@ def ensure_model_logs_are_migrated(source_client, dest_client, timeout=600):
     :param timeout: int seconds to wait for logs to appear in migrated model.
     """
     new_model_client = deploy_dummy_source_to_new_model(
-        source_client, 'log-migration')
+        source_client, 'log-migration',
+        constraints=constraints,
+    )
     before_migration_logs = new_model_client.get_juju_output(
         'debug-log', '--no-tail', '-l', 'DEBUG')
     log.info('Attempting migration process')
@@ -394,7 +405,7 @@ def assert_logs_appear_in_client_model(client, expected_logs, timeout):
         expected_logs.splitlines(keepends=True),
         current_logs.splitlines(keepends=True),
     )
-    log.error(f'log migration failed, diff of the logs: \n{"".join(diff)}')
+    log.error('log migration failed, diff of the logs: \n%s', "".join(diff))
     raise JujuAssertionError(
         'Logs failed to be migrated after {}'.format(timeout))
 

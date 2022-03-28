@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -228,7 +228,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: app.Tag(),
 	}
-	u, err := apiState.Uniter()
+	u, err := apiuniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
 }
@@ -1115,7 +1115,7 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	schema := environschema.Fields{
 		"trust": environschema.Attr{Type: environschema.Tbool},
 	}
-	err := s.wordpress.UpdateApplicationConfig(coreapplication.ConfigAttributes{
+	err := s.wordpress.UpdateApplicationConfig(coreconfig.ConfigAttributes{
 		"trust": true,
 	}, nil, schema, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3329,7 +3329,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := st.Uniter()
+	uniter, err := apiuniter.NewFromConnection(st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	attachments, err := uniter.UnitStorageAttachments(unit.UnitTag())

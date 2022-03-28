@@ -56,6 +56,11 @@ type DeployAPI interface {
 	PlanURL() string
 }
 
+type CharmsAPI interface {
+	store.CharmsAPI
+	BestAPIVersion() int
+}
+
 // The following structs exist purely because Go cannot create a
 // struct with a field named the same as a method name. The DeployAPI
 // needs to both embed a *<package>.Client and provide the
@@ -167,7 +172,7 @@ func newDeployCommand() *DeployCommand {
 		Steps: deployer.Steps(),
 	}
 	deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
-		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		controllerAPIRoot, err := deployCmd.newControllerAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -181,16 +186,19 @@ func newDeployCommand() *DeployCommand {
 		}
 		return store.NewCharmStoreAdaptor(bakeryClient, url), nil
 	}
-	deployCmd.NewModelConfigClient = func(api base.APICallCloser) ModelConfigClient {
+	deployCmd.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
 		return modelconfig.NewClient(api)
 	}
+	deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+		return apicharms.NewClient(api)
+	}
 	deployCmd.NewDownloadClient = func() (store.DownloadBundleClient, error) {
-		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		apiRoot, err := deployCmd.newAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		charmHubURL, err := deployCmd.getCharmHubURL(apiRoot)
+		modelConfigClient := deployCmd.NewModelConfigAPI(apiRoot)
+		charmHubURL, err := deployCmd.getCharmHubURL(modelConfigClient)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -202,12 +210,12 @@ func newDeployCommand() *DeployCommand {
 
 		return charmhub.NewClient(cfg)
 	}
-	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+	deployCmd.NewDeployAPI = func() (DeployAPI, error) {
+		apiRoot, err := deployCmd.newAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		controllerAPIRoot, err := deployCmd.newControllerAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -217,7 +225,7 @@ func newDeployCommand() *DeployCommand {
 		}
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
-			apiClient:         &apiClient{Client: apiRoot.Client()},
+			apiClient:         &apiClient{Client: api.NewClient(apiRoot)},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			charmsAPIVersion:  apiRoot.BestFacadeVersion("Charms"),
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
@@ -240,6 +248,27 @@ func newDeployCommand() *DeployCommand {
 		return store.NewCharmAdaptor(charmsAPI, charmRepoFn, downloadClientFn)
 	}
 	return deployCmd
+}
+func (c *DeployCommand) newAPIRoot() (api.Connection, error) {
+	if c.apiRoot == nil {
+		var err error
+		c.apiRoot, err = c.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return c.apiRoot, nil
+}
+
+func (c *DeployCommand) newControllerAPIRoot() (api.Connection, error) {
+	if c.controllerAPIRoot == nil {
+		var err error
+		c.controllerAPIRoot, err = c.NewControllerAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return c.controllerAPIRoot, nil
 }
 
 type DeployCommand struct {
@@ -313,8 +342,8 @@ type DeployCommand struct {
 	// in the model.
 	BundleMachines map[string]string
 
-	// NewAPIRoot stores a function which returns a new API root.
-	NewAPIRoot func() (DeployAPI, error)
+	// NewDeployAPI stores a function which returns a new deploy client.
+	NewDeployAPI func() (DeployAPI, error)
 
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
@@ -322,9 +351,12 @@ type DeployCommand struct {
 	// NewDownloadClient stores a function for getting a charm/bundle.
 	NewDownloadClient func() (store.DownloadBundleClient, error)
 
-	// NewModelConfigClient stores a function which returns a new model config
+	// NewModelConfigAPI stores a function which returns a new model config
 	// client. This is used to get the model config.
-	NewModelConfigClient func(base.APICallCloser) ModelConfigClient
+	NewModelConfigAPI func(base.APICallCloser) ModelConfigGetter
+
+	// NewCharmsAPI stores a function for getting info about charms.
+	NewCharmsAPI func(caller base.APICallCloser) CharmsAPI
 
 	// NewResolver stores a function which returns a charm adaptor.
 	NewResolver func(store.CharmsAPI, store.CharmStoreRepoFunc, store.DownloadBundleClientFunc) deployer.Resolver
@@ -350,6 +382,9 @@ type DeployCommand struct {
 	flagSet    *gnuflag.FlagSet
 
 	unknownModel bool
+
+	controllerAPIRoot api.Connection
+	apiRoot           api.Connection
 }
 
 const deployDoc = `
@@ -607,7 +642,6 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ConfigOptions.SetPreserveStringValue(true)
 	// Keep CharmOnlyFlags and BundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
@@ -685,6 +719,12 @@ func (c *DeployCommand) Init(args []string) error {
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
 		c.unknownModel = true
+	}
+	if c.channelStr == "" && c.Revision != -1 {
+		// Tell the user they need to specify a channel
+		return errors.New(
+			`when using --revision option, you must also use --channel option`,
+		)
 	}
 	if c.channelStr != "" {
 		c.Channel, err = charm.ParseChannelNormalize(c.channelStr)
@@ -771,22 +811,29 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	apiRoot, err := c.NewAPIRoot()
+	deployAPI, err := c.NewDeployAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = apiRoot.Close() }()
+	defer func() {
+		if c.apiRoot != nil {
+			_ = c.apiRoot.Close()
+		}
+		if c.controllerAPIRoot != nil {
+			_ = c.controllerAPIRoot.Close()
+		}
+	}()
 
-	if c.ModelConstraints, err = apiRoot.GetModelConstraints(); err != nil {
+	if c.ModelConstraints, err = deployAPI.GetModelConstraints(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.parseBindFlag(apiRoot); err != nil {
+	if err := c.parseBindFlag(deployAPI); err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, step := range c.Steps {
-		step.SetPlanURL(apiRoot.PlanURL())
+		step.SetPlanURL(deployAPI.PlanURL())
 	}
 
 	csRepoFn := func() (store.CharmrepoForDeploy, error) {
@@ -796,7 +843,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return c.NewDownloadClient()
 	}
 
-	charmAPIClient := apicharms.NewClient(apiRoot)
+	charmAPIClient := c.NewCharmsAPI(c.apiRoot)
 	charmAdapter := c.NewResolver(charmAPIClient, csRepoFn, downloadClientFn)
 
 	// Check whether the controller includes charmhub support. If not,
@@ -811,12 +858,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	factory, cfg := c.getDeployerFactory(defaultCharmSchema)
-	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)
+	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdapter)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, apiRoot, charmAdapter, cstoreAPI.MacaroonGetter), block.BlockChange)
+	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdapter, cstoreAPI.MacaroonGetter), block.BlockChange)
 }
 
 func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {
@@ -893,10 +940,7 @@ func (c *DeployCommand) getDeployerFactory(defaultCharmSchema charm.Schema) (dep
 	return c.NewDeployerFactory(dep), cfg
 }
 
-func (c *DeployCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
-	modelConfigClient := c.NewModelConfigClient(apiRoot)
-	defer func() { _ = modelConfigClient.Close() }()
-
+func (c *DeployCommand) getCharmHubURL(modelConfigClient ModelConfigGetter) (string, error) {
 	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {
 		return "", errors.Trace(err)

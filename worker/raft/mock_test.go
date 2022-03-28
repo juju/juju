@@ -26,6 +26,7 @@ type mockAgentConfig struct {
 	dataDir                  string
 	tag                      names.Tag
 	nonSyncedWritesToRaftLog bool
+	batchRaftFSM             bool
 }
 
 func (c *mockAgentConfig) Tag() names.Tag {
@@ -38,6 +39,10 @@ func (c *mockAgentConfig) DataDir() string {
 
 func (c *mockAgentConfig) NonSyncedWritesToRaftLog() bool {
 	return c.nonSyncedWritesToRaftLog
+}
+
+func (c *mockAgentConfig) BatchRaftFSM() bool {
+	return c.batchRaftFSM
 }
 
 type mockRaftWorker struct {

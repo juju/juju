@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,8 +15,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.caasmodeloperator")
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
@@ -103,10 +105,10 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		IdentityToken: imageRepo.IdentityToken.Content(),
 		RegistryToken: imageRepo.RegistryToken.Content(),
 	}
-	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(controllerConf,
-		vers.ToPatch(), version.OfficialBuild); err != nil {
+	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(controllerConf, vers); err != nil {
 		return result, errors.Trace(err)
 	}
+	logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{
 		APIAddresses: apiAddresses.Result,

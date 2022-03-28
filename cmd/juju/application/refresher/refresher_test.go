@@ -257,6 +257,10 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmID, gc.DeepEquals, &CharmID{
 		URL: curl,
+		Origin: corecharm.Origin{
+			Source: corecharm.Local,
+			Type:   "charm",
+		},
 	})
 }
 
@@ -437,9 +441,11 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Series: "bionic",
 	}
+	actualOrigin := origin
+	actualOrigin.ID = "charmid"
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
+	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(actualOrigin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
@@ -455,7 +461,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmID, gc.DeepEquals, &CharmID{
 		URL:    newCurl,
-		Origin: origin.CoreCharmOrigin(),
+		Origin: actualOrigin.CoreCharmOrigin(),
 	})
 }
 

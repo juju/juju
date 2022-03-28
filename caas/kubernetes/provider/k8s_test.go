@@ -43,8 +43,8 @@ import (
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
@@ -99,11 +99,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot: pointer.BoolPtr(true),
@@ -153,11 +153,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 					},
 					ReadinessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+						ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 					},
 					LivenessProbe: &core.Probe{
 						SuccessThreshold: 20,
-						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+						ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 					},
 					VolumeMounts: dataVolumeMounts(),
 				}, {
@@ -303,11 +303,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot: pointer.BoolPtr(true),
@@ -353,11 +353,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 					},
 					ReadinessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+						ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 					},
 					LivenessProbe: &core.Probe{
 						SuccessThreshold: 20,
-						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+						ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 					},
 					VolumeMounts: dataVolumeMounts(),
 					Env: []core.EnvVar{
@@ -418,11 +418,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot: pointer.BoolPtr(true),
@@ -457,11 +457,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 					ImagePullPolicy: core.PullAlways,
 					ReadinessProbe: &core.Probe{
 						InitialDelaySeconds: 10,
-						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+						ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 					},
 					LivenessProbe: &core.Probe{
 						SuccessThreshold: 20,
-						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+						ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 					},
 					SecurityContext: &core.SecurityContext{
 						RunAsNonRoot: pointer.BoolPtr(true),
@@ -1258,11 +1258,11 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			},
 			ReadinessProbe: &core.Probe{
 				InitialDelaySeconds: 10,
-				Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 			},
 			LivenessProbe: &core.Probe{
 				SuccessThreshold: 20,
-				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 			},
 			VolumeMounts: dataVolumeMounts(),
 		},
@@ -1323,11 +1323,11 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			},
 			ReadinessProbe: &core.Probe{
 				InitialDelaySeconds: 10,
-				Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				ProbeHandler:        core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 			},
 			LivenessProbe: &core.Probe{
 				SuccessThreshold: 20,
-				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				ProbeHandler:     core.ProbeHandler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 			},
 			VolumeMounts: append(dataVolumeMounts(), []core.VolumeMount{
 				{Name: "myhostpath", MountPath: "/host/etc/cni/net.d"},
@@ -2336,7 +2336,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			"fred":                 "mary",
 		},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -2456,7 +2456,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 			"fred":                 "mary",
 		},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -2495,7 +2495,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.
 			"fred":                 "mary",
 		},
 	}
-	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -2744,7 +2744,7 @@ password: shhhh`[1:],
 			"fred":                 "mary",
 		},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -3002,7 +3002,7 @@ password: shhhh`[1:],
 		},
 		OperatorImagePath: "operator/image-path",
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -3497,7 +3497,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 		OperatorImagePath: "operator/image-path",
 		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -3583,7 +3583,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		OperatorImagePath: "operator/image-path",
 		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -3627,7 +3627,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 		"app-name",
 		func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil },
 		params, 2,
-		application.ConfigAttributes{
+		config.ConfigAttributes{
 			"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 			"kubernetes-service-externalname":    "ext-name",
 		},
@@ -3786,7 +3786,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		},
 		OperatorImagePath: "operator/image-path",
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -3959,7 +3959,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 			"kubernetes-service-type":            "loadbalancer",
 			"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 			"kubernetes-service-externalname":    "ext-name",
@@ -4150,7 +4150,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		},
 		OperatorImagePath: "operator/image-path",
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -4335,7 +4335,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 			"kubernetes-service-type":            "loadbalancer",
 			"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 			"kubernetes-service-externalname":    "ext-name",
@@ -4591,7 +4591,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		},
 		OperatorImagePath: "operator/image-path",
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -4864,7 +4864,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		},
 		OperatorImagePath: "operator/image-path",
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -5189,7 +5189,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		},
 		OperatorImagePath: "operator/image-path",
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -5286,7 +5286,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			},
 		}},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -5389,7 +5389,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 			},
 		}},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -5484,7 +5484,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -5632,7 +5632,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 			},
 		}},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -5782,7 +5782,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 			},
 		}},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -5990,7 +5990,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 		}},
 		Constraints: constraints.MustParse(`tags=node.foo=a|b|c,^bar=d|e|f,^foo=g|h,pod.foo=1|2|3,^pod.bar=4|5|6,pod.topology-key=some-key,anti-pod.afoo=x|y|z,^anti-pod.abar=7|8|9,anti-pod.topology-key=another-key`),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6173,7 +6173,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 		}},
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6349,7 +6349,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 		}},
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6466,7 +6466,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 		},
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6588,7 +6588,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 		},
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6672,7 +6672,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6750,7 +6750,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500 arch=amd64"),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6838,7 +6838,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 		},
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -6918,7 +6918,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		},
 		Constraints: constraints.MustParse(`zones=a,b,c`),
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -7841,7 +7841,7 @@ func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
 	)
 
-	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
+	err := s.broker.ExposeService("gitlab", nil, config.ConfigAttributes{
 		"kubernetes-ingress-class": "foo",
 		"juju-external-hostname":   "172.0.0.1.xip.io",
 	})
@@ -7926,7 +7926,7 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
 	)
 
-	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
+	err := s.broker.ExposeService("gitlab", nil, config.ConfigAttributes{
 		"juju-external-hostname": "172.0.0.1.xip.io",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -8000,7 +8000,7 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
 	)
 
-	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
+	err := s.broker.ExposeService("gitlab", nil, config.ConfigAttributes{
 		"juju-external-hostname": "172.0.0.1.xip.io",
 	})
 	c.Assert(err, jc.ErrorIsNil)

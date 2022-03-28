@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -36,7 +37,7 @@ var _ = gc.Suite(&provisionerSuite{})
 func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, jc.ErrorIsNil)
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	s.AddCleanup(func(*gc.C) { client.Close() })
 	return manual.ProvisionMachineArgs{
 		Host:           hostname,

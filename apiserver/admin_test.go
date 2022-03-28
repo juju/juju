@@ -162,7 +162,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
-	_, err := st.Client().Status([]string{})
+	_, err := api.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -175,7 +175,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = st.Client().Status([]string{})
+	_, err = api.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -189,7 +189,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
 
-	_, err := st.Client().Status([]string{})
+	_, err := api.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -205,7 +205,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = st.Client().Status([]string{})
+	_, err = api.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -941,13 +941,13 @@ func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C)
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "admin")
 }
 
-func (s *loginSuite) assertRemoteModel(c *gc.C, api api.Connection, expected names.ModelTag) {
+func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected names.ModelTag) {
 	// Look at what the api thinks it has.
-	tag, ok := api.ModelTag()
+	tag, ok := conn.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(tag, gc.Equals, expected)
 	// Look at what the api Client thinks it has.
-	client := api.Client()
+	client := api.NewClient(conn)
 
 	// ModelUUID looks at the model tag on the api state connection.
 	uuid, ok := client.ModelUUID()
@@ -1206,25 +1206,6 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
-	// Note that currently we cannot use macaroon auth
-	// to log into the controller rather than a model
-	// because there's no place to store the fact that
-	// a given external user is allowed access to the controller.
-	s.DischargerLogin = func() string {
-		return "test@somewhere"
-	}
-	info := s.APIInfo(c)
-
-	// Zero the model tag so that we log into the controller
-	// not the model.
-	info.ModelTag = names.ModelTag{}
-
-	client, err := api.Open(info, api.DialOpts{})
-	assertInvalidEntityPassword(c, err)
-	c.Assert(client, gc.Equals, nil)
-}
-
 func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult, error) {
 	cookieJar := apitesting.NewClearableCookieJar()
 
@@ -1282,7 +1263,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 	info.ModelTag = names.ModelTag{}
 
 	_, err := s.login(c, info)
-	assertInvalidEntityPassword(c, err)
+	assertPermissionDenied(c, err)
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
@@ -1434,15 +1415,6 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 	c.Assert(client, gc.Equals, nil)
 }
 
-func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return "testUnknown@somewhere"
-	}
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
-	assertInvalidEntityPassword(c, err)
-	c.Assert(client, gc.Equals, nil)
-}
-
 func assertInvalidEntityPassword(c *gc.C, err error) {
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
@@ -1483,7 +1455,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	info := s.APIInfo(c)
 	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
 	defer userConn.Close()
-	_, err = userConn.Client().Status(nil)
+	_, err = api.NewClient(userConn).Status(nil)
 	c.Check(err, gc.ErrorMatches, "migration in progress, model is importing")
 
 	// Machines should be able to use the API.
@@ -1505,11 +1477,11 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	defer userConn.Close()
 
 	// Status is fine.
-	_, err = userConn.Client().Status(nil)
+	_, err = api.NewClient(userConn).Status(nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
-	err = userConn.Client().DestroyMachines("42")
+	err = api.NewClient(userConn).DestroyMachines("42")
 	c.Check(err, gc.ErrorMatches, "model migration in progress")
 }
 
@@ -1525,7 +1497,7 @@ func (s *loginV3Suite) TestClientLoginToModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
-	client := apiState.Client()
+	client := api.NewClient(apiState)
 	_, err = client.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1537,7 +1509,7 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
-	client := apiState.Client()
+	client := api.NewClient(apiState)
 	_, err = client.GetModelConstraints()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `facade "Client" not supported for controller API connection`,

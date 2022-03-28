@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -255,4 +256,18 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 		URL:    url,
 	})
 	c.Assert(err, gc.ErrorMatches, `refreshing OAuth token: no service specified for token auth challenge`)
+}
+
+func (s *transportSuite) TestUnwrapNetError(c *gc.C) {
+	originalErr := errors.NotFoundf("jujud-operator:2.6.6")
+	c.Assert(errors.IsNotFound(originalErr), jc.IsTrue)
+	var urlErr error = &url.Error{
+		Op:  "Get",
+		URL: "https://example.com",
+		Err: originalErr,
+	}
+	unwrapedErr := internal.UnwrapNetError(urlErr)
+	c.Assert(unwrapedErr, gc.NotNil)
+	c.Assert(unwrapedErr, jc.Satisfies, errors.IsNotFound)
+	c.Assert(unwrapedErr, gc.ErrorMatches, `Get "https://example.com": jujud-operator:2.6.6 not found`)
 }

@@ -19,10 +19,10 @@ const (
 	// starting up a raft backend, on some machines it might take more than the
 	// running apply timeout. For that reason, we allow a grace period when
 	// initializing.
-	InitialApplyTimeout time.Duration = time.Second * 5
+	InitialApplyTimeout = time.Second * 5
 	// ApplyTimeout is the timeout for applying a command in an operation. It
 	// is expected that raft can commit a log with in this timeout.
-	ApplyTimeout time.Duration = time.Second * 2
+	ApplyTimeout = time.Second * 2
 )
 
 // Raft defines a local use Raft instance.
@@ -40,22 +40,19 @@ type Raft interface {
 	GetConfiguration() raft.ConfigurationFuture
 
 	// Apply is used to apply a command to the FSM in a highly consistent
-	// manner. This returns a future that can be used to wait on the application.
-	// An optional timeout can be provided to limit the amount of time we wait
-	// for the command to be started. This must be run on the leader or it
-	// will fail.
+	// manner. This returns a future that can be used to wait on the
+	// application. An optional timeout can be provided to limit the amount of
+	// time we wait for the command to be started. This must be run on the
+	// leader, or it will fail.
 	Apply([]byte, time.Duration) raft.ApplyFuture
 }
 
 // ApplierMetrics defines an interface for recording the application of a log.
 type ApplierMetrics interface {
-	// Record times how long a apply operation took, along with if it failed or
+	// Record times how long an apply operation took, along with if it failed or
 	// not. This can be used to understand if we're hitting issues with the
 	// underlying raft instance.
 	Record(start time.Time, result string)
-	// RecordLeaderError calls out that there was a leader error, so didn't
-	// follow the usual flow.
-	RecordLeaderError(start time.Time)
 }
 
 // Applier applies a new operation against a raft instance.
@@ -68,7 +65,9 @@ type Applier struct {
 }
 
 // NewApplier creates a new Applier.
-func NewApplier(raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics, clock clock.Clock, logger Logger) LeaseApplier {
+func NewApplier(
+	raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics, clock clock.Clock, logger Logger,
+) LeaseApplier {
 	return &Applier{
 		raft:         raft,
 		notifyTarget: target,
@@ -78,7 +77,7 @@ func NewApplier(raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics
 	}
 }
 
-// ApplyOperation applies an lease opeartion against the raft instance. If the
+// ApplyOperation applies a lease operation against the raft instance. If the
 // raft instance isn't the leader, then an error is returned with the leader
 // information if available.
 // This Raft spec outlines this "The first option, which we recommend ..., is
@@ -87,25 +86,12 @@ func NewApplier(raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics
 // If the leader is the current raft instance, then attempt to apply it to
 // the fsm.
 func (a *Applier) ApplyOperation(ops []queue.OutOperation, applyTimeout time.Duration) {
-	start := a.clock.Now()
-
-	// Operations are iterated through optimistically, so if there is an error,
-	// then continue onwards.
 	for i, op := range ops {
-		// If there is a leader error, finish the operations with the leader
-		// error.
-		if leaderErr := a.currentLeaderState(); leaderErr != nil {
-			a.metrics.RecordLeaderError(start)
-			op.Done(leaderErr)
-			continue
-		}
-
 		a.applyOperation(i, op, applyTimeout)
 	}
 }
 
 func (a *Applier) applyOperation(i int, op queue.OutOperation, applyTimeout time.Duration) {
-	// We use the error to signal if the apply was a failure or not.
 	start := a.clock.Now()
 
 	if a.logger.IsTraceEnabled() {
@@ -129,7 +115,7 @@ func (a *Applier) applyOperation(i int, op queue.OutOperation, applyTimeout time
 		}()
 
 		if err = future.Error(); err != nil {
-			op.Done(err)
+			op.Done(a.handleRaftError(err))
 			return
 		}
 
@@ -146,8 +132,8 @@ func (a *Applier) applyOperation(i int, op queue.OutOperation, applyTimeout time
 			return
 		}
 
-		// If the notify fails here, just ignore it and log out the
-		// error, so that the operator can at least see the issues when
+		// If the notify fails here, just ignore it and log the error,
+		// so that the operator can at least see the issues when
 		// inspecting the controller logs.
 		if err := fsmResponse.Notify(a.notifyTarget); err != nil {
 			a.logger.Errorf("failed to notify: %v", err)
@@ -155,6 +141,19 @@ func (a *Applier) applyOperation(i int, op queue.OutOperation, applyTimeout time
 
 		op.Done(nil)
 	}()
+}
+
+func (a *Applier) handleRaftError(raftError error) error {
+	a.logger.Errorf("Raft future error: %v", raftError)
+
+	switch raftError {
+	case raft.ErrNotLeader, raft.ErrLeadershipLost, raft.ErrLeadershipTransferInProgress:
+		if err := a.currentLeaderState(); err != nil {
+			return err
+		}
+	}
+
+	return raftError
 }
 
 func (a *Applier) currentLeaderState() error {
@@ -166,8 +165,8 @@ func (a *Applier) currentLeaderState() error {
 		// If the leaderAddress is empty, this implies that either we don't
 		// have a leader or there is no raft cluster setup.
 		if leaderAddress == "" {
-			// Return back we don't have a leader and then it's up to the client
-			// to work out what to do next.
+			// Return an error indicating we don't have a leader.
+			// It is up to the client to work out what to do next.
 			return NewNotLeaderError("", "")
 		}
 

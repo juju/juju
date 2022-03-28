@@ -981,7 +981,7 @@ func identityClientVersion(authURL string) (int, error) {
 		_, tail = path.Split(strings.TrimRight(urlpath, "/"))
 	}
 	versionNumStr := strings.TrimPrefix(tail, "v")
-	logger.Tracef("authURL: %s", authURL)
+	logger.Debugf("authURL: %s", authURL)
 	major, _, err := version.ParseMajorMinor(versionNumStr)
 	if len(tail) < 2 || tail[0] != 'v' || err != nil {
 		// There must be a '/v' in the URL path.
@@ -2369,4 +2369,12 @@ func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.
 // interface.
 func (e *Environ) SupportsRulesWithIPV6CIDRs(ctx context.ProviderCallContext) (bool, error) {
 	return true, nil
+}
+
+// ValidateCloudEndpoint returns nil if the current model can talk to the openstack
+// endpoint. Used as validation during model upgrades.
+// Implements environs.CloudEndpointChecker
+func (env *Environ) ValidateCloudEndpoint(ctx context.ProviderCallContext) error {
+	err := env.Provider().Ping(ctx, env.cloud().Endpoint)
+	return errors.Trace(err)
 }

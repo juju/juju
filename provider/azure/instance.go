@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -26,6 +26,7 @@ import (
 type azureInstance struct {
 	vmName            string
 	provisioningState compute.ProvisioningState
+	provisioningError string
 	env               *azureEnviron
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
@@ -53,12 +54,8 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Stat
 		instanceStatus = status.Running
 		message = ""
 	case compute.ProvisioningStateDeleting, compute.ProvisioningStateFailed:
-		// TODO(axw) if the provisioning state is "Failed", then we
-		// should use the error message from the deployment description
-		// as the Message. The error details are not currently exposed
-		// in the Azure SDK. See:
-		//     https://github.com/Azure/azure-sdk-for-go/issues/399
 		instanceStatus = status.ProvisioningError
+		message = inst.provisioningError
 	case compute.ProvisioningStateCreating:
 		message = ""
 		fallthrough

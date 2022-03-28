@@ -181,47 +181,23 @@ func (b *mockBindings) MapWithSpaceNames(network.SpaceInfos) (map[string]string,
 type mockSpace struct {
 	name       string
 	providerId network.Id
-	subnets    []applicationoffers.Subnet
+	subnets    network.SubnetInfos
 }
 
 func (m *mockSpace) Name() string {
 	return m.name
 }
 
-func (m *mockSpace) Subnets() ([]applicationoffers.Subnet, error) {
-	return m.subnets, nil
+func (m *mockSpace) NetworkSpace() (network.SpaceInfo, error) {
+	return corenetwork.SpaceInfo{
+		Name:       corenetwork.SpaceName(m.name),
+		ProviderId: m.providerId,
+		Subnets:    m.subnets,
+	}, nil
 }
 
 func (m *mockSpace) ProviderId() network.Id {
 	return m.providerId
-}
-
-type mockSubnet struct {
-	cidr              string
-	vlantag           int
-	providerId        network.Id
-	providerNetworkId network.Id
-	zones             []string
-}
-
-func (m *mockSubnet) CIDR() string {
-	return m.cidr
-}
-
-func (m *mockSubnet) VLANTag() int {
-	return m.vlantag
-}
-
-func (m *mockSubnet) ProviderId() network.Id {
-	return m.providerId
-}
-
-func (m *mockSubnet) ProviderNetworkId() network.Id {
-	return m.providerNetworkId
-}
-
-func (m *mockSubnet) AvailabilityZones() []string {
-	return m.zones
 }
 
 type mockRelation struct {

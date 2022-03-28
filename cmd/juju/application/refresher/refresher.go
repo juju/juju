@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charmrepo/v6"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -199,6 +200,10 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 		}
 		return &CharmID{
 			URL: addedURL,
+			Origin: corecharm.Origin{
+				Source: corecharm.Local,
+				Type:   "charm",
+			},
 		}, nil
 	}
 	if _, ok := err.(*charmrepo.NotFoundError); ok {
@@ -428,14 +433,14 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		origin.Series = r.deployedSeries
 	}
 
-	curl, _, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
+	curl, actualOrigin, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &CharmID{
 		URL:    curl,
-		Origin: origin.CoreCharmOrigin(),
+		Origin: actualOrigin.CoreCharmOrigin(),
 	}, nil
 }
 

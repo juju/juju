@@ -21,6 +21,8 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
+	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -421,7 +423,7 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
@@ -501,7 +503,7 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
@@ -537,10 +539,17 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
+}
+
+func (s *applicationSuite) constraintsWithDefaultArch(c *gc.C) constraints.Value {
+	a := arch.DefaultArchitecture
+	return constraints.Value{
+		Arch: &a,
+	}
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
@@ -693,6 +702,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Config:          config,
+		Constraints:     cons,
 		Placement: []*instance.Placement{
 			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 		},
@@ -705,7 +715,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 
 	appConfig, err := app.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -729,6 +739,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
+		Constraints:     cons,
 		Placement: []*instance.Placement{
 			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 		},
@@ -741,7 +752,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
 	appConfig, err := app.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	trust := appConfig.GetBool(application.TrustConfigOptionName, true)
@@ -833,7 +844,7 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	// First test the sanity checks.
 	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
@@ -883,7 +894,7 @@ func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-3", "wordpress")
 
 	// Try adding the same charm concurrently from multiple goroutines
@@ -938,7 +949,7 @@ func (s *applicationSuite) assertUploaded(c *gc.C, storage statestorage.Storage,
 }
 
 func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	curl, _ := s.UploadCharm(c, "cs:trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.
@@ -977,8 +988,9 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Source:   "local",
 		Revision: &rev,
 		Channel: &state.Channel{
-			Track: "latest",
-			Risk:  "stable",
+			Track:  "latest",
+			Risk:   "stable",
+			Branch: "foo",
 		},
 		Platform: &state.Platform{
 			Architecture: "amd64",
@@ -991,13 +1003,16 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.URL, gc.Equals, "local:quantal/wordpress-3")
+
 	latest := "latest"
+	branch := "foo"
 
 	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Risk:         "stable",
 		Revision:     &rev,
 		Track:        &latest,
+		Branch:       &branch,
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",
@@ -1031,7 +1046,7 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
 		names.NewUnitTag("application/2"),
@@ -1074,7 +1089,7 @@ func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
 		names.NewUnitTag("application/2"),
@@ -1155,7 +1170,7 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
 		names.NewUnitTag("application/2"),
@@ -1545,7 +1560,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1603,7 +1618,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 		Devices:     expectedProfile.Devices,
 	})
 
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1670,7 +1685,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 		Devices:     expectedProfile.Devices,
 	})
 
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 

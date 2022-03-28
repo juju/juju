@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
 )
@@ -121,7 +121,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, e string, _ map[string]interface{}) error {
 		c.Logf("EnsureService error -> %q", e)
 		return nil
-	}, params, 2, application.ConfigAttributes{
+	}, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
@@ -843,7 +843,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 				c.Logf("EnsureService error -> %q", e)
 				return nil
 			},
-			params, 2, application.ConfigAttributes{
+			params, 2, config.ConfigAttributes{
 				"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 				"kubernetes-service-externalname":    "ext-name",
 			})

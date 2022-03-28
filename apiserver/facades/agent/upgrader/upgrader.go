@@ -55,7 +55,7 @@ func NewUpgraderFacade(ctx facade.Context) (Upgrader, error) {
 			// For sidecar applications.
 			return NewUpgraderAPI(ctrlSt, st, resources, auth)
 		}
-		return NewUnitUpgraderAPI(st, resources, auth)
+		return NewUnitUpgraderAPI(ctx)
 	}
 	// Not a machine or unit.
 	return nil, apiservererrors.ErrPerm

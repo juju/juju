@@ -35,7 +35,7 @@ jobs:
     steps:
 
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846 # v3
 
     - name: Find required go version
       id: go-version
@@ -44,7 +44,7 @@ jobs:
         echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
 
     - name: Set up Go
-      uses: actions/setup-go@v2.2.0
+      uses: actions/setup-go@f6164bd8c8acb4a71fb2791a8b6c4024ff038dab # v3
       with:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
@@ -56,13 +56,13 @@ jobs:
 
     - name: "Remove Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@v1
+      uses: crazy-max/ghaction-chocolatey@87d06bbbd2cfb1835f1820042d356aef4875fb5f # v1
       with:
         args: uninstall mongodb mongodb.install -y --all-versions
 
     - name: "Install Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@v1
+      uses: crazy-max/ghaction-chocolatey@87d06bbbd2cfb1835f1820042d356aef4875fb5f # v1
       with:
         args: install mongodb.install --version=4.4.11 --allow-downgrade
 

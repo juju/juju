@@ -497,7 +497,15 @@ func (r *relationStateTracker) LocalUnitAndApplicationLife() (life.Value, life.V
 func (r *relationStateTracker) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 
-	for id, st := range r.stateMgr.(*stateManager).relationState {
+	stateMgr, ok := r.stateMgr.(*stateManager)
+	if !ok {
+		return nil
+	}
+	stateMgr.mu.Lock()
+	relationState := stateMgr.relationState
+	stateMgr.mu.Unlock()
+
+	for id, st := range relationState {
 		report := map[string]interface{}{
 			"application-members": st.ApplicationMembers,
 			"members":             st.Members,

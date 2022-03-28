@@ -31,11 +31,8 @@ type UserManagerAPI struct {
 }
 
 // NewUserManagerAPI provides the signature required for facade registration.
-func NewUserManagerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*UserManagerAPI, error) {
+func NewUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -45,6 +42,7 @@ func NewUserManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
+	st := ctx.State()
 	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)

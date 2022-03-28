@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
@@ -50,7 +50,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-	s.PatchValue(&jujuversion.OfficialBuild, 666)
+	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -98,7 +98,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		},
 		charmModifiedVersion: 10,
 		scale:                3,
-		config: application.ConfigAttributes{
+		config: config.ConfigAttributes{
 			"trust": true,
 		},
 	}
@@ -110,7 +110,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
 		Results: []params.CAASApplicationProvisioningInfo{{
 			ImagePath:    "jujusolutions/jujud-operator:2.6-beta3.666",
-			Version:      version.MustParse("2.6-beta3"),
+			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),

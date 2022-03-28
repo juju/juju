@@ -107,8 +107,7 @@ func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access
 }
 
 func (s *stateShim) SpaceByName(name string) (Space, error) {
-	sp, err := s.st.SpaceByName(name)
-	return &spaceShim{sp}, err
+	return s.st.SpaceByName(name)
 }
 
 func (s *stateShim) Model() (Model, error) {
@@ -151,38 +150,10 @@ var GetApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffer
 	return nil
 }
 
-type Subnet interface {
-	CIDR() string
-	VLANTag() int
-	ProviderId() network.Id
-	ProviderNetworkId() network.Id
-	AvailabilityZones() []string
-}
-
-type subnetShim struct {
-	*state.Subnet
-}
-
 type Space interface {
 	Name() string
-	Subnets() ([]Subnet, error)
+	NetworkSpace() (network.SpaceInfo, error)
 	ProviderId() network.Id
-}
-
-type spaceShim struct {
-	*state.Space
-}
-
-func (s *spaceShim) Subnets() ([]Subnet, error) {
-	subnets, err := s.Space.Subnets()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]Subnet, len(subnets))
-	for i, subnet := range subnets {
-		result[i] = &subnetShim{subnet}
-	}
-	return result, nil
 }
 
 type Model interface {

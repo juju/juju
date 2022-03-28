@@ -45,6 +45,7 @@ type appWorker struct {
 	changes     chan struct{}
 	password    string
 	lastApplied caas.ApplicationConfig
+	life        life.Value
 }
 
 type AppWorkerConfig struct {
@@ -208,6 +209,7 @@ func (a *appWorker) loop() error {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+		a.life = appLife
 		switch appLife {
 		case life.Alive:
 			if appStateChanges == nil {
@@ -256,6 +258,8 @@ func (a *appWorker) loop() error {
 			}
 			done = true
 			return nil
+		default:
+			return errors.NotImplementedf("unknown life %d", a.life)
 		}
 		return nil
 	}
@@ -595,14 +599,25 @@ func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.
 }
 
 func (a *appWorker) ensureScale(app caas.Application) error {
-	desiredScale, err := a.unitFacade.ApplicationScale(a.name)
-	if err != nil {
-		return errors.Annotatef(err, "fetching application %q desired scale", a.name)
+	var err error
+	var desiredScale int
+	switch a.life {
+	case life.Alive:
+		desiredScale, err = a.unitFacade.ApplicationScale(a.name)
+		if err != nil {
+			return errors.Annotatef(err, "fetching application %q desired scale", a.name)
+		}
+	case life.Dying, life.Dead:
+		desiredScale = 0
+	default:
+		return errors.NotImplementedf("unknown life %d", a.life)
 	}
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
 	err = app.Scale(desiredScale)
-	if err != nil {
+	if a.life == life.Dead && errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return errors.Annotatef(
 			err,
 			"scaling application %q to desired scale %d",
@@ -750,9 +765,9 @@ func (a *appWorker) setApplicationStatus(s status.Status, reason string, data ma
 
 func (a *appWorker) dying(app caas.Application) error {
 	a.logger.Debugf("application %q dying", a.name)
-	err := app.Delete()
+	err := a.ensureScale(app)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
 	return nil
 }
@@ -760,6 +775,10 @@ func (a *appWorker) dying(app caas.Application) error {
 func (a *appWorker) dead(app caas.Application) error {
 	a.logger.Debugf("application %q dead", a.name)
 	err := a.dying(app)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = app.Delete()
 	if err != nil {
 		return errors.Trace(err)
 	}

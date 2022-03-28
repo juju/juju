@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application_test
+package config_test
 
 import (
 	"github.com/juju/collections/set"
@@ -10,15 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type ApplicationSuite struct {
+type ConfigSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&ApplicationSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
 var testFields = environschema.Fields{
 	"field1": {
@@ -53,22 +53,22 @@ var testDefaults = schema.Defaults{
 	"field3": 42,
 }
 
-func (s *ApplicationSuite) TestKnownConfigKeys(c *gc.C) {
-	c.Assert(application.KnownConfigKeys(
+func (s *ConfigSuite) TestKnownConfigKeys(c *gc.C) {
+	c.Assert(config.KnownConfigKeys(
 		testFields), gc.DeepEquals, set.NewStrings("field1", "field2", "field3", "field4", "field5"))
 }
 
-func (s *ApplicationSuite) assertNewConfig(c *gc.C) *application.Config {
-	cfg, err := application.NewConfig(
+func (s *ConfigSuite) assertNewConfig(c *gc.C) *config.Config {
+	cfg, err := config.NewConfig(
 		map[string]interface{}{"field2": "field 2 value", "field4": true, "field5": map[string]interface{}{"a": "b"}},
 		testFields, testDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
-func (s *ApplicationSuite) TestAttributes(c *gc.C) {
+func (s *ConfigSuite) TestAttributes(c *gc.C) {
 	cfg := s.assertNewConfig(c)
-	c.Assert(cfg.Attributes(), jc.DeepEquals, application.ConfigAttributes{
+	c.Assert(cfg.Attributes(), jc.DeepEquals, config.ConfigAttributes{
 		"field1": "field 1 default",
 		"field2": "field 2 value",
 		"field3": 42,
@@ -77,41 +77,41 @@ func (s *ApplicationSuite) TestAttributes(c *gc.C) {
 	})
 }
 
-func (s *ApplicationSuite) TestNewConfigUnknownAttribute(c *gc.C) {
-	_, err := application.NewConfig(map[string]interface{}{"some-attr": "value"}, nil, nil)
+func (s *ConfigSuite) TestNewConfigUnknownAttribute(c *gc.C) {
+	_, err := config.NewConfig(map[string]interface{}{"some-attr": "value"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `unknown key "some-attr" \(value "value"\)`)
 }
 
-func (s *ApplicationSuite) TestAttributesNil(c *gc.C) {
-	cfg := (*application.Config)(nil)
+func (s *ConfigSuite) TestAttributesNil(c *gc.C) {
+	cfg := (*config.Config)(nil)
 	c.Assert(cfg.Attributes(), gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestGet(c *gc.C) {
+func (s *ConfigSuite) TestGet(c *gc.C) {
 	cfg := s.assertNewConfig(c)
 	c.Assert(cfg.Attributes().Get("field1", nil), gc.Equals, "field 1 default")
 	c.Assert(cfg.Attributes().Get("missing", "default"), gc.Equals, "default")
 }
 
-func (s *ApplicationSuite) TestGetString(c *gc.C) {
+func (s *ConfigSuite) TestGetString(c *gc.C) {
 	cfg := s.assertNewConfig(c)
 	c.Assert(cfg.Attributes().GetString("field1", ""), gc.Equals, "field 1 default")
 	c.Assert(cfg.Attributes().GetString("missing", "default"), gc.Equals, "default")
 }
 
-func (s *ApplicationSuite) TestGetInt(c *gc.C) {
+func (s *ConfigSuite) TestGetInt(c *gc.C) {
 	cfg := s.assertNewConfig(c)
 	c.Assert(cfg.Attributes().GetInt("field3", -1), gc.Equals, 42)
 	c.Assert(cfg.Attributes().GetInt("missing", -1), gc.Equals, -1)
 }
 
-func (s *ApplicationSuite) TestGetBool(c *gc.C) {
+func (s *ConfigSuite) TestGetBool(c *gc.C) {
 	cfg := s.assertNewConfig(c)
 	c.Assert(cfg.Attributes().GetBool("field4", false), gc.Equals, true)
 	c.Assert(cfg.Attributes().GetBool("missing", true), gc.Equals, true)
 }
 
-func (s *ApplicationSuite) TestGetStringMap(c *gc.C) {
+func (s *ConfigSuite) TestGetStringMap(c *gc.C) {
 	cfg := s.assertNewConfig(c)
 	expected := map[string]string{"a": "b"}
 	val, err := cfg.Attributes().GetStringMap("field5", nil)
@@ -122,7 +122,7 @@ func (s *ApplicationSuite) TestGetStringMap(c *gc.C) {
 	c.Assert(val, jc.DeepEquals, expected)
 }
 
-func (s *ApplicationSuite) TestInvalidStringMap(c *gc.C) {
+func (s *ConfigSuite) TestInvalidStringMap(c *gc.C) {
 	cfg := s.assertNewConfig(c)
 	_, err := cfg.Attributes().GetStringMap("field1", nil)
 	c.Assert(err, gc.ErrorMatches, "string map value of type string not valid")

@@ -32,7 +32,8 @@ type RebootAPI struct {
 }
 
 // NewRebootAPI creates a new server-side RebootAPI facade.
-func NewRebootAPI(st *state.State, resources facade.Resources, auth facade.Authorizer) (*RebootAPI, error) {
+func NewRebootAPI(ctx facade.Context) (*RebootAPI, error) {
+	auth := ctx.Auth()
 	if !auth.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -41,6 +42,7 @@ func NewRebootAPI(st *state.State, resources facade.Resources, auth facade.Autho
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got %T", auth.GetAuthTag())
 	}
+	st := ctx.State()
 	machine, err := st.Machine(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -56,7 +58,7 @@ func NewRebootAPI(st *state.State, resources facade.Resources, auth facade.Autho
 		RebootFlagClearer:  common.NewRebootFlagClearer(st, canAccess),
 		st:                 st,
 		machine:            machine,
-		resources:          resources,
+		resources:          ctx.Resources(),
 		auth:               auth,
 	}, nil
 }

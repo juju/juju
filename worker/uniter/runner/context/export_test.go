@@ -79,7 +79,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx.portRangeChanges = newPortRangeChangeRecorder(hcParams.Unit.Tag(), machPorts)
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, hcParams.Unit.Tag(), machPorts)
 
 	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
 	if err != nil {
@@ -93,20 +93,22 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 }
 
 func NewMockUnitHookContext(unitName string, mockUnit *mocks.MockHookUnit) *HookContext {
+	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unit:             mockUnit,
-		logger:           loggo.GetLogger("test"),
-		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil),
+		logger:           logger,
+		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
 	}
 }
 
 func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
+	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:         mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:             mockUnit,
 		state:            state,
-		logger:           loggo.GetLogger("test"),
-		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil),
+		logger:           logger,
+		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
 	}
 }
 

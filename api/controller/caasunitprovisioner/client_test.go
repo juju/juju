@@ -13,7 +13,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
@@ -341,7 +341,7 @@ func (s *unitprovisionerSuite) TestApplicationConfig(c *gc.C) {
 	client := caasunitprovisioner.NewClient(apiCaller)
 	cfg, err := client.ApplicationConfig("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, application.ConfigAttributes{"foo": "bar"})
+	c.Assert(cfg, jc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
 }
 
 func (s *unitprovisionerSuite) TestUpdateUnits(c *gc.C) {

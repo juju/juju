@@ -238,11 +238,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		Release: coreos.HostOSTypeName(),
 	}
 	detail := versionDetail{
-		Version:       current.String(),
-		GitCommit:     jujuversion.GitCommit,
-		GitTreeState:  jujuversion.GitTreeState,
-		Compiler:      jujuversion.Compiler,
-		OfficialBuild: jujuversion.OfficialBuild,
+		Version:      current.String(),
+		GitCommit:    jujuversion.GitCommit,
+		GitTreeState: jujuversion.GitTreeState,
+		Compiler:     jujuversion.Compiler,
 	}
 
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -102,7 +102,9 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig()
 	attrs["workload-storage"] = "k8s-storage"
-	attrs["agent-version"] = jujuversion.Current.String()
+	ver := jujuversion.Current
+	ver.Build = 666
+	attrs["agent-version"] = ver.String()
 	return config.New(config.UseDefaults, attrs)
 }
 
@@ -234,9 +236,9 @@ func (a *mockApplication) GetPlacement() string {
 	return "placement"
 }
 
-func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
+func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig")
-	return application.ConfigAttributes{"foo": "bar"}, a.NextErr()
+	return coreconfig.ConfigAttributes{"foo": "bar"}, a.NextErr()
 }
 
 func (m *mockApplication) AllUnits() (units []caasunitprovisioner.Unit, err error) {

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -24,13 +23,14 @@ type UndertakerAPI struct {
 }
 
 // NewUndertakerAPI creates a new instance of the undertaker API.
-func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
+func NewUndertakerAPI(ctx facade.Context) (*UndertakerAPI, error) {
+	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return newUndertakerAPI(&stateShim{st, m}, resources, authorizer)
+	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth())
 }
 
 func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {

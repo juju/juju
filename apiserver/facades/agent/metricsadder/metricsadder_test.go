@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -87,7 +88,11 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	adder, err := metricsadder.NewMetricsAdderAPI(s.State, s.resources, s.authorizer)
+	adder, err := metricsadder.NewMetricsAdderAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.adder = adder
 }
@@ -229,10 +234,13 @@ func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonAgent(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d", i)
 
-		anAuthoriser := s.authorizer
-		anAuthoriser.Controller = test.controller
-		anAuthoriser.Tag = test.tag
-		endPoint, err := metricsadder.NewMetricsAdderAPI(s.State, nil, anAuthoriser)
+		anAuthorizer := s.authorizer
+		anAuthorizer.Controller = test.controller
+		anAuthorizer.Tag = test.tag
+		endPoint, err := metricsadder.NewMetricsAdderAPI(facadetest.Context{
+			State_: s.State,
+			Auth_:  anAuthorizer,
+		})
 		if test.expectedError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(endPoint, gc.NotNil)

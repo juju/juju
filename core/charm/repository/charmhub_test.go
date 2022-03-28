@@ -6,6 +6,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -248,7 +249,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 
 	repo := NewCharmHubRepository(s.logger, s.client)
 	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
-	c.Assert(err, gc.ErrorMatches, `retry resolving with preferred channel: selecting releases: no charm or bundle matching channel or platform; suggestions: stable with focal`)
+	c.Assert(err, gc.ErrorMatches, `selecting releases: no charm or bundle matching channel or platform; suggestions: stable with focal`)
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -718,6 +719,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 
 type selectNextBaseSuite struct {
 	testing.IsolationSuite
+	logger *mocks.MockLogger
 }
 
 var _ = gc.Suite(&selectNextBaseSuite{})
@@ -771,6 +773,71 @@ func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 		OS:           "ubuntu",
 		Series:       "focal",
 	}})
+}
+
+func (selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *gc.C) {
+	channel := corecharm.MustParseChannel("stable/foo")
+	repo := new(CharmHubRepository)
+	_, err := repo.selectNextBasesFromReleases([]transport.Release{}, corecharm.Origin{
+		Channel: &channel,
+	})
+	c.Assert(err, gc.ErrorMatches, `no releases available`)
+}
+
+func (selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c *gc.C) {
+	channel := corecharm.MustParseChannel("stable/foo")
+	repo := new(CharmHubRepository)
+	_, err := repo.selectNextBasesFromReleases([]transport.Release{
+		{},
+	}, corecharm.Origin{
+		Channel: &channel,
+	})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`ambiguous arch and series with channel %q. specify both arch and series along with channel`, channel.String()))
+}
+
+func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	repo := NewCharmHubRepository(s.logger, nil)
+
+	channel := corecharm.MustParseChannel("stable")
+	_, err := repo.selectNextBasesFromReleases([]transport.Release{{
+		Base: transport.Base{
+			Name:         "os",
+			Channel:      "series",
+			Architecture: "arch",
+		},
+		Channel: "stable",
+	}}, corecharm.Origin{
+		Channel: &channel,
+	})
+	c.Assert(err, gc.ErrorMatches, `no charm or bundle matching channel or platform`)
+}
+
+func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	repo := NewCharmHubRepository(s.logger, nil)
+
+	_, err := repo.selectNextBasesFromReleases([]transport.Release{{
+		Base: transport.Base{
+			Name:         "os",
+			Channel:      "20.04",
+			Architecture: "arch",
+		},
+		Channel: "stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "arch",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `no charm or bundle matching channel or platform; suggestions: stable with focal`)
+}
+
+func (s *selectNextBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.logger = mocks.NewMockLogger(ctrl)
+	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
+	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
+	return ctrl
 }
 
 type composeSuggestionsSuite struct {

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -38,7 +39,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		HardwareCharacteristics: hc,
 		Addrs:                   params.FromProviderAddresses(network.NewMachineAddress("1.2.3.4").AsProviderAddress()),
 	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 
@@ -64,7 +65,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	_, err = client.InstanceConfig(s.StatePool.SystemState(), s.State, machines[0].Machine, apiParams.Nonce, "")
@@ -82,7 +83,7 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 		HardwareCharacteristics: hc,
 		Addrs:                   params.FromProviderAddresses(network.NewMachineAddress("1.2.3.4").AsProviderAddress()),
 	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.InstanceConfig(s.StatePool.SystemState(), s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, "finding agent binaries: "+coretools.ErrNoMatches.Error())

@@ -24,8 +24,10 @@ type MemStore struct {
 	Credentials           map[string]cloud.CloudCredential
 	BootstrapConfig       map[string]BootstrapConfig
 	CookieJars            map[string]*cookiejar.Jar
+	ImmutableAccount      bool
 }
 
+//NewMemStore returns a new MemStore.
 func NewMemStore() *MemStore {
 	return &MemStore{
 		Controllers:     make(map[string]ControllerDetails),
@@ -37,7 +39,15 @@ func NewMemStore() *MemStore {
 	}
 }
 
-// AllController implements ControllerGetter.AllController
+//NewEmbeddedMemStore returns a new MemStore used with the embedded CLI.
+// The account details are immutable once set.
+func NewEmbeddedMemStore() *MemStore {
+	s := NewMemStore()
+	s.ImmutableAccount = true
+	return s
+}
+
+// AllControllers implements ControllerGetter.AllController
 func (c *MemStore) AllControllers() (map[string]ControllerDetails, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -351,13 +361,17 @@ func (c *MemStore) UpdateAccount(controllerName string, details AccountDetails) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	oldDetails, ok := c.Accounts[controllerName]
+	if ok && c.ImmutableAccount {
+		return nil
+	}
+
 	if err := ValidateControllerName(controllerName); err != nil {
 		return err
 	}
 	if err := ValidateAccountDetails(details); err != nil {
 		return err
 	}
-	oldDetails := c.Accounts[controllerName]
 	// Only update last known access if it has a value.
 	if details.LastKnownAccess == "" {
 		details.LastKnownAccess = oldDetails.LastKnownAccess

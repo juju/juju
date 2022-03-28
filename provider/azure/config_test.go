@@ -42,14 +42,14 @@ func (s *configSuite) TestValidateNew(c *gc.C) {
 func (s *configSuite) TestValidateInvalidStorageAccountType(c *gc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"storage-account-type": "savings"},
-		`invalid storage account type "savings", expected one of: \["Premium_LRS" "Premium_ZRS" "Standard_GRS" "Standard_LRS" "Standard_RAGRS" "Standard_ZRS"\]`,
+		`invalid storage account type "savings", expected one of: \["Premium_LRS" "Premium_ZRS" "Standard_GRS" "Standard_GZRS" "Standard_LRS" "Standard_RAGRS" "Standard_RAGZRS" "Standard_ZRS"\]`,
 	)
 }
 
 func (s *configSuite) TestValidateInvalidLoadBalancerSkuName(c *gc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"load-balancer-sku-name": "premium"},
-		`invalid load balancer SKU name "Premium", expected one of: \["Basic" "Standard"\]`,
+		`invalid load balancer SKU name "Premium", expected one of: \["Basic" "Gateway" "Standard"\]`,
 	)
 }
 

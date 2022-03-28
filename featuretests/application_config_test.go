@@ -70,7 +70,7 @@ func (s *ApplicationConfigSuite) assertApplicationDeployed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := st.Uniter()
+	uniter, err := uniter.NewFromConnection(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 

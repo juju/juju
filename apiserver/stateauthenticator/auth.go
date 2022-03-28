@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -164,7 +163,7 @@ func (a *Authenticator) checkCreds(
 	req params.LoginRequest,
 	authTag names.Tag,
 	userLogin bool,
-	authenticator authentication.EntityAuthenticator,
+	authenticator authentication.Authenticator,
 ) (httpcontext.AuthInfo, error) {
 	var entityFinder authentication.EntityFinder = st
 	if userLogin {
@@ -186,21 +185,13 @@ func (a *Authenticator) checkCreds(
 		authInfo.Controller = entity.IsManager()
 	}
 
-	type withLastLogin interface {
-		LastLogin() (time.Time, error)
+	type withLogin interface {
 		UpdateLastLogin() error
 	}
-	if entity, ok := entity.(withLastLogin); ok {
-		lastLogin, err := entity.LastLogin()
-		if err == nil {
-			authInfo.LastConnection = lastLogin
-		} else if !state.IsNeverLoggedInError(err) {
-			return httpcontext.AuthInfo{}, errors.Trace(err)
+	if entity, ok := entity.(withLogin); ok {
+		if err := entity.UpdateLastLogin(); err != nil {
+			logger.Warningf("updating last login time for %v", authTag)
 		}
-		// TODO log or return error returned by
-		// UpdateLastLogin? Old code didn't do
-		// anything with it.
-		_ = entity.UpdateLastLogin()
 	}
 	return authInfo, nil
 }

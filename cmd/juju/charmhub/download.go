@@ -115,23 +115,25 @@ func (c *downloadCommand) Init(args []string) error {
 		c.pipeToStdout = true
 	}
 
-	if err := c.validateCharmOrBundle(args[0]); err != nil {
+	curl, err := c.validateCharmOrBundle(args[0])
+	if err != nil {
 		return errors.Trace(err)
 	}
-	c.charmOrBundle = args[0]
+	// Allow for both <charm> and ch:<charm> to download.
+	c.charmOrBundle = curl.Name
 
 	return nil
 }
 
-func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) error {
+func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) (*charm.URL, error) {
 	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
-		return errors.Annotatef(err, "unexpected charm or bundle name")
+		return nil, errors.Annotatef(err, "unexpected charm or bundle name")
 	}
 	if !charm.CharmHub.Matches(curl.Schema) {
-		return errors.Errorf("%q is not a Charm Hub charm", charmOrBundle)
+		return nil, errors.Errorf("%q is not a Charmhub charm", charmOrBundle)
 	}
-	return nil
+	return curl, nil
 }
 
 // Run is the business logic of the download command.  It implements the meaty

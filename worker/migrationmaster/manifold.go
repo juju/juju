@@ -79,7 +79,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	apiClient := apiConn.Client()
+	apiClient := api.NewClient(apiConn)
 	worker, err := config.NewWorker(Config{
 		ModelUUID:       agent.CurrentConfig().Model().Id(),
 		Facade:          facade,

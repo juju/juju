@@ -982,8 +982,17 @@ func (u *Uniter) Terminate() error {
 func (u *Uniter) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 
-	result["unit"] = u.unit.Name()
-	result["relations"] = u.relationStateTracker.Report()
+	// We need to guard against attempting to report when setting up or dying,
+	// so we don't end up panic'ing with missing information.
+	if u.unit != nil {
+		result["unit"] = u.unit.Name()
+	}
+	if u.operationExecutor != nil {
+		result["local-state"] = u.operationExecutor.State().Report()
+	}
+	if u.relationStateTracker != nil {
+		result["relations"] = u.relationStateTracker.Report()
+	}
 
 	return result
 }

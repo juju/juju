@@ -25,6 +25,7 @@ type WorkerConfig struct {
 	MongoProfile             mongo.MemoryProfile
 	JujuDBSnapChannel        string
 	NonSyncedWritesToRaftLog bool
+	BatchRaftFSM             bool
 	Logger                   Logger
 }
 
@@ -49,6 +50,7 @@ type agentConfigUpdater struct {
 	mongoProfile             mongo.MemoryProfile
 	jujuDBSnapChannel        string
 	nonSyncedWritesToRaftLog bool
+	batchRaftFSM             bool
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -63,6 +65,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		mongoProfile:             config.MongoProfile,
 		jujuDBSnapChannel:        config.JujuDBSnapChannel,
 		nonSyncedWritesToRaftLog: config.NonSyncedWritesToRaftLog,
+		batchRaftFSM:             config.BatchRaftFSM,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -105,7 +108,10 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	nonSyncedWritesToRaftLog := data.Config.NonSyncedWritesToRaftLog()
 	nonSyncedWritesToRaftLogChanged := nonSyncedWritesToRaftLog != w.nonSyncedWritesToRaftLog
 
-	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged || nonSyncedWritesToRaftLogChanged
+	batchRaftFSM := data.Config.BatchRaftFSM()
+	batchRaftFSMChanged := batchRaftFSM != w.batchRaftFSM
+
+	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged || nonSyncedWritesToRaftLogChanged || batchRaftFSMChanged
 	if !changeDetected {
 		// Nothing to do, all good.
 		return
@@ -123,6 +129,10 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		if nonSyncedWritesToRaftLogChanged {
 			w.config.Logger.Debugf("setting no sync writes to raft log: %t => %t", w.nonSyncedWritesToRaftLog, nonSyncedWritesToRaftLog)
 			setter.SetNonSyncedWritesToRaftLog(nonSyncedWritesToRaftLog)
+		}
+		if batchRaftFSMChanged {
+			w.config.Logger.Debugf("setting batch raft fsm: %t => %t", w.batchRaftFSM, batchRaftFSM)
+			setter.SetBatchRaftFSM(batchRaftFSM)
 		}
 		return nil
 	})

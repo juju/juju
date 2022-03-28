@@ -44,15 +44,13 @@ type RetryStrategyAPI struct {
 var _ RetryStrategy = (*RetryStrategyAPI)(nil)
 
 // NewRetryStrategyAPI creates a new API endpoint for getting retry strategies.
-func NewRetryStrategyAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*RetryStrategyAPI, error) {
+func NewRetryStrategyAPI(ctx facade.Context) (*RetryStrategyAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -64,7 +62,7 @@ func NewRetryStrategyAPI(
 		canAccess: func() (common.AuthFunc, error) {
 			return authorizer.AuthOwner, nil
 		},
-		resources: resources,
+		resources: ctx.Resources(),
 	}, nil
 }
 

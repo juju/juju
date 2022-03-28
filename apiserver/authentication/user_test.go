@@ -50,7 +50,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	machinePassword := password
 
 	// attempt machine login
-	authenticator := &authentication.UserAuthenticator{}
+	authenticator := &authentication.LocalUserAuthenticator{}
 	_, err = authenticator.Authenticate(context.TODO(), nil, machine.Tag(), params.LoginRequest{
 		Credentials: machinePassword,
 		Nonce:       nonce,
@@ -70,7 +70,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	unitPassword := password
 
 	// Attempt unit login
-	authenticator := &authentication.UserAuthenticator{}
+	authenticator := &authentication.LocalUserAuthenticator{}
 	_, err = authenticator.Authenticate(context.TODO(), nil, unit.Tag(), params.LoginRequest{
 		Credentials: unitPassword,
 		Nonce:       "",
@@ -86,7 +86,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	})
 
 	// User login
-	authenticator := &authentication.UserAuthenticator{}
+	authenticator := &authentication.LocalUserAuthenticator{}
 	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "password",
 		Nonce:       "",
@@ -102,7 +102,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 	})
 
 	// User login
-	authenticator := &authentication.UserAuthenticator{}
+	authenticator := &authentication.LocalUserAuthenticator{}
 	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "wrongpassword",
 		Nonce:       "",
@@ -124,7 +124,7 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempt relation login
-	authenticator := &authentication.UserAuthenticator{}
+	authenticator := &authentication.LocalUserAuthenticator{}
 	_, err = authenticator.Authenticate(context.TODO(), nil, relation.Tag(), params.LoginRequest{
 		Credentials: "dummy-secret",
 		Nonce:       "",
@@ -144,7 +144,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	service := mockBakeryService{}
 
 	// User login
-	authenticator := &authentication.UserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
+	authenticator := &authentication.LocalUserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
 	_, err = authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "",
 		Nonce:       "",
@@ -176,7 +176,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
-	authenticator := &authentication.UserAuthenticator{
+	authenticator := &authentication.LocalUserAuthenticator{
 		Bakery:                    &service,
 		Clock:                     clock,
 		LocalUserIdentityLocation: "https://testing.invalid:1234/auth",
@@ -271,9 +271,7 @@ var authenticateSuccessTests = []struct {
 	about:              "user that can be found",
 	dischargedUsername: "bobbrown@somewhere",
 	expectTag:          "user-bobbrown@somewhere",
-	finder: simpleEntityFinder{
-		"user-bobbrown@somewhere": true,
-	},
+	finder:             simpleEntityFinder{},
 }, {
 	about:              "user with no @ domain",
 	dischargedUsername: "bobbrown",
@@ -281,11 +279,6 @@ var authenticateSuccessTests = []struct {
 		"user-bobbrown@external": true,
 	},
 	expectTag: "user-bobbrown@external",
-}, {
-	about:              "user not found in database",
-	dischargedUsername: "bobbrown@nowhere",
-	finder:             simpleEntityFinder{},
-	expectError:        "invalid entity name or password",
 }, {
 	about:              "invalid user name",
 	dischargedUsername: "--",
@@ -298,11 +291,6 @@ var authenticateSuccessTests = []struct {
 		"cheat@local": true,
 	},
 	expectError: `external identity provider has provided ostensibly local name "cheat@local"`,
-}, {
-	about:              "FindEntity error",
-	dischargedUsername: "bobbrown@nowhere",
-	finder:             errorEntityFinder("lost in space"),
-	expectError:        "lost in space",
 }}
 
 type alwaysIdent struct {

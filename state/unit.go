@@ -2017,7 +2017,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 			}
 		}
 		if !cons.HasArch() {
-			a := arch.DefaultArchitecture
+			a := arch.ConstraintArch(cons, nil)
 			cons.Arch = &a
 		}
 	}

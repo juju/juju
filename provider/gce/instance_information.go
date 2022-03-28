@@ -27,7 +27,22 @@ var (
 	// provides amd64 machine types. For more information see:
 	// https://cloud.google.com/compute/docs/cpu-platforms.
 	machArches = []string{arch.AMD64}
+
+	// minCpuCores is the assumed minimum CPU cores we prefer in order to run a server.
+	minCpuCores uint64 = 2
+
+	// minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (2GB)
+	minMemoryHeuristic uint64 = 2048
 )
+
+func ensureDefaultConstraints(c constraints.Value) constraints.Value {
+	if c.HasInstanceType() || c.HasCpuCores() || c.HasMem() {
+		return c
+	}
+	c.CpuCores = &minCpuCores
+	c.Mem = &minMemoryHeuristic
+	return c
+}
 
 // InstanceTypes implements InstanceTypesFetcher
 func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
@@ -35,8 +50,7 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
-
-	matches, err := instances.MatchingInstanceTypes(allInstanceTypes, "", c)
+	matches, err := instances.MatchingInstanceTypes(allInstanceTypes, "", ensureDefaultConstraints(c))
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}

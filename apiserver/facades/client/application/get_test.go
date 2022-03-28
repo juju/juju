@@ -18,12 +18,13 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	coreapplication "github.com/juju/juju/core/application"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -100,7 +101,8 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 				"value":       "My Title",
 			},
 		},
-		Series: "quantal",
+		Constraints: constraints.MustParse("arch=amd64"),
+		Series:      "quantal",
 	})
 }
 
@@ -137,7 +139,8 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
 				"value":       "My Title",
 			},
 		},
-		Series: "quantal",
+		Constraints: constraints.MustParse("arch=amd64"),
+		Series:      "quantal",
 	})
 }
 
@@ -166,7 +169,8 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 				"type":        environschema.Tbool,
 				"value":       false,
 			}},
-		Series: "quantal",
+		Constraints: constraints.MustParse("arch=amd64"),
+		Series:      "quantal",
 		EndpointBindings: map[string]string{
 			"":                network.AlphaSpaceName,
 			"admin-api":       network.AlphaSpaceName,
@@ -196,7 +200,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	schemaFields, defaults, err = application.AddTrustSchemaAndDefaults(schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appConfig, err := coreapplication.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
+	appConfig, err := coreconfig.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
@@ -282,6 +286,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 			},
 		},
 		ApplicationConfig: expectedAppConfig,
+		Constraints:       constraints.MustParse("arch=amd64"),
 		Series:            "kubernetes",
 		EndpointBindings: map[string]string{
 			"":      network.AlphaSpaceName,
@@ -299,12 +304,13 @@ var getTests = []struct {
 	about       string
 	charm       string
 	constraints string
+	origin      *state.CharmOrigin
 	config      charm.Settings
 	expect      params.ApplicationGetResults
 }{{
 	about:       "deployed application",
 	charm:       "dummy",
-	constraints: "mem=2G cpu-power=400",
+	constraints: "arch=amd64 mem=2G cpu-power=400",
 	config: charm.Settings{
 		// Different from default.
 		"title": "Look To Windward",
@@ -356,8 +362,9 @@ var getTests = []struct {
 		},
 	},
 }, {
-	about: "deployed application  #2",
-	charm: "dummy",
+	about:       "deployed application  #2",
+	charm:       "dummy",
+	constraints: "arch=amd64",
 	config: charm.Settings{
 		// Set title to default.
 		"title": nil,
@@ -438,13 +445,43 @@ var getTests = []struct {
 			"logging-directory": network.AlphaSpaceName,
 		},
 	},
+}, {
+	about: "charmhub subordinate application",
+	charm: "logging",
+	origin: &state.CharmOrigin{
+		Source: "charm-hub",
+		Channel: &state.Channel{
+			Risk:   "stable",
+			Branch: "foo",
+		},
+	},
+	expect: params.ApplicationGetResults{
+		CharmConfig: map[string]interface{}{},
+		Series:      "quantal",
+		ApplicationConfig: map[string]interface{}{
+			"trust": map[string]interface{}{
+				"value":       false,
+				"default":     false,
+				"description": "Does this application have access to trusted credentials",
+				"source":      "default",
+				"type":        "bool",
+			},
+		},
+		EndpointBindings: map[string]string{
+			"":                  network.AlphaSpaceName,
+			"info":              network.AlphaSpaceName,
+			"logging-client":    network.AlphaSpaceName,
+			"logging-directory": network.AlphaSpaceName,
+		},
+		Channel: "stable/foo",
+	},
 }}
 
 func (s *getSuite) TestApplicationGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
-		app := s.AddTestingApplication(c, fmt.Sprintf("test%d", i), ch)
+		app := s.AddTestingApplicationWithOrigin(c, fmt.Sprintf("test%d", i), ch, t.origin)
 
 		var constraintsv constraints.Value
 		if t.constraints != "" {

@@ -3164,6 +3164,9 @@
                         "architecture": {
                             "type": "string"
                         },
+                        "branch": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -15730,6 +15733,9 @@
                     "type": "object",
                     "properties": {
                         "architecture": {
+                            "type": "string"
+                        },
+                        "branch": {
                             "type": "string"
                         },
                         "hash": {
@@ -39273,6 +39279,9 @@
                     "type": "object",
                     "properties": {
                         "architecture": {
+                            "type": "string"
+                        },
+                        "branch": {
                             "type": "string"
                         },
                         "hash": {

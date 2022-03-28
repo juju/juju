@@ -7,12 +7,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
 )
 
 // NewFacade wraps New to express the supplied *state.State as a Backend.
-func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	facade, err := New(st, res, auth)
+func NewFacade(ctx facade.Context) (*Facade, error) {
+	facade, err := New(ctx.State(), ctx.Resources(), ctx.Auth())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

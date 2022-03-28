@@ -51,7 +51,7 @@ type raftMediator struct {
 
 // ApplyLease attempts to apply the command on to the raft FSM. It only takes a
 // command and enqueues that against the raft instance. If the raft instance is
-// already processing a application, then back pressure is applied to the
+// already processing an operation, then back pressure is applied to the
 // caller and a ErrEnqueueDeadlineExceeded will be sent. It's up to the caller
 // to retry or drop depending on how the retry algorithm is implemented.
 func (m *raftMediator) ApplyLease(ctx context.Context, cmd raftlease.Command) error {
@@ -95,8 +95,8 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd raftlease.Command) er
 		return nil
 
 	case raft.IsNotLeaderError(err):
-		// Lift the worker NotLeaderError into the apiserver NotLeaderError. Ensure
-		// the correct boundaries.
+		// Lift the worker NotLeaderError into the apiserver NotLeaderError.
+		// Ensure the correct boundaries.
 		leaderErr := errors.Cause(err).(*raft.NotLeaderError)
 		m.logger.Tracef("Not currently the leader, go to %v %v", leaderErr.ServerAddress(), leaderErr.ServerID())
 		return apiservererrors.NewNotLeaderError(leaderErr.ServerAddress(), leaderErr.ServerID())
@@ -107,8 +107,8 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd raftlease.Command) er
 		return apiservererrors.NewDeadlineExceededError(err.Error())
 
 	case queue.IsCanceled(err):
-		// If the apply lease is canceled from the context (facade), then let
-		// the original caller handle it correctly.
+		// If the operation is canceled from the context (facade),
+		// then let the original caller handle it correctly.
 		return apiservererrors.NewDeadlineExceededError(err.Error())
 
 	}

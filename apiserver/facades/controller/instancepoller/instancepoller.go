@@ -36,16 +36,13 @@ type InstancePollerAPI struct {
 }
 
 // NewFacade wraps NewInstancePollerAPI for facade registration.
-func NewFacade(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*InstancePollerAPI, error) {
+func NewFacade(ctx facade.Context) (*InstancePollerAPI, error) {
+	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewInstancePollerAPI(st, m, resources, authorizer, clock.WallClock)
+	return NewInstancePollerAPI(st, m, ctx.Resources(), ctx.Auth(), clock.WallClock)
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
@@ -417,13 +414,14 @@ type InstancePollerAPIV3 struct {
 }
 
 // NewFacadeV3 creates a new instance of the V3 InstancePoller API.
-func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*InstancePollerAPIV3, error) {
+func NewFacadeV3(ctx facade.Context) (*InstancePollerAPIV3, error) {
+	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	api, err := NewInstancePollerAPI(st, m, resources, authorizer, clock.WallClock)
+	api, err := NewInstancePollerAPI(st, m, ctx.Resources(), ctx.Auth(), clock.WallClock)
 	if err != nil {
 		return nil, err
 	}

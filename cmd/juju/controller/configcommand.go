@@ -224,7 +224,35 @@ func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(client.ConfigSet(attrs))
+
+	store := c.ClientStore()
+	controllerName, err := store.CurrentController()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctrl, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	coerced, err := controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	extraValues := set.NewStrings()
+	values := make(map[string]interface{})
+	for k := range attrs {
+		if controller.AllowedUpdateConfigAttributes.Contains(k) {
+			values[k] = coerced[k]
+		} else {
+			extraValues.Add(k)
+		}
+	}
+	if extraValues.Size() > 0 {
+		return errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
+	}
+
+	return errors.Trace(client.ConfigSet(values))
 }
 
 // ConfigDetailsUpdatable gets information about the controller config

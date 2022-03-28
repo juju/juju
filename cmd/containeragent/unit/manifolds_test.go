@@ -202,9 +202,17 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	},
 	"probe-http-server": {},
 	"caas-prober": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"charm-dir",
+		"hook-retry-strategy",
+		"leadership-tracker",
+		"migration-fortress",
+		"migration-inactive-flag",
 		"probe-http-server",
+		"uniter",
 	},
-
 	"upgrade-steps-flag": {
 		"upgrade-steps-gate",
 	},

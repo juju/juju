@@ -10,7 +10,7 @@ import (
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
-	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -85,9 +85,9 @@ func (a *mockApplication) IsExposed() bool {
 	return a.exposed
 }
 
-func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
+func (a *mockApplication) ApplicationConfig() (config.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig")
-	return application.ConfigAttributes{"foo": "bar"}, a.NextErr()
+	return config.ConfigAttributes{"foo": "bar"}, a.NextErr()
 }
 
 func (a *mockApplication) Watch() state.NotifyWatcher {

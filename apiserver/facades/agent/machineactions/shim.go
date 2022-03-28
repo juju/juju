@@ -14,8 +14,8 @@ import (
 )
 
 // NewExternalFacade is used for API registration.
-func NewExternalFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	return NewFacade(backendShim{st}, res, auth)
+func NewExternalFacade(ctx facade.Context) (*Facade, error) {
+	return NewFacade(backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
 }
 
 type backendShim struct {
