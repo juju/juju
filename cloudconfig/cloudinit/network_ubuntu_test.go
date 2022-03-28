@@ -39,9 +39,7 @@ type NetworkUbuntuSuite struct {
 	expectedSampleConfigWriting     string
 	expectedSampleUserData          string
 	expectedFullNetplanYaml         string
-	expectedBaseNetplanYaml         string
 	expectedFullNetplan             string
-	expectedBaseNetplan             string
 	tempFolder                      string
 	pythonVersions                  []string
 	originalSystemNetworkInterfaces string
@@ -307,29 +305,6 @@ network:
       gateway6: 2001:db8::dead:f00
 `[1:]
 
-	s.expectedBaseNetplanYaml = `
-- install -D -m 644 /dev/null '%[1]s'
-- |-
-  printf '%%s\n' 'network:
-    version: 2
-    ethernets:
-      eth0:
-        match:
-          name: eth0
-        dhcp4: true
-  ' > '%[1]s'
-`[1:]
-
-	s.expectedBaseNetplan = `
-network:
-  version: 2
-  ethernets:
-    eth0:
-      match:
-        name: eth0
-      dhcp4: true
-`[1:]
-
 	s.originalSystemNetworkInterfaces = `
 # This file describes the network interfaces available on your system
 # and how to activate them. For more information, see interfaces(5).
@@ -370,6 +345,40 @@ func (s *NetworkUbuntuSuite) TestGenerateNetplan(c *gc.C) {
 	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.Equals, s.expectedFullNetplan)
+}
+
+func (s *NetworkUbuntuSuite) TestGenerateNetplanSkipIPv6LinkLocalDNS(c *gc.C) {
+	s.fakeInterfaces = corenetwork.InterfaceInfos{{
+		InterfaceName: "any5",
+		ConfigType:    corenetwork.ConfigStatic,
+		MACAddress:    "aa:bb:cc:dd:ee:f5",
+		NoAutoStart:   false,
+		DNSServers: corenetwork.ProviderAddresses{
+			corenetwork.NewMachineAddress(
+				"fe80:db8::dead:beef", corenetwork.WithCIDR("fe80:db8::/64")).AsProviderAddress(),
+		},
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewMachineAddress(
+				"2001:db8::dead:beef", corenetwork.WithCIDR("2001:db8::/64")).AsProviderAddress(),
+		},
+		GatewayAddress: corenetwork.NewMachineAddress("2001:db8::dead:f00").AsProviderAddress(),
+	}}
+
+	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
+	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(data, gc.Equals, `
+network:
+  version: 2
+  ethernets:
+    any5:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f5
+      addresses:
+      - 2001:db8::dead:beef/64
+      gateway6: 2001:db8::dead:f00
+`[1:])
 }
 
 func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
