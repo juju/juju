@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -50,6 +51,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -688,7 +690,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
-	status, err := s.APIState.Client().Status(nil)
+	status, err := api.NewClient(s.APIState).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -697,7 +699,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
-	status, err := s.APIState.Client().Status(nil)
+	status, err := api.NewClient(s.APIState).Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
@@ -755,7 +757,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
-	err = s.APIState.Client().Resolved("wordpress/0", retry)
+	err = api.NewClient(s.APIState).Resolved("wordpress/0", retry)
 	c.Assert(err, jc.ErrorIsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -790,7 +792,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 }
 
 func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
-	err := s.APIState.Client().Resolved("wordpress/0", true)
+	err := api.NewClient(s.APIState).Resolved("wordpress/0", true)
 	c.Assert(err, jc.ErrorIsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -802,7 +804,7 @@ func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 }
 
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
-	err := s.APIState.Client().Resolved("wordpress/0", false)
+	err := api.NewClient(s.APIState).Resolved("wordpress/0", false)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -900,7 +902,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 		Password: "ro-password",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	roClient := s.OpenAPIAs(c, user.UserTag(), "ro-password").Client()
+	roClient := api.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"))
 	defer roClient.Close()
 
 	watcher, err := roClient.WatchAll()
@@ -999,7 +1001,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcher, err := s.APIState.Client().WatchAll()
+	watcher, err := api.NewClient(s.APIState).WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
@@ -1095,7 +1097,7 @@ func (s *clientSuite) TestClientSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().SetModelConstraints(cons)
+	err = api.NewClient(s.APIState).SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -1108,7 +1110,7 @@ func (s *clientSuite) assertSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().SetModelConstraints(cons)
+	err = api.NewClient(s.APIState).SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the constraints have been correctly updated.
 	obtained, err := s.State.ModelConstraints()
@@ -1120,7 +1122,7 @@ func (s *clientSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().SetModelConstraints(cons)
+	err = api.NewClient(s.APIState).SetModelConstraints(cons)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1147,18 +1149,18 @@ func (s *clientSuite) TestClientGetModelConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can get the constraints.
-	obtained, err := s.APIState.Client().GetModelConstraints()
+	obtained, err := api.NewClient(s.APIState).GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
 func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	s.setUpScenario(c)
-	_, err := s.APIState.Client().PublicAddress("wordpress")
+	_, err := api.NewClient(s.APIState).PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
-	_, err = s.APIState.Client().PublicAddress("0")
+	_, err = api.NewClient(s.APIState).PublicAddress("0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address\(es\)`)
-	_, err = s.APIState.Client().PublicAddress("wordpress/0")
+	_, err = api.NewClient(s.APIState).PublicAddress("wordpress/0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address\(es\)`)
 }
 
@@ -1173,12 +1175,12 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(cloudLocalAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := s.APIState.Client().PublicAddress("1")
+	addr, err := api.NewClient(s.APIState).PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err = s.APIState.Client().PublicAddress("1")
+	addr, err = api.NewClient(s.APIState).PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 }
@@ -1191,18 +1193,18 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
+	addr, err := api.NewClient(s.APIState).PublicAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 }
 
 func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	s.setUpScenario(c)
-	_, err := s.APIState.Client().PrivateAddress("wordpress")
+	_, err := api.NewClient(s.APIState).PrivateAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
-	_, err = s.APIState.Client().PrivateAddress("0")
+	_, err = api.NewClient(s.APIState).PrivateAddress("0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address\(es\)`)
-	_, err = s.APIState.Client().PrivateAddress("wordpress/0")
+	_, err = api.NewClient(s.APIState).PrivateAddress("wordpress/0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address\(es\)`)
 }
 
@@ -1217,12 +1219,12 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := s.APIState.Client().PrivateAddress("1")
+	addr, err := api.NewClient(s.APIState).PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err = s.APIState.Client().PrivateAddress("1")
+	addr, err = api.NewClient(s.APIState).PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 }
@@ -1235,7 +1237,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	privateAddress := network.NewSpaceAddress("private", network.WithScope(network.ScopeCloudLocal))
 	err = m1.SetProviderAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
+	addr, err := api.NewClient(s.APIState).PrivateAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "private")
 }
@@ -1258,7 +1260,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1274,7 +1276,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1290,7 +1292,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	_, err := s.APIState.Client().AddMachines(apiParams)
+	_, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1317,7 +1319,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 			Jobs:   []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1330,7 +1332,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
+	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{{
 		Jobs:          []model.MachineJob{model.JobHostUnits},
 		ContainerType: instance.LXD,
 		ParentId:      "0",
@@ -1350,7 +1352,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	}
 	// The last machine has some constraints.
 	apiParams[2].Constraints = constraints.MustParse("mem=4G")
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1371,7 +1373,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[1].ContainerType = instance.LXD
 	apiParams[2].Placement = instance.MustParsePlacement("controller:invalid")
 	apiParams[3].Placement = instance.MustParsePlacement("controller:valid")
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)
 	c.Assert(machines[0].Machine, gc.Equals, "0/lxd/0")
@@ -1409,7 +1411,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// This will cause a add-machine to fail due to an unsupported container.
 	apiParams[2].ContainerType = instance.KVM
 	apiParams[2].ParentId = host.Id()
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 
@@ -1436,7 +1438,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	}
 	// This will cause the last add-machine to fail.
 	apiParams[2].Nonce = ""
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1494,14 +1496,14 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
 	// Call ProvisioningScript. Normally ProvisioningScript and
 	// MachineConfig are mutually exclusive; both of them will
 	// allocate a api password for the machine agent.
-	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+	script, err := api.NewClient(s.APIState).ProvisioningScript(params.ProvisioningScriptParams{
 		MachineId: machineId,
 		Nonce:     apiParams.Nonce,
 	})
@@ -1532,7 +1534,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
@@ -1555,7 +1557,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	// Test enabling package commands
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(true, true)
-	script, err := s.APIState.Client().ProvisioningScript(provParams)
+	script, err := api.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, jc.Contains, "apt-get update")
 	c.Check(script, jc.Contains, "apt-get upgrade")
@@ -1563,7 +1565,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	// Test disabling package commands
 	provParams.DisablePackageCommands = true
 	setUpdateBehavior(false, false)
-	script, err = s.APIState.Client().ProvisioningScript(provParams)
+	script, err = api.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
@@ -1572,7 +1574,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	// config variables.
 	provParams.DisablePackageCommands = true
 	setUpdateBehavior(true, true)
-	script, err = s.APIState.Client().ProvisioningScript(provParams)
+	script, err = api.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
@@ -1582,7 +1584,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(false, false)
 	//provParams.UpdateBehavior = &params.UpdateBehavior{false, false}
-	script, err = s.APIState.Client().ProvisioningScript(provParams)
+	script, err = api.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
@@ -1645,7 +1647,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 	for i, test := range resolveCharmTests {
 		c.Logf("test %d: %s", i, test.about)
 
-		client := s.APIState.Client()
+		client := api.NewClient(s.APIState)
 		ref, err := charm.ParseURL(test.url)
 		if test.parseErr == "" {
 			if c.Check(err, jc.ErrorIsNil) == false {
@@ -1683,7 +1685,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	}
 	err = machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
+	result, err := api.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Error, gc.IsNil)
@@ -1710,7 +1712,7 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 }
 
 func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
-	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
+	_, err := api.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1720,7 +1722,7 @@ func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 }
 
 func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {
-	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
+	_, err := api.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1765,7 +1767,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agentHostPorts, gc.Not(gc.DeepEquals), stateAPIHostPorts)
 
-	apiHostPorts, err := s.APIState.Client().APIHostPorts()
+	apiHostPorts, err := api.NewClient(s.APIState).APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We need to compare SpaceHostPorts with MachineHostPorts.
@@ -1784,13 +1786,13 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("2.0.0")
 	s.PatchValue(&jujuversion.Current, current)
-	result, err := s.APIState.Client().AgentVersion()
+	result, err := api.NewClient(s.APIState).AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)
 }
 
 func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1, m2 *state.Machine) {
-	err := s.APIState.Client().DestroyMachines("0", "1", "2")
+	err := api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: controller 0 is the only controller; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
@@ -1798,7 +1800,7 @@ func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1
 
 	err = u.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyMachines("0", "1", "2")
+	err = api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: controller 0 is the only controller`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Dying)
@@ -1832,14 +1834,14 @@ func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
 func (s *clientSuite) TestBlockRemoveDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyMachines")
-	err := s.APIState.Client().DestroyMachines("0", "1", "2")
+	err := api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyMachines", m0, m1, m2, u)
 }
 
 func (s *clientSuite) TestBlockChangesDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 	s.BlockAllChanges(c, "TestBlockChangesDestroyMachines")
-	err := s.APIState.Client().DestroyMachines("0", "1", "2")
+	err := api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyMachines", m0, m1, m2, u)
 }
 
@@ -1860,7 +1862,7 @@ func (s *clientSuite) TestAnyBlockForceDestroyMachines(c *gc.C) {
 func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
-	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
+	err := api.NewClient(s.APIState).ForceDestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: controller 0 is the only controller`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
@@ -2037,7 +2039,7 @@ func (s *findToolsSuite) getModelConfig(c *gc.C, agentVersion string) *config.Co
 	return mCfg
 }
 
-func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2113,6 +2115,90 @@ func (s *findToolsSuite) TestFindToolsCAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
 		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		},
+	})
+}
+
+func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	backend := mocks.NewMockBackend(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	registryProvider := registrymocks.NewMockRegistry(ctrl)
+	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		},
+	}
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(true, nil),
+		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
+		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
+
+		backend.EXPECT().Model().Return(model, nil),
+		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
+			Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9.1"), nil),
+
+		backend.EXPECT().ControllerConfig().Return(controller.Config{
+			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
+			controller.CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
+		}, nil),
+		registryProvider.EXPECT().Tags("jujud-operator").Return(tools.Versions{
+			image.NewImageInfo(version.MustParse("2.9.8")), // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.9")), // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.10.1")),
+			image.NewImageInfo(version.MustParse("2.9.10")),
+			image.NewImageInfo(version.MustParse("2.9.11")),
+			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
+		}, nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		registryProvider.EXPECT().Close().Return(nil),
+	)
+
+	api, err := client.NewClient(
+		backend,
+		nil, nil, nil,
+		authorizer, nil, toolsFinder,
+		nil, nil, nil, nil, nil, nil, nil,
+		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
+			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
+				Repository:    "test-account",
+				ServerAddress: "quay.io",
+				BasicAuthConfig: docker.BasicAuthConfig{
+					Auth: docker.NewToken("xxxxx=="),
+				},
+			})
+			return registryProvider, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
+		List: []*tools.Tools{
+			{Version: version.MustParseBinary("2.9.10.1-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 		},

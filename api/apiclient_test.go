@@ -321,7 +321,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestServerRoot(c *gc.C) {
-	url := api.ServerRoot(s.APIState.Client())
+	url := api.ServerRoot(api.NewClient(s.APIState))
 	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
 }
 

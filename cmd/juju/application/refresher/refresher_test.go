@@ -257,6 +257,10 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmID, gc.DeepEquals, &CharmID{
 		URL: curl,
+		Origin: corecharm.Origin{
+			Source: corecharm.Local,
+			Type:   "charm",
+		},
 	})
 }
 

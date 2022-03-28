@@ -150,7 +150,7 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	if c.machineAPI != nil {
 		return c.machineAPI, nil
 	}
-	return removeMachineAdapter{root.Client()}, nil
+	return removeMachineAdapter{api.NewClient(root)}, nil
 }
 
 // Run implements Command.Run.

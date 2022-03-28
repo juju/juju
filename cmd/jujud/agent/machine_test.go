@@ -548,7 +548,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
-			doRequest(st.Client())
+			doRequest(api.NewClient(st))
 		}
 
 		// Make requests in separate API connections so they're separate conversations.
