@@ -118,7 +118,6 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 		return machinemanager.NewClient(root), nil
 	}
 	return c.machineAPI, nil
-
 }
 
 // Run implements Command.Run.

@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.caasapplicationprovisioner")
@@ -257,7 +256,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
+	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}

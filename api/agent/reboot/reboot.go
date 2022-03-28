@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
@@ -46,6 +47,16 @@ func NewState(caller base.APICaller, machineTag names.MachineTag) State {
 	return &state{
 		facade:     base.NewFacadeCaller(caller, "Reboot"),
 		machineTag: machineTag,
+	}
+}
+
+// ConnectionReboot returns access to the Reboot API
+func NewFromConnection(c api.Connection) (State, error) {
+	switch tag := c.AuthTag().(type) {
+	case names.MachineTag:
+		return NewState(c, tag), nil
+	default:
+		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 }
 

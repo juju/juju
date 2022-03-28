@@ -34,6 +34,7 @@ var (
 	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
 	NewAzureContainerRegistry          = newAzureContainerRegistry
 	GetArchitecture                    = getArchitecture
+	UnwrapNetError                     = unwrapNetError
 )
 
 func (c *BaseClient) SetImageRepoDetails(i docker.ImageRepoDetails) {

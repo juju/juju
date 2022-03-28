@@ -7,12 +7,13 @@ import (
 	stdcontext "context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -93,15 +94,19 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	}
 
 	// Given the worker time to startup.
-	shortAttempt := &utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: 10 * time.Millisecond,
+	retryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			if len(s.config.Filesystems.(*mockFilesystemAccessor).Calls()) > 0 {
+				return nil
+			}
+			return errors.NotYetAvailablef("Worker not up")
+		},
 	}
-	for a := shortAttempt.Start(); a.Next(); {
-		if len(s.config.Filesystems.(*mockFilesystemAccessor).Calls()) > 0 {
-			break
-		}
-	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 	// Only call is to watch model.
@@ -128,18 +133,20 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter
 
 	// Check that the worker is running or not;
 	// given it time to startup.
-	shortAttempt := &utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: 10 * time.Millisecond,
+	startingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := storageprovisioner.StorageWorker(w, "mariadb")
+			if running {
+				return nil
+			}
+			return errors.NotYetAvailablef("Worker not up")
+		},
 	}
-	running := false
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = storageprovisioner.StorageWorker(w, "mariadb")
-		if running {
-			break
-		}
-	}
-	c.Assert(running, jc.IsTrue)
+	err = retry.Call(startingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an additional app worker so we can check that the correct one is accessed.
 	storageprovisioner.NewStorageWorker(c, w, "postgresql")
@@ -159,14 +166,21 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter
 
 	// Check that the postgresql worker is running or not;
 	// given it time to shutdown.
-	running = true
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = storageprovisioner.StorageWorker(w, "postgresql")
-		if !running {
-			break
-		}
+	stoppingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := storageprovisioner.StorageWorker(w, "postgresql")
+			if !running {
+				return nil
+			}
+			return errors.NotYetAvailablef("Worker not down")
+		},
 	}
-	c.Assert(running, jc.IsFalse)
+	err = retry.Call(stoppingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	workertest.CleanKill(c, w)
 	workertest.CheckKilled(c, s.applicationsWatcher.watcher)
 }

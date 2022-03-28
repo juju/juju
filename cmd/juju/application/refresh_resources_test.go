@@ -22,6 +22,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/resources/client"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
@@ -163,7 +164,7 @@ Deploying charm "cs:bionic/starsay-1".`
 	unit, err := s.State.Unit("starsay/0")
 	c.Assert(err, jc.ErrorIsNil)
 	tags := []names.UnitTag{unit.UnitTag()}
-	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits(tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 

@@ -53,7 +53,7 @@ func (s *stateShim) AllSubnets() ([]networkingcommon.BackingSubnet, error) {
 	}
 	subnets := make([]networkingcommon.BackingSubnet, len(results))
 	for i, result := range results {
-		subnets[i] = networkingcommon.NewSubnetShim(result)
+		subnets[i] = result
 	}
 	return subnets, nil
 }
@@ -63,7 +63,7 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return networkingcommon.NewSubnetShim(result), nil
+	return result, nil
 }
 
 // SubnetsByCIDR wraps each result of a call to state.SubnetsByCIDR
@@ -79,7 +79,7 @@ func (s *stateShim) SubnetsByCIDR(cidr string) ([]networkingcommon.BackingSubnet
 
 	result := make([]networkingcommon.BackingSubnet, len(subnets))
 	for i, subnet := range subnets {
-		result[i] = networkingcommon.NewSubnetShim(subnet)
+		result[i] = subnet
 	}
 	return result, nil
 }
@@ -102,7 +102,7 @@ func (s *stateShim) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	}
 	spaces := make([]networkingcommon.BackingSpace, len(results))
 	for i, result := range results {
-		spaces[i] = networkingcommon.NewSpaceShim(result)
+		spaces[i] = result
 	}
 	return spaces, nil
 }

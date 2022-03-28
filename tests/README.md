@@ -44,10 +44,11 @@ echo "failed" | grep -q "passes"   # fails
 
 ## Getting started
 
-Before running tests, you'll need to install `shellcheck`:
+Before running tests, you'll need to install `shellcheck` and `golangci-lint`:
 
 ```sh
 sudo snap install shellcheck
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.44.2
 ```
 
 To get started, it's best to quickly look at the help command from the runner.

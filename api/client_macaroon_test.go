@@ -32,7 +32,7 @@ func (s *clientMacaroonSuite) createTestClient(c *gc.C) *api.Client {
 	s.AddControllerUser(c, username, permission.LoginAccess)
 	cookieJar := apitesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
-	client := s.OpenAPI(c, nil, cookieJar).Client()
+	client := api.NewClient(s.OpenAPI(c, nil, cookieJar))
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic

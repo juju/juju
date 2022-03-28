@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
@@ -445,25 +446,6 @@ func (s *SpacesSuite) TestAddSpaceWithEmptyNameAndNonEmptyProviderIdFails(c *gc.
 	s.assertInvalidSpaceNameErrorAndWasNotAdded(c, err, args.Name)
 }
 
-func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
-	args := addSpaceArgs{
-		Name:        "my-space",
-		SubnetCIDRs: []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24", "4.1.1.0/24", "5.1.1.0/24"},
-	}
-	space, err := s.addSpaceWithSubnets(c, args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var expected []*state.Subnet
-	for _, cidr := range args.SubnetCIDRs {
-		subnet, err := s.State.SubnetByCIDR(cidr)
-		c.Assert(err, jc.ErrorIsNil)
-		expected = append(expected, subnet)
-	}
-	actual, err := space.Subnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.DeepEquals, expected)
-}
-
 func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 	alphaSpace, err := s.State.SpaceByName(network.AlphaSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -655,6 +637,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
 				ProviderSpaceId:   "some id 2",
+				Life:              life.Alive,
 			},
 			{
 				ID:                "2",
@@ -668,6 +651,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 					FanOverlay:       "253.0.0.0/8",
 				},
 				ProviderSpaceId: "some id 2",
+				Life:            life.Alive,
 			},
 			{
 				ID:                "1",
@@ -677,6 +661,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
 				ProviderSpaceId:   "some id 2",
+				Life:              life.Alive,
 			},
 		},
 	}

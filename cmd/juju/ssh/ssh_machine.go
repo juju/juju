@@ -21,6 +21,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/ssh"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/sshclient"
 	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -408,7 +409,7 @@ func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 	}
 	c.apiClient = sshclient.NewFacade(conn)
 	c.apiAddr = conn.Addr()
-	c.statusClient = conn.Client()
+	c.statusClient = api.NewClient(conn)
 	return nil
 }
 

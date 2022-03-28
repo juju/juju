@@ -187,8 +187,11 @@ func (w *machineLXDProfileWatcher) loop() error {
 				}
 			}
 		case <-instanceWatcher.Changes():
-			logger.Tracef("instance changes")
-			w.provisionedChange()
+			id := w.machine.Id()
+			logger.Tracef("instance changes machine-%s", id)
+			if err := w.provisionedChange(); err != nil {
+				return errors.Annotatef(err, "processing change for machine-%s", id)
+			}
 		}
 	}
 }
@@ -534,18 +537,31 @@ func (w *machineLXDProfileWatcher) removeUnit(unitName string) error {
 
 // provisionedChanged notifies when called.  Topic subscribed to is specific to
 // this machine.
-func (w *machineLXDProfileWatcher) provisionedChange() {
+func (w *machineLXDProfileWatcher) provisionedChange() error {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
 	case <-w.catacomb.Dying():
-		return
+		return nil
 	}
 
 	if w.provisioned {
-		return
+		return nil
 	}
-	w.provisioned = true
+
+	m, err := w.backend.Machine(w.machine.Id())
+	if err != nil {
+		return err
+	}
+	instanceID, err := m.InstanceId()
+	if err != nil {
+		return err
+	}
+	if w.machine.Id() == string(instanceID) {
+		w.provisioned = true
+	}
+
 	logger.Debugf("notifying due to machine-%s now provisioned", w.machine.Id())
 	w.notify()
+	return nil
 }

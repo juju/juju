@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
@@ -263,7 +264,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := st.Uniter()
+	uniter, err := uniter.NewFromConnection(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
@@ -352,7 +353,7 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	uniter, err := apiState.Uniter()
+	uniter, err := uniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
@@ -560,7 +561,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	uniter, err := apiState.Uniter()
+	uniter, err := uniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniter, gc.NotNil)
 	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))

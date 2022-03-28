@@ -44,6 +44,8 @@ type Subnet struct {
 	// associated with.
 	Zones []string `json:"zones"`
 
+	// TODO (jack-w-shaw 2022-02-22): Remove this. It is unused
+	//
 	// Status returns the status of the subnet, whether it is in use, not
 	// in use or terminating.
 	Status string `json:"status,omitempty"`

@@ -6,20 +6,15 @@ package peergrouper
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/replicaset/v2"
-	"github.com/juju/utils/v3"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
 )
-
-// TODO(katco): 2016-08-09: lp:1611427
-var initiateAttemptStrategy = utils.AttemptStrategy{
-	Total: 60 * time.Second,
-	Delay: 5 * time.Second,
-}
 
 // InitiateMongoParams holds parameters for the MaybeInitiateMongo call.
 type InitiateMongoParams struct {
@@ -50,16 +45,25 @@ func InitiateMongoServer(p InitiateMongoParams) error {
 
 	// Initiate may fail while mongo is initialising, so we retry until
 	// we successfully populate the replicaset config.
-	var err error
-	for attempt := initiateAttemptStrategy.Start(); attempt.Next(); {
-		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort)
-		if err == nil {
-			logger.Infof("replica set initiated")
-			return err
-		}
-		if attempt.HasNext() {
-			logger.Debugf("replica set initiation failed, will retry: %v", err)
-		}
+	retryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 60 * time.Second,
+		Delay:       5 * time.Second,
+		Func: func() error {
+			return attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort)
+		},
+		NotifyFunc: func(lastError error, attempt int) {
+			logger.Debugf("replica set initiation attempt %d failed: %v", attempt, lastError)
+		},
+	}
+	err := retry.Call(retryCallArgs)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
+		logger.Debugf("replica set initiation failed: %v", err)
+	}
+	if err == nil {
+		logger.Infof("replica set initiated")
+		return nil
 	}
 	return errors.Annotatef(err, "cannot initiate replica set")
 }

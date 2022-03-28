@@ -102,7 +102,9 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig()
 	attrs["workload-storage"] = "k8s-storage"
-	attrs["agent-version"] = jujuversion.Current.String()
+	ver := jujuversion.Current
+	ver.Build = 666
+	attrs["agent-version"] = ver.String()
 	return config.New(config.UseDefaults, attrs)
 }
 

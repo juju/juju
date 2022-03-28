@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -340,23 +341,30 @@ type waitStub interface {
 }
 
 func waitStubCalls(c *gc.C, stub waitStub, names ...string) {
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		if len(stub.Calls()) >= len(names) {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err := retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	stub.CheckCallNames(c, names...)
 	stub.ResetCalls()
 }
 
 func (s *WorkerSuite) expectNoLifeGetterCalls(c *gc.C) {
-	strategy := utils.AttemptStrategy{
-		Total: coretesting.ShortWait,
-		Delay: 10 * time.Millisecond,
-	}
-	for a := strategy.Start(); a.Next(); {
-		if len(s.lifeGetter.Calls()) > 0 {
-			c.Fatalf("unexpected lifegetter call")
+	totalDuration := clock.WallClock.After(coretesting.ShortWait)
+	for {
+		select {
+		case <-clock.WallClock.After(10 * time.Millisecond):
+			if len(s.lifeGetter.Calls()) > 0 {
+				c.Fatalf("unexpected lifegetter call")
+			}
+		case <-totalDuration:
+			return
 		}
 	}
 }

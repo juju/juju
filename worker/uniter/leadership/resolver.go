@@ -72,7 +72,11 @@ func (l *leadershipResolver) NextOp(
 	if localState.Kind == operation.Continue {
 		// We want to run the leader settings hook if we're
 		// not the leader and the settings have changed.
-		if !localState.Leader && localState.LeaderSettingsVersion != remoteState.LeaderSettingsVersion {
+		// Note though that if we are dying, we may have already executed "resign leadership".
+		// In this case, as far as the unit agent is concerned, we are not the leader any more
+		// but we don't want to run the leader settings hook as the transition away from leadership
+		// has only been recorded locally, and the Juju model still has us as a leader that is dying.
+		if !localState.Leader && remoteState.Life != life.Dying && localState.LeaderSettingsVersion != remoteState.LeaderSettingsVersion {
 			return opFactory.NewRunHook(hook.Info{Kind: hooks.LeaderSettingsChanged})
 		}
 	}

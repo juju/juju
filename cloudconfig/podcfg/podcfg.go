@@ -67,9 +67,6 @@ type ControllerPodConfig struct {
 	// JujuVersion is the juju version.
 	JujuVersion version.Number
 
-	// OfficialBuild is the build number to use when pulling the juju oci image.
-	OfficialBuild int
-
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
 	DataDir string

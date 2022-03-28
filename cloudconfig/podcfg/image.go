@@ -23,7 +23,7 @@ const (
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
-	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion, cfg.OfficialBuild)
+	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
 }
 
 func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
@@ -53,9 +53,8 @@ func IsJujuOCIImage(imagePath string) bool {
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number, build int) (string, error) {
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
-	ver.Build = build
 	imagePath, err := RebuildOldOperatorImagePath(
 		controllerCfg.CAASOperatorImagePath().Repository, ver,
 	)

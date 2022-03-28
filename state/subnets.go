@@ -361,6 +361,7 @@ func (s *Subnet) networkSubnet() network.SubnetInfo {
 		FanInfo:           fanInfo,
 		IsPublic:          s.doc.IsPublic,
 		SpaceID:           s.spaceID,
+		Life:              s.Life().Value(),
 		// SpaceName and ProviderSpaceID are populated by Space.NetworkSpace().
 		// For now, we do not look them up here.
 	}
