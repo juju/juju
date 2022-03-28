@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
@@ -69,7 +69,7 @@ type Config struct {
 	PerformUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
 
 	// RetryStrategy is the strategy to use for re-attempting failed upgrades.
-	RetryStrategy utils.AttemptStrategy
+	RetryStrategy retry.CallArgs
 
 	// Clock is used to enforce time-out logic for controllers waiting for the
 	// master MongoDB upgrades to execute.
@@ -100,9 +100,14 @@ func (cfg Config) Validate() error {
 	if cfg.PerformUpgrade == nil {
 		return errors.NotValidf("nil PerformUpgrade function")
 	}
-	a := utils.AttemptStrategy{}
-	if cfg.RetryStrategy == a {
-		return errors.NotValidf("empty RetryStrategy")
+	if cfg.RetryStrategy.Clock == nil {
+		return errors.NotValidf("nil RetryStrategy Clock")
+	}
+	if cfg.RetryStrategy.Delay == 0 {
+		return errors.NotValidf("zero value for RetryStrategy Delay")
+	}
+	if cfg.RetryStrategy.Attempts == 0 && cfg.RetryStrategy.MaxDuration == 0 {
+		return errors.NotValidf("zero value for RetryStrategy Attempts and MaxDuration")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -123,7 +128,7 @@ type upgradeDB struct {
 	pool           Pool
 	performUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
 	upgradeInfo    UpgradeInfo
-	retryStrategy  utils.AttemptStrategy
+	retryStrategy  retry.CallArgs
 	clock          Clock
 
 	fromVersion version.Number
@@ -236,19 +241,20 @@ func (w *upgradeDB) runUpgrade() error {
 // runUpgradeSteps runs the required database upgrade steps for the agent,
 // retrying on failure.
 func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
-	var upgradeErr error
 	contextGetter := w.contextGetter(agentConfig)
 
-	for attempt := w.retryStrategy.Start(); attempt.Next(); {
-		upgradeErr = w.performUpgrade(w.fromVersion, []upgrades.Target{upgrades.DatabaseMaster}, contextGetter)
-		if upgradeErr == nil {
-			break
-		} else {
-			w.reportUpgradeFailure(upgradeErr, attempt.HasNext())
-		}
+	retryStrategy := w.retryStrategy
+	retryStrategy.Func = func() error {
+		return w.performUpgrade(w.fromVersion, []upgrades.Target{upgrades.DatabaseMaster}, contextGetter)
 	}
-
-	return errors.Trace(upgradeErr)
+	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
+		w.reportUpgradeFailure(lastError, attempt != retryStrategy.Attempts)
+	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
+	}
+	return errors.Trace(err)
 }
 
 // contextGetter returns a function that creates an upgrade context.
