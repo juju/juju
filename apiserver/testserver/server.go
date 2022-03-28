@@ -56,8 +56,13 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
 		RaftOpQueue:      queue.NewOpQueue(testclock),
+		SysLogger:        noopSysLogger{},
 	}
 }
+
+type noopSysLogger struct{}
+
+func (noopSysLogger) Log([]state.LogRecord) error { return nil }
 
 // NewServer returns a new running API server using the given state.
 // The pool may be nil, in which case a pool using the given state

@@ -1027,6 +1027,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				RaftOpQueue:      queue,
+				SysLogger:        noopSysLogger{},
 			})
 			if err != nil {
 				panic(err)
@@ -1060,6 +1061,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	}
 	return bsResult, nil
 }
+
+type noopSysLogger struct{}
+
+func (noopSysLogger) Log([]state.LogRecord) error { return nil }
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
 	target := st.LeaseNotifyTarget(

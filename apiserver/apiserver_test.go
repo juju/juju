@@ -182,9 +182,14 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
+		SysLogger:   noopSysLogger{},
 		RaftOpQueue: queue.NewOpQueue(testclock.NewClock(time.Now())),
 	}
 }
+
+type noopSysLogger struct{}
+
+func (noopSysLogger) Log([]state.LogRecord) error { return nil }
 
 // apiserverBaseSuite runs an API server.
 type apiserverBaseSuite struct {

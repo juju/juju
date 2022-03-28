@@ -1391,17 +1391,17 @@ func (c *Config) Mode() ([]string, bool) {
 	if !ok {
 		return []string{}, false
 	}
-	if m, ok := modes.([]interface{}); ok {
+	if m, ok := modes.(string); ok {
 		s := set.NewStrings()
-		for _, v := range m {
-			// Let's be safe here, even though we have validated the type in
-			// a prior step, via the schema.List(schema.String()) type, I would
-			// rather see defensive code than a panic at runtime.
-			if str, ok := v.(string); ok {
-				s.Add(str)
+		for _, v := range strings.Split(m, ",") {
+			if v == "" {
+				continue
 			}
+			s.Add(v)
 		}
-		return s.SortedValues(), ok
+		if s.Size() > 0 {
+			return s.SortedValues(), true
+		}
 	}
 
 	return []string{}, false
@@ -1429,9 +1429,14 @@ func (c *Config) LoggingOutput() ([]string, bool) {
 	if m, ok := outputs.(string); ok {
 		s := set.NewStrings()
 		for _, v := range strings.Split(m, ",") {
+			if v == "" {
+				continue
+			}
 			s.Add(v)
 		}
-		return s.SortedValues(), true
+		if s.Size() > 0 {
+			return s.SortedValues(), true
+		}
 	}
 	return []string{}, false
 }
@@ -1666,6 +1671,7 @@ var alwaysOptional = schema.Defaults{
 	LogFwdSyslogCACert:     schema.Omit,
 	LogFwdSyslogClientCert: schema.Omit,
 	LogFwdSyslogClientKey:  schema.Omit,
+	LoggingOutputKey:       schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -2171,7 +2177,7 @@ data of the store. (default false)`,
 If the mode is set to "strict" then errors will be used instead of
 using fallbacks. By default mode is set to be lenient and use fallbacks
 where possible. (default "")`,
-		Type:  environschema.Tlist,
+		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},
 	TypeKey: {

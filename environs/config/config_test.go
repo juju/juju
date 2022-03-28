@@ -31,7 +31,6 @@ func Test(t *stdtesting.T) {
 
 type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	home string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -66,7 +65,6 @@ type configTest struct {
 	about       string
 	useDefaults config.Defaulting
 	attrs       testing.Attrs
-	expected    testing.Attrs
 	err         string
 }
 
@@ -427,7 +425,19 @@ var configTests = []configTest{
 		about:       "Mode flag specified",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"mode": []interface{}{"strict"},
+			"mode": "strict",
+		}),
+	}, {
+		about:       "Logging output flag specified",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logging-output": "database",
+		}),
+	}, {
+		about:       "Logging output multiple flag specified",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logging-output": "database,syslog",
 		}),
 	}, {
 		about:       "valid uuid",
@@ -1212,11 +1222,41 @@ func (s *ConfigSuite) TestMode(c *gc.C) {
 	c.Assert(mode, gc.DeepEquals, []string{})
 
 	config = newTestConfig(c, testing.Attrs{
-		"mode": []interface{}{"strict"},
+		"mode": "strict",
 	})
 	mode, ok = config.Mode()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(mode, gc.DeepEquals, []string{"strict"})
+}
+
+func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {
+	config := newTestConfig(c, testing.Attrs{})
+	loggingOutput, ok := config.LoggingOutput()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(loggingOutput, gc.DeepEquals, []string{})
+
+	config = newTestConfig(c, testing.Attrs{
+		"logging-output": "database,syslog",
+	})
+	loggingOutput, ok = config.LoggingOutput()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
+
+	// Test order doesn't matter
+	config = newTestConfig(c, testing.Attrs{
+		"logging-output": "syslog,database",
+	})
+	loggingOutput, ok = config.LoggingOutput()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
+
+	// Test singular
+	config = newTestConfig(c, testing.Attrs{
+		"logging-output": "syslog",
+	})
+	loggingOutput, ok = config.LoggingOutput()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(loggingOutput, gc.DeepEquals, []string{"syslog"})
 }
 
 func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {
