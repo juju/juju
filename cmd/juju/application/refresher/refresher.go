@@ -288,12 +288,12 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 	if *newURL == *r.charmURL {
 		if refURL.Revision != -1 {
-			return nil, commoncharm.Origin{}, errors.Errorf("already running specified charm %q, revision %d", newURL.Name, newURL.Revision)
+			return nil, commoncharm.Origin{}, errors.AlreadyExistsf("already running specified charm %q, revision %d", newURL.Name, newURL.Revision)
 		}
 		// No point in trying to upgrade a charm store charm when
 		// we just determined that's the latest revision
 		// available.
-		return nil, commoncharm.Origin{}, errors.Errorf("already running latest charm %q", newURL.Name)
+		return nil, commoncharm.Origin{}, errors.AlreadyExistsf("already running latest charm %q", newURL.Name)
 	}
 	r.logger.Verbosef("Using channel %q", origin.CharmChannel().String())
 	return newURL, origin, nil
