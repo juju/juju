@@ -225,7 +225,7 @@ func newDeployCommand() *DeployCommand {
 		}
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
-			apiClient:         &apiClient{Client: apiRoot.Client()},
+			apiClient:         &apiClient{Client: api.NewClient(apiRoot)},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			charmsAPIVersion:  apiRoot.BestFacadeVersion("Charms"),
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
@@ -719,6 +719,12 @@ func (c *DeployCommand) Init(args []string) error {
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
 		c.unknownModel = true
+	}
+	if c.channelStr == "" && c.Revision != -1 {
+		// Tell the user they need to specify a channel
+		return errors.New(
+			`when using --revision option, you must also use --channel option`,
+		)
 	}
 	if c.channelStr != "" {
 		c.Channel, err = charm.ParseChannelNormalize(c.channelStr)

@@ -31,7 +31,7 @@ type apiEnvironmentSuite struct {
 
 func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.client = s.APIState.Client()
+	s.client = api.NewClient(s.APIState)
 	c.Assert(s.client, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
 		s.client.ClientFacade.Close()
@@ -125,7 +125,7 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherModel(c *gc.C) {
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer otherAPIState.Close()
-	otherClient := otherAPIState.Client()
+	otherClient := api.NewClient(otherAPIState)
 	defer otherClient.ClientFacade.Close()
 
 	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")

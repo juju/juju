@@ -48,7 +48,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag(), password)
 
 	// Create the upgrader facade.
-	s.st = s.stateAPI.Upgrader()
+	s.st = upgrader.NewState(s.stateAPI)
 	c.Assert(s.st, gc.NotNil)
 
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())

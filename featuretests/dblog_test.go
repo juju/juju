@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
@@ -191,7 +192,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 
 	messages := make(chan common.LogMessage)
 	go func(numMessages int) {
-		client := s.APIState.Client()
+		client := api.NewClient(s.APIState)
 		logMessages, err := client.WatchDebugLog(common.DebugLogParams{})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -300,7 +301,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	logMessages, err := client.WatchDebugLog(common.DebugLogParams{
 		StartTime: t3,
 	})

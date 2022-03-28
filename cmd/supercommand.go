@@ -53,7 +53,7 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 }
 
 func runNotifier(name string) {
-	logger.Infof("running %s [%s %d %s %s %s]", name, jujuversion.Current, jujuversion.OfficialBuild, jujuversion.GitCommit, runtime.Compiler, runtime.Version())
+	logger.Infof("running %s [%s %s %s %s]", name, jujuversion.Current, jujuversion.GitCommit, runtime.Compiler, runtime.Version())
 	logger.Debugf("  args: %#v", os.Args)
 }
 
