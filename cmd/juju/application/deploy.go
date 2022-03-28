@@ -723,9 +723,7 @@ func (c *DeployCommand) Init(args []string) error {
 	if c.channelStr == "" && c.Revision != -1 {
 		// Tell the user they need to specify a channel
 		return errors.New(
-			`If a revision is specified, a channel must also be specified for store
-charms and bundles. Do this using the --channel option, e.g.
-    juju deploy <charm> --revision=5 --channel=stable`,
+			`when using --revision option, you must also use --channel option`,
 		)
 	}
 	if c.channelStr != "" {

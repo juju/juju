@@ -294,6 +294,9 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"bundle", "--map-machines", "foo"},
 		err:  `error in --map-machines: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
+	}, {
+		args: []string{"charm-name", "--revision", "3"},
+		err:  `when using --revision option, you must also use --channel option`,
 	},
 }
 
