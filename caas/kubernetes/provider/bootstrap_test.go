@@ -14,7 +14,6 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
@@ -45,6 +44,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {
@@ -88,7 +88,9 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	pcfg.JujuVersion = version.MustParse("2.6.6.888")
+	current := jujuversion.Current
+	current.Build = 666
+	pcfg.JujuVersion = current
 	pcfg.APIInfo = &api.Info{
 		Password: "password",
 		CACert:   coretesting.CACert,
@@ -780,7 +782,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/jujud-operator:" + "2.6.6.888",
+			Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
 			Env: []core.EnvVar{{
 				Name:  osenv.JujuFeatureFlagEnvKey,
 				Value: "developer-mode",
@@ -843,7 +845,7 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
 		Name:            "charm-init",
 		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "test-account/jujud-operator:3.0-beta1.666",
+		Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
 		Args:            []string{"init", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},
