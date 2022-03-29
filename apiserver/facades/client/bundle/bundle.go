@@ -82,67 +82,6 @@ type BundleAPI struct {
 	modelTag   names.ModelTag
 }
 
-// NewFacadeV1 provides the signature required for facade registration
-// version 1.
-func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
-	api, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &APIv1{api}, nil
-}
-
-// NewFacadeV2 provides the signature required for facade registration
-// for version 2.
-func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
-	api, err := NewFacadeV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
-
-// NewFacadeV3 provides the signature required for facade registration
-// for version 3.
-func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
-	api, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewFacadeV4 provides the signature required for facade registration
-// for version 4.
-func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
-	api, err := NewFacadeV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv4{api}, nil
-}
-
-// NewFacadeV5 provides the signature required for facade registration
-// for version 5.
-func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
-	api, err := NewFacadeV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv5{api}, nil
-}
-
-// NewFacadeV6 provides the signature required for facade registration
-// for version 6.
-func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv6{api}, nil
-}
-
 // NewFacade provides the required signature for facade registration.
 func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	authorizer := ctx.Auth()

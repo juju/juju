@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.applicationoffers")
@@ -80,71 +79,6 @@ func createOffersAPI(
 		},
 	}
 	return api, nil
-}
-
-// NewOffersAPI returns a new application offers OffersAPI facade.
-func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
-	environFromModel := func(modelUUID string) (environs.Environ, error) {
-		st, err := ctx.StatePool().Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer st.Release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		g := stateenvirons.EnvironConfigGetter{Model: model}
-		env, err := environs.GetEnviron(g, environs.New)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return env, nil
-	}
-
-	st := ctx.State()
-	getControllerInfo := func() ([]string, string, error) {
-		return common.StateControllerInfo(st)
-	}
-
-	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
-	return createOffersAPI(
-		GetApplicationOffers,
-		environFromModel,
-		getControllerInfo,
-		GetStateAccess(st),
-		GetStatePool(ctx.StatePool()),
-		ctx.Auth(),
-		ctx.Resources(),
-		authContext.(*commoncrossmodel.AuthContext),
-	)
-}
-
-// NewOffersAPIV2 returns a new application offers OffersAPIV2 facade.
-func NewOffersAPIV2(ctx facade.Context) (*OffersAPIV2, error) {
-	apiV1, err := NewOffersAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &OffersAPIV2{OffersAPI: apiV1}, nil
-}
-
-// NewOffersAPIV3 returns a new application offers OffersAPIV3 facade.
-func NewOffersAPIV3(ctx facade.Context) (*OffersAPIV3, error) {
-	apiV2, err := NewOffersAPIV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &OffersAPIV3{OffersAPIV2: apiV2}, nil
-}
-
-// NewOffersAPIV4 returns a new application offers OffersAPIV4 facade.
-func NewOffersAPIV4(ctx facade.Context) (*OffersAPIV4, error) {
-	apiV3, err := NewOffersAPIV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &OffersAPIV4{OffersAPIV3: apiV3}, nil
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.

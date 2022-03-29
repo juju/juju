@@ -19,18 +19,6 @@ type CleanerAPI struct {
 	resources facade.Resources
 }
 
-// NewCleanerAPI creates a new instance of the Cleaner API.
-func NewCleanerAPI(ctx facade.Context) (*CleanerAPI, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthController() {
-		return nil, apiservererrors.ErrPerm
-	}
-	return &CleanerAPI{
-		st:        getState(ctx.State()),
-		resources: ctx.Resources(),
-	}, nil
-}
-
 // Cleanup triggers a state cleanup
 func (api *CleanerAPI) Cleanup() error {
 	return api.st.Cleanup()

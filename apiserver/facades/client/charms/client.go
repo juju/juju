@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charms")
@@ -93,67 +92,6 @@ func (a *API) checkCanWrite() error {
 		return apiservererrors.ErrPerm
 	}
 	return nil
-}
-
-// NewFacadeV2 provides the signature required for facade V2 registration.
-// It is unknown where V1 is.
-func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
-	v4, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, nil
-	}
-	return &APIv2{
-		APIv3: &APIv3{
-			API: v4,
-		},
-	}, nil
-}
-
-// NewFacadeV3 provides the signature required for facade V3 registration.
-func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
-	api, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{API: api}, nil
-}
-
-// NewFacadeV4 provides the signature required for facade V4 registration.
-func NewFacadeV4(ctx facade.Context) (*API, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	commonState := &charmscommon.StateShim{st}
-	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &API{
-		charmInfoAPI: charmInfoAPI,
-		authorizer:   authorizer,
-		backendState: newStateShim(st),
-		backendModel: m,
-		newStorage: func(modelUUID string) services.Storage {
-			return storage.NewStorage(modelUUID, st.MongoSession())
-		},
-		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
-			return services.NewCharmRepoFactory(cfg)
-		},
-		newDownloader: func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
-			return services.NewCharmDownloader(cfg)
-		},
-		tag:             m.ModelTag(),
-		requestRecorder: ctx.RequestRecorder(),
-	}, nil
 }
 
 // NewCharmsAPI is only used for testing.

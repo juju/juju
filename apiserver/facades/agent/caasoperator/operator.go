@@ -12,13 +12,11 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -42,29 +40,6 @@ type Facade struct {
 
 type CAASBrokerInterface interface {
 	WatchContainerStart(appName string, containerName string) (corewatcher.StringsWatcher, error)
-}
-
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	caasBroker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting caas client")
-	}
-	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting leadership client")
-	}
-	return NewFacade(resources, authorizer,
-		stateShim{ctx.StatePool().SystemState()},
-		stateShim{ctx.State()},
-		unitcommon.Backend(ctx.State()),
-		caasBroker, leadershipRevoker)
 }
 
 // NewFacade returns a new CAASOperator facade.

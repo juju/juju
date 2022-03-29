@@ -17,25 +17,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NewExternalFacade is for API registration.
-func NewExternalFacade(context facade.Context) (*Facade, error) {
-	st := context.State()
-	auth := context.Auth()
-
-	m, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	claimer, err := context.SingularClaimer()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	backend := getBackend(st, m.ModelTag())
-	return NewFacade(backend, claimer, auth)
-}
-
 var getBackend = func(st *state.State, modelTag names.ModelTag) Backend {
 	return &stateBackend{st, modelTag}
 }

@@ -407,28 +407,27 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 }
 
 func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
-	noMethod := rpcreflect.ObjMethod{}
 	goType, err := r.facades.GetType(rootName, version)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+			return nil, rpcreflect.ObjMethod{}, &rpcreflect.CallNotImplementedError{
 				RootMethod: rootName,
 				Version:    version,
 			}
 		}
-		return nil, noMethod, err
+		return nil, rpcreflect.ObjMethod{}, err
 	}
 	rpcType := rpcreflect.ObjTypeOf(goType)
 	objMethod, err := rpcType.Method(methodName)
 	if err != nil {
 		if err == rpcreflect.ErrMethodNotFound {
-			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+			return nil, rpcreflect.ObjMethod{}, &rpcreflect.CallNotImplementedError{
 				RootMethod: rootName,
 				Version:    version,
 				Method:     methodName,
 			}
 		}
-		return nil, noMethod, err
+		return nil, rpcreflect.ObjMethod{}, err
 	}
 	return goType, objMethod, nil
 }

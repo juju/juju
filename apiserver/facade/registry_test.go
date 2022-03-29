@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/testing"
 )
 
@@ -187,52 +186,6 @@ func (*RegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 	})
 }
 
-func (*RegistrySuite) TestWrapNewFacadeFailure(c *gc.C) {
-	_, _, err := facade.WrapNewFacade("notafunc")
-	c.Check(err, gc.ErrorMatches, `wrong type "string" is not a function`)
-}
-
-func (*RegistrySuite) TestWrapNewFacadeHandlesId(c *gc.C) {
-	wrapped, _, err := facade.WrapNewFacade(validContextFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	val, err := wrapped(facadetest.Context{
-		ID_: "badId",
-	})
-	c.Check(err, gc.ErrorMatches, "id not expected")
-	c.Check(val, gc.Equals, nil)
-}
-
-func (*RegistrySuite) TestWrapNewFacadeCallsFunc(c *gc.C) {
-	for _, function := range []interface{}{validContextFactory} {
-		wrapped, _, err := facade.WrapNewFacade(function)
-		c.Assert(err, jc.ErrorIsNil)
-		val, err := wrapped(facadetest.Context{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(*(val.(*int)), gc.Equals, 100)
-	}
-}
-
-func (s *RegistrySuite) TestRegisterStandard(c *gc.C) {
-	registry := &facade.Registry{}
-	registry.RegisterStandard("testing", 0, validContextFactory)
-	wrapped, err := registry.GetFactory("testing", 0)
-	c.Assert(err, jc.ErrorIsNil)
-	val, err := wrapped(facadetest.Context{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*(val.(*int)), gc.Equals, 100)
-}
-
-func (s *RegistrySuite) TestRegisterStandardError(c *gc.C) {
-	registry := &facade.Registry{}
-	err := registry.RegisterStandard("badtest", 0, noArgs)
-	c.Assert(err, gc.ErrorMatches,
-		`function ".*noArgs" does not have the signature .*`)
-
-	_, err = registry.GetFactory("badtest", 0)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `badtest\(0\) not found`)
-}
-
 func assertRegister(c *gc.C, registry *facade.Registry, name string, version int) {
 	assertRegisterFlag(c, registry, name, version)
 }
@@ -247,13 +200,6 @@ func testFacade(_ facade.Context) (facade.Facade, error) {
 }
 
 func validIdFactory(_ facade.Context) (facade.Facade, error) {
-	var i = 100
-	return &i, nil
-}
-
-func noArgs() {}
-
-func validContextFactory(_ facade.Context) (*int, error) {
 	var i = 100
 	return &i, nil
 }

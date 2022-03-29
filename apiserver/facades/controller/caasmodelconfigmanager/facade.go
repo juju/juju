@@ -5,7 +5,6 @@ package caasmodelconfigmanager
 
 import (
 	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 )
@@ -16,18 +15,6 @@ import (
 type Facade struct {
 	auth                facade.Authorizer
 	controllerConfigAPI *common.ControllerConfigAPI
-}
-
-// NewFacade creates a new authorized Facade.
-func NewFacade(ctx facade.Context) (*Facade, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthController() {
-		return nil, apiservererrors.ErrPerm
-	}
-	return &Facade{
-		auth:                authorizer,
-		controllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
-	}, nil
 }
 
 func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {

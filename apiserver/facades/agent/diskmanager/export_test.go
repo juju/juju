@@ -16,3 +16,7 @@ func PatchState(p Patcher, st StateInterface) {
 		return st
 	})
 }
+
+var (
+	NewDiskManagerAPI = newDiskManagerAPI
+)

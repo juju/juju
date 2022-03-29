@@ -154,42 +154,6 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacadeV1 creates a version 1 Client facade to handle API requests.
-func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
-	client, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV1{client}, nil
-}
-
-// NewFacadeV2 creates a version 2 Client facade to handle API requests.
-func NewFacadeV2(ctx facade.Context) (*ClientV2, error) {
-	client, err := NewFacadeV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV2{client}, nil
-}
-
-// NewFacadeV3 creates a version 3 Client facade to handle API requests.
-func NewFacadeV3(ctx facade.Context) (*ClientV3, error) {
-	client, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV3{client}, nil
-}
-
-// NewFacadeV4 creates a version 4 Client facade to handle API requests.
-func NewFacadeV4(ctx facade.Context) (*ClientV4, error) {
-	client, err := NewFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV4{client}, nil
-}
-
 // NewFacade creates a version 5 Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;

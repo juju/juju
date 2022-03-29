@@ -18,22 +18,6 @@ type API struct {
 	authorizer facade.Authorizer
 }
 
-// NewAPI returns an API Instance.
-func NewAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	auth := ctx.Auth()
-	return &API{
-		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), auth),
-		st:           st,
-		authorizer:   auth,
-	}, nil
-}
-
 // Prune endpoint removes status history entries until
 // only the ones newer than now - p.MaxHistoryTime remain and
 // the history is smaller than p.MaxHistoryMB.

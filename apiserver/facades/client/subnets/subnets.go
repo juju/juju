@@ -73,35 +73,6 @@ type API struct {
 	context    context.ProviderCallContext
 }
 
-// NewAPIv2 is a wrapper that creates a V2 subnets API.
-func NewAPIv2(ctx facade.Context) (*APIv2, error) {
-	api, err := NewAPIv3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
-
-// NewAPIv3 is a wrapper that creates a V3 subnets API.
-func NewAPIv3(ctx facade.Context) (*APIv3, error) {
-	api, err := NewAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewAPI creates a new Subnets API server-side facade with a
-// state.State backing.
-func NewAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	stateShim, err := NewStateShim(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newAPIWithBacking(stateShim, context.CallContext(st), ctx.Resources(), ctx.Auth())
-}
-
 func (api *API) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {

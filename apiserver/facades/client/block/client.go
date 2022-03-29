@@ -34,25 +34,6 @@ type API struct {
 	authorizer facade.Authorizer
 }
 
-// NewAPI returns a new block API facade.
-func NewAPI(ctx facade.Context) (*API, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &API{
-		access:     getState(st, m),
-		authorizer: authorizer,
-	}, nil
-}
-
 var getState = func(st *state.State, m *state.Model) blockAccess {
 	return stateShim{st, m}
 }

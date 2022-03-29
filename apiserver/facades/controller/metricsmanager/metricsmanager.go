@@ -51,17 +51,6 @@ type MetricsManagerAPI struct {
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
 
-// NewFacade wraps NewMetricsManagerAPI for API registration.
-func NewFacade(ctx facade.Context) (*MetricsManagerAPI, error) {
-	return NewMetricsManagerAPI(
-		ctx.State(),
-		ctx.Resources(),
-		ctx.Auth(),
-		ctx.StatePool(),
-		clock.WallClock,
-	)
-}
-
 type modelBackend struct {
 	*state.State
 	*state.Model

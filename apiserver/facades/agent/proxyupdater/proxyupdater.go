@@ -4,7 +4,6 @@
 package proxyupdater
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
@@ -33,26 +32,6 @@ type ProxyUpdaterV2 interface {
 }
 
 var _ ProxyUpdaterV2 = (*APIv2)(nil)
-
-// NewFacadeV1 provides the signature required for facade registration
-// and creates a v1 facade.
-func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
-	api, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv1{api}, nil
-}
-
-// NewFacadeV2 provides the signature required for facade registration
-// and creates a v2 facade.
-func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
-	api, err := newFacadeBase(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	st := ctx.State()

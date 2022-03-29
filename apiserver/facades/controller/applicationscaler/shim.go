@@ -15,8 +15,8 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-// NewAPI provides the required signature for facade registration.
-func NewAPI(ctx facade.Context) (*Facade, error) {
+// newAPI provides the required signature for facade registration.
+func newAPI(ctx facade.Context) (*Facade, error) {
 	return NewFacade(backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
 }
 

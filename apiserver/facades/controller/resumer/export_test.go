@@ -18,3 +18,7 @@ func PatchState(p Patcher, st StateInterface) {
 		return st
 	})
 }
+
+var (
+	NewResumerAPI = newResumerAPI
+)

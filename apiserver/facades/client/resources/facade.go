@@ -48,9 +48,9 @@ type APIv1 struct {
 	*API
 }
 
-// NewFacadeV2 creates a public API facade for resources. It is
+// NewFacade creates a public API facade for resources. It is
 // used for API registration.
-func NewFacadeV2(ctx facade.Context) (*API, error) {
+func NewFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -123,14 +123,6 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 	return f, nil
-}
-
-func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
-	api, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv1{api}, nil
 }
 
 // NewResourcesAPI returns a new resources API facade.
