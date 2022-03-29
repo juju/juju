@@ -58,10 +58,10 @@ func (s *instanceMutaterSuite) TestWatchMachines(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.clientForScenario(c,
-		s.expectWatchMachines,
+		s.expectWatchModelMachines,
 		s.expectStringsWatcher,
 	)
-	ch, err := api.WatchMachines()
+	ch, err := api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes
@@ -78,9 +78,9 @@ func (s *instanceMutaterSuite) TestWatchMachinesServerError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.clientForScenario(c,
-		s.expectWatchMachinesWithError,
+		s.expectWatchModelMachinesWithError,
 	)
-	_, err := api.WatchMachines()
+	_, err := api.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
@@ -101,10 +101,10 @@ func (s *instanceMutaterSuite) clientForScenario(c *gc.C, behaviours ...func()) 
 	return instancemutater.NewClient(s.apiCaller)
 }
 
-func (s *instanceMutaterSuite) expectWatchMachines() {
+func (s *instanceMutaterSuite) expectWatchModelMachines() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("InstanceMutater").Return(1)
-	aExp.APICall("InstanceMutater", 1, "", "WatchMachines", nil, gomock.Any()).Return(nil)
+	aExp.APICall("InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(nil)
 }
 
 func (s *instanceMutaterSuite) expectStringsWatcher() {
@@ -113,10 +113,10 @@ func (s *instanceMutaterSuite) expectStringsWatcher() {
 	aExp.APICall("StringsWatcher", 1, "", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
 }
 
-func (s *instanceMutaterSuite) expectWatchMachinesWithError() {
+func (s *instanceMutaterSuite) expectWatchModelMachinesWithError() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("InstanceMutater").Return(1)
-	aExp.APICall("InstanceMutater", 1, "", "WatchMachines", nil, gomock.Any()).Return(errors.New("failed"))
+	aExp.APICall("InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(errors.New("failed"))
 }
 
 func (s *instanceMutaterSuite) expectNotifyWatcher() {
