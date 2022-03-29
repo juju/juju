@@ -375,6 +375,7 @@ check-deps:
 
 # CAAS related targets
 DOCKER_USERNAME            ?= jujusolutions
+DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
 JUJUD_BIN_DIR              ?= ${BIN_DIR}
@@ -382,7 +383,7 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 
 # Import shell functions from make_functions.sh
 # For the k8s operator.
-BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_operator_image "$$@"' build_operator_image
+BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_operator_image "$$@"' build_push_operator_image
 OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
 OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=sh -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
@@ -403,21 +404,40 @@ image-check-build:
 image-check-build-skip:
 	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
 
+.PHONY: docker-builder
+docker-builder:
+## docker-builder: Makes sure that there is a buildx context for building the
+## oci images
+	@docker buildx create --name ${DOCKER_BUILDX_CONTEXT} || true
+
 .PHONY: image-check
-operator-image: image-check
+operator-image: image-check docker-builder
 ## operator-image: Build operator image via docker
-	${BUILD_OPERATOR_IMAGE} "$(OCI_IMAGE_PLATFORMS)"
+	${BUILD_OPERATOR_IMAGE} "$(OCI_IMAGE_PLATFORMS)" "$(PUSH_IMAGE)"
+
+push_operator_image_prereq=push-operator-image-defined
+ifeq ($(JUJU_BUILD_NUMBER),)
+	push_operator_image_prereq=push-operator-image-undefined
+endif
+
+.PHONY: push-operator-image-defined
+push-operator-image-defined: PUSH_IMAGE=true
+push-operator-image-defined: operator-image
+
+.PHONY: push-operator-image-undefined
+push-operator-image-undefined:
+	@echo "error Undefined JUJU_BUILD_NUMBER"
 
 .PHONY: push-operator-image
-push-operator-image: operator-image
+push-operator-image: $(push_operator_image_prereq)
 ## push-operator-image: Push up the newly built operator image via docker
-	@:$(if $(value JUJU_BUILD_NUMBER),, $(error Undefined JUJU_BUILD_NUMBER))
-	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
+
 
 .PHONY: push-release-operator-image
+push-release-operator-image: PUSH_IMAGE=true
 push-release-operator-image: operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
-	docker push "$(shell ${OPERATOR_IMAGE_RELEASE_PATH})"
+
 
 .PHONY: host-install
 host-install:
