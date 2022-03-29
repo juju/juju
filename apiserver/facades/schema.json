@@ -2370,7 +2370,7 @@
                             "$ref": "#/definitions/UnitInfoResults"
                         }
                     },
-                    "description": "UnitsInfo returns unit information."
+                    "description": "UnitsInfo returns unit information for the given entities (units or\napplications)."
                 },
                 "Unset": {
                     "type": "object",
