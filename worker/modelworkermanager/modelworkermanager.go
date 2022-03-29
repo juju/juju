@@ -37,7 +37,7 @@ type ModelWatcher interface {
 type Controller interface {
 	Config() (controller.Config, error)
 	Model(modelUUID string) (Model, func(), error)
-	DBLogger(modelUUID string) (DBLogger, error)
+	RecordLogger(modelUUID string) (RecordLogger, error)
 }
 
 // Model represents a model.
@@ -48,8 +48,8 @@ type Model interface {
 	Owner() names.UserTag
 }
 
-// DBLogger writes into the log collections.
-type DBLogger interface {
+// RecordLogger writes logs to backing store.
+type RecordLogger interface {
 	io.Closer
 	// Log writes the given log records to the logger's storage.
 	Log([]corelogger.LogRecord) error
@@ -209,6 +209,7 @@ func (m *modelWorkerManager) loop() error {
 			// https://bugs.launchpad.net/juju/+bug/1646310
 			return nil
 		}
+
 		cfg := NewModelConfig{
 			Authority:        m.config.Authority,
 			ModelName:        fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
@@ -251,14 +252,16 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		modelUUID := cfg.ModelUUID
 		modelName := fmt.Sprintf("%q (%s)", cfg.ModelName, cfg.ModelUUID)
 		m.config.Logger.Debugf("starting workers for model %s", modelName)
-		dbLogger, err := m.config.Controller.DBLogger(modelUUID)
+
+		recordLogger, err := m.config.Controller.RecordLogger(modelUUID)
 		if err != nil {
 			return nil, errors.Annotatef(err, "unable to create db logger for %s", modelName)
 		}
+
 		cfg.ModelLogger = newModelLogger(
 			"controller-"+m.config.MachineID,
 			modelUUID,
-			dbLogger,
+			recordLogger,
 			m.config.Clock,
 			m.config.Logger,
 		)

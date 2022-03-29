@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
@@ -1445,7 +1446,7 @@ func (c *Config) validateLoggingOutput() error {
 	outputs, _ := c.LoggingOutput()
 	for _, output := range outputs {
 		switch strings.TrimSpace(output) {
-		case "database", "syslog":
+		case corelogger.DatabaseName, corelogger.SyslogName:
 		default:
 			return errors.NotValidf("logging-output %q", output)
 		}

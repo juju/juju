@@ -741,6 +741,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:      agentName,
 			AuthorityName:  certificateWatcherName,
 			StateName:      stateName,
+			SyslogName:     syslogName,
 			Clock:          config.Clock,
 			MuxName:        httpServerArgsName,
 			NewWorker:      modelworkermanager.New,

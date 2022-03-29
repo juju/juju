@@ -20,26 +20,25 @@ import (
 func newModelLogger(
 	name string,
 	modelUUID string,
-	base DBLogger,
+	reclogger RecordLogger,
 	clock clock.Clock,
 	logger Logger,
-) *dbLogger {
-
+) *recordLogger {
 	// Write to the database every second, or 1024 entries, whichever comes first.
-	buffered := corelogger.NewBufferedLogger(base, 1024, time.Second, clock)
+	buffered := corelogger.NewBufferedLogger(reclogger, 1024, time.Second, clock)
 
-	return &dbLogger{
-		dbLogger:  base,
-		buffer:    buffered,
-		name:      name,
-		modelUUID: modelUUID,
-		logger:    logger,
+	return &recordLogger{
+		recordLogger: reclogger,
+		buffer:       buffered,
+		name:         name,
+		modelUUID:    modelUUID,
+		logger:       logger,
 	}
 }
 
-type dbLogger struct {
-	dbLogger DBLogger
-	buffer   *corelogger.BufferedLogger
+type recordLogger struct {
+	recordLogger RecordLogger
+	buffer       *corelogger.BufferedLogger
 
 	// Use struct embedding to get the Close method.
 	corelogger.Logger
@@ -49,7 +48,7 @@ type dbLogger struct {
 	logger    Logger
 }
 
-func (l *dbLogger) Write(entry loggo.Entry) {
+func (l *recordLogger) Write(entry loggo.Entry) {
 	err := l.buffer.Log([]corelogger.LogRecord{{
 		Time:     entry.Timestamp,
 		Entity:   l.name,
@@ -65,8 +64,8 @@ func (l *dbLogger) Write(entry loggo.Entry) {
 	}
 }
 
-func (l *dbLogger) Close() error {
+func (l *recordLogger) Close() error {
 	err := errors.Trace(l.buffer.Flush())
-	l.dbLogger.Close()
+	l.recordLogger.Close()
 	return err
 }

@@ -81,37 +81,20 @@ func (d *apiServerLoggers) remove(st *state.State) {
 	}
 }
 
-type loggerOutput interface {
-	corelogger.Logger
-	io.Closer
-}
-
-func (d *apiServerLoggers) getLoggers(st *state.State) loggerOutput {
+func (d *apiServerLoggers) getLoggers(st *state.State) corelogger.LoggerCloser {
 	// If the logging output is empty, then send it to state.
 	if len(d.loggingOutputs) == 0 {
 		return state.NewDbLogger(st)
 	}
 
-	loggers := make(map[string]corelogger.Logger)
-loop:
-	for _, output := range d.loggingOutputs {
-		switch output {
-		case "syslog":
-			loggers["syslog"] = d.syslogger
-		default:
-			// We only ever want one db logger.
-			if _, ok := loggers["database"]; ok {
-				continue loop
-			}
-			loggers["database"] = state.NewDbLogger(st)
-		}
-	}
-	outputs := make([]corelogger.Logger, 0, len(loggers))
-	for _, output := range loggers {
-		outputs = append(outputs, output)
-	}
-
-	return corelogger.NewTeeLogger(outputs...)
+	return corelogger.MakeLoggers(d.loggingOutputs, corelogger.LoggersConfig{
+		SysLogger: func() corelogger.Logger {
+			return d.syslogger
+		},
+		DBLogger: func() corelogger.Logger {
+			return state.NewDbLogger(st)
+		},
+	})
 }
 
 // dispose closes all apiServerLoggers in the map, and clears the memory. This

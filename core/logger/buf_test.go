@@ -16,11 +16,11 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&BufferedLoggerSuite{})
-
 type BufferedLoggerSuite struct {
 	testing.IsolationSuite
 }
+
+var _ = gc.Suite(&BufferedLoggerSuite{})
 
 func (s *BufferedLoggerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
