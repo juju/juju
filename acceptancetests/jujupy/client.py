@@ -571,8 +571,12 @@ def get_version_string_parts(version_string):
         version_string = str(version_string, 'utf-8')
 
     version_parts = version_string.split('-')
+    version_parts[0] = strip_build_number_for_version(version_parts[0])
     if len(version_parts) == 4:
-        # Version contains "-<patchname>", reconstruct it after the split.
+        # Version contains "-<tag>", reconstruct it after the split.
+        # 2.9-beta1-ubuntu-amd64
+        # 2.9-beta1.666-ubuntu-amd64
+        version_parts[1] = strip_build_number_for_tag(version_parts[1])
         return '-'.join(version_parts[0:2]), version_parts[2], version_parts[3]
     else:
         try:
@@ -581,6 +585,20 @@ def get_version_string_parts(version_string):
             # Possible version_string was only version (i.e. 2.0.0),
             #  namely tests.
             return version_parts
+
+
+def strip_build_number_for_version(ver):
+    # strip build number for the version string.
+    # for example, 2.9.27.888 -> 2.9.27
+    parts = ver.split('.')
+    parts = parts[:3] if len(parts) == 4 else parts
+    return '.'.join(parts)
+
+
+def strip_build_number_for_tag(tag):
+    # strip build number for the tag string.
+    # for example, beta1.666 -> beta1
+    return tag.split('.')[0]
 
 
 class ModelClient:
