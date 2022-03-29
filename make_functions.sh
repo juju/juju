@@ -97,7 +97,7 @@ build_push_operator_image() {
       output="-o type=docker"
     fi
 
-    build_multi_osarch=${build_multi_osarch// /,}
+    build_multi_osarch=$(echo $build_multi_osarch | sed 's/ /,/g')
 
     WORKDIR=$(_make_docker_staging_dir)
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"

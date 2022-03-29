@@ -408,7 +408,7 @@ image-check-build-skip:
 docker-builder:
 ## docker-builder: Makes sure that there is a buildx context for building the
 ## oci images
-	@docker buildx create --name ${DOCKER_BUILDX_CONTEXT} || true
+	-@docker buildx create --name ${DOCKER_BUILDX_CONTEXT}
 
 .PHONY: image-check
 operator-image: image-check docker-builder
