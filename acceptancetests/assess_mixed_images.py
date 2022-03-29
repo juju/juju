@@ -33,7 +33,7 @@ def assess_mixed_images(client):
     charm_path = local_charm_path(charm='dummy-source',
                                   juju_ver=client.version, series='trusty')
     client.deploy(charm_path)
-    client.juju('add-relation', ('dummy-source', 'dummy-sink'))
+    client.juju('relate', ('dummy-source', 'dummy-sink'))
     # Wait for the deployment to finish.
     client.wait_for_started()
     assess_juju_relations(client)

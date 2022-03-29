@@ -31,7 +31,7 @@ Examples:
     juju suspend-relation 123 456 --message "reason for suspending"
 
 See also: 
-    add-relation
+    relate
     offers
     remove-relation
     resume-relation`

@@ -6,7 +6,7 @@ Defines a invalid subordinate for the LXD profile.
 
 juju deploy lxd-profile
 juju deploy lxd-profile-subordinate-fail
-juju add-relation lxd-profile-subordinate lxd-profile
+juju relate lxd-profile-subordinate lxd-profile
 
 ## Known Limitations and Issues
 

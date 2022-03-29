@@ -908,7 +908,7 @@ class FakeBackend:
                 return (0, CommandTime(command, args))
             if command == 'remove-application':
                 model_state.destroy_service(*args)
-            if command == 'add-relation':
+            if command == 'relate':
                 if args[0] == 'dummy-source':
                     model_state.relations[args[1]] = {'source': [args[0]]}
             if command == 'expose':

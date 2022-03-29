@@ -108,7 +108,7 @@ def setup(client, series):
         repository=os.environ['JUJU_REPOSITORY'])
     _, complete_primary = client.deploy(dummy_sink, series=series)
     _, complete_subordinate = client.deploy(dummy_subordinate, series=series)
-    client.juju('add-relation', ('dummy-sink', 'dummy-subordinate'))
+    client.juju('relate', ('dummy-sink', 'dummy-subordinate'))
     client.set_config('dummy-subordinate', {'token': 'Canonical'})
     client.wait_for(complete_primary)
     client.wait_for(complete_subordinate)

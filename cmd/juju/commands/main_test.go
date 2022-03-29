@@ -291,7 +291,6 @@ var commandNames = []string{
 	"add-k8s",
 	"add-machine",
 	"add-model",
-	"add-relation",
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
@@ -402,7 +401,7 @@ var commandNames = []string{
 	"refresh",
 	"regions",
 	"register",
-	"relate", //alias for add-relation
+	"relate",
 	"reload-spaces",
 	"remove-application",
 	"remove-cached-images",

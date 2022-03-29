@@ -54,7 +54,7 @@ at least once - the following examples will all have the same effect:
     juju remove-relation mediawiki:db mariadb
  
 See also: 
-    add-relation
+    relate
     remove-application`
 
 // NewRemoveRelationCommand returns a command to remove a relation between 2 applications.

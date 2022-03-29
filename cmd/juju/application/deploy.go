@@ -613,7 +613,7 @@ attribute of 'gpu=nvidia-tesla-p100':
        twingpu=2,nvidia.com/gpu,gpu=nvidia-tesla-p100
 
 See also:
-    add-relation
+    relate
     add-unit
     config
     expose

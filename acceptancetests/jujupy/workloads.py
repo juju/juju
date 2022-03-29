@@ -119,15 +119,15 @@ def deploy_simple_server_to_new_model(
         new_model.set_model_constraints(constraints)
     new_model.deploy('cs:nrpe', series=series)
     new_model.deploy('cs:nagios', series=series)
-    new_model.juju('add-relation', ('nrpe:monitors', 'nagios:monitors'))
+    new_model.juju('relate', ('nrpe:monitors', 'nagios:monitors'))
 
     application = deploy_simple_resource_server(
         new_model, resource_contents, series,
     )
     _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
     new_model.wait_for(deploy_complete)
-    new_model.juju('add-relation', ('nrpe', application))
-    new_model.juju('add-relation', ('nrpe', 'ubuntu'))
+    new_model.juju('relate', ('nrpe', application))
+    new_model.juju('relate', ('nrpe', 'ubuntu'))
     # Need to wait for the subordinate charms too.
     new_model.wait_for(AllApplicationActive(timeout=600))
     new_model.wait_for(AllApplicationWorkloads())

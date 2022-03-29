@@ -23,7 +23,6 @@ Commands that can be disabled are grouped based on logical operations as follows
 
 "all" prevents:
     add-machine
-    add-relation
     add-unit
     add-ssh-key
     add-user
@@ -43,6 +42,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     import-ssh-key
     model-defaults
     model-config
+    relate
     reload-spaces
     remove-application
     remove-machine

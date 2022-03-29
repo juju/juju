@@ -15,9 +15,9 @@ run_network_health() {
 	juju deploy 'cs:~juju-qa/network-health' network-health-bionic --series bionic
 	juju deploy 'cs:~juju-qa/network-health' network-health-focal --series focal
 
-	juju add-relation network-health-focal ubuntu-focal
-	juju add-relation network-health-xenial ubuntu-xenial
-	juju add-relation network-health-bionic ubuntu-bionic
+	juju relate network-health-focal ubuntu-focal
+	juju relate network-health-xenial ubuntu-xenial
+	juju relate network-health-bionic ubuntu-bionic
 
 	juju expose network-health-xenial
 	juju expose network-health-bionic

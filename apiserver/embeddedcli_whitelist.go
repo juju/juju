@@ -8,7 +8,6 @@ package apiserver
 var allowedEmbeddedCommands = []string{
 	"actions",
 	"add-machine",
-	"add-relation",
 	"add-space",
 	"add-storage",
 	"add-subnet",

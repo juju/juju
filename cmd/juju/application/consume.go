@@ -36,7 +36,7 @@ Examples:
     $ juju consume anothercontroller:owner/othermodel.mysql
 
 See also:
-    add-relation
+    relate
     offer
     remove-saas`[1:]
 

@@ -109,7 +109,7 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
             platform=platform)
     client.deploy(dummy_source, series=charm_series)
     client.deploy(dummy_sink, series=charm_series)
-    client.juju('add-relation', ('dummy-source', 'dummy-sink'))
+    client.juju('relate', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
     if client.env.kvm or client.env.maas:
         # A single virtual machine may need up to 30 minutes before

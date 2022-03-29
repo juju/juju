@@ -875,7 +875,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
             'juju', '--show-log', 'deploy', '-m', 'foo:foo',
             '/tmp/repo/charms/dummy-sink', '--series', 'bar-'), 1)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-m', 'foo:foo',
+            'juju', '--show-log', 'relate', '-m', 'foo:foo',
             'dummy-source', 'dummy-sink'), 2)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'expose', '-m', 'foo:foo', 'dummy-sink'), 3)

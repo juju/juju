@@ -31,7 +31,7 @@ deploy_stack() {
 	juju deploy "cs:~juju-qa/dummy-source"
 	juju deploy "cs:~juju-qa/dummy-sink"
 
-	juju add-relation dummy-source dummy-sink
+	juju relate dummy-source dummy-sink
 	juju expose dummy-sink
 
 	wait_for_machine_agent_status 0 "started"

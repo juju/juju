@@ -157,7 +157,7 @@ class AssessNetworkHealth:
 
             app_series = info['series']
             try:
-                client.juju('add-relation',
+                client.juju('relate',
                             (app, 'network-health-{}'.format(app_series)))
             except subprocess.CalledProcessError as e:
                 log.error('Could not relate {0} & network-health due '
@@ -393,7 +393,7 @@ class AssessNetworkHealth:
                 client.deploy('cs:~juju-qa/network-health', alias=alias,
                               series=info['series'])
                 try:
-                    client.juju('add-relation', (app, alias))
+                    client.juju('relate', (app, alias))
                     self.expose_test_charms.add(alias)
                 except subprocess.CalledProcessError as e:
                     log.warning('Could not relate {}, {} due to '

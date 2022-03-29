@@ -25,7 +25,7 @@ run_block_remove_object() {
 
 	juju deploy ubuntu
 	juju deploy ntp
-	juju add-relation ntp ubuntu
+	juju relate ntp ubuntu
 
 	juju disable-command remove-object
 
@@ -68,13 +68,13 @@ run_block_all() {
 
 	juju enable-ha | grep -q 'the operation has been blocked' || true
 	juju deploy ntp | grep -q 'the operation has been blocked' || true
-	juju add-relation ntp ubuntu | grep -q 'the operation has been blocked' || true
+	juju relate ntp ubuntu | grep -q 'the operation has been blocked' || true
 	juju unexpose ubuntu | grep -q 'the operation has been blocked' || true
 
 	juju enable-command all
 
 	juju deploy ntp
-	juju add-relation ntp ubuntu
+	juju relate ntp ubuntu
 
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "ubuntu" 0)"
 

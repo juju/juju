@@ -167,7 +167,7 @@ func (s *AddRelationValidationSuite) assertInvalidEndpoint(c *gc.C, endpoint, ms
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
-// baseAddRemoteRelationSuite contains common functionality for add-relation cmd tests
+// baseAddRemoteRelationSuite contains common functionality for relate cmd tests
 // that mock out api client.
 type baseAddRemoteRelationSuite struct {
 	jujutesting.RepoSuite
@@ -206,11 +206,11 @@ func (s *baseAddRemoteRelationSuite) assertFailAddRelationTwoRemoteApplications(
 	c.Assert(err, gc.ErrorMatches, "providing more than one remote endpoints not supported")
 }
 
-// mockAddRelationAPI contains a stub api used for add-relation cmd tests.
+// mockAddRelationAPI contains a stub api used for relate cmd tests.
 type mockAddRelationAPI struct {
 	jtesting.Stub
 
-	// addRelation can be defined by tests to test different add-relation outcomes.
+	// addRelation can be defined by tests to test different relate outcomes.
 	addRelation func(endpoints, viaCidrs []string) (*params.AddRelationResults, error)
 
 	mac *macaroon.Macaroon

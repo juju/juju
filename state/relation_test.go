@@ -105,7 +105,7 @@ func (s *StateSuite) TestAddRelationWithMaxLimit(c *gc.C) {
 	eps, err = s.State.InferEndpoints("wordpress", "mariadb")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected second add-relation attempt to fail due to the limit:1 entry in the wordpress charm's metadata.yaml"))
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected second relate attempt to fail due to the limit:1 entry in the wordpress charm's metadata.yaml"))
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {

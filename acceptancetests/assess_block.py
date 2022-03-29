@@ -101,7 +101,7 @@ def assess_block_all_changes(client, charm_series):
     block_list = client.list_disabled_commands()
     if block_list != make_block_list(client, [client.command_set_all]):
         raise JujuAssertionError(block_list)
-    test_disabled(client, 'add-relation', ('dummy-source', 'dummy-sink'))
+    test_disabled(client, 'relate', ('dummy-source', 'dummy-sink'))
     test_disabled(client, 'unexpose', ('dummy-sink',))
     test_disabled(client, 'remove-application', 'dummy-sink')
     client.enable_command(client.command_set_all)

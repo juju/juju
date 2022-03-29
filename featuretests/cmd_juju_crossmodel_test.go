@@ -314,7 +314,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"mysql:server", "hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runCommand(c, "add-relation", "wordpress", "admin/controller.hosted-mysql")
+	_, err = runCommand(c, "relate", "wordpress", "admin/controller.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,7 +341,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 }
 
 func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherModeluser string) {
-	_, err := runCommand(c, "add-relation", "-m", "admin/controller", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
+	_, err := runCommand(c, "relate", "-m", "admin/controller", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -464,7 +464,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 
 	s.createTestUser(c)
 	s.loginTestUser(c)
-	context, err := runCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
+	context, err := runCommand(c, "relate", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.NotNil)
 	c.Assert(cmdtesting.Stderr(context), jc.Contains, `application offer "otheruser/othermodel.hosted-mysql" not found`)
 }

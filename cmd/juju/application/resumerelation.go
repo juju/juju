@@ -29,7 +29,7 @@ Examples:
     juju resume-relation 123 456
 
 See also: 
-    add-relation
+    relate
     offers
     remove-relation
     suspend-relation`

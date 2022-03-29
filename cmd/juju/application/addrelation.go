@@ -166,7 +166,7 @@ Examples:
     # Relate a wordpress application with a mysql application hosted within the 
     # "prod" model, using the "automation" user. Facilitate firewall management
     # by specifying the routes used for relation data.
-    juju add-relation wordpress automation/prod.mysql --via 192.168.0.0/16,10.0.0.0/8
+    juju relate wordpress automation/prod.mysql --via 192.168.0.0/16,10.0.0.0/8
 
 
 See also:
@@ -197,8 +197,7 @@ type addRelationCommand struct {
 
 func (c *addRelationCommand) Info() *cmd.Info {
 	addCmd := &cmd.Info{
-		Name:    "add-relation",
-		Aliases: []string{"relate"},
+		Name:    "relate",
 		Args:    "<application>[:<relation>] <application>[:<relation>]",
 		Purpose: "Relate two applications.",
 		Doc:     addRelationDoc,
