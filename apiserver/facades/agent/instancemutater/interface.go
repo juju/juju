@@ -26,6 +26,7 @@ type InstanceMutaterState interface {
 	ControllerTimestamp() (*time.Time, error)
 
 	WatchMachines() state.StringsWatcher
+	WatchModelMachines() state.StringsWatcher
 	WatchApplicationCharms() state.StringsWatcher
 	WatchCharms() state.StringsWatcher
 	WatchUnits() state.StringsWatcher
