@@ -154,42 +154,6 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacadeV1 creates a version 1 Client facade to handle API requests.
-func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
-	client, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV1{client}, nil
-}
-
-// NewFacadeV2 creates a version 2 Client facade to handle API requests.
-func NewFacadeV2(ctx facade.Context) (*ClientV2, error) {
-	client, err := NewFacadeV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV2{client}, nil
-}
-
-// NewFacadeV3 creates a version 3 Client facade to handle API requests.
-func NewFacadeV3(ctx facade.Context) (*ClientV3, error) {
-	client, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV3{client}, nil
-}
-
-// NewFacadeV4 creates a version 4 Client facade to handle API requests.
-func NewFacadeV4(ctx facade.Context) (*ClientV4, error) {
-	client, err := NewFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ClientV4{client}, nil
-}
-
 // NewFacade creates a version 5 Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
@@ -889,15 +853,16 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		if number.Compare(current) <= 0 {
 			continue
 		}
-		if jujuversion.OfficialBuild == 0 && number.Build > 0 {
+		if current.Build == 0 && number.Build > 0 {
 			continue
 		}
 		if args.MajorVersion != -1 && number.Major != args.MajorVersion {
 			continue
 		}
-		number.Build = 0
 		if !controllerCfg.Features().Contains(feature.DeveloperMode) && streamsVersions.Size() > 0 {
-			if !streamsVersions.Contains(number.String()) {
+			numberCopy := number
+			numberCopy.Build = 0
+			if !streamsVersions.Contains(numberCopy.String()) {
 				continue
 			}
 		} else {
@@ -908,8 +873,11 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 			}
 		}
 		arch, err := reg.GetArchitecture(imageName, number.String())
+		if errors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
-			return result, errors.Annotatef(err, "cannot get architecture for %q:%q", imageName, number.String())
+			return result, errors.Annotatef(err, "cannot get architecture for %s:%s", imageName, number.String())
 		}
 		if args.Arch != "" && arch != args.Arch {
 			continue

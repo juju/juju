@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/rpc/params"
@@ -38,7 +39,9 @@ func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
 	diskmanager.PatchState(s, s.st)
 
 	var err error
-	s.api, err = diskmanager.NewDiskManagerAPI(nil, nil, s.authorizer)
+	s.api, err = diskmanager.NewDiskManagerAPI(facadetest.Context{
+		Auth_: s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -65,7 +68,9 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *gc.C) {
 func (s *DiskManagerSuite) TestNewDiskManagerAPINonMachine(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := diskmanager.NewDiskManagerAPI(nil, nil, s.authorizer)
+	_, err := diskmanager.NewDiskManagerAPI(facadetest.Context{
+		Auth_: s.authorizer,
+	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

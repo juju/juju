@@ -12,6 +12,7 @@ JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-}
 
 # Docker variables
 DOCKER_USERNAME=${DOCKER_USERNAME:-jujusolutions}
+DOCKER_BUILDX_CONTEXT=${DOCKER_BUILDX_CONTEXT:-juju-make}
 DOCKER_STAGING_DIR="${BUILD_DIR}/docker-staging"
 DOCKER_BIN=${DOCKER_BIN:-$(which docker || true)}
 
@@ -72,31 +73,42 @@ operator_image_path() {
 }
 
 
-# build_operator_image is responsible for doing the heavy lifiting when it
+# build_push_operator_image is responsible for doing the heavy lifiting when it
 # comes time to build the Juju oci operator image. This function can also build
-# the operator image for multiple architectures at once. Takes 2 arguments
-# - $1 juju-version to take the image
-# - $2 comma seperated list of os/arch to build the image for. Follow the GO
-#   idiom for naming. Example linux/amd64,linux/arm64. The only supported OS
+# the operator image for multiple architectures at once. Takes 2 arguments that
+# describe one or more platforms to build for and whether to push the image.
+# - $1 space seperated list of os/arch to build the image for. Follow the GO
+#   idiom for naming. Example "linux/amd64 linux/arm64". The only supported OS
 #   is linux at the moment. If no argument is provided defaults to GOOS & GOARCH
-build_operator_image() {
+# - $2 true or false value on if the resultant image(s) should be pushed to the
+#   registry
+build_push_operator_image() {
     build_multi_osarch=${1-""}
     if [ -z "$build_multi_osarch" ]; then
       build_multi_osarch="$(go env GOOS)/$(go env GOARCH)"
     fi
 
+    push_image=${2-"false"}
+
+    output="-o type=oci,dest=${BUILD_DIR}/oci.tar.gz"
+    if [ $push_image = true ]; then
+      output="-o type=image,push=true"
+    elif [ $(echo "$build_multi_osarch" | wc -w) -eq 1 ]; then
+      output="-o type=docker"
+    fi
+
+    build_multi_osarch=$(echo $build_multi_osarch | sed 's/ /,/g')
+
     WORKDIR=$(_make_docker_staging_dir)
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
-    for build_osarch in ${build_multi_osarch}; do
-      tar cf - -C "${BUILD_DIR}" . | DOCKER_BUILDKIT=1 "${DOCKER_BIN}" build \
-          -f "${docker_staging_dir}/Dockerfile" \
-          --platform "$build_osarch" \
-          -t "$(operator_image_path)" -
-    done
-    if [ "$(operator_image_path)" != "$(operator_image_release_path)" ]; then
-        "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_release_path)"
-    fi
+    DOCKER_BUILDKIT=1 "$DOCKER_BIN" buildx build \
+        --builder "$DOCKER_BUILDX_CONTEXT" \
+        -f "${WORKDIR}/Dockerfile" \
+        -t "$(operator_image_path)" \
+        --platform="$build_multi_osarch" \
+        ${output} \
+        "${BUILD_DIR}"
 }
 
 wait_for_dpkg() {

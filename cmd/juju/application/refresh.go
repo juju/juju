@@ -412,6 +412,11 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	charmID, err := factory.Run(cfg)
 	if err != nil {
+		if errors.Is(err, refresher.ErrAlreadyUpToDate) {
+			// Charm already up-to-date - success
+			ctx.Infof(err.Error())
+			return nil
+		}
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
@@ -597,11 +602,11 @@ func (c *refreshCommand) upgradeResources(
 }
 
 func newCharmAdder(
-	api api.Connection,
+	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{api: &apiClient{Client: api.Client()}}
-	if api.BestFacadeVersion("Charms") > 2 {
-		adder.charms = &charmsClient{Client: apicharms.NewClient(api)}
+	adder := &charmAdderShim{api: &apiClient{Client: api.NewClient(conn)}}
+	if conn.BestFacadeVersion("Charms") > 2 {
+		adder.charms = &charmsClient{Client: apicharms.NewClient(conn)}
 	}
 	return adder
 }

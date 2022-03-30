@@ -15,9 +15,9 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-// NewAPI provides the required signature for facade registration.
-func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	return NewFacade(backendShim{st}, res, auth)
+// newAPI provides the required signature for facade registration.
+func newAPI(ctx facade.Context) (*Facade, error) {
+	return NewFacade(backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
 }
 
 // backendShim wraps a *State to implement Backend without pulling in direct

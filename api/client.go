@@ -46,7 +46,14 @@ const websocketTimeout = 30 * time.Second
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
-	st     *state
+	conn   Connection
+}
+
+// NewClient returns an object that can be used to access client-specific
+// functionality.
+func NewClient(c Connection) *Client {
+	frontend, backend := base.NewClientFacade(c, "Client")
+	return &Client{ClientFacade: frontend, facade: backend, conn: c}
 }
 
 // Status returns the status of the juju model.
@@ -236,7 +243,7 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 // ModelUUID returns the model UUID from the client connection
 // and reports whether it is valued.
 func (c *Client) ModelUUID() (string, bool) {
-	tag, ok := c.st.ModelTag()
+	tag, ok := c.conn.ModelTag()
 	if !ok {
 		return "", false
 	}
@@ -268,7 +275,7 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 	if err := c.facade.FacadeCall("WatchAll", nil, &info); err != nil {
 		return nil, err
 	}
-	return NewAllWatcher(c.st, &info.AllWatcherId), nil
+	return NewAllWatcher(c.conn, &info.AllWatcherId), nil
 }
 
 // Close closes the Client's underlying State connection
@@ -276,7 +283,7 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 // connection, but it is conventional to use a Client object without any access
 // to its underlying state connection.
 func (c *Client) Close() error {
-	return c.st.Close()
+	return c.conn.Close()
 }
 
 // SetModelAgentVersion sets the model agent-version setting
@@ -541,7 +548,7 @@ func openCharmArgs(curl *charm.URL) (string, url.Values) {
 
 // OpenURI performs a GET on a Juju HTTP endpoint returning the
 func (c *Client) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
-	return openURI(c.st, uri, query)
+	return openURI(c.conn, uri, query)
 }
 
 func openURI(apiCaller base.APICaller, uri string, query url.Values) (io.ReadCloser, error) {
@@ -595,7 +602,7 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 	req.Header.Set("Content-Type", contentType)
 
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.st.HTTPClient()
+	httpClient, err := c.conn.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -698,7 +705,7 @@ func (s *DeadlineStream) WriteJSON(v interface{}) error {
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries
 // that match the filtering specified in the DebugLogParams are returned.
 func (c *Client) WatchDebugLog(args common.DebugLogParams) (<-chan common.LogMessage, error) {
-	return common.StreamDebugLog(context.TODO(), c.st, args)
+	return common.StreamDebugLog(context.TODO(), c.conn, args)
 }
 
 // lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the

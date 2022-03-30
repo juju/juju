@@ -30,35 +30,6 @@ type UserManagerAPI struct {
 	isAdmin    bool
 }
 
-// NewUserManagerAPI provides the signature required for facade registration.
-func NewUserManagerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*UserManagerAPI, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	// Pretty much all of the user manager methods have special casing for admin
-	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &UserManagerAPI{
-		state:      st,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
-		apiUser:    apiUser,
-		isAdmin:    isAdmin,
-	}, nil
-}
-
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
 	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
 	if errors.IsNotFound(err) {

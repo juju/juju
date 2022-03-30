@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/Azure/go-autorest/autorest/adal"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/storage"
 )
 

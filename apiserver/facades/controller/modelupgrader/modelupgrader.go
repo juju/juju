@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
@@ -38,22 +37,6 @@ type ProviderRegistry interface {
 // the status of entities.
 type StatusSetter interface {
 	SetStatus(params.SetStatus) (params.ErrorResults, error)
-}
-
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
-	pool := NewPool(ctx.StatePool())
-	registry := environs.GlobalProviderRegistry()
-	watcher := common.NewAgentEntityWatcher(
-		ctx.State(),
-		ctx.Resources(),
-		common.AuthFuncForTagKind(names.ModelTagKind),
-	)
-	statusSetter := common.NewStatusSetter(
-		ctx.State(),
-		common.AuthFuncForTagKind(names.ModelTagKind),
-	)
-	return NewFacade(ctx.State(), pool, registry, watcher, statusSetter, ctx.Auth())
 }
 
 // NewFacade returns a new Facade using the given Backend and Authorizer.

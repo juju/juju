@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -38,11 +37,6 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 		},
 	}
 	return api, nil
-}
-
-// NewFacade provides the signature required for facade registration.
-func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
-	return NewAPI(&backendShim{st}, res, auth)
 }
 
 // AllMachineRemovals returns tags for all of the machines that have

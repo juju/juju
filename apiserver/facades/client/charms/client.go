@@ -4,13 +4,15 @@
 package charms
 
 import (
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
@@ -29,7 +31,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charms")
@@ -42,8 +43,8 @@ type API struct {
 	backendState charmsinterfaces.BackendState
 	backendModel charmsinterfaces.BackendModel
 
-	tag        names.ModelTag
-	httpClient http.HTTPClient
+	tag             names.ModelTag
+	requestRecorder facade.RequestRecorder
 
 	newStorage     func(modelUUID string) services.Storage
 	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
@@ -93,69 +94,6 @@ func (a *API) checkCanWrite() error {
 	return nil
 }
 
-// NewFacadeV2 provides the signature required for facade V2 registration.
-// It is unknown where V1 is.
-func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
-	v4, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, nil
-	}
-	return &APIv2{
-		APIv3: &APIv3{
-			API: v4,
-		},
-	}, nil
-}
-
-// NewFacadeV3 provides the signature required for facade V3 registration.
-func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
-	api, err := NewFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{API: api}, nil
-}
-
-// NewFacadeV4 provides the signature required for facade V4 registration.
-func NewFacadeV4(ctx facade.Context) (*API, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	commonState := &charmscommon.StateShim{st}
-	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
-
-	return &API{
-		charmInfoAPI: charmInfoAPI,
-		authorizer:   authorizer,
-		backendState: newStateShim(st),
-		backendModel: m,
-		newStorage: func(modelUUID string) services.Storage {
-			return storage.NewStorage(modelUUID, st.MongoSession())
-		},
-		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
-			return services.NewCharmRepoFactory(cfg)
-		},
-		newDownloader: func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
-			return services.NewCharmDownloader(cfg)
-		},
-		tag:        m.ModelTag(),
-		httpClient: httpTransport(logger),
-	}, nil
-}
-
 // NewCharmsAPI is only used for testing.
 // TODO (stickupkid): We should use the latest NewFacadeV4 to better exercise
 // the API.
@@ -168,14 +106,14 @@ func NewCharmsAPI(
 	newDownloader func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error),
 ) (*API, error) {
 	return &API{
-		authorizer:    authorizer,
-		backendState:  st,
-		backendModel:  m,
-		newStorage:    newStorage,
-		repoFactory:   repoFactory,
-		newDownloader: newDownloader,
-		tag:           m.ModelTag(),
-		httpClient:    charmhub.DefaultHTTPTransport(logger),
+		authorizer:      authorizer,
+		backendState:    st,
+		backendModel:    m,
+		newStorage:      newStorage,
+		newDownloader:   newDownloader,
+		tag:             m.ModelTag(),
+		requestRecorder: noopRequestRecorder{},
+		repoFactory:     repoFactory,
 	}, nil
 }
 
@@ -384,9 +322,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		}, nil
 	}
 
+	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
+
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
 		Logger:         logger,
-		Transport:      a.httpClient,
+		Transport:      httpTransport(logger),
 		StorageFactory: a.newStorage,
 		StateBackend:   a.backendState,
 		ModelBackend:   a.backendModel,
@@ -603,19 +543,24 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 }
 
 func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	// The following is only required for testing, as we generate a new http
+	// client here for production.
 	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if a.repoFactory == nil {
-		a.repoFactory = a.newRepoFactory(services.CharmRepoFactoryConfig{
-			Logger:       logger,
-			Transport:    a.httpClient,
-			StateBackend: a.backendState,
-			ModelBackend: a.backendModel,
-		})
+	if a.repoFactory != nil {
+		defer a.mu.Unlock()
+		return a.repoFactory.GetCharmRepository(src)
 	}
+	a.mu.Unlock()
 
-	return a.repoFactory.GetCharmRepository(src)
+	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
+	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
+		Logger:       logger,
+		Transport:    httpTransport(logger),
+		StateBackend: a.backendState,
+		ModelBackend: a.backendModel,
+	})
+
+	return repoFactory.GetCharmRepository(src)
 }
 
 // IsMetered returns whether or not the charm is metered.
@@ -822,8 +767,7 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-
-	repo, err := a.getCharmRepository(corecharm.Source(curl.Schema))
+	repo, err := a.getCharmRepository(corecharm.Source(charmOrigin.Source))
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
@@ -845,3 +789,12 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 
 	return results, nil
 }
+
+type noopRequestRecorder struct{}
+
+// Record an outgoing request which produced an http.Response.
+func (noopRequestRecorder) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
+}
+
+// Record an outgoing request which returned back an error.
+func (noopRequestRecorder) RecordError(method string, url *url.URL, err error) {}

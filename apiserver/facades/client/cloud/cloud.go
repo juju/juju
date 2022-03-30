@@ -194,68 +194,6 @@ var (
 	_ CloudV1 = (*CloudAPIV1)(nil)
 )
 
-// NewFacadeV7 is used for API registration.
-func NewFacadeV7(context facade.Context) (*CloudAPI, error) {
-	st := NewStateBackend(context.State())
-	pool := NewModelPoolBackend(context.StatePool())
-	ctlrSt := NewStateBackend(pool.SystemState())
-	return NewCloudAPI(st, ctlrSt, pool, context.Auth())
-}
-
-// NewFacadeV6 is used for API registration.
-func NewFacadeV6(context facade.Context) (*CloudAPIV6, error) {
-	v6, err := NewFacadeV7(context)
-	if err != nil {
-		return nil, err
-	}
-	return &CloudAPIV6{v6}, nil
-}
-
-// NewFacadeV5 is used for API registration.
-func NewFacadeV5(context facade.Context) (*CloudAPIV5, error) {
-	v6, err := NewFacadeV6(context)
-	if err != nil {
-		return nil, err
-	}
-	return &CloudAPIV5{v6}, nil
-}
-
-// NewFacadeV4 is used for API registration.
-func NewFacadeV4(context facade.Context) (*CloudAPIV4, error) {
-	v5, err := NewFacadeV5(context)
-	if err != nil {
-		return nil, err
-	}
-	return &CloudAPIV4{v5}, nil
-}
-
-// NewFacadeV3 is used for API registration.
-func NewFacadeV3(context facade.Context) (*CloudAPIV3, error) {
-	v4, err := NewFacadeV4(context)
-	if err != nil {
-		return nil, err
-	}
-	return &CloudAPIV3{v4}, nil
-}
-
-// NewFacadeV2 is used for API registration.
-func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
-	v3, err := NewFacadeV3(context)
-	if err != nil {
-		return nil, err
-	}
-	return &CloudAPIV2{v3}, nil
-}
-
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(context facade.Context) (*CloudAPIV1, error) {
-	v2, err := NewFacadeV2(context)
-	if err != nil {
-		return nil, err
-	}
-	return &CloudAPIV1{v2}, nil
-}
-
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
 func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer) (*CloudAPI, error) {

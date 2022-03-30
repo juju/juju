@@ -26,11 +26,8 @@ type UnitUpgraderAPI struct {
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
-func NewUnitUpgraderAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*UnitUpgraderAPI, error) {
+func NewUnitUpgraderAPI(ctx facade.Context) (*UnitUpgraderAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -38,10 +35,12 @@ func NewUnitUpgraderAPI(
 	getCanWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+
+	st := ctx.State()
 	return &UnitUpgraderAPI{
 		ToolsSetter: common.NewToolsSetter(st, getCanWrite),
 		st:          st,
-		resources:   resources,
+		resources:   ctx.Resources(),
 		authorizer:  authorizer,
 	}, nil
 }

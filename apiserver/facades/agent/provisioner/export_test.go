@@ -18,3 +18,10 @@ func NewPrepareOrGetContext(result params.MachineNetworkConfigResults, maintain 
 func NewContainerProfileContext(result params.ContainerProfileResults, modelName string) *containerProfileContext {
 	return &containerProfileContext{result: result, modelName: modelName}
 }
+
+var (
+	NewProvisionerAPIV5  = newProvisionerAPIV5
+	NewProvisionerAPIV9  = newProvisionerAPIV9
+	NewProvisionerAPIV10 = newProvisionerAPIV10
+	NewProvisionerAPIV11 = newProvisionerAPIV11
+)

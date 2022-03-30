@@ -37,7 +37,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseV1(c *gc.C) {
 		Lease:     "singular-worker",
 	}).Return(nil)
 
-	facade, err := NewFacadeV1(s.context)
+	facade, err := newFacadeV1(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
@@ -60,7 +60,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseV2(c *gc.C) {
 		Lease:     "singular-worker",
 	}).Return(nil)
 
-	facade, err := NewFacadeV2(s.context)
+	facade, err := newFacadeV2(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ApplyLease(context.Background(), params.LeaseOperationsV2{
@@ -88,7 +88,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseNotLeaderError(c *gc.C) {
 		Lease:     "singular-worker-1",
 	}).Return(apiservererrors.NewNotLeaderError("10.0.0.8", "1"))
 
-	facade, err := NewFacadeV2(s.context)
+	facade, err := newFacadeV2(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ApplyLease(context.Background(), params.LeaseOperationsV2{
@@ -173,7 +173,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseAuthFailureV1(c *gc.C) {
 
 	s.auth.EXPECT().AuthController().Return(false)
 
-	_, err := NewFacadeV1(s.context)
+	_, err := newFacadeV1(s.context)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
@@ -182,7 +182,7 @@ func (s *RaftLeaseSuite) TestApplyLeaseAuthFailureV2(c *gc.C) {
 
 	s.auth.EXPECT().AuthController().Return(false)
 
-	_, err := NewFacadeV2(s.context)
+	_, err := newFacadeV2(s.context)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 

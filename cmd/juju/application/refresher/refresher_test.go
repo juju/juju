@@ -257,6 +257,10 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmID, gc.DeepEquals, &CharmID{
 		URL: curl,
+		Origin: corecharm.Origin{
+			Source: corecharm.Local,
+			Type:   "charm",
+		},
 	})
 }
 
@@ -364,7 +368,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running latest charm "meshuggah"`)
+	c.Assert(err, gc.ErrorMatches, `charm "meshuggah": already up-to-date`)
 }
 
 func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
@@ -391,7 +395,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah", revision 1`)
+	c.Assert(err, gc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
 func (s *charmStoreCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
@@ -419,7 +423,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "aloupi", revision 1`)
+	c.Assert(err, gc.ErrorMatches, `charm "aloupi", revision 1: already up-to-date`)
 }
 
 type charmHubCharmRefresherSuite struct{}
@@ -437,9 +441,11 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Series: "bionic",
 	}
+	actualOrigin := origin
+	actualOrigin.ID = "charmid"
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
+	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(actualOrigin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
@@ -455,7 +461,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmID, gc.DeepEquals, &CharmID{
 		URL:    newCurl,
-		Origin: origin.CoreCharmOrigin(),
+		Origin: actualOrigin.CoreCharmOrigin(),
 	})
 }
 
@@ -514,7 +520,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running latest charm "meshuggah"`)
+	c.Assert(err, gc.ErrorMatches, `charm "meshuggah": already up-to-date`)
 }
 
 func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
@@ -539,7 +545,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah", revision 1`)
+	c.Assert(err, gc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
 func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
@@ -574,7 +580,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah", revision 1`)
+	c.Assert(err, gc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
 func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
@@ -612,7 +618,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "aloupi", revision 1`)
+	c.Assert(err, gc.ErrorMatches, `charm "aloupi", revision 1: already up-to-date`)
 }
 
 func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {

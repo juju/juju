@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -20,9 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
@@ -58,77 +55,6 @@ type API struct {
 
 	check     BlockChecker
 	opFactory OpFactory
-}
-
-// NewAPIv2 is a wrapper that creates a V2 spaces API.
-func NewAPIv2(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPIv3(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
-
-// NewAPIv3 is a wrapper that creates a V3 spaces API.
-func NewAPIv3(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv3, error) {
-	api, err := NewAPIv4(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewAPIv4 is a wrapper that creates a V4 spaces API.
-func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv4, error) {
-	api, err := NewAPIv5(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv4{api}, nil
-}
-
-// NewAPIv5 is a wrapper that creates a V5 spaces API.
-func NewAPIv5(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv5, error) {
-	api, err := NewAPI(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv5{api}, nil
-}
-
-// NewAPI creates a new Space API server-side facade with a
-// state.State backing.
-func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
-	stateShim, err := NewStateShim(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	check := common.NewBlockChecker(st)
-	ctx := context.CallContext(st)
-
-	reloadSpacesEnvirons, err := DefaultReloadSpacesEnvirons(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	reloadSpacesAuth := DefaultReloadSpacesAuthorizer(auth, check, stateShim)
-	reloadSpacesAPI := NewReloadSpacesAPI(
-		space.NewState(st),
-		reloadSpacesEnvirons,
-		EnvironSpacesAdapter{},
-		ctx,
-		reloadSpacesAuth,
-	)
-
-	return newAPIWithBacking(apiConfig{
-		ReloadSpacesAPI: reloadSpacesAPI,
-		Backing:         stateShim,
-		Check:           check,
-		Context:         ctx,
-		Resources:       res,
-		Authorizer:      auth,
-		Factory:         newOpFactory(st),
-	})
 }
 
 type apiConfig struct {
@@ -302,17 +228,18 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 		result.Id = space.Id()
 		result.Name = space.Name()
 
-		subnets, err := space.Subnets()
+		spaceInfo, err := space.NetworkSpace()
 		if err != nil {
 			err = errors.Annotatef(err, "fetching subnets")
 			result.Error = apiservererrors.ServerError(err)
 			results.Results[i] = result
 			continue
 		}
+		subnets := spaceInfo.Subnets
 
 		result.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
+			result.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 		results.Results[i] = result
 	}
@@ -351,16 +278,17 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 		}
 		result.Space.Name = space.Name()
 		result.Space.Id = space.Id()
-		subnets, err := space.Subnets()
+		spaceInfo, err := space.NetworkSpace()
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching subnets")
 			results[i].Error = apiservererrors.ServerError(newErr)
 			continue
 		}
+		subnets := spaceInfo.Subnets
 
 		result.Space.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Space.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
+			result.Space.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 
 		applications, err := api.applicationsBoundToSpace(space.Id())

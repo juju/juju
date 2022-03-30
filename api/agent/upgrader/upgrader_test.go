@@ -39,7 +39,7 @@ func (s *machineUpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	// Create the upgrader facade.
-	s.st = s.stateAPI.Upgrader()
+	s.st = upgrader.NewState(s.stateAPI)
 	c.Assert(s.st, gc.NotNil)
 }
 

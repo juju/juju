@@ -35,19 +35,6 @@ type InstancePollerAPI struct {
 	clock         clock.Clock
 }
 
-// NewFacade wraps NewInstancePollerAPI for facade registration.
-func NewFacade(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*InstancePollerAPI, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewInstancePollerAPI(st, m, resources, authorizer, clock.WallClock)
-}
-
 // NewInstancePollerAPI creates a new server-side InstancePoller API
 // facade.
 func NewInstancePollerAPI(
@@ -414,21 +401,6 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(args params.Entities) (params
 // worker. Compared to V4, it lacks the SetProviderNetworkConfig method.
 type InstancePollerAPIV3 struct {
 	*InstancePollerAPI
-}
-
-// NewFacadeV3 creates a new instance of the V3 InstancePoller API.
-func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*InstancePollerAPIV3, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	api, err := NewInstancePollerAPI(st, m, resources, authorizer, clock.WallClock)
-	if err != nil {
-		return nil, err
-	}
-
-	return &InstancePollerAPIV3{api}, nil
 }
 
 // SetProviderNetworkConfig is not available in V3.

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.subnets")
@@ -72,34 +71,6 @@ type API struct {
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	context    context.ProviderCallContext
-}
-
-// NewAPIv2 is a wrapper that creates a V2 subnets API.
-func NewAPIv2(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPIv3(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
-}
-
-// NewAPIv3 is a wrapper that creates a V3 subnets API.
-func NewAPIv3(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv3, error) {
-	api, err := NewAPI(st, res, auth)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewAPI creates a new Subnets API server-side facade with a
-// state.State backing.
-func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
-	stateShim, err := NewStateShim(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newAPIWithBacking(stateShim, context.CallContext(st), res, auth)
 }
 
 func (api *API) checkCanRead() error {

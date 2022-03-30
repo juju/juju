@@ -149,20 +149,10 @@ func (u *Upgrader) loop() error {
 			return err
 		}
 
-		haveVersion := jujuversion.Current
-		if wantVersion.Build == 0 {
-			haveVersion.Build = 0
-		} else {
-			haveVersion.Build = jujuversion.OfficialBuild
-		}
-
-		if wantVersion == haveVersion {
+		if wantVersion == jujuversion.Current {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
-		} else if !upgrader.AllowedTargetVersion(
-			jujuversion.Current,
-			wantVersion,
-		) {
+		} else if !upgrader.AllowedTargetVersion(jujuversion.Current, wantVersion) {
 			logger.Warningf("desired agent binary version: %s is older than current %s, refusing to downgrade",
 				wantVersion, jujuversion.Current)
 			u.config.InitialUpgradeCheckComplete.Unlock()

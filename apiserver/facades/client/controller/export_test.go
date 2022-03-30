@@ -18,3 +18,10 @@ func SetPrecheckResult(p patcher, err error) {
 		return err
 	})
 }
+
+var (
+	NewControllerAPIv3  = newControllerAPIv3
+	NewControllerAPIv4  = newControllerAPIv4
+	NewControllerAPIv5  = newControllerAPIv5
+	NewControllerAPIv11 = newControllerAPIv11
+)

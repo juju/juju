@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -33,19 +32,6 @@ type AgentToolsAPI struct {
 	// tools lookup
 	findTools        toolsFinder
 	envVersionUpdate envVersionUpdater
-}
-
-// NewFacade is used to register the facade.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newEnviron := func() (environs.Environ, error) {
-		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-		return newEnviron(model)
-	}
-	return NewAgentToolsAPI(st, newEnviron, findTools, envVersionUpdate, authorizer)
 }
 
 // NewAgentToolsAPI creates a new instance of the Model API.

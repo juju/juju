@@ -4,9 +4,6 @@
 package crosscontroller
 
 import (
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -24,26 +21,6 @@ type CrossControllerAPI struct {
 	localControllerInfo      localControllerInfoFunc
 	publicDNSAddress         publicDNSAddressFunc
 	watchLocalControllerInfo watchLocalControllerInfoFunc
-}
-
-// NewStateCrossControllerAPI creates a new server-side CrossModelRelations API facade
-// backed by global state.
-func NewStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error) {
-	st := ctx.State()
-	return NewCrossControllerAPI(
-		ctx.Resources(),
-		func() ([]string, string, error) {
-			return common.StateControllerInfo(st)
-		},
-		func() (string, error) {
-			config, err := st.ControllerConfig()
-			if err != nil {
-				return "", errors.Trace(err)
-			}
-			return config.PublicDNSAddress(), nil
-		},
-		st.WatchAPIHostPortsForClients,
-	)
 }
 
 // NewCrossControllerAPI returns a new server-side CrossControllerAPI facade.

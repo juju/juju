@@ -31,26 +31,6 @@ type API struct {
 	authorizer facade.Authorizer
 }
 
-// NewAPI returns a new charm annotator API facade.
-func NewAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &API{
-		access:     getState(st, m),
-		authorizer: authorizer,
-	}, nil
-}
-
 func (api *API) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.access.ModelTag())
 	if err != nil {

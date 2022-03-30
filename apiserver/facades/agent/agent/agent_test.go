@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -70,7 +71,11 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, auth)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      auth,
+	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -79,7 +84,11 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
-	_, err := agent.NewAgentAPIV2(s.State, s.resources, auth)
+	_, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      auth,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -94,7 +103,11 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, s.authorizer)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	results := api.GetEntities(args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
@@ -116,7 +129,11 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	err := s.container.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, auth)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      auth,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -157,7 +174,11 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	err = s.machine1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, s.authorizer)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	results := api.GetEntities(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
@@ -174,7 +195,11 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, s.authorizer)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
@@ -198,7 +223,11 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, s.authorizer)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
@@ -212,7 +241,11 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 }
 
 func (s *agentSuite) TestClearReboot(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, s.authorizer)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine1.SetRebootFlag(true)
@@ -246,7 +279,11 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, authorizer)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewCloudCredentialTag("dummy/fred/default")
 	result, err := api.WatchCredentials(params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
@@ -270,7 +307,11 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
 	}
-	api, err := agent.NewAgentAPIV2(s.State, s.resources, authorizer)
+	api, err := agent.NewAgentAPIV2(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = api.WatchCredentials(params.Entities{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")

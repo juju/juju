@@ -9,13 +9,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
 	keyvaultservices "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2018-02-14/keyvault"
+	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2019-09-01/keyvault"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/gofrs/uuid"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/context"
@@ -183,10 +183,10 @@ func (env *azureEnviron) ensureDiskEncryptionSet(
 		Location: to.StringPtr(env.location),
 		Tags:     envTags,
 		Identity: &compute.EncryptionSetIdentity{
-			Type: compute.SystemAssigned,
+			Type: compute.DiskEncryptionSetIdentityTypeSystemAssigned,
 		},
 		EncryptionSetProperties: &compute.EncryptionSetProperties{
-			ActiveKey: &compute.KeyVaultAndKeyReference{
+			ActiveKey: &compute.KeyForDiskEncryptionSet{
 				SourceVault: &compute.SourceVault{
 					ID: vaultID,
 				},

@@ -3,12 +3,12 @@ module github.com/juju/juju
 go 1.17
 
 require (
-	github.com/Azure/azure-sdk-for-go v46.4.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.18
-	github.com/Azure/go-autorest/autorest/adal v0.9.13
+	github.com/Azure/azure-sdk-for-go v62.2.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.24
+	github.com/Azure/go-autorest/autorest/adal v0.9.18
 	github.com/Azure/go-autorest/autorest/date v0.3.0
 	github.com/Azure/go-autorest/autorest/mocks v0.4.1
-	github.com/Azure/go-autorest/autorest/to v0.3.0
+	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
 	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878
@@ -20,7 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20220220221114-a922aaf20c76
+	github.com/canonical/pebble v0.0.0-20220316083406-c50b1edca41f
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.7.1+incompatible
@@ -28,6 +28,7 @@ require (
 	github.com/go-goose/goose/v4 v4.0.0-20211105130700-d0015d23b748
 	github.com/go-logr/logr v1.2.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20220204130128-afeebcc9521d
+	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/golang/mock v1.5.0
 	github.com/google/go-querystring v1.0.0
 	github.com/googleapis/gnostic v0.5.5
@@ -48,7 +49,7 @@ require (
 	github.com/juju/cmd/v3 v3.0.0-20220203030511-039f3566372a
 	github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a
 	github.com/juju/description/v3 v3.0.0-20220207013250-e60bc7b1c242
-	github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9
+	github.com/juju/errors v0.0.0-20220316043928-e10eb17a9eeb
 	github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
@@ -63,13 +64,13 @@ require (
 	github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c
 	github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os/v2 v2.2.1
+	github.com/juju/os/v2 v2.2.2
 	github.com/juju/packaging/v2 v2.0.0-20220207023655-2ed4de2dc5b4
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20220207021845-4d37a2e6a78f
 	github.com/juju/pubsub/v2 v2.0.0-20220207005728-39d68caef4a7
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/juju/replicaset/v2 v2.0.1-0.20220207005755-f1b225b4be6e
+	github.com/juju/replicaset/v2 v2.0.1-0.20220330042111-ec94259ca14f
 	github.com/juju/retry v0.0.0-20220204093819-62423bf33287
 	github.com/juju/rfc/v2 v2.0.0-20220207021814-ffb92bc8e9eb
 	github.com/juju/romulus v0.0.0-20220207004956-1a3bcf86b836
@@ -92,7 +93,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/satori/go.uuid v1.2.0
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
@@ -137,15 +137,14 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect
-	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
@@ -233,8 +232,3 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
-
-replace (
-	github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/autorest v0.11.6
-	github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.9.4
-)

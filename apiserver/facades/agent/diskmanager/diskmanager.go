@@ -25,32 +25,6 @@ var getState = func(st *state.State) stateInterface {
 	return stateShim{st}
 }
 
-// NewDiskManagerAPI creates a new server-side DiskManager API facade.
-func NewDiskManagerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*DiskManagerAPI, error) {
-
-	if !authorizer.AuthMachineAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	authEntityTag := authorizer.GetAuthTag()
-	getAuthFunc := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			// A machine agent can always access its own machine.
-			return tag == authEntityTag
-		}, nil
-	}
-
-	return &DiskManagerAPI{
-		st:          getState(st),
-		authorizer:  authorizer,
-		getAuthFunc: getAuthFunc,
-	}, nil
-}
-
 func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevices) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineBlockDevices)),

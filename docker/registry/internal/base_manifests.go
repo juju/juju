@@ -53,7 +53,7 @@ func (c baseClient) GetArchitecture(imageName, tag string) (string, error) {
 func getArchitecture(imageName, tag string, client ArchitectureGetter) (string, error) {
 	manifests, err := client.GetManifests(imageName, tag)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, "can not get manifests for %s:%s", imageName, tag)
 	}
 	if manifests.Architecture == "" && manifests.Digest == "" {
 		return "", errors.New(fmt.Sprintf("faild to get manifests for %q %q", imageName, tag))
@@ -78,9 +78,8 @@ func (c baseClient) GetManifests(imageName, tag string) (*ManifestsResult, error
 // GetManifestsCommon returns manifests result for the provided url.
 func (c baseClient) GetManifestsCommon(url string) (*ManifestsResult, error) {
 	resp, err := c.client.Get(url)
-	logger.Tracef("getting manifests for %q, err %v", url, err)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(unwrapNetError(err))
 	}
 	defer resp.Body.Close()
 	return processManifestsResponse(resp)
@@ -132,7 +131,7 @@ func (c baseClient) GetBlobsCommon(url string) (*BlobsResponse, error) {
 	resp, err := c.client.Get(url)
 	logger.Tracef("getting blobs for %q, err %v", url, err)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(unwrapNetError(err))
 	}
 	defer resp.Body.Close()
 	var result BlobsResponse

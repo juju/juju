@@ -420,11 +420,11 @@ type GetMetadataParams struct {
 // is found.
 func (s Simplestreams) GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
 	for _, source := range sources {
-		logger.Tracef("searching for signed metadata in datasource %q", source.Description())
+		logger.Debugf("searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = s.getMaybeSignedMetadata(source, params, true)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !source.RequireSigned() {
-			logger.Tracef("falling back to search for unsigned metadata in datasource %q", source.Description())
+			logger.Debugf("falling back to search for unsigned metadata in datasource %q", source.Description())
 			items, resolveInfo, err = s.getMaybeSignedMetadata(source, params, false)
 		}
 		if err == nil {
@@ -455,7 +455,7 @@ func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetad
 	resolveInfo.Signed = signed
 	indexPath := makeIndexPath(defaultIndexPath)
 
-	logger.Tracef("looking for data index using path %s", indexPath)
+	logger.Debugf("looking for data index using path %s", indexPath)
 	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	cons := params.LookupConstraint
 
@@ -467,11 +467,11 @@ func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetad
 		signed,
 		params.ValueParams,
 	)
-	logger.Tracef("looking for data index using URL %s", indexURL)
+	logger.Debugf("looking for data index using URL %s", indexURL)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
-		logger.Tracef("%s not accessed, actual error: %v", indexPath, errors.Details(err))
-		logger.Tracef("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
+		logger.Debugf("%s not accessed, actual error: %v", indexPath, errors.Details(err))
+		logger.Debugf("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
 
 		indexPath = legacyIndexPath
 		indexRef, indexURL, err = s.fetchIndex(
@@ -486,11 +486,11 @@ func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetad
 	resolveInfo.IndexURL = indexURL
 	if err != nil {
 		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
-			logger.Tracef("cannot load index %q: %v", indexURL, err)
+			logger.Debugf("cannot load index %q: %v", indexURL, err)
 		}
 		return nil, resolveInfo, err
 	}
-	logger.Tracef("read metadata index at %q", indexURL)
+	logger.Debugf("read metadata index at %q", indexURL)
 	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -1022,10 +1022,10 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint
 	if err != nil {
 		return nil, err
 	}
-	logger.Tracef("finding products at path %q", productFilesPath)
+	logger.Debugf("finding products at path %q", productFilesPath)
 	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned)
 	if err != nil {
-		logger.Tracef("can't read product data: %v", err)
+		logger.Debugf("can't read product data: %v", err)
 		return nil, errors.Annotate(err, "cannot read product data")
 	}
 	return ParseCloudMetadata(data, format, url, indexRef.valueParams.ValueTemplate)

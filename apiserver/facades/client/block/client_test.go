@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/block"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -31,7 +32,11 @@ func (s *blockSuite) SetUpTest(c *gc.C) {
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
 	}
-	s.api, err = block.NewAPI(s.State, common.NewResources(), auth)
+	s.api, err = block.NewAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: common.NewResources(),
+		Auth_:      auth,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

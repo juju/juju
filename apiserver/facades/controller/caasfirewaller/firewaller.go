@@ -24,30 +24,6 @@ type Facade struct {
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 }
 
-// NewStateFacadeLegacy provides the signature required for facade registration.
-func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-
-	commonState := &charmscommon.StateShim{ctx.State()}
-	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return newFacadeLegacy(
-		resources,
-		authorizer,
-		&stateShim{ctx.State()},
-		charmInfoAPI,
-		appCharmInfoAPI,
-	)
-}
-
 func newFacadeLegacy(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -160,29 +136,6 @@ type FacadeSidecar struct {
 	*Facade
 
 	accessModel common.GetAuthFunc
-}
-
-// NewStateFacadeSidecar provides the signature required for facade registration.
-func NewStateFacadeSidecar(ctx facade.Context) (*FacadeSidecar, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-
-	commonState := &charmscommon.StateShim{ctx.State()}
-	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newFacadeSidecar(
-		resources,
-		authorizer,
-		&stateShim{ctx.State()},
-		commonCharmsAPI,
-		appCharmInfoAPI,
-	)
 }
 
 func newFacadeSidecar(

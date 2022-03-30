@@ -22,12 +22,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
+var logger = loggo.GetLoggerWithLabels("juju.apiserver.crossmodelrelations", corelogger.CMR)
 
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
@@ -53,40 +54,6 @@ type CrossModelRelationsAPI struct {
 // CrossModelRelationsAPIV1 has WatchRelationUnits rather than WatchRelationChanges.
 type CrossModelRelationsAPIV1 struct {
 	*CrossModelRelationsAPI
-}
-
-// NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
-// backed by global state.
-func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
-	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCrossModelRelationsAPI(
-		stateShim{
-			st:      st,
-			Backend: commoncrossmodel.GetBackend(st),
-		},
-		firewall.StateShim(st, model),
-		ctx.Resources(), ctx.Auth(),
-		authCtxt.(*commoncrossmodel.AuthContext),
-		firewall.WatchEgressAddressesForRelations,
-		watchRelationLifeSuspendedStatus,
-		watchOfferStatus,
-	)
-}
-
-// NewStateCrossModelRelationsAPIV1 creates a new server-side
-// CrossModelRelations v1 API facade backed by state.
-func NewStateCrossModelRelationsAPIV1(ctx facade.Context) (*CrossModelRelationsAPIV1, error) {
-	api, err := NewStateCrossModelRelationsAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &CrossModelRelationsAPIV1{api}, nil
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.

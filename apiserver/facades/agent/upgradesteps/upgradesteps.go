@@ -56,21 +56,6 @@ var (
 	_ UpgradeStepsV1 = (*UpgradeStepsAPIV1)(nil)
 )
 
-// NewFacadeV2 is used for API registration.
-func NewFacadeV2(ctx facade.Context) (*UpgradeStepsAPI, error) {
-	st := &upgradeStepsStateShim{State: ctx.State()}
-	return NewUpgradeStepsAPI(st, ctx.Resources(), ctx.Auth())
-}
-
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(ctx facade.Context) (*UpgradeStepsAPIV1, error) {
-	v2, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &UpgradeStepsAPIV1{UpgradeStepsAPI: v2}, nil
-}
-
 func NewUpgradeStepsAPI(st UpgradeStepsState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

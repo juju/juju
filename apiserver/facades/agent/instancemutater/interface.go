@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v8"
 
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
@@ -27,6 +26,7 @@ type InstanceMutaterState interface {
 	ControllerTimestamp() (*time.Time, error)
 
 	WatchMachines() state.StringsWatcher
+	WatchModelMachines() state.StringsWatcher
 	WatchApplicationCharms() state.StringsWatcher
 	WatchCharms() state.StringsWatcher
 	WatchUnits() state.StringsWatcher
@@ -65,12 +65,4 @@ type Charm interface {
 // Application represents point of use methods from the state Application object.
 type Application interface {
 	CharmURL() *charm.URL
-}
-
-// ModelCacheMachine represents a point of use Machine from the cache package.
-type ModelCacheMachine interface {
-	ContainerType() instance.ContainerType
-	IsManual() bool
-	WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error)
-	WatchContainers() (cache.StringsWatcher, error)
 }

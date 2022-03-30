@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -35,14 +34,6 @@ type API struct {
 	getClaimer    migration.ClaimerFunc
 	getEnviron    stateenvirons.NewEnvironFunc
 	getCAASBroker stateenvirons.NewCAASBrokerFunc
-}
-
-// NewFacade is used for API registration.
-func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(
-		ctx,
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc and context.ProviderCallContext

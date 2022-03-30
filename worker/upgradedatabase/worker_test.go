@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -118,7 +118,7 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
-	cfg.RetryStrategy = utils.AttemptStrategy{}
+	cfg.RetryStrategy = retry.CallArgs{}
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
@@ -256,6 +256,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectUpgradeRequired(false)
+	s.pool.EXPECT().IsPrimary("0").Return(false, nil).AnyTimes()
 
 	s.logger.EXPECT().Infof(logWaiting)
 	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
@@ -269,7 +270,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	s.watcher.EXPECT().Changes().Return(changes).AnyTimes()
 
 	timeout := make(chan time.Time, 1)
-	s.clock.EXPECT().After(gomock.Any()).Return(timeout)
+	s.clock.EXPECT().After(gomock.Any()).Return(timeout).AnyTimes()
 
 	// Primary does not complete the upgrade.
 	// After we have gone to the upgrade pending state, trip the timeout.
@@ -283,8 +284,6 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 		}
 		return state.UpgradePending
 	}).AnyTimes()
-
-	s.logger.EXPECT().Errorf("timed out waiting for primary database upgrade")
 
 	finished := make(chan struct{})
 	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading).Do(func(...interface{}) {
@@ -303,7 +302,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	case <-finished:
 	case <-time.After(testing.LongWait):
 	}
-	workertest.CleanKill(c, w)
+	workertest.DirtyKill(c, w)
 }
 
 func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
@@ -341,6 +340,147 @@ func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
 	case <-time.After(testing.LongWait):
 	}
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNotPrimaryButBecomePrimary(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	// first IsPrimary is false
+	s.expectUpgradeRequired(false)
+
+	// We don't want to kill the worker while we are in the status observation
+	// loop, so we gate on this final expectation.
+	finished := make(chan struct{})
+	s.pool.EXPECT().IsPrimary("0").DoAndReturn(func(_ interface{}) (bool, error) {
+		// The second isPrimary returns true and marks completion
+		finished <- struct{}{}
+		return true, nil
+	})
+
+	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
+
+	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
+
+	// First clock.After returns the timeout clock
+	// After that, returns a clock to wait to re-check primary
+	timeout := make(chan time.Time, 1)
+	checkPrimary := make(chan time.Time, 1)
+	checkPrimary <- time.Now()
+	s.clock.EXPECT().After(10 * time.Minute).Return(timeout)
+	s.clock.EXPECT().After(5 * time.Second).Return(checkPrimary)
+
+	changes := make(chan struct{}, 1)
+	s.watcher.EXPECT().Changes().Return(changes)
+
+	cfg := s.getConfig()
+	cfg.Clock = s.clock
+
+	w, err := upgradedatabase.NewWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-finished:
+	case <-time.After(testing.LongWait):
+	}
+	workertest.DirtyKill(c, w)
+}
+
+func (s *workerSuite) TestNotPrimaryButBecomePrimaryByError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	// first IsPrimary is false
+	s.expectUpgradeRequired(false)
+
+	// We don't want to kill the worker while we are in the status observation
+	// loop, so we gate on this final expectation.
+	finished := make(chan struct{})
+	s.pool.EXPECT().IsPrimary("0").DoAndReturn(func(_ interface{}) (bool, error) {
+		// The second isPrimary returns true and marks completion
+		finished <- struct{}{}
+		return false, errors.New("Primary has changed")
+	})
+
+	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
+
+	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
+
+	// First clock.After returns the timeout clock
+	// After that, returns a clock to wait to re-check primary
+	timeout := make(chan time.Time, 1)
+	checkPrimary := make(chan time.Time, 1)
+	checkPrimary <- time.Now()
+	s.clock.EXPECT().After(10 * time.Minute).Return(timeout)
+	s.clock.EXPECT().After(5 * time.Second).Return(checkPrimary)
+
+	changes := make(chan struct{}, 1)
+	s.watcher.EXPECT().Changes().Return(changes)
+
+	cfg := s.getConfig()
+	cfg.Clock = s.clock
+
+	w, err := upgradedatabase.NewWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-finished:
+	case <-time.After(testing.LongWait):
+	}
+	workertest.DirtyKill(c, w)
+}
+func (s *workerSuite) TestNotPrimaryButBecomePrimaryAfter2Checks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	// first IsPrimary is false
+	s.expectUpgradeRequired(false)
+	// so is the second
+	s.pool.EXPECT().IsPrimary("0").Return(false, nil)
+
+	// We don't want to kill the worker while we are in the status observation
+	// loop, so we gate on this final expectation.
+	finished := make(chan struct{})
+	s.pool.EXPECT().IsPrimary("0").DoAndReturn(func(_ interface{}) (bool, error) {
+		// The third isPrimary returns true and marks completion
+		finished <- struct{}{}
+		return true, nil
+	})
+
+	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
+
+	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
+
+	// First clock.After returns the timeout clock
+	// After that, returns a clock to wait to re-check primary
+	timeout := make(chan time.Time, 1)
+	checkPrimary := make(chan time.Time, 2)
+	checkPrimary <- time.Now()
+	checkPrimary <- time.Now()
+
+	s.clock.EXPECT().After(10 * time.Minute).Return(timeout)
+	s.clock.EXPECT().After(5 * time.Second).Return(checkPrimary).Times(2)
+
+	changes := make(chan struct{}, 1)
+	s.watcher.EXPECT().Changes().Return(changes)
+
+	cfg := s.getConfig()
+	cfg.Clock = s.clock
+
+	w, err := upgradedatabase.NewWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-finished:
+	case <-time.After(testing.LongWait):
+	}
+	workertest.DirtyKill(c, w)
 }
 
 func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
@@ -428,7 +568,7 @@ func (s *workerSuite) TestUpgradedRetryAllFailed(c *gc.C) {
 	w, err := upgradedatabase.NewWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workertest.CleanKill(c, w)
+	workertest.DirtyKill(c, w)
 }
 
 func (s *workerSuite) getConfig() upgradedatabase.Config {
@@ -439,7 +579,7 @@ func (s *workerSuite) getConfig() upgradedatabase.Config {
 		Logger:          s.logger,
 		OpenState:       func() (upgradedatabase.Pool, error) { return s.pool, nil },
 		PerformUpgrade:  func(version.Number, []upgrades.Target, func() upgrades.Context) error { return nil },
-		RetryStrategy:   utils.AttemptStrategy{Delay: time.Millisecond, Min: 3},
+		RetryStrategy:   retry.CallArgs{Clock: clock.WallClock, Delay: time.Millisecond, Attempts: 3},
 		Clock:           clock.WallClock,
 	}
 }

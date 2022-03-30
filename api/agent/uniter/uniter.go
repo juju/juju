@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -66,6 +67,17 @@ func NewState(
 		ErrIfNotVersionFn(2, state.BestAPIVersion()),
 	)
 	return state
+}
+
+// NewFromConnection returns a version of the Connection that provides
+// functionality required by the uniter worker if possible else a non-nil error.
+func NewFromConnection(c api.Connection) (*State, error) {
+	authTag := c.AuthTag()
+	unitTag, ok := authTag.(names.UnitTag)
+	if !ok {
+		return nil, errors.Errorf("expected UnitTag, got %T %v", authTag, authTag)
+	}
+	return NewState(c, unitTag), nil
 }
 
 // BestAPIVersion returns the API version that we were able to

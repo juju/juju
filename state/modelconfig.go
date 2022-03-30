@@ -214,10 +214,18 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if _, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig); err != nil {
+	validCfg, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig)
+	if err != nil {
 		return errors.Trace(err)
 	}
+	validAttrs := validCfg.AllAttrs()
+	for k := range updateAttrs {
+		if v, ok := validAttrs[k]; ok {
+			updateAttrs[k] = v
+		}
+	}
 
+	updateAttrs = config.CoerceForStorage(updateAttrs)
 	settings.Update(updateAttrs)
 	for _, r := range removeAttrs {
 		settings.Delete(r)

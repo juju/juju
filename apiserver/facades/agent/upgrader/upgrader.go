@@ -22,45 +22,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
-// The upgrader facade is a bit unique vs the other API Facades, as it
-// has two implementations that actually expose the same API and which
-// one gets returned depends on who is calling.  Both of them conform
-// to the exact Upgrader API, so the actual calls that are available
-// do not depend on who is currently connected.
-
-// NewUpgraderFacade provides the signature required for facade registration.
-func NewUpgraderFacade(ctx facade.Context) (Upgrader, error) {
-	auth := ctx.Auth()
-	st := ctx.State()
-	ctrlSt := ctx.StatePool().SystemState()
-	resources := ctx.Resources()
-	// The type of upgrader we return depends on who is asking.
-	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
-	// This is tested in the api/upgrader package since there
-	// are currently no direct srvRoot tests.
-	// TODO(dfc) this is redundant
-	tag, err := names.ParseTag(auth.GetAuthTag().String())
-	if err != nil {
-		return nil, apiservererrors.ErrPerm
-	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	switch tag.(type) {
-	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
-		return NewUpgraderAPI(ctrlSt, st, resources, auth)
-	case names.UnitTag:
-		if model.Type() == state.ModelTypeCAAS {
-			// For sidecar applications.
-			return NewUpgraderAPI(ctrlSt, st, resources, auth)
-		}
-		return NewUnitUpgraderAPI(st, resources, auth)
-	}
-	// Not a machine or unit.
-	return nil, apiservererrors.ErrPerm
-}
-
 type Upgrader interface {
 	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)
 	DesiredVersion(args params.Entities) (params.VersionResults, error)

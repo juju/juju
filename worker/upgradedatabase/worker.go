@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
+	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
@@ -69,7 +69,7 @@ type Config struct {
 	PerformUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
 
 	// RetryStrategy is the strategy to use for re-attempting failed upgrades.
-	RetryStrategy utils.AttemptStrategy
+	RetryStrategy retry.CallArgs
 
 	// Clock is used to enforce time-out logic for controllers waiting for the
 	// master MongoDB upgrades to execute.
@@ -100,9 +100,14 @@ func (cfg Config) Validate() error {
 	if cfg.PerformUpgrade == nil {
 		return errors.NotValidf("nil PerformUpgrade function")
 	}
-	a := utils.AttemptStrategy{}
-	if cfg.RetryStrategy == a {
-		return errors.NotValidf("empty RetryStrategy")
+	if cfg.RetryStrategy.Clock == nil {
+		return errors.NotValidf("nil RetryStrategy Clock")
+	}
+	if cfg.RetryStrategy.Delay == 0 {
+		return errors.NotValidf("zero value for RetryStrategy Delay")
+	}
+	if cfg.RetryStrategy.Attempts == 0 && cfg.RetryStrategy.MaxDuration == 0 {
+		return errors.NotValidf("zero value for RetryStrategy Attempts and MaxDuration")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -123,7 +128,7 @@ type upgradeDB struct {
 	pool           Pool
 	performUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
 	upgradeInfo    UpgradeInfo
-	retryStrategy  utils.AttemptStrategy
+	retryStrategy  retry.CallArgs
 	clock          Clock
 
 	fromVersion version.Number
@@ -185,12 +190,11 @@ func (w *upgradeDB) run() error {
 	// If we are the primary we need to run the upgrade steps.
 	// Otherwise we watch state and unlock once the primary has run the steps.
 	if isPrimary {
-		w.runUpgrade()
+		err = w.runUpgrade()
 	} else {
-		w.watchUpgrade()
+		err = w.watchUpgrade()
 	}
-
-	return nil
+	return errors.Trace(err)
 }
 
 // upgradeDone returns true if this worker
@@ -213,40 +217,44 @@ func (w *upgradeDB) upgradeDone() bool {
 	return false
 }
 
-func (w *upgradeDB) runUpgrade() {
+func (w *upgradeDB) runUpgrade() error {
 	w.logger.Infof("running database upgrade for %v on mongodb primary", w.toVersion)
 	w.setStatus(status.Started, fmt.Sprintf("upgrading database for %v", w.toVersion))
 
-	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err == nil {
-		// Update the upgrade status document to unlock the other controllers.
-		if err = w.upgradeInfo.SetStatus(state.UpgradeDBComplete); err != nil {
-			w.logger.Errorf("failed to update upgrade info: %v", err)
-			w.setFailStatus()
-			return
-		}
-
-		w.logger.Infof("database upgrade for %v completed successfully.", w.toVersion)
-		w.setStatus(status.Started, fmt.Sprintf("database upgrade for %v completed", w.toVersion))
-		w.upgradeComplete.Unlock()
+	err := w.agent.ChangeConfig(w.runUpgradeSteps)
+	if err != nil {
+		w.setFailStatus()
+		return errors.Trace(err)
 	}
+	// Update the upgrade status document to unlock the other controllers.
+	err = w.upgradeInfo.SetStatus(state.UpgradeDBComplete)
+	if err != nil {
+		w.setFailStatus()
+		return errors.Trace(err)
+	}
+	w.logger.Infof("database upgrade for %v completed successfully.", w.toVersion)
+	w.setStatus(status.Started, fmt.Sprintf("database upgrade for %v completed", w.toVersion))
+	w.upgradeComplete.Unlock()
+	return nil
 }
 
 // runUpgradeSteps runs the required database upgrade steps for the agent,
 // retrying on failure.
 func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
-	var upgradeErr error
 	contextGetter := w.contextGetter(agentConfig)
 
-	for attempt := w.retryStrategy.Start(); attempt.Next(); {
-		upgradeErr = w.performUpgrade(w.fromVersion, []upgrades.Target{upgrades.DatabaseMaster}, contextGetter)
-		if upgradeErr == nil {
-			break
-		} else {
-			w.reportUpgradeFailure(upgradeErr, attempt.HasNext())
-		}
+	retryStrategy := w.retryStrategy
+	retryStrategy.Func = func() error {
+		return w.performUpgrade(w.fromVersion, []upgrades.Target{upgrades.DatabaseMaster}, contextGetter)
 	}
-
-	return errors.Trace(upgradeErr)
+	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
+		w.reportUpgradeFailure(lastError, attempt != retryStrategy.Attempts)
+	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
+	}
+	return errors.Trace(err)
 }
 
 // contextGetter returns a function that creates an upgrade context.
@@ -259,15 +267,14 @@ func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrade
 	}
 }
 
-func (w *upgradeDB) watchUpgrade() {
+func (w *upgradeDB) watchUpgrade() error {
 	w.logger.Infof("waiting for database upgrade on mongodb primary")
 	w.setStatus(status.Started, fmt.Sprintf("waiting on primary database upgrade for %v", w.toVersion))
 
 	if wrench.IsActive("upgrade-database", "watch-upgrade") {
 		// Simulate an error causing the upgrade to fail.
-		w.logger.Errorf("unable to upgrade - wrench in the works")
 		w.setFailStatus()
-		return
+		return errors.New("unable to upgrade - wrench in works")
 	}
 
 	timeout := w.clock.After(10 * time.Minute)
@@ -280,8 +287,32 @@ func (w *upgradeDB) watchUpgrade() {
 	if err := w.upgradeInfo.Refresh(); err != nil {
 		w.logger.Errorf("unable to refresh upgrade info: %v", err)
 		w.setFailStatus()
-		return
+		return err
 	}
+
+	// To be here, this node previously returned false for isPrimary
+	// Sometimes our primary changes, or is reported as false when called too
+	// early. In the case that a node state changes whilst watching,
+	// escalate an error which will result in the worker being restarted
+	stateChanged := make(chan struct{})
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case <-done:
+			case <-w.clock.After(5 * time.Second):
+				isPrimary, err := w.pool.IsPrimary(w.tag.Id())
+				if isPrimary || err != nil {
+					if err != nil {
+						w.logger.Errorf("Failed to check is this node is primary: %v", err)
+					}
+					close(stateChanged)
+					return
+				}
+			}
+		}
+	}()
 
 	for {
 		// If the primary has already run the database steps then the status
@@ -292,7 +323,7 @@ func (w *upgradeDB) watchUpgrade() {
 			w.logger.Infof("finished waiting - database upgrade steps completed on mongodb primary")
 			w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade for %v", w.toVersion))
 			w.upgradeComplete.Unlock()
-			return
+			return nil
 		default:
 			// Continue waiting for another change.
 		}
@@ -300,16 +331,17 @@ func (w *upgradeDB) watchUpgrade() {
 		select {
 		case <-watcher.Changes():
 			if err := w.upgradeInfo.Refresh(); err != nil {
-				w.logger.Errorf("unable to refresh upgrade info: %v", err)
 				w.setFailStatus()
-				return
+				return errors.Trace(err)
 			}
+		case <-stateChanged:
+			w.logger.Infof("primary changed mid-upgrade to this watching host. Restart upgrade")
+			return errors.New("mongo primary state changed")
 		case <-timeout:
-			w.logger.Errorf("timed out waiting for primary database upgrade")
 			w.setFailStatus()
-			return
+			return errors.New("timed out waiting for primary database upgrade")
 		case <-w.tomb.Dying():
-			return
+			return tomb.ErrDying
 		}
 	}
 }

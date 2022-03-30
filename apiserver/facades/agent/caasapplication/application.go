@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.caasapplication")
@@ -37,26 +36,6 @@ type Facade struct {
 	model     Model
 	clock     clock.Clock
 	broker    Broker
-}
-
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting caas client")
-	}
-	return NewFacade(resources, authorizer,
-		ctx.StatePool().SystemState(),
-		&stateShim{st},
-		broker,
-		ctx.StatePool().Clock())
 }
 
 // NewFacade returns a new CAASOperator facade.

@@ -15,6 +15,15 @@ var (
 	GetZone                = &getZone
 	WatchStorageAttachment = watchStorageAttachment
 
+	NewUniterAPI    = newUniterAPI
+	NewUniterAPIV16 = newUniterAPIV16
+	NewUniterAPIV14 = newUniterAPIV14
+	NewUniterAPIV12 = newUniterAPIV12
+	NewUniterAPIV8  = newUniterAPIV8
+	NewUniterAPIV6  = newUniterAPIV6
+	NewUniterAPIV5  = newUniterAPIV5
+	NewUniterAPIV4  = newUniterAPIV4
+
 	_ meterstatus.MeterStatus = (*UniterAPI)(nil)
 )
 

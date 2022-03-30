@@ -243,7 +243,7 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${model_default_series} --build-agent=${BUILD_AGENT} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${model_default_series} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
@@ -265,6 +265,17 @@ pre_bootstrap() {
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS} --metadata-source ${image_streams_dir}"
 		;;
 	esac
+
+	if [[ ${BUILD_AGENT:-} == true ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --build-agent=${BUILD_AGENT}"
+	else
+		# In CI tests, both Build and OfficialBuild are set.
+		# Juju confuses when it needs to decide the operator image tag to use.
+		# So we need to explicitely set the agent version for CI tests.
+		version=$(juju_version)
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
+	fi
+	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }
 
 # post_bootstrap contains actions required after bootstrap specific to providers

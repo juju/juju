@@ -15,15 +15,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -47,30 +44,6 @@ type newCharmstoreClientFunc func(st State) (charmstore.Client, error)
 type newCharmhubClientFunc func(st State) (CharmhubRefreshClient, error)
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
-
-// NewCharmRevisionUpdaterAPI creates a new server-side charmrevisionupdater API end point.
-func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, error) {
-	if !ctx.Auth().AuthController() {
-		return nil, apiservererrors.ErrPerm
-	}
-	newCharmstoreClient := func(st State) (charmstore.Client, error) {
-		controllerCfg, err := st.ControllerConfig()
-		if err != nil {
-			return charmstore.Client{}, errors.Trace(err)
-		}
-		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
-	}
-	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
-		// TODO (stickupkid): Get the http transport from the facade context
-		transport := charmhub.DefaultHTTPTransport(logger)
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, transport, logger)
-	}
-	return NewCharmRevisionUpdaterAPIState(
-		StateShim{State: ctx.State()},
-		newCharmstoreClient,
-		newCharmhubClient,
-	)
-}
 
 // NewCharmRevisionUpdaterAPIState creates a new charmrevisionupdater API
 // with a State interface directly (mainly for use in tests).

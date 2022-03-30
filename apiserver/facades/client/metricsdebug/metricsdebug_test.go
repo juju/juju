@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/metricsdebug"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -32,7 +33,10 @@ func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	debug, err := metricsdebug.NewMetricsDebugAPI(s.State, nil, s.authorizer)
+	debug, err := metricsdebug.NewMetricsDebugAPI(facadetest.Context{
+		State_: s.State,
+		Auth_:  s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsdebug = debug
 }

@@ -7,6 +7,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var (
+	NewCleanerAPI = newCleanerAPI
+)
+
 type Patcher interface {
 	PatchValue(ptr, value interface{})
 }

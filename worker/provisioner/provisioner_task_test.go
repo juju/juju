@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -253,17 +254,22 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, expectedIds.Values()...)
 
-	shortAttempt := &utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: 10 * time.Millisecond,
+	retryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			zoneLock.Lock()
+			if len(usedZones) == 4 {
+				return nil
+			}
+			zoneLock.Unlock()
+			return errors.Errorf("Not ready yet")
+		},
 	}
-	for a := shortAttempt.Start(); a.Next(); {
-		zoneLock.Lock()
-		if len(usedZones) == 4 {
-			break
-		}
-		zoneLock.Unlock()
-	}
+	err := retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	zoneCounts := make(map[string]int)
 	for _, z := range usedZones {
 		count := zoneCounts[z] + 1

@@ -6,25 +6,10 @@ package payloads
 import (
 	"github.com/juju/errors"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-// NewFacade provides the signature required for facade registration.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-	backend, err := st.ModelPayloads()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewAPI(backend), nil
-}
 
 // payloadBackend exposes the State functionality for payloads in a model.
 type payloadBackend interface {

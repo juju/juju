@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -31,16 +30,6 @@ type API struct {
 	st           assignerState
 	res          facade.Resources
 	statusSetter statusSetter
-}
-
-// New returns a new unitAssigner api instance.
-func New(st *state.State, res facade.Resources, _ facade.Authorizer) (*API, error) {
-	setter := common.NewStatusSetter(&common.UnitAgentFinder{st}, common.AuthAlways())
-	return &API{
-		st:           st,
-		res:          res,
-		statusSetter: setter,
-	}, nil
 }
 
 //  AssignUnits assigns the units with the given ids to the correct machine. The

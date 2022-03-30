@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charmrepo/v6"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -20,6 +21,9 @@ import (
 // ErrExhausted reveals if a refresher was exhausted in it's task. If so, then
 // it is expected to attempt another refresher.
 var ErrExhausted = errors.Errorf("exhausted")
+
+// ErrAlreadyUpToDate indicates a charm is already up-to-date.
+var ErrAlreadyUpToDate = errors.Errorf("already up-to-date")
 
 // RefresherDependencies are required for any deployer to be run.
 type RefresherDependencies struct {
@@ -199,6 +203,10 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 		}
 		return &CharmID{
 			URL: addedURL,
+			Origin: corecharm.Origin{
+				Source: corecharm.Local,
+				Type:   "charm",
+			},
 		}, nil
 	}
 	if _, ok := err.(*charmrepo.NotFoundError); ok {
@@ -283,12 +291,14 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 	if *newURL == *r.charmURL {
 		if refURL.Revision != -1 {
-			return nil, commoncharm.Origin{}, errors.Errorf("already running specified charm %q, revision %d", newURL.Name, newURL.Revision)
+			return nil, commoncharm.Origin{}, errors.Annotatef(ErrAlreadyUpToDate,
+				"charm %q, revision %d", newURL.Name, newURL.Revision)
 		}
 		// No point in trying to upgrade a charm store charm when
 		// we just determined that's the latest revision
 		// available.
-		return nil, commoncharm.Origin{}, errors.Errorf("already running latest charm %q", newURL.Name)
+		return nil, commoncharm.Origin{}, errors.Annotatef(ErrAlreadyUpToDate,
+			"charm %q", newURL.Name)
 	}
 	r.logger.Verbosef("Using channel %q", origin.CharmChannel().String())
 	return newURL, origin, nil
@@ -428,14 +438,14 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		origin.Series = r.deployedSeries
 	}
 
-	curl, _, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
+	curl, actualOrigin, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &CharmID{
 		URL:    curl,
-		Origin: origin.CoreCharmOrigin(),
+		Origin: actualOrigin.CoreCharmOrigin(),
 	}, nil
 }
 

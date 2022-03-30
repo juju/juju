@@ -36,16 +36,6 @@ type MachinerAPI struct {
 	getCanRead   common.GetAuthFunc
 }
 
-// NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
-	return NewMachinerAPIForState(
-		ctx.StatePool().SystemState(),
-		ctx.State(),
-		ctx.Resources(),
-		ctx.Auth(),
-	)
-}
-
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
@@ -225,48 +215,12 @@ type MachinerAPIV4 struct {
 	*MachinerAPI
 }
 
-// NewMachinerAPIV1 creates a new instance of the V1 Machiner API.
-func NewMachinerAPIV1(
-	ctx facade.Context,
-) (*MachinerAPIV1, error) {
-	api, err := NewMachinerAPIV2(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MachinerAPIV1{api}, nil
-}
-
-// NewMachinerAPIV2 creates a new instance of the V2 Machiner API.
-func NewMachinerAPIV2(
-	ctx facade.Context,
-) (*MachinerAPIV2, error) {
-	api, err := NewMachinerAPIV3(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MachinerAPIV2{api}, nil
-}
-
 // SetObservedNetworkConfig back-fills machine origin before calling through to
 // the networking common method of the same name.
 // Older agents do not set the origin, so we must do it for them.
 func (api *MachinerAPIV2) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
 	args.BackFillMachineOrigin()
 	return api.NetworkConfigAPI.SetObservedNetworkConfig(args)
-}
-
-// NewMachinerAPIV3 creates a new instance of the V3 Machiner API.
-func NewMachinerAPIV3(
-	ctx facade.Context,
-) (*MachinerAPIV3, error) {
-	api, err := NewMachinerAPIV4(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MachinerAPIV3{api}, nil
 }
 
 // SetProviderNetworkConfig is no-op.
@@ -278,18 +232,6 @@ func (api *MachinerAPIV3) SetProviderNetworkConfig(args params.Entities) (params
 	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}, nil
-}
-
-// NewMachinerAPIV4 creates a new instance of the V4 Machiner API.
-func NewMachinerAPIV4(
-	ctx facade.Context,
-) (*MachinerAPIV4, error) {
-	api, err := NewMachinerAPI(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MachinerAPIV4{api}, nil
 }
 
 // RecordAgentStartInformation is not available in V4.

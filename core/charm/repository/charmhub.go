@@ -323,6 +323,12 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 		return nil, errors.Trace(err)
 	}
 
+	// If a revision is included with an install action, no resources will be
+	// returned. Resources are dependent on a channel, a specific revision can
+	// be in multiple channels.  refreshOne gives priority to a revision if
+	// specified.  ListResources is used by the "charm-resources" cli cmd,
+	// therefore specific charm revisions are less important.
+	resOrigin.Revision = nil
 	resp, err := c.refreshOne(resCurl, resOrigin, macaroons)
 	if err != nil {
 		return nil, errors.Trace(err)

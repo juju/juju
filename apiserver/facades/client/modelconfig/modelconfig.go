@@ -16,26 +16,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NewFacade is used for API registration.
-func NewFacadeV2(ctx facade.Context) (*ModelConfigAPIV2, error) {
-	auth := ctx.Auth()
-
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewModelConfigAPI(NewStateBackend(model), auth)
-}
-
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(ctx facade.Context) (*ModelConfigAPIV1, error) {
-	api, err := NewFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ModelConfigAPIV1{api}, nil
-}
-
 // ModelConfigAPI provides the base implementation of the methods
 // for the V2 and V1 api calls.
 type ModelConfigAPI struct {

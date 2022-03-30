@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/juju/charm/v8"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 
 	"github.com/juju/clock/testclock"
 	jujutesting "github.com/juju/testing"
@@ -61,13 +63,18 @@ func (s *CAASProvisionerSuite) waitForWorkerStubCalls(c *gc.C, expected []jujute
 
 func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.StubCall) {
 	var calls []jujutesting.StubCall
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		calls = stub.Calls()
 		if reflect.DeepEqual(calls, expected) {
-			return
+			return nil
 		}
+		return errors.NotYetAvailablef("Calls not ready")
 	}
-	c.Fatalf("failed to see expected calls. saw: %v", calls)
+	err := retry.Call(retryCallArgs)
+	if err != nil {
+		c.Fatalf("failed to see expected calls. saw: %v", calls)
+	}
 }
 
 func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
@@ -98,17 +105,22 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	s.sendApplicationChanges(c, "myapp")
 
 	expectedCalls := 3
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		nrCalls := len(s.caasClient.Calls())
 		if nrCalls >= expectedCalls {
-			break
+			return nil
 		}
 		if nrCalls > 0 {
 			s.caasClient.setOperatorExists(false)
 			s.caasClient.setTerminating(false)
 			s.clock.Advance(4 * time.Second)
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err := retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	callNames := []string{"OperatorExists", "Operator", "EnsureOperator"}
 	s.caasClient.CheckCallNames(c, callNames...)
 	c.Assert(s.caasClient.Calls(), gc.HasLen, expectedCalls)
@@ -144,7 +156,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	}
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
-	err := ioutil.WriteFile(agentFile, config.AgentConf, 0644)
+	err = ioutil.WriteFile(agentFile, config.AgentConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := agent.ReadConfig(agentFile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,11 +171,14 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	c.Assert(operatorInfo.Cert, gc.Equals, coretesting.ServerCert)
 	c.Assert(operatorInfo.PrivateKey, gc.Equals, coretesting.ServerKey)
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs.Func = func() error {
 		if len(s.provisionerFacade.stub.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	if exists {
 		callNames := []string{"ApplicationCharmInfo", "Life", "OperatorProvisioningInfo"}
@@ -311,7 +326,9 @@ func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C
 
 	lastLen := 0
 	gotOperatorCall := false
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		calls := s.caasClient.Calls()
 		newCalls := calls[lastLen:]
 		lastLen = len(calls)
@@ -328,11 +345,15 @@ func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C
 				if !gotOperatorCall {
 					c.Errorf("missing call to Operator")
 				}
-				return
+				return nil
 			}
 		}
+		return errors.Errorf("missing expected calls")
 	}
-	c.Errorf("worker didn't wait for old operator to terminate")
+	err := retry.Call(retryCallArgs)
+	if err != nil {
+		c.Errorf("worker didn't wait for old operator to terminate")
+	}
 }
 
 func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
@@ -344,11 +365,15 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	s.provisionerFacade.life = "dead"
 	s.sendApplicationChanges(c, "myapp")
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		if len(s.caasClient.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err := retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 	s.caasClient.CheckCallNames(c, "DeleteOperator")
 	c.Assert(s.caasClient.Calls()[0].Args[0], gc.Equals, "myapp")
 }

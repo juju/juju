@@ -16,17 +16,14 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -58,41 +55,7 @@ type StorageAPIv3 struct {
 	StorageAPIv4
 }
 
-// NewStorageAPI returns a new storage API facade.
-func NewStorageAPI(ctx facade.Context) (*StorageAPI, error) {
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	storageMetadata := func() (poolmanager.PoolManager, storage.ProviderRegistry, error) {
-		model, err := st.Model()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-			model,
-			stateenvirons.GetNewEnvironFunc(environs.New),
-			stateenvirons.GetNewCAASBrokerFunc(caas.New))
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		pm := poolmanager.New(state.NewStateSettings(st), registry)
-		return pm, registry, nil
-	}
-	storageAccessor, err := getStorageAccessor(st)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting backend")
-	}
-
-	authorizer := ctx.Auth()
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-	return newStorageAPI(stateShim{st}, model.Type(), storageAccessor, storageMetadata, authorizer, context.CallContext(st)), nil
-}
-
-func newStorageAPI(
+func NewStorageAPI(
 	backend backend,
 	modelType state.ModelType,
 	storageAccess storageAccess,
@@ -108,39 +71,6 @@ func newStorageAPI(
 		authorizer:      authorizer,
 		callContext:     callContext,
 	}
-}
-
-// NewStorageAPIV5 returns a new storage v5 API facade.
-func NewStorageAPIV5(context facade.Context) (*StorageAPIv5, error) {
-	storageAPI, err := NewStorageAPI(context)
-	if err != nil {
-		return nil, err
-	}
-	return &StorageAPIv5{
-		StorageAPI: *storageAPI,
-	}, nil
-}
-
-// NewStorageAPIV4 returns a new storage v4 API facade.
-func NewStorageAPIV4(context facade.Context) (*StorageAPIv4, error) {
-	storageAPI, err := NewStorageAPIV5(context)
-	if err != nil {
-		return nil, err
-	}
-	return &StorageAPIv4{
-		StorageAPIv5: *storageAPI,
-	}, nil
-}
-
-// NewStorageAPIV3 returns a new storage v3 API facade.
-func NewStorageAPIV3(context facade.Context) (*StorageAPIv3, error) {
-	storageAPI, err := NewStorageAPIV4(context)
-	if err != nil {
-		return nil, err
-	}
-	return &StorageAPIv3{
-		StorageAPIv4: *storageAPI,
-	}, nil
 }
 
 func (a *StorageAPI) checkCanRead() error {

@@ -38,6 +38,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/annotations"
 	"github.com/juju/juju/api/client/application"
@@ -100,6 +101,12 @@ func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 	deploy := s.deployCommandForState()
 	deploy.NewDeployAPI = func() (DeployAPI, error) {
 		return s.fakeAPI, nil
+	}
+	deploy.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
+		return s.fakeAPI
+	}
+	deploy.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+		return apicharms.NewClient(s.fakeAPI)
 	}
 	return deploy
 }
@@ -288,6 +295,9 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"bundle", "--map-machines", "foo"},
 		err:  `error in --map-machines: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
+	}, {
+		args: []string{"charm-name", "--revision", "3"},
+		err:  `when using --revision option, you must also use --channel option`,
 	},
 }
 
@@ -1055,6 +1065,12 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 			return fakeAPI
 		},
 		NewDeployerFactory: fakeAPI.deployerFactoryFunc,
+		NewModelConfigAPI: func(api base.APICallCloser) ModelConfigGetter {
+			return fakeAPI
+		},
+		NewCharmsAPI: func(api base.APICallCloser) CharmsAPI {
+			return apicharms.NewClient(fakeAPI)
+		},
 	}
 	deployCmd.SetClientStore(s.Store)
 	return cmdtesting.RunCommand(c, modelcmd.Wrap(deployCmd), args...)
@@ -1211,7 +1227,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("dummy/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("dummy/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1261,7 +1277,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
+	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2557,7 +2573,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
-				apiClient:         &apiClient{Client: apiRoot.Client()},
+				apiClient:         &apiClient{Client: api.NewClient(apiRoot)},
 				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
@@ -2594,6 +2610,12 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		deployCmd.NewCharmRepo = fakeAPI.charmRepoFunc
 		deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
 			return fakeAPI
+		}
+		deployCmd.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
+			return fakeAPI
+		}
+		deployCmd.NewCharmsAPI = func(api base.APICallCloser) CharmsAPI {
+			return apicharms.NewClient(fakeAPI)
 		}
 	}
 	return deployCmd

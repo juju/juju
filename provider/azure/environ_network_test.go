@@ -4,7 +4,7 @@
 package azure_test
 
 import (
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -94,7 +94,7 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 							{
 								InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 									PrivateIPAddress:          to.StringPtr("10.0.0.42"),
-									PrivateIPAllocationMethod: network.Dynamic,
+									PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
 									Subnet: &network.Subnet{
 										ID: to.StringPtr("subnet-42"), // should match one of values returned by the Subnets() call
 									},
@@ -104,7 +104,7 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 							{
 								InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 									PrivateIPAddress:          to.StringPtr("172.0.0.99"),
-									PrivateIPAllocationMethod: network.Static,
+									PrivateIPAllocationMethod: network.IPAllocationMethodStatic,
 									Subnet: &network.Subnet{
 										ID: to.StringPtr("subnet-665"), // should match one of values returned by the Subnets() call
 									},
@@ -151,14 +151,14 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 				{
 					ID: to.StringPtr("az-ip-0"),
 					PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
-						PublicIPAllocationMethod: network.Static,
+						PublicIPAllocationMethod: network.IPAllocationMethodStatic,
 						IPAddress:                to.StringPtr("20.30.40.50"),
 					},
 				},
 				{
 					ID: to.StringPtr("az-ip-1"),
 					PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
-						PublicIPAllocationMethod: network.Dynamic,
+						PublicIPAllocationMethod: network.IPAllocationMethodDynamic,
 						IPAddress:                to.StringPtr("1.2.3.4"),
 					},
 				},

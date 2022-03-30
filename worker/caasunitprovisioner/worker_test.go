@@ -8,13 +8,14 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -404,11 +405,16 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		c.Fatal("timed out sending service change")
 	}
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		if len(s.serviceBroker.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err := retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.serviceBroker.CheckCallNames(c, "GetService")
 	c.Assert(s.serviceBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
 
@@ -427,22 +433,29 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		c.Fatal("timed out waiting for service to be updated")
 	}
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs.Func = func() error {
 		if len(s.containerBroker.Calls()) >= 2 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 	if !s.containerBroker.CheckCallNames(c, "Units", "AnnotateUnit") {
 		return
 	}
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
 	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload, "u1", names.NewUnitTag("gitlab/0")})
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs.Func = func() error {
 		if len(s.unitUpdater.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
 	scale := 4
 	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
@@ -697,18 +710,20 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 
 	// Check that the gitlab worker is running or not;
 	// given it time to startup.
-	shortAttempt := &utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: 10 * time.Millisecond,
+	startingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := caasunitprovisioner.AppWorker(w, "gitlab")
+			if running {
+				return nil
+			}
+			return errors.NotYetAvailablef("not running")
+		},
 	}
-	running := false
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
-		if running {
-			break
-		}
-	}
-	c.Assert(running, jc.IsTrue)
+	err = retry.Call(startingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an additional app worker so we can check that the correct one is accessed.
 	caasunitprovisioner.NewAppWorker(w, "mysql")
@@ -728,13 +743,20 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 
 	// Check that the gitlab worker is running or not;
 	// given it time to shutdown.
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
-		if !running {
-			break
-		}
+	stoppingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := caasunitprovisioner.AppWorker(w, "gitlab")
+			if !running {
+				return nil
+			}
+			return errors.NotYetAvailablef("still running")
+		},
 	}
-	c.Assert(running, jc.IsFalse)
+	err = retry.Call(stoppingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKilled(c, s.applicationGetter.scaleWatcher)
 }
 
@@ -749,18 +771,20 @@ func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
 
 	// Check that the gitlab worker is running or not;
 	// given it time to startup.
-	shortAttempt := &utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: 10 * time.Millisecond,
+	startingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := caasunitprovisioner.AppWorker(w, "gitlab")
+			if running {
+				return nil
+			}
+			return errors.NotYetAvailablef("not running")
+		},
 	}
-	running := false
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
-		if running {
-			break
-		}
-	}
-	c.Assert(running, jc.IsTrue)
+	err = retry.Call(startingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
 	s.sendApplicationChanges(c, "gitlab")
@@ -773,13 +797,20 @@ func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
 
 	// Check that the gitlab worker is running or not;
 	// given it time to shutdown.
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
-		if !running {
-			break
-		}
+	stoppingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := caasunitprovisioner.AppWorker(w, "gitlab")
+			if !running {
+				return nil
+			}
+			return errors.NotYetAvailablef("still running")
+		},
 	}
-	c.Assert(running, jc.IsFalse)
+	err = retry.Call(stoppingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the undertaker worker clears application resources.
 	s.containerBroker.SetErrors(nil, errors.NotFoundf("operator"))
@@ -816,18 +847,20 @@ func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
 
 	// Check that the gitlab worker is running or not;
 	// given it time to startup.
-	shortAttempt := &utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: 10 * time.Millisecond,
+	startingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := caasunitprovisioner.AppWorker(w, "gitlab")
+			if running {
+				return nil
+			}
+			return errors.NotYetAvailablef("not running")
+		},
 	}
-	running := false
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
-		if running {
-			break
-		}
-	}
-	c.Assert(running, jc.IsTrue)
+	err = retry.Call(startingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
 	s.sendApplicationChanges(c, "gitlab")
@@ -840,13 +873,20 @@ func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
 
 	// Check that the gitlab worker is running or not;
 	// given it time to shutdown.
-	for a := shortAttempt.Start(); a.Next(); {
-		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
-		if !running {
-			break
-		}
+	stoppingRetryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: coretesting.LongWait,
+		Delay:       10 * time.Millisecond,
+		Func: func() error {
+			_, running := caasunitprovisioner.AppWorker(w, "gitlab")
+			if !running {
+				return nil
+			}
+			return errors.NotYetAvailablef("still running")
+		},
 	}
-	c.Assert(running, jc.IsFalse)
+	err = retry.Call(stoppingRetryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the undertaker worker clears application resources.
 	s.containerBroker.units = nil
@@ -894,11 +934,16 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 	s.sendApplicationChanges(c, "gitlab")
 	defer workertest.CleanKill(c, w)
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		if len(s.containerBroker.Calls()) >= 2 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
 
 	s.assertUnitChange(c, status.Allocating, status.Allocating)
@@ -917,11 +962,16 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 
 	s.sendApplicationChanges(c, "gitlab")
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		if len(s.containerBroker.Calls()) >= 2 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
 	s.containerBroker.ResetCalls()
 
@@ -933,11 +983,14 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 		c.Fatal("timed out sending applications change")
 	}
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs.Func = func() error {
 		if len(s.containerBroker.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.containerBroker.CheckCallNames(c, "Operator")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
@@ -949,11 +1002,15 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 		c.Fatal("timed out sending applications change")
 	}
 	s.containerBroker.reportedOperatorStatus = status.Active
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs.Func = func() error {
 		if len(s.containerBroker.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.containerBroker.CheckCallNames(c, "Operator")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 
@@ -1005,11 +1062,15 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	waitCharmGetterCalls := func(names ...string) {
-		for a := coretesting.LongAttempt.Start(); a.Next(); {
+		retryCallArgs := coretesting.LongRetryStrategy
+		retryCallArgs.Func = func() error {
 			if len(s.charmGetter.Calls()) >= len(names) {
-				break
+				return nil
 			}
+			return errors.Errorf("Not enough calls yet")
 		}
+		err = retry.Call(retryCallArgs)
+		c.Assert(err, jc.ErrorIsNil)
 		s.charmGetter.CheckCallNames(c, names...)
 		s.charmGetter.ResetCalls()
 	}
@@ -1020,13 +1081,17 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 
 	// Wait till application worker has started up
 	var appWorker worker.Worker
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		aw, ok := caasunitprovisioner.AppWorker(w, "gitlab")
 		if ok {
 			appWorker = aw
-			break
+			return nil
 		}
+		return errors.NotYetAvailablef("worker not up yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appWorker, gc.NotNil)
 
 	// Make it a v2 charm (will make the application worker exit)
@@ -1066,19 +1131,26 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus sta
 		c.Fatal("timed out sending units change")
 	}
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs := coretesting.LongRetryStrategy
+	retryCallArgs.Func = func() error {
 		if len(s.containerBroker.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err := retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 	s.containerBroker.CheckCallNames(c, "Units")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	retryCallArgs.Func = func() error {
 		if len(s.unitUpdater.Calls()) > 0 {
-			break
+			return nil
 		}
+		return errors.Errorf("Not enough calls yet")
 	}
+	err = retry.Call(retryCallArgs)
+	c.Assert(err, jc.ErrorIsNil)
 	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
 	scale := 4
 	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{

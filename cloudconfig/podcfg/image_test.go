@@ -24,19 +24,20 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
 
 	cfg[controller.CAASImageRepo] = "testing-repo"
-	ver := version.MustParse("2.6-beta3")
-	path, err := podcfg.GetJujuOCIImagePath(cfg, ver, 666)
+	ver := version.MustParse("2.6-beta3.666")
+	path, err := podcfg.GetJujuOCIImagePath(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo/jujud-operator:2.6-beta3.666")
 
 	cfg[controller.CAASImageRepo] = "testing-repo:8080"
-	ver = version.MustParse("2.6-beta3")
-	path, err = podcfg.GetJujuOCIImagePath(cfg, ver, 666)
+	ver = version.MustParse("2.6-beta3.666")
+	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo:8080/jujud-operator:2.6-beta3.666")
 
 	cfg[controller.CAASOperatorImagePath] = "testing-old-repo/jujud-old-operator:1.6"
-	path, err = podcfg.GetJujuOCIImagePath(cfg, ver, 0)
+	ver = version.MustParse("2.6-beta3")
+	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-old-repo/jujud-old-operator:2.6-beta3")
 }

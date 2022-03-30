@@ -39,20 +39,6 @@ var getState = func(st *state.State) stateInterface {
 	return stateShim{st}
 }
 
-// NewImageManagerAPI creates a new server-side imagemanager API end point.
-func NewImageManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ImageManagerAPI, error) {
-	// Only clients can access the image manager service.
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-	return &ImageManagerAPI{
-		state:      getState(st),
-		resources:  resources,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
-	}, nil
-}
-
 // ListImages returns images matching the specified filter.
 func (api *ImageManagerAPI) ListImages(arg params.ImageFilterParams) (params.ListImageResult, error) {
 	var result params.ListImageResult

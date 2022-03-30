@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -25,22 +24,6 @@ type MetricsAdderAPI struct {
 }
 
 var _ MetricsAdder = (*MetricsAdderAPI)(nil)
-
-// NewMetricsAdderAPI creates a new API endpoint for adding metrics to state.
-func NewMetricsAdderAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*MetricsAdderAPI, error) {
-	// TODO(cmars): remove unit agent auth, once worker/metrics/sender manifold
-	// can be righteously relocated to machine agent.
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-	return &MetricsAdderAPI{
-		state: st,
-	}, nil
-}
 
 // AddMetricBatches implements the MetricsAdder interface.
 func (api *MetricsAdderAPI) AddMetricBatches(args params.MetricBatchParams) (params.ErrorResults, error) {
