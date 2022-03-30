@@ -89,7 +89,9 @@ func (m *Machine) RemoveAllLinkLayerDevices() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
+	if len(ops) == 0 {
+		return nil
+	}
 	return m.st.db().RunTransaction(ops)
 }
 
