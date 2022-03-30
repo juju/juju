@@ -305,10 +305,9 @@ func (c *configCommand) parseStdin() error {
 }
 
 // isFileName tests if its argument `s` explicitly specifies a file (i.e. `s`
-// begins with one of / ./ ../ ~/ ).
+// contains the path-separator character for this OS).
 func isFileName(s string) bool {
-	return strings.HasPrefix(s, "/") || strings.HasPrefix(s, "./") ||
-		strings.HasPrefix(s, "../") || strings.HasPrefix(s, "~/")
+	return strings.Contains(s, string(os.PathSeparator))
 }
 
 // parseYAMLFile ensures that we handle the YAML file passed in.
