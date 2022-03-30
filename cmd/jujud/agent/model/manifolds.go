@@ -452,7 +452,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater"),
+			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater.environ"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewEnvironWorker,
 		})),

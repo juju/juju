@@ -19,29 +19,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
-// InstanceMutaterV1 defines the methods on the instance mutater API facade, version 1.
-type InstanceMutaterV1 interface {
-	Life(args params.Entities) (params.LifeResults, error)
-
-	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
-	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
-	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
-	WatchMachines() (params.StringsWatchResult, error)
-	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
-}
-
-// InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
-type InstanceMutaterV2 interface {
-	Life(args params.Entities) (params.LifeResults, error)
-
-	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
-	ContainerType(arg params.Entity) (params.ContainerTypeResult, error)
-	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
-	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
-	WatchMachines() (params.StringsWatchResult, error)
-	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
-}
-
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
@@ -62,14 +39,12 @@ type instanceMutatorWatcher struct {
 }
 
 type InstanceMutaterAPIV1 struct {
-	*InstanceMutaterAPI
+	*InstanceMutaterAPIV2
 }
 
-// using apiserver/facades/client/cloud as an example.
-var (
-	_ InstanceMutaterV2 = (*InstanceMutaterAPI)(nil)
-	_ InstanceMutaterV1 = (*InstanceMutaterAPIV1)(nil)
-)
+type InstanceMutaterAPIV2 struct {
+	*InstanceMutaterAPI
+}
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
@@ -190,13 +165,35 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (par
 // WatchMachines starts a watcher to track machines.
 // WatchMachines does not consume the initial event of the watch response, as
 // that returns the initial set of machines that are currently available.
-func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error) {
+func (api *InstanceMutaterAPIV2) WatchMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !api.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm
 	}
 
 	watch := api.st.WatchMachines()
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = api.resources.Register(watch)
+		result.Changes = changes
+	} else {
+		return result, errors.Errorf("cannot obtain initial model machines")
+	}
+	return result, nil
+}
+
+// WatchModelMachines is not available via the V2 API.
+func (api *InstanceMutaterAPIV2) WatchModelMachines(_ struct{}) {}
+
+// WatchModelMachines starts a watcher to track machines, but not containers.
+// WatchModelMachines does not consume the initial event of the watch response, as
+// that returns the initial set of machines that are currently available.
+func (api *InstanceMutaterAPI) WatchModelMachines() (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	if !api.authorizer.AuthController() {
+		return result, apiservererrors.ErrPerm
+	}
+
+	watch := api.st.WatchModelMachines()
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = api.resources.Register(watch)
 		result.Changes = changes

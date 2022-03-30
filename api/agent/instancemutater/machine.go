@@ -20,8 +20,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/agent/instancemutater MutaterMachine
+// MutatorMachine represents the machine methods required for the instancemutater.
 type MutaterMachine interface {
 
 	// InstanceId returns the provider specific instance id for this machine
@@ -211,6 +210,8 @@ func (m *Machine) WatchContainers() (watcher.StringsWatcher, error) {
 	return apiwatcher.NewStringsWatcher(m.facade.RawAPICaller(), result), nil
 }
 
+// UnitProfileInfo is data required by the instancemutater to determine what
+// any changes are required to a machine's lxd profiles.
 type UnitProfileInfo struct {
 	ModelName       string
 	InstanceId      instance.Id
@@ -218,6 +219,8 @@ type UnitProfileInfo struct {
 	CurrentProfiles []string
 }
 
+// UnitProfileChanges provides the application name, revision and profile of
+// the current charm referenced by this application.
 type UnitProfileChanges struct {
 	ApplicationName string
 	Revision        int
