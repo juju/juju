@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
+	"github.com/juju/juju/feature"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 )
@@ -276,13 +278,17 @@ func (w *HubWatcher) Watch(collection string, id interface{}, ch chan<- Change) 
 	// We use a value of -2 to indicate that we don't know the state of the document.
 	// -1 would indicate that we think the document is deleted (and won't trigger
 	// a change event if the document really is deleted).
+	var source []byte
+	if featureflag.Enabled(feature.DeveloperMode) {
+		source = debug.Stack()
+	}
 	_ = w.sendAndWaitReq(reqWatch{
 		key: watchKey{collection, id},
 		info: watchInfo{
 			ch:     ch,
 			revno:  -2,
 			filter: nil,
-			source: debug.Stack(),
+			source: source,
 		},
 		registeredCh: make(chan error),
 	})
@@ -300,13 +306,17 @@ func (w *HubWatcher) WatchCollection(collection string, ch chan<- Change) {
 // to change after a transaction is applied for any document in the collection, so long as the
 // specified filter function returns true when called with the document id value.
 func (w *HubWatcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
+	var source []byte
+	if featureflag.Enabled(feature.DeveloperMode) {
+		source = debug.Stack()
+	}
 	_ = w.sendAndWaitReq(reqWatch{
 		key: watchKey{collection, nil},
 		info: watchInfo{
 			ch:     ch,
 			revno:  0,
 			filter: filter,
-			source: debug.Stack(),
+			source: source,
 		},
 		registeredCh: make(chan error),
 	})

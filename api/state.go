@@ -20,12 +20,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/keyupdater"
-	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/api/agent/unitassigner"
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/agent/upgrader"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
@@ -307,52 +301,9 @@ func addAddress(servers []network.MachineHostPorts, addr string) ([]network.Mach
 	return result, nil
 }
 
-// Client returns an object that can be used
-// to access client-specific functionality.
-func (st *state) Client() *Client {
-	frontend, backend := base.NewClientFacade(st, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, st: st}
-}
-
-// UnitAssigner returns a version of the state that provides functionality
-// required by the unitassigner worker.
-func (st *state) UnitAssigner() unitassigner.API {
-	return unitassigner.New(st)
-}
-
-// Uniter returns a version of the state that provides functionality
-// required by the uniter worker.
-func (st *state) Uniter() (*uniter.State, error) {
-	unitTag, ok := st.authTag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
-	}
-	return uniter.NewState(st, unitTag), nil
-}
-
-// Upgrader returns access to the Upgrader API
-func (st *state) Upgrader() *upgrader.State {
-	return upgrader.NewState(st)
-}
-
-// Reboot returns access to the Reboot API
-func (st *state) Reboot() (reboot.State, error) {
-	switch tag := st.authTag.(type) {
-	case names.MachineTag:
-		return reboot.NewState(st, tag), nil
-	default:
-		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
-	}
-}
-
 // KeyUpdater returns access to the KeyUpdater API
 func (st *state) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
-}
-
-// InstancePoller returns access to the InstancePoller API
-func (st *state) InstancePoller() *instancepoller.API {
-	return instancepoller.NewAPI(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.

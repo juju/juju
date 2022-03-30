@@ -206,7 +206,7 @@ func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientStatus(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	status, err := st.Client().Status(nil)
+	status, err := api.NewClient(st).Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
@@ -248,7 +248,7 @@ func opClientApplicationUnexpose(c *gc.C, st api.Connection, mst *state.State) (
 }
 
 func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	err := st.Client().Resolved("wordpress/1", false)
+	err := api.NewClient(st).Resolved("wordpress/1", false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
@@ -369,7 +369,7 @@ func opClientSetApplicationConstraints(c *gc.C, st api.Connection, mst *state.St
 
 func opClientSetModelConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := st.Client().SetModelConstraints(nullConstraints)
+	err := api.NewClient(st).SetModelConstraints(nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
@@ -402,7 +402,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		return func() {}, err
 	}
 	ver := version.Number{Major: 2, Minor: 0, Patch: 0}
-	err = st.Client().SetModelAgentVersion(ver, "released", false)
+	err = api.NewClient(st).SetModelAgentVersion(ver, "released", false)
 	if err != nil {
 		return func() {}, err
 	}
@@ -411,13 +411,13 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			st.Client().SetModelAgentVersion(version.MustParse(versionString), "released", false)
+			api.NewClient(st).SetModelAgentVersion(version.MustParse(versionString), "released", false)
 		}
 	}, nil
 }
 
 func opClientWatchAll(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	watcher, err := st.Client().WatchAll()
+	watcher, err := api.NewClient(st).WatchAll()
 	if err == nil {
 		watcher.Stop()
 	}

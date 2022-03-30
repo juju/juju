@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -377,6 +378,8 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(
 	defer s.setup(c).Finish()
 
 	s.setupScenarioWithProfile()
+	s.machine0.EXPECT().InstanceId().Return(instance.Id("0"), nil)
+	s.state.EXPECT().Machine("0").Return(s.machine0, nil)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.instanceChanges <- struct{}{}

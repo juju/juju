@@ -200,6 +200,10 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 		}
 		return &CharmID{
 			URL: addedURL,
+			Origin: corecharm.Origin{
+				Source: corecharm.Local,
+				Type:   "charm",
+			},
 		}, nil
 	}
 	if _, ok := err.(*charmrepo.NotFoundError); ok {

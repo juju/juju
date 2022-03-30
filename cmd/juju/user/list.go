@@ -14,6 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/usermanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -79,7 +80,7 @@ func (c *listCommand) getModelAPI() (modelUsersAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return conn.Client(), nil
+	return api.NewClient(conn), nil
 }
 
 // Info implements Command.Info.

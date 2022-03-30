@@ -63,6 +63,13 @@ var GitCommit string
 var GitTreeState string = TreeStateDirty
 
 func init() {
+	defer func() {
+		if Current.Build == 0 {
+			// We set the Build to OfficialBuild if no build number provided in the FORCE-VERSION file.
+			Current.Build = OfficialBuild
+		}
+	}()
+
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
 	if err != nil {

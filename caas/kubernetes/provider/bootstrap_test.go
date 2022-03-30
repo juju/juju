@@ -88,8 +88,9 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	pcfg.JujuVersion = jujuversion.Current
-	pcfg.OfficialBuild = 666
+	current := jujuversion.Current
+	current.Build = 666
+	pcfg.JujuVersion = current
 	pcfg.APIInfo = &api.Info{
 		Password: "password",
 		CACert:   coretesting.CACert,
@@ -844,7 +845,7 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
 		Name:            "charm-init",
 		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "test-account/jujud-operator:3.0-beta1.666",
+		Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
 		Args:            []string{"init", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},

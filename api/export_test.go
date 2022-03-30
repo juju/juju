@@ -48,13 +48,13 @@ type RPCConnection rpcConnection
 // SetServerAddress allows changing the URL to the internal API server
 // that AddLocalCharm uses in order to test NotImplementedError.
 func SetServerAddress(c *Client, scheme, addr string) {
-	c.st.serverScheme = scheme
-	c.st.addr = addr
+	c.conn.(*state).serverScheme = scheme
+	c.conn.(*state).addr = addr
 }
 
 // ServerRoot is exported so that we can test the built URL.
 func ServerRoot(c *Client) string {
-	return c.st.serverRoot()
+	return c.conn.(*state).serverRoot()
 }
 
 // UnderlyingConn returns the underlying transport connection.
@@ -114,7 +114,7 @@ func NewTestingState(params TestingStateParams) Connection {
 // an error state (anything else is likely to panic.)
 func APIClient(apiCaller base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(apiCaller, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, st: &state{}}
+	return &Client{ClientFacade: frontend, facade: backend, conn: &state{}}
 }
 
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets

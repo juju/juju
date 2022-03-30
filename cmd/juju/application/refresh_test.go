@@ -29,6 +29,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources/client"
@@ -687,7 +688,7 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
 	tags := []names.UnitTag{unit.UnitTag()}
-	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	errs, err := unitassigner.New(s.APIState).AssignUnits(tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
 

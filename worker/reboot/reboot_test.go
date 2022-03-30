@@ -47,7 +47,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
-	s.rebootState, err = s.stateAPI.Reboot()
+	s.rebootState, err = apireboot.NewFromConnection(s.stateAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.rebootState, gc.NotNil)
 
@@ -63,7 +63,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 
 	// Open api as container
 	ctState := s.OpenAPIAsMachine(c, s.ct.Tag(), password, "fake_nonce")
-	s.ctRebootState, err = ctState.Reboot()
+	s.ctRebootState, err = apireboot.NewFromConnection(ctState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ctRebootState, gc.NotNil)
 

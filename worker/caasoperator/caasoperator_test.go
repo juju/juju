@@ -11,10 +11,12 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -223,19 +225,18 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	w, err := caasoperator.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
-	attempts := utils.AttemptStrategy{
-		Total: 500 * time.Millisecond,
-		Delay: 100 * time.Millisecond,
+
+	retryCallArgs := retry.CallArgs{
+		Clock:       clock.WallClock,
+		MaxDuration: 500 * time.Millisecond,
+		Delay:       100 * time.Millisecond,
+		Func: func() error {
+			_, err = os.Stat(filepath.Join(s.config.ProfileDir, "juju-introspection.sh"))
+			return err
+		},
 	}
-	done := false
-	for attempt := attempts.Start(); attempt.Next(); {
-		_, err = os.Stat(filepath.Join(s.config.ProfileDir, "juju-introspection.sh"))
-		done = err == nil
-		if done {
-			break
-		}
-	}
-	if !done {
+	err = retry.Call(retryCallArgs)
+	if err != nil {
 		c.Fatal("missing introspection script")
 	}
 	workertest.CleanKill(c, w)

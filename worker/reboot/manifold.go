@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/machinelock"
 )
@@ -60,7 +61,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller, machineLock machinelock.
 	if !ok {
 		return nil, errors.New("unable to obtain api.Connection")
 	}
-	rebootState, err := apiConn.Reboot()
+	rebootState, err := reboot.NewFromConnection(apiConn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

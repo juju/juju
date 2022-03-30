@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -118,7 +118,7 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
-	cfg.RetryStrategy = utils.AttemptStrategy{}
+	cfg.RetryStrategy = retry.CallArgs{}
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
@@ -579,7 +579,7 @@ func (s *workerSuite) getConfig() upgradedatabase.Config {
 		Logger:          s.logger,
 		OpenState:       func() (upgradedatabase.Pool, error) { return s.pool, nil },
 		PerformUpgrade:  func(version.Number, []upgrades.Target, func() upgrades.Context) error { return nil },
-		RetryStrategy:   utils.AttemptStrategy{Delay: time.Millisecond, Min: 3},
+		RetryStrategy:   retry.CallArgs{Clock: clock.WallClock, Delay: time.Millisecond, Attempts: 3},
 		Clock:           clock.WallClock,
 	}
 }

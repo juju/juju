@@ -56,7 +56,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
@@ -66,7 +66,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
-	client := otherAPISt.Client()
+	client := api.NewClient(otherAPISt)
 	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")
 	var called bool
 
@@ -144,7 +144,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 
 	// Test the sanity checks first.
 	_, err := client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil, false)
@@ -189,7 +189,7 @@ func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
@@ -214,7 +214,7 @@ func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 
 	// Upload an archive with its original revision.
 	_, err := client.AddLocalCharm(curl, charmArchive, false)
@@ -234,7 +234,7 @@ func (s *clientSuite) testAddLocalCharmWithWithForceSucceeds(name string, c *gc.
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, true)
@@ -257,7 +257,7 @@ func (s *clientSuite) testAddLocalCharmWithWithForceSucceeds(name string, c *gc.
 func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
 	curl, ch := s.testCharm(c)
 	s.PatchValue(api.HasHooksOrDispatch, f)
-	_, err := s.APIState.Client().AddLocalCharm(curl, ch, false)
+	_, err := api.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -266,7 +266,7 @@ func (s *clientSuite) TestAddLocalCharmDefinetelyWithHooks(c *gc.C) {
 	s.PatchValue(api.HasHooksOrDispatch, func(string) (bool, error) {
 		return true, nil
 	})
-	savedCURL, err := s.APIState.Client().AddLocalCharm(curl, ch, false)
+	savedCURL, err := api.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCURL.String(), gc.Equals, curl.String())
 }
@@ -288,7 +288,7 @@ func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
-	client := otherAPISt.Client()
+	client := api.NewClient(otherAPISt)
 
 	// Upload an archive
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
@@ -312,7 +312,7 @@ func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
 }
 
 func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 
 	// AddLocalCharm does not use the facades, so instead of patching the
 	// facade call, we set up a fake endpoint to test.
@@ -355,7 +355,7 @@ func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
 		{"1.25.0", "1.25-alpha1", true, true},
 		{"1.25-alpha1", "1.25.0", true, true},
 	}
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	for _, t := range tests {
 		testMinVer(client, t, c)
 	}
@@ -412,7 +412,7 @@ func (s *clientSuite) TestOpenURIFound(c *gc.C) {
 	const toolsVersion = "2.0.0-ubuntu-ppc64"
 	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
 
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -424,13 +424,13 @@ func (s *clientSuite) TestOpenURIFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestOpenURIError(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	_, err := client.OpenURI("/tools/foobar", nil)
 	c.Assert(err, gc.ErrorMatches, ".*error parsing version.+")
 }
 
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	curl, ch, repoPath := addLocalCharm(c, client, "dummy", false)
 	defer os.Remove(repoPath)
 	c.Logf("added local charm as %v", curl)
@@ -447,7 +447,7 @@ func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	curl, ch, repoPath := addLocalCharm(c, client, "dummy", true)
 	defer os.Remove(repoPath)
 	expected, err := ioutil.ReadFile(ch.Path)
@@ -465,7 +465,7 @@ func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
 
 func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 	curl := charm.MustParseURL("cs:quantal/spam-3")
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 
 	_, err := client.OpenCharm(curl)
 
@@ -508,14 +508,14 @@ func (s *clientSuite) TestClientModelUUID(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	uuid, ok := client.ModelUUID()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, model.Tag().Id())
 }
 
 func (s *clientSuite) TestClientModelUsers(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
 			c.Assert(paramsIn, gc.IsNil)
@@ -545,7 +545,7 @@ func (s *clientSuite) TestClientModelUsers(c *gc.C) {
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.
@@ -642,7 +642,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		StartTime:     time.Date(2016, 11, 30, 11, 48, 0, 100, time.UTC),
 	}
 
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	_, err := client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -706,7 +706,7 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 }
 
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	client := s.APIState.Client()
+	client := api.NewClient(s.APIState)
 	someErr := errors.New("random")
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, args interface{}, response interface{}) error {

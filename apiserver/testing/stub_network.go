@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	providercommon "github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -155,13 +156,17 @@ func (f *FakeSpace) Name() string {
 	return f.SpaceName
 }
 
-func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
-	outputSubnets := []networkingcommon.BackingSubnet{}
-
-	if err = f.NextErr(); err != nil {
-		return outputSubnets, err
+func (f *FakeSpace) NetworkSpace() (network.SpaceInfo, error) {
+	if err := f.NextErr(); err != nil {
+		return network.SpaceInfo{}, err
 	}
 
+	outputSpaceInfo := network.SpaceInfo{
+		ID:   f.SpaceId,
+		Name: network.SpaceName(f.SpaceName),
+	}
+
+	outputSpaceInfo.Subnets = make(network.SubnetInfos, len(f.SubnetIds))
 	for i, subnetId := range f.SubnetIds {
 		providerId := network.Id("provider-" + subnetId)
 
@@ -170,30 +175,27 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 		// test data.
 		first, err := strconv.Atoi(strings.Split(subnetId, ".")[2])
 		if err != nil {
-			return outputSubnets, err
+			return outputSpaceInfo, err
 		}
 		vlantag := 0
 		zones := []string{"foo"}
-		status := "in-use"
 		if first%2 == 1 {
 			vlantag = 23
 			zones = []string{"bar", "bam"}
-			status = ""
 		}
 
-		backing := networkingcommon.BackingSubnetInfo{
+		backing := network.SubnetInfo{
 			CIDR:              subnetId,
 			SpaceID:           f.SpaceId,
 			SpaceName:         f.SpaceName,
 			ProviderId:        providerId,
 			VLANTag:           vlantag,
 			AvailabilityZones: zones,
-			Status:            status,
 		}
-		outputSubnets = append(outputSubnets, &FakeSubnet{Info: backing, id: f.SpaceId + strconv.Itoa(i)})
+		outputSpaceInfo.Subnets[i] = backing
 	}
 
-	return outputSubnets, nil
+	return outputSpaceInfo, nil
 }
 
 func (f *FakeSpace) ProviderId() (netID network.Id) {
@@ -325,10 +327,6 @@ func (f *FakeSubnet) GoString() string {
 	return fmt.Sprintf("&FakeSubnet{%#v}", f.Info)
 }
 
-func (f *FakeSubnet) Status() string {
-	return f.Info.Status
-}
-
 func (f *FakeSubnet) CIDR() string {
 	return f.Info.CIDR
 }
@@ -361,8 +359,8 @@ func (f *FakeSubnet) SpaceID() string {
 	return f.Info.SpaceID
 }
 
-func (f *FakeSubnet) Life() life.Value {
-	return f.Info.Life
+func (f *FakeSubnet) Life() state.Life {
+	return state.LifeFromValue(f.Info.Life)
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.

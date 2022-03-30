@@ -190,17 +190,18 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 		result.Id = space.Id()
 		result.Name = space.Name()
 
-		subnets, err := space.Subnets()
+		spaceInfo, err := space.NetworkSpace()
 		if err != nil {
 			err = errors.Annotatef(err, "fetching subnets")
 			result.Error = apiservererrors.ServerError(err)
 			results.Results[i] = result
 			continue
 		}
+		subnets := spaceInfo.Subnets
 
 		result.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
+			result.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 		results.Results[i] = result
 	}
@@ -237,16 +238,17 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 		}
 		result.Space.Name = space.Name()
 		result.Space.Id = space.Id()
-		subnets, err := space.Subnets()
+		spaceInfo, err := space.NetworkSpace()
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching subnets")
 			results[i].Error = apiservererrors.ServerError(newErr)
 			continue
 		}
+		subnets := spaceInfo.Subnets
 
 		result.Space.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Space.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
+			result.Space.Subnets[i] = networkingcommon.SubnetInfoToParamsSubnet(subnet)
 		}
 
 		applications, err := api.applicationsBoundToSpace(space.Id())

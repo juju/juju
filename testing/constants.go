@@ -6,6 +6,8 @@ package testing
 import (
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 )
 
@@ -25,4 +27,10 @@ const LongWait = 10 * time.Second
 var LongAttempt = &utils.AttemptStrategy{
 	Total: LongWait,
 	Delay: ShortWait,
+}
+
+var LongRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: LongWait,
+	Delay:       ShortWait,
 }

@@ -580,10 +580,11 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			space, err = spaceInfoFromState(dbSpace)
+			dbSpaceInfo, err := dbSpace.NetworkSpace()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			space = &dbSpaceInfo
 		}
 		providerSpace, err := netEnv.ProviderSpaceInfo(backend.GetModelCallContext(), space)
 		if err != nil && !errors.IsNotFound(err) {

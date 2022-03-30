@@ -66,40 +66,6 @@ func (s *Space) ProviderId() network.Id {
 	return network.Id(s.doc.ProviderId)
 }
 
-// Subnets returns all the subnets associated with the Space.
-// TODO (manadart 2020-05-19): Phase out usage of this method.
-// Prefer NetworkSpace for retrieving space subnet data.
-func (s *Space) Subnets() ([]*Subnet, error) {
-	id := s.Id()
-
-	subnetsCollection, closer := s.st.db().GetCollection(subnetsC)
-	defer closer()
-
-	var doc subnetDoc
-	var results []*Subnet
-	// We ignore space-name field for FAN subnets...
-	iter := subnetsCollection.Find(
-		bson.D{{"space-id", id}, bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}}).Iter()
-	defer iter.Close()
-	for iter.Next(&doc) {
-		subnet := &Subnet{s.st, doc, id}
-		results = append(results, subnet)
-		// ...and then add them explicitly as descendants of underlay network.
-		childIter := subnetsCollection.Find(bson.D{{"fan-local-underlay", doc.CIDR}}).Iter()
-		for childIter.Next(&doc) {
-			subnet := &Subnet{s.st, doc, id}
-			results = append(results, subnet)
-		}
-		if err := childIter.Close(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if err := iter.Close(); err != nil {
-		return nil, errors.Annotatef(err, "cannot fetch subnets")
-	}
-	return results, nil
-}
-
 // NetworkSpace maps the space fields into a network.SpaceInfo.
 // This method materialises subnets for each call.
 // If calling multiple times, consider using AllSpaceInfos and filtering

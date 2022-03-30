@@ -288,7 +288,6 @@ func bootstrapCAAS(
 		return errors.Trace(err)
 	}
 	podConfig.JujuVersion = jujuVersion
-	podConfig.OfficialBuild = jujuversion.OfficialBuild
 	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}

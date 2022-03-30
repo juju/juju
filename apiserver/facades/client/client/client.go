@@ -818,15 +818,16 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		if number.Compare(current) <= 0 {
 			continue
 		}
-		if jujuversion.OfficialBuild == 0 && number.Build > 0 {
+		if current.Build == 0 && number.Build > 0 {
 			continue
 		}
 		if args.MajorVersion != -1 && number.Major != args.MajorVersion {
 			continue
 		}
-		number.Build = 0
 		if !controllerCfg.Features().Contains(feature.DeveloperMode) && streamsVersions.Size() > 0 {
-			if !streamsVersions.Contains(number.String()) {
+			numberCopy := number
+			numberCopy.Build = 0
+			if !streamsVersions.Contains(numberCopy.String()) {
 				continue
 			}
 		} else {
@@ -837,8 +838,11 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 			}
 		}
 		arch, err := reg.GetArchitecture(imageName, number.String())
+		if errors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
-			return result, errors.Annotatef(err, "cannot get architecture for %q:%q", imageName, number.String())
+			return result, errors.Annotatef(err, "cannot get architecture for %s:%s", imageName, number.String())
 		}
 		if args.Arch != "" && arch != args.Arch {
 			continue

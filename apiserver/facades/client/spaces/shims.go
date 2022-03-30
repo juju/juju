@@ -79,8 +79,7 @@ func (s *stateShim) AddSpace(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	space := networkingcommon.NewSpaceShim(result)
-	return space, nil
+	return result, nil
 }
 
 func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
@@ -88,8 +87,7 @@ func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	space := networkingcommon.NewSpaceShim(result)
-	return space, nil
+	return result, nil
 }
 
 // AllEndpointBindings returns all endpoint bindings,
@@ -127,7 +125,7 @@ func (s *stateShim) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	}
 	spaces := make([]networkingcommon.BackingSpace, len(results))
 	for i, result := range results {
-		spaces[i] = networkingcommon.NewSpaceShim(result)
+		spaces[i] = result
 	}
 	return spaces, nil
 }
@@ -137,7 +135,7 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return networkingcommon.NewSubnetShim(result), nil
+	return result, nil
 }
 
 // MovingSubnet wraps state.Subnet so that it

@@ -311,7 +311,7 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return root.Client(), nil
+	return api.NewClient(root), nil
 }
 
 // ModelDetails returns details from the file store for the model indicated by

@@ -228,7 +228,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: app.Tag(),
 	}
-	u, err := apiState.Uniter()
+	u, err := apiuniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
 }
@@ -3337,7 +3337,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := st.Uniter()
+	uniter, err := apiuniter.NewFromConnection(st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	attachments, err := uniter.UnitStorageAttachments(unit.UnitTag())

@@ -49,6 +49,12 @@ func (l Life) Value() life.Value {
 	}
 }
 
+// LifeFromValue converts a life.Value into it's corresponding
+// state.Life
+func LifeFromValue(value life.Value) Life {
+	return valueMap[value]
+}
+
 var (
 	isAliveDoc = bson.D{{"life", Alive}}
 	isDyingDoc = bson.D{{"life", Dying}}
@@ -61,6 +67,12 @@ var (
 	errAlreadyRemoved = errors.New("already removed")
 	errNotDying       = errors.New("not dying")
 )
+
+var valueMap = map[life.Value]Life{
+	life.Alive: Alive,
+	life.Dying: Dying,
+	life.Dead:  Dead,
+}
 
 // Living describes state entities with a lifecycle.
 type Living interface {
