@@ -58,7 +58,7 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 
 func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	catcher := api.UrlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.RecordLocation)
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	dischargeCount := 0
 	s.DischargerLogin = func() string {
@@ -83,7 +83,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 
 func (s *macaroonLoginSuite) TestConnectStreamWithoutLogin(c *gc.C) {
 	catcher := api.UrlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.RecordLocation)
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	conn, err := s.client.ConnectStream("/path", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot use ConnectStream without logging in`)
@@ -134,7 +134,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	// wouldn't get attached to the websocket request.
 	// https://bugs.launchpad.net/juju/+bug/1650451
 	catcher := api.UrlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.RecordLocation)
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	mac, err := macaroon.New([]byte("abc-123"), []byte("aurora gone"), "shankil butchers", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)

@@ -563,7 +563,7 @@ func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -572,7 +572,7 @@ func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return api.NewFakeStreamReader(&bytes.Buffer{}), nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -581,7 +581,7 @@ func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return api.NewFakeStreamReader(strings.NewReader("junk\n")), nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -590,7 +590,7 @@ func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		err := fmt.Errorf("bad read")
 		return api.NewFakeStreamReader(&badReader{err}), nil
 	})
@@ -616,7 +616,7 @@ func (s *clientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	headers := http.Header{}
 	headers.Add("thomas", "cromwell")
 	headers.Add("anne", "boleyn")
-	s.PatchValue(api.WebsocketDial, catcher.RecordLocation)
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	_, err := s.APIState.ConnectControllerStream("/something", nil, headers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -627,7 +627,7 @@ func (s *clientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 
 func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	catcher := api.UrlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.RecordLocation)
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
@@ -670,7 +670,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	catcher := api.UrlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.RecordLocation)
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)

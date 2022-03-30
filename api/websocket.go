@@ -22,9 +22,9 @@ import (
 // timing it out.
 const websocketTimeout = 30 * time.Second
 
-// websocketDial is called instead of dialer.Dial so we can override it in
+// WebsocketDial is called instead of dialer.Dial so we can override it in
 // tests.
-var websocketDial = websocketDialWithErrors
+var WebsocketDial = WebsocketDialWithErrors
 
 // WebsocketDialer is something that can make a websocket connection. Enables
 // testing the error unpacking in websocketDialWithErrors.
@@ -32,10 +32,10 @@ type WebsocketDialer interface {
 	Dial(string, http.Header) (*websocket.Conn, *http.Response, error)
 }
 
-// websocketDialWithErrors dials the websocket and extracts any error
+// WebsocketDialWithErrors dials the websocket and extracts any error
 // from the response if there's a handshake error setting up the
 // socket. Any other errors are returned normally.
-func websocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
+func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
 	c, resp, err := dialer.Dial(urlStr, requestHeader)
 	if err != nil {
 		if err == websocket.ErrBadHandshake {

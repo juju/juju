@@ -1,6 +1,3 @@
-// Copyright 2012, 2013 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
 package api
 
 import (
@@ -10,21 +7,18 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
-
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 )
 
 var (
-	CertDir                 = &certDir
-	WebsocketDial           = &websocketDial
-	WebsocketDialWithErrors = websocketDialWithErrors
-	SlideAddressToFront     = slideAddressToFront
-	BestVersion             = bestVersion
-	FacadeVersions          = &facadeVersions
+	CertDir             = &certDir
+	SlideAddressToFront = slideAddressToFront
+	BestVersion         = bestVersion
+	FacadeVersions      = &facadeVersions
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
@@ -40,14 +34,9 @@ func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
 	return result.conn, u.String(), nil
 }
 
-// RPCConnection defines the methods that are called on the rpc.Conn instance.
-type RPCConnection rpcConnection
-
-// SetServerAddress allows changing the URL to the internal API server
-// that AddLocalCharm uses in order to test NotImplementedError.
-func SetServerAddress(c Connection, scheme, addr string) {
-	c.(*state).serverScheme = scheme
-	c.(*state).addr = addr
+// CookieURL returns the cookie URL of the connection.
+func CookieURL(c Connection) *url.URL {
+	return c.(*state).cookieURL
 }
 
 // ServerRoot is exported so that we can test the built URL.
@@ -60,10 +49,8 @@ func UnderlyingConn(c Connection) jsoncodec.JSONConn {
 	return c.(*state).conn
 }
 
-// CookieURL returns the cookie URL of the connection.
-func CookieURL(c Connection) *url.URL {
-	return c.(*state).cookieURL
-}
+// RPCConnection defines the methods that are called on the rpc.Conn instance.
+type RPCConnection rpcConnection
 
 // TestingStateParams is the parameters for NewTestingState, so that you can
 // only set the bits that you actually want to test.
@@ -106,12 +93,6 @@ func NewTestingState(params TestingStateParams) Connection {
 		proxier:           params.Proxier,
 	}
 	return st
-}
-
-// EmptyConnection exists only to allow api/client/client.BarebonesClient() to
-// be implemented.
-func EmptyConnection() Connection {
-	return &state{}
 }
 
 func ExtractMacaroons(conn Connection) ([]macaroon.Slice, error) {
