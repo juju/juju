@@ -19,7 +19,7 @@ import (
 )
 
 type InstanceMutaterAPI interface {
-	WatchMachines() (watcher.StringsWatcher, error)
+	WatchModelMachines() (watcher.StringsWatcher, error)
 	Machine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
@@ -110,7 +110,7 @@ func (config Config) Validate() error {
 // the machines in the state and polls their instance
 // for addition or removal changes.
 func NewEnvironWorker(config Config) (worker.Worker, error) {
-	config.GetMachineWatcher = config.Facade.WatchMachines
+	config.GetMachineWatcher = config.Facade.WatchModelMachines
 	config.GetRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-" + modelName}
 	}
