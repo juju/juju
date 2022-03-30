@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
