@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -307,7 +308,7 @@ func (c *configCommand) parseStdin() error {
 // isFileName tests if its argument `s` explicitly specifies a file (i.e. `s`
 // contains the path-separator character for this OS).
 func isFileName(s string) bool {
-	return strings.Contains(s, string(os.PathSeparator))
+	return strings.HasPrefix(s, ".") || filepath.IsAbs(s)
 }
 
 // parseYAMLFile ensures that we handle the YAML file passed in.
