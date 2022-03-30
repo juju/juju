@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/assumes"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -109,6 +110,14 @@ func (s *charmInfoSuite) TestClientCharmInfoCAAS(c *gc.C) {
 						},
 					},
 					MinJujuVersion: "0.0.0",
+					AssumesExpr: &assumes.ExpressionTree{
+						Expression: assumes.CompositeExpression{
+							ExprType: assumes.AllOfExpression,
+							SubExpressions: []assumes.Expression{
+								assumes.FeatureExpression{Name: "k8s-api"},
+							},
+						},
+					},
 				},
 				Actions: &params.CharmActions{},
 			},
@@ -394,13 +403,6 @@ func (s *charmInfoSuite) TestClientCharmInfo(c *gc.C) {
 							Role:      "provider",
 							Interface: "roach",
 							Scope:     "global",
-						},
-					},
-					Resources: map[string]params.CharmResourceMeta{
-						"cockroachdb-image": {
-							Name:        "cockroachdb-image",
-							Type:        "oci-image",
-							Description: "OCI image used for cockroachdb",
 						},
 					},
 					MinJujuVersion: "0.0.0",
