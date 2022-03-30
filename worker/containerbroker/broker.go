@@ -23,7 +23,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/worker/containerbroker State
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/agent/provisioner MachineProvisioner
 
 // Config describes the dependencies of a Tracker.
 //
