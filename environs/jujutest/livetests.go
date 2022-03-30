@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
@@ -681,7 +682,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the API connection is working.
-	status, err := api.NewClient(apiState).Status(nil)
+	status, err := apiclient.NewClient(apiState).Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 

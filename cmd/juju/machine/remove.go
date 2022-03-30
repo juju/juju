@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -107,7 +108,7 @@ type RemoveMachineAPI interface {
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
 type removeMachineAdapter struct {
-	*api.Client
+	*apiclient.Client
 }
 
 func (a removeMachineAdapter) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
@@ -150,7 +151,7 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	if c.machineAPI != nil {
 		return c.machineAPI, nil
 	}
-	return removeMachineAdapter{api.NewClient(root)}, nil
+	return removeMachineAdapter{apiclient.NewClient(root)}, nil
 }
 
 // Run implements Command.Run.

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -26,7 +25,6 @@ var (
 	SlideAddressToFront     = slideAddressToFront
 	BestVersion             = bestVersion
 	FacadeVersions          = &facadeVersions
-	HasHooksOrDispatch      = &hasHooksOrDispatch
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
@@ -47,14 +45,14 @@ type RPCConnection rpcConnection
 
 // SetServerAddress allows changing the URL to the internal API server
 // that AddLocalCharm uses in order to test NotImplementedError.
-func SetServerAddress(c *Client, scheme, addr string) {
-	c.conn.(*state).serverScheme = scheme
-	c.conn.(*state).addr = addr
+func SetServerAddress(c Connection, scheme, addr string) {
+	c.(*state).serverScheme = scheme
+	c.(*state).addr = addr
 }
 
 // ServerRoot is exported so that we can test the built URL.
-func ServerRoot(c *Client) string {
-	return c.conn.(*state).serverRoot()
+func ServerRoot(c Connection) string {
+	return c.(*state).serverRoot()
 }
 
 // UnderlyingConn returns the underlying transport connection.
@@ -110,51 +108,10 @@ func NewTestingState(params TestingStateParams) Connection {
 	return st
 }
 
-// APIClient returns a 'barebones' api.Client suitable for calling FindTools in
-// an error state (anything else is likely to panic.)
-func APIClient(apiCaller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(apiCaller, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, conn: &state{}}
-}
-
-// PatchClientFacadeCall changes the internal FacadeCaller to one that lets
-// you mock out the FacadeCall method. The function returned by
-// PatchClientFacadeCall is a cleanup function that returns the client to its
-// original state.
-func PatchClientFacadeCall(c *Client, mockCall func(request string, params interface{}, response interface{}) error) func() {
-	orig := c.facade
-	c.facade = &resultCaller{mockCall}
-	return func() {
-		c.facade = orig
-	}
-}
-
-type resultCaller struct {
-	mockCall func(request string, params interface{}, response interface{}) error
-}
-
-func (f *resultCaller) FacadeCall(request string, params, response interface{}) error {
-	return f.mockCall(request, params, response)
-}
-
-func (f *resultCaller) Name() string {
-	return ""
-}
-
-func (f *resultCaller) BestAPIVersion() int {
-	return 0
-}
-
-type rawAPICaller struct {
-	base.APICaller
-}
-
-func (r *rawAPICaller) Context() context.Context {
-	return context.Background()
-}
-
-func (f *resultCaller) RawAPICaller() base.APICaller {
-	return &rawAPICaller{}
+// EmptyConnection exists only to allow api/client/client.BarebonesClient() to
+// be implemented.
+func EmptyConnection() Connection {
+	return &state{}
 }
 
 func ExtractMacaroons(conn Connection) ([]macaroon.Slice, error) {
