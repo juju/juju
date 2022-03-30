@@ -8,9 +8,3 @@ storage:
 provides:
   db:
     interface: roach
-resources:
-  cockroachdb-image:
-    type: oci-image
-    description: OCI image used for cockroachdb
-assumes:
-  - k8s-api

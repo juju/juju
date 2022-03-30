@@ -2,13 +2,6 @@
 set -v
 juju-log -l WARN "Running start hook script"
 
-while ! curl -f http://localhost:4321/ ; do
-    juju-log -l WARN "Waiting for workload container"
-    sleep 1
-done
-
-curl -f -d 'cockroach start --insecure --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080 --store /cockroach/cockroach-data' http://127.0.0.1:4321/
-
 sleep 5
 
 if is-leader; then
@@ -16,8 +9,6 @@ if is-leader; then
         juju-log -l WARN "Database already initialized"
     else
         juju-log -l WARN "Initializing database"
-        #cockroach init --insecure"
-        ssh 127.0.0.1 -p 4322 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no cockroach sql --insecure '--execute="CREATE DATABASE database;"'
         leader-set init="true"
     fi
 else
