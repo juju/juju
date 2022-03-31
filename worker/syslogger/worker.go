@@ -6,7 +6,6 @@ package syslogger
 import (
 	"fmt"
 	"io"
-	"log/syslog"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,7 +16,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 )
 
-type NewLogger func(syslog.Priority, string) (io.WriteCloser, error)
+type NewLogger func(Priority, string) (io.WriteCloser, error)
 
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
@@ -33,6 +32,23 @@ func (c *WorkerConfig) Validate() error {
 	return nil
 }
 
+type Priority int
+
+const (
+	// Severity.
+
+	// From /usr/include/sys/syslog.h.
+	// These are the same on Linux, BSD, and OS X.
+	LOG_EMERG Priority = iota
+	LOG_ALERT
+	LOG_CRIT
+	LOG_ERR
+	LOG_WARNING
+	LOG_NOTICE
+	LOG_INFO
+	LOG_DEBUG
+)
+
 // SysLogger defines an interface for logging log records.
 type SysLogger interface {
 	Log([]corelogger.LogRecord) error
@@ -45,14 +61,14 @@ type syslogWorker struct {
 	writers map[loggo.Level]io.WriteCloser
 }
 
-var syslogLoggoLevels = map[loggo.Level]syslog.Priority{
-	loggo.CRITICAL:    syslog.LOG_CRIT,
-	loggo.ERROR:       syslog.LOG_ERR,
-	loggo.WARNING:     syslog.LOG_WARNING,
-	loggo.INFO:        syslog.LOG_INFO,
-	loggo.DEBUG:       syslog.LOG_DEBUG,
-	loggo.TRACE:       syslog.LOG_DEBUG, // syslog has not trace level.
-	loggo.UNSPECIFIED: syslog.LOG_DEBUG,
+var syslogLoggoLevels = map[loggo.Level]Priority{
+	loggo.CRITICAL:    LOG_CRIT,
+	loggo.ERROR:       LOG_ERR,
+	loggo.WARNING:     LOG_WARNING,
+	loggo.INFO:        LOG_INFO,
+	loggo.DEBUG:       LOG_DEBUG,
+	loggo.TRACE:       LOG_DEBUG, // syslog has not trace level.
+	loggo.UNSPECIFIED: LOG_DEBUG,
 }
 
 func NewWorker(cfg WorkerConfig) (worker.Worker, error) {

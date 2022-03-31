@@ -4,9 +4,6 @@
 package syslogger
 
 import (
-	"io"
-	"log/syslog"
-
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -72,8 +69,4 @@ func output(in worker.Worker, out interface{}) error {
 		return errors.Errorf("expected output of *syslogger.SysLogger, got %T", out)
 	}
 	return nil
-}
-
-func NewSyslog(priority syslog.Priority, tag string) (io.WriteCloser, error) {
-	return syslog.New(priority, tag)
 }

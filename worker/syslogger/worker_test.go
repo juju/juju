@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log/syslog"
 	"strings"
 	"time"
 
@@ -30,7 +29,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 func (s *WorkerSuite) TestLogCreation(c *gc.C) {
 	_, err := syslogger.NewWorker(syslogger.WorkerConfig{
-		NewLogger: func(priority syslog.Priority, tag string) (io.WriteCloser, error) {
+		NewLogger: func(priority syslogger.Priority, tag string) (io.WriteCloser, error) {
 			s.stub.MethodCall(s, "NewLogger", priority, tag)
 			return nil, nil
 		},
@@ -38,8 +37,8 @@ func (s *WorkerSuite) TestLogCreation(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.stub.CheckCallNames(c, strings.Split(strings.Repeat("NewLogger,", 7), ",")[:7]...)
 	for _, call := range s.stub.Calls() {
-		arg := call.Args[0].(syslog.Priority)
-		c.Assert(arg >= syslog.LOG_CRIT && arg <= syslog.LOG_DEBUG, gc.Equals, true)
+		arg := call.Args[0].(syslogger.Priority)
+		c.Assert(arg >= syslogger.LOG_CRIT && arg <= syslogger.LOG_DEBUG, gc.Equals, true)
 	}
 }
 
@@ -47,7 +46,7 @@ func (s *WorkerSuite) TestLog(c *gc.C) {
 	now := time.Now()
 	buf := new(bytes.Buffer)
 	w, err := syslogger.NewWorker(syslogger.WorkerConfig{
-		NewLogger: func(priority syslog.Priority, tag string) (io.WriteCloser, error) {
+		NewLogger: func(priority syslogger.Priority, tag string) (io.WriteCloser, error) {
 			return closer{buf}, nil
 		},
 	})

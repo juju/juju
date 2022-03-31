@@ -5,7 +5,6 @@ package syslogger_test
 
 import (
 	"io"
-	"log/syslog"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -55,7 +54,7 @@ func (s *ManifoldSuite) newWorker(config syslogger.WorkerConfig) (worker.Worker,
 	return s.worker, nil
 }
 
-func (s *ManifoldSuite) newLogger(priority syslog.Priority, tag string) (io.WriteCloser, error) {
+func (s *ManifoldSuite) newLogger(priority syslogger.Priority, tag string) (io.WriteCloser, error) {
 	s.stub.MethodCall(s, "NewLogger", priority, tag)
 	return nil, nil
 }
