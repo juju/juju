@@ -24825,6 +24825,15 @@
                     },
                     "description": "WatchLXDProfileVerificationNeeded starts a watcher to track Applications with\nLXD Profiles."
                 },
+                "WatchMachines": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchMachines starts a watcher to track machines.\nWatchMachines does not consume the initial event of the watch response, as\nthat returns the initial set of machines that are currently available."
+                },
                 "WatchModelMachines": {
                     "type": "object",
                     "properties": {
