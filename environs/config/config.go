@@ -1394,11 +1394,11 @@ func (c *Config) Mode() ([]string, bool) {
 	}
 	if m, ok := modes.(string); ok {
 		s := set.NewStrings()
-		for _, v := range strings.Split(m, ",") {
+		for _, v := range strings.Split(strings.TrimSpace(m), ",") {
 			if v == "" {
 				continue
 			}
-			s.Add(v)
+			s.Add(strings.TrimSpace(v))
 		}
 		if s.Size() > 0 {
 			return s.SortedValues(), true
@@ -1429,11 +1429,11 @@ func (c *Config) LoggingOutput() ([]string, bool) {
 	}
 	if m, ok := outputs.(string); ok {
 		s := set.NewStrings()
-		for _, v := range strings.Split(m, ",") {
+		for _, v := range strings.Split(strings.TrimSpace(m), ",") {
 			if v == "" {
 				continue
 			}
-			s.Add(v)
+			s.Add(strings.TrimSpace(v))
 		}
 		if s.Size() > 0 {
 			return s.SortedValues(), true

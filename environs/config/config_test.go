@@ -1242,6 +1242,14 @@ func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
 
+	// Space doesn't matter
+	config = newTestConfig(c, testing.Attrs{
+		"logging-output": " database,                   syslog",
+	})
+	loggingOutput, ok = config.LoggingOutput()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
+
 	// Test order doesn't matter
 	config = newTestConfig(c, testing.Attrs{
 		"logging-output": "syslog,database",
