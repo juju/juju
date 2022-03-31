@@ -30,15 +30,6 @@ type APIv7 struct {
 	*ActionAPI
 }
 
-// NewActionAPIV7 returns an initialized ActionAPI for version 7.
-func NewActionAPIV7(ctx facade.Context) (*APIv7, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv7{api}, nil
-}
-
 func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

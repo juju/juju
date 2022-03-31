@@ -34,10 +34,11 @@ func NewClientFromFacade(facadeCaller base.FacadeCaller) *Client {
 	}
 }
 
-// WatchMachines returns a StringsWatcher reporting changes to machines.
-func (c *Client) WatchMachines() (watcher.StringsWatcher, error) {
+// WatchModelMachines returns a StringsWatcher reporting changes to machines
+// and not containers.
+func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchMachines", nil, &result)
+	err := c.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

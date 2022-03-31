@@ -15,8 +15,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -30,37 +28,6 @@ type SecretsManagerAPI struct {
 	resources       facade.Resources
 	secretsRotation SecretsRotation
 	authOwner       names.Tag
-}
-
-// NewSecretManagerAPI creates a SecretsManagerAPI.
-func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
-	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-	// Work out the app name associated with the agent since this is
-	// the secret owner for newly created secrets.
-	agentTag := context.Auth().GetAuthTag()
-	agentName := agentTag.Id()
-	if agentTag.Kind() == names.UnitTagKind {
-		agentName, _ = names.UnitApplication(agentName)
-	}
-
-	// For now we just support the Juju secrets provider.
-	service, err := provider.NewSecretProvider(juju.Provider, secrets.ProviderConfig{
-		juju.ParamBackend: context.State(),
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "creating juju secrets service")
-	}
-	return &SecretsManagerAPI{
-		authOwner:       names.NewApplicationTag(agentName),
-		controllerUUID:  context.State().ControllerUUID(),
-		modelUUID:       context.State().ModelUUID(),
-		secretsService:  service,
-		resources:       context.Resources(),
-		secretsRotation: context.State(),
-		accessSecret:    secretAccessor(agentName),
-	}, nil
 }
 
 // CreateSecrets creates new secrets.

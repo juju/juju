@@ -8,15 +8,9 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// NewExternalFacade is used for API registration.
-func NewExternalFacade(ctx facade.Context) (*Facade, error) {
-	return NewFacade(backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
-}
 
 type backendShim struct {
 	st *state.State

@@ -32,16 +32,6 @@ type API struct {
 	state     CAASModelOperatorState
 }
 
-// NewAPIFromContent creates a new controller model facade from the supplied
-// context.
-func NewAPIFromContext(ctx facade.Context) (*API, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	return NewAPI(authorizer, resources,
-		stateShim{ctx.StatePool().SystemState()},
-		stateShim{ctx.State()})
-}
-
 // NewAPI is alternative means of constructing a controller model facade.
 func NewAPI(
 	authorizer facade.Authorizer,

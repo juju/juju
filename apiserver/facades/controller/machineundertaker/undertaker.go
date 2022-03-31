@@ -39,11 +39,6 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	return api, nil
 }
 
-// NewFacade provides the signature required for facade registration.
-func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(&backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
-}
-
 // AllMachineRemovals returns tags for all of the machines that have
 // been marked for removal in the requested model.
 func (m *API) AllMachineRemovals(models params.Entities) params.EntitiesResults {

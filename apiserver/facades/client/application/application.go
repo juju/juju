@@ -97,14 +97,6 @@ type APIBase struct {
 	deployApplicationFunc func(ApplicationDeployer, Model, DeployApplicationParams) (Application, error)
 }
 
-func NewFacadeV13(ctx facade.Context) (*APIv13, error) {
-	api, err := newFacadeBase(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv13{api}, nil
-}
-
 type caasBrokerInterface interface {
 	ValidateStorageClass(config map[string]interface{}) error
 	Version() (*version.Number, error)

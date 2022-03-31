@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/rpc/params"
@@ -278,7 +279,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewControllerConnection:  apicaller.NewExternalControllerConnection,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
-			Logger:                   config.LoggingContext.GetLogger("juju.worker.remoterelations"),
+			Logger:                   config.LoggingContext.GetLogger("juju.worker.remoterelations", corelogger.CMR),
 		})),
 		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -451,7 +452,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater"),
+			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater.environ"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewEnvironWorker,
 		})),

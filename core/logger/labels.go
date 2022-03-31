@@ -17,4 +17,7 @@ const (
 	// CHARMHUB defines a common label for dealing with the charmhub client
 	// and callers.
 	CHARMHUB Label = "charmhub"
+
+	// CMR defines a common label for dealing with cross model relations.
+	CMR Label = "cmr"
 )

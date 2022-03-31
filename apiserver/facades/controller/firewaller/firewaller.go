@@ -50,27 +50,6 @@ type FirewallerAPI struct {
 	appEndpointBindings map[string]map[string]string
 }
 
-// NewFirewallerAPIV7 creates a new server-side FirewallerAPIv7 facade.
-func NewFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
-	st := context.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cloudSpecAPI := cloudspec.NewCloudSpecV2(
-		context.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st),
-		cloudspec.MakeCloudSpecWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
-		common.AuthFuncForTag(m.ModelTag()),
-	)
-	controllerConfigAPI := common.NewStateControllerConfig(st)
-
-	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
-	return NewStateFirewallerAPI(stShim, context.Resources(), context.Auth(), cloudSpecAPI, controllerConfigAPI)
-}
-
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
 func NewStateFirewallerAPI(
 	st State,

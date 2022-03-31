@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -263,7 +264,7 @@ func (c *configCommand) handleOneArg(arg string) error {
 	}
 
 	// We may have a single config.yaml file
-	if _, err := c.Filesystem().Stat(arg); err == nil {
+	if isFileName(arg) {
 		return c.parseYAMLFile(arg)
 	} else if strings.Contains(arg, "=") {
 		return c.parseSetKeys([]string{arg})
@@ -281,15 +282,14 @@ func (c *configCommand) handleOneArg(arg string) error {
 
 // handleArgs handles the case where there's more than one positional arg.
 func (c *configCommand) handleArgs(args []string) error {
+	// Check all arguments are valid first
+	for _, arg := range args {
+		if !isFileName(arg) && !strings.Contains(arg, "=") {
+			return errors.Errorf("arg %q is not a key-value pair or a filename", arg)
+		}
+	}
 	if err := c.parseSetKeys(args); err != nil {
 		return errors.Trace(err)
-	}
-	for _, arg := range args {
-		// We may have a config.yaml file.
-		_, err := c.Filesystem().Stat(arg)
-		if err != nil && !strings.Contains(arg, "=") {
-			return errors.New("can only retrieve a single value, or all values")
-		}
 	}
 	return nil
 }
@@ -301,6 +301,12 @@ func (c *configCommand) parseStdin() error {
 	}
 	c.action = c.setConfig
 	return nil
+}
+
+// isFileName tests if its argument `s` explicitly specifies a file (i.e. `s`
+// contains the path-separator character for this OS).
+func isFileName(s string) bool {
+	return strings.HasPrefix(s, ".") || filepath.IsAbs(s)
 }
 
 // parseYAMLFile ensures that we handle the YAML file passed in.

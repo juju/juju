@@ -310,7 +310,14 @@ func (c *downloadCommand) suggested(ser string, channel string, releases []trans
 			}
 		}
 	}
-	return errors.Errorf("%s does not support series %s in channel %s.  Supported series are %s.",
+	if series.IsEmpty() {
+		// No releases in this channel
+		return errors.Errorf(`%q has no releases in channel %q. Type
+    juju info %s
+for a list of supported channels.`,
+			c.charmOrBundle, channel, c.charmOrBundle)
+	}
+	return errors.Errorf("%q does not support series %q in channel %q.  Supported series are: %s.",
 		c.charmOrBundle, ser, channel, strings.Join(series.SortedValues(), ", "))
 }
 

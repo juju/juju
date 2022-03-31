@@ -61,14 +61,6 @@ var (
 	_ CloudV7 = (*CloudAPI)(nil)
 )
 
-// NewFacadeV7 is used for API registration.
-func NewFacadeV7(context facade.Context) (*CloudAPI, error) {
-	st := NewStateBackend(context.State())
-	pool := NewModelPoolBackend(context.StatePool())
-	ctlrSt := NewStateBackend(pool.SystemState())
-	return NewCloudAPI(st, ctlrSt, pool, context.Auth())
-}
-
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
 func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer) (*CloudAPI, error) {

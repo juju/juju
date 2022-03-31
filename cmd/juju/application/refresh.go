@@ -390,6 +390,11 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	charmID, err := factory.Run(cfg)
 	if err != nil {
+		if errors.Is(err, refresher.ErrAlreadyUpToDate) {
+			// Charm already up-to-date - success
+			ctx.Infof(err.Error())
+			return nil
+		}
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}

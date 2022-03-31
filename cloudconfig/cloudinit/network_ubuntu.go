@@ -162,6 +162,11 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 		}
 
 		for _, dns := range info.DNSServers {
+			// Netplan doesn't support IPv6 link-local addresses, so skip them.
+			if strings.HasPrefix(dns.Value, "fe80:") {
+				continue
+			}
+
 			iface.Nameservers.Addresses = append(iface.Nameservers.Addresses, dns.Value)
 		}
 		iface.Nameservers.Search = append(iface.Nameservers.Search, info.DNSSearchDomains...)

@@ -22,3 +22,7 @@ func SetPrecheckResult(p patcher, err error) {
 func NewControllerAPIForTest(backend Backend) *ControllerAPI {
 	return &ControllerAPI{state: backend}
 }
+
+var (
+	NewControllerAPIv11 = newControllerAPIv11
+)

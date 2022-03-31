@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -127,14 +126,10 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 	registry := new(facade.Registry)
-	myGoodFacade := func(
-		*state.State, facade.Resources, facade.Authorizer,
-	) (
-		*testingType, error,
-	) {
+	myGoodFacade := func(facade.Context) (facade.Facade, error) {
 		return &testingType{}, nil
 	}
-	registry.RegisterStandard("my-testing-facade", 0, myGoodFacade)
+	registry.MustRegister("my-testing-facade", 0, myGoodFacade, reflect.TypeOf((*testingType)(nil)).Elem())
 	srvRoot := apiserver.TestingAPIRoot(registry)
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
 	c.Check(caller, gc.IsNil)
@@ -210,12 +205,13 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	registry := new(facade.Registry)
 	var count int64
-	newCounter := func(facade.Context) (*countingType, error) {
+	newCounter := func(facade.Context) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: ""}, nil
 	}
-	registry.RegisterStandard("my-counting-facade", 0, newCounter)
-	registry.RegisterStandard("my-counting-facade", 1, newCounter)
+	facadeType := reflect.TypeOf((*countingType)(nil))
+	registry.MustRegister("my-counting-facade", 0, newCounter, facadeType)
+	registry.MustRegister("my-counting-facade", 1, newCounter, facadeType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	// The first time we call FindMethod, it should lookup a facade, and
@@ -326,12 +322,12 @@ func (*secondImpl) OneMethod() stringVar {
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 	registry := new(facade.Registry)
-	registry.RegisterStandard("my-interface-facade", 0, func(_ facade.Context) (smallInterface, error) {
+	registry.MustRegister("my-interface-facade", 0, func(_ facade.Context) (facade.Facade, error) {
 		return &firstImpl{}, nil
-	})
-	registry.RegisterStandard("my-interface-facade", 1, func(_ facade.Context) (smallInterface, error) {
+	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
+	registry.MustRegister("my-interface-facade", 1, func(_ facade.Context) (facade.Facade, error) {
 		return &secondImpl{}, nil
-	})
+	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	caller, err := srvRoot.FindMethod("my-interface-facade", 0, "OneMethod")

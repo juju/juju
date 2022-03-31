@@ -20,16 +20,6 @@ type ExternalControllerUpdaterAPI struct {
 	resources           facade.Resources
 }
 
-// NewStateAPI creates a new server-side CrossModelRelationsAPI API facade
-// backed by global state.
-func NewStateAPI(ctx facade.Context) (*ExternalControllerUpdaterAPI, error) {
-	return NewAPI(
-		ctx.Auth(),
-		ctx.Resources(),
-		state.NewExternalControllers(ctx.State()),
-	)
-}
-
 // NewAPI creates a new server-side CrossModelRelationsAPI API facade backed
 // by the given interfaces.
 func NewAPI(

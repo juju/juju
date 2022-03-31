@@ -51,16 +51,6 @@ type BundleAPI struct {
 	modelTag   names.ModelTag
 }
 
-// NewFacadeV6 provides the signature required for facade registration
-// for version 6.
-func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv6{api}, nil
-}
-
 // NewFacade provides the required signature for facade registration.
 func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	authorizer := ctx.Auth()

@@ -15,11 +15,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NewFacade creates a new LogForwardingAPI. It is used for API registration.
-func NewFacade(ctx facade.Context) (*LogForwardingAPI, error) {
-	return NewLogForwardingAPI(&stateAdapter{ctx.State()}, ctx.Auth())
-}
-
 // LastSentTracker exposes the functionality of state.LastSentTracker.
 type LastSentTracker interface {
 	io.Closer

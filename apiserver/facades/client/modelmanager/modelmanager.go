@@ -103,47 +103,6 @@ var (
 	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
 )
 
-// NewFacadeV9 is used for API registration.
-func NewFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
-	st := ctx.State()
-	pool := ctx.StatePool()
-	ctlrSt := pool.SystemState()
-	auth := ctx.Auth()
-
-	var err error
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-
-	ctrlModel, err := ctlrSt.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	if !auth.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-	apiUser, _ := auth.GetAuthTag().(names.UserTag)
-
-	return NewModelManagerAPI(
-		common.NewUserAwareModelManagerBackend(model, pool, apiUser),
-		common.NewModelManagerBackend(ctrlModel, pool),
-		statePoolShim{
-			StatePool: pool,
-		},
-		configGetter,
-		caas.New,
-		auth,
-		model,
-		context.CallContext(st),
-	)
-}
-
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(

@@ -34,31 +34,6 @@ type LoggerAPI struct {
 
 var _ Logger = (*LoggerAPI)(nil)
 
-// NewLoggerAPI creates a new server-side logger API end point.
-func NewLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
-	st := ctx.State()
-	resources := ctx.Resources()
-	authorizer := ctx.Auth()
-
-	if !authorizer.AuthMachineAgent() &&
-		!authorizer.AuthUnitAgent() &&
-		!authorizer.AuthApplicationAgent() &&
-		!authorizer.AuthModelAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-	m, err := ctx.Controller().Model(st.ModelUUID())
-	if err != nil {
-		return nil, err
-	}
-
-	return &LoggerAPI{
-		controller: ctx.Controller(),
-		model:      m,
-		resources:  resources,
-		authorizer: authorizer,
-	}, nil
-}
-
 // WatchLoggingConfig starts a watcher to track changes to the logging config
 // for the agents specified..  Unfortunately the current infrastructure makes
 // watching parts of the config non-trivial, so currently any change to the

@@ -33,16 +33,6 @@ type MachinerAPI struct {
 	getCanRead   common.GetAuthFunc
 }
 
-// NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
-	return NewMachinerAPIForState(
-		ctx.StatePool().SystemState(),
-		ctx.State(),
-		ctx.Resources(),
-		ctx.Auth(),
-	)
-}
-
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {

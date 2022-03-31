@@ -13,12 +13,9 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -40,35 +37,6 @@ type CharmDownloaderAPI struct {
 
 	mu         sync.Mutex
 	downloader Downloader
-}
-
-// NewFacadeV1 provides the signature required for facade V1 registration.
-func NewFacadeV1(ctx facade.Context) (*CharmDownloaderAPI, error) {
-	authorizer := ctx.Auth()
-	rawState := ctx.State()
-	stateBackend := stateShim{rawState}
-	modelBackend, err := rawState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	resourcesBackend := resourcesShim{ctx.Resources()}
-
-	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
-
-	return newAPI(
-		authorizer,
-		resourcesBackend,
-		stateBackend,
-		modelBackend,
-		clock.WallClock,
-		httpTransport(logger),
-		func(modelUUID string) services.Storage {
-			return storage.NewStorage(modelUUID, rawState.MongoSession())
-		},
-		func(cfg services.CharmDownloaderConfig) (Downloader, error) {
-			return services.NewCharmDownloader(cfg)
-		},
-	), nil
 }
 
 // newAPI is invoked both by the facade constructor and from our tests. It

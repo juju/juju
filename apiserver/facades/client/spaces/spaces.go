@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -36,44 +34,6 @@ type API struct {
 
 	check     BlockChecker
 	opFactory OpFactory
-}
-
-// NewAPI creates a new Space API server-side facade with a
-// state.State backing.
-func NewAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	stateShim, err := NewStateShim(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	check := common.NewBlockChecker(st)
-	callContext := context.CallContext(st)
-
-	reloadSpacesEnvirons, err := DefaultReloadSpacesEnvirons(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	auth := ctx.Auth()
-	reloadSpacesAuth := DefaultReloadSpacesAuthorizer(auth, check, stateShim)
-	reloadSpacesAPI := NewReloadSpacesAPI(
-		space.NewState(st),
-		reloadSpacesEnvirons,
-		EnvironSpacesAdapter{},
-		callContext,
-		reloadSpacesAuth,
-	)
-
-	return newAPIWithBacking(apiConfig{
-		ReloadSpacesAPI: reloadSpacesAPI,
-		Backing:         stateShim,
-		Check:           check,
-		Context:         callContext,
-		Resources:       ctx.Resources(),
-		Authorizer:      auth,
-		Factory:         newOpFactory(st),
-	})
 }
 
 type apiConfig struct {

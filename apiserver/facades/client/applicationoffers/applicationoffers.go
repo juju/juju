@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.applicationoffers")
@@ -65,44 +64,6 @@ func createOffersAPI(
 		},
 	}
 	return api, nil
-}
-
-// NewOffersAPIV4 returns a new application offers OffersAPIV4 facade.
-func NewOffersAPIV4(ctx facade.Context) (*OffersAPI, error) {
-	environFromModel := func(modelUUID string) (environs.Environ, error) {
-		st, err := ctx.StatePool().Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer st.Release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		g := stateenvirons.EnvironConfigGetter{Model: model}
-		env, err := environs.GetEnviron(g, environs.New)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return env, nil
-	}
-
-	st := ctx.State()
-	getControllerInfo := func() ([]string, string, error) {
-		return common.StateControllerInfo(st)
-	}
-
-	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
-	return createOffersAPI(
-		GetApplicationOffers,
-		environFromModel,
-		getControllerInfo,
-		GetStateAccess(st),
-		GetStatePool(ctx.StatePool()),
-		ctx.Auth(),
-		ctx.Resources(),
-		authContext.(*commoncrossmodel.AuthContext),
-	)
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.

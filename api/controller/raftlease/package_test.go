@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package raftlease -destination remote_mock.go github.com/juju/juju/api/raftlease Remote,RaftLeaseApplier
+//go:generate go run github.com/golang/mock/mockgen -package raftlease -destination remote_mock.go github.com/juju/juju/api/controller/raftlease Remote,RaftLeaseApplier
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -52,18 +51,6 @@ type MetricsDebugAPI struct {
 }
 
 var _ MetricsDebug = (*MetricsDebugAPI)(nil)
-
-// NewMetricsDebugAPI creates a new API endpoint for calling metrics debug functions.
-func NewMetricsDebugAPI(ctx facade.Context) (*MetricsDebugAPI, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	return &MetricsDebugAPI{
-		state: ctx.State(),
-	}, nil
-}
 
 // GetMetrics returns all metrics stored by the state server.
 func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResults, error) {

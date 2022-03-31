@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Facade implements the API required by the sshclient worker.
@@ -27,23 +26,6 @@ type Facade struct {
 	callContext context.ProviderCallContext
 
 	leadershipReader leadership.Reader
-}
-
-func NewFacade(ctx facade.Context) (*Facade, error) {
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	leadershipReader, err := ctx.LeadershipReader(m.UUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return internalFacade(
-		&backend{st, stateenvirons.EnvironConfigGetter{Model: m}, m.ModelTag()},
-		leadershipReader,
-		ctx.Auth(),
-		context.CallContext(st))
 }
 
 func internalFacade(backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {

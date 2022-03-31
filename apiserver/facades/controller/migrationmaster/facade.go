@@ -34,53 +34,6 @@ type API struct {
 	presence        facade.Presence
 }
 
-type APIV1 struct {
-	*APIV2
-}
-
-// APIV2 implements version 2 of the migration master API.
-type APIV2 struct {
-	*API
-}
-
-// NewMigrationMasterFacadeV1 exists to provide the required signature for API
-// registration, converting st to backend.
-func NewMigrationMasterFacadeV1(ctx facade.Context) (*APIV1, error) {
-	v2, err := NewMigrationMasterFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV1{v2}, nil
-}
-
-// NewMigrationMasterFacadeV2 exists to provide the required signature for API
-// registration, converting st to backend.
-func NewMigrationMasterFacadeV2(ctx facade.Context) (*APIV2, error) {
-	v3, err := NewMigrationMasterFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV2{v3}, nil
-}
-
-// NewMigrationMasterFacade exists to provide the required signature for API
-// registration, converting st to backend.
-func NewMigrationMasterFacade(ctx facade.Context) (*API, error) {
-	controllerState := ctx.StatePool().SystemState()
-	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating precheck backend")
-	}
-	return NewAPI(
-		newBacked(ctx.State()),
-		precheckBackend,
-		migration.PoolShim(ctx.StatePool()),
-		ctx.Resources(),
-		ctx.Auth(),
-		ctx.Presence(),
-	)
-}
-
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
@@ -259,9 +212,6 @@ func (api *API) Export() (params.SerializedModel, error) {
 	}
 	return serialized, nil
 }
-
-// ProcessRelations is masked on older versions of the migration master API
-func (api *APIV1) ProcessRelations(_, _ struct{}) {}
 
 // ProcessRelations processes any relations that need updating after an export.
 // This should help fix any remoteApplications that have been migrated.
@@ -461,6 +411,3 @@ func revisionToSerialized(rr description.ResourceRevision) params.SerializedMode
 		Username:       rr.Username(),
 	}
 }
-
-// MinionReportTimeout is not available via the V2 API.
-func (api *APIV2) MinionReportTimeout(_, _ struct{}) {}

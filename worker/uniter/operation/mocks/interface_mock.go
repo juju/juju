@@ -478,18 +478,6 @@ func (mr *MockCallbacksMockRecorder) NotifyHookFailed(arg0, arg1 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyHookFailed", reflect.TypeOf((*MockCallbacks)(nil).NotifyHookFailed), arg0, arg1)
 }
 
-// PostStartHook mocks base method.
-func (m *MockCallbacks) PostStartHook() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "PostStartHook")
-}
-
-// PostStartHook indicates an expected call of PostStartHook.
-func (mr *MockCallbacksMockRecorder) PostStartHook() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostStartHook", reflect.TypeOf((*MockCallbacks)(nil).PostStartHook))
-}
-
 // PrepareHook mocks base method.
 func (m *MockCallbacks) PrepareHook(arg0 hook.Info) (string, error) {
 	m.ctrl.T.Helper()
