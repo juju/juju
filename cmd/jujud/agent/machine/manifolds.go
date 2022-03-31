@@ -1179,7 +1179,7 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	syslogName = "syslog-name"
+	syslogName = "syslog"
 
 	raftTransportName = "raft-transport"
 	raftName          = "raft"

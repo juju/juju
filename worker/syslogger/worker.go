@@ -33,6 +33,7 @@ func (c *WorkerConfig) Validate() error {
 	return nil
 }
 
+// SysLogger defines an interface for logging log records.
 type SysLogger interface {
 	Log([]corelogger.LogRecord) error
 }
