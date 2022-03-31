@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
@@ -306,12 +307,12 @@ func (c *ModelCommandBase) CookieJar() (http.CookieJar, error) {
 	return c.CommandBase.CookieJar(c.ClientStore(), controllerName)
 }
 
-func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
+func (c *ModelCommandBase) NewAPIClient() (*apiclient.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return api.NewClient(root), nil
+	return apiclient.NewClient(root), nil
 }
 
 // ModelDetails returns details from the file store for the model indicated by

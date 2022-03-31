@@ -1,12 +1,11 @@
 // Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package client
 
 import (
 	"archive/zip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,16 +14,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
+	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/constraints"
@@ -38,20 +37,16 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// websocketTimeout is how long we'll wait for a WriteJSON call before
-// timing it out.
-const websocketTimeout = 30 * time.Second
-
 // Client represents the client-accessible part of the state.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
-	conn   Connection
+	conn   api.Connection
 }
 
 // NewClient returns an object that can be used to access client-specific
 // functionality.
-func NewClient(c Connection) *Client {
+func NewClient(c api.Connection) *Client {
 	frontend, backend := base.NewClientFacade(c, "Client")
 	return &Client{ClientFacade: frontend, facade: backend, conn: c}
 }
@@ -270,12 +265,12 @@ func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 
 // WatchAll returns an AllWatcher, from which you can request the Next
 // collection of Deltas.
-func (c *Client) WatchAll() (*AllWatcher, error) {
+func (c *Client) WatchAll() (*api.AllWatcher, error) {
 	var info params.AllWatcherId
 	if err := c.facade.FacadeCall("WatchAll", nil, &info); err != nil {
 		return nil, err
 	}
-	return NewAllWatcher(c.conn, &info.AllWatcherId), nil
+	return api.NewAllWatcher(c.conn, &info.AllWatcherId), nil
 }
 
 // Close closes the Client's underlying State connection
@@ -629,77 +624,6 @@ func (c *Client) AgentVersion() (version.Number, error) {
 		return version.Number{}, err
 	}
 	return result.Version, nil
-}
-
-// websocketDial is called instead of dialer.Dial so we can override it in
-// tests.
-var websocketDial = websocketDialWithErrors
-
-// WebsocketDialer is something that can make a websocket connection. Enables
-// testing the error unpacking in websocketDialWithErrors.
-type WebsocketDialer interface {
-	Dial(string, http.Header) (*websocket.Conn, *http.Response, error)
-}
-
-// websocketDialWithErrors dials the websocket and extracts any error
-// from the response if there's a handshake error setting up the
-// socket. Any other errors are returned normally.
-func websocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
-	c, resp, err := dialer.Dial(urlStr, requestHeader)
-	if err != nil {
-		if err == websocket.ErrBadHandshake {
-			// If ErrBadHandshake is returned, a non-nil response
-			// is returned so the client can react to auth errors
-			// (for example).
-			//
-			// The problem here is that there is a response, but the response
-			// body is truncated to 1024 bytes for debugging information, not
-			// for a true response. While this may work for small bodies, it
-			// isn't guaranteed to work for all messages.
-			defer resp.Body.Close()
-			body, readErr := ioutil.ReadAll(resp.Body)
-			if readErr != nil {
-				return nil, err
-			}
-			if resp.Header.Get("Content-Type") == "application/json" {
-				var result params.ErrorResult
-				jsonErr := json.Unmarshal(body, &result)
-				if jsonErr != nil {
-					return nil, errors.Annotate(jsonErr, "reading error response")
-				}
-				return nil, result.Error
-			}
-
-			err = errors.Errorf(
-				"%s (%s)",
-				strings.TrimSpace(string(body)),
-				http.StatusText(resp.StatusCode),
-			)
-		}
-		return nil, err
-	}
-	result := DeadlineStream{Conn: c, Timeout: websocketTimeout}
-	return &result, nil
-}
-
-// DeadlineStream wraps a websocket connection and applies a write
-// deadline to each WriteJSON call.
-type DeadlineStream struct {
-	*websocket.Conn
-
-	Timeout time.Duration
-}
-
-// WriteJSON is part of base.Stream.
-func (s *DeadlineStream) WriteJSON(v interface{}) error {
-	// This uses a real clock rather than trying to use a clock passed
-	// in because the websocket will use a real clock to determine
-	// whether the deadline has passed anyway.
-	deadline := time.Now().Add(s.Timeout)
-	if err := s.Conn.SetWriteDeadline(deadline); err != nil {
-		return errors.Annotate(err, "setting write deadline")
-	}
-	return errors.Trace(s.Conn.WriteJSON(v))
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries

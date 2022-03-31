@@ -21,8 +21,8 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -844,7 +844,7 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	// First test the sanity checks.
 	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
@@ -894,7 +894,7 @@ func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-3", "wordpress")
 
 	// Try adding the same charm concurrently from multiple goroutines
@@ -949,7 +949,7 @@ func (s *applicationSuite) assertUploaded(c *gc.C, storage statestorage.Storage,
 }
 
 func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	curl, _ := s.UploadCharm(c, "cs:trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.

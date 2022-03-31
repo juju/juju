@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/secretsmanager"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
@@ -523,7 +524,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 	if err != nil {
 		panic(err.Error())
 	}
-	downloader := api.NewCharmDownloader(ctx.apiConn)
+	downloader := apiclient.NewCharmDownloader(ctx.apiConn)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc

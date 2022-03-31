@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
+	apiclient "github.com/juju/juju/api/client/client"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -162,7 +163,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
-	_, err := api.NewClient(st).Status([]string{})
+	_, err := apiclient.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -175,7 +176,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = api.NewClient(st).Status([]string{})
+	_, err = apiclient.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -189,7 +190,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
 
-	_, err := api.NewClient(st).Status([]string{})
+	_, err := apiclient.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -205,7 +206,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = api.NewClient(st).Status([]string{})
+	_, err = apiclient.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -947,7 +948,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(tag, gc.Equals, expected)
 	// Look at what the api Client thinks it has.
-	client := api.NewClient(conn)
+	client := apiclient.NewClient(conn)
 
 	// ModelUUID looks at the model tag on the api state connection.
 	uuid, ok := client.ModelUUID()
@@ -1455,7 +1456,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	info := s.APIInfo(c)
 	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
 	defer userConn.Close()
-	_, err = api.NewClient(userConn).Status(nil)
+	_, err = apiclient.NewClient(userConn).Status(nil)
 	c.Check(err, gc.ErrorMatches, "migration in progress, model is importing")
 
 	// Machines should be able to use the API.
@@ -1477,11 +1478,11 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	defer userConn.Close()
 
 	// Status is fine.
-	_, err = api.NewClient(userConn).Status(nil)
+	_, err = apiclient.NewClient(userConn).Status(nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
-	err = api.NewClient(userConn).DestroyMachines("42")
+	err = apiclient.NewClient(userConn).DestroyMachines("42")
 	c.Check(err, gc.ErrorMatches, "model migration in progress")
 }
 
@@ -1497,7 +1498,7 @@ func (s *loginV3Suite) TestClientLoginToModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
-	client := api.NewClient(apiState)
+	client := apiclient.NewClient(apiState)
 	_, err = client.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1509,7 +1510,7 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
-	client := api.NewClient(apiState)
+	client := apiclient.NewClient(apiState)
 	_, err = client.GetModelConstraints()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `facade "Client" not supported for controller API connection`,

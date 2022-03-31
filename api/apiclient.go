@@ -462,7 +462,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 		}
 	}
 
-	connection, err := websocketDial(dialer, target.String(), requestHeader)
+	connection, err := WebsocketDial(dialer, target.String(), requestHeader)
 	if err != nil {
 		return nil, err
 	}

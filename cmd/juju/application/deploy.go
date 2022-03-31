@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/applicationoffers"
 	apicharms "github.com/juju/juju/api/client/charms"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -69,7 +70,7 @@ type CharmsAPI interface {
 // Once we pair down DeployAPI, this will not longer be a problem.
 
 type apiClient struct {
-	*api.Client
+	*apiclient.Client
 }
 
 type charmsClient struct {
@@ -117,7 +118,7 @@ type deployAPIAdapter struct {
 	*spacesClient
 }
 
-func (a *deployAPIAdapter) Client() *api.Client {
+func (a *deployAPIAdapter) Client() *apiclient.Client {
 	return a.apiClient.Client
 }
 
@@ -225,7 +226,7 @@ func newDeployCommand() *DeployCommand {
 		}
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
-			apiClient:         &apiClient{Client: api.NewClient(apiRoot)},
+			apiClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			charmsAPIVersion:  apiRoot.BestFacadeVersion("Charms"),
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},

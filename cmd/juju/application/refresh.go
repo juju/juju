@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/resources/client"
 	"github.com/juju/juju/api/client/spaces"
@@ -604,7 +605,7 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{api: &apiClient{Client: api.NewClient(conn)}}
+	adder := &charmAdderShim{api: &apiClient{Client: apiclient.NewClient(conn)}}
 	if conn.BestFacadeVersion("Charms") > 2 {
 		adder.charms = &charmsClient{Client: apicharms.NewClient(conn)}
 	}

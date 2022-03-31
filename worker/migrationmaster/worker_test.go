@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremigration "github.com/juju/juju/core/migration"
@@ -1363,10 +1364,10 @@ func (c *stubConnection) APICall(objType string, _ int, _, request string, args,
 	return errors.New("unexpected API call")
 }
 
-func (c *stubConnection) Client() *api.Client {
+func (c *stubConnection) Client() *apiclient.Client {
 	// This is kinda crappy but the *Client doesn't have to be
 	// functional...
-	return new(api.Client)
+	return new(apiclient.Client)
 }
 
 func (c *stubConnection) Close() error {

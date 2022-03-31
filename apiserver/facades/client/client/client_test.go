@@ -24,7 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -690,7 +690,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
-	status, err := api.NewClient(s.APIState).Status(nil)
+	status, err := apiclient.NewClient(s.APIState).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -699,7 +699,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
-	status, err := api.NewClient(s.APIState).Status(nil)
+	status, err := apiclient.NewClient(s.APIState).Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
@@ -757,7 +757,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
-	err = api.NewClient(s.APIState).Resolved("wordpress/0", retry)
+	err = apiclient.NewClient(s.APIState).Resolved("wordpress/0", retry)
 	c.Assert(err, jc.ErrorIsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -792,7 +792,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 }
 
 func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
-	err := api.NewClient(s.APIState).Resolved("wordpress/0", true)
+	err := apiclient.NewClient(s.APIState).Resolved("wordpress/0", true)
 	c.Assert(err, jc.ErrorIsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -804,7 +804,7 @@ func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 }
 
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
-	err := api.NewClient(s.APIState).Resolved("wordpress/0", false)
+	err := apiclient.NewClient(s.APIState).Resolved("wordpress/0", false)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -902,7 +902,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 		Password: "ro-password",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	roClient := api.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"))
+	roClient := apiclient.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"))
 	defer roClient.Close()
 
 	watcher, err := roClient.WatchAll()
@@ -1001,7 +1001,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcher, err := api.NewClient(s.APIState).WatchAll()
+	watcher, err := apiclient.NewClient(s.APIState).WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
@@ -1097,7 +1097,7 @@ func (s *clientSuite) TestClientSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = api.NewClient(s.APIState).SetModelConstraints(cons)
+	err = apiclient.NewClient(s.APIState).SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -1110,7 +1110,7 @@ func (s *clientSuite) assertSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = api.NewClient(s.APIState).SetModelConstraints(cons)
+	err = apiclient.NewClient(s.APIState).SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the constraints have been correctly updated.
 	obtained, err := s.State.ModelConstraints()
@@ -1122,7 +1122,7 @@ func (s *clientSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = api.NewClient(s.APIState).SetModelConstraints(cons)
+	err = apiclient.NewClient(s.APIState).SetModelConstraints(cons)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1149,18 +1149,18 @@ func (s *clientSuite) TestClientGetModelConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can get the constraints.
-	obtained, err := api.NewClient(s.APIState).GetModelConstraints()
+	obtained, err := apiclient.NewClient(s.APIState).GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
 func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	s.setUpScenario(c)
-	_, err := api.NewClient(s.APIState).PublicAddress("wordpress")
+	_, err := apiclient.NewClient(s.APIState).PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
-	_, err = api.NewClient(s.APIState).PublicAddress("0")
+	_, err = apiclient.NewClient(s.APIState).PublicAddress("0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address\(es\)`)
-	_, err = api.NewClient(s.APIState).PublicAddress("wordpress/0")
+	_, err = apiclient.NewClient(s.APIState).PublicAddress("wordpress/0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address\(es\)`)
 }
 
@@ -1175,12 +1175,12 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(cloudLocalAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := api.NewClient(s.APIState).PublicAddress("1")
+	addr, err := apiclient.NewClient(s.APIState).PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err = api.NewClient(s.APIState).PublicAddress("1")
+	addr, err = apiclient.NewClient(s.APIState).PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 }
@@ -1193,18 +1193,18 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := api.NewClient(s.APIState).PublicAddress("wordpress/0")
+	addr, err := apiclient.NewClient(s.APIState).PublicAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 }
 
 func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	s.setUpScenario(c)
-	_, err := api.NewClient(s.APIState).PrivateAddress("wordpress")
+	_, err := apiclient.NewClient(s.APIState).PrivateAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
-	_, err = api.NewClient(s.APIState).PrivateAddress("0")
+	_, err = apiclient.NewClient(s.APIState).PrivateAddress("0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address\(es\)`)
-	_, err = api.NewClient(s.APIState).PrivateAddress("wordpress/0")
+	_, err = apiclient.NewClient(s.APIState).PrivateAddress("wordpress/0")
 	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address\(es\)`)
 }
 
@@ -1219,12 +1219,12 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	publicAddress := network.NewSpaceAddress("public", network.WithScope(network.ScopePublic))
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := api.NewClient(s.APIState).PrivateAddress("1")
+	addr, err := apiclient.NewClient(s.APIState).PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err = api.NewClient(s.APIState).PrivateAddress("1")
+	addr, err = apiclient.NewClient(s.APIState).PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 }
@@ -1237,7 +1237,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	privateAddress := network.NewSpaceAddress("private", network.WithScope(network.ScopeCloudLocal))
 	err = m1.SetProviderAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, err := api.NewClient(s.APIState).PrivateAddress("wordpress/0")
+	addr, err := apiclient.NewClient(s.APIState).PrivateAddress("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "private")
 }
@@ -1260,7 +1260,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	machines, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1276,7 +1276,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	machines, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1292,7 +1292,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	_, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	_, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1319,7 +1319,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 			Jobs:   []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	machines, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1332,7 +1332,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{{
+	machines, err := apiclient.NewClient(s.APIState).AddMachines([]params.AddMachineParams{{
 		Jobs:          []model.MachineJob{model.JobHostUnits},
 		ContainerType: instance.LXD,
 		ParentId:      "0",
@@ -1352,7 +1352,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	}
 	// The last machine has some constraints.
 	apiParams[2].Constraints = constraints.MustParse("mem=4G")
-	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	machines, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1373,7 +1373,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[1].ContainerType = instance.LXD
 	apiParams[2].Placement = instance.MustParsePlacement("controller:invalid")
 	apiParams[3].Placement = instance.MustParsePlacement("controller:valid")
-	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	machines, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)
 	c.Assert(machines[0].Machine, gc.Equals, "0/lxd/0")
@@ -1411,7 +1411,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// This will cause a add-machine to fail due to an unsupported container.
 	apiParams[2].ContainerType = instance.KVM
 	apiParams[2].ParentId = host.Id()
-	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	machines, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 
@@ -1438,7 +1438,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	}
 	// This will cause the last add-machine to fail.
 	apiParams[2].Nonce = ""
-	machines, err := api.NewClient(s.APIState).AddMachines(apiParams)
+	machines, err := apiclient.NewClient(s.APIState).AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
@@ -1496,14 +1496,14 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
-	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
+	machines, err := apiclient.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
 	// Call ProvisioningScript. Normally ProvisioningScript and
 	// MachineConfig are mutually exclusive; both of them will
 	// allocate a api password for the machine agent.
-	script, err := api.NewClient(s.APIState).ProvisioningScript(params.ProvisioningScriptParams{
+	script, err := apiclient.NewClient(s.APIState).ProvisioningScript(params.ProvisioningScriptParams{
 		MachineId: machineId,
 		Nonce:     apiParams.Nonce,
 	})
@@ -1534,7 +1534,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
-	machines, err := api.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
+	machines, err := apiclient.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
@@ -1557,7 +1557,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	// Test enabling package commands
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(true, true)
-	script, err := api.NewClient(s.APIState).ProvisioningScript(provParams)
+	script, err := apiclient.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, jc.Contains, "apt-get update")
 	c.Check(script, jc.Contains, "apt-get upgrade")
@@ -1565,7 +1565,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	// Test disabling package commands
 	provParams.DisablePackageCommands = true
 	setUpdateBehavior(false, false)
-	script, err = api.NewClient(s.APIState).ProvisioningScript(provParams)
+	script, err = apiclient.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
@@ -1574,7 +1574,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	// config variables.
 	provParams.DisablePackageCommands = true
 	setUpdateBehavior(true, true)
-	script, err = api.NewClient(s.APIState).ProvisioningScript(provParams)
+	script, err = apiclient.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
@@ -1584,7 +1584,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(false, false)
 	//provParams.UpdateBehavior = &params.UpdateBehavior{false, false}
-	script, err = api.NewClient(s.APIState).ProvisioningScript(provParams)
+	script, err = apiclient.NewClient(s.APIState).ProvisioningScript(provParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
@@ -1647,7 +1647,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 	for i, test := range resolveCharmTests {
 		c.Logf("test %d: %s", i, test.about)
 
-		client := api.NewClient(s.APIState)
+		client := apiclient.NewClient(s.APIState)
 		ref, err := charm.ParseURL(test.url)
 		if test.parseErr == "" {
 			if c.Check(err, jc.ErrorIsNil) == false {
@@ -1685,7 +1685,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	}
 	err = machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := api.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
+	result, err := apiclient.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Error, gc.IsNil)
@@ -1712,7 +1712,7 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 }
 
 func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
-	_, err := api.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
+	_, err := apiclient.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1722,7 +1722,7 @@ func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 }
 
 func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {
-	_, err := api.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
+	_, err := apiclient.NewClient(s.APIState).RetryProvisioning(machine.Tag().(names.MachineTag))
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1767,7 +1767,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agentHostPorts, gc.Not(gc.DeepEquals), stateAPIHostPorts)
 
-	apiHostPorts, err := api.NewClient(s.APIState).APIHostPorts()
+	apiHostPorts, err := apiclient.NewClient(s.APIState).APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We need to compare SpaceHostPorts with MachineHostPorts.
@@ -1786,13 +1786,13 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("2.0.0")
 	s.PatchValue(&jujuversion.Current, current)
-	result, err := api.NewClient(s.APIState).AgentVersion()
+	result, err := apiclient.NewClient(s.APIState).AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)
 }
 
 func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1, m2 *state.Machine) {
-	err := api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
+	err := apiclient.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: controller 0 is the only controller; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
@@ -1800,7 +1800,7 @@ func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1
 
 	err = u.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	err = api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
+	err = apiclient.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: controller 0 is the only controller`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Dying)
@@ -1834,14 +1834,14 @@ func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
 func (s *clientSuite) TestBlockRemoveDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyMachines")
-	err := api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
+	err := apiclient.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyMachines", m0, m1, m2, u)
 }
 
 func (s *clientSuite) TestBlockChangesDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 	s.BlockAllChanges(c, "TestBlockChangesDestroyMachines")
-	err := api.NewClient(s.APIState).DestroyMachines("0", "1", "2")
+	err := apiclient.NewClient(s.APIState).DestroyMachines("0", "1", "2")
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyMachines", m0, m1, m2, u)
 }
 
@@ -1862,7 +1862,7 @@ func (s *clientSuite) TestAnyBlockForceDestroyMachines(c *gc.C) {
 func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
-	err := api.NewClient(s.APIState).ForceDestroyMachines("0", "1", "2")
+	err := apiclient.NewClient(s.APIState).ForceDestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: controller 0 is the only controller`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/api/base"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
@@ -283,7 +284,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				return caasoperatorapi.NewClient(caller)
 			},
 			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
-				return api.NewCharmDownloader(caller)
+				return apiclient.NewCharmDownloader(caller)
 			},
 			NewExecClient:                  config.NewExecClient,
 			NewContainerStartWatcherClient: config.NewContainerStartWatcherClient,
