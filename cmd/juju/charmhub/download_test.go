@@ -145,7 +145,26 @@ func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, "test does not support series focal in channel stable.  Supported series are bionic, trusty, xenial.")
+	c.Assert(err, gc.ErrorMatches, `"test" does not support series "focal" in channel "stable".  Supported series are: bionic, trusty, xenial.`)
+}
+
+func (s *downloadSuite) TestRunWithNoStableRelease(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.expectRefreshUnsupportedSeries()
+
+	command := &downloadCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+	}
+	command.SetFilesystem(s.filesystem)
+	err := cmdtesting.InitCommand(command, []string{"test", "--channel", "foo/stable"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, gc.ErrorMatches, `"test" has no releases in channel "foo/stable". Type
+    juju info test
+for a list of supported channels.`)
 }
 
 func (s *downloadSuite) TestRunWithCustomInvalidCharmHubURL(c *gc.C) {
