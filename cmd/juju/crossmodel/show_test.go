@@ -4,6 +4,8 @@
 package crossmodel_test
 
 import (
+	"os"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/juju/osenv"
 )
 
 type showSuite struct {
@@ -26,7 +29,8 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
 	s.mockAPI = &mockShowAPI{
-		desc: "IBM DB2 Express Server Edition is an entry level database system",
+		desc:     "IBM DB2 Express Server Edition is an entry level database system",
+		offerURL: "fred/model.db2",
 	}
 }
 
@@ -47,7 +51,20 @@ func (s *showSuite) TestShowURLError(c *gc.C) {
 	s.assertShowError(c, []string{"fred/model.foo/db2"}, "application offer URL has invalid form.*")
 }
 
+func (s *showSuite) TestShowWrongModelError(c *gc.C) {
+	s.assertShowError(c, []string{"db2"}, `application offer "fred/test.db2" not found`)
+}
+
 func (s *showSuite) TestShowNameOnly(c *gc.C) {
+	// CurrentModel is fred/test, so ensure api believes offer is in this model
+	s.mockAPI.offerURL = "fred/test.db2"
+	s.assertShowYaml(c, "db2")
+}
+
+func (s *showSuite) TestShowNameAndEnvvarOnly(c *gc.C) {
+	// Ensure envvar (fred/model) overrides CurrentModel (fred/test)
+	os.Setenv(osenv.JujuModelEnvKey, "fred/model")
+	defer func() { os.Unsetenv(osenv.JujuModelEnvKey) }()
 	s.assertShowYaml(c, "db2")
 }
 
@@ -60,7 +77,7 @@ func (s *showSuite) assertShowYaml(c *gc.C, arg string) {
 		c,
 		[]string{arg, "--format", "yaml"},
 		`
-test-master:fred/model.db2:
+test-master:`[1:]+s.mockAPI.offerURL+`:
   description: IBM DB2 Express Server Edition is an entry level database system
   access: consume
   endpoints:
@@ -74,7 +91,7 @@ test-master:fred/model.db2:
     bob:
       display-name: Bob
       access: consume
-`[1:],
+`,
 	)
 }
 
@@ -154,6 +171,7 @@ func (s *showSuite) assertShowError(c *gc.C, args []string, expected string) {
 
 type mockShowAPI struct {
 	controllerName string
+	offerURL       string
 	msg, desc      string
 }
 
@@ -166,10 +184,14 @@ func (s mockShowAPI) ApplicationOffer(url string) (*jujucrossmodel.ApplicationOf
 		return nil, errors.New(s.msg)
 	}
 
-	offerURL := "fred/model.db2"
+	offerURL := s.offerURL
 	if s.controllerName != "" {
 		offerURL = s.controllerName + ":" + offerURL
 	}
+	if s.offerURL != url {
+		return nil, errors.NotFoundf("application offer %q", url)
+	}
+
 	return &jujucrossmodel.ApplicationOfferDetails{
 		OfferName:              "hosted-db2",
 		OfferURL:               offerURL,
