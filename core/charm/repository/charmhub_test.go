@@ -1125,7 +1125,7 @@ type channelTrackSuite struct {
 
 var _ = gc.Suite(&channelTrackSuite{})
 
-func (*channelTrackSuite) ChannelTrack(c *gc.C) {
+func (*channelTrackSuite) TestChannelTrack(c *gc.C) {
 	tests := []struct {
 		channel string
 		result  string
@@ -1141,15 +1141,43 @@ func (*channelTrackSuite) ChannelTrack(c *gc.C) {
 	}, {
 		channel: "focal/stable",
 		result:  "focal",
-	}, {
-		channel: "so/many/forward/slashes/here",
-		result:  "so",
 	}}
 
 	for i, test := range tests {
 		c.Logf("test %d - %s", i, test.channel)
 		got, err := channelTrack(test.channel)
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(got, gc.Equals, test.result)
+	}
+}
+
+type computeBaseChannelSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&computeBaseChannelSuite{})
+
+func (*computeBaseChannelSuite) TestComputeBaseChannel(c *gc.C) {
+	tests := []struct {
+		platform corecharm.Platform
+		result   string
+	}{{
+		platform: corecharm.Platform{OS: "centos", Series: "centos7"},
+		result:   "7",
+	}, {
+		platform: corecharm.Platform{OS: "centos", Series: "centos8"},
+		result:   "8",
+	}, {
+		platform: corecharm.Platform{OS: "ubuntu", Series: "20.04"},
+		result:   "20.04",
+	}, {
+		platform: corecharm.Platform{OS: "ubuntu", Series: "focal"},
+		result:   "20.04",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d - %s", i, test.platform)
+		got := computeBaseChannel(test.platform)
 		c.Assert(got, gc.Equals, test.result)
 	}
 }
