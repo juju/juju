@@ -69,3 +69,23 @@ func (s *InstanceTypeSuite) TestStandardVersioned(c *gc.C) {
 		RootDisk: 1000 * 1000,
 	})
 }
+
+func (s *InstanceTypeSuite) TestStandardPromo(c *gc.C) {
+	vm := compute.VirtualMachineSize{
+		Name:           to.StringPtr("Standard_A2_v4_Promo"),
+		MemoryInMB:     to.Int32Ptr(100),
+		NumberOfCores:  to.Int32Ptr(2),
+		OsDiskSizeInMB: to.Int32Ptr(1024 * 1024),
+	}
+	inst := newInstanceType(vm)
+	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
+		Id:       "Standard_A2_v4_Promo",
+		Name:     "Standard_A2_v4_Promo",
+		Arches:   []string{"amd64"},
+		VirtType: to.StringPtr("Hyper-V"),
+		CpuCores: 2,
+		Mem:      100,
+		Cost:     39400, // len(costs),
+		RootDisk: 1000 * 1000,
+	})
+}

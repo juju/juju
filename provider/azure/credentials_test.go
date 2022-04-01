@@ -52,9 +52,10 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 
 func (s *credentialsSuite) TestServicePrincipalSecretCredentialsValid(c *gc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "service-principal-secret", map[string]string{
-		"application-id":       "application",
-		"application-password": "password",
-		"subscription-id":      "subscription",
+		"application-id":          "application",
+		"application-password":    "password",
+		"subscription-id":         "subscription",
+		"managed-subscription-id": "managed-subscription",
 	})
 }
 
@@ -78,12 +79,13 @@ func (s *credentialsSuite) TestDetectCredentialsListError(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	s.azureCLI.Accounts = []azurecli.Account{{
-		CloudName: "AzureCloud",
-		ID:        "test-account-id",
-		IsDefault: true,
-		Name:      "test-account",
-		State:     "Enabled",
-		TenantId:  "tenant-id",
+		CloudName:    "AzureCloud",
+		ID:           "test-account-id",
+		IsDefault:    true,
+		Name:         "test-account",
+		State:        "Enabled",
+		TenantId:     "tenant-id",
+		HomeTenantId: "home-tenant-id",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
 		Endpoints: azurecli.CloudEndpoints{
@@ -106,9 +108,9 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	c.Assert(calls[0].FuncName, gc.Equals, "ListAccounts")
 	c.Assert(calls[1].FuncName, gc.Equals, "ListClouds")
 	c.Assert(calls[2].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"test-account-id", "https://graph.invalid/"})
+	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"home-tenant-id", "https://graph.invalid/"})
 	c.Assert(calls[3].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"test-account-id", "https://arm.invalid/"})
+	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"home-tenant-id", "https://arm.invalid/"})
 
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 1)
@@ -117,13 +119,13 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account-id|https://graph.invalid/|access-token",
+			AccessToken: "home-tenant-id|https://graph.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
 		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account-id|https://arm.invalid/|access-token",
+			AccessToken: "home-tenant-id|https://arm.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		SubscriptionId: "test-account-id",
@@ -176,7 +178,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 		IsDefault: false,
 		Name:      "test-account2",
 		State:     "Enabled",
-		TenantId:  "tenant-id",
+		TenantId:  "tenant-id2",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
 		Endpoints: azurecli.CloudEndpoints{
@@ -200,13 +202,13 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 	c.Assert(calls[0].FuncName, gc.Equals, "ListAccounts")
 	c.Assert(calls[1].FuncName, gc.Equals, "ListClouds")
 	c.Assert(calls[2].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"test-account1-id", "https://graph.invalid/"})
+	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://graph.invalid/"})
 	c.Assert(calls[3].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"test-account1-id", "https://arm.invalid/"})
+	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://arm.invalid/"})
 	c.Assert(calls[4].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[4].Args, jc.DeepEquals, []interface{}{"test-account2-id", "https://graph.invalid/"})
+	c.Assert(calls[4].Args, jc.DeepEquals, []interface{}{"tenant-id2", "https://graph.invalid/"})
 	c.Assert(calls[5].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[5].Args, jc.DeepEquals, []interface{}{"test-account2-id", "https://arm.invalid/"})
+	c.Assert(calls[5].Args, jc.DeepEquals, []interface{}{"tenant-id2", "https://arm.invalid/"})
 
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 2)
@@ -215,13 +217,13 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account1-id|https://graph.invalid/|access-token",
+			AccessToken: "tenant-id|https://graph.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
 		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account1-id|https://arm.invalid/|access-token",
+			AccessToken: "tenant-id|https://arm.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		SubscriptionId: "test-account1-id",
@@ -232,17 +234,17 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account2-id|https://graph.invalid/|access-token",
+			AccessToken: "tenant-id2|https://graph.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
 		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account2-id|https://arm.invalid/|access-token",
+			AccessToken: "tenant-id2|https://arm.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		SubscriptionId: "test-account2-id",
-		TenantId:       "tenant-id",
+		TenantId:       "tenant-id2",
 	})
 }
 
@@ -260,7 +262,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 		IsDefault: true,
 		Name:      "test-account2",
 		State:     "Enabled",
-		TenantId:  "tenant-id",
+		TenantId:  "tenant-id2",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
 		Endpoints: azurecli.CloudEndpoints{
@@ -284,11 +286,11 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 	c.Assert(calls[0].FuncName, gc.Equals, "ListAccounts")
 	c.Assert(calls[1].FuncName, gc.Equals, "ListClouds")
 	c.Assert(calls[2].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"test-account1-id", "https://graph.invalid/"})
+	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://graph.invalid/"})
 	c.Assert(calls[3].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"test-account1-id", "https://arm.invalid/"})
+	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://arm.invalid/"})
 	c.Assert(calls[4].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[4].Args, jc.DeepEquals, []interface{}{"test-account2-id", "https://graph.invalid/"})
+	c.Assert(calls[4].Args, jc.DeepEquals, []interface{}{"tenant-id2", "https://graph.invalid/"})
 
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 1)
@@ -297,13 +299,13 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account1-id|https://graph.invalid/|access-token",
+			AccessToken: "tenant-id|https://graph.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
 		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "test-account1-id|https://arm.invalid/|access-token",
+			AccessToken: "tenant-id|https://arm.invalid/|access-token",
 			Type:        "Bearer",
 		}),
 		SubscriptionId: "test-account1-id",
@@ -631,29 +633,29 @@ func (e *azureCLI) ShowAccount(subscription string) (*azurecli.Account, error) {
 	return e.findAccount(subscription)
 }
 
-func (e *azureCLI) findAccount(subscription string) (*azurecli.Account, error) {
+func (e *azureCLI) findAccount(tenant string) (*azurecli.Account, error) {
 	for _, acc := range e.Accounts {
-		if acc.ID == subscription {
+		if acc.AuthTenantId() == tenant {
 			return &acc, nil
 		}
-		if subscription == "" && acc.IsDefault {
+		if tenant == "" && acc.IsDefault {
 			return &acc, nil
 		}
 	}
 	return nil, errors.New("account not found")
 }
 
-func (e *azureCLI) GetAccessToken(subscription, resource string) (*azurecli.AccessToken, error) {
-	e.MethodCall(e, "GetAccessToken", subscription, resource)
+func (e *azureCLI) GetAccessToken(tenant, resource string) (*azurecli.AccessToken, error) {
+	e.MethodCall(e, "GetAccessToken", tenant, resource)
 	if err := e.NextErr(); err != nil {
 		return nil, err
 	}
-	acc, err := e.findAccount(subscription)
+	acc, err := e.findAccount(tenant)
 	if err != nil {
 		return nil, err
 	}
 	return &azurecli.AccessToken{
-		AccessToken: fmt.Sprintf("%s|%s|access-token", subscription, resource),
+		AccessToken: fmt.Sprintf("%s|%s|access-token", tenant, resource),
 		Tenant:      acc.TenantId,
 		TokenType:   "Bearer",
 	}, nil

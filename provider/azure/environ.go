@@ -187,7 +187,10 @@ func (env *azureEnviron) SetCloudSpec(_ stdcontext.Context, cloud environsclouds
 
 func (env *azureEnviron) initEnviron() error {
 	credAttrs := env.cloud.Credential.Attributes()
-	env.subscriptionId = credAttrs[credAttrSubscriptionId]
+	env.subscriptionId = credAttrs[credAttrManagedSubscriptionId]
+	if env.subscriptionId == "" {
+		env.subscriptionId = credAttrs[credAttrSubscriptionId]
+	}
 	env.authorizer = &cloudSpecAuth{
 		cloud:  env.cloud,
 		sender: env.provider.config.Sender,
