@@ -301,6 +301,7 @@ func (w *upgradeDB) watchUpgrade() error {
 		for {
 			select {
 			case <-done:
+				return
 			case <-w.clock.After(5 * time.Second):
 				isPrimary, err := w.pool.IsPrimary(w.tag.Id())
 				if isPrimary || err != nil {

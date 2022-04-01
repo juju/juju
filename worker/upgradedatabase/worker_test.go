@@ -197,7 +197,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
 	// loop, so we gate on this final expectation.
 	finished := make(chan struct{})
 	s.lock.EXPECT().Unlock().Do(func() {
-		finished <- struct{}{}
+		close(finished)
 	})
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
@@ -239,7 +239,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessRunning(c *gc.C) {
 	// loop, so we gate on this final expectation.
 	finished := make(chan struct{})
 	s.lock.EXPECT().Unlock().Do(func() {
-		finished <- struct{}{}
+		close(finished)
 	})
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
@@ -256,7 +256,6 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectUpgradeRequired(false)
-	s.pool.EXPECT().IsPrimary("0").Return(false, nil).AnyTimes()
 
 	s.logger.EXPECT().Infof(logWaiting)
 	s.pool.EXPECT().SetStatus("0", status.Started, statusWaiting)
@@ -264,17 +263,26 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	// Expect a watcher that will fire a change for the initial event
 	// and then a change for the watch loop.
 	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+
+	// Have changes available for the first couple of loops, but later
+	// stop to allow timeout select case to fire for sure
 	changes := make(chan struct{}, 2)
 	changes <- struct{}{}
 	changes <- struct{}{}
 	s.watcher.EXPECT().Changes().Return(changes).AnyTimes()
 
 	timeout := make(chan time.Time, 1)
-	s.clock.EXPECT().After(gomock.Any()).Return(timeout).AnyTimes()
+	s.clock.EXPECT().After(10 * time.Minute).Return(timeout)
+
+	neverTimeout := make(chan time.Time)
+	s.clock.EXPECT().After(5 * time.Second).Return(neverTimeout).MaxTimes(1)
 
 	// Primary does not complete the upgrade.
 	// After we have gone to the upgrade pending state, trip the timeout.
 	s.upgradeInfo.EXPECT().Refresh().Return(nil).AnyTimes()
+
+	// Don't timeout on first few check of status.
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending).Times(2)
 	s.upgradeInfo.EXPECT().Status().DoAndReturn(func() state.UpgradeStatus {
 		// We only care about queueing one in the buffer.
 		// Carry on if we're jammed up - we'll fail elsewhere.
@@ -285,9 +293,11 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 		return state.UpgradePending
 	}).AnyTimes()
 
+	// We don't want to kill the worker while we are in the status observation
+	// loop, so we gate on this final expectation.
 	finished := make(chan struct{})
 	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading).Do(func(...interface{}) {
-		finished <- struct{}{}
+		close(finished)
 	})
 
 	// Note that UpgradeComplete is not unlocked.
@@ -329,7 +339,7 @@ func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
 	// loop, so we gate on this final expectation.
 	finished := make(chan struct{})
 	s.lock.EXPECT().Unlock().Do(func() {
-		finished <- struct{}{}
+		close(finished)
 	})
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
@@ -354,7 +364,7 @@ func (s *workerSuite) TestNotPrimaryButBecomePrimary(c *gc.C) {
 	finished := make(chan struct{})
 	s.pool.EXPECT().IsPrimary("0").DoAndReturn(func(_ interface{}) (bool, error) {
 		// The second isPrimary returns true and marks completion
-		finished <- struct{}{}
+		close(finished)
 		return true, nil
 	})
 
@@ -400,7 +410,7 @@ func (s *workerSuite) TestNotPrimaryButBecomePrimaryByError(c *gc.C) {
 	finished := make(chan struct{})
 	s.pool.EXPECT().IsPrimary("0").DoAndReturn(func(_ interface{}) (bool, error) {
 		// The second isPrimary returns true and marks completion
-		finished <- struct{}{}
+		close(finished)
 		return false, errors.New("Primary has changed")
 	})
 
@@ -447,7 +457,7 @@ func (s *workerSuite) TestNotPrimaryButBecomePrimaryAfter2Checks(c *gc.C) {
 	finished := make(chan struct{})
 	s.pool.EXPECT().IsPrimary("0").DoAndReturn(func(_ interface{}) (bool, error) {
 		// The third isPrimary returns true and marks completion
-		finished <- struct{}{}
+		close(finished)
 		return true, nil
 	})
 
