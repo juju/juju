@@ -959,15 +959,6 @@ func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 	c.Assert(zones[0].Available(), jc.IsTrue)
-
-	// A successful result is cached, currently for the lifetime
-	// of the Environ. This will change if/when we have long-lived
-	// Environs to cut down repeated IaaS requests.
-	s.testMAASObject.TestServer.AddZone("somewhere", "outthere")
-	zones, err = env.AvailabilityZones(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zones, gc.HasLen, 1)
-	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 }
 
 func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[string]interface{}) {
