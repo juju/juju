@@ -648,9 +648,8 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 	s.expectAuthController()
 	s.expectWatchMachinesWithNotify(1)
 	facade := s.facadeAPIForScenario(c)
-	facadev2 := &instancemutater.InstanceMutaterAPIV2{facade}
 
-	result, err := facadev2.WatchMachines()
+	result, err := facade.WatchMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -666,9 +665,8 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	s.expectAuthController()
 	s.expectWatchMachinesWithClosedChannel()
 	facade := s.facadeAPIForScenario(c)
-	facadev2 := &instancemutater.InstanceMutaterAPIV2{facade}
 
-	_, err := facadev2.WatchMachines()
+	_, err := facade.WatchMachines()
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
 }
 

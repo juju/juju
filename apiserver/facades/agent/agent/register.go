@@ -21,7 +21,7 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*AgentAPI)(nil)))
 }
 
-// newAgentAPIV3 returns an object implementing version 2 of the Agent API
+// newAgentAPIV3 returns an object implementing version 3 of the Agent API
 // with the given authorizer representing the currently logged in client.
 func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 	auth := ctx.Auth()
