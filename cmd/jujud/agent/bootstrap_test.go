@@ -218,15 +218,14 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	})
 
 	curl := charm.MustParseURL(controllerCharmURL)
-	channel := corecharm.MakeRiskOnlyChannel("beta")
+	channel := corecharm.MustParseChannel("beta")
 	origin := corecharm.Origin{
 		Source:  corecharm.CharmHub,
-		Type:    "charm",
 		Channel: &channel,
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "NA",
+			Series:       "focal",
 		},
 	}
 
@@ -235,7 +234,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	storeCurl.Series = "focal"
 	storeCurl.Architecture = "amd64"
 	storeOrigin := origin
-	storeOrigin.Platform.Series = "focal"
+	storeOrigin.Type = "charm"
 	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
 
 	origin.Platform.Series = "focal"
