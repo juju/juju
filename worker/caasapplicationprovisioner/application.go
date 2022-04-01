@@ -98,6 +98,28 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
+	// TODO(sidecar): support more than statefulset
+	app := a.broker.Application(a.name, caas.DeploymentStateful)
+
+	// If the application no longer exists, return immediately. If it's in
+	// Dead state, ensure it's deleted and terminated.
+	appLife, err := a.facade.Life(a.name)
+	if errors.IsNotFound(err) {
+		a.logger.Debugf("application %q no longer exists", a.name)
+		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "fetching life status for application %q", a.name)
+	}
+	a.life = appLife
+	if appLife == life.Dead {
+		err := a.dead(app)
+		if err != nil {
+			return errors.Annotatef(err, "deleting application %q", a.name)
+		}
+		return nil
+	}
+
+	// Ensure the charm is upgraded to a v2 charm (or wait for that).
 	shouldExit, err := a.verifyCharmUpgraded()
 	if err != nil {
 		return errors.Trace(err)
@@ -173,10 +195,6 @@ func (a *appWorker) loop() error {
 		return errors.Annotate(err, "failed to set application api passwords")
 	}
 
-	// TODO(sidecar): support more than statefulset
-	app := a.broker.Application(a.name, caas.DeploymentStateful)
-
-	var appLife life.Value
 	var appChanges watcher.NotifyChannel
 	var appStateChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
@@ -215,7 +233,7 @@ func (a *appWorker) loop() error {
 			if appStateChanges == nil {
 				appStateWatcher, err := a.facade.WatchApplication(a.name)
 				if err != nil {
-					return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+					return errors.Annotatef(err, "failed to watch facade for changes to application %q", a.name)
 				}
 				if err := a.catacomb.Add(appStateWatcher); err != nil {
 					return errors.Trace(err)
@@ -259,7 +277,7 @@ func (a *appWorker) loop() error {
 			done = true
 			return nil
 		default:
-			return errors.NotImplementedf("unknown life %d", a.life)
+			return errors.NotImplementedf("unknown life %q", a.life)
 		}
 		return nil
 	}
@@ -379,7 +397,7 @@ func (a *appWorker) charmFormat() (charm.Format, error) {
 func (a *appWorker) verifyCharmUpgraded() (shouldExit bool, err error) {
 	appStateWatcher, err := a.facade.WatchApplication(a.name)
 	if err != nil {
-		return false, errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+		return false, errors.Annotatef(err, "failed to watch for changes to application %q when verifying charm upgrade", a.name)
 	}
 	if err := a.catacomb.Add(appStateWatcher); err != nil {
 		return false, errors.Trace(err)
@@ -610,7 +628,7 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	case life.Dying, life.Dead:
 		desiredScale = 0
 	default:
-		return errors.NotImplementedf("unknown life %d", a.life)
+		return errors.NotImplementedf("unknown life %q", a.life)
 	}
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
@@ -618,11 +636,7 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	if a.life == life.Dead && errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(
-			err,
-			"scaling application %q to desired scale %d",
-			a.name,
-			desiredScale)
+		return errors.Annotatef(err, "scaling application %q to desired scale %d", a.name, desiredScale)
 	}
 
 	return nil
