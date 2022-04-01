@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/debinterfaces"
@@ -37,7 +36,7 @@ func wordExpanderWithError(errmsg string) debinterfaces.WordExpander {
 }
 
 func (w *wordExpanderErrors) Expand(s string) ([]string, error) {
-	return nil, errors.Errorf("word expansion failed: %s", w.errmsg)
+	return nil, fmt.Errorf("word expansion failed: %s", w.errmsg)
 }
 
 func (s *ParserSuite) SetUpTest(c *gc.C) {

@@ -4,6 +4,7 @@
 package kvm_test
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,7 +12,6 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	. "github.com/juju/juju/container/kvm"
@@ -219,7 +219,7 @@ func (commandWrapperSuite) TestDestroyMachineSuccess(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestDestroyMachineFails(c *gc.C) {
-	stub := NewRunStub("", errors.Errorf("Boom"))
+	stub := NewRunStub("", errors.New("Boom"))
 	container := NewTestContainer("aname", stub.Run, nil)
 	err := DestroyMachine(container)
 	c.Check(stub.Calls(), jc.DeepEquals, []string{
@@ -242,7 +242,7 @@ func (commandWrapperSuite) TestAutostartMachineSuccess(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestAutostartMachineFails(c *gc.C) {
-	stub := NewRunStub("", errors.Errorf("Boom"))
+	stub := NewRunStub("", errors.New("Boom"))
 	container := NewTestContainer("aname", stub.Run, nil)
 	err := AutostartMachine(container)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{" virsh autostart aname"})
@@ -269,7 +269,7 @@ func (commandWrapperSuite) TestListMachinesSuccess(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestListMachinesFails(c *gc.C) {
-	stub := NewRunStub("", errors.Errorf("Boom"))
+	stub := NewRunStub("", errors.New("Boom"))
 	got, err := ListMachines(stub.Run)
 	c.Check(err, gc.ErrorMatches, "Boom")
 	c.Check(stub.Calls(), jc.DeepEquals, []string{" virsh -q list --all"})

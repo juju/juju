@@ -3,7 +3,7 @@
 
 package query
 
-import "github.com/pkg/errors"
+import "github.com/juju/errors"
 
 // InvalidIdentifierError creates an invalid error.
 type InvalidIdentifierError struct {
