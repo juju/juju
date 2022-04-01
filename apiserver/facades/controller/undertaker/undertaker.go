@@ -22,17 +22,6 @@ type UndertakerAPI struct {
 	*common.StatusSetter
 }
 
-// NewUndertakerAPI creates a new instance of the undertaker API.
-func NewUndertakerAPI(ctx facade.Context) (*UndertakerAPI, error) {
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth())
-}
-
 func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm

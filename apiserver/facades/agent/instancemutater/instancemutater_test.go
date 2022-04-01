@@ -612,6 +612,35 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) setup(c *gc.C) *gomock.Controller
 	return ctrl
 }
 
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachines(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthMachineAgent()
+	s.expectAuthController()
+	s.expectWatchModelMachinesWithNotify(1)
+	facade := s.facadeAPIForScenario(c)
+
+	result, err := facade.WatchModelMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{"0"},
+	})
+	s.assertNotifyStop(c)
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachinesWithClosedChannel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthMachineAgent()
+	s.expectAuthController()
+	s.expectWatchModelMachinesWithClosedChannel()
+	facade := s.facadeAPIForScenario(c)
+
+	_, err := facade.WatchModelMachines()
+	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
+}
+
 func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -660,11 +689,34 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(tim
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
 
+func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchModelMachinesWithNotify(times int) {
+	ch := make(chan []string)
+
+	go func() {
+		for i := 0; i < times; i++ {
+			ch <- []string{fmt.Sprintf("%d", i)}
+		}
+		close(s.notifyDone)
+	}()
+
+	s.state.EXPECT().WatchModelMachines().Return(s.watcher)
+	s.watcher.EXPECT().Changes().Return(ch)
+	s.resources.EXPECT().Register(s.watcher).Return("1")
+}
+
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChannel() {
 	ch := make(chan []string)
 	close(ch)
 
 	s.state.EXPECT().WatchMachines().Return(s.watcher)
+	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchModelMachinesWithClosedChannel() {
+	ch := make(chan []string)
+	close(ch)
+
+	s.state.EXPECT().WatchModelMachines().Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 

@@ -51,13 +51,6 @@ type MeterStatusAPI struct {
 	resources  facade.Resources
 }
 
-// NewMeterStatusFacade provides the signature required for facade registration.
-func NewMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	return NewMeterStatusAPI(ctx.State(), resources, authorizer)
-}
-
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
 	st MeterStatusState,

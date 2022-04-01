@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
@@ -20,28 +19,12 @@ import (
 
 // API is the concrete implementation of the API endpoint.
 type API struct {
-	check             *common.BlockChecker
 	authorizer        facade.Authorizer
 	apiUser           names.UserTag
 	isControllerAdmin bool
 	st                State
 	model             Model
 	modelCache        ModelCache
-}
-
-// NewModelGenerationFacadeV4 provides the signature required for facade registration.
-func NewModelGenerationFacadeV4(ctx facade.Context) (*API, error) {
-	authorizer := ctx.Auth()
-	st := &stateShim{State: ctx.State()}
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	mc, err := ctx.Controller().Model(st.ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
 }
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.

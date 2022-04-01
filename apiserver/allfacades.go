@@ -6,10 +6,6 @@ package apiserver
 import (
 	"reflect"
 
-	"github.com/juju/errors"
-	"github.com/juju/names/v4"
-
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
@@ -31,7 +27,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
 	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
-	"github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
@@ -46,7 +41,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/application" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/application"
+
+	// ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"   // ModelUser Write
@@ -106,7 +103,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
-	"github.com/juju/juju/state"
 )
 
 // AllFacades returns a registry containing all known API facades.
@@ -116,186 +112,130 @@ import (
 func AllFacades() *facade.Registry {
 	registry := new(facade.Registry)
 
-	reg := func(name string, version int, newFunc interface{}) {
-		err := registry.RegisterStandard(name, version, newFunc)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	regRaw := func(name string, version int, factory facade.Factory, facadeType reflect.Type) {
-		err := registry.Register(name, version, factory, facadeType)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	regHookContext := func(name string, version int, newHookContextFacade hookContextFacadeFn, facadeType reflect.Type) {
-		err := regHookContextFacade(registry, name, version, newHookContextFacade, facadeType)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	reg("Action", 7, action.NewActionAPIV7)
-	reg("ActionPruner", 1, actionpruner.NewAPI)
-	reg("Agent", 3, agent.NewAgentAPIV3)
-	reg("AgentTools", 1, agenttools.NewFacade)
-	reg("Annotations", 2, annotations.NewAPI)
-
-	reg("Application", 13, application.NewFacadeV13)
-
-	reg("ApplicationOffers", 4, applicationoffers.NewOffersAPIV4)
-	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
-	reg("Backups", 3, backups.NewFacadeV3)
-	reg("Block", 2, block.NewAPI)
-	reg("Bundle", 6, bundle.NewFacadeV6)
-	reg("CharmDownloader", 1, charmdownloader.NewFacadeV1)
-	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
-	reg("Charms", 4, charms.NewFacadeV4)
-	reg("Cleaner", 2, cleaner.NewCleanerAPI)
-	reg("Client", 5, client.NewFacade)
-	reg("Cloud", 7, cloud.NewFacadeV7)
+	action.Register(registry)
+	actionpruner.Register(registry)
+	agent.Register(registry)
+	agenttools.Register(registry)
+	annotations.Register(registry)
+	application.Register(registry)
+	applicationoffers.Register(registry)
+	applicationscaler.Register(registry)
+	backups.Register(registry)
+	block.Register(registry)
+	bundle.Register(registry)
+	charmdownloader.Register(registry)
+	charmrevisionupdater.Register(registry)
+	charms.Register(registry)
+	cleaner.Register(registry)
+	client.Register(registry)
+	cloud.Register(registry)
 
 	// CAAS related facades.
-	// Move these to the correct place above once the feature flag disappears.
-	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacadeLegacy)
-	reg("CAASFirewallerEmbedded", 1, caasfirewaller.NewStateFacadeSidecar) // TODO(juju3): rename to CAASFirewallerSidecar
-	reg("CAASOperator", 1, caasoperator.NewStateFacade)
-	reg("CAASAdmission", 1, caasadmission.NewStateFacade)
-	reg("CAASAgent", 2, caasagent.NewStateFacadeV2)
-	reg("CAASModelOperator", 1, caasmodeloperator.NewAPIFromContext)
-	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
-	reg("CAASOperatorUpgrader", 1, caasoperatorupgrader.NewStateCAASOperatorUpgraderAPI)
-	reg("CAASUnitProvisioner", 2, caasunitprovisioner.NewStateFacade)
-	reg("CAASApplication", 1, caasapplication.NewStateFacade)
-	reg("CAASApplicationProvisioner", 1, caasapplicationprovisioner.NewStateCAASApplicationProvisionerAPI)
-	reg("CAASModelConfigManager", 1, caasmodelconfigmanager.NewFacade)
+	caasadmission.Register(registry)
+	caasagent.Register(registry)
+	caasapplication.Register(registry)
+	caasapplicationprovisioner.Register(registry)
+	caasfirewaller.Register(registry)
+	caasoperator.Register(registry)
+	caasmodeloperator.Register(registry)
+	caasmodelconfigmanager.Register(registry)
+	caasoperatorprovisioner.Register(registry)
+	caasoperatorupgrader.Register(registry)
+	caasunitprovisioner.Register(registry)
 
-	reg("Controller", 11, controller.NewControllerAPIv11)
-	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI)
-	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
-	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
-	reg("CredentialValidator", 2, credentialvalidator.NewCredentialValidatorAPI)
-	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
+	controller.Register(registry)
+	crossmodelrelations.Register(registry)
+	crosscontroller.Register(registry)
+	credentialmanager.Register(registry)
+	credentialvalidator.Register(registry)
+	externalcontrollerupdater.Register(registry)
+	deployer.Register(registry)
+	diskmanager.Register(registry)
+	fanconfigurer.Register(registry)
+	firewaller.Register(registry)
+	firewallrules.Register(registry)
+	highavailability.Register(registry)
+	hostkeyreporter.Register(registry)
+	imagemanager.Register(registry)
+	imagemetadata.Register(registry)
+	imagemetadatamanager.Register(registry)
+	instancemutater.Register(registry)
+	instancepoller.Register(registry)
+	keymanager.Register(registry)
+	keyupdater.Register(registry)
+	leadership.Register(registry)
+	lifeflag.Register(registry)
+	loggerapi.Register(registry)
+	logfwd.Register(registry)
+	machineactions.Register(registry)
+	machinemanager.Register(registry)
+	machineundertaker.Register(registry)
+	machine.Register(registry)
+	meterstatus.Register(registry)
+	metricsadder.Register(registry)
+	metricsdebug.Register(registry)
+	metricsmanager.Register(registry)
+	migrationflag.Register(registry)
+	migrationmaster.Register(registry)
+	migrationminion.Register(registry)
+	migrationtarget.Register(registry)
+	modelconfig.Register(registry)
+	modelgeneration.Register(registry)
+	modelmanager.Register(registry)
+	modelupgrader.Register(registry)
+	payloads.Register(registry)
+	provisioner.Register(registry)
+	proxyupdater.Register(registry)
+	raftlease.Register(registry)
+	reboot.Register(registry)
+	remoterelations.Register(registry)
+	resources.Register(registry)
+	resourceshookcontext.Register(registry)
+	resumer.Register(registry)
+	retrystrategy.Register(registry)
+	singular.Register(registry)
+	secrets.Register(registry)
+	secretsmanager.Register(registry)
+	sshclient.Register(registry)
+	spaces.Register(registry)
+	statushistory.Register(registry)
+	storage.Register(registry)
+	storageprovisioner.Register(registry)
+	subnets.Register(registry)
+	undertaker.Register(registry)
+	unitassigner.Register(registry)
+	uniter.Register(registry)
+	upgrader.Register(registry)
+	upgradeseries.Register(registry)
+	upgradesteps.Register(registry)
+	usermanager.Register(registry)
 
-	reg("Deployer", 1, deployer.NewDeployerAPI)
-	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
-	reg("FanConfigurer", 1, fanconfigurer.NewFanConfigurerAPI)
-	reg("Firewaller", 7, firewaller.NewFirewallerAPIV7)
-	reg("FirewallRules", 1, firewallrules.NewFacade)
-	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
-	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
-	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
-	reg("ImageMetadata", 3, imagemetadata.NewAPI)
+	// TODO (stickupkid): The following should be moved into a package.
+	registry.MustRegister("Pinger", 1, func(ctx facade.Context) (facade.Facade, error) {
+		return NewPinger(ctx)
+	}, reflect.TypeOf((*Pinger)(nil)).Elem())
 
-	reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
-
-	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)
-
-	reg("InstancePoller", 4, instancepoller.NewFacade)
-	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
-	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
-
-	reg("LeadershipService", 2, leadership.NewLeadershipServiceFacade)
-
-	reg("LifeFlag", 1, lifeflag.NewExternalFacade)
-	reg("Logger", 1, loggerapi.NewLoggerAPI)
-	reg("LogForwarding", 1, logfwd.NewFacade)
-	reg("MachineActions", 1, machineactions.NewExternalFacade)
-
-	reg("MachineManager", 6, machinemanager.NewFacadeV6)
-
-	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
-	reg("Machiner", 5, machine.NewMachinerAPI)
-
-	reg("MeterStatus", 2, meterstatus.NewMeterStatusFacade)
-	reg("MetricsAdder", 2, metricsadder.NewMetricsAdderAPI)
-	reg("MetricsDebug", 2, metricsdebug.NewMetricsDebugAPI)
-	reg("MetricsManager", 1, metricsmanager.NewFacade)
-
-	reg("MigrationFlag", 1, migrationflag.NewFacade)
-	reg("MigrationMaster", 1, migrationmaster.NewMigrationMasterFacadeV1)
-	reg("MigrationMaster", 2, migrationmaster.NewMigrationMasterFacadeV2)
-	reg("MigrationMaster", 3, migrationmaster.NewMigrationMasterFacade) // Adds MinionReportTimeout.
-	reg("MigrationMinion", 1, migrationminion.NewFacade)
-	reg("MigrationTarget", 1, migrationtarget.NewFacade)
-
-	reg("ModelConfig", 2, modelconfig.NewFacadeV2)
-	reg("ModelGeneration", 4, modelgeneration.NewModelGenerationFacadeV4)
-	reg("ModelManager", 9, modelmanager.NewFacadeV9)
-	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
-
-	reg("Payloads", 1, payloads.NewFacade)
-	regHookContext(
-		"PayloadsHookContext", 1,
-		payloadshookcontext.NewHookContextFacade,
-		reflect.TypeOf(&payloadshookcontext.UnitFacade{}),
-	)
-
-	reg("Pinger", 1, NewPinger)
-	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11)
-
-	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
-
-	reg("RaftLease", 1, raftlease.NewFacadeV1)
-	reg("RaftLease", 2, raftlease.NewFacadeV2)
-
-	reg("Reboot", 2, reboot.NewRebootAPI)
-	reg("RemoteRelations", 2, remoterelations.NewAPI)
-
-	reg("Resources", 2, resources.NewFacadeV2)
-	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
-
-	reg("Resumer", 2, resumer.NewResumerAPI)
-	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
-	reg("Singular", 2, singular.NewExternalFacade)
-	reg("Secrets", 1, secrets.NewSecretsAPI)
-	reg("SecretsManager", 1, secretsmanager.NewSecretManagerAPI)
-
-	reg("SSHClient", 3, sshclient.NewFacade)
-
-	reg("Spaces", 6, spaces.NewAPI)
-
-	reg("StatusHistory", 2, statushistory.NewAPI)
-
-	reg("Storage", 6, storage.NewStorageAPI) // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
-
-	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
-	reg("Subnets", 4, subnets.NewAPI) // Adds SubnetsByCIDR; removes AllSpaces.
-	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
-	reg("UnitAssigner", 1, unitassigner.New)
-
-	reg("Uniter", 18, uniter.NewUniterAPI)
-
-	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
-
-	reg("UpgradeSeries", 3, upgradeseries.NewAPI)
-
-	reg("UpgradeSteps", 2, upgradesteps.NewFacadeV2)
-	reg("UserManager", 2, usermanager.NewUserManagerAPI)
-
-	regRaw("AllWatcher", 1, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
-	regRaw("AllWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
+	registry.MustRegister("AllWatcher", 1, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
+	registry.MustRegister("AllWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
 	// but they are get under separate names as it possible the may
 	// diverge in the future (especially in terms of authorisation
 	// checks).
-	regRaw("AllModelWatcher", 2, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
-	regRaw("AllModelWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
-	regRaw("NotifyWatcher", 1, newNotifyWatcher, reflect.TypeOf((*srvNotifyWatcher)(nil)))
-	regRaw("StringsWatcher", 1, newStringsWatcher, reflect.TypeOf((*srvStringsWatcher)(nil)))
-	regRaw("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))
-	regRaw("RelationStatusWatcher", 1, newRelationStatusWatcher, reflect.TypeOf((*srvRelationStatusWatcher)(nil)))
-	regRaw("RelationUnitsWatcher", 1, newRelationUnitsWatcher, reflect.TypeOf((*srvRelationUnitsWatcher)(nil)))
-	regRaw("RemoteRelationWatcher", 1, newRemoteRelationWatcher, reflect.TypeOf((*srvRemoteRelationWatcher)(nil)))
-	regRaw("VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
-	regRaw("VolumeAttachmentPlansWatcher", 1, newVolumeAttachmentPlansWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
-	regRaw("FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
-	regRaw("EntityWatcher", 2, newEntitiesWatcher, reflect.TypeOf((*srvEntitiesWatcher)(nil)))
-	regRaw("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
-	regRaw("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
-	regRaw("SecretsRotationWatcher", 1, newSecretsRotationWatcher, reflect.TypeOf((*srvSecretRotationWatcher)(nil)))
+	registry.MustRegister("AllModelWatcher", 2, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
+	registry.MustRegister("AllModelWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
+	registry.MustRegister("NotifyWatcher", 1, newNotifyWatcher, reflect.TypeOf((*srvNotifyWatcher)(nil)))
+	registry.MustRegister("StringsWatcher", 1, newStringsWatcher, reflect.TypeOf((*srvStringsWatcher)(nil)))
+	registry.MustRegister("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))
+	registry.MustRegister("RelationStatusWatcher", 1, newRelationStatusWatcher, reflect.TypeOf((*srvRelationStatusWatcher)(nil)))
+	registry.MustRegister("RelationUnitsWatcher", 1, newRelationUnitsWatcher, reflect.TypeOf((*srvRelationUnitsWatcher)(nil)))
+	registry.MustRegister("RemoteRelationWatcher", 1, newRemoteRelationWatcher, reflect.TypeOf((*srvRemoteRelationWatcher)(nil)))
+	registry.MustRegister("VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
+	registry.MustRegister("VolumeAttachmentPlansWatcher", 1, newVolumeAttachmentPlansWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
+	registry.MustRegister("FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
+	registry.MustRegister("EntityWatcher", 2, newEntitiesWatcher, reflect.TypeOf((*srvEntitiesWatcher)(nil)))
+	registry.MustRegister("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
+	registry.MustRegister("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
+	registry.MustRegister("SecretsRotationWatcher", 1, newSecretsRotationWatcher, reflect.TypeOf((*srvSecretRotationWatcher)(nil)))
 
 	return registry
 }
@@ -321,46 +261,4 @@ func AdminFacadeDetails() []facade.Details {
 		})
 	}
 	return fs
-}
-
-type hookContextFacadeFn func(*state.State, *state.Unit) (interface{}, error)
-
-// regHookContextFacade registers facades for use within a hook
-// context. This function handles the translation from a
-// hook-context-facade to a standard facade so the caller's factory
-// method can elide unnecessary arguments. This function also handles
-// any necessary authorization for the client.
-//
-// XXX(fwereade): this is fundamentally broken, because it (1)
-// arbitrarily creates a new facade for a tiny fragment of a specific
-// client worker's reponsibilities and (2) actively conceals necessary
-// auth information from the facade. Don't call it; actively work to
-// delete code that uses it, and rewrite it properly.
-func regHookContextFacade(
-	reg *facade.Registry,
-	name string,
-	version int,
-	newHookContextFacade hookContextFacadeFn,
-	facadeType reflect.Type,
-) error {
-	newFacade := func(context facade.Context) (facade.Facade, error) {
-		authorizer := context.Auth()
-		st := context.State()
-
-		if !authorizer.AuthUnitAgent() {
-			return nil, apiservererrors.ErrPerm
-		}
-		// Verify that the unit's ID matches a unit that we know about.
-		tag := authorizer.GetAuthTag()
-		if _, ok := tag.(names.UnitTag); !ok {
-			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
-		}
-		unit, err := st.Unit(tag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return newHookContextFacade(st, unit)
-	}
-	err := reg.Register(name, version, newFacade, facadeType)
-	return errors.Trace(err)
 }

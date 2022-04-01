@@ -226,6 +226,20 @@ func (mr *MockInstanceMutaterStateMockRecorder) WatchMachines() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachines", reflect.TypeOf((*MockInstanceMutaterState)(nil).WatchMachines))
 }
 
+// WatchModelMachines mocks base method.
+func (m *MockInstanceMutaterState) WatchModelMachines() state.StringsWatcher {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchModelMachines")
+	ret0, _ := ret[0].(state.StringsWatcher)
+	return ret0
+}
+
+// WatchModelMachines indicates an expected call of WatchModelMachines.
+func (mr *MockInstanceMutaterStateMockRecorder) WatchModelMachines() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachines", reflect.TypeOf((*MockInstanceMutaterState)(nil).WatchModelMachines))
+}
+
 // WatchUnits mocks base method.
 func (m *MockInstanceMutaterState) WatchUnits() state.StringsWatcher {
 	m.ctrl.T.Helper()

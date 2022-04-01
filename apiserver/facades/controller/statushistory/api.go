@@ -4,8 +4,6 @@
 package statushistory
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -19,20 +17,6 @@ type API struct {
 	cancel     <-chan struct{}
 	st         *state.State
 	authorizer facade.Authorizer
-}
-
-// NewAPI returns an API Instance.
-func NewAPI(ctx facade.Context) (*API, error) {
-	m, err := Model(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &API{
-		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), ctx.Auth()),
-		st:           ctx.State(),
-		authorizer:   ctx.Auth(),
-		cancel:       ctx.Cancel(),
-	}, nil
 }
 
 // Model returns the model for a context (override for tests).

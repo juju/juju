@@ -28,15 +28,6 @@ type API struct {
 	leadership *common.LeadershipPinning
 }
 
-// NewAPI creates a new instance of the API with the given context
-func NewAPI(ctx facade.Context) (*API, error) {
-	leadership, err := common.NewLeadershipPinningFromContext(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership)
-}
-
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
 // dedicated state indirection.
 func NewUpgradeSeriesAPI(

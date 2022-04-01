@@ -35,16 +35,6 @@ type InstancePollerAPI struct {
 	clock         clock.Clock
 }
 
-// NewFacade wraps NewInstancePollerAPI for facade registration.
-func NewFacade(ctx facade.Context) (*InstancePollerAPI, error) {
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewInstancePollerAPI(st, m, ctx.Resources(), ctx.Auth(), clock.WallClock)
-}
-
 // NewInstancePollerAPI creates a new server-side InstancePoller API
 // facade.
 func NewInstancePollerAPI(

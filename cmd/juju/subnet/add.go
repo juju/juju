@@ -34,11 +34,8 @@ type AddCommand struct {
 }
 
 const addCommandDoc = `
-Adds an existing subnet to Juju, making it available for use. Unlike
-"juju create-subnet", this command does not create a new subnet, so it
-is supported on a wider variety of clouds (where SDN features are not
-available, e.g. MAAS). The subnet will be associated with the given
-existing Juju network space.
+Adds an existing subnet to Juju, making it available for use. The subnet
+will be associated with the given existing Juju network space.
 
 Subnets can be referenced by either their CIDR or ProviderId (if the
 provider supports it). If CIDR is used an multiple subnets have the

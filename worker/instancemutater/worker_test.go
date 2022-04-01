@@ -527,7 +527,7 @@ func (s *workerSuite) notifyMachines(values [][]string) {
 	s.machinesWorker.EXPECT().Kill().AnyTimes()
 	s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-	s.facade.EXPECT().WatchMachines().Return(
+	s.facade.EXPECT().WatchModelMachines().Return(
 		&fakeStringsWatcher{
 			Worker: s.machinesWorker,
 			ch:     ch,
@@ -548,7 +548,7 @@ func (s *workerSuite) notifyMachinesWaitGroup(values [][]string, group *sync.Wai
 	s.machinesWorker.EXPECT().Kill().AnyTimes()
 	s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-	s.facade.EXPECT().WatchMachines().Return(
+	s.facade.EXPECT().WatchModelMachines().Return(
 		&fakeStringsWatcher{
 			Worker: s.machinesWorker,
 			ch:     ch,

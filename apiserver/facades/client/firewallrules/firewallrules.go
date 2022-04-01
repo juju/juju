@@ -8,7 +8,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/network/firewall"
@@ -24,20 +23,6 @@ type API struct {
 	backend    Backend
 	authorizer facade.Authorizer
 	check      BlockChecker
-}
-
-// NewFacade provides the signature required for facade registration.
-func NewFacade(ctx facade.Context) (*API, error) {
-	backend, err := NewStateBackend(ctx.State())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state")
-	}
-	blockChecker := common.NewBlockChecker(ctx.State())
-	return NewAPI(
-		backend,
-		ctx.Auth(),
-		blockChecker,
-	)
 }
 
 // NewAPI returns a new firewallrules API facade.

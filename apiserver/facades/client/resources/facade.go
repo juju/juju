@@ -46,7 +46,7 @@ type API struct {
 
 // NewFacadeV2 creates a public API facade for resources. It is
 // used for API registration.
-func NewFacadeV2(ctx facade.Context) (*API, error) {
+func NewFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

@@ -52,12 +52,6 @@ type UpgradeStepsAPIV1 struct {
 
 var _ UpgradeStepsV2 = (*UpgradeStepsAPI)(nil)
 
-// NewFacadeV2 is used for API registration.
-func NewFacadeV2(ctx facade.Context) (*UpgradeStepsAPI, error) {
-	st := &upgradeStepsStateShim{State: ctx.State()}
-	return NewUpgradeStepsAPI(st, ctx.Resources(), ctx.Auth())
-}
-
 func NewUpgradeStepsAPI(st UpgradeStepsState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

@@ -553,13 +553,15 @@ func (w *machineLXDProfileWatcher) provisionedChange() error {
 	if err != nil {
 		return err
 	}
-	instanceID, err := m.InstanceId()
-	if err != nil {
+	_, err = m.InstanceId()
+	if errors.IsNotProvisioned(err) {
+		logger.Debugf("machine-%s not provisioned yet", w.machine.Id())
+		return nil
+	} else if err != nil {
+		logger.Criticalf("%q.provisionedChange error getting instanceID: %s", w.machine.Id(), err)
 		return err
 	}
-	if w.machine.Id() == string(instanceID) {
-		w.provisioned = true
-	}
+	w.provisioned = true
 
 	logger.Debugf("notifying due to machine-%s now provisioned", w.machine.Id())
 	w.notify()

@@ -5,11 +5,12 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+	worker "github.com/juju/worker/v3"
+
 	"github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
-	"github.com/juju/names/v4"
-	worker "github.com/juju/worker/v3"
 )
 
 func NewMachineContext(
@@ -35,7 +36,7 @@ func NewMachineContext(
 }
 
 func NewEnvironTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
-	config.GetMachineWatcher = config.Facade.WatchMachines
+	config.GetMachineWatcher = config.Facade.WatchModelMachines
 	config.GetRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-" + modelName}
 	}

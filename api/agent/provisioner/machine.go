@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/agent/provisioner MachineProvisioner
 
 // MachineProvisioner defines what provisioner needs to provision a machine.
 type MachineProvisioner interface {

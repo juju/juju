@@ -63,7 +63,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 		}, {
 			desc:       "get multiple fails",
 			args:       []string{"one", "two"},
-			errorMatch: "can only retrieve a single value, or all values",
+			errorMatch: `arg "one" is not a key-value pair or a filename`,
 		}, {
 			// test variations
 			desc:   "test reset interspersed",

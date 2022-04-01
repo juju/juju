@@ -23,11 +23,6 @@ type CredentialManagerAPI struct {
 
 var _ CredentialManager = (*CredentialManagerAPI)(nil)
 
-// NewCredentialManagerAPI creates a new CredentialManager API endpoint on server-side.
-func NewCredentialManagerAPI(ctx facade.Context) (*CredentialManagerAPI, error) {
-	return internalNewCredentialManagerAPI(newStateShim(ctx.State()), ctx.Resources(), ctx.Auth())
-}
-
 func internalNewCredentialManagerAPI(backend credentialcommon.StateBackend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialManagerAPI, error) {
 	if authorizer.GetAuthTag() == nil || !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

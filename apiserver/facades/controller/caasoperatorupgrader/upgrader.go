@@ -4,7 +4,6 @@
 package caasoperatorupgrader
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.controller.caasoperatorupgrader")
@@ -21,20 +19,6 @@ type API struct {
 	auth facade.Authorizer
 
 	broker caas.Upgrader
-}
-
-// NewStateCAASOperatorUpgraderAPI provides the signature required for facade registration.
-func NewStateCAASOperatorUpgraderAPI(ctx facade.Context) (*API, error) {
-	authorizer := ctx.Auth()
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting caas client")
-	}
-	return NewCAASOperatorUpgraderAPI(authorizer, broker)
 }
 
 // NewCAASOperatorUpgraderAPI returns a new CAAS operator upgrader API facade.

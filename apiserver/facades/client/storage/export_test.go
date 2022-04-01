@@ -8,7 +8,7 @@ var (
 	ValidateNameCriteria     = (*StorageAPI).validateNameCriteria
 	ValidateProviderCriteria = (*StorageAPI).validateProviderCriteria
 	EnsureStoragePoolFilter  = (*StorageAPI).ensureStoragePoolFilter
-	NewStorageAPIForTest     = newStorageAPI
+	NewStorageAPIForTest     = NewStorageAPI
 )
 
 type (

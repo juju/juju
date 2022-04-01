@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -475,9 +476,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.Child("leadership"),
 			),
 			CreatedRelations: relation.NewCreatedRelationResolver(
-				u.relationStateTracker, u.logger.Child("relation")),
+				u.relationStateTracker, u.logger.ChildWithLabels("relation", corelogger.CMR)),
 			Relations: relation.NewRelationResolver(
-				u.relationStateTracker, u.unit, u.logger.Child("relation")),
+				u.relationStateTracker, u.unit, u.logger.ChildWithLabels("relation", corelogger.CMR)),
 			Storage: storage.NewResolver(
 				u.logger.Child("storage"), u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(

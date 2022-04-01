@@ -9,44 +9,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 // This file contains untested shims to let us wrap state in a sensible
 // interface and avoid writing tests that depend on mongodb. If you were
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
-
-// NewFacadeV4 provides the signature required for facade registration.
-func NewFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		model,
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
-
-	backend, storageBackend, err := NewStateBackends(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewStorageProvisionerAPIv4(backend, storageBackend, ctx.Resources(), ctx.Auth(), registry, pm)
-}
 
 type Backend interface {
 	state.EntityFinder

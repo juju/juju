@@ -24733,7 +24733,7 @@
     {
         "Name": "InstanceMutater",
         "Description": "",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent"
@@ -24833,6 +24833,15 @@
                         }
                     },
                     "description": "WatchMachines starts a watcher to track machines.\nWatchMachines does not consume the initial event of the watch response, as\nthat returns the initial set of machines that are currently available."
+                },
+                "WatchModelMachines": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchModelMachines starts a watcher to track machines, but not containers.\nWatchModelMachines does not consume the initial event of the watch response, as\nthat returns the initial set of machines that are currently available."
                 }
             },
             "definitions": {

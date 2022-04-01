@@ -179,15 +179,6 @@ type ProvisionerAPIV11 struct {
 	*ProvisionerAPI
 }
 
-// NewProvisionerAPIV11 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV11(ctx facade.Context) (*ProvisionerAPIV11, error) {
-	provisionerAPI, err := NewProvisionerAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ProvisionerAPIV11{provisionerAPI}, nil
-}
-
 func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm

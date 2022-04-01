@@ -64,30 +64,12 @@ type ControllerAPI struct {
 
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
-var LatestAPI = NewControllerAPIv11
+var LatestAPI = newControllerAPIv11
 
-// NewControllerAPIv11 creates a new ControllerAPIv11
-func NewControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
-	st := ctx.State()
-	authorizer := ctx.Auth()
-	pool := ctx.StatePool()
-	resources := ctx.Resources()
-	presence := ctx.Presence()
-	hub := ctx.Hub()
-	factory := ctx.MultiwatcherFactory()
-	controller := ctx.Controller()
-
-	return NewControllerAPI(
-		st,
-		pool,
-		authorizer,
-		resources,
-		presence,
-		hub,
-		factory,
-		controller,
-	)
-}
+// TestingAPI is an escape hatch for requesting a controller API that won't
+// allow auth to correctly happen for ModelStatus. I'm not convicned this
+// should exist at all.
+var TestingAPI = LatestAPI
 
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.

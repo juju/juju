@@ -50,19 +50,6 @@ type instanceMutatorWatcher struct {
 	st InstanceMutaterState
 }
 
-// using apiserver/facades/client/cloud as an example.
-var (
-	_ InstanceMutaterV2 = (*InstanceMutaterAPI)(nil)
-)
-
-// NewFacadeV2 is used for API registration.
-func NewFacadeV2(ctx facade.Context) (*InstanceMutaterAPI, error) {
-	st := &instanceMutaterStateShim{State: ctx.State()}
-
-	watcher := &instanceMutatorWatcher{st: st}
-	return NewInstanceMutaterAPI(st, watcher, ctx.Resources(), ctx.Auth())
-}
-
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
 func NewInstanceMutaterAPI(st InstanceMutaterState,
@@ -189,6 +176,25 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 	}
 
 	watch := api.st.WatchMachines()
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = api.resources.Register(watch)
+		result.Changes = changes
+	} else {
+		return result, errors.Errorf("cannot obtain initial model machines")
+	}
+	return result, nil
+}
+
+// WatchModelMachines starts a watcher to track machines, but not containers.
+// WatchModelMachines does not consume the initial event of the watch response, as
+// that returns the initial set of machines that are currently available.
+func (api *InstanceMutaterAPI) WatchModelMachines() (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	if !api.authorizer.AuthController() {
+		return result, apiservererrors.ErrPerm
+	}
+
+	watch := api.st.WatchModelMachines()
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = api.resources.Register(watch)
 		result.Changes = changes

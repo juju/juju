@@ -60,17 +60,6 @@ type API struct {
 	context    context.ProviderCallContext
 }
 
-// NewAPI creates a new Subnets API server-side facade with a
-// state.State backing.
-func NewAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	stateShim, err := NewStateShim(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newAPIWithBacking(stateShim, context.CallContext(st), ctx.Resources(), ctx.Auth())
-}
-
 func (api *API) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
