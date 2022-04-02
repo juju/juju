@@ -6,7 +6,7 @@ package raft
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
+	"github.com/juju/errors"
 )
 
 // NotLeaderError creates a typed error for when a raft operation is applied,

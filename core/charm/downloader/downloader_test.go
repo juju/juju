@@ -4,6 +4,7 @@
 package downloader
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/url"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
