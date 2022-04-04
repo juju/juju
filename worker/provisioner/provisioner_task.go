@@ -220,7 +220,7 @@ func (task *provisionerTask) loop() (taskErr error) {
 				return errors.New("machine watcher closed channel")
 			}
 			if err := task.processMachines(ctx, ids); err != nil {
-				return errors.Annotate(err, "failed to process updated machines")
+				return errors.Annotate(err, "processing updated machines")
 			}
 
 			task.notifyEventProcessedCallback(eventTypeProcessedMachines)
@@ -251,13 +251,13 @@ func (task *provisionerTask) loop() (taskErr error) {
 			if harvestMode.HarvestUnknown() {
 				task.logger.Infof("harvesting unknown machines")
 				if err := task.processMachines(ctx, nil); err != nil {
-					return errors.Annotate(err, "failed to process machines after safe mode disabled")
+					return errors.Annotate(err, "processing machines after safe mode disabled")
 				}
 				task.notifyEventProcessedCallback(eventTypeProcessedMachines)
 			}
 		case <-task.retryChanges:
 			if err := task.processMachinesWithTransientErrors(ctx); err != nil {
-				return errors.Annotate(err, "failed to process machines with transient errors")
+				return errors.Annotate(err, "processing machines with transient errors")
 			}
 			task.notifyEventProcessedCallback(eventTypeRetriedMachinesWithErrors)
 		case <-task.wp.Done():
@@ -371,7 +371,7 @@ func instanceIds(instances []instances.Instance) []string {
 func (task *provisionerTask) populateMachineMaps(ctx context.ProviderCallContext, ids []string) error {
 	allInstances, err := task.broker.AllRunningInstances(ctx)
 	if err != nil {
-		return errors.Annotate(err, "failed to get all instances from broker")
+		return errors.Annotate(err, "getting all instances from broker")
 	}
 
 	instances := make(map[instance.Id]instances.Instance)
@@ -390,7 +390,7 @@ func (task *provisionerTask) populateMachineMaps(ctx context.ProviderCallContext
 	}
 	machines, err := task.machineGetter.Machines(machineTags...)
 	if err != nil {
-		return errors.Annotatef(err, "failed to get machines %v", ids)
+		return errors.Annotatef(err, "getting machines %v", ids)
 	}
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
@@ -402,7 +402,7 @@ func (task *provisionerTask) populateMachineMaps(ctx context.ProviderCallContext
 			task.logger.Debugf("machine %q not found in state", ids[i])
 			delete(task.machines, ids[i])
 		default:
-			return errors.Annotatef(result.Err, "failed to get machine %v", ids[i])
+			return errors.Annotatef(result.Err, "getting machine %v", ids[i])
 		}
 	}
 	return nil
@@ -474,11 +474,11 @@ func classifyMachine(logger Logger, machine ClassifiableMachine) (
 		if _, err := machine.InstanceId(); err == nil {
 			return None, nil
 		} else if !params.IsCodeNotProvisioned(err) {
-			return None, errors.Annotatef(err, "failed to load dying machine id:%s, details:%v", machine.Id(), machine)
+			return None, errors.Annotatef(err, "loading dying machine id:%s, details:%v", machine.Id(), machine)
 		}
 		logger.Infof("killing dying, unprovisioned machine %q", machine)
 		if err := machine.EnsureDead(); err != nil {
-			return None, errors.Annotatef(err, "failed to ensure machine dead id:%s, details:%v", machine.Id(), machine)
+			return None, errors.Annotatef(err, "ensuring machine dead id:%s, details:%v", machine.Id(), machine)
 		}
 		fallthrough
 	case life.Dead:
@@ -487,7 +487,7 @@ func classifyMachine(logger Logger, machine ClassifiableMachine) (
 	instId, err := machine.InstanceId()
 	if err != nil {
 		if !params.IsCodeNotProvisioned(err) {
-			return None, errors.Annotatef(err, "failed to load machine id:%s, details:%v", machine.Id(), machine)
+			return None, errors.Annotatef(err, "loading machine id:%s, details:%v", machine.Id(), machine)
 		}
 		machineStatus, _, err := machine.Status()
 		if err != nil {
@@ -745,7 +745,7 @@ func (task *provisionerTask) doStopInstances(ctx context.ProviderCallContext, in
 		ids[i] = inst.Id()
 	}
 	if err := task.broker.StopInstances(ctx, ids...); err != nil {
-		return errors.Annotate(err, "broker failed to stop instances")
+		return errors.Annotate(err, "stopping instances")
 	}
 	return nil
 }
@@ -758,7 +758,7 @@ func (task *provisionerTask) constructInstanceConfig(
 
 	apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to setup authentication")
+		return nil, errors.Annotate(err, "setting up authentication")
 	}
 
 	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
@@ -766,7 +766,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	// is running on, while the second part is a random UUID.
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
+		return nil, errors.Annotate(err, "generating nonce for machine "+machine.Id())
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
@@ -1197,7 +1197,7 @@ func (task *provisionerTask) setErrorStatus(msg string, machine apiprovisioner.M
 	errForStatus := errors.Cause(err)
 	if err2 := machine.SetInstanceStatus(status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
 		// Something is wrong with this machine, better report it back.
-		return errors.Annotatef(err2, "cannot set error status for machine %q", machine)
+		return errors.Annotatef(err2, "setting error status for machine %q", machine)
 	}
 	return nil
 }
@@ -1355,12 +1355,12 @@ func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, mac
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
-			task.logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
+			task.logger.Errorf("%v", errors.Annotate(err2, "setting machine status"))
 		}
 		if err2 := task.broker.StopInstances(ctx, instanceID); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
-		return errors.Annotate(err, "cannot set instance info")
+		return errors.Annotate(err, "setting instance info")
 	}
 
 	task.logger.Infof(
@@ -1402,7 +1402,7 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 
 	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Series, arch)
 	if err != nil {
-		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find agent binaries for machine %q", machine)
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
 	}
 
 	startInstanceParams, err := task.constructStartInstanceParams(
@@ -1413,7 +1413,7 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		possibleTools,
 	)
 	if err != nil {
-		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot construct params for machine %q", machine)
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "constructing params for machine %q", machine)
 	}
 
 	return startInstanceParams, nil
