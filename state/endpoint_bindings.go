@@ -536,7 +536,7 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 	default:
 		logger.Errorf("%s", namesErr)
 		logger.Errorf("%s", idErr)
-		return nil, errors.NotFoundf("space")
+		return nil, namesErr
 	}
 
 	return &Bindings{st: st, bindingsMap: newMap}, err
@@ -545,7 +545,7 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 func allOfOne(foundValue func(string) bool, givenMap map[string]string, allowEmptyValues bool) error {
 	for k, v := range givenMap {
 		if !foundValue(v) && (v != "" || (v == "" && !allowEmptyValues)) {
-			return errors.NotFoundf("endpoint %q, value %q, space name or id", k, v)
+			return errors.NotFoundf("space with name/id %q (endpoint %q)", v, k)
 		}
 	}
 	return nil

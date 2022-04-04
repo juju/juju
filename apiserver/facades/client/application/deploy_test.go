@@ -242,7 +242,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 				"db": "42", //unknown space id
 			},
 		})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space with name/id "42" (endpoint "db") not found`)
 	c.Check(app, gc.IsNil)
 	// The application should not have been added
 	_, err = s.State.Application("bob")

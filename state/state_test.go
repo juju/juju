@@ -1972,7 +1972,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 	}{{ // 0
 		about:         "extra endpoint bound to unknown space",
 		bindings:      map[string]string{"extra": "4"},
-		expectedError: `space not found`,
+		expectedError: `space with name/id "4" (endpoint "extra") not found`,
 		errorType:     errors.IsNotFound,
 	}, { // 1
 		about:         "extra endpoint not bound to a space",
@@ -1987,17 +1987,17 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 	}, { // 3
 		about:         "empty endpoint bound to unknown space",
 		bindings:      map[string]string{"": "anything"},
-		expectedError: `space not found`,
+		expectedError: `space with name/id "anything" (endpoint "") not found`,
 		errorType:     errors.IsNotFound,
 	}, { // 4
 		about:         "known endpoint bound to unknown space",
 		bindings:      map[string]string{"server": "invalid"},
-		expectedError: `space not found`,
+		expectedError: `space with name/id "invalid" (endpoint "server") not found`,
 		errorType:     errors.IsNotFound,
 	}, { // 5
 		about:         "known endpoint bound correctly and an extra endpoint",
 		bindings:      map[string]string{"server": dbSpace.Id(), "foo": "public"},
-		expectedError: `space not found`,
+		expectedError: `space with name/id "\d+" (endpoint "server") not found`,
 		errorType:     errors.IsNotFound,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
