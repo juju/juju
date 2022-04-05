@@ -178,8 +178,8 @@ type provisionerTask struct {
 	wpSizeChan chan int
 
 	// eventProcessedCb is an optional, externally-registered callback that
-	// will be invoked when the task main loop successfully processes a
-	// an event; the event type is provided as the first arg to the callback.
+	// will be invoked when the task main loop successfully processes an event.
+	// The event type is provided as the first arg to the callback.
 	eventProcessedCb func(string)
 }
 
@@ -219,6 +219,13 @@ func (task *provisionerTask) loop() (taskErr error) {
 			if !ok {
 				return errors.New("machine watcher closed channel")
 			}
+
+			// Maintain zone-machine distributions.
+			err := task.updateAvailabilityZoneMachines(ctx)
+			if err != nil && !errors.IsNotImplemented(err) {
+				return errors.Annotate(err, "updating AZ distributions")
+			}
+
 			if err := task.processMachines(ctx, ids); err != nil {
 				return errors.Annotate(err, "processing updated machines")
 			}
@@ -332,13 +339,6 @@ func (task *provisionerTask) processMachines(ctx context.ProviderCallContext, id
 
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ctx, ids); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Get existing machine distributions.
-	err := task.populateAvailabilityZoneMachines(ctx)
-	// Not all providers implement ZonedEnviron
-	if err != nil && !errors.IsNotImplemented(err) {
 		return errors.Trace(err)
 	}
 
@@ -952,24 +952,43 @@ func (az *AvailabilityZoneMachine) MatchesConstraints(cons constraints.Value) bo
 	return false
 }
 
-// populateAvailabilityZoneMachines fills in the map, availabilityZoneMachines,
-// if empty, with a current mapping of availability zone to IDs of machines
-// running in that zone.  If the provider does not implement the ZonedEnviron
-// interface, return nil.
-func (task *provisionerTask) populateAvailabilityZoneMachines(ctx context.ProviderCallContext) error {
-	task.machinesMutex.Lock()
-	defer task.machinesMutex.Unlock()
-
-	if len(task.availabilityZoneMachines) > 0 {
-		return nil
-	}
+// updateAvailabilityZoneMachines maintains a mapping of AZs to machines
+// running in each zone.
+// If the provider does not implement the ZonedEnviron interface, return nil.
+func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.ProviderCallContext) error {
 	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
 	if !ok {
 		return nil
 	}
 
-	// In this case, AvailabilityZoneAllocations() will return all of the "available"
-	// availability zones and their instance allocations.
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
+
+	if len(task.availabilityZoneMachines) == 0 {
+		if err := task.populateAvailabilityZoneMachines(ctx, zonedEnv); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		if err := task.checkProviderAvailabilityZones(ctx, zonedEnv); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	zones := make([]string, len(task.availabilityZoneMachines))
+	for i, azm := range task.availabilityZoneMachines {
+		zones[i] = azm.ZoneName
+	}
+	task.logger.Infof("zones: %v", zones)
+
+	return nil
+}
+
+// populateAvailabilityZoneMachines populates the slice,
+// availabilityZoneMachines, with each zone and the IDs of
+// machines running in that zone, according to the provider.
+func (task *provisionerTask) populateAvailabilityZoneMachines(
+	ctx context.ProviderCallContext, zonedEnv providercommon.ZonedEnviron,
+) error {
 	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, ctx, []instance.Id{})
 	if err != nil {
 		return errors.Trace(err)
@@ -984,8 +1003,8 @@ func (task *provisionerTask) populateAvailabilityZoneMachines(ctx context.Provid
 		instanceMachines[instId] = machine.Id()
 	}
 
-	// convert instance IDs to machines IDs to aid distributing
-	// not yet created instances across availability zones.
+	// Translate instance IDs to machines IDs to aid distributing
+	// to-be-created instances across availability zones.
 	task.availabilityZoneMachines = make([]*AvailabilityZoneMachine, len(availabilityZoneInstances))
 	for i, azInstances := range availabilityZoneInstances {
 		machineIds := set.NewStrings()
@@ -1000,6 +1019,51 @@ func (task *provisionerTask) populateAvailabilityZoneMachines(ctx context.Provid
 			FailedMachineIds:   set.NewStrings(),
 			ExcludedMachineIds: set.NewStrings(),
 		}
+	}
+	return nil
+}
+
+// checkProviderAvailabilityZones queries the known AZs.
+// If any are missing from the AZ-machines slice, add them.
+// If we have entries in the map that are unknown,
+// check whether we have machines there. If so, log a warning.
+func (task *provisionerTask) checkProviderAvailabilityZones(
+	ctx context.ProviderCallContext, zonedEnv providercommon.ZonedEnviron,
+) error {
+	azs, err := zonedEnv.AvailabilityZones(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	zones := set.NewStrings()
+	for _, z := range azs {
+		if z.Available() {
+			zones.Add(z.Name())
+		}
+	}
+
+	// Process all the zones that the provisioner knows about.
+	for _, azm := range task.availabilityZoneMachines {
+		// If we have machines in a zone not known to the provider,
+		// log a message. This shouldn't ever happen.
+		if !zones.Contains(azm.ZoneName) && len(azm.MachineIds) > 0 {
+			task.logger.Warningf(
+				"machines %v are in zone %q, which is not available, or known by the cloud",
+				azm.MachineIds, azm.ZoneName)
+		}
+		zones.Remove(azm.ZoneName)
+	}
+
+	// Add any remaining zones to the list.
+	// Since this method is only called if we have previously populated the
+	// zone-machines slice, we can't have provisioned machines in the zone yet.
+	for _, z := range zones.Values() {
+		task.availabilityZoneMachines = append(task.availabilityZoneMachines, &AvailabilityZoneMachine{
+			ZoneName:           z,
+			MachineIds:         set.NewStrings(),
+			FailedMachineIds:   set.NewStrings(),
+			ExcludedMachineIds: set.NewStrings(),
+		})
 	}
 	return nil
 }

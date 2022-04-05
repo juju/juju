@@ -627,7 +627,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	s.waitForWorkerSetup(c, "worker not set up")
 
 	err := workertest.CheckKill(c, task)
-	c.Assert(err, gc.ErrorMatches, "failed to process updated machines: .* boom")
+	c.Assert(err, gc.ErrorMatches, "updating AZ distributions: boom")
 }
 
 func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
@@ -827,17 +827,17 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	zones := make(network.AvailabilityZones, 3)
 	for i := 0; i < 3; i++ {
 		az := mocks.NewMockAvailabilityZone(ctrl)
-		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1))
-		az.EXPECT().Available().Return(true)
+		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1)).MinTimes(1)
+		az.EXPECT().Available().Return(true).MinTimes(1)
 		zones[i] = az
 	}
 
 	exp := broker.EXPECT()
-	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(2)
-	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(func(_ ...interface{}) {
-		close(s.setupDone)
-	})
-	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
+	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
+	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(
+		func(_ ...interface{}) { close(s.setupDone) },
+	)
+	exp.AvailabilityZones(s.callCtx).Return(zones, nil).MinTimes(1)
 	return broker
 }
 

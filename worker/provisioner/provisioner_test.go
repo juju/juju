@@ -1269,7 +1269,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	)
 	defer func() {
 		err := worker.Stop(task)
-		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
+		c.Assert(err, gc.ErrorMatches, ".*getting machine.*")
 	}()
 	s.checkNoOperations(c)
 }
@@ -1462,7 +1462,9 @@ func assertAvailabilityZoneMachines(c *gc.C,
 			found := 0
 			for _, zoneInfo := range obtained {
 				if zone == zoneInfo.ZoneName {
-					c.Assert(zoneInfo.MachineIds.Contains(m.Id()), gc.Equals, true)
+					c.Assert(zoneInfo.MachineIds.Contains(m.Id()), gc.Equals, true, gc.Commentf(
+						"machine %q not found in list for zone %q; zone list: %#v", m.Id(), zone, zoneInfo,
+					))
 					found += 1
 				}
 			}
@@ -1670,8 +1672,8 @@ func (s *ProvisionerSuite) TestProvisioningMachinesSingleMachineDGFailure(c *gc.
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
 	// Per provider dummy, there will be 3 available availability zones.
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
-	defer workertest.CleanKill(c, task)
+	task := s.newProvisionerTask(
+		c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 
 	machines, err := s.addMachines(4)
 	c.Assert(err, jc.ErrorIsNil)
