@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel_test
+package crossmodel
 
 import (
 	"fmt"
@@ -13,9 +13,18 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/jujuclient"
 )
+
+func newFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) cmd.Command {
+	aCmd := &findCommand{newAPIFunc: func(controllerName string) (FindAPI, error) {
+		return api, nil
+	}}
+	aCmd.SetClientStore(store)
+	return modelcmd.Wrap(aCmd)
+}
 
 type findSuite struct {
 	BaseCrossModelSuite
@@ -34,7 +43,7 @@ func (s *findSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, newFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *findSuite) TestFindNoArgs(c *gc.C) {
