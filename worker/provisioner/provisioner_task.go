@@ -964,6 +964,8 @@ func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Provider
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
 
+	// Only populate from the provider if we have no data.
+	// Otherwise, just check that we know all the current AZs.
 	if len(task.availabilityZoneMachines) == 0 {
 		if err := task.populateAvailabilityZoneMachines(ctx, zonedEnv); err != nil {
 			return errors.Trace(err)
@@ -978,7 +980,7 @@ func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Provider
 	for i, azm := range task.availabilityZoneMachines {
 		zones[i] = azm.ZoneName
 	}
-	task.logger.Infof("zones: %v", zones)
+	task.logger.Infof("provisioning in zones: %v", zones)
 
 	return nil
 }
@@ -1025,8 +1027,9 @@ func (task *provisionerTask) populateAvailabilityZoneMachines(
 
 // checkProviderAvailabilityZones queries the known AZs.
 // If any are missing from the AZ-machines slice, add them.
-// If we have entries in the map that are unknown,
-// check whether we have machines there. If so, log a warning.
+// If we have entries that are not known by the provider to be available zones,
+// check whether we have machines there.
+// If so, log a warning, otherwise we can delete them safely.
 func (task *provisionerTask) checkProviderAvailabilityZones(
 	ctx context.ProviderCallContext, zonedEnv providercommon.ZonedEnviron,
 ) error {
@@ -1043,16 +1046,28 @@ func (task *provisionerTask) checkProviderAvailabilityZones(
 	}
 
 	// Process all the zones that the provisioner knows about.
+	newAZMs := task.availabilityZoneMachines[:0]
 	for _, azm := range task.availabilityZoneMachines {
-		// If we have machines in a zone not known to the provider,
-		// log a message. This shouldn't ever happen.
-		if !zones.Contains(azm.ZoneName) && len(azm.MachineIds) > 0 {
-			task.logger.Warningf(
-				"machines %v are in zone %q, which is not available, or known by the cloud",
-				azm.MachineIds, azm.ZoneName)
+		// Provider has the zone as available, and we know it. All good.
+		if zones.Contains(azm.ZoneName) {
+			newAZMs = append(newAZMs, azm)
+			zones.Remove(azm.ZoneName)
+			continue
 		}
-		zones.Remove(azm.ZoneName)
+
+		// If the zone isn't available, but we think we have machines there,
+		// play it safe and retain the entry.
+		if len(azm.MachineIds) > 0 {
+			task.logger.Warningf("machines %v are in zone %q, which is not available, or not known by the cloud",
+				azm.MachineIds.Values(), azm.ZoneName)
+			newAZMs = append(newAZMs, azm)
+		}
+
+		// Fallthrough is for the zone's entry to be dropped.
+		// We don't retain it for newAZMs.
+		// The new list is logged by the caller.
 	}
+	task.availabilityZoneMachines = newAZMs
 
 	// Add any remaining zones to the list.
 	// Since this method is only called if we have previously populated the

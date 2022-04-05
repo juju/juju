@@ -1674,6 +1674,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
 	// Per provider dummy, there will be 3 available availability zones.
 	task := s.newProvisionerTask(
 		c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
+	defer workertest.CleanKill(c, task)
 
 	machines, err := s.addMachines(4)
 	c.Assert(err, jc.ErrorIsNil)
