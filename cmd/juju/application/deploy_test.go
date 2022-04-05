@@ -100,7 +100,7 @@ type DeploySuiteBase struct {
 // charm store and the controller deploy API.
 func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 	deploy := s.deployCommandForState()
-	deploy.NewDeployAPI = func() (DeployAPI, error) {
+	deploy.NewDeployAPI = func() (deployer.DeployerAPI, error) {
 		return s.fakeAPI, nil
 	}
 	deploy.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
@@ -776,6 +776,8 @@ func (s *DeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 		NumUnits:        1,
 	}).Returns([]string{"ubuntu-lite/0"}, error(nil))
 
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
+
 	deploy := s.deployCommand()
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "basic")
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath, "--channel", "edge")
@@ -835,6 +837,8 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		ApplicationName: "aws-integrator",
 		NumUnits:        1,
 	}).Returns([]string{"aws-integrator/0"}, error(nil))
+
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
 
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
@@ -904,6 +908,8 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		"consume",
 		[]string{"controller.my-offer"},
 	).Returns(nil)
+
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
 
 	deploy := s.deployCommand()
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers")
@@ -985,6 +991,8 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		error(nil),
 	)
 
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
+
 	deploy := s.deployCommand()
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
@@ -993,7 +1001,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 
 type CAASDeploySuiteBase struct {
 	jujutesting.IsolationSuite
-	DeployAPI
+	deployer.DeployerAPI
 	Store           *jujuclient.MemStore
 	DeployResources resourceadapters.DeployResourcesFunc
 
@@ -1055,7 +1063,7 @@ func (s *CAASDeploySuiteBase) makeCharmDir(c *gc.C, cloneCharm string) *charm.Ch
 
 func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
 	deployCmd := &DeployCommand{
-		NewDeployAPI: func() (DeployAPI, error) {
+		NewDeployAPI: func() (deployer.DeployerAPI, error) {
 			return fakeAPI, nil
 		},
 		DeployResources: s.DeployResources,
@@ -2287,7 +2295,7 @@ func (s *ParseMachineMapSuite) TestErrors(c *gc.C) {
 
 type DeployUnitTestSuite struct {
 	jujutesting.IsolationSuite
-	DeployAPI
+	deployer.DeployerAPI
 	deployer *mocks.MockDeployer
 	factory  *mocks.MockDeployerFactory
 }
@@ -2539,7 +2547,7 @@ func newWrappedDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelComman
 // newDeployCommandForTest returns a command to deploy applications.
 func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 	deployCmd := &DeployCommand{
-		NewDeployAPI: func() (DeployAPI, error) {
+		NewDeployAPI: func() (deployer.DeployerAPI, error) {
 			return fakeAPI, nil
 		},
 		DeployResources: func(
@@ -2558,7 +2566,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		},
 	}
 	if fakeAPI == nil {
-		deployCmd.NewDeployAPI = func() (DeployAPI, error) {
+		deployCmd.NewDeployAPI = func() (deployer.DeployerAPI, error) {
 			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -2623,10 +2631,10 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 }
 
 // fakeDeployAPI is a mock of the API used by the deploy command. It's
-// a little muddled at the moment, but as the DeployAPI interface is
+// a little muddled at the moment, but as the deployer.DeployerAPI interface is
 // sharpened, this will become so as well.
 type fakeDeployAPI struct {
-	DeployAPI
+	deployer.DeployerAPI
 	*store.CharmStoreAdaptor
 	*jujutesting.CallMocker
 	planURL             string

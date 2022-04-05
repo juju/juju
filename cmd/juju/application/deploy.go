@@ -50,13 +50,6 @@ type SpacesAPI interface {
 
 var supportedJujuSeries = series.WorkloadSeries
 
-type DeployAPI interface {
-	deployer.DeployerAPI
-	SpacesAPI
-	// PlanURL returns the configured URL prefix for the metering plan API.
-	PlanURL() string
-}
-
 type CharmsAPI interface {
 	store.CharmsAPI
 	BestAPIVersion() int
@@ -211,7 +204,7 @@ func newDeployCommand() *DeployCommand {
 
 		return charmhub.NewClient(cfg)
 	}
-	deployCmd.NewDeployAPI = func() (DeployAPI, error) {
+	deployCmd.NewDeployAPI = func() (deployer.DeployerAPI, error) {
 		apiRoot, err := deployCmd.newAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -344,7 +337,7 @@ type DeployCommand struct {
 	BundleMachines map[string]string
 
 	// NewDeployAPI stores a function which returns a new deploy client.
-	NewDeployAPI func() (DeployAPI, error)
+	NewDeployAPI func() (deployer.DeployerAPI, error)
 
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)

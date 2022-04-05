@@ -460,6 +460,21 @@ func (mr *MockDeployerAPIMockRecorder) IsMetered(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMetered", reflect.TypeOf((*MockDeployerAPI)(nil).IsMetered), arg0)
 }
 
+// ListSpaces mocks base method.
+func (m *MockDeployerAPI) ListSpaces() ([]params.Space, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSpaces")
+	ret0, _ := ret[0].([]params.Space)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSpaces indicates an expected call of ListSpaces.
+func (mr *MockDeployerAPIMockRecorder) ListSpaces() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSpaces", reflect.TypeOf((*MockDeployerAPI)(nil).ListSpaces))
+}
+
 // ModelGet mocks base method.
 func (m *MockDeployerAPI) ModelGet() (map[string]interface{}, error) {
 	m.ctrl.T.Helper()
@@ -518,6 +533,20 @@ func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4, ar
 func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// PlanURL mocks base method.
+func (m *MockDeployerAPI) PlanURL() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PlanURL")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// PlanURL indicates an expected call of PlanURL.
+func (mr *MockDeployerAPIMockRecorder) PlanURL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PlanURL", reflect.TypeOf((*MockDeployerAPI)(nil).PlanURL))
 }
 
 // ScaleApplication mocks base method.
