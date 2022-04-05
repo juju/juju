@@ -303,10 +303,6 @@ type Connection interface {
 	// NOTE: This method is deprecated. Please use IsBroken or Broken instead.
 	Ping() error
 
-	// I think this is actually dead code. It's tested, at least, so I'm
-	// keeping it for now, but it's not apparently used anywhere else.
-	AllFacadeVersions() map[string][]int
-
 	// AuthTag returns the tag of the authorized user of the state API
 	// connection.
 	AuthTag() names.Tag
