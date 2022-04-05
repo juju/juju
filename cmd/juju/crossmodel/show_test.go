@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel_test
+package crossmodel
 
 import (
 	"os"
@@ -13,10 +13,19 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 )
+
+func newShowEndpointsCommandForTest(store jujuclient.ClientStore, api ShowAPI) cmd.Command {
+	aCmd := &showCommand{newAPIFunc: func(controllerName string) (ShowAPI, error) {
+		return api, nil
+	}}
+	aCmd.SetClientStore(store)
+	return modelcmd.Wrap(aCmd)
+}
 
 type showSuite struct {
 	BaseCrossModelSuite
@@ -35,7 +44,7 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *showSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, newShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *showSuite) TestShowNoUrl(c *gc.C) {

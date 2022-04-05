@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel_test
+package crossmodel
 
 import (
 	"bytes"
@@ -13,8 +13,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
+
+func newRemoveCommandForTest(store jujuclient.ClientStore, api RemoveAPI) cmd.Command {
+	aCmd := &removeCommand{newAPIFunc: func(controllerName string) (RemoveAPI, error) {
+		return api, nil
+	}}
+	aCmd.SetClientStore(store)
+	return modelcmd.WrapController(aCmd)
+}
 
 type removeSuite struct {
 	BaseCrossModelSuite
@@ -29,7 +38,7 @@ func (s *removeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *removeSuite) runRemove(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, crossmodel.NewRemoveCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, newRemoveCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *removeSuite) TestNonExistentController(c *gc.C) {
@@ -83,7 +92,7 @@ func (s *removeSuite) TestRemoveForceMessage(c *gc.C) {
 	ctx.Stdin = &stdin
 	stdin.WriteString("y")
 
-	com := crossmodel.NewRemoveCommandForTest(s.store, s.mockAPI)
+	com := newRemoveCommandForTest(s.store, s.mockAPI)
 	err = cmdtesting.InitCommand(com, []string{"fred/model.db2", "--force"})
 	c.Assert(err, jc.ErrorIsNil)
 	com.Run(ctx)
