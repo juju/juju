@@ -1127,29 +1127,6 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 	c.Check(clock.waits, gc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestPing(c *gc.C) {
-	clock := &fakeClock{}
-	rpcConn := newRPCConnection()
-	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: rpcConn,
-		Clock:         clock,
-	})
-	err := conn.Ping()
-	c.Assert(err, jc.ErrorIsNil)
-	rpcConn.stub.CheckCalls(c, []testing.StubCall{{
-		"Pinger.Ping", []interface{}{0, nil},
-	}})
-}
-
-func (s *apiclientSuite) TestPingBroken(c *gc.C) {
-	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: newRPCConnection(errors.New("no biscuit")),
-		Clock:         &fakeClock{},
-	})
-	err := conn.Ping()
-	c.Assert(err, gc.ErrorMatches, "no biscuit")
-}
-
 func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 	conn := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: newRPCConnection(),
