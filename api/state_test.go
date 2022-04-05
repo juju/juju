@@ -152,24 +152,6 @@ func (s *stateSuite) TestTags(c *gc.C) {
 	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
 }
 
-func (s *stateSuite) TestLoginSetsModelAccess(c *gc.C) {
-	// The default user has admin access.
-	c.Assert(s.APIState.ModelAccess(), gc.Equals, "admin")
-
-	manager := usermanager.NewClient(s.OpenControllerAPI(c))
-	defer manager.Close()
-	usertag, _, err := manager.AddUser("ro", "ro", "ro-password")
-	c.Assert(err, jc.ErrorIsNil)
-	mmanager := modelmanager.NewClient(s.OpenControllerAPI(c))
-	defer mmanager.Close()
-	modeltag, ok := s.APIState.ModelTag()
-	c.Assert(ok, jc.IsTrue)
-	err = mmanager.GrantModel(usertag.Id(), "read", modeltag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	conn := s.OpenAPIAs(c, usertag, "ro-password")
-	c.Assert(conn.ModelAccess(), gc.Equals, "read")
-}
-
 func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
 	// The default user has admin access.
 	c.Assert(s.APIState.ControllerAccess(), gc.Equals, "superuser")
