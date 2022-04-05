@@ -1366,15 +1366,6 @@ func (s *state) PublicDNSName() string {
 	return s.publicDNSName
 }
 
-// AllFacadeVersions returns what versions we know about for all facades
-func (s *state) AllFacadeVersions() map[string][]int {
-	facades := make(map[string][]int, len(s.facadeVersions))
-	for name, versions := range s.facadeVersions {
-		facades[name] = append([]int{}, versions...)
-	}
-	return facades
-}
-
 // BestFacadeVersion compares the versions of facades that we know about, and
 // the versions available from the server, and reports back what version is the
 // 'best available' to use.
