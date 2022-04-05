@@ -1519,7 +1519,6 @@ func (az azShim) Available() bool {
 
 // AvailabilityZones implements environs.ZonedEnviron.
 func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
-	// TODO(dimitern): Fix this properly.
 	return network.AvailabilityZones{
 		azShim{"zone1", true},
 		azShim{"zone2", false},
@@ -1544,7 +1543,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 		if availabilityZones[azIndex].Available() {
 			returnValue[id] = availabilityZones[azIndex].Name()
 		} else {
-			// Based on knowledge of how the AZs are setup above
+			// Based on knowledge of how the AZs are set up above
 			// in AvailabilityZones()
 			azIndex++
 			returnValue[id] = availabilityZones[azIndex].Name()
