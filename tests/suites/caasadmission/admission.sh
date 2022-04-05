@@ -144,7 +144,7 @@ EOF
 	done
 
 	# We still sleep quickly here to let everything settle down. By adding
-	# propper probes we could avoid this.
+	# proper probes we could avoid this.
 	sleep 5
 
 	kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json apply -f - <<EOF
