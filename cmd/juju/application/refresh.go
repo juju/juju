@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/resources/client"
 	"github.com/juju/juju/api/client/spaces"
@@ -558,7 +559,7 @@ func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
 	adder := &charmAdderShim{
-		api:    &apiClient{Client: api.NewClient(conn)},
+		api:    &apiClient{Client: apiclient.NewClient(conn)},
 		charms: &charmsClient{Client: apicharms.NewClient(conn)},
 	}
 	return adder

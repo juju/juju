@@ -90,9 +90,6 @@ type maasEnviron struct {
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
 
-	availabilityZonesMutex sync.Mutex
-	availabilityZones      corenetwork.AvailabilityZones
-
 	// apiVersion tells us if we are using the MAAS 1.0 or 2.0 api.
 	apiVersion string
 
@@ -334,16 +331,8 @@ func (z maasAvailabilityZone) Available() bool {
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
 func (env *maasEnviron) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
-	env.availabilityZonesMutex.Lock()
-	defer env.availabilityZonesMutex.Unlock()
-	if env.availabilityZones == nil {
-		availabilityZones, err := env.availabilityZones2(ctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		env.availabilityZones = availabilityZones
-	}
-	return env.availabilityZones, nil
+	zones, err := env.availabilityZones2(ctx)
+	return zones, errors.Trace(err)
 }
 
 func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {

@@ -6,6 +6,7 @@ package azure
 import (
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -20,7 +21,7 @@ import (
 
 const defaultMem = 1024 // 1GiB
 
-var instSizeVersionRegexp = regexp.MustCompile(`(?P<name>.*)_v(?P<version>\d\d?)?$`)
+var instSizeVersionRegexp = regexp.MustCompile(`(?P<name>.*)_v(?P<version>\d\d?)?(_Promo)?$`)
 
 // The ordering here is for linux vm costs for the eastus region
 // obtained from https://azureprice.net. This is used as a fallback
@@ -43,6 +44,7 @@ var machineSizeCost = []string{
 	"Standard_D2s",
 	"Standard_D2a",
 	"Standard_DC1s",
+	"Standard_DC1ds",
 	"Standard_F2",
 	"Standard_F2s",
 	"Standard_D2ads",
@@ -68,6 +70,7 @@ var machineSizeCost = []string{
 	"Standard_D4a",
 	"Standard_D4s",
 	"Standard_DC2s",
+	"Standard_DC2ds",
 	"Standard_D4as",
 	"Standard_F4",
 	"Standard_F4s",
@@ -104,6 +107,7 @@ var machineSizeCost = []string{
 	"Standard_D8s",
 	"Standard_D8a",
 	"Standard_DC4s",
+	"Standard_DC4ds",
 	"Standard_D8as",
 	"Standard_F8",
 	"Standard_F8s",
@@ -144,6 +148,8 @@ var machineSizeCost = []string{
 	"Standard_D16s",
 	"Standard_D16as",
 	"Standard_DC8",
+	"Standard_DC8s",
+	"Standard_DC8ds",
 	"Standard_D16a",
 	"Standard_DS13",
 	"Standard_F16",
@@ -168,6 +174,8 @@ var machineSizeCost = []string{
 	"Standard_E16-4ads",
 	"Standard_E16ads",
 	"Standard_E16-8ads",
+	"Standard_DC16s",
+	"Standard_DC16ds",
 	"Standard_DC16as",
 	"Standard_FX12mds",
 	"Standard_NV6",
@@ -229,6 +237,10 @@ var machineSizeCost = []string{
 	"Standard_E32-16ads",
 	"Standard_E32ads",
 	"Standard_E32-8ads",
+	"Standard_DC24s",
+	"Standard_DC24ds",
+	"Standard_DC32s",
+	"Standard_DC32ds",
 	"Standard_DC32as",
 	"Standard_FX24mds",
 	"Standard_HB60-15rs",
@@ -245,6 +257,7 @@ var machineSizeCost = []string{
 	"Standard_D48s",
 	"Standard_D48a",
 	"Standard_H16m",
+	"Standard_D48as",
 	"Standard_D48ads",
 	"Standard_L32s",
 	"Standard_DC32ads",
@@ -272,6 +285,8 @@ var machineSizeCost = []string{
 	"Standard_HC44-32rs",
 	"Standard_HC44rs",
 	"Standard_DC48as",
+	"Standard_DC48s",
+	"Standard_DC48ds",
 	"Standard_D64ads",
 	"Standard_NP20s",
 	"Standard_EC32ads",
@@ -324,6 +339,7 @@ var machineSizeCost = []string{
 	"Standard_DC64ads",
 	"Standard_M64ls",
 	"Standard_E96as",
+	"Standard_E96ias",
 	"Standard_D96d",
 	"Standard_D96ds",
 	"Standard_EC64as",
@@ -428,6 +444,7 @@ func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
 	// Actual instance type names often are suffixed with _v3, _v4 etc. We always
 	// prefer the highest version number.
 	namePart := instSizeVersionRegexp.ReplaceAllString(sizeName, "$name")
+	isPromo := strings.HasSuffix(sizeName, "_Promo")
 	vers := 0
 	if namePart == "" {
 		namePart = sizeName
@@ -442,18 +459,23 @@ func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
 		cost  int
 		found bool
 	)
-	for i, name := range machineSizeCost {
-		if namePart == name {
-			// Space out the relative costs and make a small subtraction
-			// so the higher versions of the same instance have a lower cost.
-			cost = 100*i - vers
-			found = true
-			break
+	// We don't have proper cost info for promo instances, so don't try and rank them.
+	if !isPromo {
+		for i, name := range machineSizeCost {
+			if namePart == name {
+				// Space out the relative costs and make a small subtraction
+				// so the higher versions of the same instance have a lower cost.
+				cost = 100*i - vers
+				found = true
+				break
+			}
 		}
 	}
 	// Anything not in the list is more expensive that is in the list.
 	if !found {
-		logger.Debugf("got VM for which we don't have relative cost data: %q", sizeName)
+		if !isPromo {
+			logger.Debugf("got VM for which we don't have relative cost data: %q", sizeName)
+		}
 		cost = 100 * len(machineSizeCost)
 	}
 

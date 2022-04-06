@@ -69,8 +69,8 @@ func (au *applicationUndertaker) loop() (err error) {
 		brokerUnitsWatcher watcher.NotifyWatcher
 		brokerUnitsChannel watcher.NotifyChannel
 
-		appOperatorWatcher  watcher.NotifyWatcher
-		appOpertatorChannel watcher.NotifyChannel
+		appOperatorWatcher watcher.NotifyWatcher
+		appOperatorChannel watcher.NotifyChannel
 	)
 	// The caas watcher can just die from underneath hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
@@ -124,7 +124,7 @@ func (au *applicationUndertaker) loop() (err error) {
 				}
 				return errors.Annotatef(err, "failed to start operator watcher for %q", au.application)
 			}
-			appOpertatorChannel = appOperatorWatcher.Changes()
+			appOperatorChannel = appOperatorWatcher.Changes()
 		}
 
 		select {
@@ -146,7 +146,7 @@ func (au *applicationUndertaker) loop() (err error) {
 				pendingResources.Remove("pods")
 			}
 			continue
-		case _, ok := <-appOpertatorChannel:
+		case _, ok := <-appOperatorChannel:
 			if !ok {
 				_ = worker.Stop(appOperatorWatcher)
 				appOperatorWatcher = nil

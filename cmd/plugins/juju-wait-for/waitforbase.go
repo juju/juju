@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
-	apiclient "github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"

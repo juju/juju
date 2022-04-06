@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/kr/pretty"
 )
 
 // Logger for the Azure provider.
@@ -73,6 +74,9 @@ func (a AzureCLI) run(v interface{}, args ...string) error {
 	if err := json.Unmarshal(b, v); err != nil {
 		return errors.Annotate(err, "cannot unmarshal output")
 	}
+	if logger.IsDebugEnabled() {
+		logger.Debugf("az returned: %s", pretty.Sprint(v))
+	}
 	return nil
 }
 
@@ -98,10 +102,11 @@ func (t AccessToken) Token() *adal.Token {
 // given resource using the given subscription. Either subscription or
 // resource may be empty in which case the default from the az
 // application are used.
-func (a AzureCLI) GetAccessToken(subscription, resource string) (*AccessToken, error) {
+func (a AzureCLI) GetAccessToken(tenant, resource string) (*AccessToken, error) {
+	logger.Debugf("getting access token for tenant %q", tenant)
 	cmd := []string{"account", "get-access-token"}
-	if subscription != "" {
-		cmd = append(cmd, "--subscription", subscription)
+	if tenant != "" {
+		cmd = append(cmd, "--tenant", tenant)
 	}
 	if resource != "" {
 		cmd = append(cmd, "--resource", resource)
@@ -115,12 +120,21 @@ func (a AzureCLI) GetAccessToken(subscription, resource string) (*AccessToken, e
 
 // Account contains details of an azure account (subscription).
 type Account struct {
-	CloudName string `json:"cloudName"`
-	ID        string `json:"id"`
-	IsDefault bool   `json:"isDefault"`
-	Name      string `json:"name"`
-	State     string `json:"state"`
-	TenantId  string `json:"tenantId"`
+	CloudName    string `json:"cloudName"`
+	ID           string `json:"id"`
+	IsDefault    bool   `json:"isDefault"`
+	Name         string `json:"name"`
+	State        string `json:"state"`
+	TenantId     string `json:"tenantId"`
+	HomeTenantId string `json:"homeTenantId"`
+}
+
+// AuthTenantId returns the home tenant if set, else the tenant.
+func (a *Account) AuthTenantId() string {
+	if a.HomeTenantId != "" {
+		return a.HomeTenantId
+	}
+	return a.TenantId
 }
 
 // showAccount is a version of Account, but that can handle the subtle

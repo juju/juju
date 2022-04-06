@@ -52,7 +52,7 @@ func NewFindEndpointsCommand() cmd.Command {
 	findCmd.newAPIFunc = func(controllerName string) (FindAPI, error) {
 		return findCmd.NewRemoteEndpointsAPI(controllerName)
 	}
-	return modelcmd.WrapController(findCmd)
+	return modelcmd.Wrap(findCmd)
 }
 
 // Init implements Command.Init.

@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	credAttrAppId               = "application-id"
-	credAttrApplicationObjectId = "application-object-id"
-	credAttrSubscriptionId      = "subscription-id"
-	credAttrAppPassword         = "application-password"
+	credAttrAppId                 = "application-id"
+	credAttrApplicationObjectId   = "application-object-id"
+	credAttrSubscriptionId        = "subscription-id"
+	credAttrManagedSubscriptionId = "managed-subscription-id"
+	credAttrAppPassword           = "application-password"
 
 	// clientCredentialsAuthType is the auth-type for the
 	// "client credentials" OAuth flow, which requires a
@@ -43,7 +44,7 @@ type AzureCLI interface {
 	ListAccounts() ([]azurecli.Account, error)
 	FindAccountsWithCloudName(name string) ([]azurecli.Account, error)
 	ShowAccount(subscription string) (*azurecli.Account, error)
-	GetAccessToken(subscription, resource string) (*azurecli.AccessToken, error)
+	GetAccessToken(tenant, resource string) (*azurecli.AccessToken, error)
 	FindCloudsWithResourceManagerEndpoint(url string) ([]azurecli.Cloud, error)
 	ListClouds() ([]azurecli.Cloud, error)
 }
@@ -87,6 +88,11 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 				},
 			}, {
 				credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
+			}, {
+				credAttrManagedSubscriptionId, cloud.CredentialAttr{
+					Description: "Azure managed subscription ID",
+					Optional:    true,
+				},
 			}, {
 				credAttrAppPassword, cloud.CredentialAttr{
 					Description: "Azure Active Directory application password",
@@ -208,7 +214,7 @@ func (c environProviderCredentials) azureCLICredential(
 	args environs.FinalizeCredentialParams,
 	params azureauth.ServicePrincipalParams,
 ) (*cloud.Credential, error) {
-	graphToken, err := c.azureCLI.GetAccessToken(params.SubscriptionId, params.GraphResourceId)
+	graphToken, err := c.azureCLI.GetAccessToken(params.TenantId, params.GraphResourceId)
 	if err != nil {
 		// The version of Azure CLI may not support
 		// get-access-token so fallback to using device
@@ -218,7 +224,7 @@ func (c environProviderCredentials) azureCLICredential(
 	}
 	params.GraphAuthorizer = autorest.NewBearerAuthorizer(graphToken.Token())
 
-	resourceManagerAuthorizer, err := c.azureCLI.GetAccessToken(params.SubscriptionId, params.ResourceManagerResourceId)
+	resourceManagerAuthorizer, err := c.azureCLI.GetAccessToken(params.TenantId, params.ResourceManagerResourceId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get access token for %s", params.SubscriptionId)
 	}
@@ -243,11 +249,11 @@ func (c environProviderCredentials) accountCredential(
 	acc azurecli.Account,
 	cloudInfo azurecli.Cloud,
 ) (cloud.Credential, error) {
-	graphToken, err := c.azureCLI.GetAccessToken(acc.ID, cloudInfo.Endpoints.ActiveDirectoryGraphResourceID)
+	graphToken, err := c.azureCLI.GetAccessToken(acc.AuthTenantId(), cloudInfo.Endpoints.ActiveDirectoryGraphResourceID)
 	if err != nil {
 		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
 	}
-	armToken, err := c.azureCLI.GetAccessToken(acc.ID, cloudInfo.Endpoints.ResourceManager)
+	armToken, err := c.azureCLI.GetAccessToken(acc.AuthTenantId(), cloudInfo.Endpoints.ResourceManager)
 	if err != nil {
 		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
 	}
@@ -304,7 +310,7 @@ func (c environProviderCredentials) getServicePrincipalParams(cloudEndpoint stri
 		ResourceManagerEndpoint:   clouds[0].Endpoints.ResourceManager,
 		ResourceManagerResourceId: clouds[0].Endpoints.ResourceManager,
 		SubscriptionId:            acc.ID,
-		TenantId:                  acc.TenantId,
+		TenantId:                  acc.AuthTenantId(),
 	}, nil
 
 }

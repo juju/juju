@@ -4,13 +4,14 @@
 package lxd_test
 
 import (
+	"errors"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
-	"github.com/pkg/errors"
 )
 
 type clusterSuite struct {
