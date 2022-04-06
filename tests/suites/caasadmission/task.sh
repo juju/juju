@@ -14,9 +14,9 @@ test_caasadmission() {
 		microk8s.config >"${TEST_DIR}"/kube.conf
 		export KUBE_CONFIG="${TEST_DIR}"/kube.conf
 
-		run_controller_model_admission
-		run_new_model_admission
-		run_model_chicken_and_egg
+		test_controller_model_admission
+		test_new_model_admission
+		test_model_chicken_and_egg
 		;;
 	*)
 		echo "==> TEST SKIPPED: caas admission tests, not a k8s provider"
