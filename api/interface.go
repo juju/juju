@@ -298,11 +298,6 @@ type Connection interface {
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
 
-	// Ping makes an API request which checks if the connection is
-	// still functioning.
-	// NOTE: This method is deprecated. Please use IsBroken or Broken instead.
-	Ping() error
-
 	// AuthTag returns the tag of the authorized user of the state API
 	// connection.
 	AuthTag() names.Tag
