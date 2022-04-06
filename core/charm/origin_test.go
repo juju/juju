@@ -146,3 +146,66 @@ func (s platformSuite) TestString(c *gc.C) {
 		c.Assert(platform.String(), gc.DeepEquals, test.Expected)
 	}
 }
+
+type channelTrackSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&channelTrackSuite{})
+
+func (*channelTrackSuite) TestChannelTrack(c *gc.C) {
+	tests := []struct {
+		channel string
+		result  string
+	}{{
+		channel: "20.10",
+		result:  "20.10",
+	}, {
+		channel: "focal",
+		result:  "focal",
+	}, {
+		channel: "20.10/stable",
+		result:  "20.10",
+	}, {
+		channel: "focal/stable",
+		result:  "focal",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d - %s", i, test.channel)
+		got, err := charm.ChannelTrack(test.channel)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(got, gc.Equals, test.result)
+	}
+}
+
+type computeBaseChannelSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&computeBaseChannelSuite{})
+
+func (*computeBaseChannelSuite) TestComputeBaseChannel(c *gc.C) {
+	tests := []struct {
+		platform charm.Platform
+		result   string
+	}{{
+		platform: charm.Platform{OS: "centos", Series: "centos7"},
+		result:   "7",
+	}, {
+		platform: charm.Platform{OS: "centos", Series: "centos8"},
+		result:   "8",
+	}, {
+		platform: charm.Platform{OS: "ubuntu", Series: "20.04"},
+		result:   "20.04",
+	}, {
+		platform: charm.Platform{OS: "ubuntu", Series: "focal"},
+		result:   "20.04",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d - %s", i, test.platform)
+		got := charm.ComputeBaseChannel(test.platform).Series
+		c.Assert(got, gc.Equals, test.result)
+	}
+}

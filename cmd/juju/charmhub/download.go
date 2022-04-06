@@ -196,6 +196,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		normBase.OS = strings.ToLower(sys.String())
 	}
 
+	// Ensure we compute the base channel correctly.
+	normBase = corecharm.ComputeBaseChannel(normBase)
+
 	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
 		Architecture: normBase.Architecture,
 		Name:         normBase.OS,
