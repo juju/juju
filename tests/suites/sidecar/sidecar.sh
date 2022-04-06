@@ -1,4 +1,4 @@
-run_deploy_and_remove_application() {
+test_deploy_and_remove_application() {
 	echo
 
 	# Ensure that a valid Juju controller exists
