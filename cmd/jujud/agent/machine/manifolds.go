@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/globalclockupdater"
+	"github.com/juju/juju/worker/grpcserver"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/httpserverargs"
@@ -730,6 +731,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
+		grpcServerName: ifController(grpcserver.Manifold(grpcserver.ManifoldConfig{})),
+
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,
 			AuthorityName:  certificateWatcherName,
@@ -1170,6 +1173,7 @@ const (
 	httpServerName     = "http-server"
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
+	grpcServerName     = "grpc-server"
 
 	raftTransportName = "raft-transport"
 	raftName          = "raft"

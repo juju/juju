@@ -227,6 +227,12 @@ func WithDialOpts(newOpts DialOpts) DialOption {
 	}
 }
 
+func WithSkipVerifyCA() DialOption {
+	return func(opts *DialOpts) {
+		opts.InsecureSkipVerify = true
+	}
+}
+
 // OpenFunc is the usual form of a function that opens an API connection.
 type OpenFunc func(*Info, DialOpts) (Connection, error)
 
