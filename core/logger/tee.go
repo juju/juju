@@ -13,7 +13,7 @@ type TeeLogger struct {
 }
 
 // NewTeeLogger returns a logger that forwards log requests to each one of the
-// provider loggers.
+// provided loggers.
 func NewTeeLogger(loggers ...Logger) *TeeLogger {
 	return &TeeLogger{loggers: loggers}
 }

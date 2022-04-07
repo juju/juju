@@ -58,11 +58,11 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.Trace(err)
 	}
 
-	s.recordLogger = s.apiServerLoggers.get(st.State)
+	s.recordLogger = s.apiServerLoggers.getLogger(st.State)
 	s.tracker = newLogTracker(st.State)
 	s.releaser = func() {
 		if removed := st.Release(); removed {
-			s.apiServerLoggers.remove(st.State)
+			s.apiServerLoggers.removeLogger(st.State)
 		}
 	}
 	return nil

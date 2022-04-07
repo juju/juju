@@ -33,10 +33,13 @@ type RecordLogger interface {
 	Log([]corelogger.LogRecord) error
 }
 
-// apiServerLoggers contains a map of buffered DB loggers. When one of the
-// logging strategies requires a DB logger, it uses this to get it.
-// When the State corresponding to the DB logger is removed from the
-// state pool, the strategies must call the apiServerLoggers.remove method.
+// apiServerLoggers contains a map of loggers, either a DB or syslog. Both
+// DB and syslog are wrapped by a buffered logger to prevent flooding of
+// the DB or syslog in TRACE level mode.
+// When one of the logging strategies requires a logger, it uses this to get it.
+// When the State corresponding to the logger is removed from the
+// state pool, the strategies must call the apiServerLoggers.removeLogger
+// method.
 type apiServerLoggers struct {
 	syslogger           syslogger.SysLogger
 	loggingOutputs      []string
@@ -47,7 +50,7 @@ type apiServerLoggers struct {
 	loggers             map[*state.State]*bufferedLogger
 }
 
-func (d *apiServerLoggers) get(st *state.State) RecordLogger {
+func (d *apiServerLoggers) getLogger(st *state.State) RecordLogger {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.loggers[st]; ok {
@@ -72,7 +75,7 @@ func (d *apiServerLoggers) get(st *state.State) RecordLogger {
 	return bufferedLogger
 }
 
-func (d *apiServerLoggers) remove(st *state.State) {
+func (d *apiServerLoggers) removeLogger(st *state.State) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.loggers[st]; ok {
@@ -169,10 +172,10 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	s.version = ver
 	s.entity = entity.Tag().String()
 	s.filePrefix = st.ModelUUID() + ":"
-	s.recordLogger = s.apiServerLoggers.get(st.State)
+	s.recordLogger = s.apiServerLoggers.getLogger(st.State)
 	s.releaser = func() {
 		if removed := st.Release(); removed {
-			s.apiServerLoggers.remove(st.State)
+			s.apiServerLoggers.removeLogger(st.State)
 		}
 	}
 	return nil
