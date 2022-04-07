@@ -731,7 +731,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
-		grpcServerName: ifController(grpcserver.Manifold(grpcserver.ManifoldConfig{})),
+		grpcServerName: ifController(grpcserver.Manifold(grpcserver.ManifoldConfig{
+			AgentName: agentName,
+		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,

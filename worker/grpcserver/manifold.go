@@ -1,66 +1,97 @@
 package grpcserver
 
 import (
-	"context"
-	"log"
+	"crypto/tls"
 	"net"
-	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/juju/errors"
+	"github.com/juju/juju/agent"
 	simpleapi "github.com/juju/juju/grpc/gen/proto/go/juju/client/simple/v1alpha1"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"google.golang.org/grpc"
 
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
+
+var logger = loggo.GetLogger("juju.worker.grpcserver")
 
 // Manifold returns a grpcserver manifold.  This starts a gRPC server that
 // presents a simple API to users (see simpleapi/simple.proto).
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Start: config.start,
+		Inputs: []string{
+			config.AgentName,
+		},
 	}
 }
 
 type ManifoldConfig struct {
+	AgentName string
 }
 
 func (c ManifoldConfig) start(dep dependency.Context) (worker.Worker, error) {
-	ctx := context.Background()
-	lis, err := net.Listen("tcp", ":18888")
+	var agent agent.Agent
+	if err := dep.Get(c.AgentName, &agent); err != nil {
+		return nil, errors.Trace(err)
+	}
+	info, ok := agent.CurrentConfig().StateServingInfo()
+	if !ok {
+		return nil, errors.New("State serving info not available")
+	}
+	serverCert, err := tls.X509KeyPair([]byte(info.Cert), []byte(info.PrivateKey))
 	if err != nil {
 		return nil, err
 	}
-	grpcServer := grpc.NewServer()
+	serverCreds := credentials.NewServerTLSFromCert(&serverCert)
+
+	grpcServer := grpc.NewServer(grpc.Creds(serverCreds))
 	reflection.Register(grpcServer)
 	apiServer := &server{}
 
 	simpleapi.RegisterSimpleServiceServer(grpcServer, apiServer)
+
+	lis, err := net.Listen("tcp", ":18888")
+	if err != nil {
+		return nil, err
+	}
+
 	done := make(chan error)
 	go func() {
 		done <- grpcServer.Serve(lis)
 	}()
-	conn, err := grpc.DialContext(ctx, "127.0.0.1:18888", grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		grpcServer.Stop()
-		return nil, err
-	}
-	mux := runtime.NewServeMux(
-		runtime.WithIncomingHeaderMatcher(headerMatcher),
-	)
-	err = simpleapi.RegisterSimpleServiceHandler(ctx, mux, conn)
-	if err != nil {
-		log.Fatalf("Failed to register gateway: %s", err)
-	}
-	gwServer := &http.Server{
-		Addr:    ":18889",
-		Handler: mux,
-	}
-	go func() {
-		gwServer.ListenAndServe()
-	}()
+
+	// Since TLS added, grpc-gateway now broken, find out why?
+	/*
+		ctx := context.Background()
+		conn, err := grpc.DialContext(ctx, "localhost:18888", grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			grpcServer.Stop()
+			return nil, err
+		}
+		mux := runtime.NewServeMux(
+			runtime.WithIncomingHeaderMatcher(headerMatcher),
+		)
+		err = simpleapi.RegisterSimpleServiceHandler(ctx, mux, conn)
+		if err != nil {
+			grpcServer.Stop()
+			return nil, err
+		}
+		gwServer := &http.Server{
+			Addr:    ":18889",
+			Handler: mux,
+		}
+		go func() {
+			err := gwServer.ListenAndServe()
+			if err != nil {
+				logger.Errorf("Error serving gateway: %s", err)
+			}
+		}()
+	*/
 	return &grpcWorker{
 		server: grpcServer,
 		done:   done,
