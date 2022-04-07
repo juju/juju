@@ -9,6 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package syslogger -destination io_mock_test.go io WriteCloser
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

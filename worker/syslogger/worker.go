@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 )
 
+// NewLogger is a factory function to create a new syslog logger.
 type NewLogger func(Priority, string) (io.WriteCloser, error)
 
 // WorkerConfig encapsulates the configuration options for the
@@ -118,13 +119,20 @@ func (w *syslogWorker) Wait() error {
 }
 
 func (w *syslogWorker) Log(logs []corelogger.LogRecord) error {
+	// Prevent logging out if the worker has already been killed.
+	select {
+	case <-w.catacomb.Dead():
+		return w.catacomb.Err()
+	default:
+	}
+
 	for _, log := range logs {
 		writer, ok := w.writers[log.Level]
 		if !ok {
 			continue
 		}
 		dateTime := log.Time.In(time.UTC).Format("2006-01-02 15:04:05")
-		fmt.Fprintf(writer, "%s %s %s %s\n", dateTime, log.Entity, log.Module, log.Message)
+		_, _ = fmt.Fprintf(writer, "%s %s %s %s\n", dateTime, log.Entity, log.Module, log.Message)
 	}
 	return nil
 }
