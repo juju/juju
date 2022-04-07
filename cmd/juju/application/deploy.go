@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -866,18 +867,18 @@ func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {
 	}
 
 	// Fetch known spaces from server
-	knownSpaceList, err := api.ListSpaces()
+	knownSpaces, err := api.ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	knownSpaces := make([]string, 0, len(knownSpaceList))
-	for _, sp := range knownSpaceList {
-		knownSpaces = append(knownSpaces, sp.Name)
+	knownSpaceNames := set.NewStrings()
+	for _, space := range knownSpaces {
+		knownSpaceNames.Add(space.Name)
 	}
 
 	// Parse expression
-	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaces)
+	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaceNames)
 	if err != nil {
 		return errors.Trace(err)
 	}

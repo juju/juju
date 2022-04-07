@@ -196,18 +196,18 @@ func (c *bindCommand) parseBindExpression(apiRoot base.APICallCloser) error {
 	}
 
 	// Fetch known spaces from server
-	knownSpaceList, err := c.NewSpacesClient(apiRoot).ListSpaces()
+	knownSpaces, err := c.NewSpacesClient(apiRoot).ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	knownSpaces := make([]string, 0, len(knownSpaceList))
-	for _, sp := range knownSpaceList {
-		knownSpaces = append(knownSpaces, sp.Name)
+	knownSpaceNames := set.NewStrings()
+	for _, space := range knownSpaces {
+		knownSpaceNames.Add(space.Name)
 	}
 
 	// Parse expression
-	bindings, err := parseBindExpr(c.BindExpression, knownSpaces)
+	bindings, err := parseBindExpr(c.BindExpression, knownSpaceNames)
 	if err != nil {
 		return errors.Trace(err)
 	}
