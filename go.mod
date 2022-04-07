@@ -80,7 +80,6 @@ require (
 	github.com/juju/testing v0.0.0-20220203020004-a0ff61f03494
 	github.com/juju/txn/v2 v2.0.0-20220204100656-93c9d8a9b89f
 	github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647
-	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
 	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
 	github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935
 	github.com/juju/webbrowser v1.0.0
