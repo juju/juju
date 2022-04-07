@@ -289,7 +289,7 @@ install: rebuild-schema go-install
 ## install: Install Juju binaries with a rebuilt schema
 
 .PHONY: go-install
-go-install: cgo-go-install 
+go-install: cgo-go-install $(INSTALL_TARGETS)
 ## go-install: Install Juju binaries
 
 .PHONY: clean
