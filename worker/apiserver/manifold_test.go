@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 type ManifoldSuite struct {
@@ -57,6 +59,7 @@ type ManifoldSuite struct {
 	state                stubStateTracker
 	upgradeGate          stubGateWaiter
 	queue                *queue.OpQueue
+	sysLogger            syslogger.SysLogger
 
 	stub testing.Stub
 }
@@ -82,6 +85,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
 	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
+	s.sysLogger = &mockSysLogger{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -98,6 +102,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuditConfigUpdaterName:            "auditconfig-updater",
 		LeaseManagerName:                  "lease-manager",
 		RaftTransportName:                 "raft-transport",
+		SyslogName:                        "syslog",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -122,11 +127,20 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"auditconfig-updater": s.auditConfig.get,
 		"lease-manager":       s.leaseManager,
 		"raft-transport":      nil,
+		"syslog":              s.sysLogger,
 	}
 	for k, v := range overlay {
 		resources[k] = v
 	}
 	return dt.StubContext(nil, resources)
+}
+
+type mockSysLogger struct {
+	syslogger.SysLogger
+}
+
+func (*mockSysLogger) Log([]corelogger.LogRecord) error {
+	return nil
 }
 
 func (s *ManifoldSuite) RestoreStatus() state.RestoreStatus {
@@ -149,7 +163,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
 	"restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
-	"raft-transport",
+	"raft-transport", "syslog",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -222,6 +236,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		MetricsCollector:    s.metricsCollector,
 		Hub:                 &s.hub,
 		RaftOpQueue:         s.queue,
+		SysLogger:           s.sysLogger,
 	})
 }
 

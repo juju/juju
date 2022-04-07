@@ -15,6 +15,7 @@ import (
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 // Logger defines the logging methods used by the worker.
@@ -29,8 +30,9 @@ type ManifoldConfig struct {
 	AgentName      string
 	AuthorityName  string
 	StateName      string
-	Clock          clock.Clock
 	MuxName        string
+	SyslogName     string
+	Clock          clock.Clock
 	NewWorker      func(Config) (worker.Worker, error)
 	NewModelWorker NewModelWorkerFunc
 	ModelMetrics   ModelMetrics
@@ -50,6 +52,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
+	}
+	if config.SyslogName == "" {
+		return errors.NotValidf("empty SyslogName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -74,6 +79,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuthorityName,
 			config.MuxName,
 			config.StateName,
+			config.SyslogName,
 		},
 		Start: config.start,
 	}
@@ -99,6 +105,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var sysLogger syslogger.SysLogger
+	if err := context.Get(config.SyslogName, &sysLogger); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -111,14 +122,17 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	machineID := agent.CurrentConfig().Tag().Id()
 
 	w, err := config.NewWorker(Config{
-		Authority:      authority,
-		Clock:          config.Clock,
-		Logger:         config.Logger,
-		MachineID:      machineID,
-		ModelWatcher:   statePool.SystemState(),
-		ModelMetrics:   config.ModelMetrics,
-		Mux:            mux,
-		Controller:     StatePoolController{statePool},
+		Authority:    authority,
+		Clock:        config.Clock,
+		Logger:       config.Logger,
+		MachineID:    machineID,
+		ModelWatcher: statePool.SystemState(),
+		ModelMetrics: config.ModelMetrics,
+		Mux:          mux,
+		Controller: StatePoolController{
+			StatePool: statePool,
+			SysLogger: sysLogger,
+		},
 		NewModelWorker: config.NewModelWorker,
 		ErrorDelay:     jworker.RestartDelay,
 	})

@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -1027,6 +1028,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				RaftOpQueue:      queue,
+				SysLogger:        noopSysLogger{},
 			})
 			if err != nil {
 				panic(err)
@@ -1060,6 +1062,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	}
 	return bsResult, nil
 }
+
+type noopSysLogger struct{}
+
+func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
 	target := st.LeaseNotifyTarget(

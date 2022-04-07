@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -103,7 +104,7 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 	// Set up a fake log tailer with a 2 log records ready to send.
 	tailer := newFakeLogTailer()
-	tailer.logsCh <- &state.LogRecord{
+	tailer.logsCh <- &corelogger.LogRecord{
 		Time:     time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
 		Entity:   "machine-99",
 		Module:   "some.where",
@@ -111,7 +112,7 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 		Level:    loggo.INFO,
 		Message:  "stuff happened",
 	}
-	tailer.logsCh <- &state.LogRecord{
+	tailer.logsCh <- &corelogger.LogRecord{
 		Time:     time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
 		Entity:   "unit-foo-2",
 		Module:   "else.where",
@@ -140,7 +141,7 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 func (s *debugLogDBIntSuite) TestTimeout(c *gc.C) {
 	// Set up a fake log tailer with a 2 log records ready to send.
 	tailer := newFakeLogTailer()
-	tailer.logsCh <- &state.LogRecord{
+	tailer.logsCh <- &corelogger.LogRecord{
 		Time:     time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
 		Entity:   "machine-99",
 		Module:   "some.where",
@@ -148,7 +149,7 @@ func (s *debugLogDBIntSuite) TestTimeout(c *gc.C) {
 		Level:    loggo.INFO,
 		Message:  "stuff happened",
 	}
-	tailer.logsCh <- &state.LogRecord{
+	tailer.logsCh <- &corelogger.LogRecord{
 		Time:     time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
 		Entity:   "unit-foo-2",
 		Module:   "else.where",
@@ -192,7 +193,7 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 	// Set up a fake log tailer with a 5 log records ready to send.
 	tailer := newFakeLogTailer()
 	for i := 0; i < 5; i++ {
-		tailer.logsCh <- &state.LogRecord{
+		tailer.logsCh <- &corelogger.LogRecord{
 			Time:     time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
 			Entity:   "machine-99",
 			Module:   "some.where",
@@ -263,17 +264,17 @@ type fakeState struct {
 
 func newFakeLogTailer() *fakeLogTailer {
 	return &fakeLogTailer{
-		logsCh: make(chan *state.LogRecord, 10),
+		logsCh: make(chan *corelogger.LogRecord, 10),
 	}
 }
 
 type fakeLogTailer struct {
 	state.LogTailer
-	logsCh  chan *state.LogRecord
+	logsCh  chan *corelogger.LogRecord
 	stopped bool
 }
 
-func (t *fakeLogTailer) Logs() <-chan *state.LogRecord {
+func (t *fakeLogTailer) Logs() <-chan *corelogger.LogRecord {
 	return t.logsCh
 }
 

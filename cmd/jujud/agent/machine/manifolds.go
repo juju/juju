@@ -91,6 +91,7 @@ import (
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
@@ -709,6 +710,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
 			StateName:              stateName,
+			SyslogName:             syslogName,
 			ModelCacheName:         modelCacheName,
 			MultiwatcherName:       multiwatcherName,
 			MuxName:                httpServerArgsName,
@@ -730,10 +732,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
+		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
+			NewWorker: syslogger.NewWorker,
+			NewLogger: syslogger.NewSyslog,
+		}),
+
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,
 			AuthorityName:  certificateWatcherName,
 			StateName:      stateName,
+			SyslogName:     syslogName,
 			Clock:          config.Clock,
 			MuxName:        httpServerArgsName,
 			NewWorker:      modelworkermanager.New,
@@ -1170,6 +1178,8 @@ const (
 	httpServerName     = "http-server"
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
+
+	syslogName = "syslog"
 
 	raftTransportName = "raft-transport"
 	raftName          = "raft"
