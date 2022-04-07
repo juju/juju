@@ -183,7 +183,7 @@ Examples:
     juju bootstrap --config controller-service-type=loadbalancer
 
     # For a bootstrap on k8s, setting the service type of the Juju controller service to External
-    juju bootstrap --config controller-service-type=external --config controller-service-name=controller.juju.is
+    juju bootstrap --config controller-service-type=external --config controller-external-name=controller.juju.is
 
 See also:
     add-credential
