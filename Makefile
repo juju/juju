@@ -15,7 +15,7 @@ GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
-BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
+BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
 # bin_platform_paths takes a juju binary to be built and the platform that it
 # is to be built for and returns a list of paths for that binary to be output.
@@ -145,7 +145,7 @@ define run_go_build
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
+	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
 endef
 
 define run_go_install
@@ -507,4 +507,4 @@ cgo-go-install:
 
 cgo-go-build:
 ## go-build: Build Juju binaries without updating dependencies
-	$(MAKE) cgo-go-op o=build d="-o ${BIN_DIR}"
+	$(MAKE) cgo-go-op o=build d="-o ${BIN_DIR}/jujud"
