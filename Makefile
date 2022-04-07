@@ -220,7 +220,7 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 ${BUILD_DIR}/%/bin/jujud: phony_explicit
 # build for jujud
-	$(run_go_build)
+	$(cgo-go-build)
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit
@@ -247,8 +247,11 @@ build: rebuild-schema go-build
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
 ## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
 
+.PHONY: go-agent-build
+go-agent-build: cgo-go-build $(BUILD_AGENT_TARGETS)
+
 .PHONY: go-build
-go-build: $(BUILD_AGENT_TARGETS) $(BUILD_CLIENT_TARGETS)
+go-build: go-agent-build $(BUILD_CLIENT_TARGETS)
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
 ## BUILD_CLIENT_TARGETS.
 
