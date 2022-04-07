@@ -238,7 +238,7 @@ musl-install-if-missing:
 # Accessing the dqlite repl on a given controller for debugging purposes.
 ################################################################################
 
-JUJU_CONTROLLER_BOX ?= $(shell juju status -m controller | grep juju- | head -1 | awk '{print $$4}')
+JUJU_CONTROLLER_BOX ?= $(shell juju status -m controller --format=json | jq -r '.machines | .["0"] | .["instance-id"]')
 
 juju-dqlite-repl-deps-on-controller:
 	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- bash -c 'which rlwrap &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install rlwrap'
