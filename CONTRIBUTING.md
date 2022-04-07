@@ -61,7 +61,7 @@ Go can be [installed](https://golang.org/doc/install#install) from the official 
 
 Juju uses Go modules and does not depend on GOPATH, therefore you can check juju out anywhere.
 
-### Change to the Juju source code directory  
+### Change to the Juju source code directory
 
     cd juju
 
@@ -254,7 +254,7 @@ Testing
 -------
 
 Some tests may require local lxd to be installed, see
-[installing lxd via snap](https://stgraber.org/2016/10/17/lxd-snap-available/).  
+[installing lxd via snap](https://stgraber.org/2016/10/17/lxd-snap-available/).
 
 Juju uses the `gocheck` testing framework, which is automatically installed
 as a dependency of `juju`. You can read more about `gocheck` at
