@@ -1,13 +1,21 @@
 syntax = "proto3";
 
-package juju.simpleapi;
+package juju.client.simple.v1alpha1;
 
-option go_package = "github.com/juju/juju/workers/grpcserver/simpleapi";
+import "google/api/annotations.proto";
 
 service SimpleService {
-    rpc Status(StatusRequest) returns (StatusResponse);
-
-    rpc Deploy(DeployRequest) returns (DeployResponse);
+    rpc Status(StatusRequest) returns (StatusResponse) {
+        option (google.api.http) = {
+            get: "/v1alpha1/status"
+        };
+    }
+    rpc Deploy(DeployRequest) returns (DeployResponse) {
+        option (google.api.http) = {
+            post: "/v1alpha1/deploy"
+            body: "*"
+        };
+    }
 }
 
 message StatusRequest {

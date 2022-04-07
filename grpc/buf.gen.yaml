@@ -1,0 +1,25 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/arnodel/grpc-juju-client/protos/go
+    except:
+      - buf.build/googleapis/googleapis
+plugins:
+  - remote: buf.build/protocolbuffers/plugins/go
+    out: gen/proto/go
+    opt: paths=source_relative
+  - remote: buf.build/grpc/plugins/go
+    out: gen/proto/go
+    opt: paths=source_relative
+  - remote: buf.build/grpc-ecosystem/plugins/grpc-gateway
+    out: gen/proto/go
+    opt: paths=source_relative
+  - remote: buf.build/protocolbuffers/plugins/python
+    out: gen/proto/python
+  - remote: buf.build/grpc/plugins/python
+    out: gen/proto/python
+  - name: doc
+    out: gen/proto/doc
+  - remote: buf.build/grpc-ecosystem/plugins/openapiv2
+    out: gen/proto/openapi

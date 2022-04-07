@@ -1,0 +1,186 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "juju/client/simple/v1alpha1/simple.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "SimpleService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1alpha1/deploy": {
+      "post": {
+        "operationId": "SimpleService_Deploy",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1alpha1DeployResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1alpha1DeployRequest"
+            }
+          }
+        ],
+        "tags": [
+          "SimpleService"
+        ]
+      }
+    },
+    "/v1alpha1/status": {
+      "get": {
+        "operationId": "SimpleService_Status",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1alpha1StatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "patterns",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          }
+        ],
+        "tags": [
+          "SimpleService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v1alpha1ApplicationStatus": {
+      "type": "object",
+      "properties": {
+        "charmName": {
+          "type": "string"
+        },
+        "charmVersion": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1alpha1DetailedStatus"
+        }
+      }
+    },
+    "v1alpha1DeployRequest": {
+      "type": "object",
+      "properties": {
+        "charmName": {
+          "type": "string"
+        },
+        "applicationName": {
+          "type": "string"
+        },
+        "numUnits": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "v1alpha1DeployResponse": {
+      "type": "object"
+    },
+    "v1alpha1DetailedStatus": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "info": {
+          "type": "string"
+        },
+        "life": {
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1ModelStatusInfo": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "applications": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v1alpha1ApplicationStatus"
+          }
+        }
+      }
+    },
+    "v1alpha1StatusResponse": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "$ref": "#/definitions/v1alpha1ModelStatusInfo"
+        }
+      }
+    }
+  }
+}

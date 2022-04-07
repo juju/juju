@@ -3,7 +3,7 @@ package grpcserver
 import (
 	"context"
 
-	"github.com/juju/juju/worker/grpcserver/simpleapi"
+	simpleapi "github.com/juju/juju/grpc/gen/proto/go/juju/client/simple/v1alpha1"
 )
 
 // This implements the SimpleService gRPC service.
