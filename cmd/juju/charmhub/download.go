@@ -304,7 +304,12 @@ func (c *downloadCommand) suggested(ser string, channel string, releases []trans
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			s, err := coreseries.VersionSeries(rel.Base.Channel)
+			platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+				Architecture: rel.Base.Architecture,
+				OS:           rel.Base.Name,
+				Series:       rel.Base.Channel,
+			})
+			s, err := coreseries.VersionSeries(platform.Series)
 			if err == nil {
 				series.Add(s)
 			} else {

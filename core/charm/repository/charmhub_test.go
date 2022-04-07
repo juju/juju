@@ -775,6 +775,27 @@ func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 	}})
 }
 
+func (selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
+	repo := new(CharmHubRepository)
+	platform, err := repo.selectNextBases([]transport.Base{{
+		Architecture: "amd64",
+		Name:         "centos",
+		Channel:      "7",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "amd64",
+		OS:           "centos",
+		Series:       "centos7",
+	}})
+}
+
 func (selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *gc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
@@ -950,6 +971,26 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 	})
 }
 
+func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	repo := NewCharmHubRepository(s.logger, nil)
+	suggestions := repo.composeSuggestions([]transport.Release{{
+		Base: transport.Base{
+			Name:         "centos",
+			Channel:      "7",
+			Architecture: "c",
+		},
+		Channel: "stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "c",
+		},
+	})
+	c.Assert(suggestions, gc.DeepEquals, []string{
+		"stable with centos7",
+	})
+}
+
 func (s *composeSuggestionsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.logger = mocks.NewMockLogger(ctrl)
@@ -1003,6 +1044,30 @@ func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 		Architecture: "arch",
 		OS:           "os",
 		Series:       "focal",
+	}})
+}
+
+func (selectReleaseByChannelSuite) TestSelectionWithCentos(c *gc.C) {
+	release, err := selectReleaseByArchAndChannel([]transport.Release{{
+		Base: transport.Base{
+			Name:         "centos",
+			Channel:      "7",
+			Architecture: "arch",
+		},
+		Channel: "stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "arch",
+		},
+		Channel: &charm.Channel{
+			Risk: "stable",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "arch",
+		OS:           "centos",
+		Series:       "centos7",
 	}})
 }
 

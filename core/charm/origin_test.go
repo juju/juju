@@ -209,3 +209,34 @@ func (*computeBaseChannelSuite) TestComputeBaseChannel(c *gc.C) {
 		c.Assert(got, gc.Equals, test.result)
 	}
 }
+
+type normalisePlatformSeriesSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&normalisePlatformSeriesSuite{})
+
+func (*normalisePlatformSeriesSuite) TestComputeBaseChannel(c *gc.C) {
+	tests := []struct {
+		platform charm.Platform
+		result   string
+	}{{
+		platform: charm.Platform{OS: "centos", Series: "centos7"},
+		result:   "centos7",
+	}, {
+		platform: charm.Platform{OS: "centos", Series: "7"},
+		result:   "centos7",
+	}, {
+		platform: charm.Platform{OS: "ubuntu", Series: "20.04"},
+		result:   "20.04",
+	}, {
+		platform: charm.Platform{OS: "ubuntu", Series: "focal"},
+		result:   "focal",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d - %s", i, test.platform)
+		got := charm.NormalisePlatformSeries(test.platform).Series
+		c.Assert(got, gc.Equals, test.result)
+	}
+}

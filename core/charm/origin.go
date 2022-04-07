@@ -216,6 +216,23 @@ func ComputeBaseChannel(platform Platform) Platform {
 	return p
 }
 
+// NormalisePlatformSeries origin.Platform.Series returns a valid Juju series and
+// not a charmhub series, ensuring we correctly normalize the base channel.
+func NormalisePlatformSeries(platform Platform) Platform {
+	switch strings.ToLower(platform.OS) {
+	case "centos":
+		// If the platform has already a "centos" prefix, don't double prefix it.
+		if strings.HasPrefix(strings.ToLower(platform.Series), "centos") {
+			return platform
+		}
+
+		p := platform
+		p.Series = fmt.Sprintf("centos%s", platform.Series)
+		return p
+	}
+	return platform
+}
+
 func ChannelTrack(channel string) (string, error) {
 	// Base channel can be found as either just the version `20.04` (focal)
 	// or as `20.04/latest` (focal latest). We should future proof ourself

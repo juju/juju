@@ -112,11 +112,11 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, re
 				if err != nil {
 					return nil, corecharm.Origin{}, nil, errors.Trace(err)
 				}
-				resolvableBases = append(resolvableBases, corecharm.Platform{
+				resolvableBases = append(resolvableBases, corecharm.NormalisePlatformSeries(corecharm.Platform{
 					Architecture: v.Architecture,
 					OS:           v.Name,
 					Series:       series,
-				})
+				}))
 			}
 		}
 		// Entities installed by revision do not have an effective channel in the data.
@@ -234,7 +234,7 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	p.OS = base.OS
 	p.Series = base.Series
 
-	origin.Platform = p
+	origin.Platform = corecharm.NormalisePlatformSeries(p)
 
 	if origin.Platform.Series == "" {
 		return nil, errors.NotValidf("series for %s", charmURL.Name)
@@ -508,17 +508,19 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 		if err != nil {
 			return nil, errors.Annotate(err, "base")
 		}
-		series, err := coreseries.VersionSeries(track)
+		platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+			Architecture: base.Architecture,
+			OS:           base.Name,
+			Series:       track,
+		})
+
+		series, err := coreseries.VersionSeries(platform.Series)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		results[k] = corecharm.Platform{
-			Architecture: base.Architecture,
-			OS:           base.Name,
-			Series:       series,
-		}
-
+		p := platform
+		p.Series = series
+		results[k] = p
 	}
 
 	return results, nil
@@ -655,11 +657,15 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {
 	channelSeries := make(map[string][]string)
 	for _, release := range releases {
-		base := release.Base
+		base := corecharm.NormalisePlatformSeries(corecharm.Platform{
+			Architecture: release.Base.Architecture,
+			OS:           release.Base.Name,
+			Series:       release.Base.Channel,
+		})
 		arch := base.Architecture
-		track, err := corecharm.ChannelTrack(base.Channel)
+		track, err := corecharm.ChannelTrack(base.Series)
 		if err != nil {
-			c.logger.Errorf("invalid base channel %v: %s", base.Channel, err)
+			c.logger.Errorf("invalid base channel %v: %s", base.Series, err)
 			continue
 		}
 		series, err := coreseries.VersionSeries(track)
@@ -713,16 +719,20 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		series, err := coreseries.VersionSeries(track)
+		platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+			Architecture: origin.Platform.Architecture,
+			OS:           os,
+			Series:       track,
+		})
+		series, err := coreseries.VersionSeries(platform.Series)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
-			results = append(results, corecharm.Platform{
-				Architecture: origin.Platform.Architecture,
-				OS:           os,
-				Series:       series,
-			})
+			p := platform
+			p.Series = series
+
+			results = append(results, p)
 		}
 	}
 	return results, nil
