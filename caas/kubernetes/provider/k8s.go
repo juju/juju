@@ -54,6 +54,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -1155,8 +1156,7 @@ func (k *kubernetesClient) ensureService(
 		}
 	}()
 
-	workloadSpec, err := prepareWorkloadSpec(appName, deploymentName, params.PodSpec,
-		params.OperatorImagePath)
+	workloadSpec, err := prepareWorkloadSpec(appName, deploymentName, params.PodSpec, params.ImageDetails)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
@@ -2616,15 +2616,22 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 	return nil
 }
 
-func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
-	operatorImagePath string) (*workloadSpec, error) {
+func prepareWorkloadSpec(
+	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails resources.DockerImageDetails,
+) (*workloadSpec, error) {
 	var spec workloadSpec
 	if err := processContainers(deploymentName, podSpec, &spec.Pod.PodSpec); err != nil {
 		logger.Errorf("unable to parse %q pod spec: \n%+v", appName, *podSpec)
 		return nil, errors.Annotatef(err, "processing container specs for app %q", appName)
 	}
-	if err := ensureJujuInitContainer(&spec.Pod.PodSpec, operatorImagePath); err != nil {
+	if err := ensureJujuInitContainer(&spec.Pod.PodSpec, imageDetails.RegistryPath); err != nil {
 		return nil, errors.Annotatef(err, "adding init container for app %q", appName)
+	}
+	if imageDetails.IsPrivate() {
+		spec.Pod.PodSpec.ImagePullSecrets = append(
+			spec.Pod.PodSpec.ImagePullSecrets,
+			core.LocalObjectReference{Name: constants.CAASImageRepoSecretName},
+		)
 	}
 
 	spec.Service = podSpec.Service

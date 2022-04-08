@@ -152,11 +152,11 @@ type ServiceParams struct {
 	// Devices is a set of parameters for Devices that is required.
 	Devices []devices.KubernetesDeviceParams
 
-	// OperatorImagePath is the path to the OCI image shared by the operator and pod init.
-	OperatorImagePath string
-
 	// CharmModifiedVersion increases when the charm changes in some way.
 	CharmModifiedVersion int
+
+	// ImageDetails is the docker registry URL and auth details for the juju init container image.
+	ImageDetails resources.DockerImageDetails
 }
 
 // DeploymentState is returned by the OperatorExists call.

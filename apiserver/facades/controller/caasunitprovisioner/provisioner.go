@@ -388,11 +388,12 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	operatorImagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, vers)
+	registryPath, err := podcfg.GetJujuOCIImagePath(controllerCfg, vers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	imageRepo := params.NewDockerImageInfo(controllerCfg.CAASImageRepo(), registryPath)
+	logger.Tracef("imageRepo %v", imageRepo)
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -428,8 +429,8 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Tags:                 resourceTags,
-		OperatorImagePath:    operatorImagePath,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
+		ImageRepo:            imageRepo,
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {
