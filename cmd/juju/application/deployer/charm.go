@@ -258,7 +258,12 @@ func (d *deployCharm) deploy(
 	}
 
 	if errors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, errors.Errorf("\ndeploy application using an alias name, or use remove-application to remove the existing one and try again"), err.Error())
+		// Would be nice to be able to access the app name here
+		return errors.Wrapf(err, errors.Errorf(`
+deploy application using an alias name:
+    juju deploy <application> <alias>
+or use remove-application to remove the existing one and try again.`,
+		), err.Error())
 	}
 	return errors.Trace(err)
 
