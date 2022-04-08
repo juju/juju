@@ -20,6 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
+	github.com/canonical/go-dqlite v1.11.0
 	github.com/canonical/pebble v0.0.0-20220316083406-c50b1edca41f
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
@@ -78,6 +79,7 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0-20220207005045-25aa57bf93cd
 	github.com/juju/testing v0.0.0-20220203020004-a0ff61f03494
 	github.com/juju/txn/v2 v2.0.0-20220204100656-93c9d8a9b89f
+	github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647
 	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
 	github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935
 	github.com/juju/webbrowser v1.0.0
@@ -86,6 +88,7 @@ require (
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20210607205159-a7c206b5233d
 	github.com/mattn/go-isatty v0.0.14
+	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/oracle/oci-go-sdk/v47 v47.1.0
@@ -101,10 +104,10 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210921065528-437939a70204
 	golang.org/x/tools v0.1.5
-	google.golang.org/api v0.43.0
+	google.golang.org/api v0.44.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/httprequest.v1 v1.2.1
-	gopkg.in/ini.v1 v1.51.0
+	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a
 	gopkg.in/macaroon-bakery.v2 v2.3.0
 	gopkg.in/macaroon.v2 v2.1.0
@@ -129,6 +132,7 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e // indirect
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
+	github.com/Rican7/retry v0.1.0 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 // indirect
@@ -140,6 +144,7 @@ require (
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
+	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect
@@ -149,6 +154,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
+	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
@@ -170,7 +176,6 @@ require (
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
 	github.com/juju/usso v1.0.1 // indirect
-	github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -184,7 +189,7 @@ require (
 	github.com/masterzen/simplexml v0.0.0-20190410153822-31eea3082786 // indirect
 	github.com/masterzen/winrm v0.0.0-20211231115050-232efb40349e // indirect
 	github.com/mattn/go-colorable v0.1.10 // indirect
-	github.com/mattn/go-runewidth v0.0.2 // indirect
+	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -195,6 +200,7 @@ require (
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/smartystreets/goconvey v1.7.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -210,8 +216,8 @@ require (
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20210402141018-6c239bbf2bb1 // indirect
-	google.golang.org/grpc v1.36.1 // indirect
+	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
+	google.golang.org/grpc v1.38.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect

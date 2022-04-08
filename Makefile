@@ -1,3 +1,8 @@
+# Export this first, incase we want to change it in the included makefiles.
+export CGO_ENABLED=0
+
+include scripts/dqlite/Makefile
+
 #
 # Makefile for juju-core.
 #
@@ -8,10 +13,9 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
-export CGO_ENABLED=0
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
-BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
+BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
 # bin_platform_paths takes a juju binary to be built and the platform that it
 # is to be built for and returns a list of paths for that binary to be output.
@@ -59,10 +63,13 @@ endef
 define INSTALL_TARGETS
 	juju \
 	jujuc \
-	jujud \
 	containeragent \
 	juju-metadata \
 	juju-wait-for
+endef
+
+define INSTALL_CGO_TARGETS
+  github.com/juju/juju/cmd/jujud
 endef
 
 # We only add pebble to the list of install targets if we are building for linux
@@ -138,7 +145,7 @@ define run_go_build
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
+	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
 endef
 
 define run_go_install
@@ -213,7 +220,7 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 ${BUILD_DIR}/%/bin/jujud: phony_explicit
 # build for jujud
-	$(run_go_build)
+	$(cgo-go-build)
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit
@@ -240,8 +247,11 @@ build: rebuild-schema go-build
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
 ## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
 
+.PHONY: go-agent-build
+go-agent-build: cgo-go-build $(BUILD_AGENT_TARGETS)
+
 .PHONY: go-build
-go-build: $(BUILD_AGENT_TARGETS) $(BUILD_CLIENT_TARGETS)
+go-build: go-agent-build $(BUILD_CLIENT_TARGETS)
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
 ## BUILD_CLIENT_TARGETS.
 
@@ -282,7 +292,7 @@ install: rebuild-schema go-install
 ## install: Install Juju binaries with a rebuilt schema
 
 .PHONY: go-install
-go-install: $(INSTALL_TARGETS)
+go-install: cgo-go-install $(INSTALL_TARGETS)
 ## go-install: Install Juju binaries
 
 .PHONY: clean
@@ -474,3 +484,27 @@ STATIC_ANALYSIS_JOB ?=
 static-analysis:
 ## static-analysis: Check the go code using static-analysis
 	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
+
+
+cgo-go-op: musl-install-if-missing dqlite-deps-check
+	PATH=${PATH}:/usr/local/musl/bin \
+		CC="musl-gcc" \
+		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
+		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+		CGO_ENABLED=1 \
+		go $o $d \
+			-mod=${JUJU_GOMOD_MODE} \
+			-tags "libsqlite3 ${BUILD_TAGS}" \
+			${COMPILE_FLAGS} \
+			-ldflags "-s -w -linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
+			-v $(strip $(INSTALL_CGO_TARGETS))
+
+cgo-go-install:
+## go-install: Install Juju binaries without updating dependencies
+	$(MAKE) cgo-go-op o=install d=
+
+cgo-go-build:
+## go-build: Build Juju binaries without updating dependencies
+	$(MAKE) cgo-go-op o=build d="-o ${BIN_DIR}/jujud"

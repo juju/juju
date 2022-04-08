@@ -243,7 +243,6 @@ func buildJujus(dir string) error {
 
 	// Determine if we are in tree of juju and if to prefer
 	// vendor or readonly mod deps.
-	var modArg string
 	var lastErr error
 	for _, m := range []string{"-mod=vendor", "-mod=readonly"} {
 		cmd := exec.Command("go", "list", m, "github.com/juju/juju")
@@ -256,7 +255,6 @@ func buildJujus(dir string) error {
 			lastErr = errors.Annotatef(err, info, jujuversion.Current.String(), jujuversion.GitCommit, out)
 			continue
 		}
-		modArg = m
 		lastErr = nil
 		break
 	}
@@ -266,14 +264,11 @@ func buildJujus(dir string) error {
 
 	// Build binaries.
 	cmds := [][]string{
-		// TODO: jam 2020-03-12 do we want to also default to stripping the binary?
-		//       -ldflags "-s -w"
-		{"go", "build", modArg, "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
-		{"go", "build", modArg, "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujuc), "github.com/juju/juju/cmd/jujuc"},
+		{"make", "go-agent-build"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+		cmd.Env = append(os.Environ(), "BIN_DIR="+dir, "CC=/usr/local/musl/bin/musl-gcc")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
