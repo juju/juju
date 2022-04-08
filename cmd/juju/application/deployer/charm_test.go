@@ -51,13 +51,24 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
 	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
 
-	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
+	err := s.newDeployCharm(c, true).deploy(s.ctx, s.deployerAPI)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmSuite) newDeployCharm() *deployCharm {
+func (s *charmSuite) TestSimpleCharmDeployDryRun(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dc := s.newDeployCharm(c, false)
+	dc.dryRun = true
+	err := dc.deploy(s.ctx, s.deployerAPI)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *charmSuite) newDeployCharm(c *gc.C, callResources bool) *deployCharm {
 	return &deployCharm{
 		configOptions: s.configFlag,
 		deployResources: func(
@@ -69,6 +80,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 			base.APICallCloser,
 			modelcmd.Filesystem,
 		) (ids map[string]string, err error) {
+			c.Assert(callResources, jc.IsTrue, gc.Commentf("dry run should not try to deploy resources"))
 			return s.deployResourceIDs, nil
 		},
 		id: application.CharmID{
@@ -93,7 +105,6 @@ func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
 	s.modelCommand.EXPECT().BakeryClient().Return(nil, nil)
-	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
 
 	// Except to charm config.
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)

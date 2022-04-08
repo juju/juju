@@ -38,6 +38,7 @@ type deployCharm struct {
 	bindings         map[string]string
 	configOptions    DeployConfigFlag
 	constraints      constraints.Value
+	dryRun           bool
 	modelConstraints constraints.Value
 	csMac            *macaroon.Macaroon
 	devices          map[string]devices.Constraints
@@ -192,6 +193,11 @@ func (d *deployCharm) deploy(
 		Force:           d.force,
 	}
 
+	if d.dryRun {
+		ctx.Infof(d.formatDeployingText())
+		return nil
+	}
+
 	for _, step := range d.steps {
 		err = step.RunPre(deployAPI, bakeryClient, ctx, deployInfo)
 		if err != nil {
@@ -261,14 +267,12 @@ func (d *deployCharm) deploy(
 		return errors.Wrapf(err, errors.Errorf("\ndeploy application using an alias name, or use remove-application to remove the existing one and try again"), err.Error())
 	}
 	return errors.Trace(err)
-
 }
 
 var (
 	// BundleOnlyFlags represents what flags are used for bundles only.
-	// TODO(thumper): support dry-run for apps as well as bundles.
 	BundleOnlyFlags = []string{
-		"overlay", "dry-run", "map-machines",
+		"overlay", "map-machines",
 	}
 )
 
@@ -291,8 +295,8 @@ func (d *deployCharm) formatDeployingText() string {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
 
-	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s",
-		name, origin.Source, curl.Name, curl.Revision, channel)
+	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s",
+		name, origin.Source, curl.Name, curl.Revision, channel, origin.Series)
 }
 
 type predeployedLocalCharm struct {
