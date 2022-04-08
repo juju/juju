@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type SimpleServiceClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	Deploy(ctx context.Context, in *DeployRequest, opts ...grpc.CallOption) (*DeployResponse, error)
+	RemoveApplication(ctx context.Context, in *RemoveApplicationRequest, opts ...grpc.CallOption) (*RemoveApplicationResponse, error)
 }
 
 type simpleServiceClient struct {
@@ -52,12 +53,22 @@ func (c *simpleServiceClient) Deploy(ctx context.Context, in *DeployRequest, opt
 	return out, nil
 }
 
+func (c *simpleServiceClient) RemoveApplication(ctx context.Context, in *RemoveApplicationRequest, opts ...grpc.CallOption) (*RemoveApplicationResponse, error) {
+	out := new(RemoveApplicationResponse)
+	err := c.cc.Invoke(ctx, "/juju.client.simple.v1alpha1.SimpleService/RemoveApplication", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SimpleServiceServer is the server API for SimpleService service.
 // All implementations must embed UnimplementedSimpleServiceServer
 // for forward compatibility
 type SimpleServiceServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	Deploy(context.Context, *DeployRequest) (*DeployResponse, error)
+	RemoveApplication(context.Context, *RemoveApplicationRequest) (*RemoveApplicationResponse, error)
 	mustEmbedUnimplementedSimpleServiceServer()
 }
 
@@ -70,6 +81,9 @@ func (UnimplementedSimpleServiceServer) Status(context.Context, *StatusRequest) 
 }
 func (UnimplementedSimpleServiceServer) Deploy(context.Context, *DeployRequest) (*DeployResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deploy not implemented")
+}
+func (UnimplementedSimpleServiceServer) RemoveApplication(context.Context, *RemoveApplicationRequest) (*RemoveApplicationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveApplication not implemented")
 }
 func (UnimplementedSimpleServiceServer) mustEmbedUnimplementedSimpleServiceServer() {}
 
@@ -120,6 +134,24 @@ func _SimpleService_Deploy_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SimpleService_RemoveApplication_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveApplicationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SimpleServiceServer).RemoveApplication(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/juju.client.simple.v1alpha1.SimpleService/RemoveApplication",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SimpleServiceServer).RemoveApplication(ctx, req.(*RemoveApplicationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SimpleService_ServiceDesc is the grpc.ServiceDesc for SimpleService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +166,10 @@ var SimpleService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Deploy",
 			Handler:    _SimpleService_Deploy_Handler,
+		},
+		{
+			MethodName: "RemoveApplication",
+			Handler:    _SimpleService_RemoveApplication_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

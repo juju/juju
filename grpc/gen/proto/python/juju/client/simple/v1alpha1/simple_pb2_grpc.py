@@ -24,6 +24,11 @@ class SimpleServiceStub(object):
                 request_serializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.DeployRequest.SerializeToString,
                 response_deserializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.DeployResponse.FromString,
                 )
+        self.RemoveApplication = channel.unary_unary(
+                '/juju.client.simple.v1alpha1.SimpleService/RemoveApplication',
+                request_serializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.RemoveApplicationRequest.SerializeToString,
+                response_deserializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.RemoveApplicationResponse.FromString,
+                )
 
 
 class SimpleServiceServicer(object):
@@ -41,6 +46,12 @@ class SimpleServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RemoveApplication(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SimpleServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -53,6 +64,11 @@ def add_SimpleServiceServicer_to_server(servicer, server):
                     servicer.Deploy,
                     request_deserializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.DeployRequest.FromString,
                     response_serializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.DeployResponse.SerializeToString,
+            ),
+            'RemoveApplication': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveApplication,
+                    request_deserializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.RemoveApplicationRequest.FromString,
+                    response_serializer=juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.RemoveApplicationResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -95,5 +111,22 @@ class SimpleService(object):
         return grpc.experimental.unary_unary(request, target, '/juju.client.simple.v1alpha1.SimpleService/Deploy',
             juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.DeployRequest.SerializeToString,
             juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.DeployResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RemoveApplication(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/juju.client.simple.v1alpha1.SimpleService/RemoveApplication',
+            juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.RemoveApplicationRequest.SerializeToString,
+            juju_dot_client_dot_simple_dot_v1alpha1_dot_simple__pb2.RemoveApplicationResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

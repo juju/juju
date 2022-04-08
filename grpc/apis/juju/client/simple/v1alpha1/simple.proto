@@ -16,6 +16,12 @@ service SimpleService {
             body: "*"
         };
     }
+    rpc RemoveApplication(RemoveApplicationRequest) returns (RemoveApplicationResponse) {
+        option (google.api.http) = {
+            post: "/v1alpha1/removeApplication"
+            body: "*"
+        };
+    }
 }
 
 message StatusRequest {
@@ -52,4 +58,16 @@ message DeployRequest {
 }
 
 message DeployResponse {
+}
+
+message RemoveApplicationRequest {
+    string application_name = 1;
+    bool destroy_storage = 2;
+    bool force = 3;
+}
+
+message RemoveApplicationResponse {
+    repeated string detached_storage_tags = 1;
+    repeated string destroyed_storage_tags = 2;
+    repeated string destroyed_uni_tagss = 3;
 }

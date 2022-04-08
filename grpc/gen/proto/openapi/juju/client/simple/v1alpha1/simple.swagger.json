@@ -48,6 +48,38 @@
         ]
       }
     },
+    "/v1alpha1/removeApplication": {
+      "post": {
+        "operationId": "SimpleService_RemoveApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1alpha1RemoveApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1alpha1RemoveApplicationRequest"
+            }
+          }
+        ],
+        "tags": [
+          "SimpleService"
+        ]
+      }
+    },
     "/v1alpha1/status": {
       "get": {
         "operationId": "SimpleService_Status",
@@ -170,6 +202,43 @@
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/v1alpha1ApplicationStatus"
+          }
+        }
+      }
+    },
+    "v1alpha1RemoveApplicationRequest": {
+      "type": "object",
+      "properties": {
+        "applicationName": {
+          "type": "string"
+        },
+        "destroyStorage": {
+          "type": "boolean"
+        },
+        "force": {
+          "type": "boolean"
+        }
+      }
+    },
+    "v1alpha1RemoveApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "detachedStorageTags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "destroyedStorageTags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "destroyedUniTagss": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }
