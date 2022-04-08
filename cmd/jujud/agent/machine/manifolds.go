@@ -732,11 +732,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
-		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
-			NewWorker: syslogger.NewWorker,
-			NewLogger: syslogger.NewSyslog,
-		}),
-
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,
 			AuthorityName:  certificateWatcherName,
@@ -1022,6 +1017,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewContainerWorker,
 		})),
+
+		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
+			NewWorker: syslogger.NewWorker,
+			NewLogger: syslogger.NewSyslog,
+		}),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1038,6 +1038,11 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
+			NewWorker: syslogger.NewWorker,
+			NewLogger: syslogger.NewDiscard,
 		}),
 	})
 }
