@@ -1,8 +1,11 @@
 package grpcserver
 
 import (
+	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"net"
+	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/juju/errors"
@@ -43,11 +46,21 @@ func (c ManifoldConfig) start(dep dependency.Context) (worker.Worker, error) {
 	if !ok {
 		return nil, errors.New("State serving info not available")
 	}
+	apiInfo, ok := agent.CurrentConfig().APIInfo()
+	if !ok {
+		return nil, errors.New("API Info not available")
+	}
 	serverCert, err := tls.X509KeyPair([]byte(info.Cert), []byte(info.PrivateKey))
 	if err != nil {
 		return nil, err
 	}
 	serverCreds := credentials.NewServerTLSFromCert(&serverCert)
+
+	clientCertPool := x509.NewCertPool()
+	if !clientCertPool.AppendCertsFromPEM([]byte(apiInfo.CACert)) {
+		return nil, errors.New("failed to creat cert pool")
+	}
+	clientCreds := credentials.NewClientTLSFromCert(clientCertPool, "juju-apiserver")
 
 	grpcServer := grpc.NewServer(grpc.Creds(serverCreds))
 	reflection.Register(grpcServer)
@@ -65,33 +78,31 @@ func (c ManifoldConfig) start(dep dependency.Context) (worker.Worker, error) {
 		done <- grpcServer.Serve(lis)
 	}()
 
-	// Since TLS added, grpc-gateway now broken, find out why?
-	/*
-		ctx := context.Background()
-		conn, err := grpc.DialContext(ctx, "localhost:18888", grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	ctx := context.Background()
+	conn, err := grpc.DialContext(ctx, "localhost:18888", grpc.WithBlock(), grpc.WithTransportCredentials(clientCreds))
+	if err != nil {
+		grpcServer.Stop()
+		return nil, err
+	}
+	mux := runtime.NewServeMux(
+		runtime.WithIncomingHeaderMatcher(headerMatcher),
+	)
+	err = simpleapi.RegisterSimpleServiceHandler(ctx, mux, conn)
+	if err != nil {
+		grpcServer.Stop()
+		return nil, err
+	}
+	gwServer := &http.Server{
+		Addr:    ":18889",
+		Handler: mux,
+	}
+	go func() {
+		err := gwServer.ListenAndServe()
 		if err != nil {
-			grpcServer.Stop()
-			return nil, err
+			logger.Errorf("Error serving gateway: %s", err)
 		}
-		mux := runtime.NewServeMux(
-			runtime.WithIncomingHeaderMatcher(headerMatcher),
-		)
-		err = simpleapi.RegisterSimpleServiceHandler(ctx, mux, conn)
-		if err != nil {
-			grpcServer.Stop()
-			return nil, err
-		}
-		gwServer := &http.Server{
-			Addr:    ":18889",
-			Handler: mux,
-		}
-		go func() {
-			err := gwServer.ListenAndServe()
-			if err != nil {
-				logger.Errorf("Error serving gateway: %s", err)
-			}
-		}()
-	*/
+	}()
+
 	return &grpcWorker{
 		server: grpcServer,
 		done:   done,
