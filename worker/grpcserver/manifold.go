@@ -95,9 +95,12 @@ func (c ManifoldConfig) start(dep dependency.Context) (worker.Worker, error) {
 	gwServer := &http.Server{
 		Addr:    ":18889",
 		Handler: mux,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{serverCert},
+		},
 	}
 	go func() {
-		err := gwServer.ListenAndServe()
+		err := gwServer.ListenAndServeTLS("", "")
 		if err != nil {
 			logger.Errorf("Error serving gateway: %s", err)
 		}
