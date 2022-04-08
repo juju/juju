@@ -61,7 +61,6 @@ type WorkerSuite struct {
 	serviceUpdated          chan struct{}
 	resourcesCleared        chan struct{}
 	appChanges              chan struct{}
-	clock                   *testclock.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})
