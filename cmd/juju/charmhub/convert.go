@@ -6,6 +6,7 @@ package charmhub
 import (
 	"bytes"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -322,7 +323,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, ser
 			continue
 		}
 
-		channel := Channel{
+		currentCh := Channel{
 			Revision:   cm.Revision.Revision,
 			ReleasedAt: ch.ReleasedAt,
 			Risk:       ch.Risk,
@@ -334,7 +335,16 @@ func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, ser
 		}
 
 		chName := ch.Track + "/" + ch.Risk
-		channels[chName] = channel
+		if existingCh, ok := channels[chName]; ok {
+			currentChReleasedAt, _ := time.Parse(time.RFC3339, currentCh.ReleasedAt)
+			existingChReleasedAt, _ := time.Parse(time.RFC3339, existingCh.ReleasedAt)
+			if currentChReleasedAt.After(existingChReleasedAt) {
+				channels[chName] = currentCh
+			}
+		} else {
+			channels[chName] = currentCh
+		}
+
 	}
 	return trackList, channels
 }

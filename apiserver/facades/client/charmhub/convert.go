@@ -6,6 +6,7 @@ package charmhub
 import (
 	"bytes"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -133,8 +134,8 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) 
 		if ch.Track == "" {
 			ch.Track = "latest"
 		}
-		chName := ch.Track + "/" + ch.Risk
-		channels[chName] = params.Channel{
+
+		currentCh := params.Channel{
 			Revision:   cm.Revision.Revision,
 			ReleasedAt: ch.ReleasedAt,
 			Risk:       ch.Risk,
@@ -143,6 +144,18 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) 
 			Version:    cm.Revision.Version,
 			Platforms:  convertBasesToPlatforms(cm.Revision.Bases, isKub),
 		}
+
+		chName := ch.Track + "/" + ch.Risk
+		if existingCh, ok := channels[chName]; ok {
+			currentChReleasedAt, _ := time.Parse(time.RFC3339, currentCh.ReleasedAt)
+			existingChReleasedAt, _ := time.Parse(time.RFC3339, existingCh.ReleasedAt)
+			if currentChReleasedAt.After(existingChReleasedAt) {
+				channels[chName] = currentCh
+			}
+		} else {
+			channels[chName] = currentCh
+		}
+
 		if !seen.Contains(ch.Track) {
 			seen.Add(ch.Track)
 			trackList = append(trackList, ch.Track)
