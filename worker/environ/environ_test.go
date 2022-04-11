@@ -82,7 +82,7 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(s.validConfig(context))
-		c.Check(err, gc.ErrorMatches, "creating environ: no you")
+		c.Check(err, gc.ErrorMatches, "retrieving model config: no you")
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "ModelConfig")
 	})
@@ -96,7 +96,8 @@ func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 			return nil, errors.NotValidf("config")
 		}
 		tracker, err := environ.NewTracker(config)
-		c.Check(err, gc.ErrorMatches, `creating environ: config not valid`)
+		c.Check(err, gc.ErrorMatches,
+			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): config not valid`)
 		c.Check(tracker, gc.IsNil)
 		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
 	})
@@ -133,7 +134,8 @@ func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
 			return nil, errors.NotValidf("cloud spec")
 		}
 		tracker, err := environ.NewTracker(config)
-		c.Check(err, gc.ErrorMatches, `creating environ: cloud spec not valid`)
+		c.Check(err, gc.ErrorMatches,
+			`creating environ for model \"testmodel\" \(deadbeef-0bad-400d-8000-4b1d0d06f00d\): cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
 		runContext.CheckCallNames(c, "ModelConfig", "CloudSpec")
 	})

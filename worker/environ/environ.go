@@ -75,7 +75,7 @@ func NewTracker(config Config) (*Tracker, error) {
 
 	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, config.NewEnvironFunc)
 	if err != nil {
-		return nil, errors.Annotate(err, "creating environ")
+		return nil, errors.Trace(err)
 	}
 
 	t := &Tracker{
