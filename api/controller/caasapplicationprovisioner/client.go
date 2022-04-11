@@ -111,7 +111,6 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // ProvisioningInfo holds the info needed to provision an operator.
 type ProvisioningInfo struct {
-	ImagePath            string
 	Version              version.Number
 	APIAddresses         []string
 	CACert               string
