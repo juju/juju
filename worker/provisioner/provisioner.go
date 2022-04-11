@@ -365,6 +365,7 @@ func (p *containerProvisioner) loop() error {
 			}
 			p.configObserver.notify(modelConfig)
 			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
+			task.SetNumProvisionWorkers(modelConfig.NumProvisionWorkers())
 		}
 	}
 }
