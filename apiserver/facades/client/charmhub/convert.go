@@ -43,7 +43,11 @@ func convertCharmInfoResult(info transport.InfoResponse) (params.InfoResponse, e
 		}
 	}
 
-	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap, isKub)
+	var err error
+	ir.Tracks, ir.Channels, err = transformInfoChannelMap(info.ChannelMap, isKub)
+	if err != nil {
+		return ir, errors.Trace(err)
+	}
 	return ir, nil
 }
 
@@ -122,7 +126,7 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 // transformInfoChannelMap returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data.
-func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) ([]string, map[string]params.Channel) {
+func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) ([]string, map[string]params.Channel, error) {
 	var trackList []string
 
 	seen := set.NewStrings("")
@@ -147,8 +151,14 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) 
 
 		chName := ch.Track + "/" + ch.Risk
 		if existingCh, ok := channels[chName]; ok {
-			currentChReleasedAt, _ := time.Parse(time.RFC3339, currentCh.ReleasedAt)
-			existingChReleasedAt, _ := time.Parse(time.RFC3339, existingCh.ReleasedAt)
+			currentChReleasedAt, err := time.Parse(time.RFC3339, currentCh.ReleasedAt)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "invalid time format, expected RFC3339, got %s", currentCh.ReleasedAt)
+			}
+			existingChReleasedAt, err := time.Parse(time.RFC3339, existingCh.ReleasedAt)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "invalid time format, expected RFC3339, got %s", existingCh.ReleasedAt)
+			}
 			if currentChReleasedAt.After(existingChReleasedAt) {
 				channels[chName] = currentCh
 			}
@@ -161,7 +171,7 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) 
 			trackList = append(trackList, ch.Track)
 		}
 	}
-	return trackList, channels
+	return trackList, channels, nil
 }
 
 // convertBasesToPlatforms converts a base to a platform.  Is mean to be a short

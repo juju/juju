@@ -258,7 +258,8 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 	}}
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)
-		_, got := filterChannels(v.Input, false, v.Arch, v.Series)
+		_, got, err := filterChannels(v.Input, false, v.Arch, v.Series)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(got, jc.DeepEquals, v.Expected)
 	}
 }
