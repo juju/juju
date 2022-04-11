@@ -72,9 +72,10 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, config.NewEnvironFunc)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot create environ")
+		return nil, errors.Annotate(err, "creating environ")
 	}
 
 	t := &Tracker{
@@ -98,11 +99,14 @@ func (t *Tracker) Environ() environs.Environ {
 	return t.environ
 }
 
-func (t *Tracker) loop() error {
+func (t *Tracker) loop() (err error) {
+	cfg := t.environ.Config()
+	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
+
 	logger := t.config.Logger
 	environWatcher, err := t.config.Observer.WatchForModelConfigChanges()
 	if err != nil {
-		return errors.Annotate(err, "cannot watch environ config")
+		return errors.Annotate(err, "watching environ config")
 	}
 	if err := t.catacomb.Add(environWatcher); err != nil {
 		return errors.Trace(err)
@@ -139,10 +143,10 @@ func (t *Tracker) loop() error {
 			logger.Debugf("reloading environ config")
 			modelConfig, err := t.config.Observer.ModelConfig()
 			if err != nil {
-				return errors.Annotate(err, "cannot read environ config")
+				return errors.Annotate(err, "reading model config")
 			}
 			if err = t.environ.SetConfig(modelConfig); err != nil {
-				return errors.Annotate(err, "cannot update environ config")
+				return errors.Annotate(err, "updating environ config")
 			}
 		case _, ok := <-cloudWatcherChanges:
 			if !ok {
@@ -150,7 +154,7 @@ func (t *Tracker) loop() error {
 			}
 			cloudSpec, err := t.config.Observer.CloudSpec()
 			if err != nil {
-				return errors.Annotate(err, "cannot read environ config")
+				return errors.Annotate(err, "reading environ cloud spec")
 			}
 			if reflect.DeepEqual(cloudSpec, t.currentCloudSpec) {
 				continue
