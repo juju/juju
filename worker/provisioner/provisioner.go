@@ -132,7 +132,7 @@ var getDistributionGroupFinder = func(st *apiprovisioner.State) DistributionGrou
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount int) (ProvisionerTask, error) {
 	auth, err := authentication.NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		modelCfg.ImageStream(),
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 		p.callContextFunc,
-		modelCfg.NumProvisionWorkers(),
+		workerCount,
 		nil, // event callback is currently only being used by tests
 	)
 	if err != nil {
@@ -242,7 +242,8 @@ func (p *environProvisioner) loop() error {
 	modelConfig := p.environ.Config()
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
-	task, err := p.getStartTask(harvestMode)
+	workerCount := modelConfig.NumProvisionWorkers()
+	task, err := p.getStartTask(harvestMode, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -342,8 +343,9 @@ func (p *containerProvisioner) loop() error {
 	}
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
+	workerCount := modelConfig.NumContainerProvisionWorkers()
 
-	task, err := p.getStartTask(harvestMode)
+	task, err := p.getStartTask(harvestMode, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -365,7 +367,7 @@ func (p *containerProvisioner) loop() error {
 			}
 			p.configObserver.notify(modelConfig)
 			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
-			task.SetNumProvisionWorkers(modelConfig.NumProvisionWorkers())
+			task.SetNumProvisionWorkers(modelConfig.NumContainerProvisionWorkers())
 		}
 	}
 }
