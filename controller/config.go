@@ -39,6 +39,13 @@ const (
 	// APIPort is the port used for api connections.
 	APIPort = "api-port"
 
+	// GrpcAPIPort is the port used for gRPC api requests.
+	GrpcAPIPort = "grpc-api-port"
+
+	// GrpcGatewayAPIPort is the port used for requests to the gRPC api json
+	// gateway.
+	GrpcGatewayAPIPort = "grpc-gateway-api-port"
+
 	// ControllerAPIPort is an optional port that may be set for controllers
 	// that have a very heavy load. If this port is set, this port is used by
 	// the controllers to talk to each other - used for the local API connection
@@ -309,6 +316,13 @@ const (
 	// It is a string representation of a time.Duration.
 	DefaultAPIPortOpenDelay = "2s"
 
+	// DefaultGrpcAPIPort is the deafult port the gRPC server is listening on.
+	DefaultGrpcAPIPort int = 17072
+
+	// DefaultGrpGatewayAPIPort is the default port the json gateway to the gRPC
+	// server is listening on.
+	DefaultGrpcGatewayAPIPort int = 17073
+
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfDefault
 
@@ -392,6 +406,8 @@ var (
 		AgentRateLimitMax,
 		AgentRateLimitRate,
 		APIPort,
+		GrpcAPIPort,
+		GrpcGatewayAPIPort,
 		APIPortOpenDelay,
 		AutocertDNSNameKey,
 		AutocertURLKey,
@@ -629,6 +645,14 @@ func (c Config) StatePort() int {
 // APIPort returns the API server port for the environment.
 func (c Config) APIPort() int {
 	return c.mustInt(APIPort)
+}
+
+func (c Config) GrpcAPIPort() int {
+	return c.mustInt(GrpcAPIPort)
+}
+
+func (c Config) GrpcGatewayAPIPort() int {
+	return c.mustInt(GrpcGatewayAPIPort)
 }
 
 // APIPortOpenDelay returns the duration to wait before opening
@@ -1347,6 +1371,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogExcludeMethods:           schema.List(schema.String()),
 	APIPort:                          schema.ForceInt(),
 	APIPortOpenDelay:                 schema.String(),
+	GrpcAPIPort:                      schema.ForceInt(),
+	GrpcGatewayAPIPort:               schema.ForceInt(),
 	ControllerAPIPort:                schema.ForceInt(),
 	ControllerName:                   schema.String(),
 	StatePort:                        schema.ForceInt(),
@@ -1389,6 +1415,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AgentRateLimitRate:               schema.Omit,
 	APIPort:                          DefaultAPIPort,
 	APIPortOpenDelay:                 DefaultAPIPortOpenDelay,
+	GrpcAPIPort:                      DefaultGrpcAPIPort,
+	GrpcGatewayAPIPort:               DefaultGrpcGatewayAPIPort,
 	ControllerAPIPort:                schema.Omit,
 	ControllerName:                   schema.Omit,
 	AuditingEnabled:                  DefaultAuditingEnabled,
@@ -1475,6 +1503,14 @@ var ConfigSchema = environschema.Fields{
 	APIPort: {
 		Type:        environschema.Tint,
 		Description: "The port used for api connections",
+	},
+	GrpcAPIPort: {
+		Type:        environschema.Tint,
+		Description: "The port used for grpc api connections",
+	},
+	GrpcGatewayAPIPort: {
+		Type:        environschema.Tint,
+		Description: "The port used for grpc gateway api connections",
 	},
 	APIPortOpenDelay: {
 		Type: environschema.Tstring,
