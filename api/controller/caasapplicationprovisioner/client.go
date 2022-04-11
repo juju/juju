@@ -157,7 +157,6 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		Trust:                r.Trust,
 		Scale:                r.Scale,
 	}
-
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)
 		if err != nil {

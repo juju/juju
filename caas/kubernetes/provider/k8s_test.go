@@ -56,7 +56,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type K8sSuite struct {
@@ -772,6 +771,67 @@ func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
 	})
 }
 
+func (s *K8sSuite) TestPrepareWorkloadSpecWithRegistryCredentials(c *gc.C) {
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", getBasicPodspec(),
+		resources.DockerImageDetails{
+			RegistryPath: "example.com/operator/image-path",
+			ImageRepoDetails: docker.ImageRepoDetails{
+				Repository:      "example.com",
+				BasicAuthConfig: docker.BasicAuthConfig{Username: "foo", Password: "bar"},
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	initContainerSpec := initContainers()[0]
+	initContainerSpec.Image = "example.com/operator/image-path"
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		PodSpec: core.PodSpec{
+			ImagePullSecrets: []core.LocalObjectReference{
+				{Name: "app-name-test-secret"},
+				{Name: "juju-image-pull-secret"},
+			},
+			InitContainers: []core.Container{initContainerSpec},
+			Containers: []core.Container{
+				{
+					Name:       "test",
+					Image:      "juju/image",
+					Ports:      []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					Command:    []string{"sh", "-c"},
+					Args:       []string{"doIt", "--debug"},
+					WorkingDir: "/path/to/here",
+					Env: []core.EnvVar{
+						{Name: "bar", Value: "true"},
+						{Name: "brackets", Value: `["hello", "world"]`},
+						{Name: "foo", Value: "bar"},
+						{Name: "restricted", Value: "yes"},
+						{Name: "switch", Value: "true"},
+					},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             pointer.BoolPtr(false),
+						ReadOnlyRootFilesystem:   pointer.BoolPtr(false),
+						AllowPrivilegeEscalation: pointer.BoolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				}, {
+					Name:  "test2",
+					Image: "juju/image2",
+					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             pointer.BoolPtr(false),
+						ReadOnlyRootFilesystem:   pointer.BoolPtr(false),
+						AllowPrivilegeEscalation: pointer.BoolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				},
+			},
+			Volumes: dataVolumes(),
+		},
+	})
+}
+
 type K8sBrokerSuite struct {
 	BaseSuite
 }
@@ -830,7 +890,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
