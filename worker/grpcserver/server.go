@@ -14,10 +14,12 @@ import (
 // This implements the SimpleService gRPC service.
 type server struct {
 	simpleapi.UnimplementedSimpleServiceServer
+
+	controllerAddresses []string
 }
 
 func (s *server) Status(ctx context.Context, req *simpleapi.StatusRequest) (*simpleapi.StatusResponse, error) {
-	client, err := getClient(ctx)
+	client, err := s.getClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +49,7 @@ func (s *server) Status(ctx context.Context, req *simpleapi.StatusRequest) (*sim
 }
 
 func (s *server) Deploy(ctx context.Context, req *simpleapi.DeployRequest) (*simpleapi.DeployResponse, error) {
-	conn, err := getConnection(ctx)
+	conn, err := s.getConnection(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func (s *server) Deploy(ctx context.Context, req *simpleapi.DeployRequest) (*sim
 }
 
 func (s *server) RemoveApplication(ctx context.Context, req *simpleapi.RemoveApplicationRequest) (*simpleapi.RemoveApplicationResponse, error) {
-	conn, err := getConnection(ctx)
+	conn, err := s.getConnection(ctx)
 	if err != nil {
 		return nil, err
 	}

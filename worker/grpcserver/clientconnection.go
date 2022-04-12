@@ -13,8 +13,8 @@ import (
 )
 
 // Get a client facade client from the context.  A convenience function!
-func getClient(ctx context.Context) (*apiclient.Client, error) {
-	conn, err := getConnection(ctx)
+func (s *server) getClient(ctx context.Context) (*apiclient.Client, error) {
+	conn, err := s.getConnection(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -22,8 +22,8 @@ func getClient(ctx context.Context) (*apiclient.Client, error) {
 }
 
 // Get an api.Connection from the context (see getConnector)
-func getConnection(ctx context.Context) (api.Connection, error) {
-	connr, err := getConnector(ctx)
+func (s *server) getConnection(ctx context.Context) (api.Connection, error) {
+	connr, err := s.getConnector(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func getConnection(ctx context.Context) (api.Connection, error) {
 //
 // We can imaging authenticating with a macaroon with a different authorization
 // header.
-func getConnector(ctx context.Context) (connector.Connector, error) {
+func (s *server) getConnector(ctx context.Context) (connector.Connector, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	authHeaders := md.Get("authorization")
 	if len(authHeaders) == 0 {
@@ -55,14 +55,11 @@ func getConnector(ctx context.Context) (connector.Connector, error) {
 	}
 	modelUUID := modelHeaders[0]
 	return connector.NewSimple(connector.SimpleConfig{
-		ControllerAddresses: []string{"127.0.0.1:17070"},
+		ControllerAddresses: s.controllerAddresses,
 		ModelUUID:           modelUUID,
-		CACert:              caCert,
 		Username:            username,
 		Password:            password,
 	}, api.WithSkipVerifyCA())
 }
 
 var authPtn = regexp.MustCompile(`^ *basic *([^ :]+):([^ ]+) *$`)
-
-const caCert = ``

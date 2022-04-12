@@ -732,7 +732,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		grpcServerName: ifController(grpcserver.Manifold(grpcserver.ManifoldConfig{
-			AgentName: agentName,
+			AgentName:     agentName,
+			AuthorityName: certificateWatcherName,
+			StateName:     stateName,
+
+			GetControllerConfig: httpserver.GetControllerConfig,
+			NewTLSConfig:        httpserver.NewTLSConfig,
 		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
