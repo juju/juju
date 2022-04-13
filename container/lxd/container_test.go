@@ -359,7 +359,7 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
 	// Container created, started and returned.
 	exp := cSvr.EXPECT()
 	gomock.InOrder(
-		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("already exists")),
+		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("Container 'juju-5bcbde-5-lxd-6' already exists")),
 		exp.GetContainer(spec.Name).Return(&api.Container{
 			ContainerPut: api.ContainerPut{
 				Profiles: spec.Profiles,
@@ -422,7 +422,7 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(
 	// Container created, started and returned.
 	exp := cSvr.EXPECT()
 	gomock.InOrder(
-		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("already exists")),
+		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("Container 'juju-5bcbde-5-lxd-6' already exists")),
 		exp.GetContainer(spec.Name).Return(&api.Container{
 			StatusCode: api.Running,
 		}, lxdtesting.ETag, nil),
@@ -432,7 +432,7 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = jujuSvr.CreateContainerFromSpec(spec)
-	c.Assert(err, gc.ErrorMatches, `already exists`)
+	c.Assert(err, gc.ErrorMatches, `Container 'juju-5bcbde-5-lxd-6' already exists`)
 }
 
 func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *gc.C) {
