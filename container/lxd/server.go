@@ -332,7 +332,7 @@ func IsLXDNotFound(err error) bool {
 		return true
 	}
 
-	return strings.ToLower(err.Error()) == "not found"
+	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }
 
 // IsLXDAlreadyExists checks if an error from the LXD API indicates that a
