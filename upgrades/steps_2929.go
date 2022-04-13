@@ -7,7 +7,7 @@ package upgrades
 func stateStepsFor2929() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "remove controller config for max-logs-age and max-logs-size if set",
+			description: "add controller config for grpc-api-port and grpc-gateway-api-port",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().AddControllerConfigGrpcAPIPorts()
