@@ -8,6 +8,11 @@
 
 JUJU_DIR=$HOME/.local/share/juju
 
+if [ ! -d "$JUJU_DIR" ]; then
+    echo >&2 $JUJU_DIR not found. Unable to collect values
+    exit 1
+fi
+
 if [[ $CONTROLLER == "" ]]; then
     CONTROLLER=$(yq ".current-controller" <$JUJU_DIR/controllers.yaml)
 fi
