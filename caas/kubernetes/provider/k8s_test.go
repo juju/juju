@@ -2461,8 +2461,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceInvalidServiceName(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
