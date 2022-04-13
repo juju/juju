@@ -106,6 +106,7 @@ type StateBackend interface {
 	RemoveInvalidCharmPlaceholders() error
 	SetContainerAddressOriginToMachine() error
 	UpdateCharmOriginAfterSetSeries() error
+	AddControllerConfigGrpcAPIPorts() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -462,4 +463,8 @@ func (s stateBackend) SetContainerAddressOriginToMachine() error {
 
 func (s stateBackend) UpdateCharmOriginAfterSetSeries() error {
 	return state.UpdateCharmOriginAfterSetSeries(s.pool)
+}
+
+func (s stateBackend) AddControllerConfigGrpcAPIPorts() error {
+	return state.AddControllerConfigGrpcAPIPorts(s.pool)
 }

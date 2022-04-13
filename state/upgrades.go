@@ -4184,3 +4184,40 @@ func UpdateCharmOriginAfterSetSeries(pool *StatePool) error {
 		return nil
 	}))
 }
+
+// AddControllerConfigGrpcAPIPorts adds default values for "grpc-api-port" and
+// "grpc-gateway-api-port" if they are not set in the controller configuration.
+func AddControllerConfigGrpcAPIPorts(pool *StatePool) error {
+	st := pool.SystemState()
+	coll, closer := st.db().GetRawCollection(controllersC)
+	defer closer()
+	var doc settingsDoc
+	if err := coll.FindId(ControllerSettingsGlobalKey).One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+
+	changed := false
+	defaultsToAdd := settingsMap{
+		controller.GrpcAPIPort:        controller.DefaultGrpcAPIPort,
+		controller.GrpcGatewayAPIPort: controller.DefaultGrpcGatewayAPIPort,
+	}
+	for k, v := range defaultsToAdd {
+		if _, ok := doc.Settings[k]; !ok {
+			doc.Settings[k] = v
+			changed = true
+		}
+	}
+
+	if changed {
+		return errors.Trace(st.runRawTransaction([]txn.Op{{
+			C:      controllersC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		}}))
+	}
+	return nil
+}
