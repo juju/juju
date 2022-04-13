@@ -24,6 +24,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
@@ -56,8 +57,13 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
 		RaftOpQueue:      queue.NewOpQueue(testclock),
+		SysLogger:        noopSysLogger{},
 	}
 }
+
+type noopSysLogger struct{}
+
+func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
 // NewServer returns a new running API server using the given state.
 // The pool may be nil, in which case a pool using the given state

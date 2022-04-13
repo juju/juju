@@ -13,6 +13,7 @@ import (
 	"github.com/juju/featureflag"
 
 	"github.com/juju/juju/apiserver/websocket"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -202,7 +203,7 @@ func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 				logger.Errorf("tailer stopped: %v", h.tailer.Err())
 				return
 			}
-			if err := h.sendRecords([]*state.LogRecord{rec}); err != nil {
+			if err := h.sendRecords([]*corelogger.LogRecord{rec}); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("logstream handler stopped (client disconnected)")
 				} else {
@@ -218,12 +219,12 @@ func (h *logStreamRequestHandler) close() {
 	h.poolHelper.Release()
 }
 
-func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord) error {
+func (h *logStreamRequestHandler) sendRecords(rec []*corelogger.LogRecord) error {
 	apiRec := h.apiFromRecords(rec)
 	return errors.Trace(h.conn.WriteJSON(apiRec))
 }
 
-func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord) params.LogStreamRecords {
+func (h *logStreamRequestHandler) apiFromRecords(records []*corelogger.LogRecord) params.LogStreamRecords {
 	var result params.LogStreamRecords
 	result.Records = make([]params.LogStreamRecord, len(records))
 	for i, rec := range records {

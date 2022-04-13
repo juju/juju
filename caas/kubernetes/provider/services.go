@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -21,8 +22,11 @@ func getServiceLabels(appName string, legacy bool) map[string]string {
 	return utils.LabelsForApp(appName, legacy)
 }
 
-func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
+func (k *kubernetesClient) ensureServicesForApp(appName, deploymentName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
 	for _, v := range services {
+		if v.Name == deploymentName {
+			return cleanUps, errors.NewNotValid(nil, fmt.Sprintf("%q is a reserved service name", deploymentName))
+		}
 		spec := &core.Service{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        v.Name,

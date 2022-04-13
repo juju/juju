@@ -627,7 +627,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	s.waitForWorkerSetup(c, "worker not set up")
 
 	err := workertest.CheckKill(c, task)
-	c.Assert(err, gc.ErrorMatches, "failed to process updated machines: .* boom")
+	c.Assert(err, gc.ErrorMatches, "updating AZ distributions: boom")
 }
 
 func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
@@ -802,6 +802,93 @@ func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *gc.C) {
 	workertest.CleanKill(c, task)
 }
 
+func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	m0 := &testMachine{id: "0", life: life.Alive}
+	s.setUpMachines(m0)
+
+	broker := mocks.NewMockZonedEnviron(ctrl)
+	exp := broker.EXPECT()
+
+	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
+	exp.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{s.instances[0].Id()}).Return(
+		map[instance.Id]string{}, nil).Do(func(_ ...interface{}) { close(s.setupDone) })
+
+	az1 := mocks.NewMockAvailabilityZone(ctrl)
+	az1.EXPECT().Name().Return("az1").MinTimes(1)
+	az1.EXPECT().Available().Return(true).MinTimes(1)
+
+	az2 := mocks.NewMockAvailabilityZone(ctrl)
+	az2.EXPECT().Name().Return("az2").MinTimes(1)
+	az2.EXPECT().Available().Return(true).MinTimes(1)
+
+	az3 := mocks.NewMockAvailabilityZone(ctrl)
+	az3.EXPECT().Name().Return("az3").MinTimes(1)
+	az3.EXPECT().Available().Return(true).MinTimes(1)
+
+	// Return 1 availability zone on the first call, then 3, then 1 again.
+	// See steps below punctuated by sending machine changes.
+	gomock.InOrder(
+		exp.AvailabilityZones(s.callCtx).Return(network.AvailabilityZones{az1}, nil),
+		exp.AvailabilityZones(s.callCtx).Return(network.AvailabilityZones{az1, az2, az3}, nil),
+		exp.AvailabilityZones(s.callCtx).Return(network.AvailabilityZones{az1}, nil),
+	)
+
+	step := make(chan struct{}, 1)
+
+	// We really don't care about these calls.
+	// StartInstance is just a synchronisation point.
+	exp.DeriveAvailabilityZones(s.callCtx, gomock.Any()).Return([]string{}, nil).AnyTimes()
+	exp.StartInstance(s.callCtx, gomock.Any()).Return(&environs.StartInstanceResult{
+		Instance: &testInstance{id: "instance-0"},
+	}, nil).AnyTimes().Do(func(...interface{}) {
+		select {
+		case step <- struct{}{}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out writing to step channel")
+		}
+	})
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
+
+	syncStep := func() {
+		select {
+		case <-step:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out reading from step channel")
+		}
+	}
+
+	s.sendModelMachinesChange(c, "0")
+
+	// After the first change, there is only one AZ in the tracker.
+	syncStep()
+	azm := provisioner.GetCopyAvailabilityZoneMachines(task)
+	c.Assert(azm, gc.HasLen, 1)
+	c.Assert(azm[0].ZoneName, gc.Equals, "az1")
+
+	s.sendModelMachinesChange(c, "0")
+
+	// After the second change, we see all 3 AZs.
+	syncStep()
+	azm = provisioner.GetCopyAvailabilityZoneMachines(task)
+	c.Assert(azm, gc.HasLen, 3)
+	c.Assert([]string{azm[0].ZoneName, azm[1].ZoneName, azm[2].ZoneName}, jc.SameContents, []string{"az1", "az2", "az3"})
+
+	s.sendModelMachinesChange(c, "0")
+
+	// At this point, we will have had a deployment to one of the zones added
+	// in the prior step. This means one will be removed from tracking,
+	// but the one we deployed to will not be deleted.
+	syncStep()
+	azm = provisioner.GetCopyAvailabilityZoneMachines(task)
+	c.Assert(azm, gc.HasLen, 2)
+
+	workertest.CleanKill(c, task)
+}
+
 // setUpZonedEnviron creates a mock environ with instances based on those set
 // on the test suite, and 3 availability zones.
 func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machines ...*testMachine) *mocks.MockZonedEnviron {
@@ -809,14 +896,8 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	if len(machines) == 0 {
 		return broker
 	}
-	for _, m := range machines {
-		inst := &testInstance{id: m.id}
-		s.instances = append(s.instances, inst)
-		s.machinesResults = append(s.machinesResults, apiprovisioner.MachineResult{Machine: m})
-		s.machineStatusResults = append(s.machineStatusResults, apiprovisioner.MachineStatusResult{Machine: m, Status: params.StatusResult{
-			Status: "pending",
-		}})
-	}
+
+	s.setUpMachines(machines...)
 
 	instanceIds := make([]instance.Id, len(s.instances))
 	for i, inst := range s.instances {
@@ -827,18 +908,29 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	zones := make(network.AvailabilityZones, 3)
 	for i := 0; i < 3; i++ {
 		az := mocks.NewMockAvailabilityZone(ctrl)
-		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1))
-		az.EXPECT().Available().Return(true)
+		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1)).MinTimes(1)
+		az.EXPECT().Available().Return(true).MinTimes(1)
 		zones[i] = az
 	}
 
 	exp := broker.EXPECT()
-	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(2)
-	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(func(_ ...interface{}) {
-		close(s.setupDone)
-	})
-	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
+	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
+	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(
+		func(_ ...interface{}) { close(s.setupDone) },
+	)
+	exp.AvailabilityZones(s.callCtx).Return(zones, nil).MinTimes(1)
 	return broker
+}
+
+func (s *ProvisionerTaskSuite) setUpMachines(machines ...*testMachine) {
+	for _, m := range machines {
+		inst := &testInstance{id: m.id}
+		s.instances = append(s.instances, inst)
+		s.machinesResults = append(s.machinesResults, apiprovisioner.MachineResult{Machine: m})
+		s.machineStatusResults = append(s.machineStatusResults, apiprovisioner.MachineStatusResult{
+			Machine: m, Status: params.StatusResult{Status: "pending"},
+		})
+	}
 }
 
 func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *gc.C, msg string) {
@@ -931,7 +1023,13 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(c *gc.C, broker envi
 	return s.newProvisionerTaskWithBrokerAndEventCb(c, broker, distributionGroups, numProvisionWorkers, nil)
 }
 
-func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(c *gc.C, broker environs.InstanceBroker, distributionGroups map[names.MachineTag][]string, numProvisionWorkers int, evtCb func(string)) provisioner.ProvisionerTask {
+func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
+	c *gc.C,
+	broker environs.InstanceBroker,
+	distributionGroups map[names.MachineTag][]string,
+	numProvisionWorkers int,
+	evtCb func(string),
+) provisioner.ProvisionerTask {
 	task, err := provisioner.NewProvisionerTask(
 		coretesting.ControllerTag.Id(),
 		names.NewMachineTag("0"),

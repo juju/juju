@@ -26,6 +26,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/mongo"
 )
 
@@ -379,7 +380,7 @@ func NewDbLogger(st ModelSessioner) *DbLogger {
 // The ModelUUID and ID fields of records are ignored;
 // DbLogger is scoped to a single model, and ID is
 // controlled by the DbLogger code.
-func (logger *DbLogger) Log(records []LogRecord) error {
+func (logger *DbLogger) Log(records []corelogger.LogRecord) error {
 	for _, r := range records {
 		if err := validateInputLogRecord(r); err != nil {
 			return errors.Annotate(err, "validating input log record")
@@ -410,7 +411,7 @@ func (logger *DbLogger) Log(records []LogRecord) error {
 	return errors.Annotatef(err, "inserting %d log record(s)", len(records))
 }
 
-func validateInputLogRecord(r LogRecord) error {
+func validateInputLogRecord(r corelogger.LogRecord) error {
 	if r.Entity == "" {
 		return errors.NotValidf("missing Entity")
 	}
@@ -418,10 +419,11 @@ func validateInputLogRecord(r LogRecord) error {
 }
 
 // Close cleans up resources used by the DbLogger instance.
-func (logger *DbLogger) Close() {
+func (logger *DbLogger) Close() error {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
+	return nil
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
@@ -430,7 +432,7 @@ func (logger *DbLogger) Close() {
 type LogTailer interface {
 	// Logs returns the channel through which the LogTailer returns
 	// Juju logs. It will be closed when the tailer stops.
-	Logs() <-chan *LogRecord
+	Logs() <-chan *corelogger.LogRecord
 
 	// Dying returns a channel which will be closed as the LogTailer
 	// stops.
@@ -444,26 +446,6 @@ type LogTailer interface {
 	// it hasn't stopped or stopped without error nil will be
 	// returned.
 	Err() error
-}
-
-// LogRecord defines a single Juju log message as returned by
-// LogTailer.
-type LogRecord struct {
-	// universal fields
-	ID   int64
-	Time time.Time
-
-	// origin fields
-	ModelUUID string
-	Entity    string
-	Version   version.Number
-
-	// logging-specific fields
-	Level    loggo.Level
-	Module   string
-	Location string
-	Message  string
-	Labels   []string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -522,7 +504,7 @@ func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) 
 		session:         session,
 		logsColl:        session.DB(logsDB).C(logCollectionName(st.ModelUUID())).With(session),
 		params:          params,
-		logCh:           make(chan *LogRecord),
+		logCh:           make(chan *corelogger.LogRecord),
 		recentIds:       newRecentIdTracker(maxRecentLogIds),
 		maxInitialLines: maxInitialLines,
 	}
@@ -541,7 +523,7 @@ type logTailer struct {
 	session         *mgo.Session
 	logsColl        *mgo.Collection
 	params          LogTailerParams
-	logCh           chan *LogRecord
+	logCh           chan *corelogger.LogRecord
 	lastID          int64
 	lastTime        time.Time
 	recentIds       *recentIdTracker
@@ -549,7 +531,7 @@ type logTailer struct {
 }
 
 // Logs implements the LogTailer interface.
-func (t *logTailer) Logs() <-chan *LogRecord {
+func (t *logTailer) Logs() <-chan *corelogger.LogRecord {
 	return t.logCh
 }
 
@@ -599,12 +581,13 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 		return errors.Errorf("too many lines requested (%d) maximum is %d",
 			t.params.InitialLines, maxInitialLines)
 	}
-	query.Sort("-t", "-_id")
-	query.Limit(t.params.InitialLines)
-	iter := query.Iter()
+	iter := query.Sort("-t", "-_id").
+		Limit(t.params.InitialLines).
+		Iter()
 	defer iter.Close()
 	queue := make([]logDoc, t.params.InitialLines)
 	cur := t.params.InitialLines
+
 	var doc logDoc
 	for iter.Next(&doc) {
 		select {
@@ -881,7 +864,7 @@ func (s *objectIdSet) Length() int {
 	return len(s.ids)
 }
 
-func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
+func logDocToRecord(modelUUID string, doc *logDoc) (*corelogger.LogRecord, error) {
 	var ver version.Number
 	if doc.Version != "" {
 		parsed, err := version.Parse(doc.Version)
@@ -896,7 +879,7 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
 	}
 
-	rec := &LogRecord{
+	rec := &corelogger.LogRecord{
 		ID:   doc.Time,
 		Time: time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
 
