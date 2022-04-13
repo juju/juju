@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	simpleapi "github.com/juju/juju/grpc/gen/proto/go/juju/client/simple/v1alpha1"
 	"google.golang.org/grpc"
@@ -15,17 +16,17 @@ import (
 
 func main() {
 	var (
-		certFile       string
-		username       string
-		password       string
-		controllerHost string
-		modelUUID      string
+		certFile      string
+		username      string
+		password      string
+		serverAddress string
+		modelUUID     string
 	)
-	flag.StringVar(&certFile, "cacert", "cacert.pem", "path to cacert pem file")
+	flag.StringVar(&certFile, "cacert", os.Getenv("CACERT_PATH"), "path to cacert pem file")
 	flag.StringVar(&username, "u", "admin", "username")
 	flag.StringVar(&password, "p", "", "password")
-	flag.StringVar(&controllerHost, "controller", "", "controller hostname")
-	flag.StringVar(&modelUUID, "model", "", "model UUID")
+	flag.StringVar(&serverAddress, "addr", os.Getenv("GRPC_API_ADDR"), "gRPC API address")
+	flag.StringVar(&modelUUID, "model", os.Getenv("MODEL_UUID"), "model UUID")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -33,7 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	conn, err := grpc.DialContext(ctx, controllerHost+":18888", grpc.WithTransportCredentials(creds))
+	conn, err := grpc.DialContext(ctx, serverAddress, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,7 +48,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	b, err := json.MarshalIndent(resp.Model, "  ", "  ")
+	b, err := json.MarshalIndent(resp.Model, "", "  ")
 	if err != nil {
 		log.Fatal(err)
 	}

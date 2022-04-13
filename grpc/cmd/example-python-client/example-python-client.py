@@ -1,4 +1,5 @@
 import argparse
+import os
 import grpc
 from juju.client.simple.v1alpha1.simple_pb2_grpc import SimpleServiceStub
 import juju.client.simple.v1alpha1.simple_pb2 as simpleapi
@@ -6,11 +7,11 @@ import juju.client.simple.v1alpha1.simple_pb2 as simpleapi
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--controller', type=str)
-parser.add_argument('--username', type=str)
+parser.add_argument('--server', type=str, default=os.getenv("GRPC_API_ADDR"))
+parser.add_argument('--username', type=str, default="admin")
 parser.add_argument('--password', type=str)
-parser.add_argument('--model', type=str)
-parser.add_argument('--cacert', default="cacert.pem")
+parser.add_argument('--model', type=str, default=os.getenv("MODEL_UUID"))
+parser.add_argument('--cacert', default=os.getenv("CACERT_PATH"))
 
 # Choose you action with these flags
 parser.add_argument('--status', action='store_true')
@@ -22,7 +23,7 @@ args = parser.parse_args()
 with open(args.cacert, 'rb') as f:
     creds = grpc.ssl_channel_credentials(f.read())
 
-channel = grpc.secure_channel(args.controller + ":18888", creds, (
+channel = grpc.secure_channel(args.server, creds, (
     ('grpc.ssl_target_name_override', 'juju-apiserver'),
 ))
 
