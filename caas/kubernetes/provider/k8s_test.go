@@ -2424,6 +2424,59 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceInvalidServiceName(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+			Services: []k8sspecs.K8sService{
+				{
+					Meta: k8sspecs.Meta{
+						Name:        "app-name",
+						Labels:      map[string]string{"foo": "bar"},
+						Annotations: map[string]string{"cloud.google.com/load-balancer-type": "Internal"},
+					},
+					Spec: core.ServiceSpec{
+						Selector: map[string]string{"app": "MyApp"},
+						Ports: []core.ServicePort{
+							{
+								Protocol:   core.ProtocolTCP,
+								Port:       80,
+								TargetPort: intstr.IntOrString{IntVal: 9376},
+							},
+						},
+						Type: core.ServiceTypeLoadBalancer,
+					},
+				},
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
+	}
+	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
+		"kubernetes-service-type":            "loadbalancer",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+	})
+	c.Assert(err, gc.ErrorMatches, `creating or updating services: "app-name" is a reserved service name`)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

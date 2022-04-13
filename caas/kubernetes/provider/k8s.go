@@ -1165,7 +1165,7 @@ func (k *kubernetesClient) ensureService(
 
 	// ensure services.
 	if len(workloadSpec.Services) > 0 {
-		servicesCleanUps, err := k.ensureServicesForApp(appName, annotations, workloadSpec.Services)
+		servicesCleanUps, err := k.ensureServicesForApp(appName, deploymentName, annotations, workloadSpec.Services)
 		cleanups = append(cleanups, servicesCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating services")
