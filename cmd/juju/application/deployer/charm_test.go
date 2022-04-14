@@ -7,8 +7,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -20,6 +22,8 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type charmSuite struct {
@@ -27,6 +31,7 @@ type charmSuite struct {
 	modelCommand *mocks.MockModelCommand
 	configFlag   *mocks.MockDeployConfigFlag
 	filesystem   *mocks.MockFilesystem
+	resolver     *mocks.MockResolver
 
 	ctx               *cmd.Context
 	deployResourceIDs map[string]string
@@ -51,24 +56,42 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(7).AnyTimes()
+	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil)
+	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true)
+	s.modelCommand.EXPECT().BakeryClient().Return(nil, nil)
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
+	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
+	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
 	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
 
-	err := s.newDeployCharm(c, true).deploy(s.ctx, s.deployerAPI)
+	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmSuite) TestSimpleCharmDeployDryRun(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.resolver = mocks.NewMockResolver(ctrl)
+	s.expectResolveChannel()
+	s.expectDeployerAPIModelGet(c)
 
-	dc := s.newDeployCharm(c, false)
-	dc.dryRun = true
-	err := dc.deploy(s.ctx, s.deployerAPI)
+	dCharm := s.newDeployCharm()
+	dCharm.dryRun = true
+	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
+		return nil
+	}
+	repoCharm := &repositoryCharm{
+		deployCharm:      *dCharm,
+		userRequestedURL: s.url,
+		clock:            clock.WallClock,
+	}
+
+	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmSuite) newDeployCharm(c *gc.C, callResources bool) *deployCharm {
+func (s *charmSuite) newDeployCharm() *deployCharm {
 	return &deployCharm{
 		configOptions: s.configFlag,
 		deployResources: func(
@@ -80,14 +103,13 @@ func (s *charmSuite) newDeployCharm(c *gc.C, callResources bool) *deployCharm {
 			base.APICallCloser,
 			modelcmd.Filesystem,
 		) (ids map[string]string, err error) {
-			c.Assert(callResources, jc.IsTrue, gc.Commentf("dry run should not try to deploy resources"))
 			return s.deployResourceIDs, nil
 		},
 		id: application.CharmID{
 			URL:    s.url,
 			Origin: commoncharm.Origin{},
 		},
-		flagSet:  nil,
+		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,
 		numUnits: 0,
 		series:   "focal",
@@ -97,19 +119,41 @@ func (s *charmSuite) newDeployCharm(c *gc.C, callResources bool) *deployCharm {
 
 func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(7).AnyTimes()
-	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil)
-	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true)
-
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
-	s.modelCommand.EXPECT().BakeryClient().Return(nil, nil)
-
-	// Except to charm config.
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)
-	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
-	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
-
 	return ctrl
+}
+
+func (s *charmSuite) expectResolveChannel() {
+	s.resolver.EXPECT().ResolveCharm(
+		gomock.AssignableToTypeOf(&charm.URL{}),
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		// Ensure the same curl that is provided, is returned.
+		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []string, error) {
+			return curl, requestedOrigin, []string{"bionic", "focal", "xenial"}, nil
+		}).AnyTimes()
+}
+
+func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C) {
+	cfg, err := config.New(true, minimalModelConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
+}
+
+func minimalModelConfig() map[string]interface{} {
+	return map[string]interface{}{
+		"name":            "test",
+		"type":            "manual",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
+		"firewall-mode":   "instance",
+		// While the ca-cert bits aren't entirely minimal, they avoid the need
+		// to set up a fake home.
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
+		"image-stream":   "testing",
+	}
 }

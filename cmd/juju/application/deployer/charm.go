@@ -193,11 +193,6 @@ func (d *deployCharm) deploy(
 		Force:           d.force,
 	}
 
-	if d.dryRun {
-		ctx.Infof(d.formatDeployingText())
-		return nil
-	}
-
 	for _, step := range d.steps {
 		err = step.RunPre(deployAPI, bakeryClient, ctx, deployInfo)
 		if err != nil {
@@ -323,6 +318,9 @@ func (d *predeployedLocalCharm) String() string {
 func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
 	userCharmURL := d.userCharmURL
 	ctx.Verbosef("Preparing to deploy local charm %q again", userCharmURL.Name)
+	if d.dryRun {
+		ctx.Infof("ignoring dry-run flag for local charms")
+	}
 
 	modelCfg, err := getModelConfig(deployAPI)
 	if err != nil {
@@ -380,6 +378,9 @@ func (l *localCharm) String() string {
 // then deploys it.
 func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
 	ctx.Verbosef("Preparing to deploy local charm: %q ", l.curl.Name)
+	if l.dryRun {
+		ctx.Infof("ignoring dry-run flag for local charms")
+	}
 	if err := l.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
@@ -513,6 +514,21 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	deployableURL := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
 		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
+	}
+
+	if c.dryRun {
+		name := c.applicationName
+		if name == "" {
+			name = deployableURL.Name
+		}
+		channel := origin.CharmChannel().String()
+		if channel != "" {
+			channel = fmt.Sprintf(" in channel %s", channel)
+		}
+
+		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
+			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Series))
+		return nil
 	}
 
 	// Store the charm in the controller
