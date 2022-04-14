@@ -111,7 +111,6 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // ProvisioningInfo holds the info needed to provision an operator.
 type ProvisioningInfo struct {
-	ImagePath            string
 	Version              version.Number
 	APIAddresses         []string
 	CACert               string
@@ -120,7 +119,7 @@ type ProvisioningInfo struct {
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Series               string
-	ImageRepo            docker.ImageRepoDetails
+	ImageDetails         resources.DockerImageDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
 	Trust                bool
@@ -146,34 +145,18 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		return ProvisioningInfo{}, errors.Trace(maybeNotFound(err))
 	}
 
-	imageRepo := docker.ImageRepoDetails{
-		Repository:    r.ImageRepo.Repository,
-		ServerAddress: r.ImageRepo.ServerAddress,
-		BasicAuthConfig: docker.BasicAuthConfig{
-			Username: r.ImageRepo.Username,
-			Password: r.ImageRepo.Password,
-			Auth:     docker.NewToken(r.ImageRepo.Auth),
-		},
-		TokenAuthConfig: docker.TokenAuthConfig{
-			Email:         r.ImageRepo.Email,
-			IdentityToken: docker.NewToken(r.ImageRepo.IdentityToken),
-			RegistryToken: docker.NewToken(r.ImageRepo.RegistryToken),
-		},
-	}
 	info := ProvisioningInfo{
-		ImagePath:            r.ImagePath,
 		Version:              r.Version,
 		APIAddresses:         r.APIAddresses,
 		CACert:               r.CACert,
 		Tags:                 r.Tags,
 		Constraints:          r.Constraints,
 		Series:               r.Series,
-		ImageRepo:            imageRepo,
+		ImageDetails:         params.ConvertDockerImageInfo(r.ImageRepo),
 		CharmModifiedVersion: r.CharmModifiedVersion,
 		Trust:                r.Trust,
 		Scale:                r.Scale,
 	}
-
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)
 		if err != nil {
