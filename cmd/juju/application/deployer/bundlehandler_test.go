@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type BundleDeployRepositorySuite struct {
@@ -1418,18 +1417,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
-	minimal := map[string]interface{}{
-		"name":            "test",
-		"type":            "manual",
-		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ControllerTag.Id(),
-		"firewall-mode":   "instance",
-		// While the ca-cert bits aren't entirely minimal, they avoid the need
-		// to set up a fake home.
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	}
-	cfg, err := config.New(true, minimal)
+	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }
@@ -1820,18 +1808,7 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *gc.C) {
-	minimal := map[string]interface{}{
-		"name":            "test",
-		"type":            "manual",
-		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ControllerTag.Id(),
-		"firewall-mode":   "instance",
-		// While the ca-cert bits aren't entirely minimal, they avoid the need
-		// to set up a fake home.
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	}
-	cfg, err := config.New(true, minimal)
+	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }
