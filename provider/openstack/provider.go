@@ -1333,6 +1333,10 @@ func (e *Environ) startInstance(
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
+			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
+				// ignore the failure at this stage, just log it
+				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
+			}
 			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip
