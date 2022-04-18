@@ -594,8 +594,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.LeaseManager = getStater.GetLeaseManagerInAPIServer()
 	s.Controller = getStater.GetController()
 
-	s.State = s.StatePool.SystemState()
-
+	s.State, err = s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	s.Model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

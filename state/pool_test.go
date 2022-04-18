@@ -65,7 +65,8 @@ func (s *statePoolSuite) TestGetWithControllerModel(c *gc.C) {
 }
 
 func (s *statePoolSuite) TestGetSystemState(c *gc.C) {
-	st0 := s.StatePool.SystemState()
+	st0, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st0, gc.Equals, s.State)
 }
 

@@ -32,8 +32,12 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewFacade(resources, authorizer,
-		ctx.StatePool().SystemState(),
+		systemState,
 		&stateShim{st},
 		broker,
 		ctx.StatePool().Clock())

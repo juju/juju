@@ -4,6 +4,7 @@
 package proxyupdater
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
@@ -39,8 +40,12 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	if err != nil {
 		return nil, err
 	}
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewAPIBase(
-		ctx.StatePool().SystemState(),
+		systemState,
 		model,
 		ctx.Resources(),
 		ctx.Auth(),

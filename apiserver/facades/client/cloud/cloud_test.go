@@ -1599,8 +1599,8 @@ func (m *mockStatePool) GetModelCallContext(modelUUID string) (credentialcommon.
 	return m.getF(modelUUID)
 }
 
-func (m *mockStatePool) SystemState() *state.State {
-	return nil
+func (m *mockStatePool) SystemState() (*state.State, error) {
+	return nil, nil
 }
 
 type mockPooledModel struct {

@@ -246,7 +246,9 @@ func (s *WorkerSuite) TestInitialModel(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestControllerConfigOnInit(c *gc.C) {
-	err := s.StatePool.SystemState().UpdateControllerConfig(
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	err = systemState.UpdateControllerConfig(
 		map[string]interface{}{
 			"controller-name": "test-controller",
 		}, nil)

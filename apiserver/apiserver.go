@@ -292,7 +292,11 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(cfg ServerConfig) (_ *Server, err error) {
-	controllerConfig, err := cfg.StatePool.SystemState().ControllerConfig()
+	systemState, err := cfg.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerConfig, err := systemState.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
@@ -312,7 +316,11 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	model, err := cfg.StatePool.SystemState().Model()
+	systemState, err = cfg.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := systemState.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -629,7 +637,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		noModelUUID     bool
 	}
 	var endpoints []apihttp.Endpoint
-	controllerModelUUID := srv.shared.statePool.SystemState().ModelUUID()
+	systemState, _ := srv.shared.statePool.SystemState()
+	controllerModelUUID := systemState.ModelUUID()
 	addHandler := func(handler handler) {
 		methods := handler.methods
 		if methods == nil {
@@ -757,7 +766,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			return opener, st, nil
 		},
 	}
-	controllerAdminAuthorizer := controllerAdminAuthorizer{srv.shared.statePool.SystemState()}
+	systemState, _ = srv.shared.statePool.SystemState()
+	controllerAdminAuthorizer := controllerAdminAuthorizer{systemState}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -1055,7 +1065,11 @@ func (srv *Server) serveConn(
 	resolvedModelUUID := modelUUID
 	statePool := srv.shared.statePool
 	if modelUUID == "" {
-		resolvedModelUUID = statePool.SystemState().ModelUUID()
+		systemState, err := statePool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resolvedModelUUID = systemState.ModelUUID()
 	}
 	var (
 		st *state.PooledState

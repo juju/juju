@@ -196,7 +196,10 @@ func (r *router) ensureFileHandler(c configureHandler, h func(w http.ResponseWri
 // and archive hash.
 func (r *router) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
 	// Retrieve the Juju GUI info from the GUI storage.
-	st := r.ctxt.srv.shared.statePool.SystemState()
+	st, err := r.ctxt.srv.shared.statePool.SystemState()
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return "", "", errors.Annotatef(err, "cannot open %s storage", r.name)
@@ -471,7 +474,7 @@ func getConfigPath(path string, ctxt httpContext) string {
 	if uuid != "" {
 		return fmt.Sprintf("%[1]s?model-uuid=%[2]s&base-postfix=%[2]s/", configPath, uuid)
 	}
-	st := ctxt.srv.shared.statePool.SystemState()
+	st, _ := ctxt.srv.shared.statePool.SystemState()
 	if isNewGUI(st) {
 		// This is the proper case in which a new GUI is being served from a
 		// new URL. No query must be included in the config path.

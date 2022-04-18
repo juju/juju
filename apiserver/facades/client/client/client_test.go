@@ -1508,7 +1508,9 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, apiParams.Nonce, "")
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	icfg, err := client.InstanceConfig(systemState, s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 	provisioningScript, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1763,7 +1765,9 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that address filtering by management space occurred.
-	agentHostPorts, err := s.StatePool.SystemState().APIHostPortsForAgents()
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	agentHostPorts, err := systemState.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agentHostPorts, gc.Not(gc.DeepEquals), stateAPIHostPorts)
 

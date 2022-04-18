@@ -6,6 +6,7 @@ package machine
 import (
 	"reflect"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -78,8 +79,12 @@ func newMachinerAPIV4(
 
 // newMachinerAPI creates a new instance of the Machiner API.
 func newMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewMachinerAPIForState(
-		ctx.StatePool().SystemState(),
+		systemState,
 		ctx.State(),
 		ctx.Resources(),
 		ctx.Auth(),

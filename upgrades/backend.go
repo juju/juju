@@ -6,8 +6,7 @@ package upgrades
 import (
 	"time"
 
-	"github.com/juju/replicaset/v2"
-
+	"github.com/juju/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
+	"github.com/juju/replicaset/v2"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
@@ -127,11 +127,13 @@ type stateBackend struct {
 }
 
 func (s stateBackend) ControllerUUID() string {
-	return s.pool.SystemState().ControllerUUID()
+	systemState, _ := s.pool.SystemState()
+	return systemState.ControllerUUID()
 }
 
 func (s stateBackend) StateServingInfo() (controller.StateServingInfo, error) {
-	return s.pool.SystemState().StateServingInfo()
+	systemState, _ := s.pool.SystemState()
+	return systemState.StateServingInfo()
 }
 
 func (s stateBackend) StripLocalUserDomain() error {
@@ -151,7 +153,11 @@ func (s stateBackend) AddLocalCharmSequences() error {
 }
 
 func (s stateBackend) UpdateLegacyLXDCloudCredentials(endpoint string, credential cloud.Credential) error {
-	return state.UpdateLegacyLXDCloudCredentials(s.pool.SystemState(), endpoint, credential)
+	systemState, err := s.pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return state.UpdateLegacyLXDCloudCredentials(systemState, endpoint, credential)
 }
 
 func (s stateBackend) UpgradeNoProxyDefaults() error {
@@ -255,11 +261,16 @@ func (s stateBackend) RemoveContainerImageStreamFromNonModelSettings() error {
 }
 
 func (s stateBackend) ControllerConfig() (controller.Config, error) {
-	return s.pool.SystemState().ControllerConfig()
+	systemState, err := s.pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return systemState.ControllerConfig()
 }
 
 func (s stateBackend) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
-	return s.pool.SystemState().LeaseNotifyTarget(logger)
+	systemState, _ := s.pool.SystemState()
+	return systemState.LeaseNotifyTarget(logger)
 }
 
 func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
@@ -406,7 +417,11 @@ func (s stateBackend) TranslateK8sServiceTypes() error {
 }
 
 func (s stateBackend) UpdateKubernetesCloudCredentials() error {
-	return state.UpdateLegacyKubernetesCloudCredentials(s.pool.SystemState())
+	systemState, err := s.pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return state.UpdateLegacyKubernetesCloudCredentials(systemState)
 }
 
 func (s stateBackend) UpdateDHCPAddressConfigs() error {

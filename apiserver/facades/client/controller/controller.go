@@ -356,7 +356,10 @@ func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 		return result, errors.Trace(err)
 	}
 
-	controllerState := c.statePool.SystemState()
+	controllerState, err := c.statePool.SystemState()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	controllerModel, err := controllerState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -586,7 +589,11 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState.State, c.statePool.SystemState(), &targetInfo, c.presence); err != nil {
+	systemState, err := c.statePool.SystemState()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := runMigrationPrechecks(hostedState.State, systemState, &targetInfo, c.presence); err != nil {
 		return "", errors.Trace(err)
 	}
 

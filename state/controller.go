@@ -54,7 +54,8 @@ func (ctlr *Controller) StatePool() *StatePool {
 
 // SystemState returns the State object for the controller model.
 func (ctlr *Controller) SystemState() *State {
-	return ctlr.pool.SystemState()
+	systemState, _ := ctlr.pool.SystemState()
+	return systemState
 }
 
 // Close the connection to the database.
@@ -74,10 +75,11 @@ func (ctlr *Controller) GetState(modelTag names.ModelTag) (*PooledState, error) 
 // Ping probes the Controllers's database connection to ensure that it
 // is still alive.
 func (ctlr *Controller) Ping() error {
-	if ctlr.pool.SystemState() == nil {
-		return errors.New("pool is closed")
+	systemState, err := ctlr.pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return ctlr.pool.SystemState().Ping()
+	return systemState.Ping()
 }
 
 // ControllerConfig returns the config values for the controller.

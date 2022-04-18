@@ -141,7 +141,9 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccess(c *gc.C) {
 
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 2)
-	c.Assert(args[0], gc.Equals, s.stateTracker.pool.SystemState())
+	systemState, err := s.stateTracker.pool.SystemState()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(args[0], gc.Equals, systemState)
 	var logWriter raftleasestore.Logger
 	c.Assert(args[1], gc.Implements, &logWriter)
 

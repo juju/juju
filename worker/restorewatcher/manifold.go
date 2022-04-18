@@ -65,7 +65,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	st := statePool.SystemState()
+	st, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	w, err := config.NewWorker(Config{
 		RestoreInfoWatcher: RestoreInfoWatcherShim{st},
 	})

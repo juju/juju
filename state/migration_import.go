@@ -42,7 +42,10 @@ import (
 
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
-	st := ctrl.pool.SystemState()
+	st, err := ctrl.pool.SystemState()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	modelUUID := model.Tag().Id()
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", modelUUID)

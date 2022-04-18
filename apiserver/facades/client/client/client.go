@@ -173,7 +173,11 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 
 	modelUUID := model.UUID()
 
-	urlGetter := common.NewToolsURLGetter(modelUUID, ctx.StatePool().SystemState())
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	blockChecker := common.NewBlockChecker(st)
 	backend := modelconfig.NewStateBackend(model)

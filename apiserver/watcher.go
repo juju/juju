@@ -1050,7 +1050,8 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 }
 
 var getControllerBackend = func(pool *state.StatePool) controllerBackend {
-	return pool.SystemState()
+	systemState, _ := pool.SystemState()
+	return systemState
 }
 
 // migrationBackend defines model State functionality required by the

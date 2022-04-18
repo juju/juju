@@ -171,7 +171,8 @@ type poolShim struct {
 }
 
 func (p *poolShim) SystemState() *state.State {
-	return p.pool.SystemState()
+	systemState, _ := p.pool.SystemState()
+	return systemState
 }
 
 func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {

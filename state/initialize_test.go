@@ -58,7 +58,8 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	s.Pool = pool
 	s.State = st
 
