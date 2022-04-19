@@ -38,6 +38,7 @@ type deployCharm struct {
 	bindings         map[string]string
 	configOptions    DeployConfigFlag
 	constraints      constraints.Value
+	dryRun           bool
 	modelConstraints constraints.Value
 	csMac            *macaroon.Macaroon
 	devices          map[string]devices.Constraints
@@ -266,14 +267,12 @@ or use remove-application to remove the existing one and try again.`,
 		), err.Error())
 	}
 	return errors.Trace(err)
-
 }
 
 var (
 	// BundleOnlyFlags represents what flags are used for bundles only.
-	// TODO(thumper): support dry-run for apps as well as bundles.
 	BundleOnlyFlags = []string{
-		"overlay", "dry-run", "map-machines",
+		"overlay", "map-machines",
 	}
 )
 
@@ -296,8 +295,8 @@ func (d *deployCharm) formatDeployingText() string {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
 
-	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s",
-		name, origin.Source, curl.Name, curl.Revision, channel)
+	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s",
+		name, origin.Source, curl.Name, curl.Revision, channel, origin.Series)
 }
 
 type predeployedLocalCharm struct {
@@ -324,6 +323,9 @@ func (d *predeployedLocalCharm) String() string {
 func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
 	userCharmURL := d.userCharmURL
 	ctx.Verbosef("Preparing to deploy local charm %q again", userCharmURL.Name)
+	if d.dryRun {
+		ctx.Infof("ignoring dry-run flag for local charms")
+	}
 
 	modelCfg, err := getModelConfig(deployAPI)
 	if err != nil {
@@ -381,6 +383,9 @@ func (l *localCharm) String() string {
 // then deploys it.
 func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
 	ctx.Verbosef("Preparing to deploy local charm: %q ", l.curl.Name)
+	if l.dryRun {
+		ctx.Infof("ignoring dry-run flag for local charms")
+	}
 	if err := l.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
@@ -514,6 +519,21 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	deployableURL := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
 		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
+	}
+
+	if c.dryRun {
+		name := c.applicationName
+		if name == "" {
+			name = deployableURL.Name
+		}
+		channel := origin.CharmChannel().String()
+		if channel != "" {
+			channel = fmt.Sprintf(" in channel %s", channel)
+		}
+
+		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
+			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Series))
+		return nil
 	}
 
 	// Store the charm in the controller
