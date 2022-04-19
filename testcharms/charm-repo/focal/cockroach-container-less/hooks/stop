@@ -1,4 +1,3 @@
 #!/bin/bash
 juju-log -l WARN "Running stop hook script"
-kill $(cat /run/roach.pid)
 exit 0

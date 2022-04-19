@@ -12,7 +12,7 @@ import (
 
 // RemoteEndpointsCommandBase is a base for various cross model commands.
 type RemoteEndpointsCommandBase struct {
-	modelcmd.ControllerCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewRemoteEndpointsAPI returns a remote endpoints api for the root api endpoint

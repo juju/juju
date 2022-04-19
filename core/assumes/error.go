@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/pkg/errors"
+	"github.com/juju/errors"
 )
 
 var (

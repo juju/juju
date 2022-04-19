@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
 )
@@ -88,8 +87,6 @@ func (env *environ) availZoneUp(ctx context.ProviderCallContext, name string) (*
 	}
 	return zone, nil
 }
-
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // volumeAttachmentsZone determines the availability zone for each volume
 // identified in the volume attachment parameters, checking that they are

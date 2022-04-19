@@ -623,24 +623,14 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		method = MethodID
 	}
 
-	// origin.Platform.Series could be a series or a version. In reality it will
-	// be a series (focal, groovy), but to be on the safe side we should
-	// validate and fallback if it really isn't a version.
-	// The refresh will fail if it's wrong with a revision not found, which
-	// will be fine for now.
-	track, _ := channelTrack(origin.Platform.Series)
-	baseChannel, err := coreseries.VersionSeries(track)
-	if err != nil {
-		baseChannel = origin.Platform.Series
-	}
-
 	var (
 		cfg charmhub.RefreshConfig
+		err error
 
 		base = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      baseChannel,
+			Channel:      computeBaseChannel(origin.Platform),
 		}
 	)
 	switch method {
@@ -661,6 +651,25 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		return nil, errors.NotValidf("origin %v", origin)
 	}
 	return cfg, err
+}
+
+// origin.Platform.Series could be a series or a version. In reality it will
+// be a series (focal, groovy), but to be on the safe side we should
+// validate and fallback if it really isn't a version.
+// The refresh will fail if it's wrong with a revision not found, which
+// will be fine for now.
+func computeBaseChannel(platform corecharm.Platform) string {
+	track, _ := channelTrack(platform.Series)
+	switch strings.ToLower(platform.OS) {
+	case "centos":
+		return strings.TrimPrefix(track, "centos")
+	}
+
+	baseChannel, err := coreseries.SeriesVersion(track)
+	if err != nil {
+		baseChannel = platform.Series
+	}
+	return baseChannel
 }
 
 func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {

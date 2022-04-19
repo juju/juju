@@ -345,12 +345,10 @@ type Environ struct {
 	keystoneToolsDataSourceMutex sync.Mutex
 	keystoneToolsDataSource      simplestreams.DataSource
 
-	availabilityZonesMutex sync.Mutex
-	availabilityZones      network.AvailabilityZones
-	firewaller             Firewaller
-	networking             Networking
-	configurator           ProviderConfigurator
-	flavorFilter           FlavorFilter
+	firewaller   Firewaller
+	networking   Networking
+	configurator ProviderConfigurator
+	flavorFilter FlavorFilter
 
 	// Clock is defined so it can be replaced for testing
 	clock clock.Clock
@@ -630,23 +628,20 @@ func (z *openstackAvailabilityZone) Available() bool {
 
 // AvailabilityZones returns a slice of availability zones.
 func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
-	e.availabilityZonesMutex.Lock()
-	defer e.availabilityZonesMutex.Unlock()
-	if e.availabilityZones == nil {
-		zones, err := novaListAvailabilityZones(e.nova())
-		if gooseerrors.IsNotImplemented(err) {
-			return nil, errors.NotImplementedf("availability zones")
-		}
-		if err != nil {
-			handleCredentialError(err, ctx)
-			return nil, err
-		}
-		e.availabilityZones = make(network.AvailabilityZones, len(zones))
-		for i, z := range zones {
-			e.availabilityZones[i] = &openstackAvailabilityZone{z}
-		}
+	zones, err := novaListAvailabilityZones(e.nova())
+	if gooseerrors.IsNotImplemented(err) {
+		return nil, errors.NotImplementedf("availability zones")
 	}
-	return e.availabilityZones, nil
+	if err != nil {
+		handleCredentialError(err, ctx)
+		return nil, err
+	}
+
+	availabilityZones := make(network.AvailabilityZones, len(zones))
+	for i, z := range zones {
+		availabilityZones[i] = &openstackAvailabilityZone{z}
+	}
+	return availabilityZones, nil
 }
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each

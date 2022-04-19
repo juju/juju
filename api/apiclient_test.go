@@ -321,7 +321,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestServerRoot(c *gc.C) {
-	url := api.ServerRoot(api.NewClient(s.APIState))
+	url := api.ServerRoot(s.APIState)
 	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
 }
 
@@ -1125,29 +1125,6 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, "boom")
 	c.Check(err, jc.Satisfies, errors.IsBadRequest)
 	c.Check(clock.waits, gc.HasLen, 0)
-}
-
-func (s *apiclientSuite) TestPing(c *gc.C) {
-	clock := &fakeClock{}
-	rpcConn := newRPCConnection()
-	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: rpcConn,
-		Clock:         clock,
-	})
-	err := conn.Ping()
-	c.Assert(err, jc.ErrorIsNil)
-	rpcConn.stub.CheckCalls(c, []testing.StubCall{{
-		"Pinger.Ping", []interface{}{0, nil},
-	}})
-}
-
-func (s *apiclientSuite) TestPingBroken(c *gc.C) {
-	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: newRPCConnection(errors.New("no biscuit")),
-		Clock:         &fakeClock{},
-	})
-	err := conn.Ping()
-	c.Assert(err, gc.ErrorMatches, "no biscuit")
 }
 
 func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {

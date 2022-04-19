@@ -57,7 +57,7 @@ func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd.newAPIFunc = func(controllerName string) (ShowAPI, error) {
 		return showCmd.NewRemoteEndpointsAPI(controllerName)
 	}
-	return modelcmd.WrapController(showCmd)
+	return modelcmd.Wrap(showCmd)
 }
 
 // Init implements Command.Init.
@@ -97,8 +97,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	url, err := crossmodel.ParseOfferURL(c.url)
 	if err != nil {
-		store := c.ClientStore()
-		currentModel, err := store.CurrentModel(controllerName)
+		currentModel, err := c.ModelIdentifier()
 		if err != nil {
 			return errors.Trace(err)
 		}

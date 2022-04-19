@@ -1,4 +1,4 @@
-run_controller_model_admission() {
+test_controller_model_admission() {
 	# Echo out to ensure nice output to the test suite.
 	echo
 
@@ -82,7 +82,7 @@ EOF
 	destroy_model "${model_name}"
 }
 
-run_new_model_admission() {
+test_new_model_admission() {
 	# Echo out to ensure nice output to the test suite.
 	echo
 
@@ -144,7 +144,7 @@ EOF
 	done
 
 	# We still sleep quickly here to let everything settle down. By adding
-	# propper probes we could avoid this.
+	# proper probes we could avoid this.
 	sleep 5
 
 	kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json apply -f - <<EOF
@@ -167,7 +167,7 @@ EOF
 
 # Tests that after the model operator pod restarts it can come back up without
 # having to be validated by itself.
-run_model_chicken_and_egg() {
+test_model_chicken_and_egg() {
 	# Echo out to ensure nice output to the test suite.
 	echo
 

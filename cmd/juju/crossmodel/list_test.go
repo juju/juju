@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel_test
+package crossmodel
 
 import (
 	"fmt"
@@ -14,10 +14,24 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
 	model "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/jujuclient"
 )
+
+func newListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) cmd.Command {
+	aCmd := &listCommand{
+		newAPIFunc: func() (ListAPI, error) {
+			return api, nil
+		},
+		refreshModels: func(jujuclient.ClientStore, string) error {
+			return nil
+		},
+	}
+	aCmd.SetClientStore(store)
+	return modelcmd.Wrap(aCmd)
+}
 
 type ListSuite struct {
 	BaseCrossModelSuite
@@ -296,7 +310,7 @@ func (s *ListSuite) createOfferItem(name, store string, connections []model.Offe
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, crossmodel.NewListEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, newListEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {

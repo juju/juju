@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/juju/utils/scriptrunner"
 	"github.com/juju/loggo"
-	"github.com/pkg/errors"
 )
 
 var logger = loggo.GetLogger("juju.network.debinterfaces")
@@ -110,7 +110,7 @@ fi
 // for the new bridges.
 func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	if len(params.Devices) == 0 {
-		return nil, errors.Errorf("no devices specified")
+		return nil, errors.New("no devices specified")
 	}
 
 	stanzas, err := Parse(params.Filename)
@@ -142,7 +142,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	}
 
 	if err != nil {
-		return &activationResult, errors.Errorf("bridge activation error: %s", err)
+		return &activationResult, fmt.Errorf("bridge activation error: %w", err)
 	}
 
 	logger.Infof("bridge activation result=%v", result.Code)
@@ -152,9 +152,9 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 		logger.Errorf("bridge activation stderr\n%s\n", result.Stderr)
 		// We want to suppress long output from ifup, ifdown - it will be shown in status message!
 		if len(result.Stderr) < 40 {
-			return &activationResult, errors.Errorf("bridge activation failed: %s", string(result.Stderr))
+			return &activationResult, fmt.Errorf("bridge activation failed: %s", string(result.Stderr))
 		} else {
-			return &activationResult, errors.Errorf("bridge activation failed, see logs for details")
+			return &activationResult, errors.New("bridge activation failed, see logs for details")
 		}
 	}
 
