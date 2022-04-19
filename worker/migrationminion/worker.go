@@ -15,9 +15,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/fortress"
 )
 
@@ -192,6 +194,12 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 			w.config.Logger.Debugf("validation failed (retrying): %v", err)
 		}
 	}
+	if apiservererrors.IsErrTryAgain(err) || params.IsCodeTryAgain(err) {
+		// We treat TryAgainError as a retriable error,
+		// so ingore it and don't report to the migrationmaster.
+		w.config.Logger.Errorf("validation failed due to rate limit reached: %v", err)
+		return nil
+	}
 	if err != nil {
 		// Don't return this error just log it and report to the
 		// migrationmaster that things didn't work out.
@@ -218,8 +226,6 @@ func (w *Worker) validate(status watcher.MigrationStatus) error {
 	// a long set of retry attempts.
 	conn, err := w.config.APIOpen(apiInfo, api.DialOpts{})
 	if err != nil {
-		// Don't return this error just log it and report to the
-		// migrationmaster that things didn't work out.
 		return errors.Annotate(err, "failed to open API to target controller")
 	}
 	defer func() { _ = conn.Close() }()

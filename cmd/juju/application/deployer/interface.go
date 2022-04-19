@@ -110,6 +110,10 @@ type DeployerAPI interface {
 	ModelAPI
 	OfferAPI
 
+	// PlanURL returns the configured URL prefix for the metering plan API.
+	PlanURL() string
+
+	ListSpaces() ([]apiparams.Space, error)
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 	WatchAll() (api.AllWatch, error)

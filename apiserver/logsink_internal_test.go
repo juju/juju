@@ -8,24 +8,21 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	gc "gopkg.in/check.v1"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-type loggingStrategySuite struct {
-	logs loggo.TestWriter
-}
+type loggingStrategySuite struct{}
 
 var _ = gc.Suite(&loggingStrategySuite{})
 
 func (s *loggingStrategySuite) TestLoggingOfDBInsertFailures(c *gc.C) {
 	var logBuf bytes.Buffer
 	strategy := &agentLoggingStrategy{
-		dblogger:   failingRecordLogger{},
-		fileLogger: &logBuf,
+		recordLogger: failingRecordLogger{},
+		fileLogger:   &logBuf,
 	}
 
 	err := strategy.WriteLog(params.LogRecord{
@@ -43,6 +40,6 @@ func (s *loggingStrategySuite) TestLoggingOfDBInsertFailures(c *gc.C) {
 
 type failingRecordLogger struct{}
 
-func (failingRecordLogger) Log([]state.LogRecord) error {
+func (failingRecordLogger) Log([]corelogger.LogRecord) error {
 	return errors.New("spawn more overlords")
 }

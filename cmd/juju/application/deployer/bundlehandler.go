@@ -79,6 +79,8 @@ type bundleDeploySpec struct {
 	targetModelUUID string
 	controllerName  string
 	accountUser     string
+
+	knownSpaceNames set.Strings
 }
 
 // deployBundle deploys the given bundle data using the given API client and
@@ -189,6 +191,10 @@ type bundleHandler struct {
 	// each origin.
 	origins map[charm.URL]map[string]commoncharm.Origin
 
+	// knownSpaceNames is a set of the names of existing spaces an application
+	// can bind to
+	knownSpaceNames set.Strings
+
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
 	watcher api.AllWatch
@@ -246,6 +252,7 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		unitStatus:           make(map[string]string),
 		macaroons:            make(map[charm.URL]*macaroon.Macaroon),
 		origins:              make(map[charm.URL]map[string]commoncharm.Origin),
+		knownSpaceNames:      spec.knownSpaceNames,
 
 		targetModelName: spec.targetModelName,
 		targetModelUUID: spec.targetModelUUID,
@@ -806,6 +813,11 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	} else if curl == nil {
 		return errors.Errorf("unexpected application charm URL %q", p.Charm)
+	}
+
+	err = verifyEndpointBindings(p.EndpointBindings, h.knownSpaceNames)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	channel, err := constructNormalizedChannel(p.Channel)
@@ -1740,4 +1752,13 @@ func addCharmConstraintsParser(s string) bundlechanges.ArchConstraint {
 	return bundleArchConstraint{
 		constraints: s,
 	}
+}
+
+func verifyEndpointBindings(endpointBindings map[string]string, knownSpaceNames set.Strings) error {
+	for _, spaceName := range endpointBindings {
+		if !knownSpaceNames.Contains(spaceName) {
+			return errors.NotFoundf("space %q", spaceName)
+		}
+	}
+	return nil
 }

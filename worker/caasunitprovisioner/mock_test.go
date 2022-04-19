@@ -276,14 +276,6 @@ func (m *mockLifeGetter) setLife(life life.Value) {
 	m.lifeRetrieved = make(chan struct{}, 1)
 }
 
-func (m *mockLifeGetter) assertLifeRetrieved(c *gc.C) {
-	select {
-	case <-m.lifeRetrieved:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for life to be retrieved")
-	}
-}
-
 func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

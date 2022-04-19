@@ -85,19 +85,11 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	imageRepo := controllerConf.CAASImageRepo()
-	imageInfo := params.DockerImageInfo{
-		Username:      imageRepo.Username,
-		Password:      imageRepo.Password,
-		Email:         imageRepo.Email,
-		Repository:    imageRepo.Repository,
-		Auth:          imageRepo.Auth.Content(),
-		IdentityToken: imageRepo.IdentityToken.Content(),
-		RegistryToken: imageRepo.RegistryToken.Content(),
-	}
-	if imageInfo.RegistryPath, err = podcfg.GetJujuOCIImagePath(controllerConf, vers); err != nil {
+	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
+	if err != nil {
 		return result, errors.Trace(err)
 	}
+	imageInfo := params.NewDockerImageInfo(controllerConf.CAASImageRepo(), registryPath)
 	logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{

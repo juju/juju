@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
+
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // Source represents the source of the charm.
@@ -189,4 +191,58 @@ func (p Platform) String() string {
 	}
 
 	return path
+}
+
+// ComputeBaseChannel origin.Platform.Series could be a series or a version.
+// In reality it will be a series (focal, groovy), but to be on the safe side
+// we should validate and fallback if it really isn't a version.
+// The refresh will fail if it's wrong with a revision not found, which
+// will be fine for now
+func ComputeBaseChannel(platform Platform) Platform {
+	track, _ := ChannelTrack(platform.Series)
+	switch strings.ToLower(platform.OS) {
+	case "centos":
+		p := platform
+		p.Series = strings.TrimPrefix(track, "centos")
+		return p
+	}
+
+	baseChannel, err := coreseries.SeriesVersion(track)
+	if err != nil {
+		baseChannel = platform.Series
+	}
+	p := platform
+	p.Series = baseChannel
+	return p
+}
+
+// NormalisePlatformSeries origin.Platform.Series returns a valid Juju series and
+// not a charmhub series, ensuring we correctly normalize the base channel.
+func NormalisePlatformSeries(platform Platform) Platform {
+	switch strings.ToLower(platform.OS) {
+	case "centos":
+		// If the platform has already a "centos" prefix, don't double prefix it.
+		if strings.HasPrefix(strings.ToLower(platform.Series), "centos") {
+			return platform
+		}
+
+		p := platform
+		p.Series = fmt.Sprintf("centos%s", platform.Series)
+		return p
+	}
+	return platform
+}
+
+func ChannelTrack(channel string) (string, error) {
+	// Base channel can be found as either just the version `20.04` (focal)
+	// or as `20.04/latest` (focal latest). We should future proof ourself
+	// for now and just drop the risk on the floor.
+	ch, err := charm.ParseChannel(channel)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if ch.Track == "" {
+		return "", errors.NotValidf("channel track")
+	}
+	return ch.Track, nil
 }

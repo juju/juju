@@ -903,7 +903,7 @@ func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
 
 	entities := params.Entities{}
 	_, err := s.facade.ShowSpace(entities)
-	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
 func (s *LegacySuite) TestCreateSpacesModelConfigError(c *gc.C) {
@@ -913,7 +913,7 @@ func (s *LegacySuite) TestCreateSpacesModelConfigError(c *gc.C) {
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(args)
-	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
 func (s *LegacySuite) TestCreateSpacesProviderOpenError(c *gc.C) {
@@ -925,7 +925,8 @@ func (s *LegacySuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 
 	args := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(args)
-	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+	c.Assert(err, gc.ErrorMatches,
+		`getting environ: creating environ for model \"stub-zoned-networking-environ\" \(.*\): boom`)
 }
 
 func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
@@ -987,7 +988,7 @@ func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 	boom := errors.New("backing boom")
 	apiservertesting.BackingInstance.SetErrors(boom)
 	_, err := s.facade.ListSpaces()
-	c.Assert(err, gc.ErrorMatches, "getting environ: backing boom")
+	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: backing boom")
 }
 
 func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
@@ -1058,7 +1059,7 @@ func (s *LegacySuite) TestSupportsSpacesModelConfigError(c *gc.C) {
 	)
 
 	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
-	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
 func (s *LegacySuite) TestSupportsSpacesEnvironNewError(c *gc.C) {
@@ -1069,7 +1070,8 @@ func (s *LegacySuite) TestSupportsSpacesEnvironNewError(c *gc.C) {
 	)
 
 	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
-	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+	c.Assert(err, gc.ErrorMatches,
+		`getting environ: creating environ for model \"stub-zoned-networking-environ\" \(.*\): boom`)
 }
 
 func (s *LegacySuite) TestSupportsSpacesWithoutNetworking(c *gc.C) {

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -234,6 +235,43 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 		"Report",
 	})
 	s.stub.CheckCall(c, 12, "Report", "id", migration.VALIDATION, false)
+}
+
+func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId: "id",
+		Phase:       migration.VALIDATION,
+	}
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, apiservererrors.ErrTryAgain
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// Advance time enough for all of the retries to be exhausted.
+	sleepTime := 100 * time.Millisecond
+	for i := 0; i < 9; i++ {
+		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		sleepTime = (16 * sleepTime) / 10
+	}
+
+	s.waitForStubCalls(c, []string{
+		"Watch",
+		"Lockdown",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+	})
 }
 
 func (s *Suite) TestVALIDATIONFail(c *gc.C) {

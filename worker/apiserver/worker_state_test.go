@@ -119,5 +119,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		LeaseManager:        s.leaseManager,
 		MetricsCollector:    s.metricsCollector,
 		RaftOpQueue:         s.queue,
+		SysLogger:           s.sysLogger,
 	})
 }

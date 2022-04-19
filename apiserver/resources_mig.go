@@ -134,9 +134,6 @@ func queryToResource(query url.Values) (charmresource.Resource, error) {
 	if res.Name == "" {
 		return empty, errors.BadRequestf("missing name")
 	}
-	if res.Description == "" {
-		return empty, errors.BadRequestf("missing description")
-	}
 	res.Type, err = charmresource.ParseType(query.Get("type"))
 	if err != nil {
 		return empty, errors.BadRequestf("invalid type")

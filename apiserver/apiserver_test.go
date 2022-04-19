@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/jujuclient"
@@ -179,9 +180,14 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
+		SysLogger:   noopSysLogger{},
 		RaftOpQueue: queue.NewOpQueue(testclock.NewClock(time.Now())),
 	}
 }
+
+type noopSysLogger struct{}
+
+func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
 // apiserverBaseSuite runs an API server.
 type apiserverBaseSuite struct {
