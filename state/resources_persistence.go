@@ -380,7 +380,15 @@ func (p ResourcePersistence) NewResolvePendingResourceOps(resID, pendingID strin
 		return nil, errors.Trace(err)
 	}
 
-	ops := newResolvePendingResourceOps(pending, exists)
+	csExists := true
+	csResID := resID + resourcesCharmstoreIDSuffix
+	if _, err := p.getOne(csResID); errors.IsNotFound(err) {
+		csExists = false
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newResolvePendingResourceOps(pending, exists, csExists)
 	return ops, nil
 }
 

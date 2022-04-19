@@ -224,7 +224,7 @@ func newRemoveResourcesOps(docs []resourceDoc) []txn.Op {
 //
 // We trust that the provided resource really is pending
 // and that it matches the existing doc with the same ID.
-func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op {
+func newResolvePendingResourceOps(pending storedResource, exists, csExists bool) []txn.Op {
 	oldID := pendingResourceID(pending.ID, pending.PendingID)
 	newRes := pending
 	newRes.PendingID = ""
@@ -250,9 +250,13 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 
 	if exists {
 		ops = append(ops, newUpdateResourceOps(newRes)...)
-		return append(ops, newUpdateCharmStoreResourceOps(csRes)...)
+
 	} else {
 		ops = append(ops, newInsertResourceOps(newRes)...)
+	}
+	if csExists {
+		return append(ops, newUpdateCharmStoreResourceOps(csRes)...)
+	} else {
 		return append(ops, newInsertCharmStoreResourceOps(csRes)...)
 	}
 }
@@ -308,8 +312,8 @@ func (p ResourcePersistence) unitResources(unitID string) ([]resourceDoc, error)
 
 // getOne returns the resource that matches the provided model ID.
 func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
-	logger.Tracef("querying db for resource %q", resID)
 	id := applicationResourceID(resID)
+	logger.Tracef("querying db for resource %q as %q", resID, id)
 	var doc resourceDoc
 	if err := p.base.One(resourcesC, id, &doc); err != nil {
 		return doc, errors.Trace(err)
@@ -319,8 +323,8 @@ func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
 
 // getOnePending returns the resource that matches the provided model ID.
 func (p ResourcePersistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
-	logger.Tracef("querying db for resource %q (pending %q)", resID, pendingID)
 	id := pendingResourceID(resID, pendingID)
+	logger.Tracef("querying db for resource %q (pending %q) as %q", resID, pendingID, id)
 	var doc resourceDoc
 	if err := p.base.One(resourcesC, id, &doc); err != nil {
 		return doc, errors.Trace(err)
