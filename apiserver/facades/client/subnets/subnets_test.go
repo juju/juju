@@ -319,7 +319,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, gc.ErrorMatches,
-		`cannot update known zones: opening environment: config not found`,
+		`cannot update known zones: opening environment: retrieving model config: config not found`,
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -342,7 +342,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, gc.ErrorMatches,
-		`cannot update known zones: opening environment: config not valid`,
+		`cannot update known zones: opening environment: creating environ for model \"stub-zoned-environ\" \(.*\): config not valid`,
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
@@ -865,8 +865,8 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{"either CIDR or SubnetProviderId is required", nil},
 		{"either CIDR or SubnetProviderId is required", nil},
 		{"CIDR and SubnetProviderId cannot be both set", nil},
-		{"opening environment: config not found", params.IsCodeNotFound},
-		{"opening environment: provider not found", params.IsCodeNotFound},
+		{"opening environment: retrieving model config: config not found", params.IsCodeNotFound},
+		{`opening environment: creating environ for model \"stub-networking-environ\" \(.*\): provider not found`, params.IsCodeNotFound},
 		{"cannot get provider subnets: subnets not found", params.IsCodeNotFound},
 		{`subnet with CIDR "" and ProviderId "missing" not found`, params.IsCodeNotFound},
 		{`subnet with CIDR "" and ProviderId "void" not found`, params.IsCodeNotFound},
@@ -940,7 +940,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 			c.Logf("unexpected success; args: %#v", args.Subnets[i])
 			continue
 		}
-		c.Check(result.Error.Message, gc.Equals, expectedErrors[i].message)
+		c.Check(result.Error, gc.ErrorMatches, expectedErrors[i].message)
 		if expectedErrors[i].satisfier != nil {
 			c.Check(result.Error, jc.Satisfies, expectedErrors[i].satisfier)
 		} else {
