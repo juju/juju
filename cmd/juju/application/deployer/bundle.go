@@ -193,7 +193,7 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 	}
 
 	knownSpaces, err := apiRoot.ListSpaces()
-	if err != nil {
+	if err != nil && !errors.IsNotSupported(err) {
 		return bundleDeploySpec{}, errors.Trace(err)
 	}
 

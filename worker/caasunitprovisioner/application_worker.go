@@ -295,7 +295,6 @@ func (aw *applicationWorker) clusterChanged(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceStatus := service.Status
 	var scale *int
 	var generation *int64
 	if service != nil && shouldSetScale {
@@ -306,11 +305,13 @@ func (aw *applicationWorker) clusterChanged(
 		ApplicationTag: names.NewApplicationTag(aw.application).String(),
 		Scale:          scale,
 		Generation:     generation,
-		Status: params.EntityStatus{
-			Status: serviceStatus.Status,
-			Info:   serviceStatus.Message,
-			Data:   serviceStatus.Data,
-		},
+	}
+	if service != nil {
+		args.Status = params.EntityStatus{
+			Status: service.Status.Status,
+			Info:   service.Status.Message,
+			Data:   service.Status.Data,
+		}
 	}
 	for _, u := range units {
 		// For pods managed by the substrate, any marked as dying
