@@ -2423,6 +2423,62 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
+	s.backend.machines = map[string]*mockMachine{"0": {}, "1": {}}
+
+	entities := []params.Entity{{Tag: "application-postgresql"}}
+	result, err := s.api.UnitsInfo(params.Entities{Entities: entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 2)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.UnitResult{
+		Tag:             "unit-postgresql-0",
+		WorkloadVersion: "666",
+		Machine:         "0",
+		OpenedPorts:     []string{"100-102/tcp"},
+		PublicAddress:   "10.0.0.1",
+		Charm:           "cs:postgresql-42",
+		Leader:          true,
+		RelationData: []params.EndpointRelationData{{
+			Endpoint:        "db",
+			CrossModel:      true,
+			RelatedEndpoint: "server",
+			ApplicationData: map[string]interface{}{"app-gitlab": "setting"},
+			UnitRelationData: map[string]params.RelationData{
+				"gitlab/2": {
+					InScope:  true,
+					UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
+				},
+			},
+		}},
+		ProviderId: "provider-id",
+		Address:    "192.168.1.1",
+	})
+	c.Assert(*result.Results[1].Result, gc.DeepEquals, params.UnitResult{
+		Tag:             "unit-postgresql-1",
+		WorkloadVersion: "666",
+		Machine:         "1",
+		OpenedPorts:     []string{"100-102/tcp"},
+		PublicAddress:   "10.0.0.1",
+		Charm:           "cs:postgresql-42",
+		Leader:          false,
+		RelationData: []params.EndpointRelationData{{
+			Endpoint:        "db",
+			CrossModel:      true,
+			RelatedEndpoint: "server",
+			ApplicationData: map[string]interface{}{"app-gitlab": "setting"},
+			UnitRelationData: map[string]params.RelationData{
+				"gitlab/2": {
+					InScope:  true,
+					UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
+				},
+			},
+		}},
+		ProviderId: "provider-id",
+		Address:    "192.168.1.1",
+	})
+}
+
 func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
 	// Define an assumes expression that cannot be satisfied
 	s.backend.charm.meta.Assumes = &assumes.ExpressionTree{
