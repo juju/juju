@@ -159,7 +159,6 @@ type HookUnit interface {
 	State() (params.UnitStateResult, error)
 	Tag() names.UnitTag
 	UnitStatus() (params.StatusResult, error)
-	UpdateNetworkInfo() error
 	CommitHookChanges(params.CommitHookChangesArgs) error
 	PublicAddress() (string, error)
 }

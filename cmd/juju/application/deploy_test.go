@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/api/client/annotations"
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/resources/client"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -2564,7 +2565,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
-				apiClient:         &apiClient{Client: api.NewClient(apiRoot)},
+				apiClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
 				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
@@ -2698,9 +2699,9 @@ func (f *fakeDeployAPI) APICall(objType string, version int, id, request string,
 	return jujutesting.TypeAssertError(results[0])
 }
 
-func (f *fakeDeployAPI) Client() *api.Client {
+func (f *fakeDeployAPI) Client() *apiclient.Client {
 	results := f.MethodCall(f, "Client")
-	return results[0].(*api.Client)
+	return results[0].(*apiclient.Client)
 }
 
 func (f *fakeDeployAPI) ModelUUID() (string, bool) {

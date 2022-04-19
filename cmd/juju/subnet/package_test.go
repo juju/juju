@@ -168,22 +168,6 @@ func (sa *StubAPI) Close() error {
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AllZones() ([]string, error) {
-	sa.MethodCall(sa, "AllZones")
-	if err := sa.NextErr(); err != nil {
-		return nil, err
-	}
-	return sa.Zones, nil
-}
-
-func (sa *StubAPI) AllSpaces() ([]names.Tag, error) {
-	sa.MethodCall(sa, "AllSpaces")
-	if err := sa.NextErr(); err != nil {
-		return nil, err
-	}
-	return sa.Spaces, nil
-}
-
 func (sa *StubAPI) AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error {
 	sa.MethodCall(sa, "AddSubnet", cidr, id, spaceTag, zones)
 	return sa.NextErr()

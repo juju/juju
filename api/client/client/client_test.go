@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package client_test
 
 import (
 	"bytes"
@@ -30,6 +30,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujunames "github.com/juju/juju/juju/names"
@@ -49,14 +50,14 @@ type clientSuite struct {
 var _ = gc.Suite(&clientSuite{})
 
 // TODO(jam) 2013-08-27 http://pad.lv/1217282
-// Right now most of the direct tests for api.Client behavior are in
+// Right now most of the direct tests for client.Client behavior are in
 // apiserver/client/*_test.go
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 }
 
 func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
@@ -66,7 +67,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
-	client := api.NewClient(otherAPISt)
+	client := client.NewClient(otherAPISt)
 	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")
 	var called bool
 
@@ -105,7 +106,7 @@ func (s *clientSuite) TestZipHasHooksOnly(c *gc.C) {
 	defer os.Remove(tempFile.Name())
 	err = ch.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
-	f := *api.HasHooksOrDispatch
+	f := *client.HasHooksOrDispatch
 	hasHooks, err := f(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasHooks, jc.IsTrue)
@@ -119,7 +120,7 @@ func (s *clientSuite) TestZipHasDispatchFileOnly(c *gc.C) {
 	defer os.Remove(tempFile.Name())
 	err = ch.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
-	f := *api.HasHooksOrDispatch
+	f := *client.HasHooksOrDispatch
 	hasDispatch, err := f(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasDispatch, jc.IsTrue)
@@ -133,7 +134,7 @@ func (s *clientSuite) TestZipHasNoHooksNorDispath(c *gc.C) {
 	defer os.Remove(tempFile.Name())
 	err = ch.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
-	f := *api.HasHooksOrDispatch
+	f := *client.HasHooksOrDispatch
 	hasHooks, err := f(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasHooks, jc.IsFalse)
@@ -144,7 +145,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 
 	// Test the sanity checks first.
 	_, err := client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil, false)
@@ -189,7 +190,7 @@ func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
@@ -214,7 +215,7 @@ func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 
 	// Upload an archive with its original revision.
 	_, err := client.AddLocalCharm(curl, charmArchive, false)
@@ -234,7 +235,7 @@ func (s *clientSuite) testAddLocalCharmWithWithForceSucceeds(name string, c *gc.
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, true)
@@ -256,17 +257,17 @@ func (s *clientSuite) testAddLocalCharmWithWithForceSucceeds(name string, c *gc.
 
 func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
 	curl, ch := s.testCharm(c)
-	s.PatchValue(api.HasHooksOrDispatch, f)
-	_, err := api.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
+	s.PatchValue(client.HasHooksOrDispatch, f)
+	_, err := client.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *clientSuite) TestAddLocalCharmDefinetelyWithHooks(c *gc.C) {
 	curl, ch := s.testCharm(c)
-	s.PatchValue(api.HasHooksOrDispatch, func(string) (bool, error) {
+	s.PatchValue(client.HasHooksOrDispatch, func(string) (bool, error) {
 		return true, nil
 	})
-	savedCURL, err := api.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
+	savedCURL, err := client.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCURL.String(), gc.Equals, curl.String())
 }
@@ -288,7 +289,7 @@ func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
-	client := api.NewClient(otherAPISt)
+	client := client.NewClient(otherAPISt)
 
 	// Upload an archive
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
@@ -312,7 +313,7 @@ func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
 }
 
 func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 
 	// AddLocalCharm does not use the facades, so instead of patching the
 	// facade call, we set up a fake endpoint to test.
@@ -355,7 +356,7 @@ func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
 		{"1.25.0", "1.25-alpha1", true, true},
 		{"1.25-alpha1", "1.25.0", true, true},
 	}
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	for _, t := range tests {
 		testMinVer(client, t, c)
 	}
@@ -368,11 +369,11 @@ type minverTest struct {
 	ok    bool
 }
 
-func testMinVer(client *api.Client, t minverTest, c *gc.C) {
+func testMinVer(cl *client.Client, t minverTest, c *gc.C) {
 	charmMinVer := version.MustParse(t.charm)
 	jujuVer := version.MustParse(t.juju)
 
-	cleanup := api.PatchClientFacadeCall(client,
+	cleanup := client.PatchClientFacadeCall(cl,
 		func(request string, paramsIn interface{}, response interface{}) error {
 			c.Assert(paramsIn, gc.IsNil)
 			if response, ok := response.(*params.AgentVersionResult); ok {
@@ -392,7 +393,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	)
 	charmArchive.Meta().MinJujuVersion = charmMinVer
 
-	_, err := client.AddLocalCharm(curl, charmArchive, t.force)
+	_, err := cl.AddLocalCharm(curl, charmArchive, t.force)
 
 	if t.ok {
 		if err != nil {
@@ -412,7 +413,7 @@ func (s *clientSuite) TestOpenURIFound(c *gc.C) {
 	const toolsVersion = "2.0.0-ubuntu-ppc64"
 	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
 
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -424,13 +425,13 @@ func (s *clientSuite) TestOpenURIFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestOpenURIError(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	_, err := client.OpenURI("/tools/foobar", nil)
 	c.Assert(err, gc.ErrorMatches, ".*error parsing version.+")
 }
 
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	curl, ch, repoPath := addLocalCharm(c, client, "dummy", false)
 	defer os.Remove(repoPath)
 	c.Logf("added local charm as %v", curl)
@@ -447,7 +448,7 @@ func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	curl, ch, repoPath := addLocalCharm(c, client, "dummy", true)
 	defer os.Remove(repoPath)
 	expected, err := ioutil.ReadFile(ch.Path)
@@ -465,14 +466,14 @@ func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
 
 func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 	curl := charm.MustParseURL("cs:quantal/spam-3")
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 
 	_, err := client.OpenCharm(curl)
 
 	c.Check(err, gc.ErrorMatches, `.*cannot get charm from state: charm "cs:quantal/spam-3" not found`)
 }
 
-func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm.URL, *charm.CharmArchive, string) {
+func addLocalCharm(c *gc.C, client *client.Client, name string, force bool) (*charm.URL, *charm.CharmArchive, string) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
 	_, err := client.AddLocalCharm(curl, charmArchive, force)
@@ -480,7 +481,7 @@ func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm
 	return curl, charmArchive, charmArchive.Path
 }
 
-func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
+func fakeAPIEndpoint(c *gc.C, cl *client.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -493,7 +494,7 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 	go func() {
 		http.Serve(lis, mux)
 	}()
-	api.SetServerAddress(client, "http", lis.Addr().String())
+	client.SetServerAddress(cl, "http", lis.Addr().String())
 	return lis
 }
 
@@ -508,15 +509,15 @@ func (s *clientSuite) TestClientModelUUID(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	uuid, ok := client.ModelUUID()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, model.Tag().Id())
 }
 
 func (s *clientSuite) TestClientModelUsers(c *gc.C) {
-	client := api.NewClient(s.APIState)
-	cleanup := api.PatchClientFacadeCall(client,
+	cl := client.NewClient(s.APIState)
+	cleanup := client.PatchClientFacadeCall(cl,
 		func(request string, paramsIn interface{}, response interface{}) error {
 			c.Assert(paramsIn, gc.IsNil)
 			if response, ok := response.(*params.ModelUserInfoResults); ok {
@@ -534,7 +535,7 @@ func (s *clientSuite) TestClientModelUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	obtained, err := client.ModelUserInfo()
+	obtained, err := cl.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
@@ -545,7 +546,7 @@ func (s *clientSuite) TestClientModelUsers(c *gc.C) {
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.
@@ -561,7 +562,7 @@ func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -570,8 +571,8 @@ func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
-		return fakeStreamReader{&bytes.Buffer{}}, nil
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+		return api.NewFakeStreamReader(&bytes.Buffer{}), nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
@@ -579,8 +580,8 @@ func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
-		return fakeStreamReader{strings.NewReader("junk\n")}, nil
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+		return api.NewFakeStreamReader(strings.NewReader("junk\n")), nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
@@ -588,9 +589,9 @@ func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		err := fmt.Errorf("bad read")
-		return fakeStreamReader{&badReader{err}}, nil
+		return api.NewFakeStreamReader(&badReader{err}), nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
@@ -610,22 +611,22 @@ func (s *clientSuite) TestConnectControllerStreamRejectsModelPaths(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
-	catcher := urlCatcher{}
+	catcher := api.UrlCatcher{}
 	headers := http.Header{}
 	headers.Add("thomas", "cromwell")
 	headers.Add("anne", "boleyn")
-	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	_, err := s.APIState.ConnectControllerStream("/something", nil, headers)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(catcher.headers.Get("thomas"), gc.Equals, "cromwell")
-	c.Assert(catcher.headers.Get("anne"), gc.Equals, "boleyn")
+	c.Assert(catcher.Headers().Get("thomas"), gc.Equals, "cromwell")
+	c.Assert(catcher.Headers().Get("anne"), gc.Equals, "boleyn")
 }
 
 func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
-	catcher := urlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
+	catcher := api.UrlCatcher{}
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
@@ -642,11 +643,11 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		StartTime:     time.Date(2016, 11, 30, 11, 48, 0, 100, time.UTC),
 	}
 
-	client := api.NewClient(s.APIState)
+	client := client.NewClient(s.APIState)
 	_, err := client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	connectURL, err := url.Parse(catcher.location)
+	connectURL, err := url.Parse(catcher.Location())
 	c.Assert(err, jc.ErrorIsNil)
 
 	values := connectURL.Query()
@@ -667,8 +668,8 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
-	catcher := urlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
+	catcher := api.UrlCatcher{}
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
@@ -678,7 +679,7 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	defer apistate.Close()
 	_, err = apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	connectURL, err := url.Parse(catcher.location)
+	connectURL, err := url.Parse(catcher.Location())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", model.UUID()))
 }
@@ -706,9 +707,9 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 }
 
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	client := api.NewClient(s.APIState)
+	cl := client.NewClient(s.APIState)
 	someErr := errors.New("random")
-	cleanup := api.PatchClientFacadeCall(client,
+	cleanup := client.PatchClientFacadeCall(cl,
 		func(request string, args interface{}, response interface{}) error {
 			c.Assert(request, gc.Equals, "AbortCurrentUpgrade")
 			c.Assert(args, gc.IsNil)
@@ -718,7 +719,7 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.AbortCurrentUpgrade()
+	err := cl.AbortCurrentUpgrade()
 	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
 }
 
@@ -787,48 +788,6 @@ type badReader struct {
 
 func (r *badReader) Read(p []byte) (n int, err error) {
 	return 0, r.err
-}
-
-type urlCatcher struct {
-	location string
-	headers  http.Header
-}
-
-func (u *urlCatcher) recordLocation(d api.WebsocketDialer, urlStr string, header http.Header) (base.Stream, error) {
-	u.location = urlStr
-	u.headers = header
-	pr, pw := io.Pipe()
-	go func() {
-		fmt.Fprintf(pw, "null\n")
-	}()
-	return fakeStreamReader{pr}, nil
-}
-
-type fakeStreamReader struct {
-	io.Reader
-}
-
-func (s fakeStreamReader) Close() error {
-	if c, ok := s.Reader.(io.Closer); ok {
-		return c.Close()
-	}
-	return nil
-}
-
-func (s fakeStreamReader) NextReader() (messageType int, r io.Reader, err error) {
-	return websocket.TextMessage, s.Reader, nil
-}
-
-func (s fakeStreamReader) Write([]byte) (int, error) {
-	return 0, errors.NotImplementedf("Write")
-}
-
-func (s fakeStreamReader) ReadJSON(v interface{}) error {
-	return errors.NotImplementedf("ReadJSON")
-}
-
-func (s fakeStreamReader) WriteJSON(v interface{}) error {
-	return errors.NotImplementedf("WriteJSON")
 }
 
 type fakeDialer struct {

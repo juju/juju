@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel_test
+package crossmodel
 
 import (
 	"github.com/juju/cmd/v3"
@@ -11,9 +11,26 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
+
+func newOfferCommandForTest(
+	store jujuclient.ClientStore,
+	api OfferAPI,
+) cmd.Command {
+	aCmd := &offerCommand{
+		newAPIFunc: func() (OfferAPI, error) {
+			return api, nil
+		},
+		refreshModels: func(jujuclient.ClientStore, string) error {
+			return nil
+		},
+	}
+	aCmd.SetClientStore(store)
+	return modelcmd.WrapController(aCmd)
+}
 
 type offerSuite struct {
 	BaseCrossModelSuite
@@ -71,7 +88,7 @@ func (s *offerSuite) assertOfferErrorOutput(c *gc.C, expected string) {
 }
 
 func (s *offerSuite) runOffer(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, crossmodel.NewOfferCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, newOfferCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *offerSuite) TestOfferCallErred(c *gc.C) {

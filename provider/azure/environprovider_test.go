@@ -55,9 +55,10 @@ func fakeServicePrincipalCredential() *cloud.Credential {
 	cred := cloud.NewCredential(
 		"service-principal-secret",
 		map[string]string{
-			"application-id":       fakeApplicationId,
-			"subscription-id":      fakeSubscriptionId,
-			"application-password": "opensezme",
+			"application-id":          fakeApplicationId,
+			"subscription-id":         fakeSubscriptionId,
+			"managed-subscription-id": fakeManagedSubscriptionId,
+			"application-password":    "opensezme",
 		},
 	)
 	return &cred

@@ -354,7 +354,7 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 			return errors.Trace(err)
 		}
 		for _, attr := range removeAttrs {
-			// We we are updating an attribute, that takes
+			// We are updating an attribute, that takes
 			// precedence over removing.
 			if _, ok := updateAttrs[attr]; ok {
 				continue
@@ -404,7 +404,10 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 
 	modelSettings.Update(validAttrs)
 	_, ops := modelSettings.settingsUpdateOps()
-	return modelSettings.write(ops)
+	if len(ops) > 0 {
+		return modelSettings.write(ops)
+	}
+	return nil
 }
 
 type modelConfigSourceFunc func() (attrValues, error)

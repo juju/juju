@@ -982,16 +982,6 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
-
-	// A successful result is cached, currently for the lifetime
-	// of the Environ. This will change if/when we have long-lived
-	// Environs to cut down repeated IaaS requests.
-	resultErr = fmt.Errorf("failed to get availability zones")
-	resultZones[0].ZoneName = aws.String("andever")
-	zones, err = env.AvailabilityZones(t.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zones, gc.HasLen, 1)
-	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 }
 
 func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {

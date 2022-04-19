@@ -269,27 +269,15 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	}
 	op, err := s.CreateContainerFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
 	if err != nil {
-		if IsLXDAlreadyExists(err) {
-			container, runningErr := s.waitForRunningContainer(spec, ephemeral)
-			if runningErr != nil {
-				// It's actually more helpful to display the original error
-				// message, but we'll also log out what the new error message
-				// was, when attempting to wait for it.
-				logger.Debugf("waiting for container to be running: %v", runningErr)
-				return nil, errors.Trace(err)
-			}
-			c := Container{*container}
-			return &c, nil
-		}
-		return nil, errors.Trace(err)
+		return s.handleAlreadyExistsError(err, spec, ephemeral)
 	}
 
 	if err := op.Wait(); err != nil {
-		return nil, errors.Trace(err)
+		return s.handleAlreadyExistsError(err, spec, ephemeral)
 	}
 	opInfo, err := op.GetTarget()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return s.handleAlreadyExistsError(err, spec, ephemeral)
 	}
 	if opInfo.StatusCode != api.Success {
 		return nil, fmt.Errorf("container creation failed: %s", opInfo.Err)
@@ -310,6 +298,22 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	}
 	c := Container{*container}
 	return &c, nil
+}
+
+func (s *Server) handleAlreadyExistsError(err error, spec ContainerSpec, ephemeral bool) (*Container, error) {
+	if IsLXDAlreadyExists(err) {
+		container, runningErr := s.waitForRunningContainer(spec, ephemeral)
+		if runningErr != nil {
+			// It's actually more helpful to display the original error
+			// message, but we'll also log out what the new error message
+			// was, when attempting to wait for it.
+			logger.Debugf("waiting for container to be running: %v", runningErr)
+			return nil, errors.Trace(err)
+		}
+		c := Container{*container}
+		return &c, nil
+	}
+	return nil, errors.Trace(err)
 }
 
 func (s *Server) waitForRunningContainer(spec ContainerSpec, ephemeral bool) (*api.Container, error) {

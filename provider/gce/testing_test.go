@@ -334,7 +334,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	})
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
 	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
-	s.PatchValue(&availabilityZoneAllocations, s.FakeCommon.AvailabilityZoneAllocations)
 	s.PatchValue(&buildInstanceSpec, s.FakeEnviron.BuildInstanceSpec)
 	s.PatchValue(&getHardwareCharacteristics, s.FakeEnviron.GetHardwareCharacteristics)
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
@@ -421,14 +420,6 @@ func (fc *fakeCommon) Destroy(env environs.Environ, ctx context.ProviderCallCont
 		"switch": env,
 	})
 	return fc.err()
-}
-
-func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
-	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
-		"switch": env,
-		"group":  group,
-	})
-	return fc.AZInstances, fc.err()
 }
 
 type fakeEnviron struct {
