@@ -46,9 +46,9 @@ func (s *refresherFactorySuite) TestRefresh(c *gc.C) {
 		},
 	}
 
-	charmID, err := f.Run(cfg)
+	charmID2, err := f.Run(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID, gc.DeepEquals, charmID)
+	c.Assert(charmID2, gc.DeepEquals, charmID)
 }
 
 func (s *refresherFactorySuite) TestRefreshNotAllowed(c *gc.C) {
@@ -104,9 +104,9 @@ func (s *refresherFactorySuite) TestRefreshCallsAllRefreshers(c *gc.C) {
 		},
 	}
 
-	charmID, err := f.Run(cfg)
+	charmID2, err := f.Run(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID, gc.DeepEquals, charmID)
+	c.Assert(charmID2, gc.DeepEquals, charmID)
 }
 
 func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedError(c *gc.C) {
@@ -145,9 +145,9 @@ func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedErro
 		},
 	}
 
-	charmID, err := f.Run(cfg)
+	charmID2, err := f.Run(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID, gc.DeepEquals, charmID)
+	c.Assert(charmID2, gc.DeepEquals, charmID)
 }
 
 type baseRefresherSuite struct{}
@@ -255,13 +255,8 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 
 	charmID, err := task.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID, gc.DeepEquals, &CharmID{
-		URL: curl,
-		Origin: corecharm.Origin{
-			Source: corecharm.Local,
-			Type:   "charm",
-		},
-	})
+	c.Assert(charmID.URL, gc.Equals, curl)
+	c.Assert(charmID.Origin.Source, gc.Equals, corecharm.Local)
 }
 
 func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *gc.C) {
