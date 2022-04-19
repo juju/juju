@@ -6,6 +6,7 @@ package connector
 import (
 	"errors"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -69,6 +70,19 @@ func (c *ClientStoreConnector) Connect(dialOptions ...api.DialOption) (api.Conne
 	for _, f := range dialOptions {
 		f(&opts)
 	}
+
+	// By default there is no bakery client in the dial options, so we reproduce
+	// behaviour that is scattered around the code to obtain a bakery client
+	// with a cookie jar from the client store.
+	jar, err := c.config.ClientStore.CookieJar(c.config.ControllerName)
+	if err != nil {
+		return nil, err
+	}
+
+	bakeryClient := httpbakery.NewClient()
+	bakeryClient.Jar = jar
+	opts.BakeryClient = bakeryClient
+
 	return juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		ControllerName: c.config.ControllerName,
 		Store:          c.config.ClientStore,
