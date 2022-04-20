@@ -5,7 +5,6 @@ package statetest
 
 import (
 	"reflect"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
@@ -23,8 +22,6 @@ type StubPersistence struct {
 
 	ReturnApplicationExistsOps       []txn.Op
 	ReturnIncCharmModifiedVersionOps []txn.Op
-
-	mu sync.Mutex
 }
 
 func NewStubPersistence(stub *testing.Stub) *StubPersistence {
