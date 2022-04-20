@@ -166,31 +166,20 @@ func (w *modelStateWorker) loop() error {
 		_, _ = w.pool.Remove(w.modelUUID)
 	}()
 
-	// Jitter the interval so that each model doesn't attempt to connect to
-	// mongo at potentially the same time.
-	interval := w.pingInterval + jitter(time.Millisecond*200)
-
-	// If the state ping fails, attempt to retry the ping, before returning.
 	var pingErr error
-	for attempt := 0; attempt < 5; {
+	for {
+		// Jitter the interval so that each model doesn't attempt to connect to
+		// mongo at potentially the same time.
+		interval := w.pingInterval + jitter(time.Millisecond*200)
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-time.After(interval):
 			if pingErr = st.Ping(); pingErr != nil {
-				// Reduce the next ping interval to fail early in case mongo
-				// has actually died. This should prevent the worst case
-				// scenario of a large initial ping interval.
-				interval = maxDuration(interval/2, time.Second)
-				attempt++
-				continue
+				return errors.Annotate(pingErr, "state ping failed")
 			}
-			interval = w.pingInterval
-			attempt = 0
 		}
 	}
-
-	return errors.Annotate(pingErr, "state ping failed")
 }
 
 // Kill is part of the worker.Worker interface.
@@ -201,13 +190,6 @@ func (w *modelStateWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *modelStateWorker) Wait() error {
 	return w.tomb.Wait()
-}
-
-func maxDuration(a, b time.Duration) time.Duration {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func jitter(amount time.Duration) time.Duration {
