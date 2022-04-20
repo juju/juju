@@ -76,8 +76,8 @@ const (
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
-	// NumProvisionWorkersKey is the key for the number of provisioner
-	// workers setting.
+	// NumProvisionWorkersKey is the key for number of model provisioner
+	// workers.
 	NumProvisionWorkersKey = "num-provision-workers"
 
 	// NumContainerProvisionWorkersKey is the key for the number of
