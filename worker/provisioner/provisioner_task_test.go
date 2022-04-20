@@ -627,7 +627,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	s.waitForWorkerSetup(c, "worker not set up")
 
 	err := workertest.CheckKill(c, task)
-	c.Assert(err, gc.ErrorMatches, "updating AZ distributions: boom")
+	c.Assert(err, gc.ErrorMatches, "processing updated machines: getting all instances from broker: boom")
 }
 
 func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {

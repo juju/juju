@@ -220,12 +220,6 @@ func (task *provisionerTask) loop() (taskErr error) {
 				return errors.New("machine watcher closed channel")
 			}
 
-			// Maintain zone-machine distributions.
-			err := task.updateAvailabilityZoneMachines(ctx)
-			if err != nil && !errors.IsNotImplemented(err) {
-				return errors.Annotate(err, "updating AZ distributions")
-			}
-
 			if err := task.processMachines(ctx, ids); err != nil {
 				return errors.Annotate(err, "processing updated machines")
 			}
@@ -340,6 +334,12 @@ func (task *provisionerTask) processMachines(ctx context.ProviderCallContext, id
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ctx, ids); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Maintain zone-machine distributions.
+	err := task.updateAvailabilityZoneMachines(ctx)
+	if err != nil && !errors.IsNotImplemented(err) {
+		return errors.Annotate(err, "updating AZ distributions")
 	}
 
 	// Find machines without an instance ID or that are dead.
