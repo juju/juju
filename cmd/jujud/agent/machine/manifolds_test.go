@@ -71,6 +71,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"certificate-watcher",
 			"clock",
 			"controller-port",
+			"db-accessor",
 			"deployer",
 			"disk-manager",
 			"external-controller-updater",
@@ -147,6 +148,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"certificate-watcher",
 			"clock",
 			"controller-port",
+			"db-accessor",
 			"external-controller-updater",
 			"http-server",
 			"http-server-args",
@@ -227,6 +229,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"central-hub",
 		"clock",
 		"controller-port",
+		"db-accessor",
 		"deployer",
 		"global-clock-updater",
 		"http-server",
@@ -300,6 +303,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-database-runner",
+		"db-accessor",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -516,6 +520,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"state",
+		"state-config-watcher",
+	},
+
+	"db-accessor": {
+		"agent",
+		"is-controller-flag",
 		"state-config-watcher",
 	},
 
