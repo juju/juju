@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/workerpool"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -220,14 +220,14 @@ func (task *provisionerTask) loop() (taskErr error) {
 				return errors.New("machine watcher closed channel")
 			}
 
+			if err := task.processMachines(ctx, ids); err != nil {
+				return errors.Annotate(err, "processing updated machines")
+			}
+
 			// Maintain zone-machine distributions.
 			err := task.updateAvailabilityZoneMachines(ctx)
 			if err != nil && !errors.IsNotImplemented(err) {
 				return errors.Annotate(err, "updating AZ distributions")
-			}
-
-			if err := task.processMachines(ctx, ids); err != nil {
-				return errors.Annotate(err, "processing updated machines")
 			}
 
 			task.notifyEventProcessedCallback(eventTypeProcessedMachines)
