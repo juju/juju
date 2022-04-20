@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
@@ -3249,7 +3250,7 @@ func writeLogs(c *gc.C, st *state.State, n int) {
 	dbLogger := state.NewDbLogger(st)
 	defer dbLogger.Close()
 	for i := 0; i < n; i++ {
-		err := dbLogger.Log([]state.LogRecord{{
+		err := dbLogger.Log([]corelogger.LogRecord{{
 			Time:     time.Now(),
 			Entity:   "application-van-occupanther",
 			Module:   "chasing after deer",

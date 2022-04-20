@@ -260,17 +260,6 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
-	imageRepo := cfg.CAASImageRepo()
-	imageInfo := params.DockerImageInfo{
-		Username:      imageRepo.Username,
-		Password:      imageRepo.Password,
-		Email:         imageRepo.Email,
-		Repository:    imageRepo.Repository,
-		Auth:          imageRepo.Auth.Content(),
-		IdentityToken: imageRepo.IdentityToken.Content(),
-		RegistryToken: imageRepo.RegistryToken.Content(),
-	}
-
 	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
@@ -291,7 +280,6 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Annotatef(err, "getting application config")
 	}
 	return &params.CAASApplicationProvisioningInfo{
-		ImagePath:            imagePath,
 		Version:              vers,
 		APIAddresses:         addrs,
 		CACert:               caCert,
@@ -300,7 +288,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Series:               app.Series(),
-		ImageRepo:            imageInfo,
+		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             charmURL.String(),
 		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),

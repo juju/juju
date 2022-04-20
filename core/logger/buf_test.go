@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logdb_test
+package logger_test
 
 import (
 	"errors"
@@ -12,22 +12,21 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/logdb"
+	corelogger "github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/testing"
 )
-
-var _ = gc.Suite(&BufferedLoggerSuite{})
 
 type BufferedLoggerSuite struct {
 	testing.IsolationSuite
 }
 
+var _ = gc.Suite(&BufferedLoggerSuite{})
+
 func (s *BufferedLoggerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *BufferedLoggerSuite) waitFlush(c *gc.C, mock *mockLogger) []state.LogRecord {
+func (s *BufferedLoggerSuite) waitFlush(c *gc.C, mock *mockLogger) []corelogger.LogRecord {
 	select {
 	case records := <-mock.called:
 		return records
@@ -51,8 +50,8 @@ func (s *BufferedLoggerSuite) TestLogFlushes(c *gc.C) {
 	const bufsz = 3
 	mock := mockLogger{}
 	clock := testclock.NewClock(time.Time{})
-	b := logdb.NewBufferedLogger(&mock, bufsz, time.Minute, clock)
-	in := []state.LogRecord{{
+	b := corelogger.NewBufferedLogger(&mock, bufsz, time.Minute, clock)
+	in := []corelogger.LogRecord{{
 		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
@@ -82,8 +81,8 @@ func (s *BufferedLoggerSuite) TestLogFlushesMultiple(c *gc.C) {
 	const bufsz = 1
 	mock := mockLogger{}
 	clock := testclock.NewClock(time.Time{})
-	b := logdb.NewBufferedLogger(&mock, bufsz, time.Minute, clock)
-	in := []state.LogRecord{{
+	b := corelogger.NewBufferedLogger(&mock, bufsz, time.Minute, clock)
+	in := []corelogger.LogRecord{{
 		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
@@ -106,11 +105,11 @@ func (s *BufferedLoggerSuite) TestLogFlushesMultiple(c *gc.C) {
 func (s *BufferedLoggerSuite) TestTimerFlushes(c *gc.C) {
 	const bufsz = 10
 	const flushInterval = time.Minute
-	mock := mockLogger{called: make(chan []state.LogRecord)}
+	mock := mockLogger{called: make(chan []corelogger.LogRecord)}
 	clock := testclock.NewClock(time.Time{})
 
-	b := logdb.NewBufferedLogger(&mock, bufsz, flushInterval, clock)
-	in := []state.LogRecord{{
+	b := corelogger.NewBufferedLogger(&mock, bufsz, flushInterval, clock)
+	in := []corelogger.LogRecord{{
 		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
@@ -157,14 +156,14 @@ func (s *BufferedLoggerSuite) TestTimerFlushes(c *gc.C) {
 func (s *BufferedLoggerSuite) TestLogOverCapacity(c *gc.C) {
 	const bufsz = 2
 	const flushInterval = time.Minute
-	mock := mockLogger{called: make(chan []state.LogRecord, 1)}
+	mock := mockLogger{called: make(chan []corelogger.LogRecord, 1)}
 	clock := testclock.NewClock(time.Time{})
 
 	// The buffer has a capacity of 2, so writing 3 logs will
 	// cause 2 to be flushed, with 1 remaining in the buffer
 	// until the timer triggers.
-	b := logdb.NewBufferedLogger(&mock, bufsz, flushInterval, clock)
-	in := []state.LogRecord{{
+	b := corelogger.NewBufferedLogger(&mock, bufsz, flushInterval, clock)
+	in := []corelogger.LogRecord{{
 		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
@@ -191,7 +190,7 @@ func (s *BufferedLoggerSuite) TestLogOverCapacity(c *gc.C) {
 func (s *BufferedLoggerSuite) TestFlushNothing(c *gc.C) {
 	mock := mockLogger{}
 	clock := testclock.NewClock(time.Time{})
-	b := logdb.NewBufferedLogger(&mock, 1, time.Minute, clock)
+	b := corelogger.NewBufferedLogger(&mock, 1, time.Minute, clock)
 	err := b.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 	mock.CheckNoCalls(c)
@@ -201,8 +200,8 @@ func (s *BufferedLoggerSuite) TestFlushReportsError(c *gc.C) {
 	mock := mockLogger{}
 	clock := testclock.NewClock(time.Time{})
 	mock.SetErrors(errors.New("nope"))
-	b := logdb.NewBufferedLogger(&mock, 2, time.Minute, clock)
-	err := b.Log([]state.LogRecord{{
+	b := corelogger.NewBufferedLogger(&mock, 2, time.Minute, clock)
+	err := b.Log([]corelogger.LogRecord{{
 		Entity:  "not-a-tag",
 		Message: "foo",
 	}})
@@ -215,8 +214,8 @@ func (s *BufferedLoggerSuite) TestLogReportsError(c *gc.C) {
 	mock := mockLogger{}
 	clock := testclock.NewClock(time.Time{})
 	mock.SetErrors(errors.New("nope"))
-	b := logdb.NewBufferedLogger(&mock, 1, time.Minute, clock)
-	err := b.Log([]state.LogRecord{{
+	b := corelogger.NewBufferedLogger(&mock, 1, time.Minute, clock)
+	err := b.Log([]corelogger.LogRecord{{
 		Entity:  "not-a-tag",
 		Message: "foo",
 	}})
@@ -225,11 +224,11 @@ func (s *BufferedLoggerSuite) TestLogReportsError(c *gc.C) {
 
 type mockLogger struct {
 	testing.Stub
-	called chan []state.LogRecord
+	called chan []corelogger.LogRecord
 }
 
-func (m *mockLogger) Log(in []state.LogRecord) error {
-	incopy := make([]state.LogRecord, len(in))
+func (m *mockLogger) Log(in []corelogger.LogRecord) error {
+	incopy := make([]corelogger.LogRecord, len(in))
 	copy(incopy, in)
 	m.MethodCall(m, "Log", incopy)
 	if m.called != nil {

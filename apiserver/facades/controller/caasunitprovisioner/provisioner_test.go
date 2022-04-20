@@ -236,7 +236,9 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 			DeploymentType: "stateful",
 			ServiceType:    "loadbalancer",
 		},
-		OperatorImagePath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()+".666"),
+		ImageRepo: params.DockerImageInfo{
+			RegistryPath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()+".666"),
+		},
 		Devices: []params.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
@@ -293,7 +295,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 	c.Assert(obtained.PodSpec, jc.DeepEquals, expectedResult.PodSpec)
 	c.Assert(obtained.RawK8sSpec, jc.DeepEquals, expectedResult.RawK8sSpec)
 	c.Assert(obtained.DeploymentInfo, jc.DeepEquals, expectedResult.DeploymentInfo)
-	c.Assert(obtained.OperatorImagePath, gc.Equals, expectedResult.OperatorImagePath)
+	c.Assert(obtained.ImageRepo.RegistryPath, gc.Equals, expectedResult.ImageRepo.RegistryPath)
 	c.Assert(obtained.CharmModifiedVersion, jc.DeepEquals, 888)
 	c.Assert(len(obtained.Filesystems), gc.Equals, len(expectedFileSystems))
 	for _, fs := range obtained.Filesystems {

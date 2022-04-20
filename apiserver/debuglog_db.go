@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/httpcontext"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -86,7 +87,7 @@ func makeLogTailerParams(reqParams debugLogParams) state.LogTailerParams {
 	return params
 }
 
-func formatLogRecord(r *state.LogRecord) *params.LogMessage {
+func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
 	return &params.LogMessage{
 		Entity:    r.Entity,
 		Timestamp: r.Time,

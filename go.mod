@@ -136,7 +136,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dnaeon/go-vcr v1.1.0 // indirect
+	github.com/dnaeon/go-vcr v1.2.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect

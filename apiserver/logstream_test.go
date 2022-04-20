@@ -21,6 +21,7 @@ import (
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/websocket"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -99,7 +100,7 @@ func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
 func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 
 	// Create test data: i.e. log records for tailing...
-	logs := []state.LogRecord{{
+	logs := []corelogger.LogRecord{{
 		ID:        10,
 		ModelUUID: "deadbeef-...",
 		Version:   version.Current,
@@ -289,11 +290,11 @@ type stubLogTailer struct {
 	state.LogTailer
 	stub *testing.Stub
 
-	ReturnLogs <-chan *state.LogRecord
+	ReturnLogs <-chan *corelogger.LogRecord
 }
 
-func (s *stubLogTailer) newChannel(logs []state.LogRecord) <-chan *state.LogRecord {
-	ch := make(chan *state.LogRecord)
+func (s *stubLogTailer) newChannel(logs []corelogger.LogRecord) <-chan *corelogger.LogRecord {
+	ch := make(chan *corelogger.LogRecord)
 	go func() {
 		for i := range logs {
 			rec := logs[i]
@@ -303,7 +304,7 @@ func (s *stubLogTailer) newChannel(logs []state.LogRecord) <-chan *state.LogReco
 	return ch
 }
 
-func (s *stubLogTailer) Logs() <-chan *state.LogRecord {
+func (s *stubLogTailer) Logs() <-chan *corelogger.LogRecord {
 	s.stub.AddCall("Logs")
 	s.stub.NextErr() // pop one off
 

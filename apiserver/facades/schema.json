@@ -2157,7 +2157,7 @@
                             "$ref": "#/definitions/UnitInfoResults"
                         }
                     },
-                    "description": "UnitsInfo returns unit information."
+                    "description": "UnitsInfo returns unit information for the given entities (units or\napplications)."
                 },
                 "UnsetApplicationsConfig": {
                     "type": "object",
@@ -6590,9 +6590,6 @@
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
                         },
-                        "image-path": {
-                            "type": "string"
-                        },
                         "image-repo": {
                             "$ref": "#/definitions/DockerImageInfo"
                         },
@@ -6625,7 +6622,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "image-path",
                         "version",
                         "api-addresses",
                         "ca-cert",
@@ -13238,6 +13234,42 @@
                         "config"
                     ]
                 },
+                "DockerImageInfo": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-name"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -13591,8 +13623,8 @@
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
                         },
-                        "operator-image-path": {
-                            "type": "string"
+                        "image-repo": {
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "pod-spec": {
                             "type": "string"

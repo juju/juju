@@ -249,10 +249,6 @@ func (s *resourcesUploadSuite) TestArgValidation(c *gc.C) {
 	checkBadRequest(q, "missing path")
 
 	q = s.makeUploadArgs(c)
-	q.Del("description")
-	checkBadRequest(q, "missing description")
-
-	q = s.makeUploadArgs(c)
 	q.Set("type", "fooo")
 	checkBadRequest(q, "invalid type")
 
