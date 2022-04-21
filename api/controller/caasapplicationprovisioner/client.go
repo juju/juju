@@ -6,6 +6,9 @@ package caasapplicationprovisioner
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+	"github.com/juju/version/v2"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
@@ -19,8 +22,6 @@ import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
-	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
 )
 
 // Client allows access to the CAAS application provisioner API endpoint.
