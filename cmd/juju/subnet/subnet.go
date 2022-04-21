@@ -30,12 +30,6 @@ type SubnetAPI interface {
 	// ListSubnets returns information about subnets known to Juju,
 	// optionally filtered by space and/or zone (both can be empty).
 	ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error)
-
-	// AllZones returns all availability zones known to Juju.
-	AllZones() ([]string, error)
-
-	// AllSpaces returns all Juju network spaces.
-	AllSpaces() ([]names.Tag, error)
 }
 
 // mvpAPIShim forwards SubnetAPI methods to the real API facade for

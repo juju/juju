@@ -18,6 +18,7 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -208,6 +209,7 @@ type ModelCommand interface {
 	NewControllerAPIRoot() (api.Connection, error)
 	ModelDetails() (string, *jujuclient.ModelDetails, error)
 	NewAPIRoot() (api.Connection, error)
+	NewAPIClient() (*apiclient.Client, error)
 	ModelIdentifier() (string, error)
 }
 

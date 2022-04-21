@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

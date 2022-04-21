@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/core/permission"
 	jujunames "github.com/juju/juju/juju/names"
@@ -26,12 +27,12 @@ import (
 
 type apiEnvironmentSuite struct {
 	testing.JujuConnSuite
-	client *api.Client
+	client *apiclient.Client
 }
 
 func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.client = api.NewClient(s.APIState)
+	s.client = apiclient.NewClient(s.APIState)
 	c.Assert(s.client, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
 		s.client.ClientFacade.Close()
@@ -125,7 +126,7 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherModel(c *gc.C) {
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer otherAPIState.Close()
-	otherClient := api.NewClient(otherAPIState)
+	otherClient := apiclient.NewClient(otherAPIState)
 	defer otherClient.ClientFacade.Close()
 
 	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")

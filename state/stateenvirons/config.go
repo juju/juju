@@ -115,9 +115,9 @@ func CloudSpec(
 	return environscloudspec.MakeCloudSpec(modelCloud, regionName, cloudCredential)
 }
 
-// NewEnvironFunc defines the type of a function that, given a Model,
+// NewEnvironFunc aliases a function that, given a Model,
 // returns a new Environ.
-type NewEnvironFunc func(Model) (environs.Environ, error)
+type NewEnvironFunc = func(Model) (environs.Environ, error)
 
 // GetNewEnvironFunc returns a NewEnvironFunc, that constructs Environs
 // using the given environs.NewEnvironFunc.
@@ -128,9 +128,9 @@ func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
 	}
 }
 
-// NewCAASBrokerFunc defines the type of a function that, given a state.State,
+// NewCAASBrokerFunc aliases a function that, given a state.State,
 // returns a new CAAS broker.
-type NewCAASBrokerFunc func(Model) (caas.Broker, error)
+type NewCAASBrokerFunc = func(Model) (caas.Broker, error)
 
 // GetNewCAASBrokerFunc returns a NewCAASBrokerFunc, that constructs CAAS brokers
 // using the given caas.NewContainerBrokerFunc.

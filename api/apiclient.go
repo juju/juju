@@ -285,7 +285,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 
 	go (&monitor{
 		clock:       opts.Clock,
-		ping:        st.Ping,
+		ping:        st.ping,
 		pingPeriod:  PingPeriod,
 		pingTimeout: pingTimeout,
 		closed:      st.closed,
@@ -463,7 +463,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 		}
 	}
 
-	connection, err := websocketDial(dialer, target.String(), requestHeader)
+	connection, err := WebsocketDial(dialer, target.String(), requestHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -568,8 +568,8 @@ func apiURL(addr, model string) *url.URL {
 	}
 }
 
-// Ping implements api.Connection.
-func (s *state) Ping() error {
+// ping implements calls the Pinger.ping facade.
+func (s *state) ping() error {
 	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
 }
 
@@ -1318,7 +1318,7 @@ func (s *state) IsBroken() bool {
 		return true
 	default:
 	}
-	if err := s.Ping(); err != nil {
+	if err := s.ping(); err != nil {
 		logger.Debugf("connection ping failed: %v", err)
 		return true
 	}
@@ -1380,15 +1380,6 @@ func (s *state) APIHostPorts() []network.MachineHostPorts {
 // the connection.
 func (s *state) PublicDNSName() string {
 	return s.publicDNSName
-}
-
-// AllFacadeVersions returns what versions we know about for all facades
-func (s *state) AllFacadeVersions() map[string][]int {
-	facades := make(map[string][]int, len(s.facadeVersions))
-	for name, versions := range s.facadeVersions {
-		facades[name] = append([]int{}, versions...)
-	}
-	return facades
 }
 
 // BestFacadeVersion compares the versions of facades that we know about, and

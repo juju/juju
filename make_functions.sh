@@ -88,10 +88,10 @@ build_push_operator_image() {
       build_multi_osarch="$(go env GOOS)/$(go env GOARCH)"
     fi
 
-    push_image=${2-"false"}
+    push_image=${2:-"false"}
 
     output="-o type=oci,dest=${BUILD_DIR}/oci.tar.gz"
-    if [ $push_image = true ]; then
+    if [ "$push_image" = true ]; then
       output="-o type=image,push=true"
     elif [ $(echo "$build_multi_osarch" | wc -w) -eq 1 ]; then
       output="-o type=docker"

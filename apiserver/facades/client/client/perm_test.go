@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/annotations"
 	"github.com/juju/juju/api/client/application"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/core/constraints"
@@ -206,7 +207,7 @@ func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientStatus(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	status, err := api.NewClient(st).Status(nil)
+	status, err := apiclient.NewClient(st).Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
@@ -248,7 +249,7 @@ func opClientApplicationUnexpose(c *gc.C, st api.Connection, mst *state.State) (
 }
 
 func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	err := api.NewClient(st).Resolved("wordpress/1", false)
+	err := apiclient.NewClient(st).Resolved("wordpress/1", false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
@@ -369,7 +370,7 @@ func opClientSetApplicationConstraints(c *gc.C, st api.Connection, mst *state.St
 
 func opClientSetModelConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := api.NewClient(st).SetModelConstraints(nullConstraints)
+	err := apiclient.NewClient(st).SetModelConstraints(nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
@@ -402,7 +403,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		return func() {}, err
 	}
 	ver := version.Number{Major: 2, Minor: 0, Patch: 0}
-	err = api.NewClient(st).SetModelAgentVersion(ver, "released", false)
+	err = apiclient.NewClient(st).SetModelAgentVersion(ver, "released", false)
 	if err != nil {
 		return func() {}, err
 	}
@@ -411,13 +412,13 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			api.NewClient(st).SetModelAgentVersion(version.MustParse(versionString), "released", false)
+			apiclient.NewClient(st).SetModelAgentVersion(version.MustParse(versionString), "released", false)
 		}
 	}, nil
 }
 
 func opClientWatchAll(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	watcher, err := api.NewClient(st).WatchAll()
+	watcher, err := apiclient.NewClient(st).WatchAll()
 	if err == nil {
 		watcher.Stop()
 	}

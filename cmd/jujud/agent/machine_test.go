@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
@@ -540,7 +541,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
 		logPath := filepath.Join(conf.LogDir(), "audit.log")
 
-		makeAPIRequest := func(doRequest func(*api.Client)) {
+		makeAPIRequest := func(doRequest func(*apiclient.Client)) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, jc.IsTrue)
 			apiInfo.Tag = user.Tag()
@@ -548,15 +549,15 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
-			doRequest(api.NewClient(st))
+			doRequest(apiclient.NewClient(st))
 		}
 
 		// Make requests in separate API connections so they're separate conversations.
-		makeAPIRequest(func(client *api.Client) {
+		makeAPIRequest(func(client *apiclient.Client) {
 			_, err = client.Status(nil)
 			c.Assert(err, jc.ErrorIsNil)
 		})
-		makeAPIRequest(func(client *api.Client) {
+		makeAPIRequest(func(client *apiclient.Client) {
 			_, err = client.AddMachines([]params.AddMachineParams{{
 				Jobs: []coremodel.MachineJob{"JobHostUnits"},
 			}})
@@ -582,7 +583,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 		// We might need to wait until the controller config change is
 		// propagated to the apiserver.
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
-			makeAPIRequest(func(client *api.Client) {
+			makeAPIRequest(func(client *apiclient.Client) {
 				_, err = client.Status(nil)
 				c.Assert(err, jc.ErrorIsNil)
 			})

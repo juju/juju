@@ -154,7 +154,7 @@ func DistributeInstances(
 		return nil, err
 	}
 
-	// If there any zones supplied for limitation,
+	// If there are any zones supplied for limitation,
 	// filter to distribution data so that only those zones are considered.
 	filteredZoneInstances := zoneInstances[:0]
 	if len(limitZones) > 0 {

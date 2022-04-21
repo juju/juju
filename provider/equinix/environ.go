@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/tools"
 
 	"github.com/packethost/packngo"
-	errr "github.com/pkg/errors"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
@@ -745,12 +744,12 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 				return nil
 			}
 			if d.State == "failed" {
-				return errr.Wrap(ErrDeviceProvisioningFailed, fmt.Sprintf("device %s provisioning failed", id))
+				return fmt.Errorf("device %s provisioning failed: %w", id, ErrDeviceProvisioningFailed)
 			}
 			return fmt.Errorf("device in not in active state yet")
 		},
 		IsFatalError: func(err error) bool {
-			if errr.Is(err, ErrDeviceProvisioningFailed) {
+			if errors.Is(err, ErrDeviceProvisioningFailed) {
 				return true
 			}
 			return common.IsCredentialNotValid(err)

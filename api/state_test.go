@@ -246,34 +246,6 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")
 }
 
-func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
-	apistate, tag, password := s.OpenAPIWithoutLogin(c)
-	defer apistate.Close()
-	// We haven't called Login yet, so the Facade Versions should be empty
-	c.Check(apistate.AllFacadeVersions(), gc.HasLen, 0)
-	err := apistate.Login(tag, password, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	// Now that we've logged in, AllFacadeVersions should be updated.
-	allVersions := apistate.AllFacadeVersions()
-	c.Check(allVersions, gc.Not(gc.HasLen), 0)
-	// For sanity checking, ensure that we have a v2 of the Client facade
-	c.Assert(allVersions["Client"], gc.Not(gc.HasLen), 0)
-	c.Check(allVersions["Client"][0], gc.Equals, 5)
-}
-
-func (s *stateSuite) TestAllFacadeVersionsSafeFromMutation(c *gc.C) {
-	allVersions := s.APIState.AllFacadeVersions()
-	clients := allVersions["Client"]
-	origClients := make([]int, len(clients))
-	copy(origClients, clients)
-	// Mutating the dict should not affect the cached versions
-	allVersions["Client"] = append(allVersions["Client"], 2597)
-	newVersions := s.APIState.AllFacadeVersions()
-	newClientVers := newVersions["Client"]
-	c.Check(newClientVers, gc.DeepEquals, origClients)
-	c.Check(newClientVers[len(newClientVers)-1], gc.Not(gc.Equals), 2597)
-}
-
 func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
 	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 5)
 }

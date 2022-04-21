@@ -180,7 +180,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 			PROVIDER="${CLOUD}"
 		fi
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
-		export BOOTSTRAP_CLOUD="${PROVIDER}"
+		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
 	p)
 		export BOOTSTRAP_PROVIDER="${OPTARG}"

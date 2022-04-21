@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package client_test
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/client/client"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testcharms"
@@ -26,13 +26,13 @@ type clientMacaroonSuite struct {
 	apitesting.MacaroonSuite
 }
 
-func (s *clientMacaroonSuite) createTestClient(c *gc.C) *api.Client {
+func (s *clientMacaroonSuite) createTestClient(c *gc.C) *client.Client {
 	username := "testuser@somewhere"
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
 	cookieJar := apitesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
-	client := api.NewClient(s.OpenAPI(c, nil, cookieJar))
+	client := client.NewClient(s.OpenAPI(c, nil, cookieJar))
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic

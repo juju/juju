@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/worker/fortress"
 )
@@ -79,7 +80,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	apiClient := api.NewClient(apiConn)
+	apiClient := apiclient.NewClient(apiConn)
 	worker, err := config.NewWorker(Config{
 		ModelUUID:       agent.CurrentConfig().Model().Id(),
 		Facade:          facade,

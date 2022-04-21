@@ -2145,7 +2145,7 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 	return nil
 }
 
-// ClearResources sets the application's pending resouces to false.
+// ClearResources sets the application's pending resources to false.
 // This is used on CAAS models.
 func (a *Application) ClearResources() error {
 	if a.doc.Life == Alive {

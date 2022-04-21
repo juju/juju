@@ -139,6 +139,9 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 			UnitFacade: tc.unitFacade,
 		}
 		expectedCalls := append([]*gomock.Call{},
+			tc.broker.EXPECT().Application(name, caas.DeploymentStateful).Return(tc.brokerApp),
+			tc.facade.EXPECT().Life(name).Return(life.Alive, nil),
+
 			// Verify charm is v2
 			tc.facade.EXPECT().WatchApplication(name).Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
 			tc.facade.EXPECT().ApplicationCharmInfo(name).Return(s.appCharmInfo, nil),
@@ -148,7 +151,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 
 			// Pre-loop setup
 			tc.facade.EXPECT().SetPassword(name, gomock.Any()).Return(nil),
-			tc.broker.EXPECT().Application(name, caas.DeploymentStateful).Return(tc.brokerApp),
+			//tc.broker.EXPECT().Application(name, caas.DeploymentStateful).Return(tc.brokerApp),
 			tc.unitFacade.EXPECT().WatchApplicationScale(name).Return(watchertest.NewMockNotifyWatcher(tc.appScaleChan), nil),
 		)
 		if name != "controller" {
@@ -843,10 +846,14 @@ func (s *ApplicationWorkerSuite) TestUpgrade(c *gc.C) {
 	appStateChan := make(chan struct{}, 1)
 	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
 	broker := mocks.NewMockCAASBroker(ctrl)
+	brokerApp := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	done := make(chan struct{})
 
 	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+
 		// Wait till charm is v2
 		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
 		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
@@ -897,6 +904,28 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	return appWorker
 }
 
+func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := mocks.NewMockCAASBroker(ctrl)
+	brokerApp := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
+		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+			close(done)
+			return "", errors.NotFoundf("test charm")
+		}),
+	)
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
 func (s *ApplicationWorkerSuite) TestUpgradeInfoNotFound(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -904,10 +933,14 @@ func (s *ApplicationWorkerSuite) TestUpgradeInfoNotFound(c *gc.C) {
 	appStateChan := make(chan struct{}, 1)
 	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
 	broker := mocks.NewMockCAASBroker(ctrl)
+	brokerApp := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	done := make(chan struct{})
 
 	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+
 		// Wait till charm is v2
 		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
 		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(appName string) (*charmscommon.CharmInfo, error) {
@@ -932,10 +965,14 @@ func (s *ApplicationWorkerSuite) TestUpgradeLifeNotFound(c *gc.C) {
 	appStateChan := make(chan struct{}, 1)
 	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
 	broker := mocks.NewMockCAASBroker(ctrl)
+	brokerApp := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	done := make(chan struct{})
 
 	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+
 		// Wait till charm is v2
 		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
 		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
@@ -962,10 +999,14 @@ func (s *ApplicationWorkerSuite) TestUpgradeLifeDead(c *gc.C) {
 	appStateChan := make(chan struct{}, 1)
 	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
 	broker := mocks.NewMockCAASBroker(ctrl)
+	brokerApp := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	done := make(chan struct{})
 
 	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+
 		// Wait till charm is v2
 		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
 		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
@@ -993,11 +1034,15 @@ func (s *ApplicationWorkerSuite) TestDeleteOperator(c *gc.C) {
 	appStateChan := make(chan struct{}, 1)
 	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
 	broker := mocks.NewMockCAASBroker(ctrl)
+	brokerApp := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewClock(time.Time{})
 	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+
 		// Verify charm is v2
 		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
 		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfo, nil),
