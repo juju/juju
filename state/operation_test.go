@@ -63,6 +63,19 @@ func (s *OperationSuite) TestFailOperation(c *gc.C) {
 	c.Assert(operation.Fail(), gc.Equals, "fail")
 }
 
+func (s *OperationSuite) TestFailOperationEnqueuing(c *gc.C) {
+	operationID, err := s.Model.EnqueueOperation("an operation", 5)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.Model.FailOperationEnqueuing(operationID, "fail", 4)
+	c.Assert(err, jc.ErrorIsNil)
+	operation, err := s.Model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Not(gc.Equals), state.ActionError)
+	c.Assert(operation.Fail(), gc.Equals, "fail")
+	c.Assert(operation.SpawnedTaskCount(), gc.Equals, 4)
+}
+
 func (s *OperationSuite) TestAllOperations(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("an operation", 1)
 	c.Assert(err, jc.ErrorIsNil)
