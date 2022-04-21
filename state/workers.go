@@ -22,7 +22,6 @@ const txnLogWorker = "txnlog"
 // workers when they fail.
 type workers struct {
 	state *State
-	//	model *Model
 	*worker.Runner
 
 	hub *pubsub.SimpleHub
