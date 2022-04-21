@@ -2169,11 +2169,11 @@ func (a *Application) ClearResources() error {
 				{"has-resources", true}},
 			Update: bson.D{{"$set", bson.D{{"has-resources", false}}}},
 		}}
-		logger.Debugf("application %q still has cluster resources, scheduling cleanup", a.doc.Name)
+		logger.Debugf("application %q now has no cluster resources, scheduling cleanup", a.doc.Name)
 		cleanupOp := newCleanupOp(
 			cleanupApplication,
 			a.doc.Name,
-			false, //force
+			false, // force
 			false, // destroy storage
 		)
 		return append(ops, cleanupOp), nil

@@ -68,6 +68,7 @@ type testCase struct {
 	appChan          chan struct{}
 	appReplicasChan  chan struct{}
 	appTrustHashChan chan []string
+	unitsChan        chan []string
 }
 
 func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worker.Worker, testCase, *gomock.Controller) {
@@ -127,6 +128,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 	tc.appChan = make(chan struct{}, 1)
 	tc.appReplicasChan = make(chan struct{}, 1)
 	tc.appTrustHashChan = make(chan []string, 1)
+	tc.unitsChan = make(chan []string, 1)
 
 	startFunc := func(additionalAssertCalls ...*gomock.Call) worker.Worker {
 		config := caasapplicationprovisioner.AppWorkerConfig{
@@ -153,6 +155,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 			tc.facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
 			tc.unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(tc.appScaleChan), nil),
 			tc.unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(tc.appTrustHashChan), nil),
+			tc.facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(tc.unitsChan), nil),
 
 			// Initial run - Ensure() for the application.
 			tc.facade.EXPECT().Life("test").Return(life.Alive, nil),
@@ -435,6 +438,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Terminating: false,
 			}, nil
 		}),
+		tc.facade.EXPECT().ClearApplicationResources("test").Return(nil),
 		tc.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
 			return []params.CAASUnit(nil), nil
 		}),
@@ -786,6 +790,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplica
 				Terminating: false,
 			}, nil
 		}),
+		tc.facade.EXPECT().ClearApplicationResources("test").Return(nil),
 		tc.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
 			return []params.CAASUnit(nil), nil
 		}),

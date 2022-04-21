@@ -51,6 +51,7 @@ type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.AgentEntityWatcher
+	*common.Remover
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
 	*API
@@ -122,10 +123,20 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
+	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting leadership client")
+	}
+	lifeCanRead := common.AuthAny(
+		common.AuthFuncForTagKind(names.ApplicationTagKind),
+		common.AuthFuncForTagKind(names.UnitTagKind),
+	)
+
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		LifeGetter:         common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
 		API:                api,
@@ -425,10 +436,6 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 	}
 
 	// TODO(sidecar): support more than statefulset
-	/*ch, _, err := app.Charm()
-	if err != nil {
-		return errors.Trace(err)
-	}*/
 	deploymentType := caas.DeploymentStateful
 
 	model, err := a.state.Model()
@@ -516,7 +523,6 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		}
 		op.Updates = append(op.Updates, unit.UpdateOperation(updateProps))
 		destroyOp := unit.DestroyOperation()
-		destroyOp.Force = true
 		op.Deletes = append(op.Deletes, destroyOp)
 	}
 	if len(op.Deletes) == 0 {
@@ -1300,4 +1306,67 @@ func updateStatus(params params.ApplicationUnitParams) (
 		Data:    params.Data,
 	}
 	return agentStatus, cloudContainerStatus
+}
+
+// ClearApplicationsResources clears the flags which indicate
+// applications still have resources in the cluster.
+func (a *API) ClearApplicationsResources(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = app.ClearResources()
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
+// WatchUnits starts a StringsWatcher to watch changes to the
+// lifecycle states of units for the specified applications in
+// this model.
+func (a *API) WatchUnits(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		id, changes, err := a.watchUnits(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].StringsWatcherId = id
+		results.Results[i].Changes = changes
+	}
+	return results, nil
+}
+
+func (a *API) watchUnits(tagString string) (string, []string, error) {
+	tag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	app, err := a.state.Application(tag.Id())
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	w := app.WatchUnits()
+	if changes, ok := <-w.Changes(); ok {
+		return a.resources.Register(w), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(w)
 }

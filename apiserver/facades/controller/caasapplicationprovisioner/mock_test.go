@@ -194,6 +194,7 @@ type mockApplication struct {
 	charmModifiedVersion int
 	config               coreconfig.ConfigAttributes
 	scale                int
+	unitsWatcher         *mockStringsWatcher
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -302,6 +303,16 @@ func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, erro
 func (a *mockApplication) GetScale() int {
 	a.MethodCall(a, "GetScale")
 	return a.scale
+}
+
+func (a *mockApplication) ClearResources() error {
+	a.MethodCall(a, "ClearResources")
+	return a.NextErr()
+}
+
+func (a *mockApplication) WatchUnits() state.StringsWatcher {
+	a.MethodCall(a, "WatchUnits")
+	return a.unitsWatcher
 }
 
 type mockCharm struct {
