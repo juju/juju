@@ -18,12 +18,16 @@ import (
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
-	state      *state.State
-	model      *state.Model
+	state      State
+	model      Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
+
+	tagToActionReceiverFn TagToActionReceiverFunc
 }
+
+type TagToActionReceiverFunc func(findEntity func(names.Tag) (state.Entity, error)) func(tag string) (state.ActionReceiver, error)
 
 // APIv2 provides the Action API facade for version 2.
 type APIv2 struct {
@@ -50,7 +54,7 @@ type APIv6 struct {
 	*ActionAPI
 }
 
-func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
+func newActionAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -61,11 +65,12 @@ func newActionAPI(st *state.State, resources facade.Resources, authorizer facade
 	}
 
 	return &ActionAPI{
-		state:      st,
-		model:      m,
-		resources:  resources,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
+		state:                 st,
+		model:                 m,
+		resources:             resources,
+		authorizer:            authorizer,
+		check:                 common.NewBlockChecker(st),
+		tagToActionReceiverFn: common.TagToActionReceiverFn,
 	}, nil
 }
 

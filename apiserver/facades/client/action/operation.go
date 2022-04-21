@@ -84,7 +84,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 		return "", params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
 	}
 
-	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
+	tagToActionReceiver := a.tagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
 		actionReceiver := action.Receiver

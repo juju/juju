@@ -336,7 +336,8 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Operation is in error because at least one action was.
 	c.Assert(opInfo, gc.HasLen, 1)
-	c.Assert(opInfo[0].Operation.Status(), gc.Equals, state.ActionError)
+	c.Assert(opInfo[0].Operation.Status(), gc.Equals, state.ActionPending)
+	c.Assert(opInfo[0].Operation.Fail(), gc.Equals, "error(s) enqueueing action(s): \"\" not valid, action receiver interface on entity application-wordpress not implemented")
 	c.Assert(opInfo[0].Operation.Summary(), gc.Equals, "fakeaction run on unit-wordpress-0,application-wordpress")
 	// Only the valid action gets queued.
 	c.Assert(opInfo[0].Actions, gc.HasLen, 1)
