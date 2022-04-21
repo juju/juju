@@ -15,10 +15,10 @@ management to allow much more agile operations for complex cloud workloads.
 Shared, open source operators **take infrastructure as code to the next level**
 with community-driven ops and integration code. Reuse of ops code improves
 quality and encourages wider [community engagement and contribution](
-https://juju.is/about#collaboration). Operators also improve security
-throughchat.charmhub.io/ consistent automation. Juju operators are a
-[community-driven devsecops](https://juju.is/about#automate-everything)
-approach to open source operations.
+https://juju.is/about#collaboration). Operators also improve security through
+consistent automation. Juju operators are a [community-driven
+devsecops](https://juju.is/about#automate-everything) approach to open source
+operations.
 
 Juju implements the Kubernetes operator pattern, but is also a **universal
 OLM** that extends the operator pattern to traditional applications (without
