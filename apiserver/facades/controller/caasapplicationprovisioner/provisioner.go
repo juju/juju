@@ -523,6 +523,7 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		}
 		op.Updates = append(op.Updates, unit.UpdateOperation(updateProps))
 		destroyOp := unit.DestroyOperation()
+		destroyOp.Force = args.Force
 		op.Deletes = append(op.Deletes, destroyOp)
 	}
 	if len(op.Deletes) == 0 {
