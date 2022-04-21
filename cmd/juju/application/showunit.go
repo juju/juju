@@ -185,6 +185,7 @@ type UnitRelationData struct {
 }
 
 type RelationData struct {
+	RelationId              int                         `yaml:"relation-id" json:"relation-id"`
 	Endpoint                string                      `yaml:"endpoint" json:"endpoint"`
 	CrossModel              bool                        `yaml:"cross-model,omitempty" json:"cross-model,omitempty"`
 	RelatedEndpoint         string                      `yaml:"related-endpoint" json:"related-endpoint"`
@@ -229,6 +230,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 			continue
 		}
 		rd := RelationData{
+			RelationId:              rdparams.RelationId,
 			Endpoint:                rdparams.Endpoint,
 			RelatedEndpoint:         rdparams.RelatedEndpoint,
 			CrossModel:              rdparams.CrossModel,
