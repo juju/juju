@@ -701,6 +701,13 @@ func (b *BundleAPI) bundleDataApplications(
 		if result := b.constraints(application.Constraints()); len(result) != 0 {
 			newApplication.Constraints = strings.Join(result, " ")
 		}
+		if len(application.StorageConstraints()) != 0 {
+			newApplication.Storage = make(map[string]string)
+			for name, constr := range application.StorageConstraints() {
+				newApplication.Storage[name] = fmt.Sprintf("%s,%d,%d",
+					constr.Pool(), constr.Count(), constr.Size())
+			}
+		}
 
 		// If this application has been trusted by the operator, set the
 		// Trust field of the ApplicationSpec to true
