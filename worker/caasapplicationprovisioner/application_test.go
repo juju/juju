@@ -572,6 +572,35 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 	s.waitDone(c, done)
 }
 
+func (s *ApplicationWorkerSuite) TestUnitChanges(c *gc.C) {
+	newAppWorker, tc, ctrl := s.getWorker(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	assertionCalls := []*gomock.Call{
+		tc.facade.EXPECT().Life("test-0").Return(life.Dead, nil),
+		tc.facade.EXPECT().RemoveUnit("test-0").Return(nil),
+		tc.facade.EXPECT().Life("test-1").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test-2").Return(life.Value(""), errors.NotFoundf("")),
+		tc.facade.EXPECT().RemoveUnit("test-2").Return(nil),
+		tc.facade.EXPECT().Life("test-3").Return(life.Dead, nil),
+		tc.facade.EXPECT().RemoveUnit("test-3").Return(nil),
+		tc.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
+			close(done)
+			return caas.ApplicationState{}, errors.NotFoundf("")
+		}),
+	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-tc.notifyReady
+		tc.unitsChan <- []string{"test-0", "test-1", "test-2", "test-3"}
+	}(appWorker.(appNotifyWorker))
+
+	s.waitDone(c, done)
+}
+
 func (s *ApplicationWorkerSuite) TestTrustRetry(c *gc.C) {
 	newAppWorker, tc, ctrl := s.getWorker(c)
 	defer ctrl.Finish()
