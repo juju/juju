@@ -71,7 +71,7 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-func (s *provisionerSuite) TestLife(c *gc.C) {
+func (s *provisionerSuite) TestLifeApplication(c *gc.C) {
 	tag := names.NewApplicationTag("app")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
@@ -81,6 +81,33 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: tag.String(),
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{
+				Life: life.Alive,
+			}},
+		}
+		return nil
+	})
+
+	client := caasapplicationprovisioner.NewClient(apiCaller)
+	lifeValue, err := client.Life(tag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lifeValue, gc.Equals, life.Alive)
+}
+
+func (s *provisionerSuite) TestLifeUnit(c *gc.C) {
+	tag := names.NewUnitTag("foo/0")
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "unit-foo-0",
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
