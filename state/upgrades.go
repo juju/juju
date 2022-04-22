@@ -4184,3 +4184,62 @@ func UpdateCharmOriginAfterSetSeries(pool *StatePool) error {
 		return nil
 	}))
 }
+
+// UpdateOperationWithEnqueuingErrors updates operations with enqueuing errors to allow
+// started actions to complete. See LP 1953077.
+func UpdateOperationWithEnqueuingErrors(pool *StatePool) error {
+	st := pool.SystemState()
+	opCol, opCloser := st.db().GetRawCollection(operationsC)
+	defer opCloser()
+	actionsCol, actionsCloser := st.db().GetRawCollection(actionsC)
+	defer actionsCloser()
+
+	// Get all operations with an error status and a fail message
+	// to indicate FailOperation was used.
+	iter := opCol.Find(bson.D{
+		{"status", "error"},
+		{"fail", bson.M{"$ne": ""}},
+	}).Iter()
+
+	var ops []txn.Op
+	var doc operationDoc
+	for iter.Next(&doc) {
+		if doc.SpawnedTaskCount == doc.CompleteTaskCount || doc.Fail == "" {
+			continue
+		}
+		modelUUID, opID, ok := splitDocID(doc.DocId)
+		if !ok {
+			_ = iter.Close()
+			return errors.Errorf("bad data, remote entity _id %s", doc.DocId)
+		}
+		spawned, err := actionsCol.Find(bson.D{
+			{"operation", opID},
+			{"model-uuid", modelUUID},
+		}).Count()
+		if err != nil {
+			logger.Errorf("error getting spawned task count from %q:", doc.DocId, err)
+			continue
+		}
+		setValue := bson.D{
+			{"spawned-task-count", spawned},
+		}
+		if spawned != 0 {
+			setValue = append(setValue, bson.DocElem{"status", "running"})
+		}
+		ops = append(ops, txn.Op{
+			C:      operationsC,
+			Id:     doc.DocId,
+			Assert: txn.DocExists,
+			Update: bson.D{{
+				"$set", setValue,
+			}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) == 0 {
+		return nil
+	}
+	return st.runRawTransaction(ops)
+}
