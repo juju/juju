@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
@@ -321,6 +322,9 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 	loggingOutputs, _ := modelConfig.LoggingOutput()
+	if !controllerConfig.Features().Contains(feature.LoggingOutput) {
+		loggingOutputs = []string{}
+	}
 
 	srv := &Server{
 		clock:                         cfg.Clock,
