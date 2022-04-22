@@ -42,27 +42,6 @@ func (s *OperationSuite) TestEnqueueOperation(c *gc.C) {
 	c.Assert(operation.Summary(), gc.Equals, "an operation")
 }
 
-func (s *OperationSuite) TestFailOperation(c *gc.C) {
-	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
-	err := s.State.SetClockForTesting(clock)
-	c.Assert(err, jc.ErrorIsNil)
-
-	operationID, err := s.Model.EnqueueOperation("an operation", 1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.Model.FailOperation(operationID, errors.New("fail"))
-	c.Assert(err, jc.ErrorIsNil)
-	operation, err := s.Model.Operation(operationID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(operation.Id(), gc.Equals, operationID)
-	c.Assert(operation.Tag(), gc.Equals, names.NewOperationTag(operationID))
-	c.Assert(operation.Status(), gc.Equals, state.ActionError)
-	c.Assert(operation.Enqueued(), gc.Equals, clock.Now())
-	c.Assert(operation.Started(), gc.Equals, time.Time{})
-	c.Assert(operation.Completed(), gc.Equals, time.Time{})
-	c.Assert(operation.Fail(), gc.Equals, "fail")
-}
-
 func (s *OperationSuite) TestFailOperationEnqueuing(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("an operation", 5)
 	c.Assert(err, jc.ErrorIsNil)

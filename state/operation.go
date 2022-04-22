@@ -245,36 +245,6 @@ func (m *Model) EnqueueOperation(summary string, count int) (string, error) {
 	return operationID, errors.Trace(err)
 }
 
-// FailOperation sets the operation status to "error" with the error message.
-func (m *Model) FailOperation(operationID string, opError error) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 1 {
-			operations, closer := m.st.db().GetCollection(operationsC)
-			defer closer()
-			var doc operationDoc
-			err := operations.FindId(operationID).One(&doc)
-			if err == mgo.ErrNotFound {
-				return nil, errors.NotFoundf("operation %q", operationID)
-			}
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		ops := []txn.Op{{
-			C:      operationsC,
-			Id:     m.st.docID(operationID),
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{
-				{"status", ActionError},
-				{"fail", opError.Error()},
-			}}},
-		}}
-		return ops, nil
-	}
-	err := m.st.db().Run(buildTxn)
-	return errors.Trace(err)
-}
-
 // FailOperationEnqueuing sets the operation fail message and updates the
 // spawned task count. The spawned task count must be accurate to finalize
 // the operation.
