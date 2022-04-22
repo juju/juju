@@ -120,7 +120,7 @@ func (s *provisionerSuite) TestLifeInvalidApplicationName(c *gc.C) {
 		return errors.New("should not be called")
 	}))
 	_, err := client.Life("")
-	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
 }
 
 func (s *provisionerSuite) TestLifeCount(c *gc.C) {
