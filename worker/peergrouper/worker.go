@@ -284,7 +284,7 @@ func (w *pgWorker) loop() error {
 			idle.Reset(IdleTime)
 			continue
 		case <-controllerChanges:
-			// A controller controller was added or removed.
+			// A controller was added or removed.
 			logger.Tracef("<-controllerChanges")
 			changed, err := w.updateControllerNodes()
 			if err != nil {

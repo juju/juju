@@ -117,7 +117,7 @@ func (st *State) ControllerUUID() string {
 	return st.controllerTag.Id()
 }
 
-// ControllerTag returns the tag form of the the return value of
+// ControllerTag returns the tag form of the return value of
 // ControllerUUID.
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
