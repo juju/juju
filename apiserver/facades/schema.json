@@ -3677,6 +3677,9 @@
                         "related-endpoint": {
                             "type": "string"
                         },
+                        "relation-id": {
+                            "type": "integer"
+                        },
                         "unit-relation-data": {
                             "type": "object",
                             "patternProperties": {
@@ -3688,6 +3691,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "relation-id",
                         "endpoint",
                         "cross-model",
                         "related-endpoint",

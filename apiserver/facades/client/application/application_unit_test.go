@@ -2403,6 +2403,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 		Charm:           "cs:postgresql-42",
 		Leader:          true,
 		RelationData: []params.EndpointRelationData{{
+			RelationId:      101,
 			Endpoint:        "db",
 			CrossModel:      true,
 			RelatedEndpoint: "server",
@@ -2440,6 +2441,7 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 		Charm:           "cs:postgresql-42",
 		Leader:          true,
 		RelationData: []params.EndpointRelationData{{
+			RelationId:      101,
 			Endpoint:        "db",
 			CrossModel:      true,
 			RelatedEndpoint: "server",
@@ -2463,6 +2465,7 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 		Charm:           "cs:postgresql-42",
 		Leader:          false,
 		RelationData: []params.EndpointRelationData{{
+			RelationId:      101,
 			Endpoint:        "db",
 			CrossModel:      true,
 			RelatedEndpoint: "server",
