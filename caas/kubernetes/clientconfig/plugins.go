@@ -111,6 +111,16 @@ func ensureJujuAdminServiceAccount(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	sa.Secrets = append(sa.Secrets, core.ObjectReference{
+		Kind:      secret.Kind,
+		Namespace: secret.Namespace,
+		Name:      secret.Name,
+		UID:       secret.UID,
+	})
+	_, err = clientset.CoreV1().ServiceAccounts(adminNameSpace).Update(context.TODO(), sa, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return newK8sConfig(contextName, config, secret)
 }
 
