@@ -106,11 +106,18 @@ func (w *stateWorker) processModelLifeChange(modelUUID string) error {
 }
 
 func (w *stateWorker) remove(modelUUID string) {
-	if worker, ok := w.modelStateWorkers[modelUUID]; ok {
-		worker.Kill()
+	if modelStateWorker, ok := w.modelStateWorkers[modelUUID]; ok {
+		modelStateWorker.Kill()
 		delete(w.modelStateWorkers, modelUUID)
 	}
-	_, _ = w.pool.Remove(modelUUID)
+
+	closed, err := w.pool.Remove(modelUUID)
+	if err != nil {
+		logger.Warningf("closing state worker for model %q: %s", modelUUID, err.Error())
+	}
+	if closed {
+		logger.Infof("removing model %q caused state pool closure")
+	}
 }
 
 // Kill is part of the worker.Worker interface.
@@ -155,19 +162,25 @@ func (w *modelStateWorker) loop() error {
 	st, err := w.pool.Get(w.modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Ignore not found error here, because the pooledState has already
-			// been removed.
+			// Ignore not found error here, because the
+			// pooledState has already been removed.
 			return nil
 		}
 		return errors.Trace(err)
 	}
 	defer func() {
 		st.Release()
-		_, _ = w.pool.Remove(w.modelUUID)
+		closed, err := w.pool.Remove(w.modelUUID)
+		if err != nil {
+			logger.Warningf("closing state worker for model %q: %s", w.modelUUID, err.Error())
+		}
+		if closed {
+			logger.Infof("removing model %q caused state pool closure")
+		}
 	}()
 
-	// Jitter the interval so that each model doesn't attempt to connect to
-	// mongo at potentially the same time.
+	// Jitter the interval so that each model doesn't attempt to
+	// connect to mongo at potentially the same time.
 	interval := w.pingInterval + jitter(time.Millisecond*200)
 
 	// If the state ping fails, attempt to retry the ping, before returning.
