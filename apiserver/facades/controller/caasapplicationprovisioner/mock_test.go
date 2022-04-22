@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
@@ -194,7 +195,8 @@ type mockApplication struct {
 	charmModifiedVersion int
 	config               coreconfig.ConfigAttributes
 	scale                int
-	unitsWatcher         *mockStringsWatcher
+	unitsWatcher         *statetesting.MockStringsWatcher
+	unitsChanges         chan []string
 }
 
 func (a *mockApplication) Tag() names.Tag {
