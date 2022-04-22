@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +52,7 @@ func CreateControllerProxy(
 	roleI rbac.RoleInterface,
 	roleBindingI rbac.RoleBindingInterface,
 	saI core.ServiceAccountInterface,
+	secretI core.SecretInterface,
 ) error {
 	role := &rbacv1.Role{
 		ObjectMeta: meta.ObjectMeta{
@@ -122,6 +124,30 @@ func CreateControllerProxy(
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("marshalling proxy configmap data to json: %w", err)
+	}
+
+	secret, err := secretI.Create(context.TODO(), &corev1.Secret{
+		ObjectMeta: meta.ObjectMeta{
+			Labels: labels,
+			Name:   config.Name,
+			Annotations: map[string]string{
+				corev1.ServiceAccountNameKey: sa.GetName(),
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}, meta.CreateOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "can not create secret for service account %q", sa.GetName())
+	}
+	sa.Secrets = append(sa.Secrets, corev1.ObjectReference{
+		Kind:      secret.Kind,
+		Namespace: secret.Namespace,
+		Name:      secret.Name,
+		UID:       secret.UID,
+	})
+	_, err = saI.Update(context.TODO(), sa, meta.UpdateOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "can not update service account %q", sa.GetName())
 	}
 
 	cm := &corev1.ConfigMap{

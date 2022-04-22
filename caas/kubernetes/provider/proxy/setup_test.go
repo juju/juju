@@ -54,6 +54,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 		s.client.RbacV1().Roles(testNamespace),
 		s.client.RbacV1().RoleBindings(testNamespace),
 		s.client.CoreV1().ServiceAccounts(testNamespace),
+		s.client.CoreV1().Secrets(testNamespace),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -78,6 +79,16 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Name, gc.Equals, config.Name)
+	c.Assert(len(sa.Secrets), gc.Equals, 1)
+	c.Assert(sa.Secrets[0].Name, gc.Equals, config.Name)
+
+	secret, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
+		context.TODO(),
+		config.Name,
+		meta.GetOptions{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secret.Name, gc.Equals, config.Name)
 
 	roleBinding, err := s.client.RbacV1().RoleBindings(testNamespace).Get(
 		context.TODO(),
@@ -111,6 +122,7 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 		s.client.RbacV1().Roles(testNamespace),
 		s.client.RbacV1().RoleBindings(testNamespace),
 		s.client.CoreV1().ServiceAccounts(testNamespace),
+		s.client.CoreV1().Secrets(testNamespace),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

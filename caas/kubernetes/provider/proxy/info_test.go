@@ -58,6 +58,7 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 		i.client.RbacV1().Roles(testNamespace),
 		i.client.RbacV1().RoleBindings(testNamespace),
 		i.client.CoreV1().ServiceAccounts(testNamespace),
+		i.client.CoreV1().Secrets(testNamespace),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -83,41 +84,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		i.client.RbacV1().Roles(testNamespace),
 		i.client.RbacV1().RoleBindings(testNamespace),
 		i.client.CoreV1().ServiceAccounts(testNamespace),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = i.client.CoreV1().Secrets(testNamespace).Create(
-		context.TODO(),
-		&core.Secret{
-			ObjectMeta: meta.ObjectMeta{
-				Name: "test-1234",
-			},
-			Data: map[string][]byte{
-				"token":     []byte("iouwefbnuwefpo193923"),
-				"namespace": []byte(testNamespace),
-			},
-			Type: core.SecretType("kubernetes.io/service-account-token"),
-		},
-		meta.CreateOptions{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sa, err := i.client.CoreV1().ServiceAccounts(testNamespace).Get(
-		context.TODO(),
-		config.Name,
-		meta.GetOptions{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sa.Secrets = append(sa.Secrets, core.ObjectReference{
-		Name:      "test-1234",
-		Namespace: testNamespace,
-	})
-
-	_, err = i.client.CoreV1().ServiceAccounts(testNamespace).Update(
-		context.TODO(),
-		sa,
-		meta.UpdateOptions{},
+		i.client.CoreV1().Secrets(testNamespace),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

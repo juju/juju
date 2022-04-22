@@ -46,7 +46,7 @@ func GetControllerProxy(
 	}
 
 	if secLen := len(sa.Secrets); secLen < 1 || secLen > 1 {
-		return nil, fmt.Errorf("unsupported number of service account secrets: %d", secLen)
+		return nil, fmt.Errorf("unsupported number of secrets for service account %q: %d", sa.GetName(), secLen)
 	}
 
 	sec, err := secretI.Get(context.TODO(), sa.Secrets[0].Name, meta.GetOptions{})

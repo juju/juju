@@ -581,6 +581,7 @@ func (c *controllerStack) createControllerProxy() error {
 		k8sClient.RbacV1().Roles(c.broker.GetCurrentNamespace()),
 		k8sClient.RbacV1().RoleBindings(c.broker.GetCurrentNamespace()),
 		k8sClient.CoreV1().ServiceAccounts(c.broker.GetCurrentNamespace()),
+		k8sClient.CoreV1().Secrets(c.broker.GetCurrentNamespace()),
 	)
 
 	return errors.Trace(err)
