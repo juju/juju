@@ -132,13 +132,20 @@ endef
 # juju package. It's expected that the make target using this sequence has a
 # local variable defined for PACKAGE. An example of PACKAGE would be
 # PACKAGE=github.com/juju/juju
+# 
+# This canned commaned also allows building for architectures defined as
+# ppc64el. Because of legacy Juju we use the arch ppc64el over the go defined
+# arch of ppc64le. This canned command will do a last minute transformation of
+# the string we build the "correct" go archiecture. However the build result
+# will still be placed at the expected location with names matching ppc64el.
 define run_go_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCh}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
+	@env GOOS=${OS} GOARCH=${BUILD_ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
 endef
 
 define run_go_install

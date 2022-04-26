@@ -88,6 +88,17 @@ build_push_operator_image() {
       build_multi_osarch="$(go env GOOS)/$(go env GOARCH)"
     fi
 
+    # We need to find any ppc64el references and move the build artefacts over
+    # to ppc64le so that it works with Docker.
+    for platform in $build_multi_osarch; do
+      if [[ "$platform" == *"ppc64el"* ]]; then
+        new_platform=$(echo "$platform" | sed 's/ppc64el/ppc64le/g')
+        cp -r "${BUILD_DIR}/$(echo "$platform" | sed 's/\//_/g')" \
+          "${BUILD_DIR}/$(echo "$new_platform" | sed 's/\//_/g')"
+      fi
+    done
+    build_multi_osarch=$(echo "$build_multi_osarch" | sed 's/ppc64el/ppc64le/g')
+
     push_image=${2:-"false"}
 
     output="-o type=oci,dest=${BUILD_DIR}/oci.tar.gz"
