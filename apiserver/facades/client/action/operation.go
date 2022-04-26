@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,8 +16,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.action")
 
 // EnqueueOperation isn't on the V5 API.
 func (*APIv5) EnqueueOperation(_, _ struct{}) {}
