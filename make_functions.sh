@@ -91,7 +91,7 @@ build_push_operator_image() {
     # We need to find any ppc64el references and move the build artefacts over
     # to ppc64le so that it works with Docker.
     for platform in $build_multi_osarch; do
-      if [[ "$platform" == *"ppc64el"* ]]; then
+      if [ "$platform" = *"ppc64el"* ]; then
         new_platform=$(echo "$platform" | sed 's/ppc64el/ppc64le/g')
         cp -r "${BUILD_DIR}/$(echo "$platform" | sed 's/\//_/g')" \
           "${BUILD_DIR}/$(echo "$new_platform" | sed 's/\//_/g')"
