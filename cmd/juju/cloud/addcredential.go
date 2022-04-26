@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v4"
 
 	apicloud "github.com/juju/juju/api/client/cloud"
+	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -273,6 +274,11 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		}
 		if !validAuthType(cred.AuthType()) {
 			return errors.Errorf("credential %q contains invalid auth type %q, valid auth types for cloud %q are %v", name, cred.AuthType(), c.CloudName, c.cloud.AuthTypes)
+		}
+
+		cred, err := cloud.ExpandFilePathsOfCredential(cred, schemas)
+		if err != nil {
+			return fmt.Errorf("expanding file paths for credential: %w", err)
 		}
 
 		// When in non-interactive mode we still sometimes want to finalize a
