@@ -577,6 +577,7 @@ func (c *controllerStack) createControllerProxy() error {
 	err = k8sproxy.CreateControllerProxy(
 		config,
 		c.stackLabels,
+		c.broker.clock,
 		k8sClient.CoreV1().ConfigMaps(c.broker.GetCurrentNamespace()),
 		k8sClient.RbacV1().Roles(c.broker.GetCurrentNamespace()),
 		k8sClient.RbacV1().RoleBindings(c.broker.GetCurrentNamespace()),

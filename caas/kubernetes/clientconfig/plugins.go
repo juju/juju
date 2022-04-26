@@ -6,11 +6,9 @@ package clientconfig
 import (
 	"context"
 	"fmt"
-	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +21,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 )
 
 const (
@@ -104,20 +104,11 @@ func ensureJujuAdminServiceAccount(
 		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", name)
 	}
 
-	secret, err := ensureSecretForServiceAccount(
-		sa.GetName(), objMeta,
-		clientset.CoreV1().Secrets(adminNameSpace), clock,
+	secret, err := proxy.EnsureSecretForServiceAccount(
+		sa.GetName(), objMeta, clock,
+		clientset.CoreV1().Secrets(adminNameSpace),
+		clientset.CoreV1().ServiceAccounts(adminNameSpace),
 	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	sa.Secrets = append(sa.Secrets, core.ObjectReference{
-		Kind:      secret.Kind,
-		Namespace: secret.Namespace,
-		Name:      secret.Name,
-		UID:       secret.UID,
-	})
-	_, err = clientset.CoreV1().ServiceAccounts(adminNameSpace).Update(context.TODO(), sa, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -270,68 +261,6 @@ func getOrCreateClusterRoleBinding(
 	}
 	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, objMeta.GetLabels()) })
 	return rb, cleanUps, nil
-}
-
-func fetchTokenReadySecret(name string, api corev1.SecretInterface, clock jujuclock.Clock) (*core.Secret, error) {
-	var (
-		secret *core.Secret
-		err    error
-	)
-	// NOTE (tlm) Increased the max duration here to 120 seconds to deal with
-	// microk8s bootstrapping. Microk8s is taking a significant amoutn of time
-	// to be Kubernetes ready while still reporting that it is ready to go.
-	// See lp:1937282
-	retryCallArgs := retry.CallArgs{
-		Delay:       time.Second,
-		MaxDuration: 120 * time.Second,
-		Clock:       clock,
-		Func: func() error {
-			secret, err = api.Get(context.TODO(), name, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return errors.NotFoundf("token for secret %q", name)
-			}
-			if err == nil {
-				if _, ok := secret.Data[core.ServiceAccountTokenKey]; !ok {
-					return errors.NotFoundf("token for secret %q", name)
-				}
-			}
-			return err
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.IsNotFound(err)
-		},
-		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("polling caas credential rbac secret, in %d attempt, %v", attempt, err)
-		},
-	}
-	if err = retry.Call(retryCallArgs); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if secret == nil {
-		return nil, errors.Annotatef(err, "can not find the caas credential rbac secret %q", name)
-	}
-	return secret, nil
-}
-
-func ensureSecretForServiceAccount(
-	saName string,
-	objMeta metav1.ObjectMeta,
-	secretAPI corev1.SecretInterface,
-	clock jujuclock.Clock,
-) (*core.Secret, error) {
-	if objMeta.Annotations == nil {
-		objMeta.Annotations = map[string]string{}
-	}
-	objMeta.Annotations[core.ServiceAccountNameKey] = saName
-	_, err := secretAPI.Create(context.TODO(), &core.Secret{
-		ObjectMeta: objMeta,
-		Type:       core.SecretTypeServiceAccountToken,
-	}, metav1.CreateOptions{})
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return nil, errors.Trace(err)
-	}
-	return fetchTokenReadySecret(objMeta.GetName(), secretAPI, clock)
 }
 
 func newK8sConfig(contextName string, config *clientcmdapi.Config, secret *core.Secret) (*clientcmdapi.Config, error) {

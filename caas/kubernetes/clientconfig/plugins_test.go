@@ -63,11 +63,21 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 		"token":     []byte("a base64 encoded bearer token"),
 	}
 
-	newSa := &core.ServiceAccount{
+	newSa := core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      s.name,
 			Namespace: s.namespace,
 			Labels:    s.labels,
+		},
+	}
+
+	newSaWithSecretUpdated := newSa
+	newSaWithSecretUpdated.Secrets = []core.ObjectReference{
+		{
+			Kind:      secret.Kind,
+			Namespace: secret.Namespace,
+			Name:      secret.Name,
+			UID:       secret.UID,
 		},
 	}
 
@@ -117,10 +127,10 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 			Return(cr, nil),
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), newSa, metav1.CreateOptions{}).Times(1).
-			Return(newSa, nil),
+		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), &newSa, metav1.CreateOptions{}).Times(1).
+			Return(&newSa, nil),
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
-			Return(newSa, nil),
+			Return(&newSa, nil),
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), clusterRoleBinding, metav1.CreateOptions{}).Times(1).
@@ -138,6 +148,11 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 		// 3. Token ready.
 		s.mockSecrets.EXPECT().Get(gomock.Any(), secret.GetName(), metav1.GetOptions{}).
 			Return(&secretTokenReady, nil),
+
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(&newSa, nil),
+		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), &newSaWithSecretUpdated, metav1.UpdateOptions{}).Times(1).
+			Return(nil, nil),
 	)
 	errChan := make(chan error)
 	cfgOutChan := make(chan *clientcmdapi.Config)
@@ -192,11 +207,19 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 	}
 
 	saName := s.name
-	newSa := &core.ServiceAccount{
+	sa := core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      saName,
 			Namespace: s.namespace,
 			Labels:    s.labels,
+		},
+		Secrets: []core.ObjectReference{
+			{
+				Kind:      secret.Kind,
+				Namespace: secret.Namespace,
+				Name:      secret.Name,
+				UID:       secret.UID,
+			},
 		},
 	}
 
@@ -242,13 +265,123 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 		s.mockClusterRoles.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(cr, nil),
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
-			Return(newSa, nil),
+			Return(&sa, nil),
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(clusterRoleBinding, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), &secret, metav1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockSecrets.EXPECT().Get(gomock.Any(), secret.GetName(), metav1.GetOptions{}).
 			Return(&secretTokenReady, nil),
+
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(&sa, nil),
+	)
+	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, s.UID, cfg, contextName, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	authName := cfg.Contexts[contextName].AuthInfo
+	updatedAuthInfo := cfgOut.AuthInfos[authName]
+	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
+	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
+}
+
+func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	cfg := newClientConfig()
+	contextName := reflect.ValueOf(cfg.Contexts).MapKeys()[0].Interface().(string)
+
+	secret := core.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.name,
+			Namespace: s.namespace,
+			Labels:    s.labels,
+			Annotations: map[string]string{
+				core.ServiceAccountNameKey: s.name,
+			},
+		},
+		Type: core.SecretTypeServiceAccountToken,
+	}
+	secretTokenReady := secret
+	secretTokenReady.Data = map[string][]byte{
+		"ca.crt":    []byte("a base64 encoded cert"),
+		"namespace": []byte("base64 encoded namespace"),
+		"token":     []byte("a base64 encoded bearer token"),
+	}
+
+	saName := s.name
+	newSa := core.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: s.namespace,
+			Labels:    s.labels,
+		},
+	}
+
+	newSaWithSecretUpdated := newSa
+	newSaWithSecretUpdated.Secrets = []core.ObjectReference{
+		{
+			Kind:      secret.Kind,
+			Namespace: secret.Namespace,
+			Name:      secret.Name,
+			UID:       secret.UID,
+		},
+	}
+
+	cr := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.name,
+			Namespace: s.namespace,
+			Labels:    s.labels,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{rbacv1.APIGroupAll},
+				Resources: []string{rbacv1.ResourceAll},
+				Verbs:     []string{rbacv1.VerbAll},
+			},
+			{
+				NonResourceURLs: []string{rbacv1.NonResourceAll},
+				Verbs:           []string{rbacv1.VerbAll},
+			},
+		},
+	}
+
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   s.name,
+			Labels: s.labels,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: cr.Name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      saName,
+				Namespace: s.namespace,
+			},
+		},
+	}
+
+	// 2nd call of ensuring related resources - GET.
+	gomock.InOrder(
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(cr, nil),
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(&newSa, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(clusterRoleBinding, nil),
+		s.mockSecrets.EXPECT().Create(gomock.Any(), &secret, metav1.CreateOptions{}).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockSecrets.EXPECT().Get(gomock.Any(), secret.GetName(), metav1.GetOptions{}).
+			Return(&secretTokenReady, nil),
+
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(&newSa, nil),
+		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), &newSaWithSecretUpdated, metav1.UpdateOptions{}).Times(1).
+			Return(nil, nil),
 	)
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, s.UID, cfg, contextName, s.clock)
 	c.Assert(err, jc.ErrorIsNil)

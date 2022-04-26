@@ -6,7 +6,9 @@ package proxy_test
 import (
 	"context"
 	"encoding/json"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -19,6 +21,7 @@ import (
 
 type setupSuite struct {
 	client *fake.Clientset
+	clock  *testclock.Clock
 }
 
 var (
@@ -27,6 +30,7 @@ var (
 )
 
 func (s *setupSuite) SetUpTest(c *gc.C) {
+	s.clock = testclock.NewClock(time.Time{})
 	s.client = fake.NewSimpleClientset()
 	_, err := s.client.CoreV1().Namespaces().Create(context.TODO(),
 		&core.Namespace{
@@ -47,9 +51,25 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 		TargetService: "controller-service",
 	}
 
-	err := proxy.CreateControllerProxy(
+	// fake k8sclient does not populate the token for secret, so we have to do it manually.
+	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+		ObjectMeta: meta.ObjectMeta{
+			Labels: labels.Set{},
+			Name:   config.Name,
+			Annotations: map[string]string{
+				core.ServiceAccountNameKey: config.Name,
+			},
+		},
+		Type: core.SecretTypeServiceAccountToken,
+		Data: map[string][]byte{
+			core.ServiceAccountTokenKey: []byte("token"),
+		},
+	}, meta.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = proxy.CreateControllerProxy(
 		config,
 		labels.Set{},
+		s.clock,
 		s.client.CoreV1().ConfigMaps(testNamespace),
 		s.client.RbacV1().Roles(testNamespace),
 		s.client.RbacV1().RoleBindings(testNamespace),
@@ -115,9 +135,25 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 		TargetService: "controller-service",
 	}
 
-	err := proxy.CreateControllerProxy(
+	// fake k8sclient does not populate the token for secret, so we have to do it manually.
+	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+		ObjectMeta: meta.ObjectMeta{
+			Labels: labels.Set{},
+			Name:   config.Name,
+			Annotations: map[string]string{
+				core.ServiceAccountNameKey: config.Name,
+			},
+		},
+		Type: core.SecretTypeServiceAccountToken,
+		Data: map[string][]byte{
+			core.ServiceAccountTokenKey: []byte("token"),
+		},
+	}, meta.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = proxy.CreateControllerProxy(
 		config,
 		labels.Set{},
+		s.clock,
 		s.client.CoreV1().ConfigMaps(testNamespace),
 		s.client.RbacV1().Roles(testNamespace),
 		s.client.RbacV1().RoleBindings(testNamespace),
