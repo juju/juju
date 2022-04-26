@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/workerpool"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -1226,8 +1226,9 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 
 		machProvisioner := m
 		distGroup := machineDistributionGroups[i].MachineIds
+
 		provTask := workerpool.Task{
-			Type: "start-instance",
+			Type: fmt.Sprintf("start-instance %s", machProvisioner.Id()),
 			Process: func() error {
 				if provisionErr := task.doStartMachine(ctx, machProvisioner, distGroup); provisionErr != nil {
 					return provisionErr
