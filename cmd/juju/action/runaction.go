@@ -222,19 +222,16 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		return errors.New("illegal number of results returned")
 	}
 
-	for _, result := range results {
-		if result.Error != nil {
-			return result.Error
+	// Legacy Juju 1.25 output format for a single unit, no wait.
+	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results) == 1 {
+		if results[0].Error != nil {
+			return results[0].Error
 		}
-		if result.Action == nil {
-			return errors.Errorf("action failed to enqueue on %q", result.Action.Receiver)
-		}
-
-		// Legacy Juju 1.25 output format for a single unit, no wait.
-		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results) == 1 {
-			out := map[string]string{"Action queued with id": result.Action.ID}
+		if results[0].Action != nil {
+			out := map[string]string{"Action queued with id": results[0].Action.ID}
 			return c.out.Write(ctx, out)
 		}
+		return errors.Errorf("action failed to enqueue")
 	}
 
 	out := make(map[string]interface{}, len(results))
@@ -243,7 +240,19 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	// what cli users want. We should consider changing this
 	// default with Juju 3.0.
 	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
-		for _, result := range results {
+		for i, result := range results {
+			if result.Action == nil {
+				if errOut, ok := out["errors"]; !ok {
+					out["errors"] = map[int]string{i: result.Error.Error()}
+				} else {
+					switch newErrOut := errOut.(type) {
+					case map[int]string:
+						newErrOut[i] = result.Error.Error()
+						out["errors"] = newErrOut
+					}
+				}
+				continue
+			}
 			out[result.Action.Receiver] = result.Action.ID
 			unitTag, err := names.ParseUnitTag(result.Action.Receiver)
 			if err != nil {
@@ -266,7 +275,19 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		wait = time.NewTimer(c.wait.d)
 	}
 
-	for _, result := range results {
+	for i, result := range results {
+		if result.Action == nil {
+			if errOut, ok := out["errors"]; !ok {
+				out["errors"] = map[int]string{i: result.Error.Error()}
+			} else {
+				switch newErrOut := errOut.(type) {
+				case map[int]string:
+					newErrOut[i] = result.Error.Error()
+					out["errors"] = newErrOut
+				}
+			}
+			continue
+		}
 		result, err = GetActionResult(c.api, result.Action.ID, wait, true)
 		if err != nil {
 			return errors.Trace(err)
