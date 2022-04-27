@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/caasunitsmanager"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
@@ -1044,6 +1045,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: syslogger.NewWorker,
 			NewLogger: syslogger.NewDiscard,
 		}),
+
+		// The CAAS units manager worker runs on CAAS.agent and subscribes and handles unit topics on the localhub.
+		caasUnitsManager: caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
+			Hub:           config.LocalHub,
+		}),
 	})
 }
 
@@ -1184,7 +1194,8 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	syslogName = "syslog"
+	syslogName       = "syslog"
+	caasUnitsManager = "caas-units-manager"
 
 	raftTransportName = "raft-transport"
 	raftName          = "raft"
