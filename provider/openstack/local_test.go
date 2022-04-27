@@ -544,13 +544,8 @@ func (s *localServerSuite) TestStartInstanceWhenPublicIPError(c *gc.C) {
 	defer cleanup()
 	_, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("allocate-public-ip=true"))
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
-
-	if !removeServerCalled {
-		c.Fatal("removeServer should have been called")
-	}
-	if removeServerID != addServerID {
-		c.Fatalf("server IDs of addServer (%q) and removeServer (%q) do not match", addServerID, removeServerID)
-	}
+	c.Assert(removeServerCalled, jc.IsTrue)
+	c.Assert(removeServerID, gc.Equals, addServerID)
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
