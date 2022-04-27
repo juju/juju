@@ -509,6 +509,45 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// If we fail to allocate a floating IP when starting an instance, the nova instance
+// should be terminated.
+func (s *localServerSuite) TestStartInstanceWhenPublicIPError(c *gc.C) {
+	var (
+		addServerID        string
+		removeServerID     string
+		removeServerCalled bool
+	)
+
+	cleanup := s.srv.Neutron.RegisterControlPoint(
+		"addFloatingIP",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("fail on purpose")
+		},
+	)
+	defer cleanup()
+	cleanup = s.srv.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			addServerID = args[0].(*nova.ServerDetail).Id
+			return nil
+		},
+	)
+	defer cleanup()
+	cleanup = s.srv.Nova.RegisterControlPoint(
+		"removeServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			removeServerCalled = true
+			removeServerID = args[0].(string)
+			return nil
+		},
+	)
+	defer cleanup()
+	_, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("allocate-public-ip=true"))
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
+	c.Assert(removeServerCalled, jc.IsTrue)
+	c.Assert(removeServerID, gc.Equals, addServerID)
+}
+
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	env := s.ensureAMDImages(c)
