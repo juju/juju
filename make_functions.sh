@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -euf
 
 # Path variables
@@ -42,7 +42,7 @@ microk8s_operator_update() {
   echo "Uploading image $(operator_image_path) to microk8s"
   # For macos we have to push the image into the microk8s multipass vm because
   # we can't use the ctr to stream off the local machine.
-  if [ $(uname) = "Darwin" ]; then
+  if [[ $(uname) = "Darwin" ]]; then
     tmp_docker_image="/tmp/juju-operator-image-${RANDOM}.image"
     docker save $(operator_image_path) | multipass transfer - microk8s-vm:${tmp_docker_image}
     microk8s ctr --namespace k8s.io image import ${tmp_docker_image}
@@ -65,7 +65,7 @@ operator_image_release_path() {
 
 operator_image_path() {
     juju_version=$(juju_version)
-    if [ -z "${JUJU_BUILD_NUMBER}" ] || [ ${JUJU_BUILD_NUMBER} -eq 0 ]; then
+    if [[ -z "${JUJU_BUILD_NUMBER}" ]] || [[ ${JUJU_BUILD_NUMBER} -eq 0 ]]; then
         operator_image_release_path
     else
         echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
@@ -84,17 +84,27 @@ operator_image_path() {
 #   registry
 build_push_operator_image() {
     build_multi_osarch=${1-""}
-    if [ -z "$build_multi_osarch" ]; then
+    if [[ -z "$build_multi_osarch" ]]; then
       build_multi_osarch="$(go env GOOS)/$(go env GOARCH)"
     fi
 
     # We need to find any ppc64el references and move the build artefacts over
     # to ppc64le so that it works with Docker.
     for platform in $build_multi_osarch; do
-      if [ "$platform" = *"ppc64el"* ]; then
+      if [[ "$platform" = *"ppc64el"* ]]; then
+        echo "detected operator image build for ppc64el \"${platform}\""
         new_platform=$(echo "$platform" | sed 's/ppc64el/ppc64le/g')
-        cp -r "${BUILD_DIR}/$(echo "$platform" | sed 's/\//_/g')" \
-          "${BUILD_DIR}/$(echo "$new_platform" | sed 's/\//_/g')"
+        echo "changing platform \"${platform}\" to platform \"${new_platform}\""
+
+        platform_dir="${BUILD_DIR}/$(echo "$platform" | sed 's/\//_/g')"
+        new_platform_dir="${BUILD_DIR}/$(echo "$new_platform" | sed 's/\//_/g')"
+        if ![[ -d "$platform_dir" ]]; then
+          echo "platform build directory \"${platform_dir}\" does not exist"
+          exit 1
+        fi
+
+        echo "copying platform build directory \"${platform_dir}\" to \"${new_platform_dir}\""
+        cp -r "$platform_dir" "$new_platform_dir"
       fi
     done
     build_multi_osarch=$(echo "$build_multi_osarch" | sed 's/ppc64el/ppc64le/g')
@@ -102,9 +112,9 @@ build_push_operator_image() {
     push_image=${2:-"false"}
 
     output="-o type=oci,dest=${BUILD_DIR}/oci.tar.gz"
-    if [ "$push_image" = true ]; then
+    if [[ "$push_image" = true ]]; then
       output="-o type=image,push=true"
-    elif [ $(echo "$build_multi_osarch" | wc -w) -eq 1 ]; then
+    elif [[ $(echo "$build_multi_osarch" | wc -w) -eq 1 ]]; then
       output="-o type=docker"
     fi
 
