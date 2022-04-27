@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/client/application"
@@ -163,7 +164,10 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 			}
 		}
 	}
-	spec := d.makeBundleDeploySpec(ctx, deployAPI)
+	spec, err := d.makeBundleDeploySpec(ctx, deployAPI)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	// Deploying bundles does not allow the use force, it's expected that the
@@ -174,7 +178,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 	return nil
 }
 
-func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAPI) bundleDeploySpec {
+func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAPI) (bundleDeploySpec, error) {
 	// set the consumer details API factory method on the spec, so it makes it
 	// possible to communicate with other controllers, that are found within
 	// the local cache.
@@ -186,6 +190,16 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 			url.Source = d.controllerName
 		}
 		return d.newConsumeDetailsAPI(url)
+	}
+
+	knownSpaces, err := apiRoot.ListSpaces()
+	if err != nil && !errors.IsNotSupported(err) {
+		return bundleDeploySpec{}, errors.Trace(err)
+	}
+
+	knownSpaceNames := set.NewStrings()
+	for _, space := range knownSpaces {
+		knownSpaceNames.Add(space.Name)
 	}
 
 	return bundleDeploySpec{
@@ -213,7 +227,8 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		targetModelUUID:      d.targetModelUUID,
 		controllerName:       d.controllerName,
 		accountUser:          d.accountUser,
-	}
+		knownSpaceNames:      knownSpaceNames,
+	}, nil
 }
 
 type localBundle struct {

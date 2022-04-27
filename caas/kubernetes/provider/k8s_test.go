@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
@@ -55,7 +56,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type K8sSuite struct {
@@ -117,7 +117,9 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 		},
 	}
 
-	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", &podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		Labels:      map[string]string{},
@@ -321,7 +323,9 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 		},
 	}
 
-	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", &podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		Labels:      map[string]string{},
@@ -445,7 +449,9 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 		},
 	}
 
-	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", &podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		PodSpec: core.PodSpec{
@@ -538,7 +544,9 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 		},
 	}
 
-	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", &podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		Labels:      map[string]string{"foo": "bax"},
@@ -590,7 +598,9 @@ func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *gc.C) {
 		},
 	}
 
-	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", &podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		PodSpec: core.PodSpec{
@@ -713,12 +723,75 @@ func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]strin
 }
 
 func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
-	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", getBasicPodspec(), "operator/image-path")
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", getBasicPodspec(), resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		PodSpec: core.PodSpec{
 			ImagePullSecrets: []core.LocalObjectReference{{Name: "app-name-test-secret"}},
 			InitContainers:   initContainers(),
+			Containers: []core.Container{
+				{
+					Name:       "test",
+					Image:      "juju/image",
+					Ports:      []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					Command:    []string{"sh", "-c"},
+					Args:       []string{"doIt", "--debug"},
+					WorkingDir: "/path/to/here",
+					Env: []core.EnvVar{
+						{Name: "bar", Value: "true"},
+						{Name: "brackets", Value: `["hello", "world"]`},
+						{Name: "foo", Value: "bar"},
+						{Name: "restricted", Value: "yes"},
+						{Name: "switch", Value: "true"},
+					},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             pointer.BoolPtr(false),
+						ReadOnlyRootFilesystem:   pointer.BoolPtr(false),
+						AllowPrivilegeEscalation: pointer.BoolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				}, {
+					Name:  "test2",
+					Image: "juju/image2",
+					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             pointer.BoolPtr(false),
+						ReadOnlyRootFilesystem:   pointer.BoolPtr(false),
+						AllowPrivilegeEscalation: pointer.BoolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				},
+			},
+			Volumes: dataVolumes(),
+		},
+	})
+}
+
+func (s *K8sSuite) TestPrepareWorkloadSpecWithRegistryCredentials(c *gc.C) {
+	spec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", getBasicPodspec(),
+		resources.DockerImageDetails{
+			RegistryPath: "example.com/operator/image-path",
+			ImageRepoDetails: docker.ImageRepoDetails{
+				Repository:      "example.com",
+				BasicAuthConfig: docker.BasicAuthConfig{Username: "foo", Password: "bar"},
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	initContainerSpec := initContainers()[0]
+	initContainerSpec.Image = "example.com/operator/image-path"
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		PodSpec: core.PodSpec{
+			ImagePullSecrets: []core.LocalObjectReference{
+				{Name: "app-name-test-secret"},
+				{Name: "juju-image-pull-secret"},
+			},
+			InitContainers: []core.Container{initContainerSpec},
 			Containers: []core.Container{
 				{
 					Name:       "test",
@@ -771,7 +844,9 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 
 	cfgMapName := func(n string) string { return n }
 
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", getBasicPodspec(), "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", getBasicPodspec(), resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	workloadSpec.ConfigMaps = map[string]specs.ConfigMap{
 		"log-config": map[string]string{
@@ -815,7 +890,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1233,7 +1308,9 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			},
 		},
 	}}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	workloadSpec.ConfigMaps = map[string]specs.ConfigMap{
 		"log-config": map[string]string{
@@ -2248,7 +2325,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
 		},
 	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -2329,8 +2408,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
@@ -2343,6 +2422,59 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceInvalidServiceName(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+			Services: []k8sspecs.K8sService{
+				{
+					Meta: k8sspecs.Meta{
+						Name:        "app-name",
+						Labels:      map[string]string{"foo": "bar"},
+						Annotations: map[string]string{"cloud.google.com/load-balancer-type": "Internal"},
+					},
+					Spec: core.ServiceSpec{
+						Selector: map[string]string{"app": "MyApp"},
+						Ports: []core.ServicePort{
+							{
+								Protocol:   core.ProtocolTCP,
+								Port:       80,
+								TargetPort: intstr.IntOrString{IntVal: 9376},
+							},
+						},
+						Type: core.ServiceTypeLoadBalancer,
+					},
+				},
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
+	}
+	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
+		"kubernetes-service-type":            "loadbalancer",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+	})
+	c.Assert(err, gc.ErrorMatches, `creating or updating services: "app-name" is a reserved service name`)
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.C) {
@@ -2362,7 +2494,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 		},
 	}
 
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -2449,8 +2583,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
@@ -2488,8 +2622,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
@@ -2561,7 +2695,9 @@ password: shhhh`[1:],
 		},
 	}
 
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -2737,8 +2873,8 @@ password: shhhh`[1:],
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
@@ -2810,7 +2946,9 @@ password: shhhh`[1:],
 		},
 	}
 
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -3000,7 +3138,7 @@ password: shhhh`[1:],
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -3182,7 +3320,9 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 		appName += "-operator"
 	}
 
-	workloadSpec, err := provider.PrepareWorkloadSpec(appName, "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		appName, "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -3273,7 +3413,9 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 		appName += "-operator"
 	}
 
-	workloadSpec, err := provider.PrepareWorkloadSpec(appName, "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		appName, "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -3353,7 +3495,9 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 	basicPodSpec.Service = &specs.ServiceSpec{
 		ScalePolicy: "serial",
 	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -3425,7 +3569,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	basicPodSpec.Service = &specs.ServiceSpec{
 		ScalePolicy: "serial",
 	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -3494,8 +3640,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 		},
-		OperatorImagePath: "operator/image-path",
-		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
@@ -3509,7 +3655,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
@@ -3580,8 +3728,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		Deployment: caas.DeploymentParams{
 			ServiceType: caas.ServiceExternal,
 		},
-		OperatorImagePath: "operator/image-path",
-		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
@@ -3620,8 +3768,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 			DeploymentType: caas.DeploymentStateful,
 			ServiceType:    caas.ServiceExternal,
 		},
-		OperatorImagePath: "operator/image-path",
-		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err := s.broker.EnsureService(
 		"app-name",
@@ -3643,7 +3791,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	podSpec.ServiceAccount = primeServiceAccount
 
 	numUnits := int32(2)
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -3784,7 +3934,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -3803,7 +3953,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	podSpec.ServiceAccount = primeServiceAccount
 
 	numUnits := int32(2)
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -3954,7 +4106,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 
 	errChan := make(chan error)
@@ -4001,7 +4153,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	}
 
 	numUnits := int32(2)
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -4148,7 +4302,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -4183,7 +4337,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	}
 
 	numUnits := int32(2)
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -4330,7 +4486,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 
 	errChan := make(chan error)
@@ -4387,7 +4543,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 
 	numUnits := int32(2)
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -4589,7 +4747,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -4646,7 +4804,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 
 	numUnits := int32(2)
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -4862,7 +5022,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -4927,7 +5087,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 
 	numUnits := int32(2)
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", podSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -5187,7 +5349,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5211,7 +5373,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			},
 		},
 	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -5262,8 +5426,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
@@ -5309,7 +5473,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 		},
 	}
 
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -5365,8 +5531,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
@@ -5403,7 +5569,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 
 	numUnits := int32(2)
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
@@ -5471,8 +5639,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		Devices: []devices.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
@@ -5498,7 +5666,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 
 	numUnits := int32(2)
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -5608,8 +5778,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateless,
 		},
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
@@ -5646,7 +5816,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 
 	numUnits := int32(2)
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -5758,8 +5930,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateless,
 		},
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
@@ -5803,7 +5975,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 			},
 		},
 	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
@@ -5966,7 +6140,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentDaemon,
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
@@ -6013,7 +6187,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 		},
 	}
 
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
@@ -6149,7 +6325,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentDaemon,
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
@@ -6186,7 +6362,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
@@ -6325,7 +6503,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentDaemon,
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
@@ -6362,7 +6540,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
@@ -6453,7 +6633,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentDaemon,
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		Devices: []devices.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
@@ -6479,7 +6659,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
@@ -6575,7 +6757,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentDaemon,
 		},
-		OperatorImagePath: "operator/image-path",
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		Devices: []devices.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
@@ -6601,7 +6783,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -6649,8 +6833,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -6685,7 +6869,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -6733,8 +6919,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -6763,7 +6949,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -6821,8 +7009,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -6851,7 +7039,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
@@ -6901,8 +7091,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,

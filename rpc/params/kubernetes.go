@@ -25,8 +25,8 @@ type KubernetesProvisioningInfo struct {
 	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
 	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
 	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
-	OperatorImagePath    string                       `json:"operator-image-path,omitempty"`
 	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
+	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.

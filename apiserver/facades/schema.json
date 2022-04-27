@@ -67,7 +67,7 @@
                             "$ref": "#/definitions/EnqueuedActions"
                         }
                     },
-                    "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
+                    "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
                 },
                 "FindActionTagsByPrefix": {
                     "type": "object",
@@ -2370,7 +2370,7 @@
                             "$ref": "#/definitions/UnitInfoResults"
                         }
                     },
-                    "description": "UnitsInfo returns unit information."
+                    "description": "UnitsInfo returns unit information for the given entities (units or\napplications)."
                 },
                 "Unset": {
                     "type": "object",
@@ -3677,6 +3677,9 @@
                         "related-endpoint": {
                             "type": "string"
                         },
+                        "relation-id": {
+                            "type": "integer"
+                        },
                         "unit-relation-data": {
                             "type": "object",
                             "patternProperties": {
@@ -3688,6 +3691,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "relation-id",
                         "endpoint",
                         "cross-model",
                         "related-endpoint",
@@ -7047,9 +7051,6 @@
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
                         },
-                        "image-path": {
-                            "type": "string"
-                        },
                         "image-repo": {
                             "$ref": "#/definitions/DockerImageInfo"
                         },
@@ -7082,7 +7083,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "image-path",
                         "version",
                         "api-addresses",
                         "ca-cert",
@@ -13710,6 +13710,42 @@
                         "config"
                     ]
                 },
+                "DockerImageInfo": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-name"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -14063,8 +14099,8 @@
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
                         },
-                        "operator-image-path": {
-                            "type": "string"
+                        "image-repo": {
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "pod-spec": {
                             "type": "string"

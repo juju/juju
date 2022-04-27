@@ -188,6 +188,10 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		case float64:
 			modelInfo.Config[config.NumProvisionWorkersKey] = int(val)
 		}
+		switch val := modelInfo.Config[config.NumContainerProvisionWorkersKey].(type) {
+		case float64:
+			modelInfo.Config[config.NumContainerProvisionWorkersKey] = int(val)
+		}
 
 		expectedStatus := params.StatusInfo{
 			Current: status.Status,

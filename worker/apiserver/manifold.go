@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 // ManifoldConfig holds the information necessary to run an apiserver
@@ -47,6 +48,7 @@ type ManifoldConfig struct {
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
 	RaftTransportName      string
+	SyslogName             string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -102,6 +104,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
 	}
+	if config.SyslogName == "" {
+		return errors.NotValidf("empty SyslogName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -138,6 +143,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.RaftTransportName,
+			config.SyslogName,
 		},
 		Start: config.start,
 	}
@@ -204,6 +210,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var sysLogger syslogger.SysLogger
+	if err := context.Get(config.SyslogName, &sysLogger); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// We don't need anything from the raft-transport but we need to
 	// tie the lifetime of this worker to it - otherwise http-server
 	// will hang waiting for this to release the mux.
@@ -248,6 +259,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
 		RaftOpQueue:                       config.RaftOpQueue,
+		SysLogger:                         sysLogger,
 	})
 	if err != nil {
 		_ = stTracker.Done()

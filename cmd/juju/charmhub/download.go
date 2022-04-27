@@ -196,10 +196,13 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		normBase.OS = strings.ToLower(sys.String())
 	}
 
+	// Ensure we compute the base channel correctly.
+	computedNormBase := corecharm.ComputeBaseChannel(normBase)
+
 	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: normBase.Architecture,
-		Name:         normBase.OS,
-		Channel:      normBase.Series,
+		Architecture: computedNormBase.Architecture,
+		Name:         computedNormBase.OS,
+		Channel:      computedNormBase.Series,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -301,7 +304,12 @@ func (c *downloadCommand) suggested(ser string, channel string, releases []trans
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			s, err := coreseries.VersionSeries(rel.Base.Channel)
+			platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+				Architecture: rel.Base.Architecture,
+				OS:           rel.Base.Name,
+				Series:       rel.Base.Channel,
+			})
+			s, err := coreseries.VersionSeries(platform.Series)
 			if err == nil {
 				series.Add(s)
 			} else {

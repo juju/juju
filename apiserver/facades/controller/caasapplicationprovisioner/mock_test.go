@@ -375,7 +375,6 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockUnit struct {
 	testing.Stub
-	life                state.Life
 	destroyOp           *state.DestroyUnitOperation
 	containerInfo       *mockCloudContainer
 	status              status.StatusInfo

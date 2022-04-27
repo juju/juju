@@ -6,12 +6,12 @@ package openstack
 import (
 	"net/http"
 
-	"github.com/go-goose/goose/v4/client"
-	goosehttp "github.com/go-goose/goose/v4/http"
-	"github.com/go-goose/goose/v4/identity"
-	gooselogging "github.com/go-goose/goose/v4/logging"
-	"github.com/go-goose/goose/v4/neutron"
-	"github.com/go-goose/goose/v4/nova"
+	"github.com/go-goose/goose/v5/client"
+	goosehttp "github.com/go-goose/goose/v5/http"
+	"github.com/go-goose/goose/v5/identity"
+	gooselogging "github.com/go-goose/goose/v5/logging"
+	"github.com/go-goose/goose/v5/neutron"
+	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"

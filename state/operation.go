@@ -13,6 +13,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
+	jujutxn "github.com/juju/txn/v2"
 )
 
 // Operation represents a number of tasks resulting from running an action.
@@ -52,6 +53,9 @@ type Operation interface {
 
 	// Refresh refreshes the contents of the operation.
 	Refresh() error
+
+	// SpawnedTaskCount returns the number of spawned actions.
+	SpawnedTaskCount() int
 }
 
 type operationDoc struct {
@@ -135,6 +139,11 @@ func (op *operation) Summary() string {
 // Fail is why the operation failed.
 func (op *operation) Fail() string {
 	return op.doc.Fail
+}
+
+// SpawnedTaskCount is the number of spawned actions.
+func (op *operation) SpawnedTaskCount() int {
+	return op.doc.SpawnedTaskCount
 }
 
 // Status returns the final state of the operation.
@@ -236,33 +245,42 @@ func (m *Model) EnqueueOperation(summary string, count int) (string, error) {
 	return operationID, errors.Trace(err)
 }
 
-// FailOperation sets the operation status to "error" with the error message.
-func (m *Model) FailOperation(operationID string, opError error) error {
+// FailOperationEnqueuing sets the operation fail message and updates the
+// spawned task count. The spawned task count must be accurate to finalize
+// the operation.
+func (m *Model) FailOperationEnqueuing(operationID, failMessage string, count int) error {
+	operation, err := m.Operation(operationID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 1 {
-			operations, closer := m.st.db().GetCollection(operationsC)
-			defer closer()
-			var doc operationDoc
-			err := operations.FindId(operationID).One(&doc)
-			if err == mgo.ErrNotFound {
-				return nil, errors.NotFoundf("operation %q", operationID)
-			}
-			if err != nil {
+			if err = operation.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		ops := []txn.Op{{
+		if operation.SpawnedTaskCount() == count {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		update := bson.D{
+			{"spawned-task-count", count},
+			{"fail", failMessage},
+		}
+		if count == 0 {
+			// If no actions were successfully enqueued, set the operation
+			// status to error.
+			update = append(update, bson.DocElem{"status", "error"})
+		}
+
+		return []txn.Op{{
 			C:      operationsC,
 			Id:     m.st.docID(operationID),
 			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{
-				{"status", ActionError},
-				{"fail", opError.Error()},
-			}}},
-		}}
-		return ops, nil
+			Update: bson.D{{"$set", update}},
+		}}, nil
 	}
-	err := m.st.db().Run(buildTxn)
+	err = m.st.db().Run(buildTxn)
 	return errors.Trace(err)
 }
 

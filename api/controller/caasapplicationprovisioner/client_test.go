@@ -174,12 +174,14 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationProvisioningInfoResults{})
 		*(result.(*params.CAASApplicationProvisioningInfoResults)) = params.CAASApplicationProvisioningInfoResults{
 			Results: []params.CAASApplicationProvisioningInfo{{
-				ImagePath:            "juju-operator-image",
-				Version:              vers,
-				APIAddresses:         []string{"10.0.0.1:1"},
-				Tags:                 map[string]string{"foo": "bar"},
-				Series:               "bionic",
-				ImageRepo:            params.DockerImageInfo{Repository: "jujuqa"},
+				Version:      vers,
+				APIAddresses: []string{"10.0.0.1:1"},
+				Tags:         map[string]string{"foo": "bar"},
+				Series:       "bionic",
+				ImageRepo: params.DockerImageInfo{
+					Repository:   "jujuqa",
+					RegistryPath: "juju-operator-image",
+				},
 				CharmModifiedVersion: 1,
 				CharmURL:             "cs:~test/charm-1",
 				Trust:                true,
@@ -190,12 +192,14 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	info, err := client.ProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, caasapplicationprovisioner.ProvisioningInfo{
-		ImagePath:            "juju-operator-image",
-		Version:              vers,
-		APIAddresses:         []string{"10.0.0.1:1"},
-		Tags:                 map[string]string{"foo": "bar"},
-		Series:               "bionic",
-		ImageRepo:            docker.ImageRepoDetails{Repository: "jujuqa"},
+		Version:      vers,
+		APIAddresses: []string{"10.0.0.1:1"},
+		Tags:         map[string]string{"foo": "bar"},
+		Series:       "bionic",
+		ImageDetails: params.ConvertDockerImageInfo(params.DockerImageInfo{
+			Repository:   "jujuqa",
+			RegistryPath: "juju-operator-image",
+		}),
 		CharmModifiedVersion: 1,
 		CharmURL:             &charm.URL{Schema: "cs", User: "test", Name: "charm", Revision: 1},
 		Trust:                true,

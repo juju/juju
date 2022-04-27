@@ -3013,92 +3013,116 @@ func validateAgentVersions(application Application, versioner AgentVersioner) er
 // UnitsInfo isn't on the v11 API.
 func (u *APIv11) UnitsInfo(_, _ struct{}) {}
 
-// UnitsInfo returns unit information.
+// UnitsInfo returns unit information for the given entities (units or
+// applications).
 func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error) {
-	out := make([]params.UnitInfoResult, len(in.Entities))
+	var results []params.UnitInfoResult
 	leaders, err := api.leadershipReader.Leaders()
 	if err != nil {
 		return params.UnitInfoResults{}, errors.Trace(err)
 	}
-	for i, one := range in.Entities {
-		tag, err := names.ParseUnitTag(one.Tag)
+	for _, one := range in.Entities {
+		units, err := api.unitsFromTag(one.Tag)
 		if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
+			results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
 		}
-		unit, err := api.backend.Unit(tag.Id())
-		if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := api.backend.Application(unit.ApplicationName())
-		if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		curl, _ := app.CharmURL()
-		machineId, _ := unit.AssignedMachineId()
-		workloadVersion, err := unit.WorkloadVersion()
-		if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		result := &params.UnitResult{
-			Tag:             tag.String(),
-			WorkloadVersion: workloadVersion,
-			Machine:         machineId,
-			Charm:           curl.String(),
-		}
-		if leader := leaders[unit.ApplicationName()]; leader == unit.Name() {
-			result.Leader = true
-		}
-		if machineId != "" {
-			machine, err := api.backend.Machine(machineId)
+		for _, unit := range units {
+			result, err := api.unitResultForUnit(unit)
 			if err != nil {
-				out[i].Error = apiservererrors.ServerError(err)
+				results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
 				continue
 			}
-			publicAddress, err := machine.PublicAddress()
-			if err == nil {
-				result.PublicAddress = publicAddress.Value
+			if leader := leaders[unit.ApplicationName()]; leader == unit.Name() {
+				result.Leader = true
 			}
-			// NOTE(achilleasa): this call completely ignores
-			// subnets and lumps all port ranges together in a
-			// single group. This works fine for pre 2.9 agents
-			// as ports where always opened across all subnets.
-			openPorts, err := api.openPortsOnMachineForUnit(unit.Name(), machineId)
-			if err != nil {
-				out[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			result.OpenedPorts = openPorts
+			results = append(results, params.UnitInfoResult{Result: result})
 		}
-		container, err := unit.ContainerInfo()
-		if err != nil && !errors.IsNotFound(err) {
-			out[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err == nil {
-			if addr := container.Address(); addr != nil {
-				result.Address = addr.Value
-			}
-			result.ProviderId = container.ProviderId()
-			if len(result.OpenedPorts) == 0 {
-				result.OpenedPorts = container.Ports()
-			}
-		}
-		result.RelationData, err = api.relationData(app, unit)
-		if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		out[i].Result = result
 	}
 	return params.UnitInfoResults{
-		Results: out,
+		Results: results,
 	}, nil
+}
+
+// Returns the units referred to by the tag argument.  If the tag refers to a
+// unit, a slice with a single unit is returned.  If the tag refers to an
+// application, all the units in the application are returned.
+func (api *APIBase) unitsFromTag(tag string) ([]Unit, error) {
+	unitTag, err := names.ParseUnitTag(tag)
+	if err == nil {
+		unit, err := api.backend.Unit(unitTag.Id())
+		if err != nil {
+			return nil, err
+		}
+		return []Unit{unit}, nil
+	}
+	appTag, err := names.ParseApplicationTag(tag)
+	if err == nil {
+		app, err := api.backend.Application(appTag.Id())
+		if err != nil {
+			return nil, err
+		}
+		return app.AllUnits()
+	}
+	return nil, fmt.Errorf("tag %q is neither unit nor application tag", tag)
+}
+
+// Builds a *params.UnitResult describing the unit argument.
+func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
+	app, err := api.backend.Application(unit.ApplicationName())
+	if err != nil {
+		return nil, err
+	}
+	curl, _ := app.CharmURL()
+	machineId, _ := unit.AssignedMachineId()
+	workloadVersion, err := unit.WorkloadVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	result := &params.UnitResult{
+		Tag:             unit.Tag().String(),
+		WorkloadVersion: workloadVersion,
+		Machine:         machineId,
+		Charm:           curl.String(),
+	}
+	if machineId != "" {
+		machine, err := api.backend.Machine(machineId)
+		if err != nil {
+			return nil, err
+		}
+		publicAddress, err := machine.PublicAddress()
+		if err == nil {
+			result.PublicAddress = publicAddress.Value
+		}
+		// NOTE(achilleasa): this call completely ignores
+		// subnets and lumps all port ranges together in a
+		// single group. This works fine for pre 2.9 agents
+		// as ports where always opened across all subnets.
+		openPorts, err := api.openPortsOnMachineForUnit(unit.Name(), machineId)
+		if err != nil {
+			return nil, err
+		}
+		result.OpenedPorts = openPorts
+	}
+	container, err := unit.ContainerInfo()
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	if err == nil {
+		if addr := container.Address(); addr != nil {
+			result.Address = addr.Value
+		}
+		result.ProviderId = container.ProviderId()
+		if len(result.OpenedPorts) == 0 {
+			result.OpenedPorts = container.Ports()
+		}
+	}
+	result.RelationData, err = api.relationData(app, unit)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // openPortsOnMachineForUnit returns the unique set of opened ports for the
@@ -3130,6 +3154,7 @@ func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.Endpoin
 			return nil, errors.Trace(err)
 		}
 		erd := params.EndpointRelationData{
+			RelationId:       rel.Id(),
 			Endpoint:         ep.Name,
 			ApplicationData:  make(map[string]interface{}),
 			UnitRelationData: make(map[string]params.RelationData),

@@ -20,14 +20,9 @@ const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<en
 // * space-name (equivalent to binding all endpoints to the same space, i.e. application-default)
 // * The above in a space separated list to specify multiple bindings,
 //   e.g. "rel1=space1 ext1=space2 space3"
-func parseBindExpr(expr string, knownSpaces []string) (map[string]string, error) {
+func parseBindExpr(expr string, knownSpaceNames set.Strings) (map[string]string, error) {
 	if expr == "" {
 		return nil, nil
-	}
-
-	knownSpaceMap := make(map[string]struct{})
-	for _, spaceName := range knownSpaces {
-		knownSpaceMap[spaceName] = struct{}{}
 	}
 
 	parsedBindings := make(map[string]string)
@@ -54,7 +49,7 @@ func parseBindExpr(expr string, knownSpaces []string) (map[string]string, error)
 		// default spaceName lands.
 		spaceName = strings.Trim(spaceName, `"`)
 
-		if _, exists := knownSpaceMap[spaceName]; !exists {
+		if !knownSpaceNames.Contains(spaceName) {
 			return nil, errors.NotFoundf("space %q", spaceName)
 		}
 

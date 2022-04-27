@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -49,13 +50,6 @@ type SpacesAPI interface {
 }
 
 var supportedJujuSeries = series.WorkloadSeries
-
-type DeployAPI interface {
-	deployer.DeployerAPI
-	SpacesAPI
-	// PlanURL returns the configured URL prefix for the metering plan API.
-	PlanURL() string
-}
 
 type CharmsAPI interface {
 	store.CharmsAPI
@@ -211,7 +205,7 @@ func newDeployCommand() *DeployCommand {
 
 		return charmhub.NewClient(cfg)
 	}
-	deployCmd.NewDeployAPI = func() (DeployAPI, error) {
+	deployCmd.NewDeployAPI = func() (deployer.DeployerAPI, error) {
 		apiRoot, err := deployCmd.newAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -344,7 +338,7 @@ type DeployCommand struct {
 	BundleMachines map[string]string
 
 	// NewDeployAPI stores a function which returns a new deploy client.
-	NewDeployAPI func() (DeployAPI, error)
+	NewDeployAPI func() (deployer.DeployerAPI, error)
 
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
@@ -657,7 +651,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
@@ -873,18 +867,18 @@ func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {
 	}
 
 	// Fetch known spaces from server
-	knownSpaceList, err := api.ListSpaces()
+	knownSpaces, err := api.ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	knownSpaces := make([]string, 0, len(knownSpaceList))
-	for _, sp := range knownSpaceList {
-		knownSpaces = append(knownSpaces, sp.Name)
+	knownSpaceNames := set.NewStrings()
+	for _, space := range knownSpaces {
+		knownSpaceNames.Add(space.Name)
 	}
 
 	// Parse expression
-	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaces)
+	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaceNames)
 	if err != nil {
 		return errors.Trace(err)
 	}

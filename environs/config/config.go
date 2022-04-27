@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
@@ -75,9 +76,13 @@ const (
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
-	// NumProvisionWorkersKey is the key for the number of provisioner
-	// workers settings.
+	// NumProvisionWorkersKey is the key for number of model provisioner
+	// workers.
 	NumProvisionWorkersKey = "num-provision-workers"
+
+	// NumContainerProvisionWorkersKey is the key for the number of
+	// container provisioner workers per machine setting.
+	NumContainerProvisionWorkersKey = "num-container-provision-workers"
 
 	// AgentStreamKey stores the key for this setting.
 	AgentStreamKey = "agent-stream"
@@ -288,6 +293,10 @@ const (
 	// DisableTelemetryKey is a key for determining whether telemetry on juju
 	// models will be done.
 	DisableTelemetryKey = "disable-telemetry"
+
+	// LoggingOutputKey is a key for determining the destination of output for
+	// logging.
+	LoggingOutputKey = "logging-output"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -489,25 +498,27 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":              jujuversion.DefaultSupportedLTS(),
-	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
-	NumProvisionWorkersKey:        16,
-	ResourceTagsKey:               "",
-	"logging-config":              "",
-	AutomaticallyRetryHooks:       true,
-	"enable-os-refresh-update":    true,
-	"enable-os-upgrade":           true,
-	"development":                 false,
-	TestModeKey:                   false,
-	DisableTelemetryKey:           false,
-	TransmitVendorMetricsKey:      true,
-	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
-	EgressSubnets:                 "",
-	FanConfig:                     "",
-	CloudInitUserDataKey:          "",
-	ContainerInheritPropertiesKey: "",
-	BackupDirKey:                  "",
-	LXDSnapChannel:                "latest/stable",
+	"default-series":                jujuversion.DefaultSupportedLTS(),
+	ProvisionerHarvestModeKey:       HarvestDestroyed.String(),
+	NumProvisionWorkersKey:          16,
+	NumContainerProvisionWorkersKey: 4,
+	ResourceTagsKey:                 "",
+	"logging-config":                "",
+	LoggingOutputKey:                "",
+	AutomaticallyRetryHooks:         true,
+	"enable-os-refresh-update":      true,
+	"enable-os-upgrade":             true,
+	"development":                   false,
+	TestModeKey:                     false,
+	DisableTelemetryKey:             false,
+	TransmitVendorMetricsKey:        true,
+	UpdateStatusHookInterval:        DefaultUpdateStatusHookInterval,
+	EgressSubnets:                   "",
+	FanConfig:                       "",
+	CloudInitUserDataKey:            "",
+	ContainerInheritPropertiesKey:   "",
+	BackupDirKey:                    "",
+	LXDSnapChannel:                  "latest/stable",
 
 	CharmHubURLKey: charmhub.CharmHubServerURL,
 
@@ -789,6 +800,10 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if err := cfg.validateMode(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateLoggingOutput(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1311,6 +1326,13 @@ func (c *Config) NumProvisionWorkers() int {
 	return value
 }
 
+// NumContainerProvisionWorkers returns the number of container provisioner
+// workers to use.
+func (c *Config) NumContainerProvisionWorkers() int {
+	value, _ := c.defined[NumContainerProvisionWorkersKey].(int)
+	return value
+}
+
 // ImageStream returns the simplestreams stream
 // used to identify which image ids to search
 // when starting an instance.
@@ -1382,17 +1404,17 @@ func (c *Config) Mode() ([]string, bool) {
 	if !ok {
 		return []string{}, false
 	}
-	if m, ok := modes.([]interface{}); ok {
+	if m, ok := modes.(string); ok {
 		s := set.NewStrings()
-		for _, v := range m {
-			// Let's be safe here, even though we have validated the type in
-			// a prior step, via the schema.List(schema.String()) type, I would
-			// rather see defensive code than a panic at runtime.
-			if str, ok := v.(string); ok {
-				s.Add(str)
+		for _, v := range strings.Split(strings.TrimSpace(m), ",") {
+			if v == "" {
+				continue
 			}
+			s.Add(strings.TrimSpace(v))
 		}
-		return s.SortedValues(), ok
+		if s.Size() > 0 {
+			return s.SortedValues(), true
+		}
 	}
 
 	return []string{}, false
@@ -1405,6 +1427,40 @@ func (c *Config) validateMode() error {
 		case "strict":
 		default:
 			return errors.NotValidf("mode %q", mode)
+		}
+	}
+	return nil
+}
+
+// LoggingOutput is a for determining the destination of output for
+// logging.
+func (c *Config) LoggingOutput() ([]string, bool) {
+	outputs, ok := c.defined[LoggingOutputKey]
+	if !ok {
+		return []string{}, false
+	}
+	if m, ok := outputs.(string); ok {
+		s := set.NewStrings()
+		for _, v := range strings.Split(strings.TrimSpace(m), ",") {
+			if v == "" {
+				continue
+			}
+			s.Add(strings.TrimSpace(v))
+		}
+		if s.Size() > 0 {
+			return s.SortedValues(), true
+		}
+	}
+	return []string{}, false
+}
+
+func (c *Config) validateLoggingOutput() error {
+	outputs, _ := c.LoggingOutput()
+	for _, output := range outputs {
+		switch strings.TrimSpace(output) {
+		case corelogger.DatabaseName, corelogger.SyslogName:
+		default:
+			return errors.NotValidf("logging-output %q", output)
 		}
 	}
 	return nil
@@ -1628,71 +1684,73 @@ var alwaysOptional = schema.Defaults{
 	LogFwdSyslogCACert:     schema.Omit,
 	LogFwdSyslogClientCert: schema.Omit,
 	LogFwdSyslogClientKey:  schema.Omit,
+	LoggingOutputKey:       schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
 	StorageDefaultBlockSourceKey:      schema.Omit,
 	StorageDefaultFilesystemSourceKey: schema.Omit,
 
-	"firewall-mode":               schema.Omit,
-	"logging-config":              schema.Omit,
-	ProvisionerHarvestModeKey:     schema.Omit,
-	NumProvisionWorkersKey:        schema.Omit,
-	HTTPProxyKey:                  schema.Omit,
-	HTTPSProxyKey:                 schema.Omit,
-	FTPProxyKey:                   schema.Omit,
-	NoProxyKey:                    schema.Omit,
-	JujuHTTPProxyKey:              schema.Omit,
-	JujuHTTPSProxyKey:             schema.Omit,
-	JujuFTPProxyKey:               schema.Omit,
-	JujuNoProxyKey:                schema.Omit,
-	AptHTTPProxyKey:               schema.Omit,
-	AptHTTPSProxyKey:              schema.Omit,
-	AptFTPProxyKey:                schema.Omit,
-	AptNoProxyKey:                 schema.Omit,
-	SnapHTTPProxyKey:              schema.Omit,
-	SnapHTTPSProxyKey:             schema.Omit,
-	SnapStoreProxyKey:             schema.Omit,
-	SnapStoreAssertionsKey:        schema.Omit,
-	SnapStoreProxyURLKey:          schema.Omit,
-	AptMirrorKey:                  schema.Omit,
-	AgentStreamKey:                schema.Omit,
-	GUIStreamKey:                  schema.Omit,
-	ResourceTagsKey:               schema.Omit,
-	"cloudimg-base-url":           schema.Omit,
-	"enable-os-refresh-update":    schema.Omit,
-	"enable-os-upgrade":           schema.Omit,
-	"image-stream":                schema.Omit,
-	"image-metadata-url":          schema.Omit,
-	AgentMetadataURLKey:           schema.Omit,
-	ContainerImageStreamKey:       schema.Omit,
-	ContainerImageMetadataURLKey:  schema.Omit,
-	"default-series":              schema.Omit,
-	"development":                 schema.Omit,
-	"ssl-hostname-verification":   schema.Omit,
-	"proxy-ssh":                   schema.Omit,
-	"disable-network-management":  schema.Omit,
-	IgnoreMachineAddresses:        schema.Omit,
-	AutomaticallyRetryHooks:       schema.Omit,
-	TestModeKey:                   schema.Omit,
-	DisableTelemetryKey:           schema.Omit,
-	ModeKey:                       schema.Omit,
-	TransmitVendorMetricsKey:      schema.Omit,
-	NetBondReconfigureDelayKey:    schema.Omit,
-	ContainerNetworkingMethod:     schema.Omit,
-	MaxStatusHistoryAge:           schema.Omit,
-	MaxStatusHistorySize:          schema.Omit,
-	MaxActionResultsAge:           schema.Omit,
-	MaxActionResultsSize:          schema.Omit,
-	UpdateStatusHookInterval:      schema.Omit,
-	EgressSubnets:                 schema.Omit,
-	FanConfig:                     schema.Omit,
-	CloudInitUserDataKey:          schema.Omit,
-	ContainerInheritPropertiesKey: schema.Omit,
-	BackupDirKey:                  schema.Omit,
-	DefaultSpace:                  schema.Omit,
-	LXDSnapChannel:                schema.Omit,
-	CharmHubURLKey:                schema.Omit,
+	"firewall-mode":                 schema.Omit,
+	"logging-config":                schema.Omit,
+	ProvisionerHarvestModeKey:       schema.Omit,
+	NumProvisionWorkersKey:          schema.Omit,
+	NumContainerProvisionWorkersKey: schema.Omit,
+	HTTPProxyKey:                    schema.Omit,
+	HTTPSProxyKey:                   schema.Omit,
+	FTPProxyKey:                     schema.Omit,
+	NoProxyKey:                      schema.Omit,
+	JujuHTTPProxyKey:                schema.Omit,
+	JujuHTTPSProxyKey:               schema.Omit,
+	JujuFTPProxyKey:                 schema.Omit,
+	JujuNoProxyKey:                  schema.Omit,
+	AptHTTPProxyKey:                 schema.Omit,
+	AptHTTPSProxyKey:                schema.Omit,
+	AptFTPProxyKey:                  schema.Omit,
+	AptNoProxyKey:                   schema.Omit,
+	SnapHTTPProxyKey:                schema.Omit,
+	SnapHTTPSProxyKey:               schema.Omit,
+	SnapStoreProxyKey:               schema.Omit,
+	SnapStoreAssertionsKey:          schema.Omit,
+	SnapStoreProxyURLKey:            schema.Omit,
+	AptMirrorKey:                    schema.Omit,
+	AgentStreamKey:                  schema.Omit,
+	GUIStreamKey:                    schema.Omit,
+	ResourceTagsKey:                 schema.Omit,
+	"cloudimg-base-url":             schema.Omit,
+	"enable-os-refresh-update":      schema.Omit,
+	"enable-os-upgrade":             schema.Omit,
+	"image-stream":                  schema.Omit,
+	"image-metadata-url":            schema.Omit,
+	AgentMetadataURLKey:             schema.Omit,
+	ContainerImageStreamKey:         schema.Omit,
+	ContainerImageMetadataURLKey:    schema.Omit,
+	"default-series":                schema.Omit,
+	"development":                   schema.Omit,
+	"ssl-hostname-verification":     schema.Omit,
+	"proxy-ssh":                     schema.Omit,
+	"disable-network-management":    schema.Omit,
+	IgnoreMachineAddresses:          schema.Omit,
+	AutomaticallyRetryHooks:         schema.Omit,
+	TestModeKey:                     schema.Omit,
+	DisableTelemetryKey:             schema.Omit,
+	ModeKey:                         schema.Omit,
+	TransmitVendorMetricsKey:        schema.Omit,
+	NetBondReconfigureDelayKey:      schema.Omit,
+	ContainerNetworkingMethod:       schema.Omit,
+	MaxStatusHistoryAge:             schema.Omit,
+	MaxStatusHistorySize:            schema.Omit,
+	MaxActionResultsAge:             schema.Omit,
+	MaxActionResultsSize:            schema.Omit,
+	UpdateStatusHookInterval:        schema.Omit,
+	EgressSubnets:                   schema.Omit,
+	FanConfig:                       schema.Omit,
+	CloudInitUserDataKey:            schema.Omit,
+	ContainerInheritPropertiesKey:   schema.Omit,
+	BackupDirKey:                    schema.Omit,
+	DefaultSpace:                    schema.Omit,
+	LXDSnapChannel:                  schema.Omit,
+	CharmHubURLKey:                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2065,6 +2123,11 @@ global or per instance security groups.`,
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
+	NumContainerProvisionWorkersKey: {
+		Description: "The number of container provisioning workers to use per machine",
+		Type:        environschema.Tint,
+		Group:       environschema.EnvironGroup,
+	},
 	"proxy-ssh": {
 		// default: true
 		Description: `Whether SSH commands should be proxied through the API server`,
@@ -2133,7 +2196,7 @@ data of the store. (default false)`,
 If the mode is set to "strict" then errors will be used instead of
 using fallbacks. By default mode is set to be lenient and use fallbacks
 where possible. (default "")`,
-		Type:  environschema.Tlist,
+		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},
 	TypeKey: {
@@ -2231,6 +2294,11 @@ where possible. (default "")`,
 	},
 	CharmHubURLKey: {
 		Description: `The url for CharmHub API calls`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LoggingOutputKey: {
+		Description: `The logging output destination: database and/or syslog. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

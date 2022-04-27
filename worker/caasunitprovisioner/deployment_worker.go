@@ -225,7 +225,7 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 		ResourceTags:         info.Tags,
 		Filesystems:          info.Filesystems,
 		Devices:              info.Devices,
-		OperatorImagePath:    info.OperatorImagePath,
+		ImageDetails:         info.ImageDetails,
 		CharmModifiedVersion: info.CharmModifiedVersion,
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),

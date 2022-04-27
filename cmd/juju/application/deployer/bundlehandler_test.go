@@ -12,6 +12,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type BundleDeployRepositorySuite struct {
@@ -1163,6 +1163,64 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
 }
 
+func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	grafanaCurl, err := charm.ParseURL("ch:grafana")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{{
+		curl:            grafanaCurl,
+		charmMetaSeries: []string{"bionic", "xenial"},
+		machine:         "0",
+		machineSeries:   "bionic",
+	}}
+	s.setupCharmUnits(chUnits)
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(grafanaBundleEndpointBindings))
+	c.Assert(err, jc.ErrorIsNil)
+	bundleDeploymentSpec := s.bundleDeploySpec()
+	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha", "beta")
+
+	_, err = bundleDeploy(charm.CharmHub, bundleData, bundleDeploymentSpec)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBindings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	s.expectResolveCharm(nil, 3)
+	s.expectAddCharm(false)
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(grafanaBundleEndpointBindings))
+	c.Assert(err, jc.ErrorIsNil)
+	bundleDeploymentSpec := s.bundleDeploySpec()
+	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha")
+
+	_, err = bundleDeploy(charm.CharmHub, bundleData, bundleDeploymentSpec)
+	c.Assert(err, gc.ErrorMatches, `space "beta" not found`)
+}
+
+const grafanaBundleEndpointBindings = `
+series: bionic
+applications:
+  grafana:
+    charm: grafana
+    num_units: 1
+    series: bionic
+    to:
+    - "0"
+    bindings:
+      "": alpha
+      "db": beta
+machines:
+  "0":
+    series: bionic
+`
+
 func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
 		_ client.CharmID,
@@ -1359,18 +1417,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
-	minimal := map[string]interface{}{
-		"name":            "test",
-		"type":            "manual",
-		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ControllerTag.Id(),
-		"firewall-mode":   "instance",
-		// While the ca-cert bits aren't entirely minimal, they avoid the need
-		// to set up a fake home.
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	}
-	cfg, err := config.New(true, minimal)
+	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }
@@ -1761,18 +1808,7 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *gc.C) {
-	minimal := map[string]interface{}{
-		"name":            "test",
-		"type":            "manual",
-		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ControllerTag.Id(),
-		"firewall-mode":   "instance",
-		// While the ca-cert bits aren't entirely minimal, they avoid the need
-		// to set up a fake home.
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	}
-	cfg, err := config.New(true, minimal)
+	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }

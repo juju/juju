@@ -12,3 +12,12 @@ import (
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }
+
+var (
+	NewK8sClientSet               = newK8sClientSet
+	EnsureJujuAdminServiceAccount = ensureJujuAdminServiceAccount
+	GetOrCreateClusterRole        = getOrCreateClusterRole
+	GetOrCreateServiceAccount     = getOrCreateServiceAccount
+	GetOrCreateClusterRoleBinding = getOrCreateClusterRoleBinding
+	RemoveJujuAdminServiceAccount = removeJujuAdminServiceAccount
+)

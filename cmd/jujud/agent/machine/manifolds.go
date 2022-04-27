@@ -91,6 +91,7 @@ import (
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
@@ -709,6 +710,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
 			StateName:              stateName,
+			SyslogName:             syslogName,
 			ModelCacheName:         modelCacheName,
 			MultiwatcherName:       multiwatcherName,
 			MuxName:                httpServerArgsName,
@@ -734,6 +736,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:      agentName,
 			AuthorityName:  certificateWatcherName,
 			StateName:      stateName,
+			SyslogName:     syslogName,
 			Clock:          config.Clock,
 			MuxName:        httpServerArgsName,
 			NewWorker:      modelworkermanager.New,
@@ -1014,6 +1017,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewContainerWorker,
 		})),
+
+		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
+			NewWorker: syslogger.NewWorker,
+			NewLogger: syslogger.NewSyslog,
+		}),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1030,6 +1038,11 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
+			NewWorker: syslogger.NewWorker,
+			NewLogger: syslogger.NewDiscard,
 		}),
 	})
 }
@@ -1170,6 +1183,8 @@ const (
 	httpServerName     = "http-server"
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
+
+	syslogName = "syslog"
 
 	raftTransportName = "raft-transport"
 	raftName          = "raft"

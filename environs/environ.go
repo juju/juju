@@ -34,18 +34,22 @@ func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, err
 func GetEnvironAndCloud(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, *environscloudspec.CloudSpec, error) {
 	modelConfig, err := st.ModelConfig()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "retrieving model config")
 	}
+
 	cloudSpec, err := st.CloudSpec()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotatef(
+			err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}
+
 	env, err := newEnviron(context.TODO(), OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
 	})
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotatef(
+			err, "creating environ for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}
 	return env, &cloudSpec, nil
 }

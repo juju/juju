@@ -728,7 +728,7 @@ func (a *appWorker) alive(app caas.Application) error {
 	}
 
 	ch := charmInfo.Charm()
-	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageRepo.Repository, charm.Base{
+	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageDetails.Repository, charm.Base{
 		Name: strings.ToLower(os.String()),
 		Channel: charm.Channel{
 			Track: ver,
@@ -763,10 +763,10 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
-		IsPrivateImageRepo:   provisionInfo.ImageRepo.IsPrivate(),
+		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
 		IntroductionSecret:   a.password,
 		AgentVersion:         provisionInfo.Version,
-		AgentImagePath:       provisionInfo.ImagePath,
+		AgentImagePath:       provisionInfo.ImageDetails.RegistryPath,
 		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
 		ControllerCertBundle: provisionInfo.CACert,
 		ResourceTags:         provisionInfo.Tags,

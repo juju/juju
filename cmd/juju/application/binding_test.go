@@ -31,38 +31,38 @@ func (s *ParseBindSuite) TestParseSuccessWithEmptyArgs(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestParseSuccessWithEndpointsOnly(c *gc.C) {
-	knownSpaces := []string{"a", "b"}
-	s.checkParseOKForExpr(c, "foo=a bar=b", knownSpaces, map[string]string{"foo": "a", "bar": "b"})
+	knownSpaceNames := set.NewStrings("a", "b")
+	s.checkParseOKForExpr(c, "foo=a bar=b", knownSpaceNames, map[string]string{"foo": "a", "bar": "b"})
 }
 
 func (s *ParseBindSuite) TestParseSuccessWithApplicationDefaultSpaceOnly(c *gc.C) {
-	knownSpaces := []string{"application-default"}
-	s.checkParseOKForExpr(c, "application-default", knownSpaces, map[string]string{"": "application-default"})
+	knownSpaceNames := set.NewStrings("application-default")
+	s.checkParseOKForExpr(c, "application-default", knownSpaceNames, map[string]string{"": "application-default"})
 }
 
 func (s *ParseBindSuite) TestBindingsOrderForDefaultSpaceAndEndpointsDoesNotMatter(c *gc.C) {
-	knownSpaces := []string{"sp3", "sp1", "sp2"}
+	knownSpaceNames := set.NewStrings("sp3", "sp1", "sp2")
 	expectedBindings := map[string]string{
 		"ep1": "sp1",
 		"ep2": "sp2",
 		"":    "sp3",
 	}
-	s.checkParseOKForExpr(c, "ep1=sp1 ep2=sp2 sp3", knownSpaces, expectedBindings)
-	s.checkParseOKForExpr(c, "ep1=sp1 sp3 ep2=sp2", knownSpaces, expectedBindings)
-	s.checkParseOKForExpr(c, "ep2=sp2 ep1=sp1 sp3", knownSpaces, expectedBindings)
-	s.checkParseOKForExpr(c, "ep2=sp2 sp3 ep1=sp1", knownSpaces, expectedBindings)
-	s.checkParseOKForExpr(c, "sp3 ep1=sp1 ep2=sp2", knownSpaces, expectedBindings)
-	s.checkParseOKForExpr(c, "sp3 ep2=sp2 ep1=sp1", knownSpaces, expectedBindings)
+	s.checkParseOKForExpr(c, "ep1=sp1 ep2=sp2 sp3", knownSpaceNames, expectedBindings)
+	s.checkParseOKForExpr(c, "ep1=sp1 sp3 ep2=sp2", knownSpaceNames, expectedBindings)
+	s.checkParseOKForExpr(c, "ep2=sp2 ep1=sp1 sp3", knownSpaceNames, expectedBindings)
+	s.checkParseOKForExpr(c, "ep2=sp2 sp3 ep1=sp1", knownSpaceNames, expectedBindings)
+	s.checkParseOKForExpr(c, "sp3 ep1=sp1 ep2=sp2", knownSpaceNames, expectedBindings)
+	s.checkParseOKForExpr(c, "sp3 ep2=sp2 ep1=sp1", knownSpaceNames, expectedBindings)
 }
 
 func (s *ParseBindSuite) TestParseWithEmptyQuotedDefaultSpace(c *gc.C) {
-	knownSpaces := []string{"", "sp1"}
+	knownSpaceNames := set.NewStrings("", "sp1")
 	expectedBindings := map[string]string{
 		"ep1": "sp1",
 		"ep2": "",
 		"":    "",
 	}
-	s.checkParseOKForExpr(c, `"" ep2="" ep1=sp1`, knownSpaces, expectedBindings)
+	s.checkParseOKForExpr(c, `"" ep2="" ep1=sp1`, knownSpaceNames, expectedBindings)
 }
 
 func (s *ParseBindSuite) TestParseFailsWithSpaceNameButNoEndpoint(c *gc.C) {
@@ -100,14 +100,14 @@ func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *gc.C
 	c.Assert(mergedBindings, gc.DeepEquals, expMergedBindings)
 }
 
-func (s *ParseBindSuite) checkParseOKForExpr(c *gc.C, expr string, knownSpaces []string, expectedBindings map[string]string) {
-	parsedBindings, err := parseBindExpr(expr, knownSpaces)
+func (s *ParseBindSuite) checkParseOKForExpr(c *gc.C, expr string, knownSpaceNames set.Strings, expectedBindings map[string]string) {
+	parsedBindings, err := parseBindExpr(expr, knownSpaceNames)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(parsedBindings, jc.DeepEquals, expectedBindings)
 }
 
-func (s *ParseBindSuite) checkParseFailsForExpr(c *gc.C, expr string, knownSpaces []string, expectedErrorSuffix string) {
-	parsedBindings, err := parseBindExpr(expr, knownSpaces)
+func (s *ParseBindSuite) checkParseFailsForExpr(c *gc.C, expr string, knownSpaceNames set.Strings, expectedErrorSuffix string) {
+	parsedBindings, err := parseBindExpr(expr, knownSpaceNames)
 	c.Check(err.Error(), gc.Equals, expectedErrorSuffix)
 	c.Check(parsedBindings, gc.IsNil)
 }

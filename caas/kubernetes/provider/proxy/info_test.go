@@ -5,7 +5,9 @@ package proxy_test
 
 import (
 	"context"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -18,11 +20,14 @@ import (
 
 type infoSuite struct {
 	client *fake.Clientset
+	clock  *testclock.Clock
 }
 
 var _ = gc.Suite(&infoSuite{})
 
 func (i *infoSuite) SetUpTest(c *gc.C) {
+	i.clock = testclock.NewClock(time.Time{})
+
 	i.client = fake.NewSimpleClientset()
 	_, err := i.client.CoreV1().Namespaces().Create(context.TODO(),
 		&core.Namespace{
@@ -51,13 +56,30 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 		TargetService: "controller-service",
 	}
 
-	err := proxy.CreateControllerProxy(
+	// fake k8sclient does not populate the token for secret, so we have to do it manually.
+	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+		ObjectMeta: meta.ObjectMeta{
+			Labels: labels.Set{},
+			Name:   config.Name,
+			Annotations: map[string]string{
+				core.ServiceAccountNameKey: config.Name,
+			},
+		},
+		Type: core.SecretTypeServiceAccountToken,
+		Data: map[string][]byte{
+			core.ServiceAccountTokenKey: []byte("token"),
+		},
+	}, meta.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = proxy.CreateControllerProxy(
 		config,
 		labels.Set{},
+		i.clock,
 		i.client.CoreV1().ConfigMaps(testNamespace),
 		i.client.RbacV1().Roles(testNamespace),
 		i.client.RbacV1().RoleBindings(testNamespace),
 		i.client.CoreV1().ServiceAccounts(testNamespace),
+		i.client.CoreV1().Secrets(testNamespace),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -76,48 +98,30 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		TargetService: "controller-service",
 	}
 
-	err := proxy.CreateControllerProxy(
+	// fake k8sclient does not populate the token for secret, so we have to do it manually.
+	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+		ObjectMeta: meta.ObjectMeta{
+			Labels: labels.Set{},
+			Name:   config.Name,
+			Annotations: map[string]string{
+				core.ServiceAccountNameKey: config.Name,
+			},
+		},
+		Type: core.SecretTypeServiceAccountToken,
+		Data: map[string][]byte{
+			core.ServiceAccountTokenKey: []byte("token"),
+		},
+	}, meta.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = proxy.CreateControllerProxy(
 		config,
 		labels.Set{},
+		i.clock,
 		i.client.CoreV1().ConfigMaps(testNamespace),
 		i.client.RbacV1().Roles(testNamespace),
 		i.client.RbacV1().RoleBindings(testNamespace),
 		i.client.CoreV1().ServiceAccounts(testNamespace),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = i.client.CoreV1().Secrets(testNamespace).Create(
-		context.TODO(),
-		&core.Secret{
-			ObjectMeta: meta.ObjectMeta{
-				Name: "test-1234",
-			},
-			Data: map[string][]byte{
-				"token":     []byte("iouwefbnuwefpo193923"),
-				"namespace": []byte(testNamespace),
-			},
-			Type: core.SecretType("kubernetes.io/service-account-token"),
-		},
-		meta.CreateOptions{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sa, err := i.client.CoreV1().ServiceAccounts(testNamespace).Get(
-		context.TODO(),
-		config.Name,
-		meta.GetOptions{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sa.Secrets = append(sa.Secrets, core.ObjectReference{
-		Name:      "test-1234",
-		Namespace: testNamespace,
-	})
-
-	_, err = i.client.CoreV1().ServiceAccounts(testNamespace).Update(
-		context.TODO(),
-		sa,
-		meta.UpdateOptions{},
+		i.client.CoreV1().Secrets(testNamespace),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

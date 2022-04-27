@@ -339,11 +339,11 @@ func (mock *mockController) Model(uuid string) (modelworkermanager.Model, func()
 }
 
 type fakeLogger struct {
-	modelworkermanager.DBLogger
+	modelworkermanager.RecordLogger
 }
 
-func (mock *mockController) DBLogger(uuid string) (modelworkermanager.DBLogger, error) {
-	mock.MethodCall(mock, "DBLogger", uuid)
+func (mock *mockController) RecordLogger(uuid string) (modelworkermanager.RecordLogger, error) {
+	mock.MethodCall(mock, "RecordLogger", uuid)
 	return &fakeLogger{}, nil
 }
 

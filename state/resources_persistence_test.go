@@ -496,10 +496,14 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	csresourceDoc.StoragePath = ""
 	csresourceDoc.LastPolled = lastPolled
 
-	res := ops[2].Update.(bson.M)["$set"].(bson.M)
+	opsTwo, ok := ops[2].Update.(bson.M)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("ops[2] is not a bson.M"))
+	res, ok := opsTwo["$set"].(bson.M)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("ops[2] $set value is not a bson.M"))
+
 	res["timestamp-when-last-polled"] = res["timestamp-when-last-polled"].(time.Time).Round(time.Second)
 
-	s.stub.CheckCallNames(c, "One", "One")
+	s.stub.CheckCallNames(c, "One", "One", "One")
 	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-application/spam#pending-some-unique-ID-001", &doc)
 	c.Check(ops, jc.DeepEquals, []txn.Op{{
 		C:      "resources",
@@ -556,6 +560,86 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	})
 }
 
+func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsCharmstoreExists(c *gc.C) {
+	// Mimic the situation where a deployed charm has no resources.
+	// However, a newer revision does and a #charmstore doc is inserted
+	// by the charmrevisionupdater.
+	// Looking for delete, insert, update ops
+	pendingID := "some-unique-ID-001"
+	stored, expected := newPersistenceResource(c, "a-application", "spam")
+	stored.PendingID = pendingID
+	doc := expected // a copy
+	doc.DocID = pendingResourceID(stored.ID, pendingID)
+	doc.PendingID = pendingID
+
+	notFound := errors.NewNotFound(nil, "")
+	s.stub.SetErrors(nil, notFound, nil)
+	p := NewResourcePersistence(s.base)
+
+	// TODO(macgreagoir) We need to keep using time.Now() for now, while we
+	// have NewResolvePendingResourceOps returning LastPolled based on
+	// timeNow(). lp:1558657
+	// Note: truncate the time to remove monotonic time for Go 1.9+.
+	lastPolled := time.Now().UTC().Round(time.Second).Truncate(1)
+
+	csresourceDoc := expected
+	csresourceDoc.DocID = "resource#a-application/spam#charmstore"
+	csresourceDoc.Username = ""
+	csresourceDoc.Timestamp = coretesting.ZeroTime()
+	csresourceDoc.StoragePath = ""
+	csresourceDoc.LastPolled = lastPolled
+
+	s.base.ReturnOne = doc
+
+	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	opsTwo, ok := ops[2].Update.(bson.M)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("ops[2] is not a bson.M"))
+	res, ok := opsTwo["$set"].(bson.M)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("ops[2] $set value is not a bson.M"))
+
+	res["timestamp-when-last-polled"] = res["timestamp-when-last-polled"].(time.Time).Round(time.Second)
+
+	s.stub.CheckCallNames(c, "One", "One", "One")
+	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-application/spam#pending-some-unique-ID-001", &doc)
+	c.Check(ops, jc.DeepEquals, []txn.Op{{
+		C:      "resources",
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      "resources",
+		Id:     expected.DocID,
+		Assert: txn.DocMissing,
+		Insert: &expected,
+	}, {
+		C:      "resources",
+		Id:     csresourceDoc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": bson.M{
+			"resource-id":                csresourceDoc.ID,
+			"pending-id":                 csresourceDoc.PendingID,
+			"application-id":             csresourceDoc.ApplicationID,
+			"unit-id":                    csresourceDoc.UnitID,
+			"name":                       csresourceDoc.Name,
+			"type":                       csresourceDoc.Type,
+			"path":                       csresourceDoc.Path,
+			"description":                csresourceDoc.Description,
+			"origin":                     csresourceDoc.Origin,
+			"revision":                   csresourceDoc.Revision,
+			"fingerprint":                csresourceDoc.Fingerprint,
+			"size":                       csresourceDoc.Size,
+			"username":                   csresourceDoc.Username,
+			"timestamp-when-added":       csresourceDoc.Timestamp,
+			"storage-path":               csresourceDoc.StoragePath,
+			"download-progress":          csresourceDoc.DownloadProgress,
+			"timestamp-when-last-polled": csresourceDoc.LastPolled,
+		}},
+	},
+	})
+}
+
 func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
 	pendingID := "some-unique-ID-001"
 	stored, expected := newPersistenceResource(c, "a-application", "spam")
@@ -565,7 +649,7 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	doc.PendingID = pendingID
 	s.base.ReturnOne = doc
 	notFound := errors.NewNotFound(nil, "")
-	s.stub.SetErrors(nil, notFound)
+	s.stub.SetErrors(nil, notFound, notFound)
 	p := NewResourcePersistence(s.base)
 
 	// TODO(macgreagoir) We need to keep using time.Now() for now, while we
@@ -575,7 +659,7 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "One", "One")
+	s.stub.CheckCallNames(c, "One", "One", "One")
 	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-application/spam#pending-some-unique-ID-001", &doc)
 
 	csresourceDoc := expected
@@ -585,7 +669,9 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	csresourceDoc.StoragePath = ""
 	csresourceDoc.LastPolled = lastPolled
 
-	res := ops[2].Insert.(*resourceDoc)
+	c.Assert(ops, gc.HasLen, 3)
+	res, ok := ops[2].Insert.(*resourceDoc)
+	c.Assert(ok, jc.IsTrue)
 	res.LastPolled = res.LastPolled.Round(time.Second)
 
 	c.Check(ops, jc.DeepEquals, []txn.Op{

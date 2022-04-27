@@ -224,6 +224,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		bindings:         d.bindings,
 		configOptions:    &d.configOptions,
 		constraints:      d.constraints,
+		dryRun:           d.dryRun,
 		modelConstraints: d.modelConstraints,
 		devices:          d.devices,
 		deployResources:  d.deployResources,

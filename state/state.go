@@ -388,8 +388,8 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 }
 
 // start makes a *State functional post-creation, by:
-//   * setting controllerTag, cloudName and leaseStoreId
-//   * starting lease managers and watcher backends
+//   * setting controllerTag and cloudName
+//   * starting watcher backends
 //   * creating cloud metadata storage
 //
 // start will close the *State if it fails.
@@ -404,24 +404,6 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 	}()
 
 	st.controllerTag = controllerTag
-
-	// Run the "connectionStatus" Mongo command to obtain the authenticated
-	// user name, if any. This is used below for the lease store ID.
-	// See: https://docs.mongodb.com/manual/reference/command/connectionStatus/
-	//
-	// TODO(axw) when we move the workers to a higher level state.Manager
-	// type, we should pass in a tag that identifies the agent running the
-	// worker. That can then be used to identify the lease manager.
-	var connectionStatus struct {
-		AuthInfo struct {
-			AuthenticatedUsers []struct {
-				User string `bson:"user"`
-			} `bson:"authenticatedUsers"`
-		} `bson:"authInfo"`
-	}
-	if err := st.session.DB(jujuDB).Run(bson.D{{"connectionStatus", 1}}, &connectionStatus); err != nil {
-		return errors.Annotate(err, "obtaining connection status")
-	}
 
 	logger.Infof("starting standard state workers")
 	workers, err := newWorkers(st, hub)
