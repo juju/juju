@@ -98,7 +98,7 @@ build_push_operator_image() {
 
         platform_dir="${BUILD_DIR}/$(echo "$platform" | sed 's/\//_/g')"
         new_platform_dir="${BUILD_DIR}/$(echo "$new_platform" | sed 's/\//_/g')"
-        if ![[ -d "$platform_dir" ]]; then
+        if ! [[ -d "$platform_dir" ]]; then
           echo "platform build directory \"${platform_dir}\" does not exist"
           exit 1
         fi
