@@ -318,10 +318,11 @@ simplify:
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
+# GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
-	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
+	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
 else
-	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
+	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
 		./apiserver/facades/schema.json
 endif
 
