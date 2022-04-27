@@ -18,6 +18,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -279,6 +280,9 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		})
 	}
 
+	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+		Logger: loggo.GetLogger("juju.localhub"),
+	})
 	agentConfig := c.AgentConf.CurrentConfig()
 	cfg := manifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{Agent: c},
@@ -296,6 +300,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		Clock:                c.clk,
 		CharmModifiedVersion: c.CharmModifiedVersion(),
 		ContainerNames:       c.containerNames,
+		LocalHub:             localHub,
 	}
 	manifolds := Manifolds(cfg)
 
@@ -318,6 +323,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: c.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
+		LocalHub:           localHub,
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world
