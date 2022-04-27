@@ -170,7 +170,8 @@ func (p *provisioner) loop() error {
 					return errors.Trace(err)
 				}
 				if errors.IsNotFound(err) || appLife == life.Dead {
-					p.shutDownAppWorker(appName)
+					// Application worker will shut itself down in these cases.
+					p.logger.Debugf("application %q not found or dead, ignoring", appName)
 					continue
 				}
 
@@ -208,16 +209,4 @@ func (p *provisioner) loop() error {
 			}
 		}
 	}
-}
-
-func (p *provisioner) shutDownAppWorker(appName string) {
-	err := p.runner.StopAndRemoveWorker(appName, p.catacomb.Dying())
-	if errors.IsNotFound(err) {
-		return
-	}
-	if err != nil {
-		p.logger.Warningf("stopping app worker %q: %v", appName, err)
-		return
-	}
-	p.logger.Debugf("removed app worker %q", appName)
 }
