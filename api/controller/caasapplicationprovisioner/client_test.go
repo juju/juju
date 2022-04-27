@@ -71,7 +71,7 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-func (s *provisionerSuite) TestLife(c *gc.C) {
+func (s *provisionerSuite) TestLifeApplication(c *gc.C) {
 	tag := names.NewApplicationTag("app")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
@@ -81,6 +81,33 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: tag.String(),
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{
+				Life: life.Alive,
+			}},
+		}
+		return nil
+	})
+
+	client := caasapplicationprovisioner.NewClient(apiCaller)
+	lifeValue, err := client.Life(tag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lifeValue, gc.Equals, life.Alive)
+}
+
+func (s *provisionerSuite) TestLifeUnit(c *gc.C) {
+	tag := names.NewUnitTag("foo/0")
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "unit-foo-0",
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
@@ -120,7 +147,7 @@ func (s *provisionerSuite) TestLifeInvalidApplicationName(c *gc.C) {
 		return errors.New("should not be called")
 	}))
 	_, err := client.Life("")
-	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
 }
 
 func (s *provisionerSuite) TestLifeCount(c *gc.C) {
@@ -399,4 +426,70 @@ func (s *provisionerSuite) TestWatchApplication(c *gc.C) {
 	watcher, err := client.WatchApplication("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *provisionerSuite) TestClearApplicationResources(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "ClearApplicationsResources")
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "application-foo"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	err := client.ClearApplicationResources("foo")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestWatchUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "WatchUnits")
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "application-foo"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	worker, err := client.WatchUnits("foo")
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(worker, gc.IsNil)
+	c.Check(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestRemoveUnit(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "Remove")
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-foo-0"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	err := client.RemoveUnit("foo/0")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
 }

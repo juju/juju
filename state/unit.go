@@ -1061,12 +1061,12 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 				failRelations = true
 				continue
 			}
-			leaveScopOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
+			leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				op.AddError(err)
 				failRelations = true
 			}
-			ops = append(ops, leaveScopOps...)
+			ops = append(ops, leaveScopeOps...)
 		}
 		if !op.Force && failRelations {
 			return nil, op.LastError()

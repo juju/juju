@@ -86,6 +86,20 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) CharmInfo(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).CharmInfo), arg0)
 }
 
+// ClearApplicationResources mocks base method.
+func (m *MockCAASProvisionerFacade) ClearApplicationResources(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearApplicationResources", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearApplicationResources indicates an expected call of ClearApplicationResources.
+func (mr *MockCAASProvisionerFacadeMockRecorder) ClearApplicationResources(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearApplicationResources", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ClearApplicationResources), arg0)
+}
+
 // GarbageCollect mocks base method.
 func (m *MockCAASProvisionerFacade) GarbageCollect(arg0 string, arg1 []names.Tag, arg2 int, arg3 []string, arg4 bool) error {
 	m.ctrl.T.Helper()
@@ -128,6 +142,20 @@ func (m *MockCAASProvisionerFacade) ProvisioningInfo(arg0 string) (caasapplicati
 func (mr *MockCAASProvisionerFacadeMockRecorder) ProvisioningInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ProvisioningInfo), arg0)
+}
+
+// RemoveUnit mocks base method.
+func (m *MockCAASProvisionerFacade) RemoveUnit(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveUnit", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveUnit indicates an expected call of RemoveUnit.
+func (mr *MockCAASProvisionerFacadeMockRecorder) RemoveUnit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnit", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).RemoveUnit), arg0)
 }
 
 // SetOperatorStatus mocks base method.
@@ -216,4 +244,19 @@ func (m *MockCAASProvisionerFacade) WatchApplications() (watcher.StringsWatcher,
 func (mr *MockCAASProvisionerFacadeMockRecorder) WatchApplications() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplications", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).WatchApplications))
+}
+
+// WatchUnits mocks base method.
+func (m *MockCAASProvisionerFacade) WatchUnits(arg0 string) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUnits", arg0)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUnits indicates an expected call of WatchUnits.
+func (mr *MockCAASProvisionerFacadeMockRecorder) WatchUnits(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).WatchUnits), arg0)
 }

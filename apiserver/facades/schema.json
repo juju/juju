@@ -6725,6 +6725,18 @@
                     },
                     "description": "CharmInfo returns information about the requested charm."
                 },
+                "ClearApplicationsResources": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "ClearApplicationsResources clears the flags which indicate\napplications still have resources in the cluster."
+                },
                 "Life": {
                     "type": "object",
                     "properties": {
@@ -6748,6 +6760,18 @@
                         }
                     },
                     "description": "ProvisioningInfo returns the info needed to provision a caas application."
+                },
+                "Remove": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "Remove removes every given entity from state, calling EnsureDead\nfirst, then Remove. It will fail if the entity is not present."
                 },
                 "SetOperatorStatus": {
                     "type": "object",
@@ -6817,6 +6841,18 @@
                         }
                     },
                     "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
+                },
+                "WatchUnits": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchUnits starts a StringsWatcher to watch changes to the\nlifecycle states of units for the specified applications in\nthis model."
                 }
             },
             "definitions": {
@@ -8276,6 +8312,21 @@
                     "additionalProperties": false,
                     "required": [
                         "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "UnitStatus": {
