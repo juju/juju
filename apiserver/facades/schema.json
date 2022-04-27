@@ -67,7 +67,7 @@
                             "$ref": "#/definitions/EnqueuedActions"
                         }
                     },
-                    "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
+                    "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
                 },
                 "FindActionTagsByPrefix": {
                     "type": "object",

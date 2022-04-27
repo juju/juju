@@ -8,7 +8,7 @@ test_sidecar() {
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"k8s")
-        test_deploy_and_remove_application
+		test_deploy_and_remove_application
 		;;
 	*)
 		echo "==> TEST SKIPPED: sidecar charm tests, not a k8s provider"

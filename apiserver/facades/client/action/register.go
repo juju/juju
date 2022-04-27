@@ -68,7 +68,8 @@ func newActionAPIV5(ctx facade.Context) (*APIv5, error) {
 
 // newActionAPIV6 returns an initialized ActionAPI for version 6.
 func newActionAPIV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	st := ctx.State()
+	api, err := newActionAPI(&stateShim{st: st}, ctx.Resources(), ctx.Auth())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

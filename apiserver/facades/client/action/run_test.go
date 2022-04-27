@@ -143,7 +143,8 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		error:   `could not determine leader for "foo"`,
 	}} {
 		c.Logf("%v: %s", i, test.message)
-		result, err := action.GetAllUnitNames(s.State, test.units, test.applications)
+		shim := action.StateShimForTest(s.State)
+		result, err := action.GetAllUnitNames(shim, test.units, test.applications)
 		if test.error == "" {
 			c.Check(err, jc.ErrorIsNil)
 			var units []string

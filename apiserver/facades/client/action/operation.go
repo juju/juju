@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,13 +17,11 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.action")
-
 // EnqueueOperation isn't on the V5 API.
 func (*APIv5) EnqueueOperation(_, _ struct{}) {}
 
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
-// an operation, each action running as a task on the the designated ActionReceiver.
+// an operation, each action running as a task on the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
 func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
 	operationId, actionResults, err := a.enqueue(arg)
@@ -84,11 +81,9 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 		return "", params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
 	}
 
-	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
+	tagToActionReceiver := a.tagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
-	errorRecorded := false
 	for i, action := range arg.Actions {
-		currentResult := &response.Results[i]
 		actionReceiver := action.Receiver
 		var (
 			actionErr    error
@@ -100,34 +95,43 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 			app := strings.Split(actionReceiver, "/")[0]
 			receiverName, actionErr = getLeader(app)
 			if actionErr != nil {
-				currentResult.Error = apiservererrors.ServerError(actionErr)
-				goto failOperation
+				response.Results[i].Error = apiservererrors.ServerError(actionErr)
+				continue
 			}
 			actionReceiver = names.NewUnitTag(receiverName).String()
 		}
 		receiver, actionErr = tagToActionReceiver(actionReceiver)
 		if actionErr != nil {
-			currentResult.Error = apiservererrors.ServerError(actionErr)
-			goto failOperation
+			response.Results[i].Error = apiservererrors.ServerError(actionErr)
+			continue
 		}
+
 		enqueued, actionErr = a.model.AddAction(receiver, operationID, action.Name, action.Parameters)
 		if actionErr != nil {
-			currentResult.Error = apiservererrors.ServerError(actionErr)
-			goto failOperation
+			response.Results[i].Error = apiservererrors.ServerError(actionErr)
+			continue
 		}
 		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued, false)
 		continue
-
-	failOperation:
-		// If we failed to enqueue the action, record the error on the operation.
-		if !errorRecorded {
-			errorRecorded = true
-			err := a.model.FailOperation(operationID, actionErr)
-			logger.Errorf("unable to log the error on the operation: %v", err)
-		}
-		currentResult.Error = apiservererrors.ServerError(actionErr)
 	}
-	return operationID, response, nil
+
+	err = a.handleFailedActionEnqueuing(operationID, response, len(arg.Actions))
+	return operationID, response, errors.Trace(err)
+}
+
+func (a *ActionAPI) handleFailedActionEnqueuing(operationID string, response params.ActionResults, argCount int) error {
+	failMessages := set.NewStrings()
+	for _, res := range response.Results {
+		if res.Error != nil {
+			failMessages.Add(res.Error.Error())
+		}
+	}
+	if failMessages.IsEmpty() {
+		return nil
+	}
+	startedCount := argCount - failMessages.Size()
+	failMessage := fmt.Sprintf("error(s) enqueueing action(s): %s", strings.Join(failMessages.Values(), ", "))
+	return a.model.FailOperationEnqueuing(operationID, failMessage, startedCount)
 }
 
 // ListOperations fetches the called actions for specified apps/units.
