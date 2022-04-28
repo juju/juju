@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -348,14 +349,149 @@ type enqueueSuite struct {
 	modelTag         names.ModelTag
 	wordpressUnitTag names.UnitTag
 	mysqlUnitTag     names.UnitTag
+	executionGroup   string
 }
 
 var _ = gc.Suite(&enqueueSuite{})
 
 func (s *enqueueSuite) SetUpSuite(c *gc.C) {
 	s.modelTag = names.NewModelTag("model-tag")
+	// mysql will be parallel false
 	s.wordpressUnitTag = names.NewUnitTag("wordpress/0")
+	// mysql will be parallel true
 	s.mysqlUnitTag = names.NewUnitTag("mysql/0")
+	s.executionGroup = "testgroup"
+}
+
+func (s *enqueueSuite) TestEnqueueOperation(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.model.EXPECT().EnqueueOperation(gomock.Any(), 2).Return("1", nil)
+	s.expectWordpressActionResult()
+	s.expectMysqlActionResult()
+
+	api := s.getAPI(c)
+
+	expectedName := "fakeaction"
+	f := false
+	t := true
+	arg := params.Actions{
+		Actions: []params.Action{
+			{
+				Receiver:       s.wordpressUnitTag.String(),
+				Name:           expectedName,
+				Parameters:     map[string]interface{}{},
+				Parallel:       &f,
+				ExecutionGroup: &s.executionGroup,
+			}, {
+				Receiver:       s.mysqlUnitTag.String(),
+				Name:           expectedName,
+				Parameters:     map[string]interface{}{},
+				Parallel:       &t,
+				ExecutionGroup: &s.executionGroup,
+			},
+		}}
+
+	r, err := api.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
+	c.Assert(r.Actions[0].Status, gc.Equals, "running")
+	c.Assert(r.Actions[0].Action.Name, gc.Equals, expectedName)
+	c.Assert(r.Actions[0].Action.Tag, gc.Equals, "action-2")
+	c.Assert(r.Actions[1].Status, gc.Equals, "running")
+	c.Assert(r.Actions[1].Action.Name, gc.Equals, expectedName)
+	c.Assert(r.Actions[1].Action.Tag, gc.Equals, "action-3")
+}
+
+func (s *enqueueSuite) TestEnqueueOperationFail(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	expectedName := "fakeaction"
+	s.model.EXPECT().EnqueueOperation(gomock.Any(), 3).Return("1", nil)
+	s.expectWordpressActionResult()
+	s.model.EXPECT().AddAction(gomock.Any(), "1", expectedName, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.NotFoundf("database txn failure"))
+	leaders := map[string]string{
+		"test": "test/1",
+	}
+	s.state.EXPECT().ApplicationLeaders().Return(leaders, nil)
+	s.model.EXPECT().FailOperationEnqueuing("1", "error(s) enqueueing action(s): database txn failure not found, could not determine leader for \"mysql\"", 1)
+
+	api := s.getAPI(c)
+
+	f := false
+	arg := params.Actions{
+		Actions: []params.Action{
+			{
+				Receiver:       s.wordpressUnitTag.String(),
+				Name:           expectedName,
+				Parameters:     map[string]interface{}{},
+				Parallel:       &f,
+				ExecutionGroup: &s.executionGroup,
+			},
+			// AddAction failure.
+			{Receiver: s.mysqlUnitTag.String(), Name: expectedName, Parameters: map[string]interface{}{}},
+			// Leader failure
+			{Receiver: "mysql/leader", Name: expectedName, Parameters: map[string]interface{}{}},
+		}}
+
+	r, err := api.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
+	c.Logf("%s", pretty.Sprint(r.Actions))
+	c.Assert(r.Actions[0].Status, gc.Equals, "running")
+	c.Assert(r.Actions[0].Action.Name, gc.Equals, expectedName)
+	c.Assert(r.Actions[0].Action.Tag, gc.Equals, "action-2")
+	c.Assert(r.Actions[1].Error, jc.Satisfies, params.IsCodeNotFoundOrCodeUnauthorized)
+	c.Assert(r.Actions[2].Error, gc.DeepEquals, &params.Error{Message: "could not determine leader for \"mysql\"", Code: ""})
+}
+
+func (s *enqueueSuite) TestEnqueueOperationLeadership(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.model.EXPECT().EnqueueOperation(gomock.Any(), 2).Return("1", nil)
+	appName, _ := names.UnitApplication(s.mysqlUnitTag.Id())
+	leaders := map[string]string{
+		"test":  "test/1",
+		appName: s.mysqlUnitTag.Id(),
+	}
+	s.state.EXPECT().ApplicationLeaders().Return(leaders, nil)
+	s.expectWordpressActionResult()
+	s.expectMysqlActionResult()
+
+	api := s.getAPI(c)
+
+	expectedName := "fakeaction"
+	f := false
+	t := true
+	arg := params.Actions{
+		Actions: []params.Action{
+			{
+				Receiver:       s.wordpressUnitTag.String(),
+				Name:           expectedName,
+				Parameters:     map[string]interface{}{},
+				Parallel:       &f,
+				ExecutionGroup: &s.executionGroup,
+			}, {
+				Receiver:       "mysql/leader",
+				Name:           expectedName,
+				Parameters:     map[string]interface{}{},
+				Parallel:       &t,
+				ExecutionGroup: &s.executionGroup,
+			},
+		}}
+
+	r, err := api.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
+	c.Assert(r.Actions[0].Status, gc.Equals, "running")
+	c.Assert(r.Actions[0].Action.Name, gc.Equals, expectedName)
+	c.Assert(r.Actions[0].Action.Tag, gc.Equals, "action-2")
+	c.Assert(r.Actions[1].Status, gc.Equals, "running")
+	c.Assert(r.Actions[1].Action.Name, gc.Equals, expectedName)
+	c.Assert(r.Actions[1].Action.Tag, gc.Equals, "action-3")
 }
 
 func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -379,7 +515,8 @@ func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *enqueueSuite) expectWordpressActionResult() {
-	s.model.EXPECT().AddAction(gomock.Any(), "1", "fakeaction", gomock.Any(), gomock.Any(), gomock.Any()).Return(s.wordpressAction, nil)
+	f := false
+	s.model.EXPECT().AddAction(gomock.Any(), "1", "fakeaction", map[string]interface{}{}, &f, &s.executionGroup).Return(s.wordpressAction, nil)
 	s.actionReceiver.EXPECT().Tag().Return(s.wordpressUnitTag)
 	aExp := s.wordpressAction.EXPECT()
 	aExp.ActionTag().Return(names.NewActionTag("2"))
@@ -391,10 +528,13 @@ func (s *enqueueSuite) expectWordpressActionResult() {
 	aExp.Started().Return(time.Now())
 	aExp.Completed().Return(time.Now())
 	aExp.Enqueued().Return(time.Now())
+	aExp.Parallel().Return(f)
+	aExp.ExecutionGroup().Return(s.executionGroup)
 }
 
 func (s *enqueueSuite) expectMysqlActionResult() {
-	s.model.EXPECT().AddAction(gomock.Any(), "1", "fakeaction", map[string]interface{}{}, gomock.Any(), gomock.Any()).Return(s.mysqlAction, nil)
+	t := true
+	s.model.EXPECT().AddAction(gomock.Any(), "1", "fakeaction", map[string]interface{}{}, &t, &s.executionGroup).Return(s.mysqlAction, nil)
 	s.actionReceiver.EXPECT().Tag().Return(s.mysqlUnitTag)
 	aExp := s.mysqlAction.EXPECT()
 	aExp.ActionTag().Return(names.NewActionTag("3"))
@@ -406,6 +546,8 @@ func (s *enqueueSuite) expectMysqlActionResult() {
 	aExp.Started().Return(time.Now())
 	aExp.Completed().Return(time.Now())
 	aExp.Enqueued().Return(time.Now())
+	aExp.Parallel().Return(t)
+	aExp.ExecutionGroup().Return(s.executionGroup)
 }
 
 func (s *enqueueSuite) getAPI(c *gc.C) *action.ActionAPI {
