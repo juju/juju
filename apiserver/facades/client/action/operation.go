@@ -120,17 +120,17 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 }
 
 func (a *ActionAPI) handleFailedActionEnqueuing(operationID string, response params.ActionResults, argCount int) error {
-	failMessages := set.NewStrings()
+	failMessages := make([]string, 0)
 	for _, res := range response.Results {
 		if res.Error != nil {
-			failMessages.Add(res.Error.Error())
+			failMessages = append(failMessages, res.Error.Error())
 		}
 	}
-	if failMessages.IsEmpty() {
+	if len(failMessages) == 0 {
 		return nil
 	}
-	startedCount := argCount - failMessages.Size()
-	failMessage := fmt.Sprintf("error(s) enqueueing action(s): %s", strings.Join(failMessages.Values(), ", "))
+	startedCount := argCount - len(failMessages)
+	failMessage := fmt.Sprintf("error(s) enqueueing action(s): %s", strings.Join(failMessages, ", "))
 	return a.model.FailOperationEnqueuing(operationID, failMessage, startedCount)
 }
 
