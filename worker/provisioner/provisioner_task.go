@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/workerpool"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -220,12 +220,6 @@ func (task *provisionerTask) loop() (taskErr error) {
 				return errors.New("machine watcher closed channel")
 			}
 
-			// Maintain zone-machine distributions.
-			err := task.updateAvailabilityZoneMachines(ctx)
-			if err != nil && !errors.IsNotImplemented(err) {
-				return errors.Annotate(err, "updating AZ distributions")
-			}
-
 			if err := task.processMachines(ctx, ids); err != nil {
 				return errors.Annotate(err, "processing updated machines")
 			}
@@ -340,6 +334,12 @@ func (task *provisionerTask) processMachines(ctx context.ProviderCallContext, id
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ctx, ids); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Maintain zone-machine distributions.
+	err := task.updateAvailabilityZoneMachines(ctx)
+	if err != nil && !errors.IsNotImplemented(err) {
+		return errors.Annotate(err, "updating AZ distributions")
 	}
 
 	// Find machines without an instance ID or that are dead.
@@ -1226,8 +1226,9 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 
 		machProvisioner := m
 		distGroup := machineDistributionGroups[i].MachineIds
+
 		provTask := workerpool.Task{
-			Type: "start-instance",
+			Type: fmt.Sprintf("start-instance %s", machProvisioner.Id()),
 			Process: func() error {
 				if provisionErr := task.doStartMachine(ctx, machProvisioner, distGroup); provisionErr != nil {
 					return provisionErr

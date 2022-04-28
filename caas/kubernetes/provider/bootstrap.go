@@ -572,10 +572,12 @@ func (c *controllerStack) createControllerProxy(ctx context.Context) error {
 		ctx,
 		config,
 		c.stackLabels,
+		c.broker.clock,
 		k8sClient.CoreV1().ConfigMaps(c.broker.GetCurrentNamespace()),
 		k8sClient.RbacV1().Roles(c.broker.GetCurrentNamespace()),
 		k8sClient.RbacV1().RoleBindings(c.broker.GetCurrentNamespace()),
 		k8sClient.CoreV1().ServiceAccounts(c.broker.GetCurrentNamespace()),
+		k8sClient.CoreV1().Secrets(c.broker.GetCurrentNamespace()),
 	)
 
 	return errors.Trace(err)

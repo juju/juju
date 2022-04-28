@@ -735,6 +735,47 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
+func (s *ActionSuite) TestErrorAfterEnqueuingFail(c *gc.C) {
+	// get unit, add an action, retrieve that action
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	preventUnitDestroyRemove(c, unit)
+
+	unit2, err := s.State.Unit(s.unit2.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	preventUnitDestroyRemove(c, unit2)
+
+	operationID, err := s.Model.EnqueueOperation("enqueuing test", 3)
+	c.Assert(err, jc.ErrorIsNil)
+	a, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	a2, err := s.Model.AddAction(unit2, operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.model.FailOperationEnqueuing(operationID, "fail for test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	action, err := model.Action(a.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	action2, err := model.Action(a2.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// complete the action, and verify that it succeeds
+	output := map[string]interface{}{"output": "action ran successfully"}
+	_, err = action.Finish(state.ActionResults{Status: state.ActionCompleted, Results: output})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = action2.Finish(state.ActionResults{Status: state.ActionCompleted, Results: output})
+	c.Assert(err, jc.ErrorIsNil)
+
+	operation, err := s.model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionError)
+	c.Assert(operation.Fail(), gc.Equals, "fail for test")
+}
+
 func (s *ActionSuite) TestComplete(c *gc.C) {
 	// get unit, add an action, retrieve that action
 	unit, err := s.State.Unit(s.unit.Name())

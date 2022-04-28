@@ -62,6 +62,8 @@ type Application interface {
 	CharmURL() (curl *charm.URL, force bool)
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	GetScale() int
+	ClearResources() error
+	WatchUnits() state.StringsWatcher
 }
 
 type Charm interface {

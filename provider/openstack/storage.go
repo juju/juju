@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-goose/goose/v4/swift"
+	"github.com/go-goose/goose/v5/swift"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/utils/v3"
 

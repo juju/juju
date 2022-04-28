@@ -27,7 +27,6 @@ var txnLogPruneInterval = 10 * time.Minute
 // workers when they fail.
 type workers struct {
 	state *State
-	//	model *Model
 	*worker.Runner
 
 	hub *pubsub.SimpleHub

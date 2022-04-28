@@ -28,9 +28,11 @@ func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy
 		context.Background(),
 		labels.Set{},
 		proxyName,
+		k.clock,
 		k.client().RbacV1().Roles(k.GetCurrentNamespace()),
 		k.client().RbacV1().RoleBindings(k.GetCurrentNamespace()),
 		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
+		k.client().CoreV1().Secrets(k.GetCurrentNamespace()),
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "ensuring proxy service for application %s", appName)

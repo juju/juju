@@ -457,6 +457,11 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `storage pool requires a type`,
 }}
 
+func (s *BootstrapSuite) TestRunModelLoggingOutputChecksFlag(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "my-controller", "--config", "logging-output=syslog")
+	c.Check(err, gc.ErrorMatches, `cannot set "logging-output" without setting the "logging-output" feature flag`)
+}
+
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "unknown", "my-controller")
 	c.Check(err, gc.ErrorMatches, `unknown cloud "unknown", please try "juju update-public-clouds"`)

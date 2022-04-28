@@ -844,6 +844,61 @@ applications:
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
+func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	args := s.minimalApplicationArgs(description.IAAS)
+	// Add storage constraints to the app
+	args.StorageConstraints = map[string]description.StorageConstraintArgs{
+		"storage1": {
+			Pool:  "pool1",
+			Size:  1024,
+			Count: 3,
+		},
+		"storage2": {
+			Pool:  "pool2",
+			Size:  4096,
+			Count: 1,
+		},
+	}
+	app := s.st.model.AddApplication(args)
+	app.SetStatus(minimalStatusArgs())
+
+	u := app.AddUnit(minimalUnitArgs(app.Type()))
+	u.SetAgentStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{Result: `
+series: trusty
+applications:
+  ubuntu:
+    charm: cs:trusty/ubuntu
+    channel: stable
+    num_units: 1
+    to:
+    - "0"
+    options:
+      key: value
+    storage:
+      storage1: pool1,3,1024
+      storage2: pool2,1,4096
+    bindings:
+      another: alpha
+      juju-info: vlan2
+`[1:]}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
 func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
