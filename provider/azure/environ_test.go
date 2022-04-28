@@ -426,9 +426,10 @@ type startInstanceSenderParams struct {
 	diskEncryptionSetName string
 	vaultName             string
 	existingNetwork       string
+	withQuotaRetry        bool
 }
 
-func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azuretesting.Senders {
+func (s *environSuite) startInstanceSenders(c *gc.C, args startInstanceSenderParams) azuretesting.Senders {
 	senders := azuretesting.Senders{s.resourceSkusSender()}
 	if s.ubuntuServerSKUs != nil {
 		senders = append(senders, makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
@@ -500,6 +501,10 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 		senders = append(senders, makeSender(fmt.Sprintf("/virtualNetworks/%s/subnets", vnetName), network.SubnetListResult{
 			Value: &args.subnets,
 		}))
+	}
+	if args.withQuotaRetry {
+		quotaErr := autorestazure.ServiceError{Code: "QuotaExceeded"}
+		senders = append(senders, s.makeErrorSender(c, "/deployments/machine-0", quotaErr, 1))
 	}
 	senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
 	return senders
@@ -688,24 +693,30 @@ func (s *environSuite) TestRetryOnInvalidCredential(c *gc.C) {
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, true)
+	s.assertStartInstance(c, nil, nil, true, false)
 }
 
 func (s *environSuite) TestStartInstancePrivateIP(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, false)
+	s.assertStartInstance(c, nil, nil, false, false)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskSmallerThanMin(c *gc.C) {
 	wantedRootDisk := 22
-	s.assertStartInstance(c, &wantedRootDisk, nil, true)
+	s.assertStartInstance(c, &wantedRootDisk, nil, true, false)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *gc.C) {
 	wantedRootDisk := 40
-	s.assertStartInstance(c, &wantedRootDisk, nil, true)
+	s.assertStartInstance(c, &wantedRootDisk, nil, true, false)
 }
 
-func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{}, publicIP bool) {
+func (s *environSuite) TestStartInstanceQuotaRetry(c *gc.C) {
+	s.assertStartInstance(c, nil, nil, false, true)
+}
+
+func (s *environSuite) assertStartInstance(
+	c *gc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{}, publicIP, withQuotaRetry bool,
+) {
 	env := s.openEnviron(c)
 
 	args := makeStartInstanceParams(c, s.controllerUUID, "bionic")
@@ -721,10 +732,11 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int, rootDis
 			vaultName, _ = rootDiskSourceParams["vault-name-prefix"].(string)
 		}
 	}
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
 		bootstrap:             false,
 		diskEncryptionSetName: diskEncryptionSetName,
 		vaultName:             vaultName,
+		withQuotaRetry:        withQuotaRetry,
 	})
 	s.requests = nil
 	expectedRootDisk := uint64(30 * 1024) // 30 GiB
@@ -765,6 +777,7 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int, rootDis
 		publicIP:          publicIP,
 		diskEncryptionSet: diskEncryptionSetName,
 		vaultName:         vaultName,
+		withQuotaRetry:    withQuotaRetry,
 	})
 }
 
@@ -775,7 +788,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -835,7 +848,7 @@ func (s *environSuite) testStartInstanceWindows(
 	s.PatchValue(&s.ubuntuServerSKUs, nil)
 
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	args := makeStartInstanceParams(c, s.controllerUUID, "win2012")
 	args.Constraints = cons
@@ -877,7 +890,7 @@ func (s *environSuite) assertStartInstanceCentOS(c *gc.C, series string) {
 	s.PatchValue(&s.ubuntuServerSKUs, nil)
 
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	args := makeStartInstanceParams(c, s.controllerUUID, series)
 	_, err := env.StartInstance(s.callCtx, args)
@@ -910,7 +923,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.commonDeployment.Properties.ProvisioningState = resources.ProvisioningStateFailed
 
 	env := s.openEnviron(c)
-	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	senders := s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.sender = senders
 	s.requests = nil
 
@@ -932,7 +945,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentStorageAccount(c *gc.C) 
 	s.commonDeployment.Properties.Providers = &providers
 
 	env := s.openEnviron(c)
-	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	senders := s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.sender = senders
 	s.requests = nil
 
@@ -961,7 +974,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentWithStorageAccountAndAva
 	env := s.openEnviron(c)
 	unitsDeployed := "mysql/0 wordpress/0"
 	s.vmTags[tags.JujuUnitsDeployed] = &unitsDeployed
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
@@ -985,7 +998,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.commonDeployment.Properties.ProvisioningState = resources.ProvisioningStateCreating
 
 	env := s.openEnviron(c)
-	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	senders := s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 
 	const failures = 60 // 5 minutes / 5 seconds
 	head, tail := senders[:2], senders[2:]
@@ -1015,7 +1028,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	env := s.openEnviron(c)
 	unitsDeployed := "mysql/0 wordpress/0"
 	s.vmTags[tags.JujuUnitsDeployed] = &unitsDeployed
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
@@ -1034,7 +1047,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 
 func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
@@ -1057,7 +1070,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 
 func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
 	params.Placement = "foo"
@@ -1068,7 +1081,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 
 func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
 	params.Placement = "subnet=foo"
@@ -1092,7 +1105,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 			AddressPrefix: to.StringPtr("192.168.1.0/20"),
 		},
 	}}
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
 		bootstrap: false,
 		subnets:   subnets,
 	})
@@ -1128,7 +1141,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 			AddressPrefix: to.StringPtr("192.168.1.0/20"),
 		},
 	}}
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
 		bootstrap: false,
 		subnets:   subnets,
 	})
@@ -1179,6 +1192,7 @@ type assertStartInstanceRequestsParams struct {
 	existingNetwork     string
 	subnets             []string
 	placementSubnet     string
+	withQuotaRetry      bool
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1547,6 +1561,8 @@ func (s *environSuite) assertStartInstanceRequests(
 		} else {
 			if args.diskEncryptionSet != "" && args.vaultName != "" {
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+5)
+			} else if args.withQuotaRetry {
+				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+1)
 			} else {
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
 			}
@@ -1638,7 +1654,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
@@ -1672,7 +1688,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
@@ -1705,7 +1721,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"network": "mynetwork"})
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(
+	s.sender = append(s.sender, s.startInstanceSenders(c,
 		startInstanceSenderParams{bootstrap: true, existingNetwork: "mynetwork"})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
@@ -1742,7 +1758,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.createSenderWithUnauthorisedStatusCode(c)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
@@ -1875,7 +1891,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	config := testing.FakeControllerConfig()
 	config["api-port"] = 443
@@ -2363,7 +2379,7 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 
 func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	types, err := env.InstanceTypes(s.callCtx, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 6)
@@ -2705,7 +2721,7 @@ func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *gc.C) {
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
 	}
-	s.assertStartInstance(c, nil, rootDiskParams, true)
+	s.assertStartInstance(c, nil, rootDiskParams, true, false)
 }
 
 func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
@@ -2715,5 +2731,5 @@ func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
 		"vault-name-prefix":        "my-vault",
 		"vault-key-name":           "shhhh",
 	}
-	s.assertStartInstance(c, nil, rootDiskParams, true)
+	s.assertStartInstance(c, nil, rootDiskParams, true, false)
 }
