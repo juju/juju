@@ -165,13 +165,12 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, appName := range apps {
-				appLife, err := p.facade.Life(appName)
+				_, err := p.facade.Life(appName)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
-				if errors.IsNotFound(err) || appLife == life.Dead {
-					// Application worker will shut itself down in these cases.
-					p.logger.Debugf("application %q not found or dead, ignoring", appName)
+				if errors.IsNotFound(err) {
+					p.logger.Debugf("application %q not found, ignoring", appName)
 					continue
 				}
 
