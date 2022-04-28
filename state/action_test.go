@@ -747,9 +747,9 @@ func (s *ActionSuite) TestErrorAfterEnqueuingFail(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("enqueuing test", 3)
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
+	a, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	a2, err := s.Model.AddAction(unit2, operationID, "snapshot", nil)
+	a2, err := s.Model.AddAction(unit2, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.model.FailOperationEnqueuing(operationID, "fail for test", 2)
