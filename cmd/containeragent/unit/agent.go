@@ -323,6 +323,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: c.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
+		Clock:              clock.WallClock,
 		LocalHub:           localHub,
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
