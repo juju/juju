@@ -66,7 +66,7 @@ func (w *manager) stopUnitRequest(topic string, data interface{}) {
 		w.logger.Errorf("data should be a Units structure")
 	}
 	response := message.StartStopResponse{
-		"error": errors.NotSupportedf("stop units for %v", units),
+		"error": errors.NotSupportedf("stop units for %v", units).Error(),
 	}
 	w.hub.Publish(message.StopUnitResponseTopic, response)
 }
@@ -77,14 +77,14 @@ func (w *manager) startUnitRequest(topic string, data interface{}) {
 		w.logger.Errorf("data should be a Units structure")
 	}
 	response := message.StartStopResponse{
-		"error": errors.NotSupportedf("start units for %v", units),
+		"error": errors.NotSupportedf("start units for %v", units).Error(),
 	}
 	w.hub.Publish(message.StartUnitResponseTopic, response)
 }
 
 func (w *manager) unitStatusRequest(topic string, _ interface{}) {
 	response := message.Status{
-		"error": errors.NotSupportedf("units status"),
+		"error": errors.NotSupportedf("units status").Error(),
 	}
 	w.hub.Publish(message.UnitStatusResponseTopic, response)
 }
@@ -99,8 +99,6 @@ func (w *manager) Wait() error {
 }
 
 func (w *manager) loop() error {
-	select {
-	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
-	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
