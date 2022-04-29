@@ -24,6 +24,15 @@ type stateWorker struct {
 	setStatePool func(*state.StatePool)
 	cleanupOnce  sync.Once
 
+	// modelWatcher is not tied to the state worker's catacomb.
+	// This is a departure from the normal worker behaviour in the interests of
+	// resiliency - this worker is important to keep running where possible in
+	// order to prevent restarts cascading through the dependency engine.
+	// The watcher will return an error if the state pings repeatedly fail
+	// anyway.
+	modelWatcher     state.StringsWatcher
+	modelWatcherDone chan struct{}
+
 	pool              *state.StatePool
 	modelStateWorkers map[string]worker.Worker
 }
@@ -36,15 +45,13 @@ func (w *stateWorker) loop() error {
 	}
 	defer func() { _ = w.stTracker.Done() }()
 
-	systemState := w.pool.SystemState()
-
 	w.setStatePool(w.pool)
 	defer w.setStatePool(nil)
 
-	modelWatcher := systemState.WatchModelLives()
-	_ = w.catacomb.Add(modelWatcher)
+	w.startModelWatcher()
 
-	wrenchTimer := time.NewTimer(30 * time.Second)
+	const wrenchInterval = 30 * time.Second
+	wrenchTimer := time.NewTimer(wrenchInterval)
 	defer wrenchTimer.Stop()
 
 	w.modelStateWorkers = make(map[string]worker.Worker)
@@ -52,22 +59,36 @@ func (w *stateWorker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-
-		case modelUUIDs := <-modelWatcher.Changes():
+		case <-w.modelWatcherDone:
+			w.startModelWatcher()
+		case modelUUIDs := <-w.modelWatcher.Changes():
 			for _, modelUUID := range modelUUIDs {
 				if err := w.processModelLifeChange(modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}
-		// Useful for tracking down some bugs that occur when
-		// mongo is overloaded.
+		// Useful for tracking down bugs that occur when Mongo is overloaded.
 		case <-wrenchTimer.C:
 			if wrench.IsActive("state-worker", "io-timeout") {
 				return errors.Errorf("wrench simulating i/o timeout!")
 			}
-			wrenchTimer.Reset(30 * time.Second)
+			wrenchTimer.Reset(wrenchInterval)
 		}
 	}
+}
+
+func (w *stateWorker) startModelWatcher() {
+	w.modelWatcher = w.pool.SystemState().WatchModelLives()
+
+	go func() {
+		err := w.modelWatcher.Wait()
+		logger.Infof("restarting model watcher for error: %v", err)
+
+		select {
+		case w.modelWatcherDone <- struct{}{}:
+		case <-w.catacomb.Dying():
+		}
+	}()
 }
 
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect

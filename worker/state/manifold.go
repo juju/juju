@@ -28,7 +28,7 @@ type ManifoldConfig struct {
 	// SetStatePool is called with the state pool when it is created,
 	// and called again with nil just before the state pool is closed.
 	// This is used for publishing the state pool to the agent's
-	// introspection worker, which runs outside of the dependency
+	// introspection worker, which runs outside the dependency
 	// engine; hence the manifold's Output cannot be relied upon.
 	SetStatePool func(*state.StatePool)
 }
@@ -52,9 +52,10 @@ func (config ManifoldConfig) Validate() error {
 
 const defaultPingInterval = 15 * time.Second
 
-// Manifold returns a manifold whose worker which wraps a
-// *state.State, which is in turn wrapper by a StateTracker.  It will
-// exit if the State's associated mongodb session dies.
+// Manifold returns a manifold whose worker which wraps a *state.State,
+// which is in turn wrapped by a StateTracker.
+// It will exit if the State's associated MongoDB session dies and is
+// not re-established in reasonable time.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -66,14 +67,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			// Get the agent.
 			var agent coreagent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 
-			// Confirm we're running in a state server by asking the
-			// stateconfigwatcher manifold.
+			// Confirm we're running in a state server by asking
+			// the state config watcher manifold.
 			var haveStateConfig bool
 			if err := context.Get(config.StateConfigWatcherName, &haveStateConfig); err != nil {
 				return nil, err
@@ -88,14 +88,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			stTracker := newStateTracker(pool)
 
-			pingInterval := config.PingInterval
-			if pingInterval == 0 {
-				pingInterval = defaultPingInterval
+			if config.PingInterval == 0 {
+				config.PingInterval = defaultPingInterval
 			}
 
 			w := &stateWorker{
 				stTracker:    stTracker,
-				pingInterval: pingInterval,
+				pingInterval: config.PingInterval,
 				setStatePool: config.SetStatePool,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
