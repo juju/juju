@@ -185,6 +185,7 @@ var (
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrader",
+		"caas-units-manager",
 	}
 	notMigratingCAASWorkers = []string{
 		"charm-dir",

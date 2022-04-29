@@ -35,7 +35,7 @@ type Config struct {
 	Hub
 }
 
-// NewWorker returns a worker that runs on CAAS.agent and subscribes and handles unit topics.
+// NewWorker returns a worker that runs on CAAS agent and subscribes and handles unit topics.
 func NewWorker(config Config) (worker.Worker, error) {
 	w := manager{
 		logger: config.Logger,
