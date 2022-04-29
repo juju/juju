@@ -53,6 +53,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
 		"upgrader",
+		"caas-units-manager",
 		// TODO(caas)
 		//"metric-spool",
 		//"meter-status",
@@ -83,6 +84,7 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"upgrade-steps-runner",
 		"upgrade-steps-flag",
 		"upgrade-check-gate",
+		"caas-units-manager",
 	)
 	config := caasoperator.ManifoldsConfig{}
 	manifolds := caasoperator.Manifolds(config)
@@ -220,5 +222,10 @@ var expectedOperatorManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+	"caas-units-manager": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
 	},
 }

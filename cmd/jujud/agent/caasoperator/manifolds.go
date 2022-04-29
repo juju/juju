@@ -298,7 +298,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			RunListenerSocket:              config.RunListenerSocket,
 		})),
 
-		// The CAAS units manager worker runs on CAAS.agent and subscribes and handles unit topics on the localhub.
+		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
 		caasUnitsManager: caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
