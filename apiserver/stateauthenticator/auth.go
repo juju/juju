@@ -87,14 +87,18 @@ func (a *Authenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.
 
 // AddHandlers adds the handlers to the given mux for handling local
 // macaroon logins.
-func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) {
-	systemState, _ := a.statePool.SystemState()
+func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) error {
+	systemState, err := a.statePool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	h := &localLoginHandlers{
 		authCtxt:   a.authContext,
 		finder:     systemState,
 		userTokens: map[string]string{},
 	}
 	h.AddHandlers(mux)
+	return nil
 }
 
 // Authenticate is part of the httpcontext.Authenticator interface.

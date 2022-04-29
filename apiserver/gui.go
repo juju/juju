@@ -434,12 +434,17 @@ func (h *legacyGUIHandler) serveIndex(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
+	confPath, errP := getConfigPath(req.URL.Path, h.ctxt)
+	if errP != nil {
+		writeError(w, errors.Trace(err))
+		return
+	}
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		// staticURL holds the root of the static hierarchy, hence why the
 		// empty string is used here.
 		"staticURL": h.hashedPath(""),
 		"comboURL":  h.hashedPath("combo"),
-		"configURL": h.hashedPath(getConfigPath(req.URL.Path, h.ctxt)),
+		"configURL": h.hashedPath(confPath),
 		// TODO frankban: make it possible to enable debug.
 		"debug":         false,
 		"spriteContent": string(spriteContent),
@@ -465,29 +470,32 @@ func (h *dashboardHandler) serveIndex(w http.ResponseWriter, req *http.Request) 
 
 // getConfigPath returns the appropriate GUI config path for the given request
 // path.
-func getConfigPath(path string, ctxt httpContext) string {
+func getConfigPath(path string, ctxt httpContext) (string, error) {
 	configPath := "config.js"
 	// Handle requests from old clients, in which the model UUID is a fragment
 	// in the request path. If this is the case, we also need to include the
 	// UUID in the GUI base URL.
 	uuid := uuidFromPath(path)
 	if uuid != "" {
-		return fmt.Sprintf("%[1]s?model-uuid=%[2]s&base-postfix=%[2]s/", configPath, uuid)
+		return fmt.Sprintf("%[1]s?model-uuid=%[2]s&base-postfix=%[2]s/", configPath, uuid), nil
 	}
-	st, _ := ctxt.srv.shared.statePool.SystemState()
+	st, err := ctxt.srv.shared.statePool.SystemState()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if isNewGUI(st) {
 		// This is the proper case in which a new GUI is being served from a
 		// new URL. No query must be included in the config path.
-		return configPath
+		return configPath, nil
 	}
 	// Possibly handle requests to the new "/u/{user}/{model}" path, but
 	// made from an old version of the GUI, which didn't connect to the
 	// model based on the path.
 	uuid, user, model := modelInfoFromPath(path, st, ctxt.srv.shared.statePool)
 	if uuid != "" {
-		return fmt.Sprintf("%s?model-uuid=%s&base-postfix=u/%s/%s/", configPath, uuid, user, model)
+		return fmt.Sprintf("%s?model-uuid=%s&base-postfix=u/%s/%s/", configPath, uuid, user, model), nil
 	}
-	return configPath
+	return configPath, nil
 }
 
 // uuidFromPath checks whether the given path includes a fragment with a

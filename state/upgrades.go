@@ -4374,7 +4374,10 @@ func UpdateCharmOriginAfterSetSeries(pool *StatePool) error {
 // UpdateOperationWithEnqueuingErrors updates operations with enqueuing errors to allow
 // started actions to complete. See LP 1953077.
 func UpdateOperationWithEnqueuingErrors(pool *StatePool) error {
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	opCol, opCloser := st.db().GetRawCollection(operationsC)
 	defer opCloser()
 	actionsCol, actionsCloser := st.db().GetRawCollection(actionsC)

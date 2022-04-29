@@ -600,7 +600,11 @@ func (srv *Server) loop(ready chan struct{}) error {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
-	for _, ep := range srv.endpoints() {
+	endpoints, err := srv.endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ep := range endpoints {
 		_ = srv.mux.AddHandler(ep.Method, ep.Pattern, ep.Handler)
 		defer srv.mux.RemoveHandler(ep.Method, ep.Pattern)
 		if ep.Method == "GET" {
@@ -624,7 +628,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 	return tomb.ErrDying
 }
 
-func (srv *Server) endpoints() []apihttp.Endpoint {
+func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	const modelRoutePrefix = "/model/:modeluuid"
 
 	type handler struct {
@@ -637,7 +641,10 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		noModelUUID     bool
 	}
 	var endpoints []apihttp.Endpoint
-	systemState, _ := srv.shared.statePool.SystemState()
+	systemState, err := srv.shared.statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	controllerModelUUID := systemState.ModelUUID()
 	addHandler := func(handler handler) {
 		methods := handler.methods
@@ -766,7 +773,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			return opener, st, nil
 		},
 	}
-	systemState, _ = srv.shared.statePool.SystemState()
+
 	controllerAdminAuthorizer := controllerAdminAuthorizer{systemState}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
@@ -968,7 +975,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	dashboardEndpoints := dashboardEndpoints(dashboardURLPathPrefix, srv.dataDir, httpCtxt)
 	endpoints = append(endpoints, dashboardEndpoints...)
 
-	return endpoints
+	return endpoints, nil
 }
 
 // trackRequests wraps a http.Handler, incrementing and decrementing

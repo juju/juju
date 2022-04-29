@@ -1049,9 +1049,9 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
 
-var getControllerBackend = func(pool *state.StatePool) controllerBackend {
-	systemState, _ := pool.SystemState()
-	return systemState
+var getControllerBackend = func(pool *state.StatePool) (controllerBackend, error) {
+	systemState, err := pool.SystemState()
+	return systemState, err
 }
 
 // migrationBackend defines model State functionality required by the
@@ -1081,11 +1081,15 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
+	cB, err := getControllerBackend(pool)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &srvMigrationStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
 		watcher:       w,
 		st:            getMigrationBackend(st),
-		ctrlSt:        getControllerBackend(pool),
+		ctrlSt:        cB,
 	}, nil
 }
 

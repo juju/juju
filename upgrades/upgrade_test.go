@@ -207,9 +207,9 @@ type mockStateBackend struct {
 	testing.Stub
 }
 
-func (mock *mockStateBackend) ControllerUUID() string {
+func (mock *mockStateBackend) ControllerUUID() (string, error) {
 	mock.MethodCall(mock, "ControllerUUID")
-	return "a-b-c-d"
+	return "a-b-c-d", nil
 }
 
 func stateUpgradeOperations() []upgrades.Operation {

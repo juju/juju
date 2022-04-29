@@ -105,7 +105,7 @@ type Model interface {
 // Pool contains the StatePool functionality used in this package.
 type Pool interface {
 	GetModel(string) (*state.Model, func(), error)
-	SystemState() *state.State
+	SystemState() (*state.State, error)
 }
 
 // Application represents a state.Application.
@@ -170,9 +170,8 @@ type poolShim struct {
 	pool *state.StatePool
 }
 
-func (p *poolShim) SystemState() *state.State {
-	systemState, _ := p.pool.SystemState()
-	return systemState
+func (p *poolShim) SystemState() (*state.State, error) {
+	return p.pool.SystemState()
 }
 
 func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {

@@ -245,7 +245,8 @@ func (s *ControllerSuite) TestReopenWithNoMachines(c *gc.C) {
 	controller, err := state.OpenController(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
 	defer controller.Close()
-	st := controller.SystemState()
+	st, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 
 	info, err = st.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)

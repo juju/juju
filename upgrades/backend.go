@@ -20,10 +20,10 @@ import (
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
-	ControllerUUID() string
+	ControllerUUID() (string, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 	ControllerConfig() (controller.Config, error)
-	LeaseNotifyTarget(raftleasestore.Logger) raftlease.NotifyTarget
+	LeaseNotifyTarget(raftleasestore.Logger) (raftlease.NotifyTarget, error)
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
@@ -126,14 +126,21 @@ type stateBackend struct {
 	pool *state.StatePool
 }
 
-func (s stateBackend) ControllerUUID() string {
-	systemState, _ := s.pool.SystemState()
-	return systemState.ControllerUUID()
+func (s stateBackend) ControllerUUID() (string, error) {
+	systemState, err := s.pool.SystemState()
+	return systemState.ControllerUUID(), err
 }
 
 func (s stateBackend) StateServingInfo() (controller.StateServingInfo, error) {
-	systemState, _ := s.pool.SystemState()
-	return systemState.StateServingInfo()
+	systemState, err := s.pool.SystemState()
+	if err != nil {
+		return controller.StateServingInfo{}, errors.Trace(err)
+	}
+	ssi, errS := systemState.StateServingInfo()
+	if errS != nil {
+		return controller.StateServingInfo{}, errors.Trace(err)
+	}
+	return ssi, err
 }
 
 func (s stateBackend) StripLocalUserDomain() error {
@@ -268,9 +275,9 @@ func (s stateBackend) ControllerConfig() (controller.Config, error) {
 	return systemState.ControllerConfig()
 }
 
-func (s stateBackend) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
-	systemState, _ := s.pool.SystemState()
-	return systemState.LeaseNotifyTarget(logger)
+func (s stateBackend) LeaseNotifyTarget(logger raftleasestore.Logger) (raftlease.NotifyTarget, error) {
+	systemState, err := s.pool.SystemState()
+	return systemState.LeaseNotifyTarget(logger), err
 }
 
 func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {

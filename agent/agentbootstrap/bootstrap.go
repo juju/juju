@@ -168,7 +168,10 @@ func InitializeState(
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
 	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
 
-	st := ctrl.SystemState()
+	st, err := ctrl.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Fetch spaces from substrate.
 	// We need to do this before setting the API host-ports,

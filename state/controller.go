@@ -53,9 +53,8 @@ func (ctlr *Controller) StatePool() *StatePool {
 }
 
 // SystemState returns the State object for the controller model.
-func (ctlr *Controller) SystemState() *State {
-	systemState, _ := ctlr.pool.SystemState()
-	return systemState
+func (ctlr *Controller) SystemState() (*State, error) {
+	return ctlr.pool.SystemState()
 }
 
 // Close the connection to the database.

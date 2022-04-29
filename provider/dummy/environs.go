@@ -912,7 +912,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err != nil {
 				return err
 			}
-			st := controller.SystemState()
+			st, err := controller.SystemState()
+			if err != nil {
+				return err
+			}
 			defer func() {
 				if err != nil {
 					controller.Close()
@@ -945,7 +948,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err != nil {
 				return errors.Trace(err)
 			}
-			stateAuthenticator.AddHandlers(estate.mux)
+			errH := stateAuthenticator.AddHandlers(estate.mux)
+			if errH != nil {
+				return errors.Trace(errH)
+			}
 
 			machineTag := names.NewMachineTag("0")
 			estate.httpServer.StartTLS()

@@ -231,7 +231,9 @@ func (s *StateSuite) TestOpenControllerSetsModelTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer controller.Close()
 
-	m, err := controller.SystemState().Model()
+	sysState, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := sysState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(m.ModelTag(), gc.Equals, s.modelTag)
@@ -4239,7 +4241,9 @@ func testWatcherDiesWhenStateCloses(
 		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	watcher := startWatcher(c, controller.SystemState())
+	sysState, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	watcher := startWatcher(c, sysState)
 	err = controller.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	done := make(chan error)
@@ -4278,7 +4282,9 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer controller.Close()
 
-	info, err = controller.SystemState().ControllerInfo()
+	sysState, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	info, err = sysState.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
@@ -4583,7 +4589,8 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	controller, err := state.OpenController(params)
 	c.Assert(err, jc.ErrorIsNil)
 	defer controller.Close()
-	st := controller.SystemState()
+	st, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(getCalls(), gc.HasLen, 0)
 
@@ -4674,7 +4681,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		AdminPassword: password,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	st := ctlr.SystemState()
+	st, err := ctlr.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	defer ctlr.Close()
 
 	// Check that we can SetAdminMongoPassword to nothing when there's

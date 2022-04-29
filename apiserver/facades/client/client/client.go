@@ -526,7 +526,11 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	}
 
 	var result params.ProvisioningScriptResult
-	icfg, err := InstanceConfig(c.api.pool.SystemState(), c.api.state(), args.MachineId, args.Nonce, args.DataDir)
+	st, err := c.api.pool.SystemState()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	icfg, err := InstanceConfig(st, c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
@@ -1023,7 +1027,10 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 		return result, err
 	}
 
-	ctrlSt := c.api.pool.SystemState()
+	ctrlSt, err := c.api.pool.SystemState()
+	if err != nil {
+		return result, err
+	}
 	servers, err := ctrlSt.APIHostPortsForClients()
 	if err != nil {
 		return result, err
