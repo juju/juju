@@ -274,10 +274,12 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		should:   "fail with error in result",
 		withArgs: []string{validUnitId, "some-action"},
 		withActionResults: []actionapi.ActionResult{{
-			Action: &actionapi.Action{ID: validActionId},
-			Error:  errors.New("database error"),
+			Error: errors.New("database error"),
 		}},
 		expectedErr: "database error",
+		expectedOutput: `
+Operation 1 failed to schedule any tasks:
+database error`[1:],
 	}, {
 		should: "fail with missing file passed",
 		withArgs: []string{validUnitId, "some-action",
@@ -884,7 +886,13 @@ func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	}
 
 	if expectedErr != "" {
-		c.Check(err, gc.ErrorMatches, expectedErr)
+		if expectedOutput != "" {
+			outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
+			outString := strings.Trim(string(outputResult), "\n")
+			c.Check(outString, gc.Equals, expectedOutput)
+		} else {
+			c.Check(err, gc.ErrorMatches, expectedErr)
+		}
 	} else {
 		c.Assert(err, gc.IsNil)
 		// Before comparing, double-check to avoid

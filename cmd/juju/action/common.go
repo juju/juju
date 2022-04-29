@@ -98,20 +98,21 @@ func (c *runCommandBase) ensureAPI() (err error) {
 }
 
 func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
-	tasks := make([]enqueuedAction, len(results.Actions))
-	for i, a := range results.Actions {
+	var runningTasks []enqueuedAction
+	var enqueueErrs []string
+	for _, a := range results.Actions {
 		if a.Error != nil {
-			tasks[i].err = a.Error
+			enqueueErrs = append(enqueueErrs, a.Error.Error())
 			continue
 		}
-		tasks[i] = enqueuedAction{
+		runningTasks = append(runningTasks, enqueuedAction{
 			task:     a.Action.ID,
 			receiver: a.Action.Receiver,
-		}
+		})
 	}
 	operationID := results.OperationID
-	numTasks := len(tasks)
-	if !c.background {
+	numTasks := len(runningTasks)
+	if !c.background && numTasks > 0 {
 		var plural string
 		if numTasks > 1 {
 			plural = "s"
@@ -121,13 +122,7 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 
 	var actionID string
 	info := make(map[string]interface{}, numTasks)
-	for _, result := range tasks {
-		if result.err != nil {
-			return result.err
-		}
-		if result.task == "" {
-			return errors.Errorf("operation failed to enqueue on %q", result.receiver)
-		}
+	for _, result := range runningTasks {
 		actionID = result.task
 
 		if !c.background {
@@ -138,6 +133,14 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		}
 	}
 	ctx.Infof("")
+	if numTasks == 0 {
+		ctx.Infof("Operation %s failed to schedule any tasks:\n%s", operationID, strings.Join(enqueueErrs, "\n"))
+		return nil
+	}
+	if len(enqueueErrs) > 0 {
+		ctx.Infof("Some actions could not be scheduled:\n%s\n", strings.Join(enqueueErrs, "\n"))
+		ctx.Infof("")
+	}
 	if c.background {
 		if numTasks == 1 {
 			ctx.Infof("Scheduled operation %s with task %s", operationID, actionID)
@@ -151,7 +154,7 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		}
 		return nil
 	}
-	failed, err := c.waitForTasks(ctx, tasks, info)
+	failed, err := c.waitForTasks(ctx, runningTasks, info)
 	if err != nil {
 		return errors.Trace(err)
 	} else if len(failed) > 0 {
@@ -175,7 +178,7 @@ use 'juju show-task' to inspect the failure%s
 	return nil
 }
 
-func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info map[string]interface{}) (map[string]int, error) {
+func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedAction, info map[string]interface{}) (map[string]int, error) {
 	var wait clock.Timer
 	if c.wait < 0 {
 		// Indefinite wait. Discard the tick.
@@ -188,9 +191,9 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 	actionDone := make(chan struct{})
 	var logsWatcher watcher.StringsWatcher
 	haveLogs := false
-	if len(tasks) == 1 {
+	if len(runningTasks) == 1 {
 		var err error
-		logsWatcher, err = c.api.WatchActionProgress(tasks[0].task)
+		logsWatcher, err = c.api.WatchActionProgress(runningTasks[0].task)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -209,7 +212,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 
 	failed := make(map[string]int)
 	resultReceivers := set.NewStrings()
-	for i, result := range tasks {
+	for i, result := range runningTasks {
 		ctx.Infof("Waiting for task %v...\n", result.task)
 		// tick every two seconds, to delay the loop timer.
 		// TODO(fwereade): 2016-03-17 lp:1558657
@@ -224,7 +227,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		}
 		if err != nil {
 			if errors.IsTimeout(err) {
-				return nil, c.handleTimeout(tasks, resultReceivers)
+				return nil, c.handleTimeout(runningTasks, resultReceivers)
 			}
 			return nil, errors.Trace(err)
 		}
