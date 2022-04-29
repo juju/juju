@@ -7,7 +7,7 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/go-goose/goose/v4/identity"
+	"github.com/go-goose/goose/v5/identity"
 	gc "gopkg.in/check.v1"
 )
 

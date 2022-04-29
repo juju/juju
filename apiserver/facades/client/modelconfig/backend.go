@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -23,6 +24,7 @@ type Backend interface {
 	SetSLA(level, owner string, credentials []byte) error
 	SLALevel() (string, error)
 	SpaceByName(string) error
+	ControllerConfig() (controller.Config, error)
 }
 
 type stateShim struct {

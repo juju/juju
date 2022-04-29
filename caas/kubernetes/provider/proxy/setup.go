@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -22,6 +23,8 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
+
+var logger = loggo.GetLogger("juju.caas.kubernetes.provider.proxy")
 
 // ControllerProxyConfig is used to configure the kubernetes resources made for
 // the controller proxy objects.
@@ -88,14 +91,14 @@ func EnsureProxyService(
 	ctx context.Context,
 	lbs labels.Set,
 	name string,
+	clock clock.Clock,
 	roleI rbac.RoleInterface,
 	roleBindingI rbac.RoleBindingInterface,
 	saI core.ServiceAccountInterface,
+	secretI core.SecretInterface,
 ) error {
-	lbs = labels.Merge(lbs, utils.LabelsJuju)
 	pr := proxyRoleForName(name, lbs)
 	roleRVal, err := roleI.Create(ctx, pr, meta.CreateOptions{})
-
 	if k8serrors.IsAlreadyExists(err) {
 		roleRVal, err = roleI.Update(ctx, pr, meta.UpdateOptions{})
 	}
@@ -144,6 +147,14 @@ func EnsureProxyService(
 	if err != nil {
 		return errors.Annotate(err, "creating proxy service account role binding")
 	}
+	objMeta := meta.ObjectMeta{
+		Labels: lbs,
+		Name:   name,
+	}
+	_, err = EnsureSecretForServiceAccount(sa.GetName(), objMeta, clock, secretI, saI)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	return nil
 
@@ -189,13 +200,17 @@ func WaitForProxyService(
 func CreateControllerProxy(
 	ctx context.Context,
 	config ControllerProxyConfig,
-	labels labels.Set,
+	lbs labels.Set,
+	clock clock.Clock,
 	configI core.ConfigMapInterface,
 	roleI rbac.RoleInterface,
 	roleBindingI rbac.RoleBindingInterface,
 	saI core.ServiceAccountInterface,
+	secretI core.SecretInterface,
 ) error {
-	err := EnsureProxyService(ctx, labels, config.Name, roleI, roleBindingI, saI)
+	lbs = labels.Merge(lbs, utils.LabelsJuju)
+
+	err := EnsureProxyService(ctx, lbs, config.Name, clock, roleI, roleBindingI, saI, secretI)
 	if err != nil {
 		return errors.Annotate(err, "ensuring proxy service account")
 	}
@@ -206,7 +221,7 @@ func CreateControllerProxy(
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: meta.ObjectMeta{
-			Labels: labels,
+			Labels: lbs,
 			Name:   config.Name,
 		},
 		Data: map[string]string{
@@ -220,4 +235,98 @@ func CreateControllerProxy(
 	}
 
 	return nil
+}
+
+func fetchTokenReadySecret(name string, api core.SecretInterface, clock clock.Clock) (*corev1.Secret, error) {
+	var (
+		secret *corev1.Secret
+		err    error
+	)
+	// NOTE (tlm) Increased the max duration here to 120 seconds to deal with
+	// microk8s bootstrapping. Microk8s is taking a significant amount of time
+	// to be Kubernetes ready while still reporting that it is ready to go.
+	// See lp:1937282
+	retryCallArgs := retry.CallArgs{
+		Delay:       time.Second,
+		MaxDuration: 120 * time.Second,
+		Clock:       clock,
+		Func: func() error {
+			secret, err = api.Get(context.TODO(), name, meta.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return errors.NotFoundf("token for secret %q", name)
+			}
+			if err == nil {
+				if _, ok := secret.Data[corev1.ServiceAccountTokenKey]; !ok {
+					return errors.NotFoundf("token for secret %q", name)
+				}
+			}
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.IsNotFound(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("polling caas credential rbac secret, in %d attempt, %v", attempt, err)
+		},
+	}
+	if err = retry.Call(retryCallArgs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if secret == nil {
+		return nil, errors.Annotatef(err, "can not find the caas credential rbac secret %q", name)
+	}
+	return secret, nil
+}
+
+// EnsureSecretForServiceAccount ensures secret for the provided service created and ready to use.
+func EnsureSecretForServiceAccount(
+	saName string,
+	objMeta meta.ObjectMeta,
+	clock clock.Clock,
+	secretAPI core.SecretInterface,
+	saAPI core.ServiceAccountInterface,
+) (*corev1.Secret, error) {
+	if objMeta.Annotations == nil {
+		objMeta.Annotations = map[string]string{}
+	}
+	objMeta.Annotations[corev1.ServiceAccountNameKey] = saName
+	_, err := secretAPI.Create(context.TODO(), &corev1.Secret{
+		ObjectMeta: objMeta,
+		Type:       corev1.SecretTypeServiceAccountToken,
+	}, meta.CreateOptions{})
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return nil, errors.Trace(err)
+	}
+	secret, err := fetchTokenReadySecret(objMeta.GetName(), secretAPI, clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// sa may be updated already in 1.21 or earlier versions, so get the latest sa.
+	sa, err := saAPI.Get(context.TODO(), saName, meta.GetOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !isSecretIncluded(*secret, sa.Secrets) {
+		sa.Secrets = append(sa.Secrets, corev1.ObjectReference{
+			Kind:      secret.Kind,
+			Namespace: secret.Namespace,
+			Name:      secret.Name,
+			UID:       secret.UID,
+		})
+		_, err = saAPI.Update(context.TODO(), sa, meta.UpdateOptions{})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return secret, nil
+}
+
+func isSecretIncluded(secret corev1.Secret, secrets []corev1.ObjectReference) bool {
+	for _, item := range secrets {
+		if secret.Kind == item.Kind && secret.Name == item.Name && secret.Namespace == item.Namespace {
+			return true
+		}
+	}
+	return false
 }

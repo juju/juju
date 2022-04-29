@@ -111,6 +111,7 @@ func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRep
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &localCharmRefresher{
 			charmAdder:     charmAdder,
+			charmOrigin:    cfg.CharmOrigin,
 			charmRepo:      charmRepo,
 			charmURL:       cfg.CharmURL,
 			charmRef:       cfg.CharmRef,
@@ -174,6 +175,7 @@ func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver Charm
 type localCharmRefresher struct {
 	charmAdder     store.CharmAdder
 	charmRepo      CharmRepository
+	charmOrigin    corecharm.Origin
 	charmURL       *charm.URL
 	charmRef       string
 	deployedSeries string
@@ -201,12 +203,12 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		newOrigin := d.charmOrigin
+		newOrigin.Source = corecharm.Local
 		return &CharmID{
-			URL: addedURL,
-			Origin: corecharm.Origin{
-				Source: corecharm.Local,
-				Type:   "charm",
-			},
+			URL:    addedURL,
+			Origin: newOrigin,
 		}, nil
 	}
 	if _, ok := err.(*charmrepo.NotFoundError); ok {

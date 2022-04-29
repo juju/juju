@@ -19,12 +19,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-goose/goose/v4/cinder"
-	"github.com/go-goose/goose/v4/client"
-	gooseerrors "github.com/go-goose/goose/v4/errors"
-	"github.com/go-goose/goose/v4/identity"
-	"github.com/go-goose/goose/v4/neutron"
-	"github.com/go-goose/goose/v4/nova"
+	"github.com/go-goose/goose/v5/cinder"
+	"github.com/go-goose/goose/v5/client"
+	gooseerrors "github.com/go-goose/goose/v5/errors"
+	"github.com/go-goose/goose/v5/identity"
+	"github.com/go-goose/goose/v5/neutron"
+	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1333,6 +1333,10 @@ func (e *Environ) startInstance(
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
+			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
+				// ignore the failure at this stage, just log it
+				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
+			}
 			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip

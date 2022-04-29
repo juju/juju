@@ -34,8 +34,7 @@ var (
 	ErrActionNotAvailable = errors.New("action no longer available")
 )
 
-// ErrTryAgain reports whether the cause
-// of the error is an ErrTryAgain.
+// IsErrTryAgain reports whether the cause of the error is an ErrTryAgain.
 func IsErrTryAgain(err error) bool {
 	return errors.Cause(err) == ErrTryAgain
 }

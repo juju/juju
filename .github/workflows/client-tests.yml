@@ -55,13 +55,13 @@ jobs:
 
     - name: "Remove Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@87d06bbbd2cfb1835f1820042d356aef4875fb5f # v1
+      uses: crazy-max/ghaction-chocolatey@e80bd39bb49cae70b67ea53d52d00833a7255c21 # v1
       with:
         args: uninstall mongodb mongodb.install -y --all-versions
 
     - name: "Install Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@87d06bbbd2cfb1835f1820042d356aef4875fb5f # v1
+      uses: crazy-max/ghaction-chocolatey@e80bd39bb49cae70b67ea53d52d00833a7255c21 # v1
       with:
         args: install mongodb.install --version=5.0.5 --allow-downgrade
 

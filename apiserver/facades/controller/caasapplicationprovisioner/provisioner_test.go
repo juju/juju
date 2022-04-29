@@ -26,6 +26,7 @@ import (
 	jujuresource "github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -855,4 +856,60 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 
 func strPtr(s string) *string {
 	return &s
+}
+
+func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
+	s.st.app = &mockApplication{
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
+		},
+	}
+
+	result, err := s.api.ClearApplicationsResources(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "application-gitlab",
+		}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	s.st.app.CheckCallNames(c, "ClearResources")
+}
+
+func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
+	unitsChanges := make(chan []string, 1)
+	s.st.app = &mockApplication{
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
+		},
+		unitsChanges: unitsChanges,
+		unitsWatcher: statetesting.NewMockStringsWatcher(unitsChanges),
+	}
+	unitsChanges <- []string{"gitlab/0", "gitlab/1"}
+
+	results, err := s.api.WatchUnits(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
+	res := s.resources.Get("1")
+	c.Assert(res, gc.Equals, s.st.app.unitsWatcher)
 }

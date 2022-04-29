@@ -2817,6 +2817,7 @@ func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.Endpoin
 			return nil, errors.Trace(err)
 		}
 		erd := params.EndpointRelationData{
+			RelationId:       rel.Id(),
 			Endpoint:         ep.Name,
 			ApplicationData:  make(map[string]interface{}),
 			UnitRelationData: make(map[string]params.RelationData),

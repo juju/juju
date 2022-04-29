@@ -205,7 +205,6 @@ func (a *appWorker) loop() error {
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q scale watcher", a.name)
 	}
-
 	if err := a.catacomb.Add(appScaleWatcher); err != nil {
 		return errors.Annotatef(err, "failed to watch for application %q scale changes", a.name)
 	}
@@ -224,6 +223,15 @@ func (a *appWorker) loop() error {
 			return errors.Annotatef(err, "failed to watch for application %q trust changes", a.name)
 		}
 		trustChanges = appTrustWatcher.Changes()
+	}
+
+	var appUnitsWatcher watcher.StringsWatcher
+	appUnitsWatcher, err = a.facade.WatchUnits(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "creating application %q units watcher", a.name)
+	}
+	if err := a.catacomb.Add(appUnitsWatcher); err != nil {
+		return errors.Annotatef(err, "failed to watch for application %q units changes", a.name)
 	}
 
 	done := false
@@ -332,6 +340,23 @@ func (a *appWorker) loop() error {
 				trustChan = a.clock.After(0)
 			}
 			shouldRefresh = false
+		case units, ok := <-appUnitsWatcher.Changes():
+			if !ok {
+				return fmt.Errorf("application %q units watcher closed channel", a.name)
+			}
+			for _, unit := range units {
+				unitLife, err := a.facade.Life(unit)
+				if err != nil && !errors.IsNotFound(err) {
+					return errors.Annotatef(err, "fetching unit %q life", unit)
+				}
+				a.logger.Debugf("got unit change %q (%s)", unit, unitLife)
+				if errors.IsNotFound(err) || unitLife == life.Dead {
+					a.logger.Debugf("removing dead unit %q", unit)
+					if err := a.facade.RemoveUnit(unit); err != nil {
+						return errors.Annotatef(err, "removing unit %q", unit)
+					}
+				}
+			}
 		case <-trustChan:
 			err := a.ensureTrust(app)
 			if errors.IsNotFound(err) {
@@ -811,6 +836,11 @@ func (a *appWorker) dead(app caas.Application) error {
 		return errors.Trace(err)
 	}
 	err = a.waitForTerminated(app)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Clear "has-resources" flag so state knows it can now remove the application.
+	err = a.facade.ClearApplicationResources(a.name)
 	if err != nil {
 		return errors.Trace(err)
 	}

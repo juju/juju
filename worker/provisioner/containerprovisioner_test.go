@@ -178,3 +178,9 @@ func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
 	defer workertest.CleanKill(c, p)
 	s.assertProvisionerObservesConfigChanges(c, p)
 }
+
+func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
+	p := s.newKvmProvisioner(c)
+	defer workertest.CleanKill(c, p)
+	s.assertProvisionerObservesConfigChangesWorkerCount(c, p, true)
+}
