@@ -202,6 +202,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotImplemented
 	case errors.IsForbidden(err):
 		code = params.CodeForbidden
+	case errors.IsNotValid(err):
+		code = params.CodeNotValid
 	case IsIncompatibleSeriesError(err), stateerrors.IsIncompatibleSeriesError(err):
 		code = params.CodeIncompatibleSeries
 	case IsDischargeRequiredError(err):
@@ -284,6 +286,9 @@ func DestroyErr(desc string, ids []string, errs []error) error {
 // RestoreError makes a best effort at converting the given error
 // back into an error originally converted by ServerError().
 func RestoreError(err error) error {
+	if err == nil {
+		return nil
+	}
 	err = errors.Cause(err)
 
 	if apiErr, ok := err.(*params.Error); !ok {
@@ -367,6 +372,8 @@ func RestoreError(err error) error {
 		return errors.NewNotYetAvailable(nil, msg)
 	case params.IsCodeTryAgain(err):
 		return ErrTryAgain
+	case params.IsCodeNotValid(err):
+		return errors.NotValidf(msg)
 	default:
 		return err
 	}
