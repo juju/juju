@@ -331,11 +331,11 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell go version | grep -o "go1.17" || true),go1.17)
-	@echo Using installed go-1.17
+ifeq ($(shell go version | grep -o "go1.18" || true),go1.18)
+	@echo Using installed go-1.18
 else
-	@echo Installing go-1.17 snap
-	@sudo snap install go --channel=1.17/stable --classic
+	@echo Installing go-1.18 snap
+	@sudo snap install go --channel=1.18/stable --classic
 endif
 
 WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
