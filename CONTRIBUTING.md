@@ -35,12 +35,12 @@ concurrent language.
 
 Generally, Juju is built against the most recent version of Go, with the caveat that Go versions are not incremented during a release cycle. This means that `develop` will typically be using the latest version of Go, but any given release branch may lag by one version or so.  Check the `go.mod` file at the root of the project for the targeted version of Go, as this is authoritative.
 
-For example, the following indicates that Go 1.17 is targeted:
+For example, the following indicates that Go 1.18 is targeted:
 
 ```
 module github.com/juju/juju
 
-go 1.17
+go 1.18
 ```
 
 ### Official distribution
@@ -51,7 +51,7 @@ Go can be [installed](https://golang.org/doc/install#install) from the official 
 
 [Snap](https://snapcraft.io/go) may also be used to install Go on Linux.
 
-    snap install go --channel=1.17/stable --classic
+    snap install go --channel=1.18/stable --classic
 
 ## Build Juju and its dependencies
 
