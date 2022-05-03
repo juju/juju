@@ -146,7 +146,7 @@ define run_go_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
-	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCh}))
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
 	@env GOOS=${OS} GOARCH=${BUILD_ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
