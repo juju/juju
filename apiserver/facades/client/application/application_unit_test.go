@@ -2402,6 +2402,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 		PublicAddress:   "10.0.0.1",
 		Charm:           "cs:postgresql-42",
 		Leader:          true,
+		Life:            state.Alive.String(),
 		RelationData: []params.EndpointRelationData{{
 			RelationId:      101,
 			Endpoint:        "db",
@@ -2440,6 +2441,7 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 		PublicAddress:   "10.0.0.1",
 		Charm:           "cs:postgresql-42",
 		Leader:          true,
+		Life:            state.Alive.String(),
 		RelationData: []params.EndpointRelationData{{
 			RelationId:      101,
 			Endpoint:        "db",
@@ -2464,6 +2466,7 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 		PublicAddress:   "10.0.0.1",
 		Charm:           "cs:postgresql-42",
 		Leader:          false,
+		Life:            state.Alive.String(),
 		RelationData: []params.EndpointRelationData{{
 			RelationId:      101,
 			Endpoint:        "db",

@@ -1200,6 +1200,7 @@ type UnitInfo struct {
 	PublicAddress   string
 	Charm           string
 	Leader          bool
+	Life            string
 	RelationData    []EndpointRelationData
 
 	// The following are for CAAS models.
@@ -1259,6 +1260,7 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 		PublicAddress:   in.Result.PublicAddress,
 		Charm:           in.Result.Charm,
 		Leader:          in.Result.Leader,
+		Life:            in.Result.Life,
 		ProviderId:      in.Result.ProviderId,
 		Address:         in.Result.Address,
 	}

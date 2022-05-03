@@ -625,6 +625,7 @@ type UnitResult struct {
 	PublicAddress   string                 `json:"public-address,omitempty"`
 	Charm           string                 `json:"charm"`
 	Leader          bool                   `json:"leader,omitempty"`
+	Life            string                 `json:"life,omitempty"`
 	RelationData    []EndpointRelationData `json:"relation-data,omitempty"`
 
 	// The following are for CAAS models.

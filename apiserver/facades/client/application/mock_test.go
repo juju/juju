@@ -988,6 +988,10 @@ func (u *mockUnit) IsPrincipal() bool {
 	return true
 }
 
+func (u *mockUnit) Life() state.Life {
+	return state.Alive
+}
+
 func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
 	u.MethodCall(u, "DestroyOperation")
 	return &state.DestroyUnitOperation{}

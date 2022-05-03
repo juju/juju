@@ -4180,6 +4180,9 @@
                         "leader": {
                             "type": "boolean"
                         },
+                        "life": {
+                            "type": "string"
+                        },
                         "machine": {
                             "type": "string"
                         },

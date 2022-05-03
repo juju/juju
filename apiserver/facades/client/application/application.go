@@ -3085,6 +3085,7 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		WorkloadVersion: workloadVersion,
 		Machine:         machineId,
 		Charm:           curl.String(),
+		Life:            unit.Life().String(),
 	}
 	if machineId != "" {
 		machine, err := api.backend.Machine(machineId)
