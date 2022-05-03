@@ -219,6 +219,9 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		})
 	}
 
+	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+		Logger: loggo.GetLogger("juju.localhub"),
+	})
 	agentConfig := op.AgentConf.CurrentConfig()
 	manifoldConfig := caasoperator.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{Agent: op},
@@ -233,6 +236,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		ValidateMigration:    op.validateMigration,
 		MachineLock:          op.machineLock,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		LocalHub:             localHub,
 	}
 	if op.configure != nil {
 		if err := op.configure(&manifoldConfig); err != nil {
@@ -252,9 +256,6 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: loggo.GetLogger("juju.localhub"),
-	})
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		AgentTag:           op.CurrentConfig().Tag(),
 		Engine:             engine,
