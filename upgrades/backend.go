@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/replicaset/v2"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
@@ -15,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
-	"github.com/juju/replicaset/v2"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
