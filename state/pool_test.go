@@ -70,6 +70,13 @@ func (s *statePoolSuite) TestGetSystemState(c *gc.C) {
 	c.Assert(st0, gc.Equals, s.State)
 }
 
+func (s *statePoolSuite) TestSystemStateErrorPoolIsClosed(c *gc.C) {
+	err := s.StatePool.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	_, errSysState := s.StatePool.SystemState()
+	c.Assert(errSysState, gc.ErrorMatches, "pool is closed")
+}
+
 func (s *statePoolSuite) TestClose(c *gc.C) {
 	// Get some State instances.
 	st1, err := s.StatePool.Get(s.ModelUUID1)
