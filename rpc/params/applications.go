@@ -585,6 +585,7 @@ type ApplicationResult struct {
 	Principal        bool                       `json:"principal"`
 	Exposed          bool                       `json:"exposed"`
 	Remote           bool                       `json:"remote"`
+	Life             string                     `json:"life"`
 	EndpointBindings map[string]string          `json:"endpoint-bindings,omitempty"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
 }

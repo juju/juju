@@ -74,6 +74,7 @@ wordpress:
   principal: true
   exposed: false
   remote: false
+  life: alive
   endpoint-bindings:
     "": alpha
     admin-api: alpha
@@ -100,6 +101,7 @@ logging:
   principal: false
   exposed: false
   remote: false
+  life: alive
   endpoint-bindings:
     "": alpha
     info: vlan2
@@ -113,6 +115,7 @@ wordpress:
   principal: true
   exposed: false
   remote: false
+  life: alive
   endpoint-bindings:
     "": alpha
     admin-api: alpha

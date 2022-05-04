@@ -2981,6 +2981,9 @@
                                 }
                             }
                         },
+                        "life": {
+                            "type": "string"
+                        },
                         "principal": {
                             "type": "boolean"
                         },
@@ -2999,7 +3002,8 @@
                         "tag",
                         "principal",
                         "exposed",
-                        "remote"
+                        "remote",
+                        "life"
                     ]
                 },
                 "ApplicationSet": {

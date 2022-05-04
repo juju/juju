@@ -2268,12 +2268,13 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 		Channel:     "2.0/candidate",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
+		Life:        state.Alive.String(),
 		EndpointBindings: map[string]string{
 			"juju-info": "myspace",
 		},
 	})
 	app := s.backend.applications["test-app-info"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Channel", "CharmOrigin", "Series", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Channel", "CharmOrigin", "Series", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote", "Life")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) {
@@ -2302,6 +2303,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
+		Life:        state.Alive.String(),
 		EndpointBindings: map[string]string{
 			"juju-info": "myspace",
 		},
@@ -2312,7 +2314,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 			},
 		},
 	})
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Channel", "CharmOrigin", "Series", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Channel", "CharmOrigin", "Series", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote", "Life")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
@@ -2356,6 +2358,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
+		Life:        state.Alive.String(),
 		EndpointBindings: map[string]string{
 			"juju-info": "myspace",
 		},
@@ -2363,7 +2366,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Channel", "CharmOrigin", "Series", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Channel", "CharmOrigin", "Series", "EndpointBindings", "ExposedEndpoints", "CharmOrigin", "IsPrincipal", "IsExposed", "IsRemote", "Life")
 }
 
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {

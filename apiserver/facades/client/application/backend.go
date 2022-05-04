@@ -90,6 +90,7 @@ type Application interface {
 	IsExposed() bool
 	IsPrincipal() bool
 	IsRemote() bool
+	Life() state.Life
 	Series() string
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error

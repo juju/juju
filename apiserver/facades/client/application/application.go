@@ -2832,6 +2832,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
+			Life:             app.Life().String(),
 			EndpointBindings: bindingsMap,
 			ExposedEndpoints: exposedEndpoints,
 		}

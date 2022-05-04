@@ -275,6 +275,11 @@ func (a *mockApplication) IsRemote() bool {
 	return a.remote
 }
 
+func (a *mockApplication) Life() state.Life {
+	a.MethodCall(a, "Life")
+	return state.Alive
+}
+
 func (a *mockApplication) AgentTools() (*tools.Tools, error) {
 	a.MethodCall(a, "AgentTools")
 	return a.agentTools, a.NextErr()
