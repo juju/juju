@@ -4,8 +4,13 @@ on:
     types: [published]
   schedule:
     - cron:  '0 */12 * * *'
+permissions:
+  contents: read
+
 jobs:
   update-brew-tap:
+    permissions:
+      contents: none
     if: github.repository_owner == 'juju'
     runs-on: ubuntu-latest
     steps:
