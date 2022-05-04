@@ -585,6 +585,7 @@ type ApplicationResult struct {
 	Principal        bool                       `json:"principal"`
 	Exposed          bool                       `json:"exposed"`
 	Remote           bool                       `json:"remote"`
+	Life             string                     `json:"life"`
 	EndpointBindings map[string]string          `json:"endpoint-bindings,omitempty"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
 }
@@ -625,6 +626,7 @@ type UnitResult struct {
 	PublicAddress   string                 `json:"public-address,omitempty"`
 	Charm           string                 `json:"charm"`
 	Leader          bool                   `json:"leader,omitempty"`
+	Life            string                 `json:"life,omitempty"`
 	RelationData    []EndpointRelationData `json:"relation-data,omitempty"`
 
 	// The following are for CAAS models.

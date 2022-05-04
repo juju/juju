@@ -2832,6 +2832,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
+			Life:             app.Life().String(),
 			EndpointBindings: bindingsMap,
 			ExposedEndpoints: exposedEndpoints,
 		}
@@ -3085,6 +3086,7 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		WorkloadVersion: workloadVersion,
 		Machine:         machineId,
 		Charm:           curl.String(),
+		Life:            unit.Life().String(),
 	}
 	if machineId != "" {
 		machine, err := api.backend.Machine(machineId)

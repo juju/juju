@@ -275,6 +275,11 @@ func (a *mockApplication) IsRemote() bool {
 	return a.remote
 }
 
+func (a *mockApplication) Life() state.Life {
+	a.MethodCall(a, "Life")
+	return state.Alive
+}
+
 func (a *mockApplication) AgentTools() (*tools.Tools, error) {
 	a.MethodCall(a, "AgentTools")
 	return a.agentTools, a.NextErr()
@@ -986,6 +991,10 @@ func (u *mockUnit) IsPrincipal() bool {
 	u.MethodCall(u, "IsPrincipal")
 	u.PopNoErr()
 	return true
+}
+
+func (u *mockUnit) Life() state.Life {
+	return state.Alive
 }
 
 func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
