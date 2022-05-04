@@ -4646,6 +4646,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
 				Results: map[string]params.NetworkInfoResult{
 					"unknown": {
 						Error: &params.Error{
+							Code:    params.CodeNotValid,
 							Message: `undefined for unit charm: endpoint "unknown" not valid`,
 						},
 					},

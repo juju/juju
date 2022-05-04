@@ -432,7 +432,7 @@ func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
 		User:     "123@",
 		Commands: []string{"status --color"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`})
+	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`, Code: params.CodeNotValid})
 }
 
 func (s *apiserverSuite) TestEmbeddedCommandInvalidMacaroon(c *gc.C) {
