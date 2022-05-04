@@ -373,7 +373,7 @@ func RestoreError(err error) error {
 	case params.IsCodeTryAgain(err):
 		return ErrTryAgain
 	case params.IsCodeNotValid(err):
-		return errors.NotValidf(msg)
+		return errors.NewNotValid(nil, msg)
 	default:
 		return err
 	}
