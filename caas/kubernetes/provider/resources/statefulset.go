@@ -101,7 +101,7 @@ func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) 
 
 // Events emitted by the resource.
 func (ss *StatefulSet) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, ss.Namespace, ss.Name, "StatefulSet")
+	return listEventsForObject(ctx, client, ss.Namespace, ss.Name, "StatefulSet")
 }
 
 // ComputeStatus returns a juju status for the resource.

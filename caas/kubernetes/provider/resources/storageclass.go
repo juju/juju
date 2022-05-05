@@ -120,7 +120,7 @@ func (sc *StorageClass) Delete(ctx context.Context, client kubernetes.Interface)
 
 // Events emitted by the resource.
 func (sc *StorageClass) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, "", sc.Name, "StorageClass")
+	return listEventsForObject(ctx, client, "", sc.Name, "StorageClass")
 }
 
 // ComputeStatus returns a juju status for the resource.

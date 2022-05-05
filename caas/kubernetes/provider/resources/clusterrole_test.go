@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
@@ -95,7 +94,7 @@ func (s *clusterRoleSuite) TestDelete(c *gc.C) {
 // https://bugs.launchpad.net/juju/+bug/1929909
 func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *gc.C) {
 	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: meta.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "test",
 			Labels: map[string]string{
 				"foo": "bar",
@@ -132,7 +131,7 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *gc.C)
 	rrole, err := s.client.RbacV1().ClusterRoles().Get(
 		context.TODO(),
 		"test",
-		meta.GetOptions{},
+		metav1.GetOptions{},
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,7 +151,7 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *gc.C)
 	rrole, err = s.client.RbacV1().ClusterRoles().Get(
 		context.TODO(),
 		"test",
-		meta.GetOptions{},
+		metav1.GetOptions{},
 	)
 
 	c.Assert(err, jc.ErrorIsNil)

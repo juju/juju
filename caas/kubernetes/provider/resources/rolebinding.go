@@ -101,7 +101,7 @@ func (rb *RoleBinding) Delete(ctx context.Context, client kubernetes.Interface) 
 
 // Events emitted by the resource.
 func (rb *RoleBinding) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, rb.Namespace, rb.Name, "RoleBinding")
+	return listEventsForObject(ctx, client, rb.Namespace, rb.Name, "RoleBinding")
 }
 
 // ComputeStatus returns a juju status for the resource.

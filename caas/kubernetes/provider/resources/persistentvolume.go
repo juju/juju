@@ -99,7 +99,7 @@ func (pv *PersistentVolume) Delete(ctx context.Context, client kubernetes.Interf
 
 // Events emitted by the resource.
 func (pv *PersistentVolume) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, pv.Namespace, pv.Name, "PersistentVolume")
+	return listEventsForObject(ctx, client, pv.Namespace, pv.Name, "PersistentVolume")
 }
 
 // ComputeStatus returns a juju status for the resource.

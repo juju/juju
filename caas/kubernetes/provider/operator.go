@@ -25,11 +25,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/juju/osenv"
@@ -572,7 +573,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	operatorName := k.operatorName(appName)
 	legacy := isLegacyName(operatorName)
 
-	// First delete RBAC resources.
+	// First delete RBAC coreresources.
 	if err = k.deleteOperatorRBACResources(appName); err != nil {
 		return errors.Trace(err)
 	}
@@ -695,7 +696,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	}
 
 	terminated := opPod.DeletionTimestamp != nil
-	statusMessage, opStatus, since, err := podToJujuStatus(
+	statusMessage, opStatus, since, err := resources.PodToJujuStatus(
 		opPod, k.clock.Now(), eventGetter)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -710,7 +711,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	}
 	for _, container := range opPod.Spec.Containers {
 		if container.Name == operatorContainerName {
-			cfg.ImageDetails = resources.DockerImageDetails{
+			cfg.ImageDetails = coreresources.DockerImageDetails{
 				RegistryPath: container.Image,
 			}
 			break
@@ -750,7 +751,7 @@ func operatorPod(
 	appName,
 	operatorServiceIP,
 	agentPath string,
-	operatorImageDetails resources.DockerImageDetails,
+	operatorImageDetails coreresources.DockerImageDetails,
 	selectorLabels map[string]string,
 	annotations k8sannotations.Annotation,
 	serviceAccountName string,

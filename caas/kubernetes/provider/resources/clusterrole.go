@@ -142,7 +142,7 @@ func (r *ClusterRole) Ensure(
 
 // Events emitted by the resource.
 func (r *ClusterRole) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, r.Namespace, r.Name, "ClusterRole")
+	return listEventsForObject(ctx, client, r.Namespace, r.Name, "ClusterRole")
 }
 
 // ComputeStatus returns a juju status for the resource.

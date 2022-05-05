@@ -42,6 +42,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -54,7 +55,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -2412,7 +2413,7 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 		}
 
 		terminated := p.DeletionTimestamp != nil
-		statusMessage, unitStatus, since, err := podToJujuStatus(p, now, eventGetter)
+		statusMessage, unitStatus, since, err := resources.PodToJujuStatus(p, now, eventGetter)
 
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2617,7 +2618,7 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 }
 
 func prepareWorkloadSpec(
-	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails resources.DockerImageDetails,
+	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails coreresources.DockerImageDetails,
 ) (*workloadSpec, error) {
 	var spec workloadSpec
 	if err := processContainers(deploymentName, podSpec, &spec.Pod.PodSpec); err != nil {

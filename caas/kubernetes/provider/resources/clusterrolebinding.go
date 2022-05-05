@@ -160,7 +160,7 @@ func (rb *ClusterRoleBinding) Ensure(
 
 // Events emitted by the resource.
 func (rb *ClusterRoleBinding) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, rb.Namespace, rb.Name, "ClusterRoleBinding")
+	return listEventsForObject(ctx, client, rb.Namespace, rb.Name, "ClusterRoleBinding")
 }
 
 // ComputeStatus returns a juju status for the resource.
