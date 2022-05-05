@@ -1081,7 +1081,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
-	cB, err := getControllerBackend(pool)
+	controllerBackend, err := getControllerBackend(pool)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1089,7 +1089,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 		watcherCommon: newWatcherCommon(context),
 		watcher:       w,
 		st:            getMigrationBackend(st),
-		ctrlSt:        cB,
+		ctrlSt:        controllerBackend,
 	}, nil
 }
 
