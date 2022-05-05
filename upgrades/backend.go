@@ -278,7 +278,10 @@ func (s stateBackend) ControllerConfig() (controller.Config, error) {
 
 func (s stateBackend) LeaseNotifyTarget(logger raftleasestore.Logger) (raftlease.NotifyTarget, error) {
 	systemState, err := s.pool.SystemState()
-	return systemState.LeaseNotifyTarget(logger), err
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return systemState.LeaseNotifyTarget(logger), nil
 }
 
 func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
