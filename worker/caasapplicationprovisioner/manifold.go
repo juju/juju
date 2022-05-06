@@ -11,8 +11,9 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api/base"
-	apicaasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
-	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
+	"github.com/juju/juju/api/controller/caasapplicationprovisioner"
+	"github.com/juju/juju/api/controller/caasunitprovisioner"
+	"github.com/juju/juju/api/controller/controllerapi"
 	"github.com/juju/juju/caas"
 )
 
@@ -29,11 +30,12 @@ type Logger interface {
 
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.
 type ManifoldConfig struct {
-	APICallerName string
-	BrokerName    string
-	ClockName     string
-	NewWorker     func(Config) (worker.Worker, error)
-	Logger        Logger
+	APICallerName     string
+	BrokerName        string
+	ClockName         string
+	ControllerAPIName string
+	NewWorker         func(Config) (worker.Worker, error)
+	Logger            Logger
 }
 
 // Validate is called by start to check for bad configuration.
@@ -46,6 +48,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
+	}
+	if config.ControllerAPIName == "" {
+		return errors.NotValidf("empty ControllerAPIName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -76,19 +81,25 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var controller *controllerapi.Worker // TODO: annoying that this needs to be the concrete type
+	if err := context.Get(config.ControllerAPIName, &controller); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	modelTag, ok := apiCaller.ModelTag()
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
 
 	w, err := config.NewWorker(Config{
-		Facade:       apicaasapplicationprovisioner.NewClient(apiCaller),
+		Facade:       caasapplicationprovisioner.NewClient(apiCaller),
 		Broker:       broker,
 		ModelTag:     modelTag,
 		Clock:        clock,
 		Logger:       config.Logger,
 		NewAppWorker: NewAppWorker,
-		UnitFacade:   caasunitprovisionerapi.NewClient(apiCaller),
+		UnitFacade:   caasunitprovisioner.NewClient(apiCaller),
+		Controller:   controller,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

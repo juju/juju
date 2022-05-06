@@ -49,7 +49,6 @@ type CAASProvisionerFacade interface {
 	ProvisioningInfo(string) (api.ProvisioningInfo, error)
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPassword(string, string) error
-	Life(string) (life.Value, error)
 	CharmInfo(string) (*charmscommon.CharmInfo, error)
 	ApplicationCharmInfo(string) (*charmscommon.CharmInfo, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
@@ -61,6 +60,10 @@ type CAASProvisionerFacade interface {
 	ClearApplicationResources(appName string) error
 	WatchUnits(application string) (watcher.StringsWatcher, error)
 	RemoveUnit(unitName string) error
+}
+
+type ControllerAPI interface {
+	Life(entity names.Tag) (life.Value, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -90,6 +93,7 @@ type Config struct {
 	Logger       Logger
 	NewAppWorker NewAppWorkerFunc
 	UnitFacade   CAASUnitProvisionerFacade
+	Controller   ControllerAPI
 }
 
 type provisioner struct {
@@ -102,6 +106,7 @@ type provisioner struct {
 	newAppWorker NewAppWorkerFunc
 	modelTag     names.ModelTag
 	unitFacade   CAASUnitProvisionerFacade
+	controller   ControllerAPI
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -165,7 +170,7 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, appName := range apps {
-				_, err := p.facade.Life(appName)
+				_, err := p.controller.Life(names.NewApplicationTag(appName))
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
@@ -198,6 +203,7 @@ func (p *provisioner) loop() error {
 					Clock:      p.clock,
 					Logger:     p.logger.Child(appName),
 					UnitFacade: p.unitFacade,
+					Controller: p.controller,
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf("starting app worker %q", appName)

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
 	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
+	"github.com/juju/juju/api/controller/controllerapi"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -63,6 +65,8 @@ import (
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/remoterelations"
 	"github.com/juju/juju/worker/singular"
+	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/undertaker"
@@ -88,7 +92,7 @@ type ManifoldsConfig struct {
 	Authority pki.Authority
 
 	// Clock supplies timing services to any manifolds that need them.
-	// Only a few workers have been converted to use them fo far.
+	// Only a few workers have been converted to use them so far.
 	Clock clock.Clock
 
 	// LoggingContext holds the model writers so that the loggers
@@ -127,6 +131,15 @@ type ManifoldsConfig struct {
 	// NewMigrationMaster is called to create a new migrationmaster
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
+
+	// OpenStatePool is function used by the state manifold to create a
+	// *state.StatePool.
+	OpenStatePool func(coreagent.Config) (*state.StatePool, error)
+
+	// SetStatePool is used by the state worker for informing the agent of
+	// the StatePool that it creates, so we can pass it to the introspection
+	// worker running outside of the dependency engine.
+	SetStatePool func(*state.StatePool)
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -544,13 +557,31 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		)),
 
+		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
+		stateName: workerstate.Manifold(workerstate.ManifoldConfig{
+			AgentName:              agentName,
+			StateConfigWatcherName: stateConfigWatcherName,
+			OpenStatePool:          config.OpenStatePool,
+			SetStatePool:           config.SetStatePool,
+		}),
+
+		controllerAPIName: controllerapi.Manifold(controllerapi.ManifoldConfig{
+			StateName: stateName,
+			Logger:    config.LoggingContext.GetLogger("juju.controllerapi"),
+		}),
+
 		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
 			caasapplicationprovisioner.ManifoldConfig{
-				APICallerName: apiCallerName,
-				BrokerName:    caasBrokerTrackerName,
-				ClockName:     clockName,
-				NewWorker:     caasapplicationprovisioner.NewProvisionerWorker,
-				Logger:        config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
+				APICallerName:     apiCallerName,
+				BrokerName:        caasBrokerTrackerName,
+				ClockName:         clockName,
+				ControllerAPIName: controllerAPIName,
+				NewWorker:         caasapplicationprovisioner.NewProvisionerWorker,
+				Logger:            config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
 			},
 		)),
 
@@ -721,4 +752,8 @@ const (
 	caasBrokerTrackerName          = "caas-broker-tracker"
 
 	validCredentialFlagName = "valid-credential-flag"
+
+	stateConfigWatcherName = "state-config-watcher"
+	stateName              = "state"
+	controllerAPIName      = "controller-api"
 )

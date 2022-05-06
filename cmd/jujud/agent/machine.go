@@ -1140,6 +1140,8 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewEnvironFunc:              newEnvirons,
 		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,
+		OpenStatePool:               a.initState,
+		SetStatePool:                func(pool *state.StatePool) {}, // TODO?
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second

@@ -39,6 +39,7 @@ type appWorker struct {
 	clock      clock.Clock
 	logger     Logger
 	unitFacade CAASUnitProvisionerFacade
+	controller ControllerAPI
 
 	name        string
 	modelTag    names.ModelTag
@@ -56,6 +57,7 @@ type AppWorkerConfig struct {
 	Clock      clock.Clock
 	Logger     Logger
 	UnitFacade CAASUnitProvisionerFacade
+	Controller ControllerAPI
 }
 
 type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
@@ -73,6 +75,7 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 			logger:     config.Logger,
 			changes:    changes,
 			unitFacade: config.UnitFacade,
+			controller: config.Controller,
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Site: &a.catacomb,
@@ -103,7 +106,7 @@ func (a *appWorker) loop() error {
 
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.
-	appLife, err := a.facade.Life(a.name)
+	appLife, err := a.controller.Life(names.NewApplicationTag(a.name))
 	if errors.IsNotFound(err) {
 		a.logger.Debugf("application %q no longer exists", a.name)
 		return nil
@@ -228,7 +231,7 @@ func (a *appWorker) loop() error {
 	done := false
 
 	handleChange := func() error {
-		appLife, err = a.facade.Life(a.name)
+		appLife, err = a.controller.Life(names.NewApplicationTag(a.name))
 		if errors.IsNotFound(err) {
 			appLife = life.Dead
 		} else if err != nil {
@@ -336,7 +339,7 @@ func (a *appWorker) loop() error {
 				return fmt.Errorf("application %q units watcher closed channel", a.name)
 			}
 			for _, unit := range units {
-				unitLife, err := a.facade.Life(unit)
+				unitLife, err := a.controller.Life(names.NewUnitTag(unit))
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Annotatef(err, "fetching unit %q life", unit)
 				}
@@ -442,7 +445,7 @@ func (a *appWorker) verifyCharmUpgraded() (shouldExit bool, err error) {
 			return false, nil
 		}
 
-		appLife, err := a.facade.Life(a.name)
+		appLife, err := a.controller.Life(names.NewApplicationTag(a.name))
 		if errors.IsNotFound(err) {
 			a.logger.Debugf("application %q no longer exists", a.name)
 			return true, nil
