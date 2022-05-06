@@ -93,7 +93,7 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 				Stdout:   stdout,
 				Stderr:   stderr,
 			}, cancel,
-		).DoAndReturn(func(...interface{}) error {
+		).DoAndReturn(func(exec.ExecParams, <-chan struct{}) error {
 			stdout.WriteString("some message")
 			stderr.WriteString("some err message")
 			return exitErr

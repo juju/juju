@@ -296,7 +296,7 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	// We don't want to kill the worker while we are in the status observation
 	// loop, so we gate on this final expectation.
 	finished := make(chan struct{})
-	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading).Do(func(...interface{}) {
+	s.pool.EXPECT().SetStatus("0", status.Error, statusUpgrading).Do(func(string, status.Status, string) {
 		close(finished)
 	})
 

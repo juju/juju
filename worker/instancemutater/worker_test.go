@@ -156,7 +156,7 @@ type workerSuite struct {
 	broker                 *mocks.MockLXDProfiler
 	agentConfig            *mocks.MockConfig
 	machine                map[int]*mocks.MockMutaterMachine
-	machineTag             names.Tag
+	machineTag             names.MachineTag
 	machinesWorker         *workermocks.MockWorker
 	context                *mocks.MockMutaterContext
 	appLXDProfileWorker    map[int]*workermocks.MockWorker
@@ -392,7 +392,7 @@ func (s *workerSuite) expectFacadeMachineTag(machine int) {
 }
 
 func (s *workerSuite) expectFacadeReturnsNoMachine() {
-	do := s.workGroupAddGetDoneFunc()
+	do := s.workGroupAddGetDoneWithMachineFunc()
 	s.facade.EXPECT().Machine(s.machineTag).Return(nil, errors.NewNotFound(nil, "machine")).Do(do)
 }
 
@@ -407,9 +407,24 @@ func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) {
 	s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil).Do(do)
 }
 
-func (s *workerSuite) workGroupAddGetDoneFunc() func(_ ...interface{}) {
+func (s *workerSuite) workGroupAddGetDoneFunc() func() {
 	s.doneWG.Add(1)
-	return func(_ ...interface{}) { s.doneWG.Done() }
+	return func() { s.doneWG.Done() }
+}
+
+func (s *workerSuite) workGroupAddGetDoneWithErrorFunc() func(error) {
+	s.doneWG.Add(1)
+	return func(error) { s.doneWG.Done() }
+}
+
+func (s *workerSuite) workGroupAddGetDoneWithMachineFunc() func(tag names.MachineTag) {
+	s.doneWG.Add(1)
+	return func(tag names.MachineTag) { s.doneWG.Done() }
+}
+
+func (s *workerSuite) workGroupAddGetDoneWithStatusFunc() func(status.Status, string, map[string]interface{}) {
+	s.doneWG.Add(1)
+	return func(status.Status, string, map[string]interface{}) { s.doneWG.Done() }
 }
 
 func (s *workerSuite) expectLXDProfileNamesTrue() {
@@ -478,21 +493,22 @@ func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group
 	mExp := s.machine[machine].EXPECT()
 
 	group.Add(1)
-	notificationSync := func(_ ...interface{}) { group.Done() }
+	notificationSync := func() { group.Done() }
 
 	mExp.Refresh().Return(nil).Times(2)
 	o1 := mExp.Life().Return(life.Alive).Do(notificationSync)
 
 	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 
+	doWithStatus := s.workGroupAddGetDoneWithStatusFunc()
 	s.machine[0].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
-	s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
+	s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(doWithStatus)
 
 	mExp.Life().Return(life.Dead).After(o1).Do(do)
 }
 
 func (s *workerSuite) expectModificationStatusApplied(machine int) {
-	do := s.workGroupAddGetDoneFunc()
+	do := s.workGroupAddGetDoneWithStatusFunc()
 	s.machine[machine].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 }
 
@@ -605,7 +621,7 @@ func (c mutaterContextShim) KillWithError(err error) {
 }
 
 func (s *workerSuite) expectContextKillError() {
-	do := s.workGroupAddGetDoneFunc()
+	do := s.workGroupAddGetDoneWithErrorFunc()
 	s.context.EXPECT().KillWithError(gomock.Any()).Do(do)
 }
 
@@ -712,7 +728,7 @@ func (s *workerContainerSuite) expectContainerAliveAndSetModificationStatusIdle(
 }
 
 func (s *workerContainerSuite) expectContainerModificationStatusApplied() {
-	do := s.workGroupAddGetDoneFunc()
+	do := s.workGroupAddGetDoneWithStatusFunc()
 	s.lxdContainer.EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 }
 
