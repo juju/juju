@@ -671,7 +671,7 @@ func (c *DeployCommand) Init(args []string) error {
 	// also required. It's required to ensure that juju knows which channel
 	// should be used for refreshing/upgrading the charm in the future.However
 	// a bundle does not require a channel, today you cannot refresh/upgrade
-	// a bundle, only the components. These flags will be varified in the
+	// a bundle, only the components. These flags will be verified in the
 	// GetDeployer instead.
 	if err := c.validateStorageByModelType(); err != nil {
 		if !errors.IsNotFound(err) {
