@@ -2225,14 +2225,25 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestService(c *gc.C) {
+func (s *applicationSuite) TestServiceActive(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, false, func() {},
+	)
+	defer s.assertDelete(c, app)
+
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), testSvc, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	ss.Status.ReadyReplicas = 3
+	_, err = s.client.AppsV1().StatefulSets("test").Update(context.TODO(), ss, metav1.UpdateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
 	svc, err := app.Service()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2249,6 +2260,139 @@ func (s *applicationSuite) TestService(c *gc.C) {
 		Status: status.StatusInfo{
 			Status: "active",
 			Since:  &since,
+		},
+	})
+}
+
+func (s *applicationSuite) TestServiceNotSupportedDaemon(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, false, func() {},
+	)
+	defer s.assertDelete(c, app)
+
+	testSvc := getDefaultSvc()
+	testSvc.UID = "deadbeaf"
+	testSvc.Spec.ClusterIP = "10.6.6.6"
+	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = app.Service()
+	c.Assert(err, gc.ErrorMatches, `deployment type "daemon" not supported`)
+}
+
+func (s *applicationSuite) TestServiceNotSupportedStateless(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateless, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, false, func() {},
+	)
+	defer s.assertDelete(c, app)
+
+	testSvc := getDefaultSvc()
+	testSvc.UID = "deadbeaf"
+	testSvc.Spec.ClusterIP = "10.6.6.6"
+	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = app.Service()
+	c.Assert(err, gc.ErrorMatches, `deployment type "stateless" not supported`)
+}
+
+func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, false, func() {},
+	)
+	defer s.assertDelete(c, app)
+
+	testSvc := getDefaultSvc()
+	testSvc.UID = "deadbeaf"
+	testSvc.Spec.ClusterIP = "10.6.6.6"
+	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	now := metav1.Now()
+	ss.DeletionTimestamp = &now
+	_, err = s.client.AppsV1().StatefulSets("test").Update(context.TODO(), ss, metav1.UpdateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	svc, err := app.Service()
+	c.Assert(err, jc.ErrorIsNil)
+
+	since := time.Time{}
+	c.Assert(svc, jc.DeepEquals, &caas.Service{
+		Id: "deadbeaf",
+		Addresses: network.ProviderAddresses{{
+			MachineAddress: network.MachineAddress{
+				Value: "10.6.6.6",
+				Type:  "ipv4",
+				Scope: "local-cloud",
+			},
+		}},
+		Status: status.StatusInfo{
+			Status: "terminated",
+			Since:  &since,
+		},
+	})
+}
+
+func (s *applicationSuite) TestServiceBlocked(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, false, func() {},
+	)
+	defer s.assertDelete(c, app)
+
+	testSvc := getDefaultSvc()
+	testSvc.UID = "deadbeaf"
+	testSvc.Spec.ClusterIP = "10.6.6.6"
+	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	ss.Status.ReadyReplicas = 0
+	_, err = s.client.AppsV1().StatefulSets("test").Update(context.TODO(), ss, metav1.UpdateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	evt := corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "evt1",
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Name: "gitlab",
+			Kind: "StatefulSet",
+		},
+		Type:    corev1.EventTypeWarning,
+		Reason:  "FailedCreate",
+		Message: "0/1 nodes are available: 1 pod has unbound immediate PersistentVolumeClaims.",
+	}
+	_, err = s.client.CoreV1().Events("test").Create(context.TODO(), &evt, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		_ = s.client.CoreV1().Events("test").Delete(context.TODO(), evt.GetName(), metav1.DeleteOptions{})
+	}()
+
+	svc, err := app.Service()
+	c.Assert(err, jc.ErrorIsNil)
+
+	since := time.Time{}
+	c.Assert(svc, jc.DeepEquals, &caas.Service{
+		Id: "deadbeaf",
+		Addresses: network.ProviderAddresses{{
+			MachineAddress: network.MachineAddress{
+				Value: "10.6.6.6",
+				Type:  "ipv4",
+				Scope: "local-cloud",
+			},
+		}},
+		Status: status.StatusInfo{
+			Status:  "blocked",
+			Since:   &since,
+			Message: "0/1 nodes are available: 1 pod has unbound immediate PersistentVolumeClaims.",
 		},
 	})
 }

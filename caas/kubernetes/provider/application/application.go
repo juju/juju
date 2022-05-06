@@ -1072,7 +1072,7 @@ func (a *app) Service() (*caas.Service, error) {
 	}
 	ctx := context.Background()
 	now := a.clock.Now()
-	statusMessage, svcStatus, since, err := a.ComputeStatus(ctx, a.client, now)
+	statusMessage, svcStatus, since, err := a.computeStatus(ctx, a.client, now)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1090,8 +1090,7 @@ func (a *app) Service() (*caas.Service, error) {
 	}, nil
 }
 
-// ComputeStatus returns a juju status for the resource.
-func (a *app) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	jujuStatus := status.Waiting
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -1101,19 +1100,18 @@ func (a *app) ComputeStatus(ctx context.Context, client kubernetes.Interface, no
 		}
 		if ss.GetDeletionTimestamp() != nil {
 			jujuStatus = status.Terminated
-		}
-		if ss.Status.ReadyReplicas == ss.Status.Replicas {
+		} else if ss.Spec.Replicas != nil && ss.Status.ReadyReplicas == *ss.Spec.Replicas {
 			jujuStatus = status.Active
 		}
-		events, err := ss.Events(ctx, client)
-		if err != nil {
-			return "", jujuStatus, now, errors.Trace(err)
-		}
 		var statusMessage string
-		// Take the most recent event.
-		if count := len(events); count > 0 {
-			evt := events[count-1]
-			if jujuStatus == status.Waiting {
+		if jujuStatus == status.Waiting {
+			events, err := ss.Events(ctx, client)
+			if err != nil {
+				return "", jujuStatus, now, errors.Trace(err)
+			}
+			// Take the most recent event.
+			if count := len(events); count > 0 {
+				evt := events[count-1]
 				if evt.Type == corev1.EventTypeWarning && evt.Reason == "FailedCreate" {
 					jujuStatus = status.Blocked
 					statusMessage = evt.Message
@@ -1122,7 +1120,7 @@ func (a *app) ComputeStatus(ctx context.Context, client kubernetes.Interface, no
 		}
 		return statusMessage, jujuStatus, now, nil
 	default:
-		return "", jujuStatus, now, errors.NotSupportedf("unknown deployment type")
+		return "", jujuStatus, now, errors.NotSupportedf("deployment type %q", a.deploymentType)
 	}
 }
 
