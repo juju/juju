@@ -573,7 +573,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	operatorName := k.operatorName(appName)
 	legacy := isLegacyName(operatorName)
 
-	// First delete RBAC coreresources.
+	// First delete RBAC resources.
 	if err = k.deleteOperatorRBACResources(appName); err != nil {
 		return errors.Trace(err)
 	}

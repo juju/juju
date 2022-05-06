@@ -1956,7 +1956,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
 func (s *applicationSuite) TestUnits(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 9; i++ {
 		podSpec := getPodSpec(c)
 		podSpec.Volumes = append(podSpec.Volumes,
 			corev1.Volume{
@@ -2026,15 +2026,119 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 		}
 		switch i {
 		case 0:
-			pod.Status.Phase = corev1.PodRunning
+			pod.Status.Conditions = []corev1.PodCondition{
+				{
+					Type:    corev1.PodScheduled,
+					Status:  corev1.ConditionFalse,
+					Reason:  corev1.PodReasonUnschedulable,
+					Message: "not enough resources",
+				},
+			}
 		case 1:
-			pod.Status.Phase = corev1.PodPending
+			pod.Status.Conditions = []corev1.PodCondition{
+				{
+					Type:    corev1.PodScheduled,
+					Status:  corev1.ConditionFalse,
+					Reason:  "waiting",
+					Message: "waiting to be scheduled",
+				},
+			}
 		case 2:
 			pod.DeletionTimestamp = &metav1.Time{
 				Time: time.Now(),
 			}
 		case 3:
-			pod.Status.Phase = corev1.PodFailed
+			pod.Status.Conditions = []corev1.PodCondition{}
+
+		case 4:
+			pod.Status.Conditions = []corev1.PodCondition{
+				{
+					Type:   corev1.PodScheduled,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:    corev1.PodInitialized,
+					Status:  corev1.ConditionFalse,
+					Reason:  resources.PodReasonContainersNotInitialized,
+					Message: "initializing containers",
+				},
+			}
+		case 5:
+			pod.Status.Conditions = []corev1.PodCondition{
+				{
+					Type:   corev1.PodScheduled,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:    corev1.PodInitialized,
+					Status:  corev1.ConditionFalse,
+					Reason:  resources.PodReasonInitializing,
+					Message: "initializing containers",
+				},
+			}
+		case 6:
+			pod.Status.Conditions = []corev1.PodCondition{
+				{
+					Type:   corev1.PodScheduled,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:    corev1.PodInitialized,
+					Status:  corev1.ConditionFalse,
+					Reason:  resources.PodReasonContainersNotInitialized,
+					Message: "initializing containers",
+				},
+			}
+			pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
+				{
+					Name: "test-init-container",
+					State: corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{
+							Reason:  resources.PodReasonCrashLoopBackoff,
+							Message: "I am broken",
+						},
+					},
+				},
+			}
+		case 7:
+			pod.Status.Conditions = []corev1.PodCondition{
+				{
+					Type:   corev1.PodScheduled,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:    corev1.ContainersReady,
+					Status:  corev1.ConditionFalse,
+					Reason:  resources.PodReasonContainersNotReady,
+					Message: "starting containers",
+				},
+			}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+				{
+					Name: "test-container",
+					State: corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{
+							Reason:  "bad-reason",
+							Message: "I am broken",
+						},
+					},
+				},
+			}
+		case 8:
+			pod.Status.Conditions = []corev1.PodCondition{
+				{
+					Type:   corev1.PodScheduled,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   corev1.ContainersReady,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			}
 		}
 		_, err := s.client.CoreV1().Pods(s.namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -2105,7 +2209,8 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 			Dying:    false,
 			Stateful: true,
 			Status: status.StatusInfo{
-				Status: "running",
+				Status:  "blocked",
+				Message: "not enough resources",
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
@@ -2136,7 +2241,8 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 			Dying:    false,
 			Stateful: true,
 			Status: status.StatusInfo{
-				Status: "allocating",
+				Status:  "allocating",
+				Message: "waiting to be scheduled",
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
@@ -2198,7 +2304,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 			Dying:    false,
 			Stateful: true,
 			Status: status.StatusInfo{
-				Status: "error",
+				Status: "unknown",
 			},
 			FilesystemInfo: []caas.FilesystemInfo{
 				{
@@ -2212,6 +2318,165 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					},
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-3",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-4",
+			Address:  "10.10.10.4",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status:  "maintenance",
+				Message: "initializing containers",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-4",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-5",
+			Address:  "10.10.10.5",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status:  "maintenance",
+				Message: "initializing containers",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-5",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-6",
+			Address:  "10.10.10.6",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status:  "error",
+				Message: "crash loop backoff: I am broken",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-6",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-7",
+			Address:  "10.10.10.7",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status:  "error",
+				Message: "unknown container reason \"bad-reason\": I am broken",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-7",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-8",
+			Address:  "10.10.10.8",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status: "running",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-8",
 						Size:       1024,
 						Persistent: false,
 						Status: status.StatusInfo{

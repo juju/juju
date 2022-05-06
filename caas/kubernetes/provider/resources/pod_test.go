@@ -100,7 +100,7 @@ func (s *podSuite) TestDelete(c *gc.C) {
 func TestTerminatedPodJujuStatus(t *testing.T) {
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			DeletionTimestamp: &metav1.Time{time.Now()},
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 		},
 		Status: corev1.PodStatus{
 			Message: "test",
@@ -113,7 +113,8 @@ func TestTerminatedPodJujuStatus(t *testing.T) {
 		testTime,
 		func() ([]corev1.Event, error) {
 			return []corev1.Event{}, nil
-		})
+		},
+	)
 
 	if err != nil {
 		t.Fatalf("unexpected error getting pod status: %v", err)

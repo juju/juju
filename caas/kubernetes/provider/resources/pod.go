@@ -210,17 +210,16 @@ func PodToJujuStatus(
 	// Start by processing the pod conditions in their lifecycle order
 	// Has the pod been scheduled?
 	_, cond := k8spod.GetPodCondition(&pod.Status, corev1.PodScheduled)
-	if cond == nil { // Doesn't have scheduling information. Should not get here
+	if cond == nil {
+		// Doesn't have scheduling information. Should not get here.
 		return defaultStatusMessage, status.Unknown, since, nil
-	} else if r, s, m := conditionHandler(
-		cond, reasonMapper(podScheduledReasonsMap, status.Allocating)); !r {
+	} else if r, s, m := conditionHandler(cond, reasonMapper(podScheduledReasonsMap, status.Allocating)); !r {
 		return m, s, cond.LastProbeTime.Time, nil
 	}
 
 	// Have the init containers run?
 	if _, cond := k8spod.GetPodCondition(&pod.Status, corev1.PodInitialized); cond != nil {
-		r, s, m := conditionHandler(
-			cond, reasonMapper(podInitializedReasonsMap, status.Maintenance))
+		r, s, m := conditionHandler(cond, reasonMapper(podInitializedReasonsMap, status.Maintenance))
 		if errM, isErr := interrogatePodContainerStatus(pod.Status.InitContainerStatuses); !r && isErr {
 			return errM, status.Error, cond.LastProbeTime.Time, nil
 		} else if !r {
@@ -265,7 +264,6 @@ func PodToJujuStatus(
 			defaultStatusMessage = eventList[count-1].Message
 		}
 	}
-
 	return defaultStatusMessage, status.Unknown, since, nil
 }
 
