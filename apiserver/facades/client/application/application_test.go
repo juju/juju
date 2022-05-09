@@ -2945,7 +2945,7 @@ func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
-	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
+	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
 	assertLife(c, logging0, state.Alive)
 
 	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
@@ -3062,7 +3062,7 @@ func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, lo
 	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
-	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
+	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate, .*`)
 	assertLife(c, wordpress0, state.Dying)
 	assertLife(c, logging0, state.Alive)
 }
@@ -3158,7 +3158,7 @@ func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
-	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
+	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
 	assertLife(c, logging0, state.Alive)
 
 	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
