@@ -475,7 +475,13 @@ func (c *showControllerCommand) convertModelsForShow(
 	modelStatus []base.ModelStatus,
 ) {
 	controller.Models = make(map[string]ModelDetails)
+	if len(models) != len(modelStatus) {
+		controller.Errors = append(controller.Errors, "model status incomplete")
+	}
 	for i, m := range models {
+		if i >= len(modelStatus) {
+			continue
+		}
 		modelDetails := ModelDetails{ModelUUID: m.UUID, OldModelUUID: m.UUID}
 		result := modelStatus[i]
 		if result.Error != nil {
