@@ -251,7 +251,7 @@ var setCommandInitErrorTests = []struct {
 }, {
 	about:       "--file and options specified",
 	args:        []string{"application", "--file", "testconfig.yaml", "bees="},
-	expectError: "cannot specify --file and key=value arguments simultaneously",
+	expectError: "cannot use --file flag and set key=value pairs simultaneously",
 }, {
 	about:       "--reset and no config name provided",
 	args:        []string{"application", "--reset"},
@@ -259,11 +259,11 @@ var setCommandInitErrorTests = []struct {
 }, {
 	about:       "cannot set and retrieve simultaneously",
 	args:        []string{"application", "get", "set=value"},
-	expectError: "cannot set and retrieve values simultaneously",
+	expectError: "cannot get value and set key=value pairs simultaneously",
 }, {
 	about:       "cannot reset and get simultaneously",
 	args:        []string{"application", "--reset", "reset", "get"},
-	expectError: "cannot reset and retrieve values simultaneously",
+	expectError: "cannot use --reset flag and get value simultaneously",
 }, {
 	about:       "invalid reset keys",
 	args:        []string{"application", "--reset", "reset,bad=key"},
@@ -271,7 +271,7 @@ var setCommandInitErrorTests = []struct {
 }, {
 	about:       "init too many args fails",
 	args:        []string{"application", "key", "another"},
-	expectError: "can only retrieve a single value, or all values",
+	expectError: "cannot specify multiple keys to get",
 }, {
 	about:       "--branch with no value",
 	args:        []string{"application", "key", "--branch"},
@@ -285,7 +285,7 @@ func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
 		cmd := application.NewConfigCommandForTest(s.fake, s.store)
 		cmd.SetClientStore(testStore)
 		err := cmdtesting.InitCommand(cmd, test.args)
-		c.Assert(err, gc.ErrorMatches, test.expectError)
+		c.Check(err, gc.ErrorMatches, test.expectError)
 	}
 }
 
@@ -369,7 +369,7 @@ func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 
 func (s *configCommandSuite) TestSetConfigFail(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{"foo", "bar"},
-		"can only retrieve a single value, or all values")
+		"cannot specify multiple keys to get")
 	s.assertSetFail(c, s.dir, []string{"=bar"}, "expected \"key=value\", got \"=bar\"")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
