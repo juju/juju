@@ -15,12 +15,12 @@ run_deploy_ck() {
 		sudo snap install kubectl --classic --channel latest/stable
 	fi
 
-	wait_for "active" '.applications["kubernetes-master"] | ."application-status".current'
+	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current'
 	wait_for "active" '.applications["kubernetes-worker"] | ."application-status".current'
 
 	kube_home="${HOME}/.kube"
 	mkdir -p "${kube_home}"
-	juju scp kubernetes-master/0:config "${kube_home}/config"
+	juju scp kubernetes-control-plane/0:config "${kube_home}/config"
 
 	kubectl cluster-info
 	kubectl get ns

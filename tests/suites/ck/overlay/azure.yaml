@@ -4,27 +4,29 @@ applications:
     annotations:
       gui-x: "600"
       gui-y: "300"
-    charm: cs:~containers/azure-integrator
+    charm: azure-integrator
     num_units: 1
     trust: true
   kubernetes-worker:
-    annotations:
-      gui-x: '90'
-      gui-y: '850'
-    charm: cs:~containers/kubernetes-worker-838
-    constraints: cores=2 mem=4G root-disk=16G
-    expose: true
-    num_units: 3
-    options:
-      channel: 1.23/stable
+    charm: kubernetes-worker
+    channel: stable
+    revision: 27
     resources:
-      cni-amd64: 983
-      cni-arm64: 974
-      cni-s390x: 986
-      core: 0
-      kube-proxy: 0
-      kubectl: 0
-      kubelet: 0
+      cni-amd64: 27
+      cni-arm64: 27
+      cni-s390x: 27
+      core: -1
+      kube-proxy: -1
+      kubectl: -1
+      kubelet: -1
+    num_units: 3
+    expose: true
+    options:
+      channel: 1.24/stable
+    annotations:
+      gui-x: "90"
+      gui-y: "850"
+    constraints: arch=amd64 cpu-cores=2 mem=4G root-disk=16G
 relations:
-  - ['azure-integrator', 'kubernetes-master:azure']
+  - ['azure-integrator', 'kubernetes-control-plane:azure']
   - ['azure-integrator', 'kubernetes-worker:azure']
