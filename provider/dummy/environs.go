@@ -966,10 +966,14 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			allWatcherBacking, err := state.NewAllWatcherBacking(statePool)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 				Clock:                clock.WallClock,
 				Logger:               loggo.GetLogger("dummy.multiwatcher"),
-				Backing:              state.NewAllWatcherBacking(statePool),
+				Backing:              allWatcherBacking,
 				PrometheusRegisterer: noopRegisterer{},
 			})
 			if err != nil {

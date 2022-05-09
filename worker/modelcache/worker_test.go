@@ -85,11 +85,13 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
 		Logger: loggo.GetLogger("test"),
 	})
+	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
+	c.Assert(err, jc.ErrorIsNil)
 	w, err := multiworker.NewWorker(
 		multiworker.Config{
 			Clock:                clock.WallClock,
 			Logger:               s.logger,
-			Backing:              state.NewAllWatcherBacking(s.StatePool),
+			Backing:              allWatcherBacking,
 			PrometheusRegisterer: noopRegisterer{},
 		})
 	c.Assert(err, jc.ErrorIsNil)

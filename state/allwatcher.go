@@ -1619,7 +1619,7 @@ type AllWatcherBacking interface {
 // NewAllWatcherBacking creates a backing object that watches
 // all the models in the controller for changes that are fed through
 // the multiwatcher infrastructure.
-func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
+func NewAllWatcherBacking(pool *StatePool) (AllWatcherBacking, error) {
 	collectionNames := []string{
 		// The ordering here matters. We want to load machines, then
 		// applications, then units. The others don't matter so much.
@@ -1646,13 +1646,16 @@ func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 		podSpecsC,
 	}
 	collectionMap := makeAllWatcherCollectionInfo(collectionNames)
-	controllerState, _ := pool.SystemState()
+	controllerState, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &allWatcherBacking{
 		watcher:          controllerState.workers.txnLogWatcher(),
 		stPool:           pool,
 		collections:      collectionNames,
 		collectionByName: collectionMap,
-	}
+	}, nil
 }
 
 // Watch watches all the collections.
