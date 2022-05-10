@@ -244,6 +244,13 @@ func NewShowUnitCommandForTest(api UnitsInfoAPI, store jujuclient.ClientStore) c
 	return modelcmd.Wrap(cmd)
 }
 
+// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
+func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := modelcmd.Wrap(&configCommand{api: api})
+	c.SetClientStore(store)
+	return c
+}
+
 // RepoSuiteBaseSuite allows the patching of the supported juju suite for
 // each test.
 type RepoSuiteBaseSuite struct {
