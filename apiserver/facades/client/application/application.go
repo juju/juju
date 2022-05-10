@@ -1804,7 +1804,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Trace(err)
 		}
 		if !unit.IsPrincipal() {
-			return nil, errors.Errorf("unit %q is a subordinate", name)
+			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q", name, unit.ApplicationName())
 		}
 		var info params.DestroyUnitInfo
 		unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
