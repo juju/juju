@@ -17,6 +17,7 @@ on:
       - 'testcharms/**'
       - 'testing/**'
       - 'tests/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
