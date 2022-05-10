@@ -434,8 +434,8 @@ github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc h1:ZQrgZFsLzkw7o3CoD
 github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc/go.mod h1:PyXUpnI3olx3bsPcHt98FGPX/KCFZ1Fi+hw1XLI6384=
 github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4 h1:OQVAtaX0oZQX1roCwPMXM7DSnmlvDQXxxcl6tn73GiU=
 github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4/go.mod h1:lFTSngYRJBy/mUOWUjAghwKcP0iXxqBYqJtuchC3cJI=
-github.com/juju/charm/v8 v8.0.0-20220207013334-ec6de7e9b78e h1:fu+YIqgQbwlSl1Wird+vnZDqmLhk0LqjcDiZZvA9MQk=
-github.com/juju/charm/v8 v8.0.0-20220207013334-ec6de7e9b78e/go.mod h1:tZ0JfWOdv11qu4Gm5lPD0KHBeuVUH2vbrKFyYS6JUAw=
+github.com/juju/charm/v8 v8.0.0-20220509231111-ed6d505a46f4 h1:7Zqo515Y4k21nJtf5tC6vyVx3tw4jyd67HfXoSV60Z0=
+github.com/juju/charm/v8 v8.0.0-20220509231111-ed6d505a46f4/go.mod h1:tZ0JfWOdv11qu4Gm5lPD0KHBeuVUH2vbrKFyYS6JUAw=
 github.com/juju/charmrepo/v6 v6.0.0-20220207014006-e6af52d614e4 h1:mx+an4ZTHZ+VYufUfniTz9P2MzBqdnua57bLkIq2VXE=
 github.com/juju/charmrepo/v6 v6.0.0-20220207014006-e6af52d614e4/go.mod h1:JvfFzbn5ckwtdB4UW2xIy4jG62ulPPlMf0+S1PZsO2k=
 github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
