@@ -164,7 +164,7 @@ type workerSuite struct {
 
 	// doneWG is a collection of things each test needs to wait to
 	// be completed within the test.
-	doneWG sync.WaitGroup
+	doneWG *sync.WaitGroup
 
 	newWorkerFunc func(instancemutater.Config, instancemutater.RequiredMutaterContextFunc) (worker.Worker, error)
 }
@@ -182,6 +182,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-testing"}
 	}
+	s.doneWG = new(sync.WaitGroup)
 }
 
 type workerEnvironSuite struct {
@@ -487,9 +488,6 @@ func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) {
 }
 
 func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group *sync.WaitGroup) {
-	s.doneWG.Add(1)
-	do := s.workGroupAddGetDoneFunc()
-
 	mExp := s.machine[machine].EXPECT()
 
 	group.Add(1)
@@ -500,10 +498,11 @@ func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group
 
 	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 
-	doWithStatus := s.workGroupAddGetDoneWithStatusFunc()
 	s.machine[0].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
+	doWithStatus := s.workGroupAddGetDoneWithStatusFunc()
 	s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(doWithStatus)
 
+	do := s.workGroupAddGetDoneFunc()
 	mExp.Life().Return(life.Dead).After(o1).Do(do)
 }
 
