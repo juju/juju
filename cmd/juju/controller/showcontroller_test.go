@@ -659,6 +659,36 @@ aws-test:
 	s.assertShowController(c, "aws-test")
 }
 
+func (s *ShowControllerSuite) TestShowControllerPrimaryModelStatusFail(c *gc.C) {
+	_ = s.createTestClientStore(c)
+	s.expectedOutput = `
+aws-test:
+  details:
+    uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    cloud: aws
+    region: us-east-1
+    agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
+    mongo-version: 3.5.12
+    ca-cert: this-is-aws-test-ca-cert
+  current-model: admin/controller
+  account:
+    user: admin
+    access: superuser
+  errors:
+  - model status incomplete
+`[1:]
+
+	_true := true
+	s.fakeController.machines["ghi"][2].HAPrimary = &_true
+	s.fakeController.emptyModelStatus = true
+
+	s.assertShowController(c, "aws-test")
+}
+
 type fakeController struct {
 	controllerName    string
 	machines          map[string][]base.Machine
@@ -668,6 +698,7 @@ type fakeController struct {
 	bestAPIVersion    int
 	identityURL       string
 	controllerVersion apicontroller.ControllerVersion
+	emptyModelStatus  bool
 }
 
 func (c *fakeController) GetControllerAccess(user string) (permission.Access, error) {
@@ -679,6 +710,9 @@ func (*fakeController) ModelConfig() (map[string]interface{}, error) {
 }
 
 func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.ModelStatus, _ error) {
+	if c.emptyModelStatus {
+		return result, nil
+	}
 	for _, mtag := range models {
 		result = append(result, base.ModelStatus{
 			UUID:              mtag.Id(),
