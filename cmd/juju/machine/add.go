@@ -122,6 +122,9 @@ Examples:
 	# Allocate a machine to the model via SSH
 	juju add-machine ssh:user@10.10.0.3
 
+	# Allocate a machine specifying the private key
+	juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_rsa
+
 	# Allocate a machine to the model via WinRM
 	juju add-machine winrm:user@10.10.0.3
 
@@ -162,12 +165,18 @@ type addCommand struct {
 	NumMachines int
 	// Disks describes disks that are to be attached to the machine.
 	Disks []storage.Constraints
+	// PrivateKey is the path for a file containing the private key required
+	// by the server
+	PrivateKey string
+	// PublicKey is the path for a file containing a public key required
+	// by the server
+	PublicKey string
 }
 
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container-type>[:<machine-id>] | (ssh|winrm):[<user>@]<host> | <placement>]",
+		Args:    "[<container-type>[:<machine-id>] | (ssh|winrm):[<user>@]<host> | <placement>] | <privateKey>",
 		Purpose: "Provision a new machine or assign one to the model.",
 		Doc:     addMachineDoc,
 	})
@@ -179,6 +188,8 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju get-model-constraints' and provider's defaults")
 	f.Var(disksFlag{&c.Disks}, "disks", "Storage constraints for disks to attach to the machine(s)")
+	f.StringVar(&c.PrivateKey, "private-key", "", "Path to the private key to use")
+	f.StringVar(&c.PublicKey, "public-key", "", "Path to the public key to use")
 }
 
 func (c *addCommand) Init(args []string) error {
@@ -398,10 +409,13 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 		return errNonManualScope
 	}
 
-	authKeys, err := common.ReadAuthorizedKeys(ctx, "")
+	authKeys, err := common.ReadAuthorizedKeys(ctx, c.PublicKey)
 	if err != nil {
 		return errors.Annotatef(err, "cannot reading authorized-keys")
 	}
+
+	fmt.Printf("public keys: [[%v]]", authKeys)
+	fmt.Printf("private keys: [[%v]]", c.PrivateKey)
 
 	user, host := splitUserHost(c.Placement.Directive)
 	args := manual.ProvisionMachineArgs{
@@ -412,6 +426,7 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 		Stdout:         ctx.Stdout,
 		Stderr:         ctx.Stderr,
 		AuthorizedKeys: authKeys,
+		PrivateKey:     c.PrivateKey,
 		UpdateBehavior: &params.UpdateBehavior{
 			EnableOSRefreshUpdate: config.EnableOSRefreshUpdate(),
 			EnableOSUpgrade:       config.EnableOSUpgrade(),

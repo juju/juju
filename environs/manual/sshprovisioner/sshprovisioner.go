@@ -39,7 +39,7 @@ import (
 //
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
-func InitUbuntuUser(host, login, authorizedKeys string, read io.Reader, write io.Writer) error {
+func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, read io.Reader, write io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
 
 	// To avoid unnecessary prompting for the specified login,
@@ -64,6 +64,11 @@ func InitUbuntuUser(host, login, authorizedKeys string, read io.Reader, write io
 	var options ssh.Options
 	options.AllowPasswordAuthentication()
 	options.EnablePTY()
+	// private Keys were set
+	if privateKeys != "" && len(privateKeys) > 0 {
+		options.SetIdentities(privateKeys)
+	}
+
 	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
 	var stderr bytes.Buffer
 	cmd.Stdin = read
