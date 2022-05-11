@@ -59,8 +59,7 @@ func newStateFirewallerAPIV4(context facade.Context) (*FirewallerAPIV4, error) {
 		return nil, err
 	}
 	return &FirewallerAPIV4{
-		ControllerConfigAPI: common.NewStateControllerConfig(context.State()),
-		FirewallerAPIV3:     facadev3,
+		FirewallerAPIV3: facadev3,
 	}, nil
 }
 

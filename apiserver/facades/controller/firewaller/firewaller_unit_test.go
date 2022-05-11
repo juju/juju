@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
@@ -47,7 +46,9 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState(coretesting.ModelTag.Id())
 	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &firewaller.FirewallerAPIV4{FirewallerAPIV3: api, ControllerConfigAPI: common.NewControllerConfig(s.st)}
+	s.api = &firewaller.FirewallerAPIV4{
+		FirewallerAPIV3: api,
+	}
 }
 
 func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
@@ -71,26 +72,6 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
 	})
-}
-
-func (s *RemoteFirewallerSuite) TestControllerAPIInfoForModels(c *gc.C) {
-	controllerInfo := &mockControllerInfo{
-		uuid: "some uuid",
-		info: crossmodel.ControllerInfo{
-			Addrs:  []string{"1.2.3.4/32"},
-			CACert: coretesting.CACert,
-		},
-	}
-	s.st.controllerInfo[coretesting.ModelTag.Id()] = controllerInfo
-	result, err := s.api.ControllerAPIInfoForModels(
-		params.Entities{Entities: []params.Entity{{
-			Tag: coretesting.ModelTag.String(),
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Addresses, jc.SameContents, []string{"1.2.3.4/32"})
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].CACert, gc.Equals, coretesting.CACert)
 }
 
 func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
@@ -164,8 +145,7 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	s.api = &firewaller.FirewallerAPIV6{
 		&firewaller.FirewallerAPIV5{
 			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3:     api,
-				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+				FirewallerAPIV3: api,
 			},
 		},
 	}

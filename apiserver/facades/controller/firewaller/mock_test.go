@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	corefirewall "github.com/juju/juju/core/network/firewall"
@@ -38,7 +37,6 @@ type mockState struct {
 	macaroons      map[names.Tag]*macaroon.Macaroon
 	relations      map[string]*mockRelation
 	machines       map[string]*mockMachine
-	controllerInfo map[string]*mockControllerInfo
 	firewallRules  map[corefirewall.WellKnownServiceType]*state.FirewallRule
 	subnetsWatcher *mockStringsWatcher
 	modelWatcher   *mockNotifyWatcher
@@ -55,7 +53,6 @@ func newMockState(modelUUID string) *mockState {
 		machines:       make(map[string]*mockMachine),
 		remoteEntities: make(map[names.Tag]string),
 		macaroons:      make(map[names.Tag]*macaroon.Macaroon),
-		controllerInfo: make(map[string]*mockControllerInfo),
 		firewallRules:  make(map[corefirewall.WellKnownServiceType]*state.FirewallRule),
 		subnetsWatcher: newMockStringsWatcher(),
 		modelWatcher:   newMockNotifyWatcher(),
@@ -71,18 +68,6 @@ func (st *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
 
 func (st *mockState) ModelConfig() (*config.Config, error) {
 	return config.New(config.UseDefaults, st.configAttrs)
-}
-
-func (st *mockState) ControllerConfig() (controller.Config, error) {
-	return nil, errors.NotImplementedf("ControllerConfig")
-}
-
-func (st *mockState) ControllerInfo(modelUUID string) ([]string, string, error) {
-	if info, ok := st.controllerInfo[modelUUID]; !ok {
-		return nil, "", errors.NotFoundf("controller info for %v", modelUUID)
-	} else {
-		return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
-	}
 }
 
 func (st *mockState) GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error) {

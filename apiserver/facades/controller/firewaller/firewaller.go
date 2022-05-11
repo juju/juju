@@ -52,7 +52,6 @@ type FirewallerAPIV3 struct {
 // FirewallerAPIV4 provides access to the Firewaller v4 API facade.
 type FirewallerAPIV4 struct {
 	*FirewallerAPIV3
-	*common.ControllerConfigAPI
 }
 
 // FirewallerAPIV5 provides access to the Firewaller v5 API facade.

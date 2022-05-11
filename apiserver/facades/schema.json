@@ -23768,27 +23768,6 @@
                     },
                     "description": "CloudSpec returns the model's cloud spec."
                 },
-                "ControllerAPIInfoForModels": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ControllerAPIInfoResults"
-                        }
-                    },
-                    "description": "ControllerAPIInfoForModels returns the controller api connection details for the specified models."
-                },
-                "ControllerConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ControllerConfigResult"
-                        }
-                    },
-                    "description": "ControllerConfig returns the controller's configuration."
-                },
                 "FirewallRules": {
                     "type": "object",
                     "properties": {
@@ -24153,61 +24132,6 @@
                         }
                     },
                     "additionalProperties": false
-                },
-                "ControllerAPIInfoResult": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "cacert": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "addresses",
-                        "cacert"
-                    ]
-                },
-                "ControllerAPIInfoResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ControllerAPIInfoResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "ControllerConfigResult": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
                 },
                 "Entities": {
                     "type": "object",
