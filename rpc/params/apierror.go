@@ -216,6 +216,7 @@ const (
 	CodeDeadlineExceeded          = "deadline exceeded"
 	CodeLeaseError                = "lease error"
 	CodeNotYetAvailable           = "not yet available; try again later"
+	CodeNotValid                  = "not valid"
 )
 
 // ErrCode returns the error code associated with
@@ -267,6 +268,10 @@ func IsCodeLoginExpired(err error) bool {
 
 func IsCodeNotYetAvailable(err error) bool {
 	return ErrCode(err) == CodeNotYetAvailable
+}
+
+func IsCodeNotValid(err error) bool {
+	return ErrCode(err) == CodeNotValid
 }
 
 // IsCodeNotFoundOrCodeUnauthorized is used in API clients which,

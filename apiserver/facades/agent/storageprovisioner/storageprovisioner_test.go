@@ -1307,7 +1307,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: `volume attachment host tag "application-mysql" not valid`}},
+			{Error: &params.Error{Code: params.CodeNotValid, Message: `volume attachment host tag "application-mysql" not valid`}},
 		},
 	})
 }

@@ -119,7 +119,7 @@ func (s *registrationSuite) TestRegisterInvalidUserTag(c *gc.C) {
 
 func (s *registrationSuite) TestRegisterInvalidNonce(c *gc.C) {
 	s.testInvalidRequest(
-		c, `{"user": "user-bob", "nonce": ""}`, `nonce not valid`, "",
+		c, `{"user": "user-bob", "nonce": ""}`, `nonce not valid`, params.CodeNotValid,
 		http.StatusInternalServerError,
 	)
 }
@@ -130,7 +130,7 @@ func (s *registrationSuite) TestRegisterInvalidCiphertext(c *gc.C) {
 		fmt.Sprintf(
 			`{"user": "user-bob", "nonce": "%s"}`,
 			base64.StdEncoding.EncodeToString(validNonce),
-		), `secret key not valid`, "",
+		), `secret key not valid`, params.CodeNotValid,
 		http.StatusInternalServerError,
 	)
 }
