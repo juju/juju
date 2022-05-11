@@ -19,7 +19,6 @@ import (
 )
 
 var ErrNoAuthorizedKeys = errors.New("no public ssh keys found")
-var ErrNoPrivateKeys = errors.New("no private ssh keys found")
 
 // FinalizeAuthorizedKeys takes a set of configuration attributes and
 // ensures that it has an authorized-keys setting, or returns

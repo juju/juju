@@ -122,8 +122,12 @@ Examples:
 	# Allocate a machine to the model via SSH
 	juju add-machine ssh:user@10.10.0.3
 
-	# Allocate a machine specifying the private key
+	# Allocate a machine specifying the private key to use during the connection.
 	juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_rsa
+
+	# Allocate a machine specifying a public key to set in the list of
+	# authorized keys in the machine.
+	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub
 
 	# Allocate a machine to the model via WinRM
 	juju add-machine winrm:user@10.10.0.3
@@ -413,9 +417,6 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 	if err != nil {
 		return errors.Annotatef(err, "cannot reading authorized-keys")
 	}
-
-	fmt.Printf("public keys: [[%v]]", authKeys)
-	fmt.Printf("private keys: [[%v]]", c.PrivateKey)
 
 	user, host := splitUserHost(c.Placement.Directive)
 	args := manual.ProvisionMachineArgs{
