@@ -829,7 +829,7 @@ func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
 		{Error: &params.Error{Message: `storage kind "block" not supported`, Code: "not supported"}},
-		{Error: &params.Error{Message: `pool name "123" not valid`}},
+		{Error: &params.Error{Message: `pool name "123" not valid`, Code: `not valid`}},
 	})
 }
 
