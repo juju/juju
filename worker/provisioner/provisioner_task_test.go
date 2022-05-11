@@ -340,7 +340,7 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 	started := make(chan struct{})
 	broker.EXPECT().StartInstance(s.callCtx, spaceConstraints).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
-	}, nil).Do(func(_ ...interface{}) {
+	}, nil).Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
 		go func() { started <- struct{}{} }()
 	})
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
@@ -417,7 +417,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 	started := make(chan struct{})
 	broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
-	}, nil).Do(func(_ ...interface{}) {
+	}, nil).Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
 		go func() { started <- struct{}{} }()
 	})
 
@@ -450,7 +450,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc
 		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
 		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-1"},
-		}, nil).Do(func(_ ...interface{}) {
+		}, nil).Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
 			go func() { started <- struct{}{} }()
 		}),
 	)
@@ -500,7 +500,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	started := make(chan struct{})
 	broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
-	}, nil).Do(func(_ ...interface{}) {
+	}, nil).Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
 		go func() { started <- struct{}{} }()
 	})
 
@@ -536,7 +536,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
 		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-1"},
-		}, nil).Do(func(_ ...interface{}) {
+		}, nil).Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
 			go func() { started <- struct{}{} }()
 		}),
 	)
@@ -580,7 +580,7 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
 		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-2"},
-		}, nil).Do(func(_ ...interface{}) {
+		}, nil).Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
 			go func() { started <- struct{}{} }()
 		}),
 	)
@@ -616,7 +616,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	defer ctrl.Finish()
 
 	broker := mocks.NewMockZonedEnviron(ctrl)
-	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom")).Do(func(_ ...interface{}) {
+	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom")).Do(func(context.ProviderCallContext) {
 		go func() { close(s.setupDone) }()
 	})
 
@@ -814,7 +814,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{s.instances[0].Id()}).Return(
-		map[instance.Id]string{}, nil).Do(func(_ ...interface{}) { close(s.setupDone) })
+		map[instance.Id]string{}, nil).Do(func(context.ProviderCallContext, []instance.Id) { close(s.setupDone) })
 
 	az1 := mocks.NewMockAvailabilityZone(ctrl)
 	az1.EXPECT().Name().Return("az1").MinTimes(1)
@@ -843,7 +843,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	exp.DeriveAvailabilityZones(s.callCtx, gomock.Any()).Return([]string{}, nil).AnyTimes()
 	exp.StartInstance(s.callCtx, gomock.Any()).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
-	}, nil).AnyTimes().Do(func(...interface{}) {
+	}, nil).AnyTimes().Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
 		select {
 		case step <- struct{}{}:
 		case <-time.After(testing.LongWait):
@@ -916,7 +916,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(
-		func(_ ...interface{}) { close(s.setupDone) },
+		func(context.ProviderCallContext, []instance.Id) { close(s.setupDone) },
 	)
 	exp.AvailabilityZones(s.callCtx).Return(zones, nil).MinTimes(1)
 	return broker
