@@ -337,7 +337,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BindToSpaces != "" {
-		if err := c.parseBindFlag(apiRoot); err != nil {
+		if err := c.parseBindFlag(apiRoot); err != nil && errors.IsNotSupported(err) {
+			ctx.Infof("Spaces not supported by this model's cloud, ignoring bindings.")
+		} else if err != nil {
 			return err
 		}
 	}
@@ -491,18 +493,18 @@ func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
 	}
 
 	// Fetch known spaces from server
-	knownSpaceList, err := c.NewSpacesClient(apiRoot).ListSpaces()
+	knownSpaces, err := c.NewSpacesClient(apiRoot).ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	knownSpaces := make([]string, 0, len(knownSpaceList))
-	for _, sp := range knownSpaceList {
-		knownSpaces = append(knownSpaces, sp.Name)
+	knownSpaceNames := set.NewStrings()
+	for _, space := range knownSpaces {
+		knownSpaceNames.Add(space.Name)
 	}
 
 	// Parse expression
-	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaces)
+	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaceNames)
 	if err != nil {
 		return errors.Trace(err)
 	}

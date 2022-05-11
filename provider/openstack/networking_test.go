@@ -4,8 +4,8 @@
 package openstack
 
 import (
-	"github.com/go-goose/goose/v4/neutron"
-	"github.com/go-goose/goose/v4/nova"
+	"github.com/go-goose/goose/v5/neutron"
+	"github.com/go-goose/goose/v5/nova"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 )
 

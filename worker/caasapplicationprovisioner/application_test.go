@@ -68,6 +68,7 @@ type testCase struct {
 	appChan          chan struct{}
 	appReplicasChan  chan struct{}
 	appTrustHashChan chan []string
+	unitsChan        chan []string
 }
 
 func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomock.Call) worker.Worker, testCase, *gomock.Controller) {
@@ -127,6 +128,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 	tc.appChan = make(chan struct{}, 1)
 	tc.appReplicasChan = make(chan struct{}, 1)
 	tc.appTrustHashChan = make(chan []string, 1)
+	tc.unitsChan = make(chan []string, 1)
 
 	startFunc := func(additionalAssertCalls ...*gomock.Call) worker.Worker {
 		config := caasapplicationprovisioner.AppWorkerConfig{
@@ -151,7 +153,6 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 
 			// Pre-loop setup
 			tc.facade.EXPECT().SetPassword(name, gomock.Any()).Return(nil),
-			//tc.broker.EXPECT().Application(name, caas.DeploymentStateful).Return(tc.brokerApp),
 			tc.unitFacade.EXPECT().WatchApplicationScale(name).Return(watchertest.NewMockNotifyWatcher(tc.appScaleChan), nil),
 		)
 		if name != "controller" {
@@ -160,6 +161,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 			)
 		}
 		expectedCalls = append(expectedCalls,
+			tc.facade.EXPECT().WatchUnits(name).Return(watchertest.NewMockStringsWatcher(tc.unitsChan), nil),
 			// Initial run - Ensure() for the application.
 			tc.facade.EXPECT().Life(name).Return(life.Alive, nil),
 			tc.facade.EXPECT().WatchApplication(name).Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
@@ -455,6 +457,7 @@ func (s *ApplicationWorkerSuite) assertWorker(c *gc.C, name string) {
 				Terminating: false,
 			}, nil
 		}),
+		tc.facade.EXPECT().ClearApplicationResources(name).Return(nil),
 		tc.facade.EXPECT().Units(name).DoAndReturn(func(string) ([]params.CAASUnit, error) {
 			return []params.CAASUnit(nil), nil
 		}),
@@ -583,6 +586,35 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 	go func(w appNotifyWorker) {
 		<-tc.notifyReady
 		tc.appTrustHashChan <- []string{"test"}
+	}(appWorker.(appNotifyWorker))
+
+	s.waitDone(c, done)
+}
+
+func (s *ApplicationWorkerSuite) TestUnitChanges(c *gc.C) {
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+	assertionCalls := []*gomock.Call{
+		tc.facade.EXPECT().Life("test-0").Return(life.Dead, nil),
+		tc.facade.EXPECT().RemoveUnit("test-0").Return(nil),
+		tc.facade.EXPECT().Life("test-1").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test-2").Return(life.Value(""), errors.NotFoundf("")),
+		tc.facade.EXPECT().RemoveUnit("test-2").Return(nil),
+		tc.facade.EXPECT().Life("test-3").Return(life.Dead, nil),
+		tc.facade.EXPECT().RemoveUnit("test-3").Return(nil),
+		tc.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
+			close(done)
+			return caas.ApplicationState{}, errors.NotFoundf("")
+		}),
+	}
+
+	appWorker := newAppWorker(assertionCalls...)
+
+	go func(w appNotifyWorker) {
+		<-tc.notifyReady
+		tc.unitsChan <- []string{"test-0", "test-1", "test-2", "test-3"}
 	}(appWorker.(appNotifyWorker))
 
 	s.waitDone(c, done)
@@ -806,6 +838,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplica
 				Terminating: false,
 			}, nil
 		}),
+		tc.facade.EXPECT().ClearApplicationResources("test").Return(nil),
 		tc.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
 			return []params.CAASUnit(nil), nil
 		}),

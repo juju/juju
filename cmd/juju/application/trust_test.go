@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/rpc/params"
 )
 
 type TrustSuite struct {
@@ -35,9 +34,8 @@ func (s *TrustSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *TrustSuite) runTrust(c *gc.C, args ...string) error {
-	configCmd := configCommand{api: s.applicationAPI}
-	configCmd.SetClientStore(s.store)
-	trustCmd := modelcmd.Wrap(&trustCommand{configCommand: configCmd})
+	trustCmd := modelcmd.Wrap(&trustCommand{api: s.applicationAPI})
+	trustCmd.SetClientStore(s.store)
 	_, err := cmdtesting.RunCommand(c, trustCmd, args...)
 	return err
 }
@@ -45,7 +43,6 @@ func (s *TrustSuite) runTrust(c *gc.C, args ...string) error {
 func (s *TrustSuite) TestTrust(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.applicationAPI.EXPECT().Get("", "gitlab").Return(&params.ApplicationGetResults{}, nil)
 	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "true"})
 	s.applicationAPI.EXPECT().Close()
 
@@ -63,7 +60,6 @@ func (s *TrustSuite) TestTrustCAAS(c *gc.C) {
 		}},
 	}
 
-	s.applicationAPI.EXPECT().Get("", "gitlab").Return(&params.ApplicationGetResults{}, nil)
 	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "true"})
 	s.applicationAPI.EXPECT().Close()
 
@@ -81,7 +77,6 @@ func (s *TrustSuite) TestTrustCAASRemove(c *gc.C) {
 		}},
 	}
 
-	s.applicationAPI.EXPECT().Get("", "gitlab").Return(&params.ApplicationGetResults{}, nil)
 	s.applicationAPI.EXPECT().SetConfig("", "gitlab", "", map[string]string{"trust": "false"})
 	s.applicationAPI.EXPECT().Close()
 

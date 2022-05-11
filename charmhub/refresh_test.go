@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	path "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"

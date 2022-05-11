@@ -14,6 +14,7 @@ import (
 type Logger interface {
 	Errorf(string, ...interface{})
 	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // Task represents a unit of work which should be executed by the pool workers.
@@ -81,6 +82,7 @@ func NewWorkerPool(logger Logger, size int) *WorkerPool {
 
 	wp.wg.Add(size)
 	for workerID := 0; workerID < size; workerID++ {
+		wp.logger.Tracef("worker %d: starting new worker pool", workerID)
 		go wp.taskWorker(workerID)
 	}
 
@@ -133,7 +135,7 @@ func (wp *WorkerPool) taskWorker(workerID int) {
 	for {
 		select {
 		case task := <-wp.taskQueueCh:
-			wp.logger.Debugf("worker %d: processing a %q task", workerID, task.Type)
+			wp.logger.Debugf("worker %d: processing task %q", workerID, task.Type)
 			if err := task.Process(); err != nil {
 				wp.logger.Errorf("worker %d: shutting down pool due to error while handling a %q task: %v", workerID, task.Type, err)
 
@@ -146,7 +148,7 @@ func (wp *WorkerPool) taskWorker(workerID int) {
 				return // worker cannot process any further tasks.
 			}
 		case <-wp.shutdownTriggerCh:
-			wp.logger.Debugf("worker %d: terminating as worker pool is shutting down", workerID)
+			wp.logger.Tracef("worker %d: terminating as worker pool is shutting down", workerID)
 			return
 		}
 	}

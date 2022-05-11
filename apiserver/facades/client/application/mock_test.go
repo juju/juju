@@ -862,6 +862,11 @@ func (r *mockRelation) Tag() names.Tag {
 	return r.tag
 }
 
+func (r *mockRelation) Id() int {
+	r.MethodCall(r, "Id")
+	return 101
+}
+
 func (r *mockRelation) Endpoints() []state.Endpoint {
 	r.MethodCall(r, "Endpoints")
 	return []state.Endpoint{{

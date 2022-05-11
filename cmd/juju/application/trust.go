@@ -10,8 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/api/client/application"
+	appfacade "github.com/juju/juju/apiserver/facades/client/application"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 )
@@ -37,9 +39,12 @@ Set the scope to 'cluster' using '--scope=cluster' to confirm this choice.
 )
 
 type trustCommand struct {
-	configCommand
-	removeTrust bool
-	scope       string
+	modelcmd.ModelCommandBase
+	api ApplicationAPI
+
+	applicationName string
+	removeTrust     bool
+	scope           string
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/applicationapi_mock.go github.com/juju/juju/cmd/juju/application ApplicationAPI
@@ -65,15 +70,27 @@ func (c *trustCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.scope, "scope", "", "k8s models only - needs to be set to 'cluster'")
 }
 
+// getAPI either uses the fake API set at test time or that is nil, gets a real
+// API and sets that as the API.
+func (c *trustCommand) getAPI() (ApplicationAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client := application.NewClient(root)
+	return client, nil
+}
+
 // Init is part of the cmd.Command interface.
 func (c *trustCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no application name specified")
 	}
 	c.applicationName = args[0]
-	var trustOptionPair string
-	trustOptionPair = fmt.Sprintf("%s=%t", application.TrustConfigOptionName, !c.removeTrust)
-	return c.parseSet([]string{trustOptionPair})
+	return nil
 }
 
 func (c *trustCommand) Run(ctx *cmd.Context) error {
@@ -89,5 +106,16 @@ func (c *trustCommand) Run(ctx *cmd.Context) error {
 			return errors.NotValidf("scope %q", c.scope)
 		}
 	}
-	return c.configCommand.Run(ctx)
+
+	// Set trust config value
+	client, err := c.getAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	err = client.SetConfig("", c.applicationName, "",
+		map[string]string{appfacade.TrustConfigOptionName: fmt.Sprint(!c.removeTrust)},
+	)
+	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }

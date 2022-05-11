@@ -1302,16 +1302,17 @@ func (a *Application) changeCharmOps(
 		ops = append(ops, resOps...)
 	}
 
-	// Make sure the relation count does not change.
-	sameRelCount := bson.D{{"relationcount", len(relations)}}
-
 	// Update the relation count as well.
-	ops = append(ops, txn.Op{
-		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: append(notDeadDoc, sameRelCount...),
-		Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
-	})
+	if len(newPeers) > 0 {
+		// Make sure the relation count does not change.
+		sameRelCount := bson.D{{"relationcount", len(relations)}}
+		ops = append(ops, txn.Op{
+			C:      applicationsC,
+			Id:     a.doc.DocID,
+			Assert: append(notDeadDoc, sameRelCount...),
+			Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
+		})
+	}
 	// Check relations to ensure no active relations are removed.
 	relOps, err := a.checkRelationsOps(ch, relations)
 	if err != nil {
@@ -2170,11 +2171,11 @@ func (a *Application) ClearResources() error {
 				{"has-resources", true}},
 			Update: bson.D{{"$set", bson.D{{"has-resources", false}}}},
 		}}
-		logger.Debugf("application %q still has cluster resources, scheduling cleanup", a.doc.Name)
+		logger.Debugf("application %q now has no cluster resources, scheduling cleanup", a.doc.Name)
 		cleanupOp := newCleanupOp(
 			cleanupApplication,
 			a.doc.Name,
-			false, //force
+			false, // force
 			false, // destroy storage
 		)
 		return append(ops, cleanupOp), nil

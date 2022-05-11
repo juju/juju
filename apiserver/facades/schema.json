@@ -55,7 +55,7 @@
                             "$ref": "#/definitions/EnqueuedActions"
                         }
                     },
-                    "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
+                    "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
                 },
                 "ListOperations": {
                     "type": "object",
@@ -2157,7 +2157,7 @@
                             "$ref": "#/definitions/UnitInfoResults"
                         }
                     },
-                    "description": "UnitsInfo returns unit information."
+                    "description": "UnitsInfo returns unit information for the given entities (units or\napplications)."
                 },
                 "UnsetApplicationsConfig": {
                     "type": "object",
@@ -3430,6 +3430,9 @@
                         "related-endpoint": {
                             "type": "string"
                         },
+                        "relation-id": {
+                            "type": "integer"
+                        },
                         "unit-relation-data": {
                             "type": "object",
                             "patternProperties": {
@@ -3441,6 +3444,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "relation-id",
                         "endpoint",
                         "cross-model",
                         "related-endpoint",
@@ -6300,6 +6304,18 @@
                     },
                     "description": "CharmInfo returns information about the requested charm."
                 },
+                "ClearApplicationsResources": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "ClearApplicationsResources clears the flags which indicate\napplications still have resources in the cluster."
+                },
                 "Life": {
                     "type": "object",
                     "properties": {
@@ -6323,6 +6339,18 @@
                         }
                     },
                     "description": "ProvisioningInfo returns the info needed to provision a caas application."
+                },
+                "Remove": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "Remove removes every given entity from state, calling EnsureDead\nfirst, then Remove. It will fail if the entity is not present."
                 },
                 "SetOperatorStatus": {
                     "type": "object",
@@ -6392,6 +6420,18 @@
                         }
                     },
                     "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
+                },
+                "WatchUnits": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchUnits starts a StringsWatcher to watch changes to the\nlifecycle states of units for the specified applications in\nthis model."
                 }
             },
             "definitions": {
@@ -6590,9 +6630,6 @@
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
                         },
-                        "image-path": {
-                            "type": "string"
-                        },
                         "image-repo": {
                             "$ref": "#/definitions/DockerImageInfo"
                         },
@@ -6625,7 +6662,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "image-path",
                         "version",
                         "api-addresses",
                         "ca-cert",
@@ -7855,6 +7891,21 @@
                     "additionalProperties": false,
                     "required": [
                         "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "UnitStatus": {
@@ -13238,6 +13289,42 @@
                         "config"
                     ]
                 },
+                "DockerImageInfo": {
+                    "type": "object",
+                    "properties": {
+                        "auth": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "identitytoken": {
+                            "type": "string"
+                        },
+                        "image-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "registrytoken": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "serveraddress": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-name"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -13591,8 +13678,8 @@
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
                         },
-                        "operator-image-path": {
-                            "type": "string"
+                        "image-repo": {
+                            "$ref": "#/definitions/DockerImageInfo"
                         },
                         "pod-spec": {
                             "type": "string"

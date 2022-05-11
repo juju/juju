@@ -142,7 +142,7 @@ func resourceDocToUpdateOp(doc *resourceDoc) bson.M {
 func newUpdateResourceOps(stored storedResource) []txn.Op {
 	doc := newResourceDoc(stored)
 
-	logger.Tracef("updating resource %s to %# v", stored.ID, pretty.Formatter(doc))
+	rpLogger.Tracef("updating resource %s to %# v", stored.ID, pretty.Formatter(doc))
 	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
@@ -165,8 +165,8 @@ func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 	doc := newCharmStoreResourceDoc(res)
 
-	if logger.IsTraceEnabled() {
-		logger.Tracef("updating charm store resource %s to %# v", res.id, pretty.Formatter(doc))
+	if rpLogger.IsTraceEnabled() {
+		rpLogger.Tracef("updating charm store resource %s to %# v", res.id, pretty.Formatter(doc))
 	}
 	return []txn.Op{{
 		C:      resourcesC,
@@ -192,8 +192,8 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource, progress *in
 	doc := newUnitResourceDoc(unitID, stored)
 	doc.DownloadProgress = progress
 
-	if logger.IsTraceEnabled() {
-		logger.Tracef("updating unit resource %s to %# v", unitID, pretty.Formatter(doc))
+	if rpLogger.IsTraceEnabled() {
+		rpLogger.Tracef("updating unit resource %s to %# v", unitID, pretty.Formatter(doc))
 	}
 	return []txn.Op{{
 		C:      resourcesC,
@@ -224,7 +224,7 @@ func newRemoveResourcesOps(docs []resourceDoc) []txn.Op {
 //
 // We trust that the provided resource really is pending
 // and that it matches the existing doc with the same ID.
-func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op {
+func newResolvePendingResourceOps(pending storedResource, exists, csExists bool) []txn.Op {
 	oldID := pendingResourceID(pending.ID, pending.PendingID)
 	newRes := pending
 	newRes.PendingID = ""
@@ -250,9 +250,13 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 
 	if exists {
 		ops = append(ops, newUpdateResourceOps(newRes)...)
-		return append(ops, newUpdateCharmStoreResourceOps(csRes)...)
+
 	} else {
 		ops = append(ops, newInsertResourceOps(newRes)...)
+	}
+	if csExists {
+		return append(ops, newUpdateCharmStoreResourceOps(csRes)...)
+	} else {
 		return append(ops, newInsertCharmStoreResourceOps(csRes)...)
 	}
 }
@@ -287,13 +291,13 @@ func newStagedResourceDoc(stored storedResource) *resourceDoc {
 
 // resources returns the resource docs for the given application.
 func (p ResourcePersistence) resources(applicationID string) ([]resourceDoc, error) {
-	logger.Tracef("querying db for resources for %q", applicationID)
+	rpLogger.Tracef("querying db for resources for %q", applicationID)
 	var docs []resourceDoc
 	query := bson.D{{"application-id", applicationID}}
 	if err := p.base.All(resourcesC, query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef("found %d resources", len(docs))
+	rpLogger.Tracef("found %d resources", len(docs))
 	return docs, nil
 }
 
@@ -308,8 +312,8 @@ func (p ResourcePersistence) unitResources(unitID string) ([]resourceDoc, error)
 
 // getOne returns the resource that matches the provided model ID.
 func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
-	logger.Tracef("querying db for resource %q", resID)
 	id := applicationResourceID(resID)
+	rpLogger.Tracef("querying db for resource %q as %q", resID, id)
 	var doc resourceDoc
 	if err := p.base.One(resourcesC, id, &doc); err != nil {
 		return doc, errors.Trace(err)
@@ -319,8 +323,8 @@ func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
 
 // getOnePending returns the resource that matches the provided model ID.
 func (p ResourcePersistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
-	logger.Tracef("querying db for resource %q (pending %q)", resID, pendingID)
 	id := pendingResourceID(resID, pendingID)
+	rpLogger.Tracef("querying db for resource %q (pending %q) as %q", resID, pendingID, id)
 	var doc resourceDoc
 	if err := p.base.One(resourcesC, id, &doc); err != nil {
 		return doc, errors.Trace(err)

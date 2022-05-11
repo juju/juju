@@ -6,6 +6,7 @@ package charmhub
 import (
 	"bytes"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
@@ -41,7 +42,11 @@ func convertCharmInfoResult(info transport.InfoResponse, arch, series string) (I
 		}
 	}
 
-	ir.Tracks, ir.Channels = filterChannels(info.ChannelMap, isKubernetes(ir.Series), arch, series)
+	var err error
+	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, isKubernetes(ir.Series), arch, series)
+	if err != nil {
+		return ir, errors.Trace(err)
+	}
 	return ir, nil
 }
 
@@ -300,7 +305,7 @@ func (c charmMeta) Manifest() *charm.Manifest {
 // filterChannels returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data. The result is filtered on series and arch.
-func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, series string) ([]string, map[string]Channel) {
+func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, series string) ([]string, map[string]Channel, error) {
 	var trackList []string
 
 	seen := set.NewStrings("")
@@ -322,7 +327,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, ser
 			continue
 		}
 
-		channel := Channel{
+		currentCh := Channel{
 			Revision:   cm.Revision.Revision,
 			ReleasedAt: ch.ReleasedAt,
 			Risk:       ch.Risk,
@@ -334,9 +339,25 @@ func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, ser
 		}
 
 		chName := ch.Track + "/" + ch.Risk
-		channels[chName] = channel
+		if existingCh, ok := channels[chName]; ok {
+
+			currentChReleasedAt, err := time.Parse(time.RFC3339, currentCh.ReleasedAt)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "invalid time format, expected RFC3339, got %s", currentCh.ReleasedAt)
+			}
+			existingChReleasedAt, err := time.Parse(time.RFC3339, existingCh.ReleasedAt)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "invalid time format, expected RFC3339, got %s", existingCh.ReleasedAt)
+			}
+			if currentChReleasedAt.After(existingChReleasedAt) {
+				channels[chName] = currentCh
+			}
+		} else {
+			channels[chName] = currentCh
+		}
+
 	}
-	return trackList, channels
+	return trackList, channels, nil
 }
 
 func convertBasesToPlatforms(in []transport.Base, isKub bool) []corecharm.Platform {

@@ -30,7 +30,7 @@ var actionLogger = loggo.GetLogger("juju.state.action")
 type ActionStatus string
 
 const (
-	// ActionError signifies that the action did get run due to an error.
+	// ActionError signifies that the action did not get run due to an error.
 	ActionError ActionStatus = "error"
 
 	// ActionFailed signifies that the action did not complete successfully.
@@ -470,6 +470,12 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 						finalOperationStatus = s
 						break
 					}
+				}
+				if finalOperationStatus == ActionCompleted && parentOpDetails.Fail() != "" {
+					// If an action fails enqueuing, there may not be a doc
+					// to reference. It will only be noted in the operation
+					// fail string.
+					finalOperationStatus = ActionError
 				}
 				updateOperationOp = &txn.Op{
 					C:  operationsC,

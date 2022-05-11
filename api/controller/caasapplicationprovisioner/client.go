@@ -86,14 +86,20 @@ func maybeNotFound(err *params.Error) error {
 	return errors.NewNotFound(err, "")
 }
 
-// Life returns the lifecycle state for the specified CAAS application
+// Life returns the lifecycle state for the specified application
 // or unit in the current model.
-func (c *Client) Life(appName string) (life.Value, error) {
-	if !names.IsValidApplication(appName) {
-		return "", errors.NotValidf("application name %q", appName)
+func (c *Client) Life(entityName string) (life.Value, error) {
+	var tag names.Tag
+	switch {
+	case names.IsValidApplication(entityName):
+		tag = names.NewApplicationTag(entityName)
+	case names.IsValidUnit(entityName):
+		tag = names.NewUnitTag(entityName)
+	default:
+		return "", errors.NotValidf("application or unit name %q", entityName)
 	}
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 
 	var results params.LifeResults
@@ -111,7 +117,6 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // ProvisioningInfo holds the info needed to provision an operator.
 type ProvisioningInfo struct {
-	ImagePath            string
 	Version              version.Number
 	APIAddresses         []string
 	CACert               string
@@ -120,7 +125,7 @@ type ProvisioningInfo struct {
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Series               string
-	ImageRepo            docker.ImageRepoDetails
+	ImageDetails         resources.DockerImageDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
 	Trust                bool
@@ -146,34 +151,18 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		return ProvisioningInfo{}, errors.Trace(maybeNotFound(err))
 	}
 
-	imageRepo := docker.ImageRepoDetails{
-		Repository:    r.ImageRepo.Repository,
-		ServerAddress: r.ImageRepo.ServerAddress,
-		BasicAuthConfig: docker.BasicAuthConfig{
-			Username: r.ImageRepo.Username,
-			Password: r.ImageRepo.Password,
-			Auth:     docker.NewToken(r.ImageRepo.Auth),
-		},
-		TokenAuthConfig: docker.TokenAuthConfig{
-			Email:         r.ImageRepo.Email,
-			IdentityToken: docker.NewToken(r.ImageRepo.IdentityToken),
-			RegistryToken: docker.NewToken(r.ImageRepo.RegistryToken),
-		},
-	}
 	info := ProvisioningInfo{
-		ImagePath:            r.ImagePath,
 		Version:              r.Version,
 		APIAddresses:         r.APIAddresses,
 		CACert:               r.CACert,
 		Tags:                 r.Tags,
 		Constraints:          r.Constraints,
 		Series:               r.Series,
-		ImageRepo:            imageRepo,
+		ImageDetails:         params.ConvertDockerImageInfo(r.ImageRepo),
 		CharmModifiedVersion: r.CharmModifiedVersion,
 		Trust:                r.Trust,
 		Scale:                r.Scale,
 	}
-
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)
 		if err != nil {
@@ -358,4 +347,67 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateA
 // changes to the application in the current model.
 func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
 	return common.Watch(c.facade, "Watch", names.NewApplicationTag(appName))
+}
+
+// ClearApplicationResources clears the flag which indicates an
+// application still has resources in the cluster.
+func (c *Client) ClearApplicationResources(appName string) error {
+	var result params.ErrorResults
+	args := params.Entities{Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}}}
+	if err := c.facade.FacadeCall("ClearApplicationsResources", args, &result); err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Entities) {
+		return errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(result.Results))
+	}
+	if result.Results[0].Error == nil {
+		return nil
+	}
+	return maybeNotFound(result.Results[0].Error)
+}
+
+// WatchUnits returns a StringsWatcher that notifies of
+// changes to the lifecycles of units of the specified
+// application in the current model.
+func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) {
+	if !names.IsValidApplication(application) {
+		return nil, errors.NotValidf("application name %q", application)
+	}
+	tag := names.NewApplicationTag(application)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag.String()}},
+	}
+
+	var results params.StringsWatchResults
+	if err := c.facade.FacadeCall("WatchUnits", args, &results); err != nil {
+		return nil, err
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
+	return w, nil
+}
+
+// RemoveUnit removes the specified unit from the current model.
+func (c *Client) RemoveUnit(unitName string) error {
+	if !names.IsValidUnit(unitName) {
+		return errors.NotValidf("unit name %q", unitName)
+	}
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
+	}
+	err := c.facade.FacadeCall("Remove", args, &result)
+	if err != nil {
+		return err
+	}
+	resultErr := result.OneError()
+	if params.IsCodeNotFound(resultErr) {
+		return nil
+	}
+	return resultErr
 }

@@ -18,7 +18,8 @@ import (
 // provided as specified.
 func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
 	cmd := &configCommand{
-		api: api,
+		configBase: modelConfigBase,
+		api:        api,
 	}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)

@@ -193,7 +193,8 @@ wordpress/0:
   charm: charm-wordpress
   leader: true
   relation-info:
-  - endpoint: db
+  - relation-id: 0
+    endpoint: db
     cross-model: true
     related-endpoint: server
     application-data:
@@ -227,7 +228,8 @@ wordpress/0:
   charm: charm-wordpress
   leader: true
   relation-info:
-  - endpoint: db
+  - relation-id: 0
+    endpoint: db
     cross-model: true
     related-endpoint: server
     application-data:
@@ -256,7 +258,8 @@ wordpress/0:
   charm: charm-wordpress
   leader: true
   relation-info:
-  - endpoint: db-shared
+  - relation-id: 0
+    endpoint: db-shared
     related-endpoint: common
     application-data: {}
   provider-id: provider-id
@@ -283,7 +286,8 @@ wordpress/0:
   charm: charm-wordpress
   leader: true
   relation-info:
-  - endpoint: db
+  - relation-id: 0
+    endpoint: db
     cross-model: true
     related-endpoint: server
     application-data:
@@ -307,7 +311,7 @@ func (s *ShowUnitSuite) TestShowJSON(c *gc.C) {
 	}
 	s.assertRunShow(c, showUnitTest{
 		args:   []string{"wordpress/0", "--format", "json"},
-		stdout: `{"wordpress/0":{"workload-version":"666","machine":"0","opened-ports":["100-102/ip"],"public-address":"10.0.0.1","charm":"charm-wordpress","leader":true,"relation-info":[{"endpoint":"db","cross-model":true,"related-endpoint":"server","application-data":{"wordpress":"setting"},"local-unit":{"in-scope":false,"data":null},"related-units":{"mariadb/2":{"in-scope":true,"data":{"mariadb/2":"mariadb/2-setting"}}}}],"provider-id":"provider-id","address":"192.168.1.1"}}` + "\n",
+		stdout: `{"wordpress/0":{"workload-version":"666","machine":"0","opened-ports":["100-102/ip"],"public-address":"10.0.0.1","charm":"charm-wordpress","leader":true,"relation-info":[{"relation-id":0,"endpoint":"db","cross-model":true,"related-endpoint":"server","application-data":{"wordpress":"setting"},"local-unit":{"in-scope":false,"data":null},"related-units":{"mariadb/2":{"in-scope":true,"data":{"mariadb/2":"mariadb/2-setting"}}}}],"provider-id":"provider-id","address":"192.168.1.1"}}` + "\n",
 	})
 }
 
@@ -343,7 +347,8 @@ logging/0:
   charm: charm-logging
   leader: true
   relation-info:
-  - endpoint: db
+  - relation-id: 0
+    endpoint: db
     cross-model: true
     related-endpoint: server
     application-data:
@@ -364,7 +369,8 @@ wordpress/0:
   charm: charm-wordpress
   leader: true
   relation-info:
-  - endpoint: db
+  - relation-id: 0
+    endpoint: db
     cross-model: true
     related-endpoint: server
     application-data:

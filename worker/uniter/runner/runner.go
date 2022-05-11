@@ -235,8 +235,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 				return rval
 			},
 			func(k string) string {
-				v, _ := env[k]
-				return v
+				return env[k]
 			},
 			func(k string) (string, bool) {
 				v, t := env[k]
@@ -419,8 +418,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 				return rval
 			},
 			func(k string) string {
-				v, _ := env[k]
-				return v
+				return env[k]
 			},
 			func(k string) (string, bool) {
 				v, t := env[k]
@@ -744,7 +742,10 @@ func (runner *runner) getRemoteEnviron(abort <-chan struct{}) (map[string]string
 		Stderr:   &stderr,
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "stdout: %q stderr: %q", string(res.Stdout), string(res.Stderr))
+		if res != nil {
+			err = errors.Annotatef(err, "stdout: %q stderr: %q", string(res.Stdout), string(res.Stderr))
+		}
+		return nil, errors.Trace(err)
 	}
 	matches := exportLineRegexp.FindAllStringSubmatch(string(res.Stdout), -1)
 	env := map[string]string{}

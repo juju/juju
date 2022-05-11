@@ -1,12 +1,10 @@
 SHELL = bash
 .ONESHELL:
 
-JUJU_PROJECT_PATH=$(GOPATH)/src/github.com/juju/juju
-
 DQLITE_BUILD_IMAGE=ubuntu:18.04
 DQLITE_BUILD_CONTAINER=lib-build-server
 
-DQLITE_ARCHIVE_DEPS_PATH=${JUJU_PROJECT_PATH}/scripts/dqlite
+DQLITE_ARCHIVE_DEPS_PATH=${PROJECT_DIR}/scripts/dqlite
 DQLITE_ARCHIVE_NAME=dqlite-deps
 DQLITE_ARCHIVE_PATH=${DQLITE_ARCHIVE_DEPS_PATH}/${DQLITE_ARCHIVE_NAME}.tar.bz2
 
@@ -14,7 +12,7 @@ DQLITE_S3_BUCKET=s3://dqlite-static-libs
 DQLITE_S3_ARCHIVE_NAME=$(shell date -u +"%Y-%m-%d")-dqlite-deps-$(shell uname -m).tar.bz2
 DQLITE_S3_ARCHIVE_PATH=${DQLITE_S3_BUCKET}/${DQLITE_S3_ARCHIVE_NAME}
 
-DQLITE_EXTRACTED_DEPS_PATH=${JUJU_PROJECT_PATH}/_deps
+DQLITE_EXTRACTED_DEPS_PATH=${PROJECT_DIR}/_deps
 DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH=${DQLITE_EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps
 
 .PHONY: install-deps-on-controller build-and-install-jujud

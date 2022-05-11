@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
@@ -194,6 +195,8 @@ type mockApplication struct {
 	charmModifiedVersion int
 	config               coreconfig.ConfigAttributes
 	scale                int
+	unitsWatcher         *statetesting.MockStringsWatcher
+	unitsChanges         chan []string
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -304,6 +307,16 @@ func (a *mockApplication) GetScale() int {
 	return a.scale
 }
 
+func (a *mockApplication) ClearResources() error {
+	a.MethodCall(a, "ClearResources")
+	return a.NextErr()
+}
+
+func (a *mockApplication) WatchUnits() state.StringsWatcher {
+	a.MethodCall(a, "WatchUnits")
+	return a.unitsWatcher
+}
+
 type mockCharm struct {
 	meta     *charm.Meta
 	manifest *charm.Manifest
@@ -362,7 +375,6 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockUnit struct {
 	testing.Stub
-	life                state.Life
 	destroyOp           *state.DestroyUnitOperation
 	containerInfo       *mockCloudContainer
 	status              status.StatusInfo

@@ -12,24 +12,25 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/logsink"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type migrationLoggingStrategy struct {
-	dbloggers *dbloggers
+	apiServerLoggers *apiServerLoggers
 
-	dblogger recordLogger
-	releaser func()
-	tracker  *logTracker
+	recordLogger RecordLogger
+	releaser     func()
+	tracker      *logTracker
 }
 
 // newMigrationLogWriteCloserFunc returns a function that will create a
 // logsink.LoggingStrategy given an *http.Request, that writes log
 // messages to the state database and tracks their migration.
-func newMigrationLogWriteCloserFunc(ctxt httpContext, dbloggers *dbloggers) logsink.NewLogWriteCloserFunc {
+func newMigrationLogWriteCloserFunc(ctxt httpContext, apiServerLoggers *apiServerLoggers) logsink.NewLogWriteCloserFunc {
 	return func(req *http.Request) (logsink.LogWriteCloser, error) {
-		strategy := &migrationLoggingStrategy{dbloggers: dbloggers}
+		strategy := &migrationLoggingStrategy{apiServerLoggers: apiServerLoggers}
 		if err := strategy.init(ctxt, req); err != nil {
 			return nil, errors.Annotate(err, "initialising migration logsink session")
 		}
@@ -57,11 +58,11 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.Trace(err)
 	}
 
-	s.dblogger = s.dbloggers.get(st.State)
+	s.recordLogger = s.apiServerLoggers.getLogger(st.State)
 	s.tracker = newLogTracker(st.State)
 	s.releaser = func() {
 		if removed := st.Release(); removed {
-			s.dbloggers.remove(st.State)
+			s.apiServerLoggers.removeLogger(st.State)
 		}
 	}
 	return nil
@@ -80,7 +81,7 @@ func (s *migrationLoggingStrategy) Close() error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	err := s.dblogger.Log([]state.LogRecord{{
+	err := s.recordLogger.Log([]corelogger.LogRecord{{
 		Time:     m.Time,
 		Entity:   m.Entity,
 		Module:   m.Module,
