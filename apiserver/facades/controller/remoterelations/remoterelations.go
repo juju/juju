@@ -25,7 +25,6 @@ type APIv1 struct {
 
 // API provides access to the remote relations API facade.
 type API struct {
-	*common.ControllerConfigAPI
 	st         RemoteRelationsState
 	resources  facade.Resources
 	authorizer facade.Authorizer
@@ -34,7 +33,6 @@ type API struct {
 // NewRemoteRelationsAPI returns a new server-side API facade.
 func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
-	controllerCfgAPI *common.ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
@@ -42,10 +40,9 @@ func NewRemoteRelationsAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		st:                  st,
-		ControllerConfigAPI: controllerCfgAPI,
-		resources:           resources,
-		authorizer:          authorizer,
+		st:         st,
+		resources:  resources,
+		authorizer: authorizer,
 	}, nil
 }
 

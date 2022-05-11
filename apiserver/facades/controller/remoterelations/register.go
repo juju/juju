@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -36,7 +35,6 @@ func newAPIv1(ctx facade.Context) (*APIv1, error) {
 func newAPI(ctx facade.Context) (*API, error) {
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		common.NewStateControllerConfig(ctx.StatePool().SystemState()),
 		ctx.Resources(), ctx.Auth(),
 	)
 }

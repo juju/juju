@@ -15,7 +15,6 @@ import (
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -33,7 +32,6 @@ type mockState struct {
 	remoteRelationsWatcher       *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
 	remoteEntities               map[names.Tag]string
-	controllerInfo               map[string]*mockControllerInfo
 }
 
 func newMockState() *mockState {
@@ -45,19 +43,6 @@ func newMockState() *mockState {
 		remoteRelationsWatcher:       newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 		remoteEntities:               make(map[names.Tag]string),
-		controllerInfo:               make(map[string]*mockControllerInfo),
-	}
-}
-
-func (st *mockState) ControllerConfig() (controller.Config, error) {
-	return nil, errors.NotImplementedf("ControllerConfig")
-}
-
-func (st *mockState) ControllerInfo(modelUUID string) ([]string, string, error) {
-	if info, ok := st.controllerInfo[modelUUID]; !ok {
-		return nil, "", errors.NotFoundf("controller info for %v", modelUUID)
-	} else {
-		return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
 	}
 }
 
