@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
@@ -33,6 +34,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasunitsmanager"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
@@ -107,6 +109,11 @@ type ManifoldsConfig struct {
 
 	// RunListenerSocket returns a function to create a run listener socket.
 	RunListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error)
+
+	// LocalHub is a simple pubsub that is used for internal agent
+	// messaging only. This is used for interactions between workers
+	// and the introspection worker.
+	LocalHub *pubsub.SimpleHub
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -290,6 +297,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewContainerStartWatcherClient: config.NewContainerStartWatcherClient,
 			RunListenerSocket:              config.RunListenerSocket,
 		})),
+
+		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
+		caasUnitsManager: caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
+			Hub:           config.LocalHub,
+		}),
 	}
 }
 
@@ -338,6 +354,8 @@ const (
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
+
+	caasUnitsManager = "caas-units-manager"
 )
 
 type noopStatusSetter struct{}

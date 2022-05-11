@@ -351,6 +351,20 @@ func (mr *MockApplicationMockRecorder) IsRemote() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRemote", reflect.TypeOf((*MockApplication)(nil).IsRemote))
 }
 
+// Life mocks base method.
+func (m *MockApplication) Life() state.Life {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Life")
+	ret0, _ := ret[0].(state.Life)
+	return ret0
+}
+
+// Life indicates an expected call of Life.
+func (mr *MockApplicationMockRecorder) Life() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockApplication)(nil).Life))
+}
+
 // MergeBindings mocks base method.
 func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
 	m.ctrl.T.Helper()

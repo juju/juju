@@ -17,6 +17,9 @@ on:
       - 'testing/**'
       - 'tests/**'
 
+permissions:
+  contents: read
+
 jobs:
   Build:
     name: Build

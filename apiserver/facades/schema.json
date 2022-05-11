@@ -2759,6 +2759,9 @@
                                 }
                             }
                         },
+                        "life": {
+                            "type": "string"
+                        },
                         "principal": {
                             "type": "boolean"
                         },
@@ -2777,7 +2780,8 @@
                         "tag",
                         "principal",
                         "exposed",
-                        "remote"
+                        "remote",
+                        "life"
                     ]
                 },
                 "ApplicationSetCharm": {
@@ -3917,6 +3921,9 @@
                         },
                         "leader": {
                             "type": "boolean"
+                        },
+                        "life": {
+                            "type": "string"
                         },
                         "machine": {
                             "type": "string"

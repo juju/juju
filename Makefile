@@ -13,6 +13,10 @@ export CGO_ENABLED=0
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
+# TEST_PACKAGE_LIST is the path to a file that is a newline delimited list of
+# packages to test. This file must be sorted.
+TEST_PACKAGE_LIST ?=
+
 # bin_platform_paths takes a juju binary to be built and the platform that it
 # is to be built for and returns a list of paths for that binary to be output.
 bin_platform_paths = $(addprefix ${BUILD_DIR}/, $(addsuffix /bin/${1}, $(subst /,_,${2})))
@@ -142,7 +146,7 @@ define run_go_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
-	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCh}))
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
 	@env GOOS=${OS} GOARCH=${BUILD_ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
@@ -279,7 +283,7 @@ test: run-tests
 run-tests:
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
-	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
+	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
 	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
@@ -331,11 +335,11 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell go version | grep -o "go1.17" || true),go1.17)
-	@echo Using installed go-1.17
+ifeq ($(shell go version | grep -o "go1.18" || true),go1.18)
+	@echo Using installed go-1.18
 else
-	@echo Installing go-1.17 snap
-	@sudo snap install go --channel=1.17/stable --classic
+	@echo Installing go-1.18 snap
+	@sudo snap install go --channel=1.18/stable --classic
 endif
 
 WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
