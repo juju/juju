@@ -216,10 +216,50 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		}},
 		Expected: map[string]Channel{},
+	}, {
+		Name:   "exact match finds no valid channels",
+		Arch:   "amd64",
+		Series: "focal",
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:       "xena/edge",
+				Base:       transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
+				ReleasedAt: "2022-04-01T02:41:31.140463+00:00",
+				Risk:       "edge",
+				Track:      "xena",
+			},
+			Revision: transport.InfoRevision{
+				Bases:    []transport.Base{{Channel: "20.04", Name: "ubuntu", Architecture: "amd64"}},
+				Revision: 522,
+			},
+		}, { // the 16.04 channel is intentionally the last one in the map
+			Channel: transport.Channel{
+				Name:       "xena/edge",
+				Base:       transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "16.04"},
+				ReleasedAt: "2022-03-04T10:38:13.959649+00:00",
+				Risk:       "edge",
+				Track:      "xena",
+			},
+			Revision: transport.InfoRevision{
+				Bases:    []transport.Base{{Channel: "16.04", Name: "ubuntu", Architecture: "all"}},
+				Revision: 501,
+			},
+		}},
+		Expected: map[string]Channel{
+			"xena/edge": {
+				ReleasedAt: "2022-04-01T02:41:31.140463+00:00",
+				Risk:       "edge",
+				Track:      "xena",
+				Revision:   522,
+				Arches:     []string{"amd64"},
+				Series:     []string{"focal"},
+			},
+		},
 	}}
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)
-		_, got := filterChannels(v.Input, false, v.Arch, v.Series)
+		_, got, err := filterChannels(v.Input, false, v.Arch, v.Series)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(got, jc.DeepEquals, v.Expected)
 	}
 }

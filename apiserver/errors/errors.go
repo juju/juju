@@ -34,6 +34,11 @@ var (
 	ErrActionNotAvailable = errors.New("action no longer available")
 )
 
+// IsErrTryAgain reports whether the cause of the error is an ErrTryAgain.
+func IsErrTryAgain(err error) bool {
+	return errors.Cause(err) == ErrTryAgain
+}
+
 // OperationBlockedError returns an error which signifies that
 // an operation has been blocked; the message should describe
 // what has been blocked.
@@ -233,6 +238,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeQuotaLimitExceeded
 	case errors.IsNotYetAvailable(err):
 		code = params.CodeNotYetAvailable
+	case IsErrTryAgain(err):
+		code = params.CodeTryAgain
 	case params.IsIncompatibleClientError(err):
 		code = params.CodeIncompatibleClient
 		rawErr := errors.Cause(err).(*params.IncompatibleClientError)
@@ -358,6 +365,8 @@ func RestoreError(err error) error {
 		return NewDeadlineExceededError(msg)
 	case params.IsLeaseError(err):
 		return rehydrateLeaseError(err)
+	case params.IsCodeTryAgain(err):
+		return ErrTryAgain
 	default:
 		return err
 	}

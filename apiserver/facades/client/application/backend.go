@@ -149,6 +149,7 @@ type Relation interface {
 	Tag() names.Tag
 	Destroy() error
 	DestroyWithForce(bool, time.Duration) ([]error, error)
+	Id() int
 	Endpoints() []state.Endpoint
 	RelatedEndpoints(applicationname string) ([]state.Endpoint, error)
 	ApplicationSettings(appName string) (map[string]interface{}, error)

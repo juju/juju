@@ -49,7 +49,7 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	task := p.(*provisionerTask)
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
-	// sort to make comparisons in the tests easier.
+	// Sort to make comparisons in the tests easier.
 	zoneMachines := task.availabilityZoneMachines
 	sort.Slice(task.availabilityZoneMachines, func(i, j int) bool {
 		switch {

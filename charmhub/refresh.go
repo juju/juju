@@ -24,6 +24,7 @@ import (
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
 	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/version"
 )
 
 // Action represents the type of refresh is performed.
@@ -421,7 +422,7 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		// Kubernetes is not a valid channel for a base.
 		// Instead use the latest LTS version of ubuntu.
 		name = "ubuntu"
-		channel, err = coreseries.SeriesVersion(coreseries.LatestLTS())
+		channel, err = coreseries.SeriesVersion(version.DefaultSupportedLTS())
 		if err != nil {
 			return transport.Base{}, errors.NotValidf("invalid latest version")
 		}

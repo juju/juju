@@ -1532,6 +1532,11 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Annotate(err, "finalizing authorized-keys")
 	}
 
+	v, ok := bootstrapModelConfig[config.LoggingOutputKey]
+	if ok && v != "" && !controllerConfig.Features().Contains(feature.LoggingOutput) {
+		return bootstrapConfigs{}, errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
+	}
+
 	// We need to do an Azure specific check here.
 	// This won't be needed once the "default" model is banished.
 	// Until it is, we need to ensure that if a resource-group-name is specified,

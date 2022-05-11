@@ -6386,6 +6386,127 @@ func (s *upgradesSuite) TestUpdateCharmOriginAfterSetSeries(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestUpdateOperationWithEnqueuingErrors(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	opColl, opCloser := s.state.db().GetRawCollection(operationsC)
+	defer opCloser()
+	setupOperationsTestUpdateOperationWithEnqueuingErrors(c, opColl, uuid1, uuid2)
+
+	actColl, actCloser := s.state.db().GetRawCollection(actionsC)
+	defer actCloser()
+	setupActionsTestUpdateOperationWithEnqueuingErrors(c, actColl, uuid1, uuid2)
+
+	expected := bsonMById{
+		{
+			"_id":                 ensureModelUUID(uuid1, "1"),
+			"model-uuid":          uuid1,
+			"summary":             "fortune run on unit-juju-qa-test-0,unit-juju-qa-test-1,unit-juju-qa-test-2,unit-juju-qa-test-3",
+			"fail":                "\"unit-juju-qa-test-3\" not found",
+			"complete-task-count": 0,
+			"status":              "running",
+			"spawned-task-count":  3,
+		},
+		{
+			"_id":                 ensureModelUUID(uuid2, "1"),
+			"model-uuid":          uuid2,
+			"summary":             "fortune run on unit-juju-qa-test-3",
+			"fail":                "\"unit-juju-qa-test-3\" not found",
+			"status":              "error",
+			"complete-task-count": 0,
+			"spawned-task-count":  0,
+		},
+		{
+			"_id":                 ensureModelUUID(uuid2, "2"),
+			"model-uuid":          uuid2,
+			"summary":             "fortune run on unit-juju-qa-test-3,unit-juju-qa-test-3",
+			"fail":                "",
+			"status":              "completed",
+			"complete-task-count": 2,
+			"spawned-task-count":  2,
+		},
+	}
+	sort.Sort(expected)
+	s.assertUpgradedData(c, UpdateOperationWithEnqueuingErrors,
+		upgradedData(opColl, expected),
+	)
+}
+
+func setupOperationsTestUpdateOperationWithEnqueuingErrors(c *gc.C, opColl *mgo.Collection, uuid1, uuid2 string) {
+
+	docs := []bson.M{
+		{ // One of N actions failed enqueuing.
+			"_id":                 ensureModelUUID(uuid1, "1"),
+			"model-uuid":          uuid1,
+			"summary":             "fortune run on unit-juju-qa-test-0,unit-juju-qa-test-1,unit-juju-qa-test-2,unit-juju-qa-test-3",
+			"status":              "error",
+			"fail":                "\"unit-juju-qa-test-3\" not found",
+			"complete-task-count": 0,
+			"spawned-task-count":  4,
+		},
+		{ // All actions failed enqueuing.
+			"_id":                 ensureModelUUID(uuid2, "1"),
+			"model-uuid":          uuid2,
+			"summary":             "fortune run on unit-juju-qa-test-3",
+			"fail":                "\"unit-juju-qa-test-3\" not found",
+			"status":              "error",
+			"complete-task-count": 0,
+			"spawned-task-count":  1,
+		},
+		{ // Enqueuing was successful.
+			"_id":                 ensureModelUUID(uuid2, "2"),
+			"model-uuid":          uuid2,
+			"summary":             "fortune run on unit-juju-qa-test-3,unit-juju-qa-test-3",
+			"fail":                "",
+			"status":              "completed",
+			"complete-task-count": 2,
+			"spawned-task-count":  2,
+		},
+	}
+	err := opColl.Insert(docs[0], docs[1], docs[2])
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func setupActionsTestUpdateOperationWithEnqueuingErrors(c *gc.C, actColl *mgo.Collection, uuid1, uuid2 string) {
+	docs := []bson.M{
+		{
+			"_id":        ensureModelUUID(uuid1, "2"),
+			"model-uuid": uuid1,
+			"operation":  "1",
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "3"),
+			"model-uuid": uuid1,
+			"operation":  "1",
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "4"),
+			"model-uuid": uuid1,
+			"operation":  "1",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "3"),
+			"model-uuid": uuid2,
+			"operation":  "2",
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "4"),
+			"model-uuid": uuid2,
+			"operation":  "2",
+		},
+	}
+	err := actColl.Insert(docs[0], docs[1], docs[2])
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -135,25 +134,8 @@ func (c *Client) OperatorProvisioningInfo(applicationName string) (OperatorProvi
 	if err := info.Error; err != nil {
 		return OperatorProvisioningInfo{}, errors.Trace(err)
 	}
-	imageRepo := resources.DockerImageDetails{
-		RegistryPath: info.ImageDetails.RegistryPath,
-		ImageRepoDetails: docker.ImageRepoDetails{
-			Repository:    info.ImageDetails.Repository,
-			ServerAddress: info.ImageDetails.ServerAddress,
-			BasicAuthConfig: docker.BasicAuthConfig{
-				Username: info.ImageDetails.Username,
-				Password: info.ImageDetails.Password,
-				Auth:     docker.NewToken(info.ImageDetails.Auth),
-			},
-			TokenAuthConfig: docker.TokenAuthConfig{
-				IdentityToken: docker.NewToken(info.ImageDetails.IdentityToken),
-				RegistryToken: docker.NewToken(info.ImageDetails.RegistryToken),
-				Email:         info.ImageDetails.Email,
-			},
-		},
-	}
 	return OperatorProvisioningInfo{
-		ImageDetails: imageRepo,
+		ImageDetails: params.ConvertDockerImageInfo(info.ImageDetails),
 		Version:      info.Version,
 		APIAddresses: info.APIAddresses,
 		Tags:         info.Tags,

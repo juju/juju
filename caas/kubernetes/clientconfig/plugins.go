@@ -6,22 +6,23 @@ package clientconfig
 import (
 	"context"
 	"fmt"
-	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	core "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
+	rbac "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // load gcp auth plugin.
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 )
 
 const (
@@ -74,8 +75,14 @@ func ensureJujuAdminServiceAccount(
 		}
 	}()
 
+	objMeta := metav1.ObjectMeta{
+		Name:      name,
+		Labels:    labels,
+		Namespace: adminNameSpace,
+	}
+
 	// Create admin cluster role.
-	clusterRole, crCleanUps, err := getOrCreateClusterRole(clientset, name, adminNameSpace, labels)
+	clusterRole, crCleanUps, err := getOrCreateClusterRole(objMeta, clientset.RbacV1().ClusterRoles())
 	cleanUps = append(cleanUps, crCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(
@@ -83,7 +90,7 @@ func ensureJujuAdminServiceAccount(
 	}
 
 	// Create juju admin service account.
-	sa, saCleanUps, err := getOrCreateServiceAccount(clientset, name, adminNameSpace, labels)
+	sa, saCleanUps, err := getOrCreateServiceAccount(objMeta, clientset.CoreV1().ServiceAccounts(adminNameSpace))
 	cleanUps = append(cleanUps, saCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(
@@ -91,47 +98,21 @@ func ensureJujuAdminServiceAccount(
 	}
 
 	// Create role binding for juju admin service account with admin cluster role.
-	_, rbCleanUps, err := getOrCreateClusterRoleBinding(clientset, name, sa, clusterRole, labels)
+	_, rbCleanUps, err := getOrCreateClusterRoleBinding(objMeta, sa, clusterRole, clientset.RbacV1().ClusterRoleBindings())
 	cleanUps = append(cleanUps, rbCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", name)
 	}
 
-	var secret *core.Secret
-	// NOTE (tlm) Increased the max duration here to 120 seconds to deal with
-	// microk8s bootstrapping. Microk8s is taking a significant amoutn of time
-	// to be Kubernetes ready while still reporting that it is ready to go.
-	// See lp:1937282
-	retryCallArgs := retry.CallArgs{
-		Delay:       time.Second,
-		MaxDuration: 120 * time.Second,
-		Clock:       clock,
-		Func: func() error {
-			secret, err = getServiceAccountSecret(clientset, name, adminNameSpace)
-			return err
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.IsNotFound(err)
-		},
-		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("polling caas credential rbac secret, in %d attempt, %v", attempt, err)
-		},
-	}
-	if err = retry.Call(retryCallArgs); err != nil {
+	secret, err := proxy.EnsureSecretForServiceAccount(
+		sa.GetName(), objMeta, clock,
+		clientset.CoreV1().Secrets(adminNameSpace),
+		clientset.CoreV1().ServiceAccounts(adminNameSpace),
+	)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if secret == nil {
-		return nil, errors.Annotatef(nil, "polling caas credential rbac secret %q", name)
-	}
-
-	return newK8sConfigForServiceAccount(
-		contextName,
-		sa.Name,
-		config,
-		clientset.CoreV1().ServiceAccounts(adminNameSpace),
-		clientset.CoreV1().Secrets(adminNameSpace),
-	)
+	return newK8sConfig(contextName, config, secret)
 }
 
 // RemoveCredentialRBACResources removes all RBAC resources for specific caas credential UID.
@@ -177,82 +158,69 @@ func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
 }
 
 func getOrCreateClusterRole(
-	clientset kubernetes.Interface,
-	name, namespace string, labels map[string]string,
-) (cr *rbacv1.ClusterRole, cleanUps cleanUpFuncs, err error) {
-	api := clientset.RbacV1().ClusterRoles()
+	objMeta metav1.ObjectMeta,
+	api rbacv1.ClusterRoleInterface,
+) (cr *rbac.ClusterRole, cleanUps cleanUpFuncs, err error) {
 
-	cr, err = api.Get(context.TODO(), name, metav1.GetOptions{})
+	cr, err = api.Get(context.TODO(), objMeta.GetName(), metav1.GetOptions{})
 	if !k8serrors.IsNotFound(err) {
 		return cr, cleanUps, errors.Trace(err)
 	}
 	// This cluster role will be granted extra privileges which requires proper
 	// permissions setup for the credential in kubeconfig file.
-	cr, err = api.Create(context.TODO(), &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Rules: []rbacv1.PolicyRule{
+	cr, err = api.Create(context.TODO(), &rbac.ClusterRole{
+		ObjectMeta: objMeta,
+		Rules: []rbac.PolicyRule{
 			{
-				APIGroups: []string{rbacv1.APIGroupAll},
-				Resources: []string{rbacv1.ResourceAll},
-				Verbs:     []string{rbacv1.VerbAll},
+				APIGroups: []string{rbac.APIGroupAll},
+				Resources: []string{rbac.ResourceAll},
+				Verbs:     []string{rbac.VerbAll},
 			},
 			{
-				NonResourceURLs: []string{rbacv1.NonResourceAll},
-				Verbs:           []string{rbacv1.VerbAll},
+				NonResourceURLs: []string{rbac.NonResourceAll},
+				Verbs:           []string{rbac.VerbAll},
 			},
 		},
 	}, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		// This should not happen.
-		return nil, cleanUps, errors.AlreadyExistsf("cluster role %q", name)
+		return nil, cleanUps, errors.AlreadyExistsf("cluster role %q", objMeta.GetName())
 	}
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
-	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, labels) })
+	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, objMeta.GetLabels()) })
 	return cr, cleanUps, nil
 }
 
 func getOrCreateServiceAccount(
-	clientset kubernetes.Interface,
-	name, namespace string, labels map[string]string,
+	objMeta metav1.ObjectMeta,
+	api corev1.ServiceAccountInterface,
 ) (sa *core.ServiceAccount, cleanUps cleanUpFuncs, err error) {
-
-	sa, err = getServiceAccount(clientset, name, namespace)
+	sa, err = getServiceAccount(objMeta.GetName(), api)
 	if !errors.IsNotFound(err) {
 		return sa, cleanUps, errors.Trace(err)
 	}
 
-	api := clientset.CoreV1().ServiceAccounts(namespace)
-	_, err = api.Create(context.TODO(), &core.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-	}, metav1.CreateOptions{})
+	_, err = api.Create(context.TODO(), &core.ServiceAccount{ObjectMeta: objMeta}, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		// This should not happen.
-		return nil, cleanUps, errors.AlreadyExistsf("service account %q", name)
+		return nil, cleanUps, errors.AlreadyExistsf("service account %q", objMeta.GetName())
 	}
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
-	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, labels) })
+	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, objMeta.GetLabels()) })
 
-	sa, err = getServiceAccount(clientset, name, namespace)
+	sa, err = getServiceAccount(objMeta.GetName(), api)
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
 	return sa, cleanUps, nil
 }
 
-func getServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
-	sa, err := clientset.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+func getServiceAccount(name string, client corev1.ServiceAccountInterface) (*core.ServiceAccount, error) {
+	sa, err := client.Get(context.TODO(), name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("service account %q", name)
 	}
@@ -260,31 +228,25 @@ func getServiceAccount(clientset kubernetes.Interface, name, namespace string) (
 }
 
 func getOrCreateClusterRoleBinding(
-	clientset kubernetes.Interface,
-	name string,
+	objMeta metav1.ObjectMeta,
 	sa *core.ServiceAccount,
-	cr *rbacv1.ClusterRole,
-	labels map[string]string,
-) (rb *rbacv1.ClusterRoleBinding, cleanUps cleanUpFuncs, err error) {
-	api := clientset.RbacV1().ClusterRoleBindings()
-
-	rb, err = api.Get(context.TODO(), name, metav1.GetOptions{})
+	cr *rbac.ClusterRole,
+	api rbacv1.ClusterRoleBindingInterface,
+) (rb *rbac.ClusterRoleBinding, cleanUps cleanUpFuncs, err error) {
+	rb, err = api.Get(context.TODO(), objMeta.GetName(), metav1.GetOptions{})
 	if !k8serrors.IsNotFound(err) {
 		return rb, cleanUps, errors.Trace(err)
 	}
 
-	rb, err = api.Create(context.TODO(), &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: labels,
-		},
-		RoleRef: rbacv1.RoleRef{
+	rb, err = api.Create(context.TODO(), &rbac.ClusterRoleBinding{
+		ObjectMeta: objMeta,
+		RoleRef: rbac.RoleRef{
 			Kind: "ClusterRole",
 			Name: cr.Name,
 		},
-		Subjects: []rbacv1.Subject{
+		Subjects: []rbac.Subject{
 			{
-				Kind:      rbacv1.ServiceAccountKind,
+				Kind:      rbac.ServiceAccountKind,
 				Name:      sa.Name,
 				Namespace: sa.Namespace,
 			},
@@ -292,72 +254,20 @@ func getOrCreateClusterRoleBinding(
 	}, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		// This should not happen.
-		return nil, cleanUps, errors.AlreadyExistsf("cluster role binding %q", name)
+		return nil, cleanUps, errors.AlreadyExistsf("cluster role binding %q", objMeta.GetName())
 	}
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
-	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, labels) })
+	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, objMeta.GetLabels()) })
 	return rb, cleanUps, nil
 }
 
-func getServiceAccountSecret(clientset kubernetes.Interface, saName, namespace string) (*core.Secret, error) {
-	sa, err := getServiceAccount(clientset, saName, namespace)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if len(sa.Secrets) == 0 {
-		return nil, errors.NotFoundf("secret for service account %q", sa.Name)
-	}
-	return clientset.CoreV1().Secrets(sa.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
-}
-
-func newK8sConfigForServiceAccount(
-	contextName string,
-	serviceAccount string,
-	config *clientcmdapi.Config,
-	sai corev1.ServiceAccountInterface,
-	seci corev1.SecretInterface,
-) (*clientcmdapi.Config, error) {
+func newK8sConfig(contextName string, config *clientcmdapi.Config, secret *core.Secret) (*clientcmdapi.Config, error) {
 	newConfig := config.DeepCopy()
-
-	saAuth, err := authInfoForServiceAccount(context.TODO(), serviceAccount, sai, seci)
-	if err != nil {
-		return newConfig, errors.Trace(err)
-	}
-
 	authName := newConfig.Contexts[contextName].AuthInfo
-	newConfig.AuthInfos[authName] = saAuth
-	return newConfig, nil
-}
-
-func authInfoForServiceAccount(
-	ctx context.Context,
-	serviceAccount string,
-	sai corev1.ServiceAccountInterface,
-	seci corev1.SecretInterface,
-) (*clientcmdapi.AuthInfo, error) {
-	sa, err := sai.Get(ctx, serviceAccount, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NewNotFound(err, serviceAccount)
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "getting service account %q auth", serviceAccount)
-	}
-
-	if len(sa.Secrets) == 0 {
-		return nil, errors.NotFoundf("secret for service account %q", serviceAccount)
-	}
-
-	secret, err := seci.Get(ctx, sa.Secrets[0].Name, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NewNotFound(err, sa.Secrets[0].Name)
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "getting service account %q secret %q",
-			serviceAccount, sa.Secrets[0].Name)
-	}
-
-	return &clientcmdapi.AuthInfo{
+	newConfig.AuthInfos[authName] = &clientcmdapi.AuthInfo{
 		Token: string(secret.Data[core.ServiceAccountTokenKey]),
-	}, nil
+	}
+	return newConfig, nil
 }

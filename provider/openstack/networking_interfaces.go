@@ -4,8 +4,8 @@
 package openstack
 
 import (
-	"github.com/go-goose/goose/v4/neutron"
-	"github.com/go-goose/goose/v4/nova"
+	"github.com/go-goose/goose/v5/neutron"
+	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/instance"

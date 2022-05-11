@@ -1987,7 +1987,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := m.EnqueueOperation("a test", 1)
+	operationID, err := m.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2012,9 +2012,9 @@ func (s *MigrationImportSuite) TestOperation(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := m.EnqueueOperation("a test", 1)
+	operationID, err := m.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.FailOperation(operationID, errors.New("fail"))
+	err = m.FailOperationEnqueuing(operationID, "fail", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModel, newState := s.importModel(c, s.State)
@@ -2028,7 +2028,8 @@ func (s *MigrationImportSuite) TestOperation(c *gc.C) {
 	c.Check(op.Summary(), gc.Equals, "a test")
 	c.Check(op.Fail(), gc.Equals, "fail")
 	c.Check(op.Id(), gc.Equals, operationID)
-	c.Check(op.Status(), gc.Equals, state.ActionError)
+	c.Check(op.Status(), gc.Equals, state.ActionPending)
+	c.Check(op.SpawnedTaskCount(), gc.Equals, 1)
 }
 
 func (s *MigrationImportSuite) TestVolumes(c *gc.C) {

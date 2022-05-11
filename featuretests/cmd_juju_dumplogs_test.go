@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -53,7 +54,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 		w := state.NewDbLogger(st)
 		defer w.Close()
 		for i := 0; i < 3; i++ {
-			err := w.Log([]state.LogRecord{{
+			err := w.Log([]corelogger.LogRecord{{
 				Time:     t,
 				Entity:   "machine-42",
 				Version:  version.Current,

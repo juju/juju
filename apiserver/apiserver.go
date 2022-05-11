@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
@@ -52,6 +53,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
@@ -79,7 +81,7 @@ type Server struct {
 	allowModelAccess       bool
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
-	dbloggers              dbloggers
+	apiServerLoggers       apiServerLoggers
 	getAuditConfig         func() auditlog.Config
 	upgradeComplete        func() bool
 	mux                    *apiserverhttp.Mux
@@ -176,6 +178,10 @@ type ServerConfig struct {
 	// DefaultLogSinkConfig() will be used.
 	LogSinkConfig *LogSinkConfig
 
+	// SysLogger is a logger that will tee the output from logging
+	// to the local syslog.
+	SysLogger syslogger.SysLogger
+
 	// GetAuditConfig holds a function that returns the current audit
 	// logging config. The function may return updated values, so
 	// should be called every time a new login is handled.
@@ -237,6 +243,9 @@ func (c ServerConfig) Validate() error {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
 	}
+	if c.SysLogger == nil {
+		return errors.NotValidf("nil SysLogger")
+	}
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
 	}
@@ -292,6 +301,21 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	model, err := cfg.StatePool.SystemState().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelConfig, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	loggingOutputs, _ := modelConfig.LoggingOutput()
+	if !controllerConfig.Features().Contains(feature.LoggingOutput) {
+		loggingOutputs = []string{}
+	}
+
 	srv := &Server{
 		clock:                         cfg.Clock,
 		pingClock:                     cfg.pingClock(),
@@ -313,10 +337,12 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			Clock:  cfg.Clock,
 		},
 		getAuditConfig: cfg.GetAuditConfig,
-		dbloggers: dbloggers{
-			clock:                 cfg.Clock,
-			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
-			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
+		apiServerLoggers: apiServerLoggers{
+			syslogger:           cfg.SysLogger,
+			loggingOutputs:      loggingOutputs,
+			clock:               cfg.Clock,
+			loggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
+			loggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
 		metricsCollector:    cfg.MetricsCollector,
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
@@ -353,11 +379,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	model, err := srv.shared.statePool.SystemState().Model()
-	if err != nil {
-		unsubscribeControllerConfig()
-		return nil, errors.Trace(err)
-	}
 	if model.Type() == state.ModelTypeCAAS {
 		// CAAS controller writes log to stdout. We should ensure that we don't
 		// close the logSinkWriter when we stopping the tomb, otherwise we get
@@ -386,7 +407,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
-		defer srv.dbloggers.dispose()
+		defer srv.apiServerLoggers.dispose()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
 		defer unsubscribe()
@@ -646,7 +667,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind, names.ApplicationTagKind})
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
-		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
@@ -656,7 +677,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.
-		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
+		newMigrationLogWriteCloserFunc(httpCtxt, &srv.apiServerLoggers),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},

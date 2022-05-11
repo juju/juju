@@ -12,17 +12,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v3/keyvalues"
 
 	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/config"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -106,30 +105,16 @@ func NewConfigCommand() cmd.Command {
 	return modelcmd.Wrap(&configCommand{})
 }
 
-// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
-func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	c := modelcmd.Wrap(&configCommand{api: api})
-	c.SetClientStore(store)
-	return c
-}
-
-type attributes map[string]string
-
 // configCommand get, sets, and resets configuration values of an application' charm.
 type configCommand struct {
-	api ApplicationAPI
 	modelcmd.ModelCommandBase
-	out cmd.Output
+	configBase config.ConfigCommandBase
+	api        ApplicationAPI
+	out        cmd.Output
 
-	action          func(ApplicationAPI, *cmd.Context) error // get, set, or reset action set in  Init
+	// Extra `juju config` specific fields
 	applicationName string
 	branchName      string
-	configFile      cmd.FileVar
-	keys            []string
-	reset           []string // Holds the keys to be reset until parsed.
-	resetKeys       []string // Holds the keys to be reset once parsed.
-	useFile         bool
-	values          attributes
 }
 
 // ApplicationAPI is an interface to allow passing in a fake implementation under test.
@@ -152,10 +137,12 @@ func (c *configCommand) Info() *cmd.Info {
 
 // SetFlags is part of the cmd.Command interface.
 func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
+	// Set the -B / --no-browser-login flag, and model/controller specific flags
 	c.ModelCommandBase.SetFlags(f)
+	// Set ConfigCommandBase flags
+	c.configBase.SetFlags(f)
+	// Set the --format and -o flags
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	f.Var(&c.configFile, "file", "path to yaml-formatted application config")
-	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 
 	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		f.StringVar(&c.branchName, "branch", "", "Specifically target config for the supplied branch")
@@ -186,25 +173,8 @@ func (c *configCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 
-	// If there are arguments provided to reset, we turn it into a slice of
-	// strings and verify them. If there is one or more valid keys to reset and
-	// no other errors initializing the command, c.resetDefaults will be called
-	// in c.Run.
-	if err := c.parseResetKeys(); err != nil {
-		return errors.Trace(err)
-	}
-
 	c.applicationName = args[0]
-	args = args[1:]
-
-	switch len(args) {
-	case 0:
-		return c.handleZeroArgs()
-	case 1:
-		return c.handleOneArg(args)
-	default:
-		return c.handleArgs(args)
-	}
+	return c.configBase.Init(args[1:])
 }
 
 func (c *configCommand) validateGeneration() error {
@@ -228,98 +198,6 @@ func (c *configCommand) validateGeneration() error {
 	return nil
 }
 
-// handleZeroArgs handles the case where there are no positional args.
-func (c *configCommand) handleZeroArgs() error {
-	// If there's a path we're setting args from a file
-	if c.configFile.Path != "" {
-		return c.parseSet([]string{})
-	}
-	if len(c.reset) == 0 {
-		// If there's nothing to reset we're getting all the settings.
-		c.action = c.getConfig
-	}
-	// Otherwise just reset.
-	return nil
-}
-
-// handleOneArg handles the case where there is one positional arg.
-func (c *configCommand) handleOneArg(args []string) error {
-	// If there's an '=', this must be setting a value
-	if strings.Contains(args[0], "=") {
-		return c.parseSet(args)
-	}
-	// If there's no reset,	we want to get a single value
-	if len(c.reset) == 0 {
-		c.action = c.getConfig
-		c.keys = args
-		return nil
-	}
-	// Otherwise we have reset and a get arg, which is invalid.
-	return errors.New("cannot reset and retrieve values simultaneously")
-}
-
-// handleArgs handles the case where there's more than one positional arg.
-func (c *configCommand) handleArgs(args []string) error {
-	// This must be setting values but let's make sure.
-	var pairs, numArgs int
-	numArgs = len(args)
-	for _, a := range args {
-		if strings.Contains(a, "=") {
-			pairs++
-		}
-	}
-	if pairs == numArgs {
-		return c.parseSet(args)
-	}
-	if pairs == 0 {
-		return errors.New("can only retrieve a single value, or all values")
-	}
-	return errors.New("cannot set and retrieve values simultaneously")
-}
-
-// parseResetKeys splits the keys provided to --reset.
-func (c *configCommand) parseResetKeys() error {
-	if len(c.reset) == 0 {
-		return nil
-	}
-	var resetKeys []string
-	for _, value := range c.reset {
-		keys := strings.Split(strings.Trim(value, ","), ",")
-		resetKeys = append(resetKeys, keys...)
-	}
-	for _, k := range resetKeys {
-		if strings.Contains(k, "=") {
-			return errors.Errorf(
-				`--reset accepts a comma delimited set of keys "a,b,c", received: %q`, k)
-		}
-	}
-
-	c.resetKeys = resetKeys
-	return nil
-}
-
-// parseSet parses the command line args when --file is set or if the
-// positional args are key=value pairs.
-func (c *configCommand) parseSet(args []string) error {
-	file := c.configFile.Path != ""
-	if file && len(args) > 0 {
-		return errors.New("cannot specify --file and key=value arguments simultaneously")
-	}
-	c.action = c.setConfig
-	if file {
-		c.useFile = true
-		return nil
-	}
-
-	settings, err := keyvalues.Parse(args, true)
-	if err != nil {
-		return err
-	}
-	c.values = settings
-
-	return nil
-}
-
 // Run implements the cmd.Command interface.
 func (c *configCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
@@ -328,54 +206,37 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	if len(c.resetKeys) > 0 {
-		if err := c.resetConfig(client, ctx); err != nil {
-			// We return this error naked as it is almost certainly going to be
-			// cmd.ErrSilent and the cmd.Command framework expects that back
-			// from cmd.Run if the process is blocked.
-			return err
-		}
+	switch c.configBase.Actions[0] {
+	case config.GetOne:
+		return c.getConfig(client, ctx)
+	case config.Set:
+		return c.setConfig(client, ctx)
+	case config.SetFile:
+		return c.setConfigFile(client, ctx)
+	case config.Reset:
+		return c.resetConfig(client, ctx)
+	default:
+		return c.getAllConfig(client, ctx)
 	}
-	if c.action == nil {
-		// If we are reset only, we end up here; we have already done that.
-		return nil
-	}
-
-	return c.action(client, ctx)
 }
 
 // resetConfig is the run action when we are resetting attributes.
 func (c *configCommand) resetConfig(client ApplicationAPI, ctx *cmd.Context) error {
-	err := client.UnsetApplicationConfig(c.branchName, c.applicationName, c.resetKeys)
+	err := client.UnsetApplicationConfig(c.branchName, c.applicationName, c.configBase.KeysToReset)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
-// setConfig is the run action when we are setting new attribute values as args
-// or as a file passed in.
+// setConfig is the run action when we are setting config values from the
+// provided command-line arguments.
 func (c *configCommand) setConfig(client ApplicationAPI, ctx *cmd.Context) error {
-	settingsYAML, err := c.configYAMLFromFile(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	settings, err := c.configMapFromKV(client, ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = client.SetConfig(c.branchName, c.applicationName, settingsYAML, settings)
-	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
-}
-
-func (c *configCommand) configMapFromKV(client ApplicationAPI, ctx *cmd.Context) (map[string]string, error) {
 	settings, err := c.validateValues(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	result, err := client.Get(c.branchName, c.applicationName)
 	if err != nil {
-		return nil, err
+		return errors.Trace(err)
 	}
 
 	for k, v := range settings {
@@ -389,58 +250,64 @@ func (c *configCommand) configMapFromKV(client ApplicationAPI, ctx *cmd.Context)
 			}
 		}
 	}
-	return settings, nil
+
+	err = client.SetConfig(c.branchName, c.applicationName, "", settings)
+	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }
 
-// configYAMLFromFile sets the application and charm configuration from settings passed
-// in a YAML file.
-func (c *configCommand) configYAMLFromFile(ctx *cmd.Context) (string, error) {
-	if !c.useFile {
-		return "", nil
-	}
+// setConfigFile is the run action when we are setting config values from a
+// yaml file.
+func (c *configCommand) setConfigFile(client ApplicationAPI, ctx *cmd.Context) error {
 	var (
 		b   []byte
 		err error
 	)
-	if c.configFile.Path == "-" {
+	if c.configBase.ConfigFile.Path == "-" {
 		buf := bytes.Buffer{}
 		if _, err := buf.ReadFrom(ctx.Stdin); err != nil {
-			return "", errors.Trace(err)
+			return errors.Trace(err)
 		}
 		b = buf.Bytes()
 	} else {
-		b, err = c.configFile.Read(ctx)
+		b, err = c.configBase.ConfigFile.Read(ctx)
 		if err != nil {
-			return "", errors.Trace(err)
+			return errors.Trace(err)
 		}
 	}
 
-	return string(b), nil
+	err = client.SetConfig(c.branchName, c.applicationName, string(b), map[string]string{})
+	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }
 
-// getConfig is the run action to return one or all configuration values.
+// getConfig is the run action to return a single configuration value.
 func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error {
 	results, err := client.Get(c.branchName, c.applicationName)
 	if err != nil {
 		return err
 	}
 
-	if len(c.keys) == 1 {
-		logger.Infof("format %v is ignored", c.out.Name())
-		key := c.keys[0]
-		info, found := results.CharmConfig[key].(map[string]interface{})
-		if !found && len(results.ApplicationConfig) > 0 {
-			info, found = results.ApplicationConfig[key].(map[string]interface{})
-		}
-		if !found {
-			return errors.Errorf("key %q not found in %q application config or charm settings.", key, c.applicationName)
-		}
-		v, ok := info["value"]
-		if !ok || v == nil {
-			v = ""
-		}
-		_, err = fmt.Fprintln(ctx.Stdout, v)
-		return errors.Trace(err)
+	logger.Infof("format %v is ignored", c.out.Name())
+	key := c.configBase.KeyToGet
+	info, found := results.CharmConfig[key].(map[string]interface{})
+	if !found && len(results.ApplicationConfig) > 0 {
+		info, found = results.ApplicationConfig[key].(map[string]interface{})
+	}
+	if !found {
+		return errors.Errorf("key %q not found in %q application config or charm settings.", key, c.applicationName)
+	}
+	v, ok := info["value"]
+	if !ok || v == nil {
+		v = ""
+	}
+	_, err = fmt.Fprintln(ctx.Stdout, v)
+	return errors.Trace(err)
+}
+
+// getAllConfig is the run action to return all configuration values.
+func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) error {
+	results, err := client.Get(c.branchName, c.applicationName)
+	if err != nil {
+		return err
 	}
 
 	resultsMap := map[string]interface{}{
@@ -468,7 +335,7 @@ func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error
 // valid UTF-8.
 func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, error) {
 	settings := map[string]string{}
-	for k, v := range c.values {
+	for k, v := range c.configBase.ValsToSet {
 		//empty string is also valid as a setting value
 		if v == "" {
 			settings[k] = v

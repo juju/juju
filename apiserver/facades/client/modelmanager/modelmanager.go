@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -476,6 +477,11 @@ func (m *ModelManagerAPI) newModel(
 	controllerCfg, err := m.state.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	_, ok := newConfig.LoggingOutput()
+	if ok && !controllerCfg.Features().Contains(feature.LoggingOutput) {
+		return nil, errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
 	}
 
 	// Create the Environ.

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 type workerFixture struct {
@@ -43,6 +44,7 @@ type workerFixture struct {
 	metricsCollector     *coreapiserver.Collector
 	multiwatcherFactory  multiwatcher.Factory
 	queue                *queue.OpQueue
+	sysLogger            syslogger.SysLogger
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -68,6 +70,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
+	s.sysLogger = &mockSysLogger{}
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -86,6 +89,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		NewServer:                         s.newServer,
 		MetricsCollector:                  s.metricsCollector,
 		RaftOpQueue:                       s.queue,
+		SysLogger:                         s.sysLogger,
 	}
 }
 
@@ -149,6 +153,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.RaftOpQueue = nil },
 		"nil RaftOpQueue not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.SysLogger = nil },
+		"nil SysLogger not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

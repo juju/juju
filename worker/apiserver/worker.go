@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/syslogger"
 )
 
 // Queue is a blocking queue to guard access and to serialize raft applications,
@@ -47,6 +48,7 @@ type Config struct {
 	StatePool                         *state.StatePool
 	Controller                        *cache.Controller
 	LeaseManager                      lease.Manager
+	SysLogger                         syslogger.SysLogger
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	UpgradeComplete                   func() bool
 	GetAuditConfig                    func() auditlog.Config
@@ -94,6 +96,9 @@ func (config Config) Validate() error {
 	}
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
+	}
+	if config.SysLogger == nil {
+		return errors.NotValidf("nil SysLogger")
 	}
 	if config.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
@@ -160,6 +165,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
+		SysLogger:                     config.SysLogger,
 	}
 	return config.NewServer(serverConfig)
 }

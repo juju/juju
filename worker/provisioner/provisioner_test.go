@@ -110,6 +110,56 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	}
 }
 
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p provisioner.Provisioner, container bool) {
+	// Inject our observer into the provisioner
+	cfgObserver := make(chan *config.Config)
+	provisioner.SetObserver(p, cfgObserver)
+
+	// Switch to reaping on All machines.
+	attrs := map[string]interface{}{}
+	if container {
+		attrs[config.NumContainerProvisionWorkersKey] = 42
+	} else {
+		attrs[config.NumProvisionWorkersKey] = 42
+	}
+	err := s.Model.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.BackingState.StartSync()
+
+	// Wait for the PA to load the new configuration. We wait for the change we expect
+	// like this because sometimes we pick up the initial harvest config (destroyed)
+	// rather than the one we change to (all).
+	var received []int
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case newCfg := <-cfgObserver:
+			if container {
+				if newCfg.NumContainerProvisionWorkers() == 42 {
+					return
+				}
+				received = append(received, newCfg.NumContainerProvisionWorkers())
+			} else {
+				if newCfg.NumProvisionWorkers() == 42 {
+					return
+				}
+				received = append(received, newCfg.NumProvisionWorkers())
+			}
+
+		case <-time.After(coretesting.ShortWait):
+			s.BackingState.StartSync()
+		case <-timeout:
+			if len(received) == 0 {
+				c.Fatalf("PA did not action config change")
+			} else {
+				c.Fatalf("timed out waiting for config to change to '%s', received %+v",
+					config.HarvestAll.String(), received)
+			}
+		}
+	}
+}
+
 type ProvisionerSuite struct {
 	CommonProvisionerSuite
 }
@@ -1269,7 +1319,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	)
 	defer func() {
 		err := worker.Stop(task)
-		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
+		c.Assert(err, gc.ErrorMatches, ".*getting machine.*")
 	}()
 	s.checkNoOperations(c)
 }
@@ -1278,6 +1328,12 @@ func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *gc.C) 
 	p := s.newEnvironProvisioner(c)
 	defer workertest.CleanKill(c, p)
 	s.assertProvisionerObservesConfigChanges(c, p)
+}
+
+func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer workertest.CleanKill(c, p)
+	s.assertProvisionerObservesConfigChangesWorkerCount(c, p, false)
 }
 
 func (s *ProvisionerSuite) newProvisionerTask(
@@ -1462,7 +1518,9 @@ func assertAvailabilityZoneMachines(c *gc.C,
 			found := 0
 			for _, zoneInfo := range obtained {
 				if zone == zoneInfo.ZoneName {
-					c.Assert(zoneInfo.MachineIds.Contains(m.Id()), gc.Equals, true)
+					c.Assert(zoneInfo.MachineIds.Contains(m.Id()), gc.Equals, true, gc.Commentf(
+						"machine %q not found in list for zone %q; zone list: %#v", m.Id(), zone, zoneInfo,
+					))
 					found += 1
 				}
 			}
@@ -1670,7 +1728,8 @@ func (s *ProvisionerSuite) TestProvisioningMachinesSingleMachineDGFailure(c *gc.
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
 	// Per provider dummy, there will be 3 available availability zones.
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
+	task := s.newProvisionerTask(
+		c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer workertest.CleanKill(c, task)
 
 	machines, err := s.addMachines(4)

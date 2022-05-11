@@ -922,6 +922,7 @@ type RelationData struct {
 
 // EndpointRelationData holds information about a relation to a given endpoint.
 type EndpointRelationData struct {
+	RelationId       int
 	Endpoint         string
 	CrossModel       bool
 	RelatedEndpoint  string
@@ -970,6 +971,7 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 	}
 	for _, inRd := range in.Result.RelationData {
 		erd := EndpointRelationData{
+			RelationId:      inRd.RelationId,
 			Endpoint:        inRd.Endpoint,
 			CrossModel:      inRd.CrossModel,
 			RelatedEndpoint: inRd.RelatedEndpoint,

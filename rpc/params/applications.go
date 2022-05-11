@@ -463,6 +463,7 @@ type RelationData struct {
 
 // EndpointRelationData holds information about a relation to a given endpoint.
 type EndpointRelationData struct {
+	RelationId       int                     `json:"relation-id"`
 	Endpoint         string                  `json:"endpoint"`
 	CrossModel       bool                    `json:"cross-model"`
 	RelatedEndpoint  string                  `json:"related-endpoint"`

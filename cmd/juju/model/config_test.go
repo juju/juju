@@ -40,9 +40,9 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 			args:       []string{"--reset"},
 			errorMatch: "option needs an argument: --reset",
 		}, {
-			desc:       "cannot set and retrieve at the same time",
+			desc:       "cannot reset and retrieve at the same time",
 			args:       []string{"--reset", "something", "weird"},
-			errorMatch: "cannot set and retrieve model values simultaneously",
+			errorMatch: "cannot use --reset flag and get value simultaneously",
 		}, {
 			desc:       "agent-version cannot be reset",
 			args:       []string{"--reset", "agent-version"},
@@ -63,12 +63,12 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 		}, {
 			desc:       "get multiple fails",
 			args:       []string{"one", "two"},
-			errorMatch: `arg "one" is not a key-value pair or a filename`,
+			errorMatch: "cannot specify multiple keys to get",
 		}, {
 			// test variations
-			desc:   "test reset interspersed",
-			args:   []string{"--reset", "one", "special=foo", "--reset", "two"},
-			nilErr: true,
+			desc:       "test reset interspersed",
+			args:       []string{"--reset", "one", "special=foo", "--reset", "two"},
+			errorMatch: "cannot use --reset flag and set key=value pairs simultaneously",
 		},
 	} {
 		c.Logf("test %d: %s", i, test.desc)
@@ -107,50 +107,15 @@ func (s *ConfigCommandSuite) TestSingleValueOutputFile(c *gc.C) {
 func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
 	context, err := s.run(c, "unknown")
 	c.Assert(err, gc.ErrorMatches,
-		`"unknown" seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
+		`"unknown" is not a key of the currently targeted model: "king/sword"`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
 }
 
-func (s *ConfigCommandSuite) TestGetProperErrorMessageOnPaths(c *gc.C) {
-	context, err := s.run(c, "bundles/k8s-model-config.yaml")
-	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config.yaml" seems to be a file but not found`)
-
-	output := cmdtesting.Stdout(context)
-	c.Assert(output, gc.Equals, "")
-}
-
-func (s *ConfigCommandSuite) TestGetFileLike(c *gc.C) {
-	context, err := s.run(c, "bundles/k8s-model-config.json")
-	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config.json" seems to be a file but not found`)
-
-	output := cmdtesting.Stdout(context)
-	c.Assert(output, gc.Equals, "")
-}
-
-func (s *ConfigCommandSuite) TestNotFileLike(c *gc.C) {
-	context, err := s.run(c, "bundles/k8s-model-config--json")
-	c.Assert(err, gc.ErrorMatches,
-		`"bundles/k8s-model-config--json" seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
-
-	output := cmdtesting.Stdout(context)
-	c.Assert(output, gc.Equals, "")
-}
-
-func (s *ConfigCommandSuite) TestNotFileLikeEndsWithDot(c *gc.C) {
-	context, err := s.run(c, "bundles/k8s-model-config.")
-	c.Assert(err, gc.ErrorMatches,
-		`"bundles/k8s-model-config." seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
-
-	output := cmdtesting.Stdout(context)
-	c.Assert(output, gc.Equals, "")
-}
-
-func (s *ConfigCommandSuite) TestNotFileLikeEndsTooLong(c *gc.C) {
-	context, err := s.run(c, "bundles/k8s-model-config.fksdkfsd")
-	c.Assert(err, gc.ErrorMatches,
-		`"bundles/k8s-model-config.fksdkfsd" seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
+func (s *ConfigCommandSuite) TestSetFileNotFound(c *gc.C) {
+	context, err := s.run(c, "--file", "bundles/k8s-model-config.yaml")
+	c.Assert(err, gc.ErrorMatches, "open .*/bundles/k8s-model-config.yaml: no such file or directory")
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
@@ -227,7 +192,7 @@ func (s *ConfigCommandSuite) TestSetCharmhubURL(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {
 	_, err := s.run(c, "--reset", "special", "special=bar")
-	c.Assert(err, gc.ErrorMatches, `key "special" cannot be both set and reset in the same command`)
+	c.Assert(err, gc.ErrorMatches, "cannot use --reset flag and set key=value pairs simultaneously")
 }
 
 func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
@@ -236,7 +201,7 @@ func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
 	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, configFile)
+	_, err = s.run(c, "--file", configFile)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]interface{}{
 		"special": "extra",
@@ -254,7 +219,7 @@ special:
 `), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, configFile)
+	_, err = s.run(c, "--file", configFile)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]interface{}{
 		"special": "extra",
@@ -268,13 +233,8 @@ func (s *ConfigCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, configFile, "unknown=foo")
-	c.Assert(err, jc.ErrorIsNil)
-	expected := map[string]interface{}{
-		"special": "extra",
-		"unknown": "foo",
-	}
-	c.Assert(s.fake.values, jc.DeepEquals, expected)
+	_, err = s.run(c, "--file", configFile, "unknown=foo")
+	c.Assert(err, gc.ErrorMatches, "cannot use --file flag and set key=value pairs simultaneously")
 }
 
 func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {

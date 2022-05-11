@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
@@ -32,6 +33,7 @@ type ManifoldSuite struct {
 	manifold     dependency.Manifold
 	context      dependency.Context
 	stateTracker stubStateTracker
+	sysLogger    stubLogger
 
 	stub testing.Stub
 }
@@ -48,12 +50,15 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stateTracker = stubStateTracker{pool: s.StatePool}
 	s.stub.ResetCalls()
 
+	s.sysLogger = stubLogger{}
+
 	s.context = s.newContext(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 		AgentName:      "agent",
 		AuthorityName:  "authority",
 		StateName:      "state",
 		MuxName:        "mux",
+		SyslogName:     "syslog",
 		NewWorker:      s.newWorker,
 		NewModelWorker: s.newModelWorker,
 		ModelMetrics:   dummyModelMetrics{},
@@ -68,7 +73,9 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"agent":     &fakeAgent{},
 		"authority": s.authority,
 		"mux":       mux,
-		"state":     &s.stateTracker}
+		"state":     &s.stateTracker,
+		"syslog":    s.sysLogger,
+	}
 	for k, v := range overlay {
 		resources[k] = v
 	}
@@ -91,7 +98,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "mux", "state"}
+var expectedInputs = []string{"agent", "authority", "mux", "state", "syslog"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -137,10 +144,13 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ModelWatcher: s.State,
 		ModelMetrics: dummyModelMetrics{},
 		Mux:          mux,
-		Controller:   modelworkermanager.StatePoolController{s.StatePool},
-		ErrorDelay:   jworker.RestartDelay,
-		Logger:       loggo.GetLogger("test"),
-		MachineID:    "1",
+		Controller: modelworkermanager.StatePoolController{
+			StatePool: s.StatePool,
+			SysLogger: s.sysLogger,
+		},
+		ErrorDelay: jworker.RestartDelay,
+		Logger:     loggo.GetLogger("test"),
+		MachineID:  "1",
 	})
 }
 
@@ -192,4 +202,8 @@ func (f *fakeAgent) CurrentConfig() agent.Config {
 
 func (f *fakeAgent) Tag() names.Tag {
 	return names.NewMachineTag("1")
+}
+
+type stubLogger struct {
+	corelogger.LoggerCloser
 }

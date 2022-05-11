@@ -139,13 +139,20 @@ endef
 # juju package. It's expected that the make target using this sequence has a
 # local variable defined for PACKAGE. An example of PACKAGE would be
 # PACKAGE=github.com/juju/juju
+# 
+# This canned commaned also allows building for architectures defined as
+# ppc64el. Because of legacy Juju we use the arch ppc64el over the go defined
+# arch of ppc64le. This canned command will do a last minute transformation of
+# the string we build the "correct" go archiecture. However the build result
+# will still be placed at the expected location with names matching ppc64el.
 define run_go_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCh}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env GOOS=${OS} GOARCH=${ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
+	@env GOOS=${OS} GOARCH=${BUILD_ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
 endef
 
 define run_go_install
@@ -321,10 +328,11 @@ simplify:
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
+# GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
-	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
+	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
 else
-	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
+	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
 		./apiserver/facades/schema.json
 endif
 
@@ -393,10 +401,10 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 
 # Import shell functions from make_functions.sh
 # For the k8s operator.
-BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_operator_image "$$@"' build_push_operator_image
-OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
-OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
-UPDATE_MICROK8S_OPERATOR=sh -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
+BUILD_OPERATOR_IMAGE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_operator_image "$$@"' build_push_operator_image
+OPERATOR_IMAGE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
+OPERATOR_IMAGE_RELEASE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
+UPDATE_MICROK8S_OPERATOR=bash -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 
 image_check_prereq=image-check-build
 ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)

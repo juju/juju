@@ -8,6 +8,8 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/docker"
 )
 
 // CAASUnitIntroductionArgs is used by sidecar units to introduce
@@ -43,7 +45,6 @@ type CAASUnitTerminationResult struct {
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
-	ImagePath            string                       `json:"image-path"`
 	Version              version.Number               `json:"version"`
 	APIAddresses         []string                     `json:"api-addresses"`
 	CACert               string                       `json:"ca-cert"`
@@ -105,6 +106,41 @@ type DockerImageInfo struct {
 
 	// Repository is the namespace of the image repo.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+}
+
+// NewDockerImageInfo converts docker.ImageRepoDetails to DockerImageInfo.
+func NewDockerImageInfo(info docker.ImageRepoDetails, registryPath string) DockerImageInfo {
+	return DockerImageInfo{
+		Username:      info.Username,
+		Password:      info.Password,
+		Email:         info.Email,
+		Repository:    info.Repository,
+		Auth:          info.Auth.Content(),
+		IdentityToken: info.IdentityToken.Content(),
+		RegistryToken: info.RegistryToken.Content(),
+		RegistryPath:  registryPath,
+	}
+}
+
+// ConvertDockerImageInfo converts DockerImageInfo to resources.ImageRepoDetails.
+func ConvertDockerImageInfo(info DockerImageInfo) resources.DockerImageDetails {
+	return resources.DockerImageDetails{
+		RegistryPath: info.RegistryPath,
+		ImageRepoDetails: docker.ImageRepoDetails{
+			Repository:    info.Repository,
+			ServerAddress: info.ServerAddress,
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: info.Username,
+				Password: info.Password,
+				Auth:     docker.NewToken(info.Auth),
+			},
+			TokenAuthConfig: docker.TokenAuthConfig{
+				IdentityToken: docker.NewToken(info.IdentityToken),
+				RegistryToken: docker.NewToken(info.RegistryToken),
+				Email:         info.Email,
+			},
+		},
+	}
 }
 
 // CAASApplicationOCIResourceResults holds all the image results for queried applications.

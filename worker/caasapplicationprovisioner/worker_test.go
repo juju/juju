@@ -110,59 +110,6 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 	workertest.CleanKill(c, provisioner)
 }
 
-func (s *CAASApplicationSuite) TestWorkerShutdownForDeadApp(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	appChan := make(chan []string, 1)
-	done := make(chan struct{})
-
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	runner := mocks.NewMockRunner(ctrl)
-
-	facade.EXPECT().WatchApplications().DoAndReturn(func() (watcher.StringsWatcher, error) {
-		appChan <- []string{"application-test"}
-		return watchertest.NewMockStringsWatcher(appChan), nil
-	})
-	facade.EXPECT().Life("application-test").DoAndReturn(func(appName string) (life.Value, error) {
-		return life.Dead, nil
-	})
-	runner.EXPECT().StopAndRemoveWorker("application-test", gomock.Any()).DoAndReturn(func(string, <-chan struct{}) error {
-		close(done)
-		return errors.NotFoundf("")
-	})
-	runner.EXPECT().Wait().AnyTimes().DoAndReturn(func() error {
-		<-done
-		return nil
-	})
-	runner.EXPECT().Kill().AnyTimes()
-
-	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
-		return func() (worker.Worker, error) {
-			return workertest.NewErrorWorker(nil), nil
-		}
-	}
-	config := caasapplicationprovisioner.Config{
-		Facade:       facade,
-		Broker:       struct{ caas.Broker }{},
-		ModelTag:     s.modelTag,
-		Clock:        s.clock,
-		Logger:       s.logger,
-		NewAppWorker: newWorker,
-	}
-	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioner, gc.NotNil)
-
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for worker to start")
-	}
-
-	workertest.CleanKill(c, provisioner)
-}
-
 func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -57,6 +57,7 @@ TEST_NAMES="agents \
             ovs_maas \
             relations \
             resources \
+            sidecar \
             smoke \
             spaces_ec2 \
             static_analysis \

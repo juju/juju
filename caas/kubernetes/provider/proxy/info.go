@@ -50,8 +50,8 @@ func GetProxy(
 		return nil, errors.Annotatef(err, "proxy service account for %s", name)
 	}
 
-	if secLen := len(sa.Secrets); secLen < 1 || secLen > 1 {
-		return nil, fmt.Errorf("unsupported number of service account %q secrets: %d", sa.Name, secLen)
+	if len(sa.Secrets) == 0 {
+		return nil, fmt.Errorf("no secret created for service account %q", sa.GetName())
 	}
 
 	sec, err := secretI.Get(context.TODO(), sa.Secrets[0].Name, meta.GetOptions{})
