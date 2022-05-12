@@ -2,7 +2,7 @@ name: Test Kubeflow
 
 # The small `edge` bundle has been deprecated, `lite` bundle takes 40mins to run which is too slow for gh action.
 # Disable this one for now, please check `nw-deploy-kubeflow` on Jenkins.
-on: {}
+on: workflow_dispatch
 
 env:
   DOCKER_USERNAME: jujuqabot
