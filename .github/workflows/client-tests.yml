@@ -66,21 +66,6 @@ jobs:
       with:
         args: install mongodb.install --version=4.4.11 --allow-downgrade
 
-    # GitHub runners already have preinstalled version of mongodb, but
-    # we specifically need 4.4.11, otherwise our tests will not pass
-    - name: "Install Mongo Dependencies: macOS-latest"
-      if: (matrix.os == 'macOS-latest')
-      run: |
-        curl -o mongodb-4.4.11.tgz https://fastdl.mongodb.org/osx/mongodb-macos-x86_64-4.4.11.tgz
-        tar xzvf mongodb-4.4.11.tgz
-        sudo rm -rf /usr/local/mongodb
-        sudo mkdir -p /usr/local/mongodb
-        sudo mv mongodb-macos-x86_64-4.4.11/bin/* /usr/local/mongodb
-        sudo mkdir -p /usr/local/bin
-        sudo rm /usr/local/bin/mongod
-        sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
-      shell: bash
-
     - name: "Test client: macOS-latest"
       if: (matrix.os == 'macOS-latest')
       run: |
