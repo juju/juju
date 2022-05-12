@@ -109,7 +109,7 @@ func assertStatePoolNotClosed(c *gc.C, pool *state.StatePool) {
 
 func assertStatePoolClosed(c *gc.C, pool *state.StatePool) {
 	systemState, err := pool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "pool is closed")
 	c.Assert(systemState, gc.IsNil)
 }
 
