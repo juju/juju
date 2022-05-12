@@ -26,7 +26,7 @@ var hvm = "hvm"
 var instanceTypes = []InstanceType{
 	{
 		Name:     "m1.small",
-		Arches:   []string{"amd64", "armhf"},
+		Arch:     "amd64",
 		CpuCores: 1,
 		CpuPower: CpuPower(100),
 		Mem:      1740,
@@ -34,7 +34,7 @@ var instanceTypes = []InstanceType{
 		RootDisk: 8192,
 	}, {
 		Name:     "m1.medium",
-		Arches:   []string{"amd64", "armhf"},
+		Arch:     "amd64",
 		CpuCores: 1,
 		CpuPower: CpuPower(200),
 		Mem:      3840,
@@ -42,7 +42,7 @@ var instanceTypes = []InstanceType{
 		RootDisk: 16384,
 	}, {
 		Name:     "m1.large",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		CpuCores: 2,
 		CpuPower: CpuPower(400),
 		Mem:      7680,
@@ -50,40 +50,45 @@ var instanceTypes = []InstanceType{
 		RootDisk: 32768,
 	}, {
 		Name:     "m1.xlarge",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		CpuCores: 4,
 		CpuPower: CpuPower(800),
 		Mem:      15360,
 		Cost:     480,
-	},
-	{
+	}, {
 		Name:     "t1.micro",
-		Arches:   []string{"amd64", "armhf"},
+		Arch:     "amd64",
 		CpuCores: 1,
 		CpuPower: CpuPower(20),
 		Mem:      613,
 		Cost:     20,
 		RootDisk: 4096,
-	},
-	{
+	}, {
 		Name:     "c1.medium",
-		Arches:   []string{"amd64", "armhf"},
+		Arch:     "amd64",
 		CpuCores: 2,
 		CpuPower: CpuPower(500),
 		Mem:      1740,
 		Cost:     145,
 		RootDisk: 8192,
 	}, {
+		Name:     "c1.large",
+		Arch:     "arm64",
+		CpuCores: 2,
+		CpuPower: CpuPower(500),
+		Mem:      3264,
+		Cost:     520,
+		RootDisk: 8192,
+	}, {
 		Name:     "c1.xlarge",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		CpuCores: 8,
 		CpuPower: CpuPower(2000),
 		Mem:      7168,
 		Cost:     580,
-	},
-	{
+	}, {
 		Name:     "cc1.4xlarge",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		CpuCores: 8,
 		CpuPower: CpuPower(3350),
 		Mem:      23552,
@@ -91,7 +96,7 @@ var instanceTypes = []InstanceType{
 		VirtType: &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		CpuCores: 16,
 		CpuPower: CpuPower(8800),
 		Mem:      61952,
@@ -99,7 +104,7 @@ var instanceTypes = []InstanceType{
 		VirtType: &hvm,
 	}, {
 		Name:       "dep.small",
-		Arches:     []string{"amd64"},
+		Arch:       "amd64",
 		CpuCores:   1,
 		CpuPower:   CpuPower(100),
 		Mem:        1740,
@@ -107,7 +112,7 @@ var instanceTypes = []InstanceType{
 		Deprecated: true,
 	}, {
 		Name:       "dep.medium",
-		Arches:     []string{"amd64"},
+		Arch:       "amd64",
 		CpuCores:   2,
 		CpuPower:   CpuPower(200),
 		Mem:        4096,
@@ -121,13 +126,13 @@ var getInstanceTypesTest = []struct {
 	cons           string
 	itypesToUse    []InstanceType
 	expectedItypes []string
-	arches         []string
+	arch           string
 }{
 	{
 		about: "cores",
 		cons:  "cores=2",
 		expectedItypes: []string{
-			"c1.medium", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge",
+			"c1.medium", "m1.large", "m1.xlarge", "c1.large", "c1.xlarge", "cc1.4xlarge",
 			"cc2.8xlarge",
 		},
 	}, {
@@ -148,19 +153,19 @@ var getInstanceTypesTest = []struct {
 		},
 	}, {
 		about:          "arches filtered by constraint",
-		cons:           "cpu-power=100 arch=armhf",
-		expectedItypes: []string{"m1.small", "m1.medium", "c1.medium"},
-		arches:         []string{"armhf"},
+		cons:           "cpu-power=100 arch=arm64",
+		expectedItypes: []string{"c1.large"},
+		arch:           "arm64",
 	},
 	{
 		about: "enough memory for mongodb if mem not specified",
 		cons:  "cores=4",
 		itypesToUse: []InstanceType{
-			{Id: "5", Name: "it-5", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
-			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 2048, CpuCores: 4},
-			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 4},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4},
+			{Id: "5", Name: "it-5", Arch: "amd64", Mem: 1024, CpuCores: 2},
+			{Id: "4", Name: "it-4", Arch: "amd64", Mem: 2048, CpuCores: 4},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 1024, CpuCores: 4},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 256, CpuCores: 4},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 4},
 		},
 		expectedItypes: []string{"it-3", "it-4"},
 	},
@@ -168,9 +173,9 @@ var getInstanceTypesTest = []struct {
 		about: "small mem specified, use that even though less than needed for mongodb",
 		cons:  "mem=300M",
 		itypesToUse: []InstanceType{
-			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 2048},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 2048},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 256},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512},
 		},
 		expectedItypes: []string{"it-1", "it-3"},
 	},
@@ -178,10 +183,10 @@ var getInstanceTypesTest = []struct {
 		about: "mem specified and match found",
 		cons:  "mem=4G arch=amd64",
 		itypesToUse: []InstanceType{
-			{Id: "4", Name: "it-4", Arches: []string{"armhf"}, Mem: 8096},
-			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 4096},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 2048},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+			{Id: "4", Name: "it-4", Arch: "arm64", Mem: 8096},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 4096},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 2048},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512},
 		},
 		expectedItypes: []string{"it-3"},
 	},
@@ -189,10 +194,10 @@ var getInstanceTypesTest = []struct {
 		about: "instance-type specified and match found",
 		cons:  "instance-type=it-3",
 		itypesToUse: []InstanceType{
-			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 8096},
-			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 4096},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 2048},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+			{Id: "4", Name: "it-4", Arch: "amd64", Mem: 8096},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 4096},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 2048},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512},
 		},
 		expectedItypes: []string{"it-3"},
 	},
@@ -200,9 +205,9 @@ var getInstanceTypesTest = []struct {
 		about: "largest mem available matching other constraints if mem not specified",
 		cons:  "cores=4",
 		itypesToUse: []InstanceType{
-			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 1024, CpuCores: 2},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 256, CpuCores: 4},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 4},
 		},
 		expectedItypes: []string{"it-1"},
 	},
@@ -210,10 +215,10 @@ var getInstanceTypesTest = []struct {
 		about: "largest mem available matching other constraints if mem not specified, cost is tie breaker",
 		cons:  "cores=4",
 		itypesToUse: []InstanceType{
-			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
-			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4, Cost: 50},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4, Cost: 100},
+			{Id: "4", Name: "it-4", Arch: "amd64", Mem: 1024, CpuCores: 2},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 256, CpuCores: 4},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 512, CpuCores: 4, Cost: 50},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 4, Cost: 100},
 		},
 		expectedItypes: []string{"it-2"},
 	}, {
@@ -243,10 +248,10 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
-			if len(t.arches) > 0 {
-				c.Check(itype.Arches, gc.DeepEquals, filterArches(itype.Arches, t.arches))
+			if t.arch != "" {
+				c.Check(itype.Arch, gc.Equals, t.arch)
 			} else {
-				c.Check(len(itype.Arches) > 0, jc.IsTrue)
+				c.Check(itype.Arch, gc.Not(gc.Equals), "")
 			}
 			names[i] = itype.Name
 		}
@@ -272,26 +277,26 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
 }
 
 var instanceTypeMatchTests = []struct {
-	cons   string
-	itype  string
-	arches []string
+	cons  string
+	itype string
+	arch  string
 }{
-	{"", "m1.small", []string{"amd64", "armhf"}},
-	{"", "m1.large", []string{"amd64"}},
-	{"cpu-power=100", "m1.small", []string{"amd64", "armhf"}},
-	{"arch=amd64", "m1.small", []string{"amd64"}},
-	{"cores=3", "m1.xlarge", []string{"amd64"}},
-	{"cpu-power=", "t1.micro", []string{"amd64", "armhf"}},
-	{"cpu-power=500", "c1.medium", []string{"amd64", "armhf"}},
-	{"cpu-power=2000", "c1.xlarge", []string{"amd64"}},
-	{"cpu-power=2001", "cc1.4xlarge", []string{"amd64"}},
-	{"mem=2G", "m1.medium", []string{"amd64", "armhf"}},
+	{"", "m1.small", "amd64"},
+	{"", "m1.large", "amd64"},
+	{"cpu-power=100", "m1.small", "amd64"},
+	{"arch=amd64", "m1.small", "amd64"},
+	{"cores=3", "m1.xlarge", "amd64"},
+	{"cpu-power=", "t1.micro", "amd64"},
+	{"cpu-power=500", "c1.medium", "amd64"},
+	{"cpu-power=2000", "c1.xlarge", "amd64"},
+	{"cpu-power=2001", "cc1.4xlarge", "amd64"},
+	{"mem=2G", "m1.medium", "amd64"},
 
-	{"arch=i386", "m1.small", nil},
-	{"cpu-power=100", "t1.micro", nil},
-	{"cpu-power=9001", "cc2.8xlarge", nil},
-	{"mem=1G", "t1.micro", nil},
-	{"arch=armhf", "c1.xlarge", nil},
+	{"arch=i386", "m1.small", ""},
+	{"cpu-power=100", "t1.micro", ""},
+	{"cpu-power=9001", "cc2.8xlarge", ""},
+	{"mem=1G", "t1.micro", ""},
+	{"arch=arm64", "c1.xlarge", ""},
 }
 
 func (s *instanceTypeSuite) TestMatch(c *gc.C) {
@@ -306,11 +311,9 @@ func (s *instanceTypeSuite) TestMatch(c *gc.C) {
 		}
 		c.Assert(itype.Name, gc.Not(gc.Equals), "")
 		itype, match := itype.match(cons)
-		if len(t.arches) > 0 {
+		if t.arch != "" {
 			c.Check(match, jc.IsTrue)
-			expect := itype
-			expect.Arches = t.arches
-			c.Check(itype, gc.DeepEquals, expect)
+			c.Check(itype, gc.DeepEquals, itype)
 		} else {
 			c.Check(match, jc.IsFalse)
 			c.Check(itype, gc.DeepEquals, InstanceType{})

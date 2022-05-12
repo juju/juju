@@ -1646,8 +1646,9 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envc
 	if args.BootstrapSeries != "" {
 		series = args.BootstrapSeries
 	}
+	arch, _ := args.AvailableTools.OneArch()
 	return &environs.BootstrapResult{
-		Arch:                    args.AvailableTools.Arches()[0],
+		Arch:                    arch,
 		Series:                  series,
 		CloudBootstrapFinalizer: finalizer,
 	}, nil

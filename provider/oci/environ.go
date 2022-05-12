@@ -501,7 +501,10 @@ func (e *Environ) startInstance(
 	}
 
 	series := args.InstanceConfig.Series
-	arches := args.Tools.Arches()
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	types := imgCache.SupportedShapes(series)
 
@@ -519,7 +522,7 @@ func (e *Environ) startInstance(
 		types,
 		&instances.InstanceConstraint{
 			Series:      series,
-			Arches:      arches,
+			Arch:        arch,
 			Constraints: args.Constraints,
 		},
 	)

@@ -943,7 +943,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
 		[]string{"trusty"},
-		possibleTools.Arches(),
+		[]string{"amd64"},
 		&params.ImageMetadata,
 	)
 	c.Check(err, jc.ErrorIsNil)

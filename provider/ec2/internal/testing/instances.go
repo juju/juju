@@ -409,7 +409,7 @@ func (inst *Instance) matchAttr(attr, value string) (ok bool, err error) {
 	}
 	switch attr {
 	case "architecture":
-		return value == "i386", nil
+		return value == "amd64", nil
 	case "availability-zone":
 		return value == inst.availZone, nil
 	case "instance-id":

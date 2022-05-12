@@ -30,41 +30,41 @@ var testInstanceTypes = []instances.InstanceType{{
 	CpuCores: 4,
 	CpuPower: instances.CpuPower(1400),
 	Mem:      16384,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     172,
 }, {
 	Name:     "t3a.nano",
 	CpuCores: 2,
 	CpuPower: instances.CpuPower(700),
 	Mem:      512,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     5,
 }, {
 	Name:     "t3a.micro",
 	CpuCores: 2,
 	CpuPower: instances.CpuPower(700),
 	Mem:      1024,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     10,
 }, {
 	Name:     "t3a.small",
 	CpuCores: 2,
 	CpuPower: instances.CpuPower(700),
 	Mem:      2048,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     21,
 }, {
 	Name:     "t3a.medium",
 	CpuPower: instances.CpuPower(700),
 	Mem:      4096,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     43,
 }, {
 	Name:     "m1.medium",
 	CpuCores: 1,
 	CpuPower: instances.CpuPower(100),
 	Mem:      3840,
-	Arches:   []string{"amd64", "i386"},
+	Arch:     "amd64",
 	VirtType: &paravirtual,
 	Cost:     117,
 }, {
@@ -72,48 +72,48 @@ var testInstanceTypes = []instances.InstanceType{{
 	CpuCores: 4,
 	CpuPower: instances.CpuPower(1288),
 	Mem:      8192,
-	Arches:   []string{"arm64"},
+	Arch:     "arm64",
 }, {
 	Name:     "c4.large",
 	CpuCores: 2,
 	CpuPower: instances.CpuPower(811),
 	Mem:      3840,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     114,
 }, {
 	Name:     "t2.medium",
 	CpuCores: 2,
 	CpuPower: instances.CpuPower(40),
 	Mem:      4096,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     46,
 }, {
 	Name:     "c1.medium",
 	CpuCores: 2,
 	CpuPower: instances.CpuPower(200),
 	Mem:      1741,
-	Arches:   []string{"amd64", "i386"},
+	Arch:     "amd64",
 	Cost:     164,
 }, {
 	Name:     "cc2.8xlarge",
 	CpuCores: 32,
 	CpuPower: instances.CpuPower(11647),
 	Mem:      61952,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     2250,
 }, {
 	Name:     "r5a.large",
 	CpuCores: 2,
 	CpuPower: instances.CpuPower(700),
 	Mem:      16384,
-	Arches:   []string{"amd64"},
+	Arch:     "amd64",
 	Cost:     137,
 }}
 
 var findInstanceSpecTests = []struct {
 	// LTS-dependent requires new or updated entries upon a new LTS release.
 	series  string
-	arches  []string
+	arch    string
 	cons    string
 	itype   string
 	image   string
@@ -121,103 +121,97 @@ var findInstanceSpecTests = []struct {
 }{
 	{
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		itype:  "t3a.micro",
 		image:  "ami-00000133",
 	}, {
 		series: "quantal",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		itype:  "t3a.micro",
 		image:  "ami-01000035",
 	}, {
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "cores=4",
 		itype:  "t3a.xlarge",
 		image:  "ami-00000133",
 	}, {
 		series: "bionic",
-		arches: []string{"arm64"},
+		arch:   "arm64",
 		cons:   "cores=4",
 		itype:  "a1.xlarge",
 		image:  "ami-00002133",
 	}, {
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "mem=10G",
 		itype:  "r5a.large",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "mem=",
 		itype:  "t3a.nano",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "cpu-power=",
 		itype:  "t3a.micro",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "cpu-power=800",
 		itype:  "c4.large",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "instance-type=m1.medium cpu-power=100",
 		itype:  "m1.medium",
 		image:  "ami-00000135",
 	}, {
 		series: "xenial",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "mem=2G root-disk=16384M",
 		itype:  "t3a.small",
 		image:  "ami-00000133",
 	}, {
 		series:  "xenial",
-		arches:  []string{"amd64"},
+		arch:    "amd64",
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "t3a.medium",
 		storage: []string{"ssd", "ebs"},
 		image:   "ami-00000133",
 	}, {
 		series:  "xenial",
-		arches:  []string{"amd64"},
+		arch:    "amd64",
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "t3a.medium",
 		storage: []string{"ebs", "ssd"},
 		image:   "ami-00000139",
 	}, {
 		series:  "xenial",
-		arches:  []string{"amd64"},
+		arch:    "amd64",
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "t3a.medium",
 		storage: []string{"ebs"},
 		image:   "ami-00000139",
 	}, {
 		series: "trusty",
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		itype:  "t3a.micro",
 		image:  "ami-00000033",
 	}, {
-		series: "trusty",
-		arches: []string{"i386"},
-		cons:   "instance-type=c1.medium",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
-	}, {
 		series: "bionic",
-		arches: []string{"amd64", "i386"},
+		arch:   "amd64",
 		cons:   "arch=amd64",
 		itype:  "t3a.micro",
 		image:  "ami-00001133",
 	}, {
 		series: "bionic",
-		arches: []string{"amd64", "i386"},
+		arch:   "amd64",
 		cons:   "instance-type=cc2.8xlarge",
 		itype:  "cc2.8xlarge",
 		image:  "ami-00001133",
@@ -228,7 +222,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	size := len(findInstanceSpecTests)
 	for i, test := range findInstanceSpecTests {
 		c.Logf("\ntest %d of %d: %q; %q; %q; %q; %q; %v", i+1, size,
-			test.series, test.arches, test.cons, test.itype, test.image,
+			test.series, test.arch, test.cons, test.itype, test.image,
 			test.storage)
 		stor := test.storage
 		if len(stor) == 0 {
@@ -238,7 +232,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		// arches and series; the provisioner and bootstrap
 		// code will do this.
 		imageMetadata := filterImageMetadata(
-			c, TestImageMetadata, test.series, test.arches,
+			c, TestImageMetadata, test.series, test.arch,
 		)
 		spec, err := findInstanceSpec(
 			false, // non-controller
@@ -247,7 +241,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      test.series,
-				Arches:      test.arches,
+				Arch:        test.arch,
 				Constraints: constraints.MustParse(test.cons),
 				Storage:     stor,
 			})
@@ -278,24 +272,24 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 
 var findInstanceSpecErrorTests = []struct {
 	series string
-	arches []string
+	arch   string
 	cons   string
 	err    string
 }{
 	{
 		series: version.DefaultSupportedLTS(),
-		arches: []string{"arm"},
-		err:    fmt.Sprintf(`no metadata for "%s" images in test with arches \[arm\]`, version.DefaultSupportedLTS()),
+		arch:   "arm",
+		err:    fmt.Sprintf(`no metadata for "%s" images in test with arch arm`, version.DefaultSupportedLTS()),
 	}, {
 		series: "raring",
-		arches: []string{"amd64", "i386"},
+		arch:   "amd64",
 		cons:   "mem=4G",
-		err:    `no "raring" images in test matching instance types \[.*\]`,
+		err:    `no metadata for \"raring\" images in test with arch amd64`,
 	}, {
 		series: version.DefaultSupportedLTS(),
-		arches: []string{"amd64"},
+		arch:   "amd64",
 		cons:   "instance-type=m1.small mem=4G",
-		err:    `no instance types in test matching constraints "instance-type=m1.small mem=4096M"`,
+		err:    `no instance types in test matching constraints "arch=amd64 instance-type=m1.small mem=4096M"`,
 	},
 }
 
@@ -306,7 +300,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 		// arches and series; the provisioner and bootstrap
 		// code will do this.
 		imageMetadata := filterImageMetadata(
-			c, TestImageMetadata, t.series, t.arches,
+			c, TestImageMetadata, t.series, t.arch,
 		)
 		_, err := findInstanceSpec(
 			false, // non-controller
@@ -315,7 +309,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
-				Arches:      t.arches,
+				Arch:        t.arch,
 				Constraints: constraints.MustParse(t.cons),
 			})
 		c.Check(err, gc.ErrorMatches, t.err)
@@ -325,7 +319,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 func filterImageMetadata(
 	c *gc.C,
 	in []*imagemetadata.ImageMetadata,
-	filterSeries string, filterArches []string,
+	filterSeries string, filterArch string,
 ) []*imagemetadata.ImageMetadata {
 	var imageMetadata []*imagemetadata.ImageMetadata
 	for _, im := range in {
@@ -334,11 +328,7 @@ func filterImageMetadata(
 		if im.Version != version {
 			continue
 		}
-		match := false
-		for _, arch := range filterArches {
-			match = match || im.Arch == arch
-		}
-		if match {
+		if im.Arch == filterArch {
 			imageMetadata = append(imageMetadata, im)
 		}
 	}

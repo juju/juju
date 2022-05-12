@@ -301,7 +301,12 @@ func convertEC2InstanceType(
 			if instArch == "" {
 				continue
 			}
-			instType.Arches = append(instType.Arches, archName(instArch))
+			// We no longer support i386
+			if instArch == arch.I386 {
+				continue
+			}
+			instType.Arch = archName(instArch)
+			break
 		}
 	}
 	instZones, ok := instanceTypeZones[types.InstanceType(instType.Name)]

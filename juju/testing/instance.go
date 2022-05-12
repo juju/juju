@@ -170,6 +170,8 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	}
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
+	} else {
+		filter.Arch = "amd64"
 	}
 	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
@@ -183,7 +185,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 			env,
 			ss,
 			[]string{preferredSeries},
-			possibleTools.Arches(),
+			[]string{filter.Arch},
 			&params.ImageMetadata,
 		); err != nil {
 			return errors.Trace(err)

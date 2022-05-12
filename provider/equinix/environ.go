@@ -19,6 +19,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
+	"github.com/packethost/packngo"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -37,9 +38,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
-
-	"github.com/packethost/packngo"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
@@ -268,6 +266,10 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.Trace(err)
 	}
 
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	spec, err := e.findInstanceSpec(
 		args.InstanceConfig.Controller != nil,
 		args.ImageMetadata,
@@ -275,7 +277,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
 			Series:      args.InstanceConfig.Series,
-			Arches:      args.Tools.Arches(),
+			Arch:        arch,
 			Constraints: args.Constraints,
 		},
 	)
@@ -487,7 +489,7 @@ EOF`,
 
 	inst := &equinixDevice{e, d}
 
-	arch := getArchitectureFromPlan(d.Plan.Name)
+	arch = getArchitectureFromPlan(d.Plan.Name)
 
 	return &environs.StartInstanceResult{
 		Instance: inst,
@@ -618,7 +620,7 @@ nextPlan:
 				Name:     plan.Name,
 				CpuCores: uint64(plan.Specs.Cpus[0].Count),
 				Mem:      mem,
-				Arches:   []string{instArch},
+				Arch:     instArch,
 				// Scale per hour costs so they can be represented as an integer for sorting purposes.
 				Cost: uint64(plan.Pricing.Hour * 1000.0),
 				// The Equinix Metal API returns all plan as legacy today. There is an issue open internally to figure out why.
@@ -693,17 +695,11 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 }
 
 func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
-	matchingTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return errors.Errorf("chosen architecture %v for image %q not present in %v",
-			spec.Image.Arch, spec.Image.Id, args.Tools.Arches())
-	}
-
 	if spec.InstanceType.Deprecated {
 		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
 	}
 
-	if err := args.InstanceConfig.SetTools(matchingTools); err != nil {
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return errors.Trace(err)
 	}
 
