@@ -77,15 +77,15 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 			placement: "winrm:user@10.10.0.3",
 		}, {
 			args:      []string{"ssh:user@10.10.0.3", "--private-key", "pv"},
-			count:     2,
+			count:     1,
 			placement: "ssh:user@10.10.0.3",
 		}, {
 			args:      []string{"ssh:user@10.10.0.3", "--public-key", "pb"},
-			count:     2,
+			count:     1,
 			placement: "ssh:user@10.10.0.3",
 		}, {
 			args:      []string{"ssh:user@10.10.0.3", "--private-key", "pv", "--public-key", "pb"},
-			count:     3,
+			count:     1,
 			placement: "ssh:user@10.10.0.3",
 		}, {
 			args:      []string{"zone=us-east-1a"},
@@ -171,6 +171,7 @@ func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 	c.Assert(s.fakeMachineManager.args, gc.HasLen, 1)
 
 	param := s.fakeMachineManager.args[0]
+
 	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
 	c.Assert(param.Series, gc.Equals, "special")
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
