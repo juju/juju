@@ -76,6 +76,18 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 			count:     1,
 			placement: "winrm:user@10.10.0.3",
 		}, {
+			args:      []string{"ssh:user@10.10.0.3", "--private-key", "pv"},
+			count:     2,
+			placement: "ssh:user@10.10.0.3",
+		}, {
+			args:      []string{"ssh:user@10.10.0.3", "--public-key", "pb"},
+			count:     2,
+			placement: "ssh:user@10.10.0.3",
+		}, {
+			args:      []string{"ssh:user@10.10.0.3", "--private-key", "pv", "--public-key", "pb"},
+			count:     3,
+			placement: "ssh:user@10.10.0.3",
+		}, {
 			args:      []string{"zone=us-east-1a"},
 			count:     1,
 			placement: "model-uuid:zone=us-east-1a",
