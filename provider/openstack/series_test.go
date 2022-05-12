@@ -596,7 +596,7 @@ func FindInstanceSpec(
 	env := e.(*Environ)
 	return findInstanceSpec(env, instances.InstanceConstraint{
 		Series:      series,
-		Arches:      []string{arch},
+		Arch:        arch,
 		Region:      env.cloud().Region,
 		Constraints: constraints.MustParse(cons),
 	}, imageMetadata)

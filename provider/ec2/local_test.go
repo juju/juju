@@ -233,7 +233,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
-	t.UploadArches = []string{arch.AMD64, arch.I386}
+	t.UploadArches = []string{arch.AMD64}
 	t.TestConfig = localConfigAttrs
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
@@ -1475,10 +1475,10 @@ func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	validator, err := env.ConstraintsValidator(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cores=2 tags=bar")
-	consB := constraints.MustParse("arch=i386 instance-type=m1.small")
+	consB := constraints.MustParse("arch=arm64 instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=i386 instance-type=m1.small tags=bar"))
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=arm64 instance-type=m1.small tags=bar"))
 }
 
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
@@ -1503,12 +1503,12 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 
 func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
-	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
+	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=arm64")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:      jujuversion.DefaultSupportedLTS(),
 		Constraints: cons,
 	})
-	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
+	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "arm64" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
@@ -2774,7 +2774,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
 		[]string{"trusty"},
-		possibleTools.Arches(),
+		[]string{"amd64"},
 		&params.ImageMetadata,
 	)
 	c.Check(err, jc.ErrorIsNil)
