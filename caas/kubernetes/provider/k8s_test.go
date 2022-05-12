@@ -6864,6 +6864,141 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.Containers[0].VolumeConfig = []specs.FileSet{
+		{
+			Name:      "myhostpath",
+			MountPath: "/host/etc/cni/net.d",
+			VolumeSource: specs.VolumeSource{
+				HostPath: &specs.HostPathVol{
+					Path: "/etc/cni/net.d",
+					Type: "Directory",
+				},
+			},
+		},
+	}
+	workloadSpec, err := provider.PrepareWorkloadSpec(
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.Pod(workloadSpec).PodSpec
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	})
+	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
+	for i := range podSpec.Containers {
+		podSpec.Containers[i].Resources = core.ResourceRequirements{
+			Limits: core.ResourceList{
+				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
+			},
+			Requests: core.ResourceList{
+				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
+			},
+		}
+	}
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
+	statefulSetArgUpdate := *statefulSetArg
+	hostPathType := core.HostPathDirectory
+	statefulSetArgUpdate.Spec.Template.Spec.Volumes = append(
+		statefulSetArgUpdate.Spec.Template.Spec.Volumes,
+		core.Volume{
+			Name: "myhostpath",
+			VolumeSource: core.VolumeSource{
+				HostPath: &core.HostPathVolumeSource{
+					Path: "/etc/cni/net.d",
+					Type: &hostPathType,
+				},
+			},
+		},
+	)
+	statefulSetArgUpdate.Spec.Template.Spec.Containers[0].VolumeMounts = []core.VolumeMount{
+		{
+			Name:      "juju-data-dir",
+			MountPath: "/var/lib/juju",
+		},
+		{
+			Name:      "juju-data-dir",
+			MountPath: "/usr/bin/juju-run",
+			SubPath:   "tools/jujud",
+		},
+		{
+			Name:      "myhostpath",
+			MountPath: "/host/etc/cni/net.d",
+		},
+		{
+			Name:      "database-appuuid",
+			MountPath: "path/to/here",
+		},
+	}
+	ociImageSecret := s.getOCIImageSecret(c, nil)
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
+			Return(ociImageSecret, nil),
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(gomock.Any(), basicServiceArg, v1.UpdateOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, v1.UpdateOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), &statefulSetArgUpdate, v1.CreateOptions{}).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), statefulSetArg.GetName(), v1.GetOptions{}).
+			Return(statefulSetArg, nil),
+		s.mockStatefulSets.EXPECT().Update(gomock.Any(), &statefulSetArgUpdate, v1.UpdateOptions{}).
+			Return(&statefulSetArgUpdate, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:      basicPodSpec,
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}},
+		Devices: []devices.KubernetesDeviceParams{
+			{
+				Type:       "nvidia.com/gpu",
+				Count:      3,
+				Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+			},
+		},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
+		"kubernetes-service-type":            "loadbalancer",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
