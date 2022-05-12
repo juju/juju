@@ -77,7 +77,7 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive, implies keep-copy")
+	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive, DEPRECATED.")
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
 	c.fs = f
 }
