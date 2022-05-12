@@ -131,8 +131,12 @@ func (w *syslogWorker) Log(logs []corelogger.LogRecord) error {
 		if !ok {
 			continue
 		}
+		module := log.Module
+		if log.ModelUUID != "" {
+			module = fmt.Sprintf("%s.%s", log.Module, log.ModelUUID[len(log.ModelUUID)-6:])
+		}
 		dateTime := log.Time.In(time.UTC).Format("2006-01-02 15:04:05")
-		_, _ = fmt.Fprintf(writer, "%s %s %s %s\n", dateTime, log.Entity, log.Module, log.Message)
+		_, _ = fmt.Fprintf(writer, "%s %s %s %s\n", dateTime, log.Entity, module, log.Message)
 	}
 	return nil
 }
