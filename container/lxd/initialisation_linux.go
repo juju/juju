@@ -161,8 +161,8 @@ func (ci *containerInitialiser) internalConfigureLXDBridge() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// If LXD itself supports managing networks (added in LXD 2.3) we can allow
-	// it to do all of the network configuration.
+	// We do not support LXD versions without the network API,
+	// which was added in 2.3.
 	if !server.networkAPISupport {
 		return errors.NotSupportedf("versions of LXD without network API")
 	}

@@ -287,6 +287,39 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *networkSuite) TestVerifyNetworkDeviceNotPresentNoNetAPIError(c *gc.C) {
+	s.patch()
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profile := defaultLegacyProfileWithNIC()
+	delete(profile.Devices, "eth0")
+
+	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
+	c.Assert(err, gc.ErrorMatches, `profile "default" does not have any devices configured with type "nic"`)
+}
+
+func (s *networkSuite) TestVerifyNetworkDevicePresentNoNetAPIError(c *gc.C) {
+	s.patch()
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profile := defaultLegacyProfileWithNIC()
+
+	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
+	c.Assert(err, gc.ErrorMatches, "versions of LXD without network API not supported")
+}
+
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreatedWithUnusedName(c *gc.C) {
 	s.patch()
 
