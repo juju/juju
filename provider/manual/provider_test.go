@@ -31,8 +31,8 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
-	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, stdin io.Reader, stdout io.Writer) error {
-		s.AddCall("InitUbuntuUser", host, user, keys, stdin, stdout)
+	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, privateKey string, stdin io.Reader, stdout io.Writer) error {
+		s.AddCall("InitUbuntuUser", host, user, keys, privateKey, stdin, stdout)
 		return s.NextErr()
 	})
 }
