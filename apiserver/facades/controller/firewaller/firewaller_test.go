@@ -6,6 +6,7 @@ package firewaller_test
 import (
 	"sort"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,18 +16,19 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
+	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type firewallerSuite struct {
 	firewallerBaseSuite
 	*commontesting.ModelWatcherTest
 
+	cc         *mocks.MockControllerConfigAPI
 	firewaller *firewaller.FirewallerAPIV3
 	subnet     *state.Subnet
 }
@@ -58,6 +60,13 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
+}
+
+func (s *firewallerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
+	return ctrl
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
@@ -165,6 +174,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits},
@@ -184,7 +195,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	apiv5 := &firewaller.FirewallerAPIV5{
 		&firewaller.FirewallerAPIV4{
 			FirewallerAPIV3:     s.firewaller,
-			ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+			ControllerConfigAPI: s.cc,
 		}}
 
 	result, err := apiv5.AreManuallyProvisioned(args)
@@ -207,11 +218,13 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	apiv6 := &firewaller.FirewallerAPIV6{
 		&firewaller.FirewallerAPIV5{
 			&firewaller.FirewallerAPIV4{
 				FirewallerAPIV3:     s.firewaller,
-				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+				ControllerConfigAPI: s.cc,
 			},
 		},
 	}
@@ -219,6 +232,8 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	// Set up a spaces with two subnets
 	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,7 +256,7 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 		&firewaller.FirewallerAPIV5{
 			&firewaller.FirewallerAPIV4{
 				FirewallerAPIV3:     s.firewaller,
-				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+				ControllerConfigAPI: s.cc,
 			},
 		},
 	}
