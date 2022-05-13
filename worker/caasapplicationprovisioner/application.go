@@ -481,11 +481,10 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 	appTag := names.NewApplicationTag(a.name).String()
 	appStatus := params.EntityStatus{}
 	svc, err := app.Service()
-	if errors.IsNotFound(err) {
-		// Do nothing
-	} else if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
-	} else {
+	}
+	if svc != nil {
 		appStatus = params.EntityStatus{
 			Status: svc.Status.Status,
 			Info:   svc.Status.Message,

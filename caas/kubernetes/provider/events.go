@@ -6,12 +6,12 @@ package provider
 import (
 	"context"
 
-	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/informers"
 
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -48,18 +48,7 @@ func (k *kubernetesClient) getEvents(objName string, objKind string) ([]core.Eve
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	selector := fields.AndSelectors(
-		fields.OneTermEqualSelector("involvedObject.name", objName),
-		fields.OneTermEqualSelector("involvedObject.kind", objKind),
-	).String()
-	logger.Debugf("getting the latest event for %q", selector)
-	eventList, err := k.client().CoreV1().Events(k.namespace).List(context.TODO(), v1.ListOptions{
-		FieldSelector: selector,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return eventList.Items, nil
+	return resources.ListEventsForObject(context.TODO(), k.client(), k.namespace, objName, objKind)
 }
 
 func (k *kubernetesClient) watchEvents(objName string, objKind string) (watcher.NotifyWatcher, error) {
@@ -68,7 +57,7 @@ func (k *kubernetesClient) watchEvents(objName string, objKind string) (watcher.
 	}
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
-		informers.WithTweakListOptions(func(o *v1.ListOptions) {
+		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
 			o.FieldSelector = fields.AndSelectors(
 				fields.OneTermEqualSelector("involvedObject.name", objName),
 				fields.OneTermEqualSelector("involvedObject.kind", objKind),
