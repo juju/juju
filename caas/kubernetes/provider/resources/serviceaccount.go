@@ -143,7 +143,7 @@ func (sa *ServiceAccount) Ensure(
 
 // Events emitted by the resource.
 func (sa *ServiceAccount) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, sa.Namespace, sa.Name, "ServiceAccount")
+	return ListEventsForObject(ctx, client, sa.Namespace, sa.Name, "ServiceAccount")
 }
 
 // ComputeStatus returns a juju status for the resource.

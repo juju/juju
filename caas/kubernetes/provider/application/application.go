@@ -1091,7 +1091,7 @@ func (a *app) Service() (*caas.Service, error) {
 }
 
 func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
-	jujuStatus := status.Waiting
+	jujuStatus := status.Allocating
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		ss, err := a.getStatefulSet()
@@ -1099,23 +1099,21 @@ func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, no
 			return "", jujuStatus, now, errors.Trace(err)
 		}
 		if ss.GetDeletionTimestamp() != nil {
-			jujuStatus = status.Terminated
-		} else if ss.Spec.Replicas != nil && ss.Status.ReadyReplicas == *ss.Spec.Replicas {
-			jujuStatus = status.Active
+			return "", status.Terminated, now, nil
+		} else if ss.Status.ReadyReplicas > 0 {
+			return "", status.Active, now, nil
 		}
 		var statusMessage string
-		if jujuStatus == status.Waiting {
-			events, err := ss.Events(ctx, client)
-			if err != nil {
-				return "", jujuStatus, now, errors.Trace(err)
-			}
-			// Take the most recent event.
-			if count := len(events); count > 0 {
-				evt := events[count-1]
-				if evt.Type == corev1.EventTypeWarning && evt.Reason == "FailedCreate" {
-					jujuStatus = status.Blocked
-					statusMessage = evt.Message
-				}
+		events, err := ss.Events(ctx, client)
+		if err != nil {
+			return "", jujuStatus, now, errors.Trace(err)
+		}
+		// Take the most recent event.
+		if count := len(events); count > 0 {
+			evt := events[count-1]
+			if evt.Type == corev1.EventTypeWarning && evt.Reason == "FailedCreate" {
+				jujuStatus = status.Error
+				statusMessage = evt.Message
 			}
 		}
 		return statusMessage, jujuStatus, now, nil

@@ -120,7 +120,7 @@ func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, client kubernetes.
 
 // Events emitted by the resource.
 func (pvc *PersistentVolumeClaim) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, pvc.Namespace, pvc.Name, "PersistentVolumeClaim")
+	return ListEventsForObject(ctx, client, pvc.Namespace, pvc.Name, "PersistentVolumeClaim")
 }
 
 // ComputeStatus returns a juju status for the resource.

@@ -15,20 +15,9 @@ import (
 
 const maxEventsToPage = 100
 
-func listEventsForObject(
-	ctx context.Context, client kubernetes.Interface, namespace, name, kind string,
-) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, name, kind, client.CoreV1().Events(namespace))
-}
-
-// EventsGetter defines methods for fetching k8s events.
-type EventsGetter interface {
-	List(context.Context, metav1.ListOptions) (*corev1.EventList, error)
-}
-
 // ListEventsForObject returns all the events for the specified object.
 func ListEventsForObject(
-	ctx context.Context, name string, kind string, getEvents EventsGetter,
+	ctx context.Context, client kubernetes.Interface, namespace, name, kind string,
 ) ([]corev1.Event, error) {
 	selector := fields.AndSelectors(
 		fields.OneTermEqualSelector("involvedObject.name", name),
@@ -39,7 +28,7 @@ func ListEventsForObject(
 	}
 	var items []corev1.Event
 	for len(items) < maxEventsToPage {
-		res, err := getEvents.List(ctx, opts)
+		res, err := client.CoreV1().Events(namespace).List(ctx, opts)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -100,7 +100,7 @@ func (s *Service) Delete(ctx context.Context, client kubernetes.Interface) error
 
 // Events emitted by the resource.
 func (s *Service) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, s.Namespace, s.Name, "Service")
+	return ListEventsForObject(ctx, client, s.Namespace, s.Name, "Service")
 }
 
 // ComputeStatus returns a juju status for the resource.

@@ -2603,7 +2603,7 @@ func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestServiceBlocked(c *gc.C) {
+func (s *applicationSuite) TestServiceError(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, func() {},
@@ -2655,7 +2655,7 @@ func (s *applicationSuite) TestServiceBlocked(c *gc.C) {
 			},
 		}},
 		Status: status.StatusInfo{
-			Status:  "blocked",
+			Status:  "error",
 			Since:   &since,
 			Message: "0/1 nodes are available: 1 pod has unbound immediate PersistentVolumeClaims.",
 		},

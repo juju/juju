@@ -101,7 +101,7 @@ func (ds *DaemonSet) Delete(ctx context.Context, client kubernetes.Interface) er
 
 // Events emitted by the resource.
 func (ds *DaemonSet) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, ds.Namespace, ds.Name, "DaemonSet")
+	return ListEventsForObject(ctx, client, ds.Namespace, ds.Name, "DaemonSet")
 }
 
 // ComputeStatus returns a juju status for the resource.

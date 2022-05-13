@@ -120,7 +120,7 @@ func (s *Secret) Delete(ctx context.Context, client kubernetes.Interface) error 
 
 // Events emitted by the resource.
 func (s *Secret) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, s.Namespace, s.Name, "Secret")
+	return ListEventsForObject(ctx, client, s.Namespace, s.Name, "Secret")
 }
 
 // ComputeStatus returns a juju status for the resource.

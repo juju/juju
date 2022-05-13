@@ -101,7 +101,7 @@ func (r *Role) Delete(ctx context.Context, client kubernetes.Interface) error {
 
 // Events emitted by the resource.
 func (r *Role) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, r.Namespace, r.Name, "Role")
+	return ListEventsForObject(ctx, client, r.Namespace, r.Name, "Role")
 }
 
 // ComputeStatus returns a juju status for the resource.

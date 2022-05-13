@@ -2491,7 +2491,7 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 
 func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, status.Status, error) {
 	terminated := ss.DeletionTimestamp != nil
-	jujuStatus := status.Waiting
+	jujuStatus := status.Allocating
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2503,7 +2503,7 @@ func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, s
 
 func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
 	terminated := deployment.DeletionTimestamp != nil
-	jujuStatus := status.Waiting
+	jujuStatus := status.Allocating
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2515,7 +2515,7 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 
 func (k *kubernetesClient) getDaemonSetStatus(ds *apps.DaemonSet) (string, status.Status, error) {
 	terminated := ds.DeletionTimestamp != nil
-	jujuStatus := status.Waiting
+	jujuStatus := status.Allocating
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2536,7 +2536,7 @@ func (k *kubernetesClient) getStatusFromEvents(name, kind string, jujuStatus sta
 		evt := events[count-1]
 		if jujuStatus == "" {
 			if evt.Type == core.EventTypeWarning && evt.Reason == "FailedCreate" {
-				jujuStatus = status.Blocked
+				jujuStatus = status.Error
 				statusMessage = evt.Message
 			}
 		}

@@ -122,7 +122,7 @@ func (p *Pod) Delete(ctx context.Context, client kubernetes.Interface) error {
 
 // Events emitted by the resource.
 func (p *Pod) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, p.Namespace, p.Name, "Pod")
+	return ListEventsForObject(ctx, client, p.Namespace, p.Name, "Pod")
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -162,7 +162,7 @@ var (
 	}
 )
 
-// PodToJujuStatus takes a Kubernetes pod and translate's it to a known Juju
+// PodToJujuStatus takes a Kubernetes pod and translates it to a known Juju
 // status. If this function can't determine the reason for a pod's state either
 // a status of error or unknown is returned. Function returns the status message,
 // juju status, the time of the status event and any errors that occurred.
@@ -268,8 +268,8 @@ func PodToJujuStatus(
 }
 
 // interrogatePodContainerStatus combs a set of container statuses. If a
-// container is found to be in an error state it's error message and true are
-// returned, Otherwise an empty message and false
+// container is found to be in an error state, its error message and true are
+// returned, Otherwise an empty message and false.
 func interrogatePodContainerStatus(containers []corev1.ContainerStatus) (string, bool) {
 	for _, c := range containers {
 		if c.State.Running != nil {

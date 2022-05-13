@@ -101,7 +101,7 @@ func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) er
 
 // Events emitted by the resource.
 func (d *Deployment) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return listEventsForObject(ctx, client, d.Namespace, d.Name, "Deployment")
+	return ListEventsForObject(ctx, client, d.Namespace, d.Name, "Deployment")
 }
 
 // ComputeStatus returns a juju status for the resource.
