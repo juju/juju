@@ -64,7 +64,7 @@ func (s *WorkerSuite) TestLog(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	dateTime := now.In(time.UTC).Format("2006-01-02 15:04:05")
-	c.Assert(buf.String(), gc.Equals, fmt.Sprintf("%s foo bar.06f00d baz\n", dateTime))
+	c.Assert(buf.String(), gc.Equals, fmt.Sprintf("%s foo bar.deadbe baz\n", dateTime))
 }
 
 func (s *WorkerSuite) TestClosingLogBeforeWriting(c *gc.C) {
