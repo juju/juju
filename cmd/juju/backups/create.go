@@ -20,8 +20,7 @@ import (
 
 const (
 	notset          = backups.FilenamePrefix + "<date>-<time>.tar.gz"
-	downloadWarning = "downloading backup archives is recommended; " +
-		"backups stored remotely are not guaranteed to be available."
+	downloadWarning = "--no-download flag is DEPRECATED."
 )
 
 const createDoc = `
@@ -77,7 +76,7 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive, DEPRECATED.")
+	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive. DEPRECATED.")
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
 	c.fs = f
 }
