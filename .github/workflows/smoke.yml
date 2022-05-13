@@ -64,12 +64,15 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["latest/stable", "latest/beta"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
       DOCKER_REGISTRY: 10.152.183.69:5000
+      # The old version of Juju we are testing upgrade from
+      # e.g. for 2.9 this is 2.8, for 3.0 this is 2.9
+      # Remember to change this when we increment the Juju version
+      JUJU_OLDV: 2.8/stable
 
     steps:
 
@@ -78,7 +81,7 @@ jobs:
       run: |
         set -ux
         set +e
-        OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
+        OUT=$(snap info juju | grep -E "$JUJU_OLDV:[[:space:]]+\^" || echo "NOT FOUND")
         set -e
         if [ "$OUT" = "NOT FOUND" ]; then
           echo "RUN_TEST=RUN" >> $GITHUB_ENV
@@ -92,7 +95,7 @@ jobs:
         sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
         sudo snap install lxd
-        sudo snap install juju --classic --channel=${{ matrix.snap_version }}
+        sudo snap install juju --classic --channel=$JUJU_OLDV
 
         sudo lxd waitready
         sudo lxd init --auto
@@ -120,6 +123,21 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: ${{ steps.vars.outputs.go-version }}
+
+    # The `wait-for` plugin is used after deploying an application
+    # This was added in Juju 2.9, so it's not installed by the 2.8 snap
+    # However we just need to install the `wait-for` binary ourselves,
+    # and then Juju 2.8 can use it (amazing!)
+    - name: Add `wait-for` plugin
+      if: env.JUJU_OLDV == '2.8/stable'
+      shell: bash
+      run: |
+        # Download a stable version of Juju
+        curl -L -O https://github.com/juju/juju/archive/refs/tags/juju-2.9.29.tar.gz
+        tar -xf juju-2.9.29.tar.gz
+        cd juju-juju-2.9.29/
+        go install github.com/juju/juju/cmd/plugins/juju-wait-for
+        cd ..
 
     - name: Setup k8s
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
