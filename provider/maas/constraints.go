@@ -33,9 +33,9 @@ func (env *maasEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (c
 	return validator, nil
 }
 
-// convertConstraints2 converts the given constraints into a
+// convertConstraints converts the given constraints into a
 // gomaasapi.AllocateMachineArgs for passing to MAAS 2.
-func convertConstraints2(cons constraints.Value) gomaasapi.AllocateMachineArgs {
+func convertConstraints(cons constraints.Value) gomaasapi.AllocateMachineArgs {
 	params := gomaasapi.AllocateMachineArgs{}
 	if cons.Arch != nil {
 		params.Architecture = *cons.Arch
@@ -107,7 +107,7 @@ func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
 	return positives, negatives
 }
 
-func addInterfaces2(params *gomaasapi.AllocateMachineArgs, positiveSpaceIDs, negativeSpaceIDs set.Strings) {
+func addInterfaces(params *gomaasapi.AllocateMachineArgs, positiveSpaceIDs, negativeSpaceIDs set.Strings) {
 	if len(positiveSpaceIDs) > 0 {
 		for _, providerSpaceID := range positiveSpaceIDs.SortedValues() {
 			// NOTE(achilleasa): use the provider ID as the label for the
@@ -129,9 +129,9 @@ func addInterfaces2(params *gomaasapi.AllocateMachineArgs, positiveSpaceIDs, neg
 	}
 }
 
-// addStorage2 adds volume information onto a gomaasapi.AllocateMachineArgs
+// addStorage adds volume information onto a gomaasapi.AllocateMachineArgs
 // object suitable to pass to MAAS 2 when acquiring a node.
-func addStorage2(params *gomaasapi.AllocateMachineArgs, volumes []volumeInfo) {
+func addStorage(params *gomaasapi.AllocateMachineArgs, volumes []volumeInfo) {
 	if len(volumes) == 0 {
 		return
 	}

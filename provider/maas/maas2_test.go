@@ -26,18 +26,18 @@ var maasEnvAttrs = coretesting.Attrs{
 	},
 }
 
-type maas2Suite struct {
+type maasSuite struct {
 	baseProviderSuite
 }
 
-func (suite *maas2Suite) injectController(controller gomaasapi.Controller) {
+func (suite *maasSuite) injectController(controller gomaasapi.Controller) {
 	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
 		return controller, nil
 	}
-	suite.PatchValue(&GetMAAS2Controller, mockGetController)
+	suite.PatchValue(&GetMAASController, mockGetController)
 }
 
-func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *maasEnviron {
+func (suite *maasSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *maasEnviron {
 	if controller != nil {
 		suite.injectController(controller)
 	}

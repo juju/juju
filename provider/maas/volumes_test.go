@@ -15,7 +15,7 @@ import (
 )
 
 type volumeSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 var _ = gc.Suite(&volumeSuite{})

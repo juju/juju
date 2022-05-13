@@ -12,7 +12,7 @@ import (
 )
 
 type interfacesSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 var _ = gc.Suite(&interfacesSuite{})

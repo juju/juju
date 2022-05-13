@@ -24,7 +24,7 @@ import (
 )
 
 type EnvironProviderSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 var _ = gc.Suite(&EnvironProviderSuite{})

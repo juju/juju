@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-type maas2Storage struct {
+type maasStorage struct {
 	// The Environ that this Storage is for.
 	environ *maasEnviron
 
@@ -25,9 +25,9 @@ type maas2Storage struct {
 	maasController gomaasapi.Controller
 }
 
-var _ storage.Storage = (*maas2Storage)(nil)
+var _ storage.Storage = (*maasStorage)(nil)
 
-func (stor *maas2Storage) prefixWithPrivateNamespace(name string) string {
+func (stor *maasStorage) prefixWithPrivateNamespace(name string) string {
 	return prefixWithPrivateNamespace(stor.environ, name)
 }
 
@@ -39,7 +39,7 @@ func prefixWithPrivateNamespace(env *maasEnviron, name string) string {
 }
 
 // Get implements storage.StorageReader
-func (stor *maas2Storage) Get(name string) (io.ReadCloser, error) {
+func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 	name = stor.prefixWithPrivateNamespace(name)
 	file, err := stor.maasController.GetFile(name)
 	if err != nil {
@@ -56,7 +56,7 @@ func (stor *maas2Storage) Get(name string) (io.ReadCloser, error) {
 }
 
 // List implements storage.StorageReader
-func (stor *maas2Storage) List(prefix string) ([]string, error) {
+func (stor *maasStorage) List(prefix string) ([]string, error) {
 	prefix = stor.prefixWithPrivateNamespace(prefix)
 	files, err := stor.maasController.Files(prefix)
 	if err != nil {
@@ -73,7 +73,7 @@ func (stor *maas2Storage) List(prefix string) ([]string, error) {
 }
 
 // URL implements storage.StorageReader
-func (stor *maas2Storage) URL(name string) (string, error) {
+func (stor *maasStorage) URL(name string) (string, error) {
 	name = stor.prefixWithPrivateNamespace(name)
 	file, err := stor.maasController.GetFile(name)
 	if err != nil {
@@ -85,24 +85,24 @@ func (stor *maas2Storage) URL(name string) (string, error) {
 // DefaultConsistencyStrategy implements storage.StorageReader
 //
 // TODO(katco): 2016-08-09: lp:1611427
-func (stor *maas2Storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+func (stor *maasStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
 // ShouldRetry implements storage.StorageReader
-func (stor *maas2Storage) ShouldRetry(err error) bool {
+func (stor *maasStorage) ShouldRetry(err error) bool {
 	return false
 }
 
 // Put implements storage.StorageWriter
-func (stor *maas2Storage) Put(name string, r io.Reader, length int64) error {
+func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 	name = stor.prefixWithPrivateNamespace(name)
 	args := gomaasapi.AddFileArgs{Filename: name, Reader: r, Length: length}
 	return stor.maasController.AddFile(args)
 }
 
 // Remove implements storage.StorageWriter
-func (stor *maas2Storage) Remove(name string) error {
+func (stor *maasStorage) Remove(name string) error {
 	name = stor.prefixWithPrivateNamespace(name)
 	file, err := stor.maasController.GetFile(name)
 	if err != nil {
@@ -112,6 +112,6 @@ func (stor *maas2Storage) Remove(name string) error {
 }
 
 // RemoveAll implements storage.StorageWriter
-func (stor *maas2Storage) RemoveAll() error {
+func (stor *maasStorage) RemoveAll() error {
 	return removeAll(stor)
 }

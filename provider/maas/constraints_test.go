@@ -14,10 +14,10 @@ import (
 )
 
 type environSuite struct {
-	maas2Suite
+	maasSuite
 }
 
-func (*environSuite) TestConvertConstraints2(c *gc.C) {
+func (*environSuite) TestConvertConstraints(c *gc.C) {
 	for i, test := range []struct {
 		cons     constraints.Value
 		expected gomaasapi.AllocateMachineArgs
@@ -69,7 +69,7 @@ func (*environSuite) TestConvertConstraints2(c *gc.C) {
 		},
 	}} {
 		c.Logf("test #%d: cons2=%s", i, test.cons.String())
-		c.Check(convertConstraints2(test.cons), jc.DeepEquals, test.expected)
+		c.Check(convertConstraints(test.cons), jc.DeepEquals, test.expected)
 	}
 }
 

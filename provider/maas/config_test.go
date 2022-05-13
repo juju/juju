@@ -41,7 +41,7 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 	mockGetController := func(string, string) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
-	s.PatchValue(&GetMAAS2Controller, mockGetController)
+	s.PatchValue(&GetMAASController, mockGetController)
 }
 
 func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {

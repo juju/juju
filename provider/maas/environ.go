@@ -60,10 +60,10 @@ var defaultLongRetryStrategy = retry.CallArgs{
 
 var (
 	DeploymentStatusCall = deploymentStatusCall
-	GetMAAS2Controller   = getMAAS2Controller
+	GetMAASController    = getMAASController
 )
 
-func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error) {
+func getMAASController(maasServer, apiKey string) (gomaasapi.Controller, error) {
 	return gomaasapi.NewController(gomaasapi.ControllerArgs{
 		BaseURL: maasServer,
 		APIKey:  apiKey,
@@ -173,7 +173,7 @@ func (env *maasEnviron) Bootstrap(
 		dialOpts environs.BootstrapDialOpts,
 	) error {
 		// Wait for bootstrap instance to change to deployed state.
-		if err := env.waitForNodeDeployment2(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
+		if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
 			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
 		}
 		return finalizer(ctx, icfg, dialOpts)
@@ -263,7 +263,7 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 	}
 
 	apiVersion := apiVersion2
-	controller, err := GetMAAS2Controller(maasServer, maasOAuth)
+	controller, err := GetMAASController(maasServer, maasOAuth)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -618,8 +618,8 @@ func (env *maasEnviron) networkSpaceRequirements(ctx context.ProviderCallContext
 	return positiveSpaceIds, negativeSpaceIds, nil
 }
 
-// acquireNode2 allocates a machine from MAAS2.
-func (env *maasEnviron) acquireNode2(
+// acquireNode allocates a machine from MAAS2.
+func (env *maasEnviron) acquireNode(
 	ctx context.ProviderCallContext,
 	nodeName, zoneName, systemId string,
 	cons constraints.Value,
@@ -627,9 +627,9 @@ func (env *maasEnviron) acquireNode2(
 	negativeSpaceIDs set.Strings,
 	volumes []volumeInfo,
 ) (maasInstance, error) {
-	acquireParams := convertConstraints2(cons)
-	addInterfaces2(&acquireParams, positiveSpaceIDs, negativeSpaceIDs)
-	addStorage2(&acquireParams, volumes)
+	acquireParams := convertConstraints(cons)
+	addInterfaces(&acquireParams, positiveSpaceIDs, negativeSpaceIDs)
+	addStorage(&acquireParams, volumes)
 	acquireParams.AgentName = env.uuid
 	if zoneName != "" {
 		acquireParams.Zone = zoneName
@@ -653,7 +653,7 @@ func (env *maasEnviron) acquireNode2(
 	}, nil
 }
 
-func (env *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
+func (env *maasEnviron) startNode(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
 	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: string(userdata)})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -793,7 +793,7 @@ func (env *maasEnviron) StartInstance(
 	var displayName string
 	var interfaces corenetwork.InterfaceInfos
 	inst2 := inst.(*maas2Instance)
-	startedInst, err := env.startNode2(*inst2, series, userdata)
+	startedInst, err := env.startNode(*inst2, series, userdata)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -805,7 +805,7 @@ func (env *maasEnviron) StartInstance(
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
-	env.tagInstance2(inst2, args.InstanceConfig)
+	env.tagInstance(inst2, args.InstanceConfig)
 
 	displayName, err = inst2.displayName()
 	if err != nil {
@@ -841,14 +841,14 @@ func (env *maasEnviron) StartInstance(
 	}, nil
 }
 
-func (env *maasEnviron) tagInstance2(inst *maas2Instance, instanceConfig *instancecfg.InstanceConfig) {
+func (env *maasEnviron) tagInstance(inst *maas2Instance, instanceConfig *instancecfg.InstanceConfig) {
 	err := inst.machine.SetOwnerData(instanceConfig.Tags)
 	if err != nil {
 		logger.Errorf("could not set owner data for instance: %v", err)
 	}
 }
 
-func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
+func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
 	retryStrategy := env.longRetryStrategy
 	retryStrategy.MaxDuration = timeout
 	retryStrategy.IsFatalError = func(err error) bool {
@@ -979,7 +979,7 @@ type selectNodeError struct {
 }
 
 func (env *maasEnviron) selectNode(ctx context.ProviderCallContext, args selectNodeArgs) (maasInstance, *selectNodeError) {
-	inst, err := env.acquireNode2(
+	inst, err := env.acquireNode(
 		ctx,
 		args.NodeName,
 		args.AvailabilityZone,
@@ -1035,7 +1035,7 @@ func (env *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudini
 	return cloudcfg, nil
 }
 
-func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []instance.Id, recurse bool) error {
+func (env *maasEnviron) releaseNodes(ctx context.ProviderCallContext, ids []instance.Id, recurse bool) error {
 	args := gomaasapi.ReleaseMachinesArgs{
 		SystemIDs: instanceIdsToSystemIDs(ids),
 		Comment:   "Released by Juju MAAS provider",
@@ -1074,7 +1074,7 @@ func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []ins
 func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext, ids []instance.Id) error {
 	var lastErr error
 	for _, id := range ids {
-		err := env.releaseNodes2(ctx, []instance.Id{id}, false)
+		err := env.releaseNodes(ctx, []instance.Id{id}, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
@@ -1101,7 +1101,7 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 		return nil
 	}
 
-	err := env.releaseNodes2(ctx, ids, true)
+	err := env.releaseNodes(ctx, ids, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1596,7 +1596,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallConte
 	for _, nic := range preparedInfo {
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
 	}
-	interfaces, err := env.deviceInterfaceInfo2(device, nameToParentName, params.CIDRToStaticRoutes)
+	interfaces, err := env.deviceInterfaceInfo(device, nameToParentName, params.CIDRToStaticRoutes)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}

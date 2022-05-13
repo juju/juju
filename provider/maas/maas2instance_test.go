@@ -14,7 +14,7 @@ import (
 )
 
 type maas2InstanceSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 var _ = gc.Suite(&maas2InstanceSuite{})

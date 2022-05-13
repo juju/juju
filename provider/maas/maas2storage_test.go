@@ -15,7 +15,7 @@ import (
 )
 
 type maas2StorageSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 var _ = gc.Suite(&maas2StorageSuite{})
@@ -28,10 +28,10 @@ func checkCalls(c *gc.C, stub *testing.Stub, calls ...testing.StubCall) {
 	stub.CheckCalls(c, calls)
 }
 
-func (s *maas2StorageSuite) makeStorage(c *gc.C, controller gomaasapi.Controller) *maas2Storage {
+func (s *maas2StorageSuite) makeStorage(c *gc.C, controller gomaasapi.Controller) *maasStorage {
 	env := s.makeEnviron(c, controller)
 	env.uuid = "prefix"
-	storage, ok := NewStorage(env).(*maas2Storage)
+	storage, ok := NewStorage(env).(*maasStorage)
 	c.Assert(ok, jc.IsTrue)
 	return storage
 }

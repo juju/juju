@@ -149,17 +149,18 @@ func normalizeStatus(statusMsg string) string {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maas2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+
+func (mi *maas2Instance) OpenPorts(_ context.ProviderCallContext, _ string, _ firewall.IngressRules) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (mi *maas2Instance) ClosePorts(_ context.ProviderCallContext, _ string, _ firewall.IngressRules) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+func (mi *maas2Instance) IngressRules(_ context.ProviderCallContext, _ string) (firewall.IngressRules, error) {
 	logger.Debugf("unimplemented IngressRules() called")
 	return nil, nil
 }
