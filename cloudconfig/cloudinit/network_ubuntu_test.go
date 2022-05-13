@@ -195,14 +195,23 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
 - |2
 
   if [ ! -f /sbin/ifup ]; then
-      echo "No /sbin/ifup, applying netplan configuration."
-      netplan generate
-      netplan apply
+    echo "No /sbin/ifup, applying netplan configuration."
+    netplan generate
+    netplan apply
+    for i in {1..5}; do
+      hostip=$(hostname -I)
+      if [ -z "$hostip" ]; then
+        sleep 1
+      else
+        echo "Got IP addresses $hostip"
+        break
+      fi
+    done
   else
     if [ -f /usr/bin/python ]; then
-        python %[2]s --interfaces-file %[1]s --output-file %[1]s.out
+      python %[2]s --interfaces-file %[1]s --output-file %[1]s.out
     else
-        python3 %[2]s --interfaces-file %[1]s --output-file %[1]s.out
+      python3 %[2]s --interfaces-file %[1]s --output-file %[1]s.out
     fi
     ifdown -a
     sleep 1.5
