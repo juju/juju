@@ -653,61 +653,6 @@ func (env *maasEnviron) acquireNode2(
 	}, nil
 }
 
-// acquireNode allocates a node from the MAAS.
-func (env *maasEnviron) acquireNode(
-	ctx context.ProviderCallContext,
-	nodeName, zoneName, systemId string,
-	cons constraints.Value,
-	positiveSpaceIDs set.Strings,
-	negativeSpaceIDs set.Strings,
-	volumes []volumeInfo,
-) (gomaasapi.MAASObject, error) {
-
-	// TODO(axw) 2014-08-18 #1358219
-	// We should be requesting preferred architectures if unspecified,
-	// like in the other providers.
-	//
-	// This is slightly complicated in MAAS as there are a finite
-	// number of each architecture; preference may also conflict with
-	// other constraints, such as tags. Thus, a preference becomes a
-	// demand (which may fail) if not handled properly.
-
-	acquireParams := convertConstraints(cons)
-	addInterfaces(acquireParams, positiveSpaceIDs, negativeSpaceIDs)
-	addStorage(acquireParams, volumes)
-	acquireParams.Add("agent_name", env.uuid)
-	if zoneName != "" {
-		acquireParams.Add("zone", zoneName)
-	}
-	if nodeName != "" {
-		acquireParams.Add("name", nodeName)
-	}
-	if systemId != "" {
-		acquireParams.Add("system_id", systemId)
-	}
-
-	var result gomaasapi.JSONObject
-	retryStrategy := env.shortRetryStrategy
-	retryStrategy.Func = func() error {
-		client := env.getMAASClient().GetSubObject("nodes/")
-		logger.Tracef("calling acquire with params: %+v", acquireParams)
-
-		var err error
-		result, err = client.CallPost("acquire", acquireParams)
-		return err
-	}
-	err := retry.Call(retryStrategy)
-	if err != nil {
-		return gomaasapi.MAASObject{}, retry.LastError(err)
-	}
-	node, err := result.GetMAASObject()
-	if err != nil {
-		err := errors.Annotate(err, "unexpected result from 'acquire' on MAAS API")
-		return gomaasapi.MAASObject{}, err
-	}
-	return node, nil
-}
-
 func (env *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
 	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: string(userdata)})
 	if err != nil {
