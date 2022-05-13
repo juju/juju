@@ -14,7 +14,7 @@ import (
 
 // Ensure MAAS provider supports the expected interfaces.
 var (
-	_ config.ConfigSchemaSource = (*MaasEnvironProvider)(nil)
+	_ config.ConfigSchemaSource = (*EnvironProvider)(nil)
 )
 
 type configSuite struct {
@@ -54,7 +54,7 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = MaasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
+	_, err = EnvironProvider{}.Validate(newCfg, oldCfg.Config)
 
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
