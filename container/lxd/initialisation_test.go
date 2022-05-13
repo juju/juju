@@ -9,9 +9,7 @@ package lxd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os/exec"
 	"runtime"
 
 	"github.com/golang/mock/gomock"
@@ -89,21 +87,6 @@ func (s *initialiserTestSuite) containerInitialiser(svr lxd.ContainerServer, lxd
 		return lxdIsRunning, nil
 	}
 	return result
-}
-
-func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
-	paccmder, err := commands.NewPackageCommander("trusty")
-	c.Assert(err, jc.ErrorIsNil)
-
-	PatchLXDViaSnap(s, false)
-	PatchHostSeries(s, "trusty")
-
-	err = s.containerInitialiser(nil, true).Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.calledCmds, gc.DeepEquals, []string{
-		paccmder.InstallCmd("--target-release", "trusty-backports", "lxd"),
-	})
 }
 
 func (s *InitialiserSuite) TestSnapInstalledNoAptInstall(c *gc.C) {
@@ -206,31 +189,13 @@ func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }
 
-func (s *InitialiserSuite) TestLXDInitTrusty(c *gc.C) {
-	s.patchDF100GB()
-	PatchHostSeries(s, "trusty")
-
-	err := s.containerInitialiser(nil, true).Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that our patched call has no recorded args.
-	execPath, err := exec.LookPath("lxd")
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = ioutil.ReadFile(execPath + ".out")
-	c.Assert(err, gc.ErrorMatches, "*. no such file or directory$")
-}
-
 func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	s.patchDF100GB()
-	PatchHostSeries(s, "trusty")
+	PatchHostSeries(s, "bionic")
 
 	ci := s.containerInitialiser(nil, true)
 	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
-		Stderr: `LXD init cannot be used at this time.
-However if all you want to do is reconfigure the network,
-you can still do so by running "sudo dpkg-reconfigure -p medium lxd"
-
-error: You have existing containers or images. lxd init requires an empty LXD.`,
+		Stderr:   `error: You have existing containers or images. lxd init requires an empty LXD.`,
 		ExitCode: 1,
 	})
 

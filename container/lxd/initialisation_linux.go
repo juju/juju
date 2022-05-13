@@ -90,11 +90,6 @@ func (ci *containerInitialiser) Initialise() error {
 		return errors.Trace(err)
 	}
 
-	// LXD init is only run on Xenial and later.
-	if localSeries == "trusty" {
-		return nil
-	}
-
 	output, err := ci.getExecCommand(
 		"lxd",
 		"init",
