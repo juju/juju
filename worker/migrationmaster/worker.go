@@ -164,7 +164,7 @@ func New(config Config) (*Worker, error) {
 	// controller logged against the model. Until then, distinguish
 	// the logs from different migrationmaster insteads using the
 	// model UUID suffix.
-	loggerName := "juju.worker.migrationmaster." + config.ModelUUID[len(config.ModelUUID)-6:]
+	loggerName := "juju.worker.migrationmaster." + config.ModelUUID[6:]
 	logger := loggo.GetLogger(loggerName)
 
 	w := &Worker{
