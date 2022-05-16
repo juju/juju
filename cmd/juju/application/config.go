@@ -99,10 +99,14 @@ See also:
 `
 )
 
+var appConfigBase = config.ConfigCommandBase{
+	Resettable: true,
+}
+
 // NewConfigCommand returns a command used to get, reset, and set application
 // charm attributes.
 func NewConfigCommand() cmd.Command {
-	return modelcmd.Wrap(&configCommand{})
+	return modelcmd.Wrap(&configCommand{configBase: appConfigBase})
 }
 
 // configCommand get, sets, and resets configuration values of an application' charm.

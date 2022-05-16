@@ -79,7 +79,8 @@ See also:
 )
 
 var modelConfigBase = config.ConfigCommandBase{
-	CantReset: []string{envconfig.AgentVersionKey, envconfig.CharmHubURLKey},
+	Resettable: true,
+	CantReset:  []string{envconfig.AgentVersionKey, envconfig.CharmHubURLKey},
 }
 
 // NewConfigCommand wraps configCommand with sane model settings.
