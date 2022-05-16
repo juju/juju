@@ -230,7 +230,7 @@ jobs:
 
         sg microk8s <<EOF
           juju bootstrap microk8s c \
-            --config caas-image-repo="https://${DOCKER_REGISTRY}/test-repo" \
+            --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
             --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
             --config features="[developer-mode]"
         EOF
