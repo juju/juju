@@ -1,7 +1,12 @@
 name: "CLA check"
 on: [pull_request]
+permissions:
+  contents: read
+
 jobs:
   cla-check:
+    permissions:
+      pull-requests: write  # for canonical/has-signed-canonical-cla to create & update comments
     runs-on: ubuntu-latest
     steps:
       - name: Check if CLA signed

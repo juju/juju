@@ -242,11 +242,6 @@ func (st *state) AuthTag() names.Tag {
 	return st.authTag
 }
 
-// ModelAccess returns the access level of authorized user to the model.
-func (st *state) ModelAccess() string {
-	return st.modelAccess
-}
-
 // ControllerAccess returns the access level of authorized user to the model.
 func (st *state) ControllerAccess() string {
 	return st.controllerAccess

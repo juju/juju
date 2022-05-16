@@ -495,10 +495,14 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		env.config,
 	)
 	imageStream := env.config.ImageStream()
-	instanceTypes, err := env.getInstanceTypesLocked(ctx)
+	envInstanceTypes, err := env.getInstanceTypesLocked(ctx)
 	if err != nil {
 		env.mu.Unlock()
 		return nil, errors.Trace(err)
+	}
+	instanceTypes := make(map[string]instances.InstanceType)
+	for k, v := range envInstanceTypes {
+		instanceTypes[k] = v
 	}
 	env.mu.Unlock()
 
@@ -513,29 +517,46 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		rootDisk = minRootDiskSize
 		args.Constraints.RootDisk = &rootDisk
 	}
-
-	// Identify the instance type and image to provision.
-	instanceSpec, err := findInstanceSpec(
-		ctx,
-		compute.VirtualMachineImagesClient{BaseClient: env.compute},
-		instanceTypes,
-		&instances.InstanceConstraint{
-			Region:      env.location,
-			Series:      args.InstanceConfig.Series,
-			Arches:      args.Tools.Arches(),
-			Constraints: args.Constraints,
-		},
-		imageStream,
-	)
-	if err != nil {
-		return nil, err
+	// Start the instance - if we get a quota error, that instance type is ignored
+	// and we'll try the next most expensive one, up to a reasonable number of attempts.
+	for i := 0; i < 15; i++ {
+		// Identify the instance type and image to provision.
+		instanceSpec, err := findInstanceSpec(
+			ctx,
+			compute.VirtualMachineImagesClient{BaseClient: env.compute},
+			instanceTypes,
+			&instances.InstanceConstraint{
+				Region:      env.location,
+				Series:      args.InstanceConfig.Series,
+				Arches:      args.Tools.Arches(),
+				Constraints: args.Constraints,
+			},
+			imageStream,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if rootDisk < instanceSpec.InstanceType.RootDisk {
+			// The InstanceType's RootDisk is set to the maximum
+			// OS disk size; override it with the user-specified
+			// or default root disk size.
+			instanceSpec.InstanceType.RootDisk = rootDisk
+		}
+		result, err := env.startInstance(ctx, args, instanceSpec, envTags)
+		quotaErr, ok := errorutils.QuotaExceededError(err)
+		if ok {
+			logger.Warningf("%v quota exceeded error: %q", instanceSpec.InstanceType.Name, quotaErr.Error())
+			deleteInstanceFamily(instanceTypes, instanceSpec.InstanceType.Name)
+			continue
+		}
+		return result, errors.Trace(err)
 	}
-	if rootDisk < instanceSpec.InstanceType.RootDisk {
-		// The InstanceType's RootDisk is set to the maximum
-		// OS disk size; override it with the user-specified
-		// or default root disk size.
-		instanceSpec.InstanceType.RootDisk = rootDisk
-	}
+	return nil, errors.New("no suitable instance type found for this subscription")
+}
+func (env *azureEnviron) startInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+	instanceSpec *instances.InstanceSpec, envTags map[string]string,
+) (*environs.StartInstanceResult, error) {
 
 	// Windows images are 127GiB, and cannot be made smaller.
 	const windowsMinRootDiskMB = 127 * 1024
@@ -589,7 +610,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		stdCtx, ctx, vmName, vmTags, envTags,
 		instanceSpec, args, usePublicIP,
 	); err != nil {
-		logger.Errorf("creating instance failed, destroying: %v", err)
+		logger.Debugf("creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
 			logger.Errorf("could not destroy failed virtual machine: %v", err)
 		}

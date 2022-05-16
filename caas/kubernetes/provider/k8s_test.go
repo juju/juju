@@ -7475,7 +7475,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(gomock.Any(),
 			listOptionsLabelSelectorMatcher("app.kubernetes.io/name=test"),
-		).DoAndReturn(func(...interface{}) (*core.PodList, error) {
+		).DoAndReturn(func(stdcontext.Context, v1.ListOptions) (*core.PodList, error) {
 			return podList, nil
 		}),
 	)

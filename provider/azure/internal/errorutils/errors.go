@@ -25,6 +25,9 @@ var logger = loggo.GetLogger("juju.provider.azure")
 // supplied error, if any, and a bool indicating whether one
 // was found.
 func ServiceError(err error) (*azure.ServiceError, bool) {
+	if err == nil {
+		return nil, false
+	}
 	err = errors.Cause(err)
 	if d, ok := err.(autorest.DetailedError); ok {
 		err = d.Original
@@ -41,6 +44,21 @@ func ServiceError(err error) (*azure.ServiceError, bool) {
 		return r.ServiceError, true
 	}
 	return nil, false
+}
+
+// QuotaExceededError returns the relevant error message and true
+// if the error is caused by a Quota Exceeded issue.
+func QuotaExceededError(err error) (error, bool) {
+	serviceErr, ok := ServiceError(err)
+	if !ok {
+		return err, false
+	}
+	for _, d := range serviceErr.Details {
+		if code, ok := d["code"].(string); ok && code == "QuotaExceeded" {
+			return errors.Errorf("%v", d["message"]), true
+		}
+	}
+	return err, false
 }
 
 // HandleCredentialError determines if given error relates to invalid credential.

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -147,6 +148,7 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) api
 		PublicAddress:   "10.0.0.1",
 		Charm:           fmt.Sprintf("charm-%v", app),
 		Leader:          true,
+		Life:            state.Alive.String(),
 		RelationData: []apiapplication.EndpointRelationData{{
 			Endpoint:        "db",
 			CrossModel:      true,
@@ -192,6 +194,7 @@ wordpress/0:
   public-address: 10.0.0.1
   charm: charm-wordpress
   leader: true
+  life: alive
   relation-info:
   - relation-id: 0
     endpoint: db
@@ -227,6 +230,7 @@ wordpress/0:
   public-address: 10.0.0.1
   charm: charm-wordpress
   leader: true
+  life: alive
   relation-info:
   - relation-id: 0
     endpoint: db
@@ -257,6 +261,7 @@ wordpress/0:
   public-address: 10.0.0.1
   charm: charm-wordpress
   leader: true
+  life: alive
   relation-info:
   - relation-id: 0
     endpoint: db-shared
@@ -285,6 +290,7 @@ wordpress/0:
   public-address: 10.0.0.1
   charm: charm-wordpress
   leader: true
+  life: alive
   relation-info:
   - relation-id: 0
     endpoint: db
@@ -311,7 +317,7 @@ func (s *ShowUnitSuite) TestShowJSON(c *gc.C) {
 	}
 	s.assertRunShow(c, showUnitTest{
 		args:   []string{"wordpress/0", "--format", "json"},
-		stdout: `{"wordpress/0":{"workload-version":"666","machine":"0","opened-ports":["100-102/ip"],"public-address":"10.0.0.1","charm":"charm-wordpress","leader":true,"relation-info":[{"relation-id":0,"endpoint":"db","cross-model":true,"related-endpoint":"server","application-data":{"wordpress":"setting"},"local-unit":{"in-scope":false,"data":null},"related-units":{"mariadb/2":{"in-scope":true,"data":{"mariadb/2":"mariadb/2-setting"}}}}],"provider-id":"provider-id","address":"192.168.1.1"}}` + "\n",
+		stdout: `{"wordpress/0":{"workload-version":"666","machine":"0","opened-ports":["100-102/ip"],"public-address":"10.0.0.1","charm":"charm-wordpress","leader":true,"life":"alive","relation-info":[{"relation-id":0,"endpoint":"db","cross-model":true,"related-endpoint":"server","application-data":{"wordpress":"setting"},"local-unit":{"in-scope":false,"data":null},"related-units":{"mariadb/2":{"in-scope":true,"data":{"mariadb/2":"mariadb/2-setting"}}}}],"provider-id":"provider-id","address":"192.168.1.1"}}` + "\n",
 	})
 }
 
@@ -346,6 +352,7 @@ logging/0:
   public-address: 10.0.0.1
   charm: charm-logging
   leader: true
+  life: alive
   relation-info:
   - relation-id: 0
     endpoint: db
@@ -368,6 +375,7 @@ wordpress/0:
   public-address: 10.0.0.1
   charm: charm-wordpress
   leader: true
+  life: alive
   relation-info:
   - relation-id: 0
     endpoint: db

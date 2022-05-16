@@ -202,6 +202,7 @@ type UnitInfo struct {
 	PublicAddress   string         `yaml:"public-address,omitempty" json:"public-address,omitempty"`
 	Charm           string         `yaml:"charm" json:"charm"`
 	Leader          bool           `yaml:"leader" json:"leader"`
+	Life            string         `yaml:"life,omitempty" json:"life,omitempty"`
 	RelationData    []RelationData `yaml:"relation-info,omitempty" json:"relation-info,omitempty"`
 
 	// The following are for CAAS models.
@@ -222,6 +223,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 		PublicAddress:   details.PublicAddress,
 		Charm:           details.Charm,
 		Leader:          details.Leader,
+		Life:            details.Life,
 		ProviderId:      details.ProviderId,
 		Address:         details.Address,
 	}

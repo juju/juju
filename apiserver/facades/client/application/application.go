@@ -1538,7 +1538,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Trace(err)
 		}
 		if !unit.IsPrincipal() {
-			return nil, errors.Errorf("unit %q is a subordinate", name)
+			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q", name, unit.ApplicationName())
 		}
 
 		// TODO(wallyworld) - enable-ha is how we remove controllers at the moment
@@ -2498,6 +2498,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
+			Life:             app.Life().String(),
 			EndpointBindings: bindingsMap,
 			ExposedEndpoints: exposedEndpoints,
 		}
@@ -2748,6 +2749,7 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		WorkloadVersion: workloadVersion,
 		Machine:         machineId,
 		Charm:           curl.String(),
+		Life:            unit.Life().String(),
 	}
 	if machineId != "" {
 		machine, err := api.backend.Machine(machineId)
