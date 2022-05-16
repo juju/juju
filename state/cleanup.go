@@ -736,7 +736,7 @@ func (st *State) removeOffersForDyingModel() (err error) {
 }
 
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
-// if they are not already Dying or Dead. It's expected to be used when a
+// if they are not already Dying or Dead. It's expected to be used when an
 // application is destroyed.
 func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	var destroyStorage bool
