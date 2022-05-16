@@ -54,7 +54,7 @@ type Unit interface {
 	Application() (Application, error)
 	PrincipalName() (string, bool)
 	AssignedMachineId() (string, error)
-	CharmURL() (*charm.URL, bool)
+	CharmURL() (*charm.URL, error)
 }
 
 // Charm represents point of use methods from the state Charm object.
