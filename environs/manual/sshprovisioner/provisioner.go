@@ -33,7 +33,7 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	// user's ~/.ssh directory. The authenticationworker will later update the
 	// ubuntu user's authorized_keys.
 	if err = InitUbuntuUser(args.Host, args.User,
-		args.AuthorizedKeys, args.Stdin, args.Stdout); err != nil {
+		args.AuthorizedKeys, args.PrivateKey, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
