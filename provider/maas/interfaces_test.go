@@ -997,7 +997,7 @@ func (s *interfacesSuite) TestMAASNetworkInterfaces(c *gc.C) {
 		Origin:            network.OriginProvider,
 	}}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 
 	infos, err := maasNetworkInterfaces(s.callCtx, instance, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1039,7 +1039,7 @@ func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *gc.C) {
 		},
 	}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,

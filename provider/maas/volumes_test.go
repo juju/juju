@@ -74,7 +74,7 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 }
 
 func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
-	instance := maas2Instance{
+	instance := maasInstance{
 		machine: &fakeMachine{},
 		constraintMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string][]gomaasapi.StorageDevice{

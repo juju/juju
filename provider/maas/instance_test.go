@@ -21,13 +21,13 @@ var _ = gc.Suite(&maasInstanceSuite{})
 
 func (s *maasInstanceSuite) TestString(c *gc.C) {
 	machine := &fakeMachine{hostname: "peewee", systemID: "herman"}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 	c.Assert(instance.String(), gc.Equals, "peewee:herman")
 }
 
 func (s *maasInstanceSuite) TestID(c *gc.C) {
 	machine := &fakeMachine{systemID: "herman"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	c.Assert(thing.Id(), gc.Equals, instance.Id("herman"))
 }
 
@@ -72,7 +72,7 @@ func (s *maasInstanceSuite) TestAddresses(c *gc.C) {
 		},
 		machines: []gomaasapi.Machine{machine},
 	}
-	instance := &maas2Instance{machine: machine, environ: s.makeEnviron(c, controller)}
+	instance := &maasInstance{machine: machine, environ: s.makeEnviron(c, controller)}
 	addresses, err := instance.Addresses(s.callCtx)
 
 	expectedAddresses := network.ProviderAddresses{newAddressOnSpaceWithId(
@@ -85,7 +85,7 @@ func (s *maasInstanceSuite) TestAddresses(c *gc.C) {
 
 func (s *maasInstanceSuite) TestZone(c *gc.C) {
 	machine := &fakeMachine{zoneName: "inflatable"}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 	zone, err := instance.zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "inflatable")
@@ -93,21 +93,21 @@ func (s *maasInstanceSuite) TestZone(c *gc.C) {
 
 func (s *maasInstanceSuite) TestStatusSuccess(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result := thing.Status(s.callCtx)
 	c.Assert(result, jc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
 }
 
 func (s *maasInstanceSuite) TestStatusError(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result := thing.Status(s.callCtx)
 	c.Assert(result, jc.DeepEquals, instance.Status{"", "error in getting status"})
 }
 
 func (s *maasInstanceSuite) TestHostname(c *gc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result, err := thing.hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "saul-goodman")
@@ -115,7 +115,7 @@ func (s *maasInstanceSuite) TestHostname(c *gc.C) {
 
 func (s *maasInstanceSuite) TestHostnameIsDisplayName(c *gc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "saul-goodman")
@@ -123,7 +123,7 @@ func (s *maasInstanceSuite) TestHostnameIsDisplayName(c *gc.C) {
 
 func (s *maasInstanceSuite) TestDisplayNameFallsBackToFQDN(c *gc.C) {
 	machine := newFakeMachine("abc123", "amd64", "ok")
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, thing.machine.FQDN())
@@ -137,7 +137,7 @@ func (s *maasInstanceSuite) TestHardwareCharacteristics(c *gc.C) {
 		zoneName:     "bar",
 		tags:         []string{"foo", "bar"},
 	}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	arch := "foo"
 	cpu := uint64(3)
 	mem := uint64(4)

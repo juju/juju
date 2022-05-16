@@ -11,46 +11,31 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
-	"github.com/juju/names/v4"
-
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/storage"
 )
 
-type maasInstance interface {
-	instances.Instance
-	zone() (string, error)
-	displayName() (string, error)
-	hostname() (string, error)
-	hardwareCharacteristics() (*instance.HardwareCharacteristics, error)
-	volumes(names.MachineTag, []names.VolumeTag) ([]storage.Volume, []storage.VolumeAttachment, error)
-}
-
-type maas2Instance struct {
+type maasInstance struct {
 	machine           gomaasapi.Machine
 	constraintMatches gomaasapi.ConstraintMatches
 	environ           *maasEnviron
 }
 
-var _ maasInstance = (*maas2Instance)(nil)
-
-func (mi *maas2Instance) zone() (string, error) {
+func (mi *maasInstance) zone() (string, error) {
 	return mi.machine.Zone().Name(), nil
 }
 
-func (mi *maas2Instance) hostname() (string, error) {
+func (mi *maasInstance) hostname() (string, error) {
 	return mi.machine.Hostname(), nil
 }
 
-func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+func (mi *maasInstance) hardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
 	nodeArch := strings.Split(mi.machine.Architecture(), "/")[0]
 	nodeCpuCount := uint64(mi.machine.CPUCount())
 	nodeMemoryMB := uint64(mi.machine.Memory())
-	// zone can't error on the maas2Instance implementaation.
+	// zone can't error on the maasInstance implementation.
 	zone, _ := mi.zone()
 	tags := mi.machine.Tags()
 	hc := &instance.HardwareCharacteristics{
@@ -63,7 +48,7 @@ func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 	return hc, nil
 }
 
-func (mi *maas2Instance) displayName() (string, error) {
+func (mi *maasInstance) displayName() (string, error) {
 	hostname := mi.machine.Hostname()
 	if hostname != "" {
 		return hostname, nil
@@ -71,15 +56,15 @@ func (mi *maas2Instance) displayName() (string, error) {
 	return mi.machine.FQDN(), nil
 }
 
-func (mi *maas2Instance) String() string {
+func (mi *maasInstance) String() string {
 	return fmt.Sprintf("%s:%s", mi.machine.Hostname(), mi.machine.SystemID())
 }
 
-func (mi *maas2Instance) Id() instance.Id {
+func (mi *maasInstance) Id() instance.Id {
 	return instance.Id(mi.machine.SystemID())
 }
 
-func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (mi *maasInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	subnetsMap, err := mi.environ.subnetToSpaceIds(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -106,9 +91,9 @@ func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork
 
 // Status returns a juju status based on the maas instance returned
 // status message.
-func (mi *maas2Instance) Status(ctx context.ProviderCallContext) instance.Status {
+func (mi *maasInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	// A fresh status is not obtained here because the interface it is intended
-	// to satisfy gets a new maas2Instance before each call, using a fresh status
+	// to satisfy gets a new maasInstance before each call, using a fresh status
 	// would cause us to mask errors since this interface does not contemplate
 	// returning them.
 	statusName := mi.machine.StatusName()
@@ -150,17 +135,17 @@ func normalizeStatus(statusMsg string) string {
 
 // MAAS does not do firewalling so these port methods do nothing.
 
-func (mi *maas2Instance) OpenPorts(_ context.ProviderCallContext, _ string, _ firewall.IngressRules) error {
+func (mi *maasInstance) OpenPorts(_ context.ProviderCallContext, _ string, _ firewall.IngressRules) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) ClosePorts(_ context.ProviderCallContext, _ string, _ firewall.IngressRules) error {
+func (mi *maasInstance) ClosePorts(_ context.ProviderCallContext, _ string, _ firewall.IngressRules) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) IngressRules(_ context.ProviderCallContext, _ string) (firewall.IngressRules, error) {
+func (mi *maasInstance) IngressRules(_ context.ProviderCallContext, _ string) (firewall.IngressRules, error) {
 	logger.Debugf("unimplemented IngressRules() called")
 	return nil, nil
 }
