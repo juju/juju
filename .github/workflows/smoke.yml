@@ -240,12 +240,10 @@ jobs:
       run: |
         set -euxo pipefail
 
-        sg microk8s <<EOF
-          juju bootstrap microk8s c \
-            --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
-            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
-            --config features="[developer-mode]"
-        EOF
+        juju bootstrap microk8s c \
+          --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
+          --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
+          --config features="[developer-mode]"
         juju add-model m
 
         juju status
