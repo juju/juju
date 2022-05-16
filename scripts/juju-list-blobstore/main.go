@@ -627,8 +627,9 @@ func (checker *ModelChecker) readApplicationsAndUnits() {
 		units, err := app.AllUnits()
 		checkErr(err, "AllUnits")
 		for _, unit := range units {
-			unitCharmURL, found := unit.CharmURL()
-			if !found {
+			unitCharmURL, err := unit.CharmURL()
+			checkErr(err, "unit CharmURL")
+			if unitCharmURL == nil {
 				continue
 			}
 			unitString := unitCharmURL.String()
