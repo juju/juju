@@ -1325,14 +1325,14 @@ func (u *Unit) Agent() *UnitAgent {
 }
 
 // AgentHistory returns an StatusHistoryGetter which can
-//be used to query the status history of the unit's agent.
+// be used to query the status history of the unit's agent.
 func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 	return u.Agent()
 }
 
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
-// where not separate entities.
+// were not separate entities.
 func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	s := status.StatusInfo{
@@ -1346,7 +1346,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
-// where not separate entities.
+// were not separate entities.
 func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
