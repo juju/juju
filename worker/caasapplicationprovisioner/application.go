@@ -657,7 +657,7 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
 	err = app.Scale(desiredScale)
-	if a.life == life.Dead && errors.IsNotFound(err) {
+	if desiredScale == 0 && errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "scaling application %q to desired scale %d", a.name, desiredScale)
