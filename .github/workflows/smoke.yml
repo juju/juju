@@ -380,3 +380,7 @@ jobs:
 
         sg microk8s "microk8s kubectl get all -A" || true
         lxc ls || true
+
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
