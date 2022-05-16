@@ -166,7 +166,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	err := s.Env.AdoptResources(context.NewEmptyCloudCallContext(), "target-uuid", version.MustParse("3.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
-	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
+	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-2d02ee-")
 	s.BaseSuite.Client.CheckCall(
 		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 	s.BaseSuite.Client.CheckCall(
@@ -185,7 +185,7 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 	err := s.Env.AdoptResources(context.NewEmptyCloudCallContext(), "target-uuid", version.MustParse("5.3.3"))
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
-	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
+	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-2d02ee-")
 	s.BaseSuite.Client.CheckCall(
 		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 	s.BaseSuite.Client.CheckCall(
@@ -208,5 +208,5 @@ func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, ".*not authorized")
 	c.Assert(invalidCred, jc.IsTrue)
-	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
+	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-2d02ee-")
 }

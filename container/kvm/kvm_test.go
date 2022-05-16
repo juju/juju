@@ -85,21 +85,21 @@ func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 }
 
 func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
-	s.createRunningContainer(c, "juju-06f00d-match1")
-	s.createRunningContainer(c, "juju-06f00d-match2")
+	s.createRunningContainer(c, "juju-deadbe-match1")
+	s.createRunningContainer(c, "juju-deadbe-match2")
 	s.createRunningContainer(c, "testNoMatch")
 	s.createRunningContainer(c, "other")
 	containers, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 2)
-	expectedIds := []instance.Id{"juju-06f00d-match1", "juju-06f00d-match2"}
+	expectedIds := []instance.Id{"juju-deadbe-match1", "juju-deadbe-match2"}
 	ids := []instance.Id{containers[0].Id(), containers[1].Id()}
 	c.Assert(ids, jc.SameContents, expectedIds)
 }
 
 func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
-	running := s.createRunningContainer(c, "juju-06f00d-running")
-	s.ContainerFactory.New("juju-06f00d-stopped")
+	running := s.createRunningContainer(c, "juju-deadbe-running")
+	s.ContainerFactory.New("juju-deadbe-stopped")
 	containers, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 1)

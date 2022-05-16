@@ -339,7 +339,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 		},
 	}
 	device := mocks.NewMockDeviceService(cntrl)
-	device.EXPECT().Create(NewPackngoCreateDeviceMatcher("juju-06f00d-0",
+	device.EXPECT().Create(NewPackngoCreateDeviceMatcher("juju-deadbe-0",
 		"g2.large.x86",
 		"am",
 		"ubuntu_20_04",
