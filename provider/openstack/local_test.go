@@ -564,7 +564,7 @@ func (s *localServerSuite) TestInstanceName(c *gc.C) {
 	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
 	serverDetail := openstack.InstanceServerDetail(inst)
 	envName := s.env.Config().Name()
-	c.Assert(serverDetail.Name, gc.Matches, "juju-06f00d-"+envName+"-100")
+	c.Assert(serverDetail.Name, gc.Matches, "juju-deadbe-"+envName+"-100")
 }
 
 func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
