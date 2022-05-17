@@ -5434,10 +5434,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 			"source":   "local",
 			"type":     "charm",
 			"revision": 12,
-			"channel": bson.M{
-				"track": "latest",
-				"risk":  "edge",
-			},
 			"platform": bson.M{
 				"architecture": "amd64",
 				"series":       "focal",
@@ -5456,10 +5452,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 			"id":       "local:test",
 			"hash":     "",
 			"revision": -1,
-			"channel": bson.M{
-				"track": "latest",
-				"risk":  "",
-			},
 			"platform": bson.M{
 				"architecture": "amd64",
 				"series":       "focal",
@@ -5528,10 +5520,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 				"source":   "local",
 				"type":     "charm",
 				"revision": 12,
-				"channel": bson.M{
-					"track": "latest",
-					"risk":  "edge",
-				},
 				"platform": bson.M{
 					"architecture": "amd64",
 					"series":       "focal",
@@ -5549,10 +5537,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 				"id":       "local:test",
 				"hash":     "",
 				"revision": -1,
-				"channel": bson.M{
-					"track": "latest",
-					"risk":  "stable",
-				},
 				"platform": bson.M{
 					"architecture": "amd64",
 					"series":       "focal",

@@ -3687,6 +3687,16 @@ func EnsureCharmOriginRisk(pool *StatePool) error {
 
 		var ops []txn.Op
 		for _, doc := range docs {
+			// It is expected that every application should have a charm URL.
+			charmURL := doc.CharmURL
+			if charmURL == nil {
+				return errors.Errorf("charmurl is empty")
+			}
+
+			if charmURL.Schema == "local" {
+				continue
+			}
+
 			// This should never happen, instead we should always have one.
 			// See: AddCharmOriginToApplications
 			if doc.CharmOrigin == nil {
