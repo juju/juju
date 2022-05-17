@@ -213,7 +213,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 		w.Print(app.CharmName, app.CharmChannel, app.CharmRev)
 		if fs.Model.Type == caasModelType {
-			w.Print(app.Address)
+			w.PrintColor(output.InfoHighlight, app.Address)
 		}
 
 		exposed := "no"
@@ -252,19 +252,15 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
 		if fs.Model.Type == caasModelType {
-			w.Println(
-				u.Address,
-				strings.Join(u.OpenedPorts, ","),
-				message,
-			)
+			w.PrintColor(output.InfoHighlight, u.Address)
+			w.PrintColor(output.EmphasisHighlight, strings.Join(u.OpenedPorts, ","))
+			w.Println(message)
 			return
 		}
-		w.Println(
-			u.Machine,
-			u.PublicAddress,
-			strings.Join(u.OpenedPorts, ","),
-			message,
-		)
+		w.Print(u.Machine)
+		w.PrintColor(output.InfoHighlight, u.PublicAddress)
+		w.PrintColor(output.EmphasisHighlight, strings.Join(u.OpenedPorts, ","))
+		w.Println(message)
 	}
 
 	if len(units) > 0 {
