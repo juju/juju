@@ -734,12 +734,16 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		Id:     op.unit.st.docID(agentStatusDocId),
 		Assert: bson.D{{"status", agentStatusInfo.Status}},
 	}
-	removeAsserts := bson.D{{
+	removeAsserts := isAliveDoc
+	if op.Force {
+		removeAsserts = bson.D{{"life", op.unit.doc.Life}}
+	}
+	removeAsserts = append(removeAsserts, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
 			unitHasNoStorageAttachments,
 		},
-	}}
+	})
 	// If the unit is unassigned, ensure it is not assigned in the interim.
 	if !isAssigned && shouldBeAssigned {
 		removeAsserts = append(removeAsserts, bson.DocElem{"machineid", ""})
