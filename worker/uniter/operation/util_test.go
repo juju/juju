@@ -5,7 +5,6 @@ package operation_test
 
 import (
 	"sync"
-	"time"
 
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
@@ -228,19 +227,10 @@ func (mock *MockCommitHook) Call(hookInfo hook.Info) error {
 type CommitHookCallbacks struct {
 	operation.Callbacks
 	*MockCommitHook
-
-	rotatedSecretURL  string
-	rotatedSecretTime time.Time
 }
 
 func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 	return cb.MockCommitHook.Call(hookInfo)
-}
-
-func (cb *CommitHookCallbacks) SetSecretRotated(url string, when time.Time) error {
-	cb.rotatedSecretURL = url
-	cb.rotatedSecretTime = when
-	return nil
 }
 
 type MockNewActionRunner struct {

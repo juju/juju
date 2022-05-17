@@ -19,12 +19,10 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -94,14 +92,6 @@ func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
 	}
 }
 
-var secretCommands = map[string]creator{
-	"secret-create" + cmdSuffix: NewSecretCreateCommand,
-	"secret-update" + cmdSuffix: NewSecretUpdateCommand,
-	"secret-get" + cmdSuffix:    NewSecretGetCommand,
-	"secret-grant" + cmdSuffix:  NewSecretGrantCommand,
-	"secret-revoke" + cmdSuffix: NewSecretRevokeCommand,
-}
-
 var storageCommands = map[string]creator{
 	"storage-add" + cmdSuffix:  NewStorageAddCommand,
 	"storage-get" + cmdSuffix:  NewStorageGetCommand,
@@ -124,9 +114,6 @@ func allEnabledCommands() map[string]creator {
 	add(baseCommands)
 	add(storageCommands)
 	add(leaderCommands)
-	if featureflag.Enabled(feature.Secrets) {
-		add(secretCommands)
-	}
 	add(registeredCommands)
 	return all
 }

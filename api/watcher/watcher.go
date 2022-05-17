@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc"
@@ -878,100 +877,5 @@ func (w *migrationStatusWatcher) loop() error {
 // Changes returns a channel that reports the latest status of the
 // migration of a model.
 func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
-	return w.out
-}
-
-// secretsRotationWatcher will send notifications of changes secret rotation config.
-type secretsRotationWatcher struct {
-	commonWatcher
-	caller                  base.APICaller
-	secretRotationWatcherId string
-	out                     chan []watcher.SecretRotationChange
-}
-
-// NewSecretsRotationWatcher returns a new secrets rotation watcher.
-func NewSecretsRotationWatcher(
-	caller base.APICaller, result params.SecretRotationWatchResult,
-) watcher.SecretRotationWatcher {
-	w := &secretsRotationWatcher{
-		caller:                  caller,
-		secretRotationWatcherId: result.SecretRotationWatcherId,
-		out:                     make(chan []watcher.SecretRotationChange),
-	}
-	w.newResult = func() interface{} { return new(params.SecretRotationWatchResult) }
-	w.tomb.Go(func() error {
-		return w.loop(result.Changes)
-	})
-	return w
-}
-
-// mergeChanges combines the changes in current and newChanges, such that we end up with
-// only one change per rotation config change in the result; the most recent change wins.
-func (w *secretsRotationWatcher) mergeChanges(current, newChanges []watcher.SecretRotationChange) []watcher.SecretRotationChange {
-	chMap := make(map[int]watcher.SecretRotationChange)
-	for _, c := range current {
-		chMap[c.ID] = c
-	}
-	for _, c := range newChanges {
-		chMap[c.ID] = c
-	}
-	result := make([]watcher.SecretRotationChange, len(chMap))
-	i := 0
-	for _, c := range chMap {
-		result[i] = c
-		i++
-	}
-	return result
-}
-
-func (w *secretsRotationWatcher) loop(initialChanges []params.SecretRotationChange) error {
-	w.call = makeWatcherAPICaller(w.caller, "SecretsRotationWatcher", w.secretRotationWatcherId)
-	w.commonWatcher.init()
-	go w.commonLoop()
-
-	copyChanges := func(changes []params.SecretRotationChange) []watcher.SecretRotationChange {
-		result := make([]watcher.SecretRotationChange, len(changes))
-		for i, ch := range changes {
-			url, err := secrets.ParseURL(ch.URL)
-			if err != nil {
-				logger.Errorf("ignoring invalid secret URL: %q", ch.URL)
-				continue
-			}
-			result[i] = watcher.SecretRotationChange{
-				ID:             ch.ID,
-				URL:            url,
-				RotateInterval: ch.RotateInterval,
-				LastRotateTime: ch.LastRotateTime,
-			}
-		}
-		return result
-	}
-	out := w.out
-	changes := copyChanges(initialChanges)
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		// Read the next change.
-		case data, ok := <-w.in:
-			if !ok {
-				// The tomb is already killed with the correct error
-				// at this point, so just return.
-				return nil
-			}
-			newChanges := copyChanges(data.(*params.SecretRotationWatchResult).Changes)
-			changes = w.mergeChanges(changes, newChanges)
-			out = w.out
-		case out <- changes:
-			out = nil
-			changes = nil
-		}
-	}
-}
-
-// Changes returns a channel that will receive the changes to
-// rotate secret config. The first event reflects the current
-// values of these attributes.
-func (w *secretsRotationWatcher) Changes() watcher.SecretRotationChannel {
 	return w.out
 }

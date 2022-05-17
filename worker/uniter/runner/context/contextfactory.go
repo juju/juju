@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -68,7 +67,6 @@ type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
 	unit    *uniter.Unit
 	state   *uniter.State
-	secrets *secretsmanager.Client
 	tracker leadership.Tracker
 
 	logger loggo.Logger
@@ -96,7 +94,6 @@ type contextFactory struct {
 // for the context factory.
 type FactoryConfig struct {
 	State            *uniter.State
-	Secrets          *secretsmanager.Client
 	Unit             *uniter.Unit
 	Tracker          leadership.Tracker
 	GetRelationInfos RelationsFunc
@@ -138,7 +135,6 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	f := &contextFactory{
 		unit:             config.Unit,
 		state:            config.State,
-		secrets:          config.Secrets,
 		tracker:          config.Tracker,
 		logger:           config.Logger,
 		paths:            config.Paths,
@@ -173,7 +169,6 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
-		secretFacade:       f.secrets,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
@@ -253,9 +248,6 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	}
 	if hookInfo.Kind == hooks.PreSeriesUpgrade {
 		ctx.seriesUpgradeTarget = hookInfo.SeriesUpgradeTarget
-	}
-	if hookInfo.Kind.IsSecret() {
-		ctx.secretURL = hookInfo.SecretURL
 	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName
