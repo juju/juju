@@ -3687,6 +3687,16 @@ func EnsureCharmOriginRisk(pool *StatePool) error {
 
 		var ops []txn.Op
 		for _, doc := range docs {
+			// It is expected that every application should have a charm URL.
+			charmURL := doc.CharmURL
+			if charmURL == nil {
+				return errors.Errorf("charmurl is empty")
+			}
+
+			if charmURL.Schema == "local" {
+				continue
+			}
+
 			// This should never happen, instead we should always have one.
 			// See: AddCharmOriginToApplications
 			if doc.CharmOrigin == nil {
@@ -4264,4 +4274,46 @@ func UpdateOperationWithEnqueuingErrors(pool *StatePool) error {
 		return nil
 	}
 	return st.runRawTransaction(ops)
+}
+
+// RemoveLocalCharmOriginChannels removes the charm-origin channel from all
+// local charms, it cannot have even an empty risk. See LP1970608.
+func RemoveLocalCharmOriginChannels(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			// It is expected that every application should have a charm URL.
+			charmURL := doc.CharmURL
+			if charmURL == nil {
+				return errors.Errorf("charmurl is empty")
+			}
+
+			if charmURL.Schema != "local" {
+				continue
+			}
+
+			if doc.CharmOrigin == nil || doc.CharmOrigin.Channel == nil {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$unset", bson.D{{"charm-origin.channel", nil}}}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
 }

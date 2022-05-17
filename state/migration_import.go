@@ -1445,11 +1445,11 @@ func getApplicationSourceChannel(a description.Application, url *charm.URL) (cor
 	}
 
 	c := a.Channel()
-	if c == "" {
+	if c == "" || source == corecharm.Local {
 		return source, nil
 	}
 
-	if source == corecharm.CharmStore || source == corecharm.Local {
+	if source == corecharm.CharmStore {
 		return source, &Channel{Risk: a.Channel()}
 	}
 
