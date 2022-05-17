@@ -180,7 +180,7 @@ jobs:
         sg microk8s "microk8s kubectl create -f .github/reg.yml"
 
         # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
-        sudo microk8s refresh-certs
+        sudo microk8s refresh-certs --cert ca.crt
 
         # Wait for registry
         sg microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
@@ -210,13 +210,6 @@ jobs:
         docker tag jujusolutions/juju-db:${JUJU_DB_TAG} ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
         docker push ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
 
-    - name: Give microk8s permissions to user
-      shell: bash
-      run: |
-        sudo usermod -a -G microk8s $USER
-        sudo chown -f -R $USER ~/.kube
-        newgrp microk8s
-
     - name: Bootstrap Juju - localhost
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
       shell: bash
@@ -240,10 +233,12 @@ jobs:
       run: |
         set -euxo pipefail
 
-        juju bootstrap microk8s c \
-          --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
-          --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
-          --config features="[developer-mode]"
+        sg microk8s <<EOF
+          juju bootstrap microk8s c \
+            --config caas-image-repo='{"repository": "${DOCKER_REGISTRY}/test-repo", "serveraddress": "https://${DOCKER_REGISTRY}/"}' \
+            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
+            --config features="[developer-mode]"
+        EOF
         juju add-model m
 
         juju status
