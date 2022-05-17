@@ -695,35 +695,30 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 			return nil, errors.Trace(agentErr)
 		}
 	}
-	unitStatusDocId := op.unit.globalKey()
-	unitStatusInfo, unitErr := getStatus(op.unit.st.db(), unitStatusDocId, "unit")
-	if errors.IsNotFound(unitErr) {
-		return nil, errAlreadyDying
-	} else if unitErr != nil {
-		if !op.Force {
-			return nil, errors.Trace(unitErr)
-		}
-	}
 
 	// This has to be a function since we want to delay the evaluation of the value,
 	// in case agent erred out.
-	notAllocating := func() bool {
+	isReady := func() (bool, error) {
 		// IAAS models need the unit to be assigned.
 		if shouldBeAssigned {
-			return isAssigned && agentStatusInfo.Status != status.Allocating
+			return isAssigned && agentStatusInfo.Status != status.Allocating, nil
 		}
-		// For CAAS models, check to see if the unit agent has started.
-		if agentStatusInfo.Status != status.Allocating {
-			return true
+		// For CAAS models, check to see if the unit agent has started (the
+		// presence of the unitstates row indicates this).
+		unitState, err := op.unit.State()
+		if err != nil {
+			return false, errors.Trace(err)
 		}
-		// If the agent is still allocating, it may still be queued to run the install hook
-		// so check that the unit agent has started.
-		return (unitStatusInfo.Status != "" && unitStatusInfo.Status != status.Waiting) ||
-			(unitStatusInfo.Message != status.MessageWaitForContainer &&
-				unitStatusInfo.Message != status.MessageInstallingAgent)
+		return unitState.Modified(), nil
 	}
-	if agentErr == nil && notAllocating() {
-		return setDyingOps(agentErr)
+	if agentErr == nil {
+		ready, err := isReady()
+		if op.FatalError(err) {
+			return nil, errors.Trace(err)
+		}
+		if ready {
+			return setDyingOps(agentErr)
+		}
 	}
 	switch agentStatusInfo.Status {
 	case status.Error, status.Allocating:
@@ -739,7 +734,11 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		Id:     op.unit.st.docID(agentStatusDocId),
 		Assert: bson.D{{"status", agentStatusInfo.Status}},
 	}
-	removeAsserts := append(isAliveDoc, bson.DocElem{
+	removeAsserts := isAliveDoc
+	if op.Force {
+		removeAsserts = bson.D{{"life", op.unit.doc.Life}}
+	}
+	removeAsserts = append(removeAsserts, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
 			unitHasNoStorageAttachments,
@@ -1330,14 +1329,14 @@ func (u *Unit) Agent() *UnitAgent {
 }
 
 // AgentHistory returns an StatusHistoryGetter which can
-//be used to query the status history of the unit's agent.
+// be used to query the status history of the unit's agent.
 func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 	return u.Agent()
 }
 
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
-// where not separate entities.
+// were not separate entities.
 func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	s := status.StatusInfo{
@@ -1351,7 +1350,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
-// where not separate entities.
+// were not separate entities.
 func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()

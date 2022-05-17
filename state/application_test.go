@@ -5071,7 +5071,10 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 		if i%2 != 0 {
-			preventUnitDestroyRemove(c, unit)
+			unitState := state.NewUnitState()
+			unitState.SetUniterState("idle")
+			err := unit.SetState(unitState, state.UnitStateSizeLimits{})
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 
