@@ -36,3 +36,13 @@ func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)
 func indent(prepend string, level int, append string) string {
 	return fmt.Sprintf("%s%*s%s", prepend, level, "", append)
 }
+
+//indexOf returns the position of an element in a slice if it exists otherwise it returns -1.
+func indexOf(element interface{}, data []interface{}) int {
+	for k, v := range data {
+		if element == v {
+			return k
+		}
+	}
+	return -1 //not found.
+}
