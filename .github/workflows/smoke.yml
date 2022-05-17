@@ -393,4 +393,13 @@ jobs:
 
     - name: Block so we can introspect failures
       if: ${{ failure() }}
-      run: sleep infinity
+      run: |
+        echo "To end the workflow, cancel it, or run"
+        echo "    sudo touch /close"
+        echo "in the SSH session."
+        sudo stat /close &> /dev/null
+        while [ $? != 0 ]
+        do
+          sleep 5
+          sudo stat /close &> /dev/null
+        done
