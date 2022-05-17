@@ -421,5 +421,6 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
-	return FormatTabular(writer, c.color, value)
+	//enable coloring by default
+	return FormatTabular(writer, true, value)
 }
