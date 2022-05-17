@@ -16,6 +16,7 @@ import (
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
+	"github.com/juju/version/v2"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -55,13 +57,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	// Default table output
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
-	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
-
+	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion}
 	// Optional table output if values exist
 	message := getModelMessage(fs.Model)
 	if fs.Model.SLA != "" {
 		header = append(header, "SLA")
 		values = append(values, fs.Model.SLA)
+
 	}
 	if cs := fs.Controller; cs != nil && cs.Timestamp != "" {
 		header = append(header, "Timestamp")
@@ -71,11 +73,19 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		header = append(header, "Notes")
 		values = append(values, message)
 	}
-
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	w := startSection(tw, true, header...)
-	w.Println(values...)
-
+	versionPos := indexOf("Version", header)
+	w.Print(values[:versionPos]...)
+	staleVersion := false
+	modelVersionNum, err := version.Parse(fs.Model.Version)
+	staleVersion = err == nil && jujuversion.Current.Compare(modelVersionNum) > 0
+	if staleVersion {
+		w.PrintColor(output.WarningHighlight, fs.Model.Version)
+	} else {
+		w.Print(fs.Model.Version)
+	}
+	w.Println(values[versionPos:]...)
 	if len(fs.Branches) > 0 {
 		printBranches(tw, fs.Branches)
 	}
