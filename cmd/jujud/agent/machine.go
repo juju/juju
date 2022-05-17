@@ -1102,7 +1102,10 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		if err := paths.SetSyslogOwner(modelsDir); err != nil {
 			return nil, errors.Annotate(err, "unable to set owner for log directory")
 		}
-		filename := cfg.ModelName + "-" + cfg.ModelUUID[:6] + ".log"
+		if !names.IsValidModel(cfg.ModelUUID) {
+			return nil, errors.NotValidf("model UUID %q", cfg.ModelUUID)
+		}
+		filename := cfg.ModelName + "-" + names.NewModelTag(cfg.ModelUUID).ShortId() + ".log"
 		logFilename := filepath.Join(modelsDir, filename)
 		if err := paths.PrimeLogFile(logFilename); err != nil {
 			return nil, errors.Annotate(err, "unable to prime log file")
