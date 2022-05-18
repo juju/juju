@@ -64,7 +64,7 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["latest/stable", "latest/beta"]
+        snap_version: ["2.8/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
@@ -209,7 +209,7 @@ jobs:
       # and filter with as standard, instead of skipping over them with this flag
       run: |
         set -euxo pipefail
-
+        sleep 60
         sg microk8s <<EOF
           juju bootstrap microk8s c \
             --config caas-image-repo='{"repository": "${DOCKER_REGISTRY}/test-repo", "serveraddress": "https://${DOCKER_REGISTRY}/"}' \
@@ -220,6 +220,20 @@ jobs:
 
         juju status
         juju version
+
+    # The `wait-for` plugin is used after deploying an application
+    # This was added in Juju 2.9, so it's not installed by the 2.8 snap
+    # However we just need to install the `wait-for` binary ourselves,
+    # and then Juju 2.8 can use it (amazing!)
+    - name: Add `wait-for` plugin
+      shell: bash
+      run: |
+        # Download a stable version of Juju
+        curl -L -O https://github.com/juju/juju/archive/refs/tags/juju-2.9.29.tar.gz
+        tar -xf juju-2.9.29.tar.gz
+        cd juju-juju-2.9.29/
+        go install github.com/juju/juju/cmd/plugins/juju-wait-for
+        cd ..
 
     - name: Deploy some applications
       if: env.RUN_TEST == 'RUN'
