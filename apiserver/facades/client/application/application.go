@@ -566,7 +566,7 @@ func caasPrecheck(
 				"deploying this Kubernetes application requires a suitable storage class.\n" +
 					"None have been configured. Set the operator-storage model config to " +
 					"specify which storage class should be used to allocate operator storage.\n" +
-					"See https://discourse.jujucharms.com/t/getting-started/152.",
+					"See https://discourse.charmhub.io/t/getting-started/152.",
 			)
 		}
 		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)

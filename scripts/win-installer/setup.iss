@@ -9,7 +9,7 @@
 
 #define MyAppName "Juju"
 #define MyAppPublisher "Canonical, Ltd"
-#define MyAppURL "http://jujucharms.com/"
+#define MyAppURL "http://juju.is/"
 #define MyAppExeName "juju.exe"
 
 [Setup]
