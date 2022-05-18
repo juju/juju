@@ -178,6 +178,7 @@ type ApplicationInfo struct {
 	Exposed          bool                       `yaml:"exposed" json:"exposed"`
 	ExposedEndpoints map[string]ExposedEndpoint `yaml:"exposed-endpoints,omitempty" json:"exposed-endpoints,omitempty"`
 	Remote           bool                       `yaml:"remote" json:"remote"`
+	Life             string                     `yaml:"life,omitempty" json:"life,omitempty"`
 	EndpointBindings map[string]string          `yaml:"endpoint-bindings,omitempty" json:"endpoint-bindings,omitempty"`
 }
 
@@ -215,6 +216,7 @@ func createApplicationInfo(details params.ApplicationResult) (names.ApplicationT
 		Exposed:          details.Exposed,
 		ExposedEndpoints: exposedEndpoints,
 		Remote:           details.Remote,
+		Life:             details.Life,
 		EndpointBindings: details.EndpointBindings,
 	}
 	return tag, info, nil

@@ -37,7 +37,9 @@ func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 	if err := c.facade.FacadeCall("ModelStatus", req, &result); err != nil {
 		return nil, err
 	}
-
+	if len(result.Results) != len(tags) {
+		return nil, errors.Errorf("%d results, expected %d", len(result.Results), len(tags))
+	}
 	return c.processModelStatusResults(result.Results)
 }
 
