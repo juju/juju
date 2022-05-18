@@ -493,13 +493,11 @@ var commandNames = []string{
 // optionalFeatures are feature flags that impact registration of commands.
 var optionalFeatures = []string{
 	feature.ActionsV2,
-	feature.Secrets,
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
 	"run", "show-task", "operations", "list-operations", "show-operation",
-	"list-secrets", "secrets",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

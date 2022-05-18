@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/resource"
 	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
-	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
@@ -592,11 +591,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(charmhub.NewInfoCommand())
 	r.Register(charmhub.NewFindCommand())
 	r.Register(charmhub.NewDownloadCommand())
-
-	// Secrets.
-	if featureflag.Enabled(feature.Secrets) {
-		r.Register(secrets.NewListSecretsCommand())
-	}
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

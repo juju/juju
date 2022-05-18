@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -129,14 +128,6 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 	}), expected
 }
 
-func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
-	url := secrets.NewSimpleURL("app/mariadb/password")
-	context.SetEnvironmentHookContextSecret(ctx, url.ID())
-	return []string{
-		"JUJU_SECRET_URL=" + url.ID(),
-	}
-}
-
 func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
 	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "")
 	return []string{
@@ -225,11 +216,10 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
 
 	relationVars := s.setRelation(ctx)
-	secretVars := s.setSecret(ctx)
 	storageVars := s.setStorage(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars, secretVars, storageVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars, storageVars)
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
@@ -277,11 +267,10 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 		relationVars := s.setDepartingRelation(ctx)
-		secretVars := s.setSecret(ctx)
 		storageVars := s.setStorage(ctx)
 		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars)
+		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, storageVars)
 	}
 }
 
@@ -328,10 +317,9 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
 
 		relationVars := s.setRelation(ctx)
-		secretVars := s.setSecret(ctx)
 		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars, secretVars)
+		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars)
 	}
 }
 
@@ -378,10 +366,9 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars)
 
 		relationVars := s.setRelation(ctx)
-		secretVars := s.setSecret(ctx)
 		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars, secretVars)
+		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars)
 	}
 }
 
@@ -420,10 +407,9 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
 
 	relationVars := s.setRelation(ctx)
-	secretVars := s.setSecret(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars)
 }
 
 func (s *EnvSuite) TestHostEnv(c *gc.C) {
@@ -463,10 +449,9 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, []string{"KUBERNETES_SERVICE=test"})
 
 	relationVars := s.setRelation(ctx)
-	secretVars := s.setSecret(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, []string{"KUBERNETES_SERVICE=test"})
 }
 
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *gc.C) {
