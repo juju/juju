@@ -91,13 +91,13 @@ var WarningHighlight = ansiterm.Foreground(ansiterm.Yellow)
 // GoodHighlight is used to indicate good or success conditions.
 var GoodHighlight = ansiterm.Foreground(ansiterm.Green)
 
-//InfoHighlight is  the color used to indicate important details.
-//Generally that might be important to a user but not necessarily that
-//obvious.
+// InfoHighlight is  the color used to indicate important details.
+// Generally that might be important to a user but not necessarily that
+// obvious.
 var InfoHighlight = ansiterm.Foreground(ansiterm.Cyan)
 
-//EmphasisHighlight is used to show accompanying information, which
-//might be deemed as important by the user.
+// EmphasisHighlight is used to show accompanying information, which
+// might be deemed as important by the user.
 var EmphasisHighlight = ansiterm.Foreground(ansiterm.BrightMagenta)
 
 var statusColors = map[status.Status]*ansiterm.Context{
