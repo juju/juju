@@ -130,14 +130,14 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 	c.Assert(results[0].Filesystem, jc.DeepEquals, &storage.Filesystem{
 		Tag: names.NewFilesystemTag("0"),
 		FilesystemInfo: storage.FilesystemInfo{
-			FilesystemId: "radiance:juju-2d02ee-filesystem-0",
+			FilesystemId: "radiance:juju-f75cba-filesystem-0",
 			Size:         1024,
 		},
 	})
 
 	s.Stub.CheckCallNames(c, "CreatePool", "CreateVolume")
 	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "btrfs", map[string]string(nil))
-	s.Stub.CheckCall(c, 1, "CreateVolume", "radiance", "juju-2d02ee-filesystem-0", map[string]string{
+	s.Stub.CheckCall(c, 1, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 		"size":     "1024MiB",
 	})
@@ -165,7 +165,7 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 		names.NewFilesystemTag("0"),
 		names.VolumeTag{},
 		storage.FilesystemInfo{
-			FilesystemId: "radiance:juju-2d02ee-filesystem-0",
+			FilesystemId: "radiance:juju-f75cba-filesystem-0",
 			Size:         1024,
 		},
 	})
@@ -173,7 +173,7 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreateVolume")
 	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "dir", map[string]string(nil))
 	s.Stub.CheckCall(c, 1, "GetStoragePool", "radiance")
-	s.Stub.CheckCall(c, 2, "CreateVolume", "radiance", "juju-2d02ee-filesystem-0", map[string]string{
+	s.Stub.CheckCall(c, 2, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 	})
 }
@@ -370,7 +370,7 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 	// container as config.
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		"AliveContainers",
-		[]interface{}{"juju-2d02ee-"},
+		[]interface{}{"juju-f75cba-"},
 	}, {
 		"WriteContainer",
 		[]interface{}{&s.Client.Containers[0]},
@@ -494,7 +494,7 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	// ensure it represents the removed device.
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		"AliveContainers",
-		[]interface{}{"juju-2d02ee-"},
+		[]interface{}{"juju-f75cba-"},
 	}, {
 		"WriteContainer",
 		[]interface{}{&s.Client.Containers[0]},

@@ -38,13 +38,13 @@ func (s *NamespaceSuite) TestInvalidMachineTag(c *gc.C) {
 func (s *NamespaceSuite) TestHostname(c *gc.C) {
 	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2")
-	c.Assert(hostname, gc.Equals, "juju-f47ac1-2")
+	c.Assert(hostname, gc.Equals, "juju-c3d479-2")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *NamespaceSuite) TestContainerHostname(c *gc.C) {
 	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2/lxd/4")
-	c.Assert(hostname, gc.Equals, "juju-f47ac1-2-lxd-4")
+	c.Assert(hostname, gc.Equals, "juju-c3d479-2-lxd-4")
 	c.Assert(err, jc.ErrorIsNil)
 }

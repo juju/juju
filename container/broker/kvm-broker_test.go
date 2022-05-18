@@ -122,7 +122,7 @@ func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-deadbe-1-kvm-0"))
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)
 }
 
@@ -137,7 +137,7 @@ func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *gc.C) {
 	s.api.ResetCalls()
 
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
-	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-deadbe-1-kvm-0"))
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)
 }
 

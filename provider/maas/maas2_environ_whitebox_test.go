@@ -1669,12 +1669,12 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
-	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-deadbe-1-lxd-0": bad device call`)
+	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": bad device call`)
 	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
-		Hostname: []string{"juju-deadbe-1-lxd-0"},
+		Hostname: []string{"juju-06f00d-1-lxd-0"},
 	})
 	machine.CheckCall(c, 1, "CreateDevice", gomaasapi.CreateMachineDeviceArgs{
-		Hostname:      "juju-deadbe-1-lxd-0",
+		Hostname:      "juju-06f00d-1-lxd-0",
 		Subnet:        subnet,
 		MACAddress:    "DEADBEEF",
 		InterfaceName: "eth0",
@@ -1819,7 +1819,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
-	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-deadbe-1-lxd-0": creating device interface: boom`)
+	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": creating device interface: boom`)
 	args := getArgs(c, device.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.CreateInterfaceArgs)
 	c.Assert(ok, jc.IsTrue)

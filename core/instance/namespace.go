@@ -10,6 +10,11 @@ import (
 	"github.com/juju/names/v4"
 )
 
+// uuidSuffixDigits defines how many of the uuid digits to use.
+// Since the NewNamespace function asserts that the modelUUID is valid, we know
+// it follows the UUID string format that ends with eight hex digits.
+const uuidSuffixDigits = 6
+
 // Namespace provides a way to generate machine hostanmes with a given prefix.
 type Namespace interface {
 	// Prefix returns the common part of the hostnames. i.e. 'juju-xxxxxx-'
@@ -37,9 +42,9 @@ func NewNamespace(modelUUID string) (Namespace, error) {
 	if !names.IsValidModel(modelUUID) {
 		return nil, errors.NotValidf("model UUID %q", modelUUID)
 	}
-	// The prefix is the first six hex digits of the model uuid.
-	prefix := names.NewModelTag(modelUUID).ShortId()
-	return &namespace{name: prefix}, nil
+	// The suffix is the last six hex digits of the model uuid.
+	suffix := modelUUID[len(modelUUID)-uuidSuffixDigits:]
+	return &namespace{name: suffix}, nil
 }
 
 // Hostname implements Namespace.
