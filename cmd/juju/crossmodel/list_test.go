@@ -132,7 +132,7 @@ func (s *ListSuite) TestListTabularNoConnections(c *gc.C) {
 		c,
 		[]string{"--format", "tabular"},
 		`
-Offer       User  Relation id  Status  Endpoint  Interface  Role  Ingress subnets
+Offer       User  Relation ID  Status  Endpoint  Interface  Role  Ingress subnets
 hosted-db2  -                                                     
 
 `[1:],
@@ -191,7 +191,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		c,
 		[]string{"--format", "tabular"},
 		`
-Offer       User  Relation id  Status  Endpoint  Interface  Role      Ingress subnets
+Offer       User  Relation ID  Status  Endpoint  Interface  Role      Ingress subnets
 adiff-db2   mary  3            joined  db        db2        provider  
 hosted-db2  -                                                         
 zdiff-db2   fred  1            joined  server    mysql      provider  
@@ -209,7 +209,7 @@ func (s *ListSuite) TestListTabularActiveOnly(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--active-only"},
 		`
-Offer      User  Relation id  Status  Endpoint  Interface  Role      Ingress subnets
+Offer      User  Relation ID  Status  Endpoint  Interface  Role      Ingress subnets
 adiff-db2  mary  3            joined  db        db2        provider  
 zdiff-db2  fred  1            joined  server    mysql      provider  
            mary  1            joined  server    mysql      provider  192.168.0.1/32,10.0.0.0/8

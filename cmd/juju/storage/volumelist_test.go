@@ -90,7 +90,7 @@ func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 }
 
 var expectedVolumeListTabular = `
-Machine  Unit         Storage id   Volume id  Provider Id                   Device  Size    State      Message
+Machine  Unit         Storage ID   Volume ID  Provider ID                   Device  Size    State      Message
 0        abc/0        db-dir/1001  0/0        provider-supplied-volume-0-0  loop0   512MiB  attached   
 0        transcode/0  shared-fs/0  4          provider-supplied-volume-4    xvdf2   1.0GiB  attached   
 0                                  1          provider-supplied-volume-1            2.0GiB  attaching  failed to attach, will retry
@@ -118,7 +118,7 @@ func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
 }
 
 var expectedCAASVolumeListTabular = `
-Unit     Storage id   Volume id  Provider Id                 Size    State     Message
+Unit     Storage ID   Volume ID  Provider ID                 Size    State     Message
 mysql/0  db-dir/1001  0          provider-supplied-volume-0  512MiB  attached  
 
 `[1:]

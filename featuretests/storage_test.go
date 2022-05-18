@@ -131,7 +131,7 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	expected := `
-Unit             Storage id  Type   Size  Status   Message
+Unit             Storage ID  Type   Size  Status   Message
 storage-block/0  data/0      block        pending  
 
 `[1:]
@@ -144,7 +144,7 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	// There are currently no guarantees about whether storage
 	// will be persistent until it has been provisioned.
 	expected := `
-Unit             Storage id  Type   Size  Status   Message
+Unit             Storage ID  Type   Size  Status   Message
 storage-block/0  data/0      block        pending  
 
 `[1:]
@@ -455,7 +455,7 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	stdout, _, err := runVolumeList(c, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-Machine  Unit             Storage id  Volume id  Provider Id  Device  Size  State    Message
+Machine  Unit             Storage ID  Volume id  Provider Id  Device  Size  State    Message
 0        storage-block/0  data/0      0/0                                   pending  
 
 `[1:]
@@ -575,7 +575,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	context, err := runCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
-Unit                  Storage id  Type        Size  Status   Message
+Unit                  Storage ID  Type        Size  Status   Message
 storage-filesystem/0  data/0      filesystem        pending  
 
 `[1:])
@@ -596,7 +596,7 @@ storage-filesystem/0  data/0      filesystem        pending
 	context, err = runCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
-Unit                  Storage id  Type        Size  Status   Message
+Unit                  Storage ID  Type        Size  Status   Message
 storage-filesystem/0  data/0      filesystem        pending  
 storage-filesystem/0  data/1      filesystem        pending  
 
@@ -648,7 +648,7 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	ctx, err := runCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-Unit             Storage id  Type   Pool         Size    Status     Message
+Unit             Storage ID  Type   Pool         Size    Status     Message
                  allecto/2   block  modelscoped  1.0GiB  detaching  
 storage-block/0  data/0      block                       pending    
 storage-block/1  data/1      block                       pending    
@@ -676,7 +676,7 @@ storage-block/1  data/1      block                       pending
 	ctx, err = runCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-Unit             Storage id  Type   Pool         Size    Status     Message
+Unit             Storage ID  Type   Pool         Size    Status     Message
 storage-block/0  data/0      block                       pending    
 storage-block/1  allecto/2   block  modelscoped  1.0GiB  attaching  
 storage-block/1  data/1      block                       pending    

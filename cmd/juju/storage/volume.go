@@ -17,7 +17,7 @@ import (
 
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {
-	// from params.Volume. This is provider-supplied unique volume id.
+	// from params.Volume. This is provider-supplied unique volume ID.
 	ProviderVolumeId string `yaml:"provider-id,omitempty" json:"provider-id,omitempty"`
 
 	// Storage is the ID of the storage instance that the volume is
