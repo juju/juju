@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -1475,12 +1476,13 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "creating instance config for machine %q", machine)
 	}
 
-	var arch string
+	// We default to amd64 unless otherwise specified.
+	agentArch := arch.DefaultArchitecture
 	if pInfo.Constraints.Arch != nil {
-		arch = *pInfo.Constraints.Arch
+		agentArch = *pInfo.Constraints.Arch
 	}
 
-	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Series, arch)
+	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Series, agentArch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
 	}
