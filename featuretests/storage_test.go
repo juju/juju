@@ -76,11 +76,11 @@ func runShow(c *gc.C, expectedError string, args ...string) {
 }
 
 func (s *cmdStorageSuite) TestStorageShowEmpty(c *gc.C) {
-	runShow(c, "must specify storage id")
+	runShow(c, "must specify storage ID")
 }
 
 func (s *cmdStorageSuite) TestStorageShowInvalidId(c *gc.C) {
-	runShow(c, "invalid storage id", "fluff")
+	runShow(c, "invalid storage ID", "fluff")
 }
 
 func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
@@ -455,7 +455,7 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	stdout, _, err := runVolumeList(c, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-Machine  Unit             Storage ID  Volume id  Provider Id  Device  Size  State    Message
+Machine  Unit             Storage ID  Volume ID  Provider ID  Device  Size  State    Message
 0        storage-block/0  data/0      0/0                                   pending  
 
 `[1:]
