@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
@@ -96,7 +96,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		configOptions: s.configFlag,
 		deployResources: func(
 			string,
-			client.CharmID,
+			resources.CharmID,
 			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,

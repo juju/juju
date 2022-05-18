@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -567,24 +566,8 @@ func registerCommands(r commandRegistry) {
 	r.Register(gui.NewUpgradeGUICommand())
 
 	// Resource commands
-	r.Register(resource.NewUploadCommand(resource.UploadDeps{
-		NewClient: func(c *resource.UploadCommand) (resource.UploadClient, error) {
-			apiRoot, err := c.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return resourceadapters.NewAPIClient(apiRoot)
-		},
-	}))
-	r.Register(resource.NewListCommand(resource.ListDeps{
-		NewClient: func(c *resource.ListCommand) (resource.ListClient, error) {
-			apiRoot, err := c.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return resourceadapters.NewAPIClient(apiRoot)
-		},
-	}))
+	r.Register(resource.NewUploadCommand())
+	r.Register(resource.NewListCommand())
 	r.Register(resource.NewCharmResourcesCommand())
 
 	// CharmHub related commands

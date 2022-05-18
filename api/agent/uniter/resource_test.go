@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client_test
+package uniter_test
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/agent/uniter"
 	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/api/client/resources/private/client"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/rpc/params"
@@ -41,7 +41,7 @@ func (s *UnitFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 	caller := &stubAPI{Stub: s.stub}
 	doer := &stubAPI{Stub: s.stub}
 
-	cl := client.NewUnitFacadeClient(context.Background(), caller, doer)
+	cl := uniter.NewUnitFacadeClient(context.Background(), caller, doer)
 
 	s.stub.CheckNoCalls(c)
 	c.Check(cl.FacadeCaller, gc.Equals, caller)
@@ -51,7 +51,7 @@ func (s *UnitFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 func (s *UnitFacadeClientSuite) TestGetResource(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.api.setResource(opened.Resource, opened)
-	cl := client.NewUnitFacadeClient(context.Background(), s.api, s.api)
+	cl := uniter.NewUnitFacadeClient(context.Background(), s.api, s.api)
 
 	info, content, err := cl.GetResource("spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +66,7 @@ func (s *UnitFacadeClientSuite) TestUnitDoer(c *gc.C) {
 	req, err := http.NewRequest("GET", "/resources/eggs", body)
 	c.Assert(err, jc.ErrorIsNil)
 	var resp *http.Response
-	doer := client.NewUnitHTTPClient(context.Background(), s.api, "spam/1")
+	doer := uniter.NewUnitHTTPClient(context.Background(), s.api, "spam/1")
 
 	err = doer.Do(context.Background(), req, &resp)
 	c.Assert(err, jc.ErrorIsNil)

@@ -86,7 +86,7 @@ const FilenameParamForContentDispositionHeader = "filename"
 // HTTPRequest generates a new HTTP request.
 func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
-	urlStr := NewEndpointPath(ur.Application, ur.Name)
+	urlStr := newEndpointPath(ur.Application, ur.Name)
 
 	req, err := http.NewRequest(http.MethodPut, urlStr, ur.Content)
 	if err != nil {

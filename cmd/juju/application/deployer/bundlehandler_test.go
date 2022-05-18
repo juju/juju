@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
@@ -1223,7 +1223,7 @@ machines:
 
 func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
-		_ client.CharmID,
+		_ resources.CharmID,
 		_ *macaroon.Macaroon,
 		_ map[string]string,
 		_ map[string]charmresource.Meta,

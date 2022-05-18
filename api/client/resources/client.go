@@ -1,12 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client
+package resources
 
 import (
-	"context"
 	"io"
-	"net/http"
 	"strings"
 
 	"github.com/juju/charm/v8"
@@ -15,42 +13,35 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	api "github.com/juju/juju/api/client/resources"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 )
 
-// TODO(ericsnow) Move FacadeCaller to a component-central package.
-
-// FacadeCaller has the api/base.FacadeCaller methods needed for the component.
-type FacadeCaller interface {
-	FacadeCall(request string, params, response interface{}) error
-	BestAPIVersion() int
-}
-
-// Doer
-type Doer interface {
-	Do(ctx context.Context, req *http.Request, resp interface{}) error
-}
-
 // Client is the public client for the resources API facade.
 type Client struct {
-	FacadeCaller
-	io.Closer
-	doer Doer
-	ctx  context.Context
+	base.ClientFacade
+	facade base.FacadeCaller
+
+	httpClient api.HTTPDoer
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(ctx context.Context, caller FacadeCaller, doer Doer, closer io.Closer) *Client {
-	return &Client{
-		FacadeCaller: caller,
-		Closer:       closer,
-		doer:         doer,
-		ctx:          ctx,
+func NewClient(apiCaller base.APICallCloser) (*Client, error) {
+	frontend, backend := base.NewClientFacade(apiCaller, "Resources")
+
+	httpClient, err := apiCaller.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	return &Client{
+		ClientFacade: frontend,
+		facade:       backend,
+		httpClient:   httpClient,
+	}, nil
 }
 
 // ListResources calls the ListResources API server method with
@@ -62,14 +53,14 @@ func (c Client) ListResources(applications []string) ([]resource.ApplicationReso
 	}
 
 	var apiResults params.ResourcesResults
-	if err := c.FacadeCall("ListResources", &args, &apiResults); err != nil {
+	if err := c.facade.FacadeCall("ListResources", &args, &apiResults); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if len(apiResults.Results) != len(applications) {
 		// We don't bother returning the results we *did* get since
 		// something bad happened on the server.
-		return nil, errors.Errorf("got invalid data from server (expected %d results, got %d)", len(applications), len(apiResults.Results))
+		return nil, errors.Errorf("expected %d results, got %d", len(applications), len(apiResults.Results))
 	}
 
 	var errs []error
@@ -77,7 +68,7 @@ func (c Client) ListResources(applications []string) ([]resource.ApplicationReso
 	for i := range applications {
 		apiResult := apiResults.Results[i]
 
-		result, err := api.APIResult2ApplicationResources(apiResult)
+		result, err := apiResult2ApplicationResources(apiResult)
 		if err != nil {
 			errs = append(errs, errors.Trace(err))
 		}
@@ -112,7 +103,7 @@ func newListResourcesArgs(applications []string) (params.ListResourcesArgs, erro
 
 // Upload sends the provided resource blob up to Juju.
 func (c Client) Upload(application, name, filename string, reader io.ReadSeeker) error {
-	uReq, err := api.NewUploadRequest(application, name, filename, reader)
+	uReq, err := NewUploadRequest(application, name, filename, reader)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -122,7 +113,7 @@ func (c Client) Upload(application, name, filename string, reader io.ReadSeeker)
 	}
 
 	var response params.UploadResult // ignored
-	if err := c.doer.Do(c.ctx, req, &response); err != nil {
+	if err := c.httpClient.Do(c.facade.RawAPICaller().Context(), req, &response); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -176,7 +167,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 	}
 
 	var result params.AddPendingResourcesResult
-	if err := c.FacadeCall("AddPendingResources", &apiArgs, &result); err != nil {
+	if err := c.facade.FacadeCall("AddPendingResources", &apiArgs, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
@@ -185,7 +176,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 	}
 
 	if len(result.PendingIDs) != len(args.Resources) {
-		return nil, errors.Errorf("bad data from server: expected %d IDs, got %d", len(args.Resources), len(result.PendingIDs))
+		return nil, errors.Errorf("expected %d IDs, got %d", len(args.Resources), len(result.PendingIDs))
 	}
 	for i, id := range result.PendingIDs {
 		if id == "" {
@@ -206,7 +197,7 @@ func newAddPendingResourcesArgs(tag names.ApplicationTag, chID CharmID, csMac *m
 		if err := res.Validate(); err != nil {
 			return args, errors.Trace(err)
 		}
-		apiRes := api.CharmResource2API(res)
+		apiRes := CharmResource2API(res)
 		apiResources = append(apiResources, apiRes)
 	}
 	args.Tag = tag.String()
@@ -230,7 +221,7 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac 
 		if err := res.Validate(); err != nil {
 			return args, errors.Trace(err)
 		}
-		apiRes := api.CharmResource2API(res)
+		apiRes := CharmResource2API(res)
 		apiResources = append(apiResources, apiRes)
 	}
 	args.Tag = tag.String()
@@ -270,7 +261,7 @@ func (c Client) UploadPendingResource(application string, res charmresource.Reso
 	pendingID = ids[0]
 
 	if reader != nil {
-		uReq, err := api.NewUploadRequest(application, res.Name, filename, reader)
+		uReq, err := NewUploadRequest(application, res.Name, filename, reader)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
@@ -281,7 +272,7 @@ func (c Client) UploadPendingResource(application string, res charmresource.Reso
 		}
 
 		var response params.UploadResult // ignored
-		if err := c.doer.Do(c.ctx, req, &response); err != nil {
+		if err := c.httpClient.Do(c.facade.RawAPICaller().Context(), req, &response); err != nil {
 			return "", errors.Trace(err)
 		}
 	}

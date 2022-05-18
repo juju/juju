@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
-	internalclient "github.com/juju/juju/api/client/resources/private/client"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
@@ -106,7 +106,7 @@ func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitHTTPClient := internalclient.NewUnitHTTPClient(caller.Context(), httpClient, unitName)
+	unitHTTPClient := uniter.NewUnitHTTPClient(caller.Context(), httpClient, unitName)
 
-	return internalclient.NewUnitFacadeClient(facadeCaller.RawAPICaller().Context(), facadeCaller, unitHTTPClient), nil
+	return uniter.NewUnitFacadeClient(facadeCaller.RawAPICaller().Context(), facadeCaller, unitHTTPClient), nil
 }
