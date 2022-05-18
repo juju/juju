@@ -653,12 +653,6 @@ func (env *maasEnviron) acquireNode(
 	}, nil
 }
 
-func (env *maasEnviron) startNode(node *maasInstance, series string, userdata []byte) error {
-	// Machine.Start updates the machine in-place when it succeeds.
-	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: string(userdata)})
-	return errors.Trace(err)
-}
-
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (env *maasEnviron) DistributeInstances(
 	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
@@ -772,8 +766,8 @@ func (env *maasEnviron) StartInstance(
 		return nil, common.ZoneIndependentError(err)
 	}
 
-	series := args.InstanceConfig.Series
-	cloudcfg, err := env.newCloudinitConfig(hostname, series)
+	ser := args.InstanceConfig.Series
+	cloudcfg, err := env.newCloudinitConfig(hostname, ser)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -788,7 +782,7 @@ func (env *maasEnviron) StartInstance(
 
 	var displayName string
 	var interfaces corenetwork.InterfaceInfos
-	err = env.startNode(inst, series, userdata)
+	err = inst.machine.Start(gomaasapi.StartArgs{DistroSeries: ser, UserData: string(userdata)})
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}

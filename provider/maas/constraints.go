@@ -34,7 +34,7 @@ func (env *maasEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (c
 }
 
 // convertConstraints converts the given constraints into a
-// gomaasapi.AllocateMachineArgs for passing to MAAS 2.
+// gomaasapi.AllocateMachineArgs for passing to MAAS.
 func convertConstraints(cons constraints.Value) gomaasapi.AllocateMachineArgs {
 	params := gomaasapi.AllocateMachineArgs{}
 	if cons.Arch != nil {
