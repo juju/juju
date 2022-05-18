@@ -291,7 +291,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsDifferentIsRewritten(c *gc.C) {
 	s.assertMongoConfigFile(c)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Installed", "Exists", "Stop", "Install", "Stop", "Start")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Stop", "Name", "Install", "Stop", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
