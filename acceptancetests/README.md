@@ -55,8 +55,8 @@ The script is parameter-rich and should be able to accept any tweaks that you wa
 
 Further description can be found here in discourse:
 
-here: [discourse-link](https://discourse.jujucharms.com/t/call-for-testing-running-acceptance-tests-locally-and-easily/1449)
-and here: [discourse-link](https://discourse.jujucharms.com/t/wip-juju-acceptance-testing-primer/1482)
+here: [discourse-link](https://discourse.charmhub.io/t/call-for-testing-running-acceptance-tests-locally-and-easily/1449)
+and here: [discourse-link](https://discourse.charmhub.io/t/wip-juju-acceptance-testing-primer/1482)
 
 ### Quick run using LXD
 To run a test locally with lxd and locally complied juju:

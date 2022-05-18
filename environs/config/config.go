@@ -2055,7 +2055,7 @@ global or per instance security groups.`,
 	},
 	ProvisionerHarvestModeKey: {
 		// default: destroyed, but also depends on current setting of ProvisionerSafeModeKey
-		Description: "What to do with unknown machines. See https://jujucharms.com/stable/config-general#juju-lifecycle-and-harvesting (default destroyed)",
+		Description: "What to do with unknown machines (default destroyed)",
 		Type:        environschema.Tstring,
 		Values:      []interface{}{"all", "none", "unknown", "destroyed"},
 		Group:       environschema.EnvironGroup,

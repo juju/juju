@@ -206,7 +206,7 @@ tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
 4. CTRL+a is tmux prefix.
 
 More help and info is available in the online documentation:
-https://discourse.jujucharms.com/t/debugging-charm-hooks
+https://discourse.charmhub.io/t/debugging-charm-hooks
 
 `
 
