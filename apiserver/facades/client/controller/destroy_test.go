@@ -57,7 +57,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	testController, err := controller.NewControllerAPIv11(
+	testController, err := controller.NewControllerAPIv12(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,

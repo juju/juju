@@ -131,3 +131,20 @@ type ControllerVersionResults struct {
 	Version   string `json:"version"`
 	GitCommit string `json:"git-commit"`
 }
+
+// ControllerNode holds information about a specific
+// controller node
+type ControllerNode struct {
+	Id         string `json:"id"`
+	InstanceId string `json:"instance-id"`
+	Life       string `json:"life"`
+	HasVote    bool   `json:"has-vote,omitempty"`
+	WantsVote  bool   `json:"wants-vote,omitempty"`
+	IsPrimary  bool   `json:"is-primary,omitempty"`
+}
+
+// ControllerNodesResults holds the results from an api call
+// to get the controller nodes associated with this controller
+type ControllerNodesResults struct {
+	Results []ControllerNode `json:"controller-nodes"`
+}

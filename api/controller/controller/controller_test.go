@@ -439,3 +439,31 @@ func (s *Suite) TestWatchAllModelSummaries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "some error")
 	c.Assert(watcher, gc.IsNil)
 }
+
+func (s *Suite) TestControllerNodes(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 12,
+		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Check(objType, gc.Equals, "Controller")
+			c.Check(version, gc.Equals, 12)
+			c.Check(request, gc.Equals, "ControllerNodes")
+			c.Check(result, gc.FitsTypeOf, &params.ControllerNodesResults{})
+			c.Check(args, gc.IsNil)
+			return errors.New("some error")
+		},
+	}
+	client := controller.NewClient(apiCaller)
+	nodes, err := client.ControllerNodes()
+	c.Assert(err, gc.ErrorMatches, "some error")
+	c.Assert(nodes, gc.IsNil)
+}
+
+func (s *Suite) TestControllerNodesOlderAPIVersion(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 11,
+	}
+	client := controller.NewClient(apiCaller)
+	nodes, err := client.ControllerNodes()
+	c.Assert(err, gc.ErrorMatches, "this controller version doesn't support getting controller nodes")
+	c.Assert(nodes, gc.IsNil)
+}

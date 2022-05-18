@@ -34,6 +34,17 @@ var _ = gc.Suite(&ShowControllerSuite{})
 func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 	s.fakeController = &fakeController{
+		controllerNodes: map[string][]apicontroller.ControllerNode{
+			"aws-test": {
+				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active", IsPrimary: true},
+				{Id: "1", InstanceId: "id-1", HasVote: false, WantsVote: true, Status: "down"},
+				{Id: "2", InstanceId: "id-2", HasVote: true, WantsVote: true, Status: "active"},
+			},
+			"mallards": {},
+			"k8s-controller": {
+				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active", IsPrimary: true},
+			},
+		},
 		machines: map[string][]base.Machine{
 			"ghi": {
 				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
@@ -48,7 +59,7 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 		modelTypes:     map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
 		units:          map[string]int{"def": 4},
 		access:         permission.SuperuserAccess,
-		bestAPIVersion: 8,
+		bestAPIVersion: 12,
 		controllerVersion: apicontroller.ControllerVersion{
 			Version:   "999.99.99",
 			GitCommit: "badf00d0badf00d0badf00d0badf00d0badf00d0",
@@ -261,10 +272,11 @@ aws-test:
     controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
-  controller-machines:
+  controller-nodes:
     "0":
       instance-id: id-0
       ha-status: ha-pending
+      ha-primary: true
     "1":
       instance-id: id-1
       ha-status: down, lost connection
@@ -300,10 +312,11 @@ aws-test:
     controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
-  controller-machines:
+  controller-nodes:
     "0":
       instance-id: id-0
       ha-status: ha-pending
+      ha-primary: true
     "1":
       instance-id: id-1
       ha-status: down, lost connection
@@ -339,7 +352,82 @@ mark-test-prodstack:
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
 }
 
-func (s *ShowControllerSuite) TestShowOneControllerWithAPIVersionTooLow(c *gc.C) {
+func (s *ShowControllerSuite) TestShowOnek8sControllerWithAPIVersion11(c *gc.C) {
+	s.fakeController.bestAPIVersion = 11
+
+	s.createTestClientStore(c)
+	s.expectedOutput = `
+k8s-controller:
+  details:
+    uuid: this-is-a-k8s-uuid
+    controller-uuid: this-is-a-k8s-uuid
+    api-endpoints: [this-is-one-of-many-k8s-api-endpoints]
+    cloud: microk8s
+    region: localhost
+    agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
+    mongo-version: 3.5.12
+    ca-cert: this-is-a-k8s-ca-cert
+  models:
+    controller:
+      uuid: xyz
+      model-uuid: xyz
+    my-k8s-model:
+      uuid: def
+      model-uuid: def
+      unit-count: 4
+  current-model: admin/my-k8s-model
+  account:
+    user: admin
+    access: superuser
+`[1:]
+
+	s.assertShowController(c, "k8s-controller")
+
+}
+func (s *ShowControllerSuite) TestShowOneControllerWithAPIVersion11(c *gc.C) {
+	s.fakeController.bestAPIVersion = 11
+
+	s.createTestClientStore(c)
+	s.expectedOutput = `
+aws-test:
+  details:
+    uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    cloud: aws
+    region: us-east-1
+    agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
+    mongo-version: 3.5.12
+    ca-cert: this-is-aws-test-ca-cert
+  controller-nodes:
+    "0":
+      instance-id: id-0
+      ha-status: ha-pending
+    "1":
+      instance-id: id-1
+      ha-status: down, lost connection
+    "2":
+      instance-id: id-2
+      ha-status: ha-enabled
+  models:
+    controller:
+      uuid: ghi
+      model-uuid: ghi
+      machine-count: 2
+      core-count: 4
+  current-model: admin/controller
+  account:
+    user: admin
+    access: superuser
+`[1:]
+	s.assertShowController(c, "aws-test")
+}
+
+func (s *ShowControllerSuite) TestShowOneControllerWithAPIVersion1(c *gc.C) {
 	s.fakeController = &fakeController{
 		machines:       map[string][]base.Machine{},
 		access:         permission.SuperuserAccess,
@@ -389,7 +477,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-nodes":{"0":{"instance-id":"id-0","ha-status":"ha-pending","ha-primary":true},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -398,7 +486,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-nodes":{"0":{"instance-id":"id-0","ha-status":"ha-pending","ha-primary":true},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -421,7 +509,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	store.CurrentControllerName = "aws-test"
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-nodes":{"0":{"instance-id":"id-0","ha-status":"ha-pending","ha-primary":true},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json")
 }
@@ -615,7 +703,7 @@ func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, s.expectedOutput)
 }
 
-func (s *ShowControllerSuite) TestShowControllerPrimary(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerModelStatusFail(c *gc.C) {
 	_ = s.createTestClientStore(c)
 	s.expectedOutput = `
 aws-test:
@@ -630,17 +718,45 @@ aws-test:
     controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
-  controller-machines:
+  controller-nodes:
     "0":
       instance-id: id-0
       ha-status: ha-pending
+      ha-primary: true
     "1":
       instance-id: id-1
       ha-status: down, lost connection
     "2":
       instance-id: id-2
       ha-status: ha-enabled
-      ha-primary: true
+  current-model: admin/controller
+  account:
+    user: admin
+    access: superuser
+  errors:
+  - model status incomplete
+`[1:]
+
+	s.fakeController.emptyModelStatus = true
+
+	s.assertShowController(c, "aws-test")
+}
+
+func (s *ShowControllerSuite) TestShowControllerControllerNodesFail(c *gc.C) {
+	_ = s.createTestClientStore(c)
+	s.expectedOutput = `
+aws-test:
+  details:
+    uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    cloud: aws
+    region: us-east-1
+    agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
+    mongo-version: 3.5.12
+    ca-cert: this-is-aws-test-ca-cert
   models:
     controller:
       uuid: ghi
@@ -651,54 +767,31 @@ aws-test:
   account:
     user: admin
     access: superuser
-`[1:]
-
-	_true := true
-	s.fakeController.machines["ghi"][2].HAPrimary = &_true
-
-	s.assertShowController(c, "aws-test")
-}
-
-func (s *ShowControllerSuite) TestShowControllerPrimaryModelStatusFail(c *gc.C) {
-	_ = s.createTestClientStore(c)
-	s.expectedOutput = `
-aws-test:
-  details:
-    uuid: this-is-the-aws-test-uuid
-    controller-uuid: this-is-the-aws-test-uuid
-    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
-    cloud: aws
-    region: us-east-1
-    agent-version: 999.99.99
-    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
-    controller-model-version: 999.99.99
-    mongo-version: 3.5.12
-    ca-cert: this-is-aws-test-ca-cert
-  current-model: admin/controller
-  account:
-    user: admin
-    access: superuser
   errors:
-  - model status incomplete
+  - boom
 `[1:]
 
-	_true := true
-	s.fakeController.machines["ghi"][2].HAPrimary = &_true
-	s.fakeController.emptyModelStatus = true
+	s.fakeController.emptyControllerNodes = true
 
 	s.assertShowController(c, "aws-test")
 }
 
 type fakeController struct {
-	controllerName    string
-	machines          map[string][]base.Machine
-	units             map[string]int
-	modelTypes        map[string]model.ModelType
-	access            permission.Access
-	bestAPIVersion    int
-	identityURL       string
-	controllerVersion apicontroller.ControllerVersion
-	emptyModelStatus  bool
+	controllerName       string
+	controllerNodes      map[string][]apicontroller.ControllerNode
+	machines             map[string][]base.Machine
+	units                map[string]int
+	modelTypes           map[string]model.ModelType
+	access               permission.Access
+	bestAPIVersion       int
+	identityURL          string
+	controllerVersion    apicontroller.ControllerVersion
+	emptyModelStatus     bool
+	emptyControllerNodes bool
+}
+
+func (c *fakeController) BestAPIVersion() int {
+	return c.bestAPIVersion
 }
 
 func (c *fakeController) GetControllerAccess(user string) (permission.Access, error) {
@@ -760,6 +853,16 @@ func (c *fakeController) IdentityProviderURL() (string, error) {
 
 func (c *fakeController) ControllerVersion() (apicontroller.ControllerVersion, error) {
 	return c.controllerVersion, nil
+}
+
+func (c *fakeController) ControllerNodes() ([]apicontroller.ControllerNode, error) {
+	if c.bestAPIVersion < 12 {
+		return nil, errors.NotSupportedf("requires APIVersion >= 12")
+	}
+	if c.emptyControllerNodes {
+		return nil, errors.New("boom")
+	}
+	return c.controllerNodes[c.controllerName], nil
 }
 
 func (*fakeController) Close() error {

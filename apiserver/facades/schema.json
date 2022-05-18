@@ -20126,7 +20126,7 @@
     {
         "Name": "Controller",
         "Description": "ControllerAPI provides the Controller API.",
-        "Version": 11,
+        "Version": 12,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -20186,6 +20186,15 @@
                         }
                     },
                     "description": "ControllerConfig returns the controller's configuration."
+                },
+                "ControllerNodes": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ControllerNodesResults"
+                        }
+                    },
+                    "description": "ControllerNodes returns information about the nodes on this controller."
                 },
                 "ControllerVersion": {
                     "type": "object",
@@ -20553,6 +20562,50 @@
                     "additionalProperties": false,
                     "required": [
                         "config"
+                    ]
+                },
+                "ControllerNode": {
+                    "type": "object",
+                    "properties": {
+                        "has-vote": {
+                            "type": "boolean"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "instance-id": {
+                            "type": "string"
+                        },
+                        "is-primary": {
+                            "type": "boolean"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "wants-vote": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "instance-id",
+                        "life"
+                    ]
+                },
+                "ControllerNodesResults": {
+                    "type": "object",
+                    "properties": {
+                        "controller-nodes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ControllerNode"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "controller-nodes"
                     ]
                 },
                 "ControllerVersionResults": {

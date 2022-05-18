@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -40,11 +41,14 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*ControllerAPIv10)(nil)))
 	registry.MustRegister("Controller", 11, func(ctx facade.Context) (facade.Facade, error) {
 		return newControllerAPIv11(ctx)
+	}, reflect.TypeOf((*ControllerAPIv11)(nil)))
+	registry.MustRegister("Controller", 12, func(ctx facade.Context) (facade.Facade, error) {
+		return newControllerAPIv12(ctx)
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
 }
 
-// newControllerAPIv11 creates a new ControllerAPIv11
-func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
+// newControllerAPIv12 creates a new ControllerAPIv12
+func newControllerAPIv12(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -55,7 +59,7 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 	controller := ctx.Controller()
 
 	return NewControllerAPI(
-		st,
+		stateShim{st},
 		pool,
 		authorizer,
 		resources,
@@ -64,6 +68,15 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		factory,
 		controller,
 	)
+}
+
+// newControllerAPIv11 creates a new ControllerAPIv11
+func newControllerAPIv11(ctx facade.Context) (*ControllerAPIv11, error) {
+	v12, err := newControllerAPIv12(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv11{v12}, nil
 }
 
 // newControllerAPIv10 creates a new ControllerAPIv10.
@@ -148,4 +161,20 @@ func newControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 		return nil, errors.Trace(err)
 	}
 	return &ControllerAPIv3{v4}, nil
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (st stateShim) ControllerNodes() ([]ControllerNode, error) {
+	stateNodes, err := st.State.ControllerNodes()
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]ControllerNode, len(stateNodes))
+	for i, stateNode := range stateNodes {
+		nodes[i] = stateNode
+	}
+	return nodes, nil
 }

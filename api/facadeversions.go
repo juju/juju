@@ -43,7 +43,7 @@ var facadeVersions = map[string]int{
 	"Cleaner":                      2,
 	"Client":                       5,
 	"Cloud":                        7,
-	"Controller":                   11,
+	"Controller":                   12,
 	"CredentialManager":            1,
 	"CredentialValidator":          2,
 	"CrossController":              1,

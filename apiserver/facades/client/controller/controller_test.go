@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
+	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
@@ -40,14 +42,15 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/testing"
 )
 
-type controllerSuite struct {
+type controllerSuiteMgo struct {
 	statetesting.StateSuite
 
 	controller *controller.ControllerAPI
@@ -57,11 +60,11 @@ type controllerSuite struct {
 	context    facadetest.Context
 }
 
-var _ = gc.Suite(&controllerSuite{})
+var _ = gc.Suite(&controllerSuiteMgo{})
 
-func (s *controllerSuite) SetUpTest(c *gc.C) {
+func (s *controllerSuiteMgo) SetUpTest(c *gc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
-	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
+	s.InitialConfig = jujutesting.CustomModelConfig(c, jujutesting.Attrs{
 		"name": "controller",
 	})
 
@@ -125,7 +128,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
 
-func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
+func (s *controllerSuiteMgo) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
@@ -139,13 +142,13 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
+func (s *controllerSuiteMgo) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
 	c.Check(model.Name, gc.Equals, expected.Name())
 	c.Check(model.UUID, gc.Equals, expected.UUID())
 	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
-func (s *controllerSuite) TestAllModels(c *gc.C) {
+func (s *controllerSuiteMgo) TestAllModels(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
@@ -183,7 +186,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
-func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
+func (s *controllerSuiteMgo) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner.UserTag()}).Close()
@@ -204,7 +207,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.
 	c.Assert(two.OwnerTag, gc.Equals, remoteUserTag.String())
 }
 
-func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
+func (s *controllerSuiteMgo) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
 	c.Assert(pSpec, gc.NotNil)
 	var credential *cloud.Credential
 	if pSpec.Credential != nil {
@@ -227,7 +230,7 @@ func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) enviro
 	return spec
 }
 
-func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
+func (s *controllerSuiteMgo) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner.UserTag()}).Close()
@@ -253,7 +256,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
+func (s *controllerSuiteMgo) TestListBlockedModels(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
@@ -289,19 +292,19 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 
 }
 
-func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
+func (s *controllerSuiteMgo) TestListBlockedModelsNoBlocks(c *gc.C) {
 	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list.Models, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestModelConfig(c *gc.C) {
+func (s *controllerSuiteMgo) TestModelConfig(c *gc.C) {
 	cfg, err := s.controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }
 
-func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
+func (s *controllerSuiteMgo) TestModelConfigFromNonController(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
@@ -324,7 +327,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }
 
-func (s *controllerSuite) TestControllerConfig(c *gc.C) {
+func (s *controllerSuiteMgo) TestControllerConfig(c *gc.C) {
 	cfg, err := s.controller.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	cfgFromDB, err := s.State.ControllerConfig()
@@ -334,7 +337,7 @@ func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	c.Assert(cfg.Config["api-port"], gc.Equals, cfgFromDB.APIPort())
 }
 
-func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
+func (s *controllerSuiteMgo) TestControllerConfigFromNonController(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
@@ -356,7 +359,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	c.Assert(cfg.Config["api-port"], gc.Equals, cfgFromDB.APIPort())
 }
 
-func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
+func (s *controllerSuiteMgo) TestRemoveBlocks(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
@@ -374,12 +377,12 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(blocks, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
+func (s *controllerSuiteMgo) TestRemoveBlocksNotAll(c *gc.C) {
 	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
 }
 
-func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
+func (s *controllerSuiteMgo) TestWatchAllModels(c *gc.C) {
 	watcherId, err := s.controller.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -426,7 +429,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
 		c.Assert(modelInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
 		c.Assert(modelInfo.IsController, gc.Equals, s.State.IsController())
-	case <-time.After(testing.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -463,13 +466,13 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 					resultCount = resultCount + 1
 				}
 			}
-		case <-time.After(testing.LongWait):
+		case <-time.After(jujutesting.LongWait):
 			c.Fatalf("timed out waiting for 2 model updates, got %d", resultCount)
 		}
 	}
 }
 
-func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
+func (s *controllerSuiteMgo) TestInitiateMigration(c *gc.C) {
 	// Create two hosted models to migrate.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
@@ -554,7 +557,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
+func (s *controllerSuiteMgo) TestInitiateMigrationSpecError(c *gc.C) {
 	// Create a hosted model to migrate.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
@@ -577,7 +580,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 	c.Check(result.Error, gc.ErrorMatches, "controller tag: .+ is not a valid tag")
 }
 
-func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
+func (s *controllerSuiteMgo) TestInitiateMigrationPartialFailure(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	controller.SetPrecheckResult(s, nil)
@@ -612,7 +615,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Check(out.Results[1].Error, gc.ErrorMatches, "model not found")
 }
 
-func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
+func (s *controllerSuiteMgo) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -641,7 +644,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 	c.Check(result.Error, gc.ErrorMatches, "invalid macaroons: .+")
 }
 
-func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
+func (s *controllerSuiteMgo) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -682,7 +685,7 @@ func randomModelTag() string {
 	return names.NewModelTag(uuid).String()
 }
 
-func (s *controllerSuite) modifyControllerAccess(c *gc.C, user names.UserTag, action params.ControllerAction, access string) error {
+func (s *controllerSuiteMgo) modifyControllerAccess(c *gc.C, user names.UserTag, action params.ControllerAction, access string) error {
 	args := params.ModifyControllerAccessRequest{
 		Changes: []params.ModifyControllerAccess{{
 			UserTag: user.String(),
@@ -694,22 +697,22 @@ func (s *controllerSuite) modifyControllerAccess(c *gc.C, user names.UserTag, ac
 	return result.OneError()
 }
 
-func (s *controllerSuite) controllerGrant(c *gc.C, user names.UserTag, access string) error {
+func (s *controllerSuiteMgo) controllerGrant(c *gc.C, user names.UserTag, access string) error {
 	return s.modifyControllerAccess(c, user, params.GrantControllerAccess, access)
 }
 
-func (s *controllerSuite) controllerRevoke(c *gc.C, user names.UserTag, access string) error {
+func (s *controllerSuiteMgo) controllerRevoke(c *gc.C, user names.UserTag, access string) error {
 	return s.modifyControllerAccess(c, user, params.RevokeControllerAccess, access)
 }
 
-func (s *controllerSuite) TestGrantMissingUserFails(c *gc.C) {
+func (s *controllerSuiteMgo) TestGrantMissingUserFails(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
 	err := s.controllerGrant(c, user, string(permission.SuperuserAccess))
 	expectedErr := `could not grant controller access: user "foobar" does not exist locally: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
-func (s *controllerSuite) TestRevokeSuperuserLeavesLoginAccess(c *gc.C) {
+func (s *controllerSuiteMgo) TestRevokeSuperuserLeavesLoginAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
@@ -727,7 +730,7 @@ func (s *controllerSuite) TestRevokeSuperuserLeavesLoginAccess(c *gc.C) {
 	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 }
 
-func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
+func (s *controllerSuiteMgo) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	err := s.controllerRevoke(c, user.UserTag(), string(permission.LoginAccess))
 	c.Assert(err, gc.IsNil)
@@ -738,7 +741,7 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
-func (s *controllerSuite) TestRevokeAddModelBackwardCompatibility(c *gc.C) {
+func (s *controllerSuiteMgo) TestRevokeAddModelBackwardCompatibility(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	controllerInfo, err := s.State.ControllerInfo()
@@ -753,14 +756,14 @@ func (s *controllerSuite) TestRevokeAddModelBackwardCompatibility(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
+func (s *controllerSuiteMgo) TestRevokeControllerMissingUser(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
 	err := s.controllerRevoke(c, user, string(permission.SuperuserAccess))
 	expectedErr := `could not look up controller access for user: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
-func (s *controllerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
+func (s *controllerSuiteMgo) TestGrantOnlyGreaterAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
@@ -775,7 +778,7 @@ func (s *controllerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
-func (s *controllerSuite) TestGrantControllerAddRemoteUser(c *gc.C) {
+func (s *controllerSuiteMgo) TestGrantControllerAddRemoteUser(c *gc.C) {
 	userTag := names.NewUserTag("foobar@ubuntuone")
 
 	err := s.controllerGrant(c, userTag, string(permission.SuperuserAccess))
@@ -788,7 +791,7 @@ func (s *controllerSuite) TestGrantControllerAddRemoteUser(c *gc.C) {
 	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 }
 
-func (s *controllerSuite) TestGrantAddModelBackwardCompatibility(c *gc.C) {
+func (s *controllerSuiteMgo) TestGrantAddModelBackwardCompatibility(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
@@ -801,7 +804,7 @@ func (s *controllerSuite) TestGrantAddModelBackwardCompatibility(c *gc.C) {
 	c.Assert(perm, gc.Equals, permission.AddModelAccess)
 }
 
-func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
+func (s *controllerSuiteMgo) TestGrantControllerInvalidUserTag(c *gc.C) {
 	for _, testParam := range []struct {
 		tag      string
 		validTag bool
@@ -867,7 +870,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestModifyControllerAccessEmptyArgs(c *gc.C) {
+func (s *controllerSuiteMgo) TestModifyControllerAccessEmptyArgs(c *gc.C) {
 	args := params.ModifyControllerAccessRequest{Changes: []params.ModifyControllerAccess{{}}}
 
 	result, err := s.controller.ModifyControllerAccess(args)
@@ -876,7 +879,7 @@ func (s *controllerSuite) TestModifyControllerAccessEmptyArgs(c *gc.C) {
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 }
 
-func (s *controllerSuite) TestModifyControllerAccessInvalidAction(c *gc.C) {
+func (s *controllerSuiteMgo) TestModifyControllerAccessInvalidAction(c *gc.C) {
 	var dance params.ControllerAction = "dance"
 	args := params.ModifyControllerAccessRequest{
 		Changes: []params.ModifyControllerAccess{{
@@ -891,7 +894,7 @@ func (s *controllerSuite) TestModifyControllerAccessInvalidAction(c *gc.C) {
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 }
 
-func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
+func (s *controllerSuiteMgo) TestGetControllerAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	user2 := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
@@ -913,7 +916,7 @@ func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
 		}}})
 }
 
-func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
+func (s *controllerSuiteMgo) TestGetControllerAccessPermissions(c *gc.C) {
 	// Set up the user making the call.
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	anAuthoriser := apiservertesting.FakeAuthorizer{
@@ -953,7 +956,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	})
 }
 
-func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
+func (s *controllerSuiteMgo) TestModelStatusV3(c *gc.C) {
 	api, err := controller.NewControllerAPIv3(
 		facadetest.Context{
 			State_:     s.State,
@@ -989,7 +992,7 @@ func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 }
 
-func (s *controllerSuite) TestModelStatus(c *gc.C) {
+func (s *controllerSuiteMgo) TestModelStatus(c *gc.C) {
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.controller.ModelStatus(params.Entities{[]params.Entity{{
 		Tag: "bad-tag",
@@ -1018,7 +1021,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 }
 
-func (s *controllerSuite) TestConfigSet(c *gc.C) {
+func (s *controllerSuiteMgo) TestConfigSet(c *gc.C) {
 	config, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	// Sanity check.
@@ -1034,7 +1037,7 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 	c.Assert(config.AuditingEnabled(), gc.Equals, true)
 }
 
-func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
+func (s *controllerSuiteMgo) TestConfigSetRequiresSuperUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Access: permission.ReadAccess,
 	})
@@ -1056,7 +1059,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
+func (s *controllerSuiteMgo) TestConfigSetPublishesEvent(c *gc.C) {
 	done := make(chan struct{})
 	var config corecontroller.Config
 	s.hub.Subscribe(pscontroller.ConfigChanged, func(topic string, data pscontroller.ConfigChangedMessage, err error) {
@@ -1072,14 +1075,14 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("no event sent}")
 	}
 
 	c.Assert(config.Features().SortedValues(), jc.DeepEquals, []string{"bar", "foo"})
 }
 
-func (s *controllerSuite) TestMongoVersion(c *gc.C) {
+func (s *controllerSuiteMgo) TestMongoVersion(c *gc.C) {
 	result, err := s.controller.MongoVersion()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1090,7 +1093,7 @@ func (s *controllerSuite) TestMongoVersion(c *gc.C) {
 	c.Assert(result.Result, gc.Matches, "^([0-9]{1,}).([0-9]{1,}).([0-9]{1,})$")
 }
 
-func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
+func (s *controllerSuiteMgo) TestIdentityProviderURL(c *gc.C) {
 	// Preserve default controller config as we will be mutating it just
 	// for this test
 	defer func(orig map[string]interface{}) {
@@ -1116,7 +1119,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	c.Assert(urlRes.Result, gc.Equals, expURL)
 }
 
-func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver.SrvModelSummaryWatcher {
+func (s *controllerSuiteMgo) newSummaryWatcherFacade(c *gc.C, id string) *apiserver.SrvModelSummaryWatcher {
 	context := s.context
 	context.ID_ = id
 	watcher, err := apiserver.NewModelSummaryWatcher(context)
@@ -1124,7 +1127,7 @@ func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver
 	return watcher
 }
 
-func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
+func (s *controllerSuiteMgo) TestWatchAllModelSummariesByAdmin(c *gc.C) {
 	// Default authorizer is an admin.
 	result, err := s.controller.WatchAllModelSummaries()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1153,12 +1156,12 @@ func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
 					Status:     "green",
 					Messages:   []params.ModelSummaryMessage{},
 				}}})
-	case <-time.After(testing.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("timed out")
 	}
 }
 
-func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
+func (s *controllerSuiteMgo) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewLocalUserTag("bob"),
 	}
@@ -1174,7 +1177,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) makeBobsModel(c *gc.C) string {
+func (s *controllerSuiteMgo) makeBobsModel(c *gc.C) string {
 	bob := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "bob",
 		NoModelUser: true,
@@ -1188,7 +1191,7 @@ func (s *controllerSuite) makeBobsModel(c *gc.C) string {
 	return uuid
 }
 
-func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
+func (s *controllerSuiteMgo) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 	s.makeBobsModel(c)
 
 	// Default authorizer is an admin. As a user, admin can't see
@@ -1220,7 +1223,7 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 					Status:     "green",
 					Messages:   []params.ModelSummaryMessage{},
 				}}})
-	case <-time.After(testing.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -1236,4 +1239,92 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+type controllerSuite struct {
+	testing.IsolationSuite
+
+	st         *mocks.MockControllerState
+	controller *controller.ControllerAPI
+}
+
+func (s *controllerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.st = mocks.NewMockControllerState(ctrl)
+	controller, err := controller.NewControllerAPI(
+		s.st, nil, nil, nil, nil, nil, nil, nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.controller = controller
+	return ctrl
+}
+
+func expectNode(node *mocks.MockControllerNode, id string, life state.Life, hasVote bool, wantsVote bool) {
+	node.EXPECT().Id().Return(id)
+	node.EXPECT().Life().Return(life)
+	node.EXPECT().WantsVote().Return(hasVote)
+	node.EXPECT().HasVote().Return(wantsVote)
+}
+
+func (s *controllerSuite) TestControllerNodesNonHA(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	node := mocks.NewMockControllerNode(ctrl)
+	s.st.EXPECT().ControllerNodes().Return([]controller.ControllerNode{node}, nil)
+	s.st.EXPECT().HAPrimaryMachine().Return(names.NewMachineTag("0"), nil)
+	expectNode(node, "0", state.Alive, true, true)
+
+	result, err := s.controller.ControllerNodes()
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, params.ControllerNodesResults{
+		Results: []params.ControllerNode{{
+			Id:        "0",
+			Life:      "alive",
+			IsPrimary: true,
+			WantsVote: true,
+			HasVote:   true,
+		}},
+	})
+}
+
+func (s *controllerSuite) TestControllerNodesHA(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	node0 := mocks.NewMockControllerNode(ctrl)
+	node1 := mocks.NewMockControllerNode(ctrl)
+	node2 := mocks.NewMockControllerNode(ctrl)
+	s.st.EXPECT().ControllerNodes().Return([]controller.ControllerNode{node0, node1, node2}, nil)
+	s.st.EXPECT().HAPrimaryMachine().Return(names.NewMachineTag("0"), nil)
+	expectNode(node0, "0", state.Alive, true, true)
+	expectNode(node1, "1", state.Alive, true, true)
+	expectNode(node2, "2", state.Alive, true, true)
+
+	result, err := s.controller.ControllerNodes()
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, params.ControllerNodesResults{
+		Results: []params.ControllerNode{{
+			Id:        "0",
+			Life:      "alive",
+			IsPrimary: true,
+			WantsVote: true,
+			HasVote:   true,
+		}, {
+			Id:        "1",
+			Life:      "alive",
+			IsPrimary: false,
+			WantsVote: true,
+			HasVote:   true,
+		}, {
+			Id:        "2",
+			Life:      "alive",
+			IsPrimary: false,
+			WantsVote: true,
+			HasVote:   true,
+		}},
+	})
 }

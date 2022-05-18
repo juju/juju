@@ -92,6 +92,7 @@ func (c *showControllerCommand) SetClientStore(store jujuclient.ClientStore) {
 
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
 type ControllerAccessAPI interface {
+	BestAPIVersion() int
 	GetControllerAccess(user string) (permission.Access, error)
 	ModelConfig() (map[string]interface{}, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
@@ -99,6 +100,7 @@ type ControllerAccessAPI interface {
 	MongoVersion() (string, error)
 	IdentityProviderURL() (string, error)
 	ControllerVersion() (controller.ControllerVersion, error)
+	ControllerNodes() ([]controller.ControllerNode, error)
 	Close() error
 }
 
@@ -236,8 +238,17 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				details.Errors = append(details.Errors, err.Error())
 			}
 		}
+		var controllerNodes []controller.ControllerNode
+		if client.BestAPIVersion() > 11 {
+			controllerNodes, err = client.ControllerNodes()
+			if err != nil {
+				details.Errors = append(details.Errors, err.Error())
+			}
+		} else {
+			controllerNodes = c.oldStyleControllerNodes(modelStatusResults, allModels)
+		}
 
-		c.convertControllerForShow(&details, controllerName, one, access, allModels,
+		c.convertControllerForShow(&details, controllerName, one, access, allModels, controllerNodes,
 			modelStatusResults, mongoVersion, controllerVersion, agentGitCommit, identityURL)
 		controllers[controllerName] = details
 	}
@@ -277,14 +288,56 @@ func (c *showControllerCommand) controllerModelVersion(client ControllerAccessAP
 	return mc["agent-version"].(string)
 }
 
+func (c *showControllerCommand) oldStyleControllerNodes(
+	modelStatusResults []base.ModelStatus,
+	allModels []base.UserModel,
+) []controller.ControllerNode {
+	var controllerModelUUID string
+	for _, model := range allModels {
+		if model.Name == bootstrap.ControllerModelName {
+			controllerModelUUID = model.UUID
+			break
+		}
+	}
+	if controllerModelUUID == "" {
+		return []controller.ControllerNode{}
+	}
+	var controllerModel base.ModelStatus
+	for _, model := range modelStatusResults {
+		if model.Error == nil && model.UUID == controllerModelUUID {
+			controllerModel = model
+			break
+		}
+	}
+	if controllerModel.ModelType == model.CAAS {
+		return []controller.ControllerNode{}
+	}
+	nodes := make([]controller.ControllerNode, 0, len(controllerModel.Machines))
+	for _, machine := range controllerModel.Machines {
+		if !machine.WantsVote {
+			// Skip non controller machines.
+			continue
+		}
+		controller := controller.ControllerNode{
+			Id:         machine.Id,
+			InstanceId: machine.InstanceId,
+			HasVote:    machine.HasVote,
+			WantsVote:  machine.WantsVote,
+			Status:     machine.Status,
+		}
+		if machine.HAPrimary != nil && *machine.HAPrimary {
+			controller.IsPrimary = true
+		}
+		nodes = append(nodes, controller)
+	}
+	return nodes
+}
+
 type ShowControllerDetails struct {
 	// Details contains the same details that client store caches for this controller.
 	Details ControllerDetails `yaml:"details,omitempty" json:"details,omitempty"`
 
-	// Machines is a collection of all machines forming the controller cluster.
-	Machines map[string]MachineDetails `yaml:"controller-machines,omitempty" json:"controller-machines,omitempty"`
-
-	// Nodes is a collection of all k8s pods forming the controller cluster.
+	// Nodes is a collection of all nodes (machines/pods) forming the controller cluster.
 	Nodes map[string]MachineDetails `yaml:"controller-nodes,omitempty" json:"controller-nodes,omitempty"`
 
 	// Models is a collection of all models for this controller.
@@ -353,6 +406,9 @@ type MachineDetails struct {
 	// InstanceID holds the cloud instance id of the machine.
 	InstanceID string `yaml:"instance-id,omitempty" json:"instance-id,omitempty"`
 
+	// Life is the lifecycle state of the machine
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
+
 	// HAStatus holds information informing of the HA status of the machine.
 	HAStatus string `yaml:"ha-status,omitempty" json:"ha-status,omitempty"`
 
@@ -397,6 +453,7 @@ func (c *showControllerCommand) convertControllerForShow(
 	details *jujuclient.ControllerDetails,
 	access string,
 	allModels []base.UserModel,
+	controllerNodes []controller.ControllerNode,
 	modelStatusResults []base.ModelStatus,
 	mongoVersion string,
 	controllerVersion string,
@@ -422,32 +479,7 @@ func (c *showControllerCommand) convertControllerForShow(
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)
-	var controllerModelUUID string
-	for _, m := range allModels {
-		if m.Name == bootstrap.ControllerModelName {
-			controllerModelUUID = m.UUID
-			break
-		}
-	}
-	if controllerModelUUID != "" {
-		var controllerModel base.ModelStatus
-		found := false
-		for _, m := range modelStatusResults {
-			if m.Error != nil {
-				// This most likely occurred because a model was
-				// destroyed half-way through the call.
-				continue
-			}
-			if m.UUID == controllerModelUUID {
-				controllerModel = m
-				found = true
-				break
-			}
-		}
-		if found {
-			c.convertMachinesForShow(controllerName, controller, controllerModel)
-		}
-	}
+	c.convertMachinesForShow(controller, controllerNodes)
 }
 
 func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails, access string) {
@@ -515,44 +547,22 @@ func (c *showControllerCommand) convertModelsForShow(
 }
 
 func (c *showControllerCommand) convertMachinesForShow(
-	controllerName string,
 	controller *ShowControllerDetails,
-	controllerModel base.ModelStatus,
+	controllerNodes []controller.ControllerNode,
 ) {
-	var nodes map[string]MachineDetails
-	if controllerModel.ModelType == model.CAAS {
-		controller.Nodes = make(map[string]MachineDetails)
-		nodes = controller.Nodes
-	} else {
-		controller.Machines = make(map[string]MachineDetails)
-		nodes = controller.Machines
+	nodes := make(map[string]MachineDetails)
+	for _, controllerNode := range controllerNodes {
+		details := MachineDetails{
+			InstanceID: controllerNode.InstanceId,
+			Life:       controllerNode.Life,
+		}
+		if len(controllerNodes) > 1 {
+			details.HAPrimary = controllerNode.IsPrimary
+			details.HAStatus = haStatus(controllerNode.HasVote, controllerNode.WantsVote, controllerNode.Status)
+		}
+		nodes[controllerNode.Id] = details
 	}
-
-	numControllers := 0
-	for _, m := range controllerModel.Machines {
-		if !m.WantsVote {
-			continue
-		}
-		numControllers++
-	}
-	for _, m := range controllerModel.Machines {
-		if !m.WantsVote {
-			// Skip non controller machines.
-			continue
-		}
-		instId := m.InstanceId
-		if instId == "" {
-			instId = "(unprovisioned)"
-		}
-		details := MachineDetails{InstanceID: instId}
-		if numControllers > 1 {
-			details.HAStatus = haStatus(m.HasVote, m.WantsVote, m.Status)
-			if m.HAPrimary != nil && *m.HAPrimary {
-				details.HAPrimary = *m.HAPrimary
-			}
-		}
-		nodes[m.Id] = details
-	}
+	controller.Nodes = nodes
 }
 
 func haStatus(hasVote bool, wantsVote bool, statusStr string) string {

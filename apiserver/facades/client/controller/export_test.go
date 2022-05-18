@@ -23,5 +23,5 @@ var (
 	NewControllerAPIv3  = newControllerAPIv3
 	NewControllerAPIv4  = newControllerAPIv4
 	NewControllerAPIv5  = newControllerAPIv5
-	NewControllerAPIv11 = newControllerAPIv11
+	NewControllerAPIv12 = newControllerAPIv12
 )

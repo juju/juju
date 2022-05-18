@@ -350,6 +350,7 @@ func (st *State) removeControllerReferenceOps(cid string, controllerIds []string
 // ControllerNode represents an instance of a HA controller.
 type ControllerNode interface {
 	Id() string
+	Life() Life
 	Tag() names.Tag
 	Refresh() error
 	WantsVote() bool

@@ -18,6 +18,12 @@ type Pool interface {
 	Get(string) (*state.PooledState, error)
 }
 
+type cloudSpeccerState interface {
+	Model() (*state.Model, error)
+	ModelUUID() string
+	WatchCredential(names.CloudCredentialTag) state.NotifyWatcher
+}
+
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
 func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
@@ -45,7 +51,7 @@ func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environscloudspec.Clou
 // CloudSpec for a single model. Attempts to request a CloudSpec for
 // any other model other than the one associated with the given
 // state.State results in an error.
-func MakeCloudSpecGetterForModel(st *state.State) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+func MakeCloudSpecGetterForModel(st cloudSpeccerState) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		m, err := st.Model()
 		if err != nil {
@@ -64,7 +70,7 @@ func MakeCloudSpecGetterForModel(st *state.State) func(names.ModelTag) (environs
 // NotifyWatcher for cloud spec changes for a single model.
 // Attempts to request a watcher for any other model other than the
 // one associated with the given state.State results in an error.
-func MakeCloudSpecWatcherForModel(st *state.State) func(names.ModelTag) (state.NotifyWatcher, error) {
+func MakeCloudSpecWatcherForModel(st cloudSpeccerState) func(names.ModelTag) (state.NotifyWatcher, error) {
 	return func(tag names.ModelTag) (state.NotifyWatcher, error) {
 		m, err := st.Model()
 		if err != nil {
@@ -82,7 +88,7 @@ func MakeCloudSpecWatcherForModel(st *state.State) func(names.ModelTag) (state.N
 // This watch will detect when model's credential is replaced with another credential.
 // Attempts to request a watcher for any other model other than the
 // one associated with the given state.State results in an error.
-func MakeCloudSpecCredentialWatcherForModel(st *state.State) func(names.ModelTag) (state.NotifyWatcher, error) {
+func MakeCloudSpecCredentialWatcherForModel(st cloudSpeccerState) func(names.ModelTag) (state.NotifyWatcher, error) {
 	return func(tag names.ModelTag) (state.NotifyWatcher, error) {
 		m, err := st.Model()
 		if err != nil {
@@ -99,7 +105,7 @@ func MakeCloudSpecCredentialWatcherForModel(st *state.State) func(names.ModelTag
 // NotifyWatcher for credential content changes for a single model.
 // Attempts to request a watcher for any other model other than the
 // one associated with the given state.State results in an error.
-func MakeCloudSpecCredentialContentWatcherForModel(st *state.State) func(names.ModelTag) (state.NotifyWatcher, error) {
+func MakeCloudSpecCredentialContentWatcherForModel(st cloudSpeccerState) func(names.ModelTag) (state.NotifyWatcher, error) {
 	return func(tag names.ModelTag) (state.NotifyWatcher, error) {
 		m, err := st.Model()
 		if err != nil {

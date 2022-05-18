@@ -41,7 +41,7 @@ func (c *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 }
 
 func destroyController(
-	st *state.State,
+	st ControllerState,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	args params.DestroyControllerArgs,
@@ -73,7 +73,7 @@ func destroyController(
 	))
 }
 
-func ensureNotBlocked(st *state.State) error {
+func ensureNotBlocked(st ControllerState) error {
 	// If there are blocks let the user know.
 	blocks, err := st.AllBlocksForController()
 	if err != nil {

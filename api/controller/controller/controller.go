@@ -402,3 +402,37 @@ func (c *Client) ControllerVersion() (ControllerVersion, error) {
 	}
 	return out, err
 }
+
+// ControllerNode holds information about a specific node of a controller
+type ControllerNode struct {
+	Id         string
+	InstanceId string
+	Life       string
+	WantsVote  bool
+	HasVote    bool
+	IsPrimary  bool
+	Status     string
+}
+
+// ControllerNodes fetches information about the nodes on this controller
+func (c *Client) ControllerNodes() ([]ControllerNode, error) {
+	if c.BestAPIVersion() < 12 {
+		return nil, errors.New("this controller version doesn't support getting controller nodes")
+	}
+	result := params.ControllerNodesResults{}
+	err := c.facade.FacadeCall("ControllerNodes", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ControllerNode, len(result.Results))
+	for i, res := range result.Results {
+		out[i] = ControllerNode{
+			Id:        res.Id,
+			Life:      res.Life,
+			HasVote:   res.HasVote,
+			WantsVote: res.WantsVote,
+			IsPrimary: res.IsPrimary,
+		}
+	}
+	return out, nil
+}

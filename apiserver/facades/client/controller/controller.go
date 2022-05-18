@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
@@ -39,13 +40,67 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
+// ControllerState represents the point of use methods of the state object
+// required by ControllerAPI
+type ControllerState interface {
+	Model() (*state.Model, error)
+	ControllerNodes() ([]ControllerNode, error)
+	HAPrimaryMachine() (names.MachineTag, error)
+	ControllerTag() names.ControllerTag
+	ControllerModelUUID() string
+	MongoVersion() (string, error)
+	AllModelUUIDs() ([]string, error)
+	AllBlocksForController() ([]state.Block, error)
+	RemoveAllBlocksForController() error
+	UserPermission(names.UserTag, names.Tag) (permission.Access, error)
+	ModelExists(string) (bool, error)
+	UpdateControllerConfig(map[string]interface{}, []string) error
+	ControllerConfig() (corecontroller.Config, error)
+	ControllerInfo() (*state.ControllerInfo, error)
+	CreateCloudAccess(string, names.UserTag, permission.Access) error
+	GetCloudAccess(string, names.UserTag) (permission.Access, error)
+	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
+	SetUserAccess(names.UserTag, names.Tag, permission.Access) (permission.UserAccess, error)
+	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
+	RemoveCloudAccess(string, names.UserTag) error
+	RemoveUserAccess(names.UserTag, names.Tag) error
+
+	// Cloud Specer
+	ModelUUID() string
+	WatchCredential(names.CloudCredentialTag) state.NotifyWatcher
+
+	// Controller Config
+	NewExternalControllers() state.ExternalControllers
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	CompletedMigrationForModel(string) (state.ModelMigration, error)
+}
+
+type controllerAccessState interface {
+	ControllerInfo() (*state.ControllerInfo, error)
+	ControllerTag() names.ControllerTag
+	CreateCloudAccess(string, names.UserTag, permission.Access) error
+	GetCloudAccess(string, names.UserTag) (permission.Access, error)
+	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
+	SetUserAccess(names.UserTag, names.Tag, permission.Access) (permission.UserAccess, error)
+	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
+	RemoveCloudAccess(string, names.UserTag) error
+	RemoveUserAccess(names.UserTag, names.Tag) error
+}
+
+type ControllerNode interface {
+	Id() string
+	Life() state.Life
+	WantsVote() bool
+	HasVote() bool
+}
+
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state      *state.State
+	state      ControllerState
 	statePool  *state.StatePool
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -57,10 +112,16 @@ type ControllerAPI struct {
 	multiwatcherFactory multiwatcher.Factory
 }
 
+// ControllerAPIv11 provicdes the v11 controller API. The only difference between
+// this and the v12 is that v11 does have the ControllerNodes method.
+type ControllerAPIv11 struct {
+	*ControllerAPI
+}
+
 // ControllerAPIv10 provides the v10 controller API. The only difference between
 // this and the v11 is that v10 doesn't support force destroy.
 type ControllerAPIv10 struct {
-	*ControllerAPI
+	*ControllerAPIv11
 }
 
 // ControllerAPIv9 provides the v9 controller API. The only difference between
@@ -107,7 +168,7 @@ type ControllerAPIv3 struct {
 
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
-var LatestAPI = newControllerAPIv11
+var LatestAPI = newControllerAPIv12
 
 // TestingAPI is an escape hatch for requesting a controller API that won't
 // allow auth to correctly happen for ModelStatus. I'm not convicned this
@@ -117,7 +178,7 @@ var TestingAPI = newControllerAPIv6
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
 func NewControllerAPI(
-	st *state.State,
+	st ControllerState,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
@@ -164,6 +225,37 @@ func NewControllerAPI(
 		controller:          controller,
 	}, nil
 }
+
+// ControllerNodes returns information about the nodes on this controller.
+func (c *ControllerAPI) ControllerNodes() (params.ControllerNodesResults, error) {
+	controllerNodes, err := c.state.ControllerNodes()
+	if err != nil {
+		return params.ControllerNodesResults{}, errors.Trace(err)
+	}
+
+	primaryNode, err := c.state.HAPrimaryMachine()
+	if err != nil {
+		return params.ControllerNodesResults{}, errors.Trace(err)
+	}
+
+	results := make([]params.ControllerNode, len(controllerNodes))
+	for i, controllerNode := range controllerNodes {
+		isPrimary := primaryNode.Id() == controllerNode.Id()
+		paramControllerNode := params.ControllerNode{
+			Id:        controllerNode.Id(),
+			Life:      controllerNode.Life().String(),
+			IsPrimary: isPrimary,
+			WantsVote: controllerNode.WantsVote(),
+			HasVote:   controllerNode.HasVote(),
+		}
+		results[i] = paramControllerNode
+	}
+
+	return params.ControllerNodesResults{Results: results}, nil
+}
+
+// ControllerNodes isn't supported on the v11 API
+func (c *ControllerAPIv11) ControllerNodes() {}
 
 func (c *ControllerAPI) checkIsSuperUser() error {
 	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
@@ -875,7 +967,7 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 
 // grantControllerCloudAccess exists for backwards compatibility since older clients
 // still set add-model on the controller rather than the controller cloud.
-func grantControllerCloudAccess(accessor *state.State, targetUserTag names.UserTag, access permission.Access) error {
+func grantControllerCloudAccess(accessor controllerAccessState, targetUserTag names.UserTag, access permission.Access) error {
 	controllerInfo, err := accessor.ControllerInfo()
 	if err != nil {
 		return errors.Trace(err)
@@ -908,7 +1000,7 @@ func grantControllerCloudAccess(accessor *state.State, targetUserTag names.UserT
 	return nil
 }
 
-func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+func grantControllerAccess(accessor controllerAccessState, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	// TODO(wallyworld) - remove in Juju 3.0
 	// Older clients still use the controller facade to manage add-model access.
 	if access == permission.AddModelAccess {
@@ -943,7 +1035,7 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 	return nil
 }
 
-func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+func revokeControllerAccess(accessor controllerAccessState, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	// TODO(wallyworld) - remove in Juju 3.0
 	// Older clients still use the controller facade to manage add-model access.
 	if access == permission.AddModelAccess {
@@ -976,7 +1068,7 @@ func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.
 
 // ChangeControllerAccess performs the requested access grant or revoke action for the
 // specified user on the controller.
-func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
+func ChangeControllerAccess(accessor controllerAccessState, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
 	switch action {
 	case params.GrantControllerAccess:
 		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)
