@@ -61,7 +61,7 @@ require (
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
 	github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c
-	github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823
+	github.com/juju/names/v4 v4.0.0-20220518060443-d77cb46f6093
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os/v2 v2.2.3
 	github.com/juju/packaging/v2 v2.0.0-20220207023655-2ed4de2dc5b4
@@ -232,5 +232,3 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
-
-replace github.com/juju/names/v4 => ../names
