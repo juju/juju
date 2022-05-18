@@ -127,8 +127,8 @@ type Config struct {
 
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
-	if _, err := names.ParseModelTag(config.ModelUUID); err != nil {
-		return errors.NewNotValid(err, fmt.Sprintf("model UUID %q", config.ModelUUID))
+	if !names.IsValidModel(config.ModelUUID) {
+		return errors.NotValidf("model UUID %q", config.ModelUUID)
 	}
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
