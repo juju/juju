@@ -18,6 +18,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/secrets"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
@@ -79,6 +81,7 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
+	secrets                      *secretsmanager.Client
 	paths                        Paths
 	unit                         *uniter.Unit
 	modelType                    model.ModelType
@@ -107,6 +110,10 @@ type Uniter struct {
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
+
+	// secretRotateWatcherFunc returns a watcher that triggers when secrets
+	// created by this unit's application should be rotated.
+	secretRotateWatcherFunc remotestate.SecretRotateWatcherFunc
 
 	Probe Probe
 
@@ -168,9 +175,11 @@ type Uniter struct {
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
 	UniterFacade                  *uniter.State
+	SecretsFacade                 *secretsmanager.Client
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
+	SecretRotateWatcherFunc       remotestate.SecretRotateWatcherFunc
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -239,10 +248,12 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	startFunc := func() (worker.Worker, error) {
 		u := &Uniter{
 			st:                            uniterParams.UniterFacade,
+			secrets:                       uniterParams.SecretsFacade,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
 			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
+			secretRotateWatcherFunc:       uniterParams.SecretRotateWatcherFunc,
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -373,6 +384,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
+				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
@@ -472,7 +484,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-			Logger: u.logger,
+			Secrets: secrets.NewSecretsResolver(watcher.RotateSecretCompleted),
+			Logger:  u.logger,
 		}
 		if u.modelType == model.CAAS && u.isRemoteUnit {
 			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewRemoteContainerInitResolver())
@@ -792,6 +805,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            u.st,
+		Secrets:          u.secrets,
 		Unit:             u.unit,
 		Tracker:          u.leadershipTracker,
 		GetRelationInfos: u.relationStateTracker.GetInfo,
@@ -948,6 +962,9 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 			hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
 			hookMessage = hookName
 		}
+	}
+	if hookInfo.Kind.IsSecret() {
+		statusData["secret-url"] = hookInfo.SecretURL
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)

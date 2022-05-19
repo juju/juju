@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -219,4 +220,29 @@ func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
 // WorkloadName implements hooks.Context.
 func (*RestrictedContext) WorkloadName() (string, error) {
 	return "", ErrRestrictedContext
+}
+
+// GetSecret implements runner.Context.
+func (ctx *RestrictedContext) GetSecret(ID string) (secrets.SecretValue, error) {
+	return nil, ErrRestrictedContext
+}
+
+// CreateSecret implements runner.Context.
+func (ctx *RestrictedContext) CreateSecret(name string, args *SecretUpsertArgs) (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// UpdateSecret implements runner.Context.
+func (ctx *RestrictedContext) UpdateSecret(name string, args *SecretUpsertArgs) (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// GrantSecret implements runner.Context.
+func (c *RestrictedContext) GrantSecret(name string, args *SecretGrantRevokeArgs) error {
+	return nil
+}
+
+// RevokeSecret implements runner.Context.
+func (c *RestrictedContext) RevokeSecret(name string, args *SecretGrantRevokeArgs) error {
+	return nil
 }

@@ -19,12 +19,14 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/migrationminion"
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -507,6 +509,98 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange("terminated", "offer has been removed")
+	assertNoChange()
+}
+
+func (s *watcherSuite) setupSecretRotationWatcher(
+	c *gc.C,
+) (func(corewatcher.SecretRotationChange), func(), func()) {
+	store := state.NewSecretsStore(s.State)
+	URL := secrets.NewSimpleURL("app/mysql/password")
+	_, err := store.CreateSecret(URL, state.CreateSecretParams{
+		Owner:          "application-mysql",
+		Path:           "app/mysql/password",
+		Type:           "blob",
+		RotateInterval: time.Hour,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = s.Model.ModelTag()
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := secretsmanager.NewClient(apiConn)
+	w, err := client.WatchSecretsRotationChanges("application-mysql")
+	if !c.Check(err, jc.ErrorIsNil) {
+		_ = apiConn.Close()
+		c.FailNow()
+	}
+	stop := func() {
+		workertest.CleanKill(c, w)
+		_ = apiConn.Close()
+	}
+
+	assertNoChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(change corewatcher.SecretRotationChange) {
+		s.BackingState.StartSync()
+		select {
+		case changes, ok := <-w.Changes():
+			c.Check(ok, jc.IsTrue)
+			c.Assert(changes, gc.HasLen, 1)
+			c.Assert(changes[0].LastRotateTime.Before(time.Now()), jc.IsTrue)
+			changes[0].LastRotateTime = time.Time{}
+			c.Assert(changes[0], jc.DeepEquals, change)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+	}
+
+	// Initial event.
+	assertChange(corewatcher.SecretRotationChange{
+		ID:             1,
+		URL:            URL,
+		RotateInterval: time.Hour,
+		LastRotateTime: time.Time{},
+	})
+	return assertChange, assertNoChange, stop
+}
+
+func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
+	assertChange, assertNoChange, stop := s.setupSecretRotationWatcher(c)
+	defer stop()
+
+	store := state.NewSecretsStore(s.State)
+	URL := secrets.NewSimpleURL("app/mysql/password")
+	minute := time.Minute
+	_, err := store.UpdateSecret(URL, state.UpdateSecretParams{
+		RotateInterval: &minute,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretRotationChange{
+		ID:             1,
+		URL:            URL,
+		RotateInterval: time.Minute,
+		LastRotateTime: time.Time{},
+	})
 	assertNoChange()
 }
 

@@ -43,6 +43,9 @@ const RawK8sSpec = "raw-k8s-spec"
 // ActionsV2 enables the next generation actions UX.
 const ActionsV2 = "actions-v2"
 
+// Secrets enables the secrets feature.
+const Secrets = "secrets"
+
 // RaftAPILeases will switch all lease store management transport, currently
 // handled by Pubsub to facade API interaction.
 const RaftAPILeases = "raft-api-leases"

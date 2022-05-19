@@ -346,6 +346,70 @@ func (c RelationUnitsWatcherC) AssertClosed() {
 	}
 }
 
+// SecretsRotationWatcherC embeds a gocheck.C and adds methods to help
+// verify the behaviour of any watcher that uses a
+// <-chan []SecretRotationChange
+type SecretsRotationWatcherC struct {
+	*gc.C
+	State   SyncStarter
+	Watcher SecretsRotationWatcher
+}
+
+// NewSecretsRotationWatcherC returns a SecretsRotationWatcherC that
+// checks for aggressive event coalescence.
+func NewSecretsRotationWatcherC(c *gc.C, st SyncStarter, w SecretsRotationWatcher) SecretsRotationWatcherC {
+	return SecretsRotationWatcherC{
+		C:       c,
+		State:   st,
+		Watcher: w,
+	}
+}
+
+type SecretsRotationWatcher interface {
+	Stop() error
+	Changes() watcher.SecretRotationChannel
+}
+
+func (c SecretsRotationWatcherC) AssertNoChange() {
+	c.State.StartSync()
+	select {
+	case actual, ok := <-c.Watcher.Changes():
+		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+// AssertChange asserts the given changes was reported by the watcher,
+// but does not assume there are no following changes.
+func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretRotationChange) {
+	c.State.StartSync()
+	var received []watcher.SecretRotationChange
+	timeout := time.After(testing.LongWait)
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		select {
+		case actual, ok := <-c.Watcher.Changes():
+			c.Logf("Watcher.Changes() => %# v", actual)
+			c.Assert(ok, jc.IsTrue)
+			received = append(received, actual...)
+			if len(received) >= len(expect) {
+				c.Assert(received, jc.DeepEquals, expect)
+				return
+			}
+		case <-timeout:
+			c.Fatalf("watcher did not send change")
+		}
+	}
+}
+
+func (c SecretsRotationWatcherC) AssertClosed() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsFalse)
+	default:
+		c.Fatalf("watcher not closed")
+	}
+}
+
 // MockNotifyWatcher implements state.NotifyWatcher.
 type MockNotifyWatcher struct {
 	tomb tomb.Tomb

@@ -10,6 +10,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -21,6 +22,7 @@ var _ = gc.Suite(&HelpToolSuite{})
 
 func (suite *HelpToolSuite) SetUpTest(c *gc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	setFeatureFlags(feature.Secrets)
 }
 
 func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
@@ -130,6 +132,11 @@ var expectedCommands = []string{
 	"relation-list",
 	"relation-set",
 	"resource-get",
+	"secret-create",
+	"secret-get",
+	"secret-grant",
+	"secret-revoke",
+	"secret-update",
 	"state-delete",
 	"state-get",
 	"state-set",

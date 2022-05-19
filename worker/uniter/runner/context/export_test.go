@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/rpc/params"
@@ -109,6 +110,20 @@ func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUn
 		logger:           logger,
 		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
 	}
+}
+
+func NewMockUnitHookContextWithSecrets(mockUnit *mocks.MockHookUnit, client *secretsmanager.Client) *HookContext {
+	return &HookContext{
+		unitName:     mockUnit.Tag().Id(),
+		unit:         mockUnit,
+		secretFacade: client,
+		logger:       loggo.GetLogger("test"),
+	}
+}
+
+// SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
+func SetEnvironmentHookContextSecret(context *HookContext, secretURL string) {
+	context.secretURL = secretURL
 }
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
