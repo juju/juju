@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -398,19 +399,28 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		clearScreen()
-	}
+		//  Get list of all agrs, cut off '--watch' flag from 'juju status'
+		var jujuStatusWithoutWatch []string
+		var watchValue string
+		for i := range os.Args {
+			if os.Args[i] == "--watch" {
+				watchValue = os.Args[i+1]
+				jujuStatusWithoutWatch = append(os.Args[:i], os.Args[i+2:]...)
+				break
+			}
+		}
+		// Use value of '--watch' flag as a value of '-n' flag of viddy command
+		viddyArgs := append([]string{"-n", watchValue}, jujuStatusWithoutWatch...)
+		cmd := exec.Command("viddy", viddyArgs...)
+		stdout, err := cmd.Output()
 
-	err := c.runStatus(ctx)
-	if err != nil || c.watch == 0 {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	// repeat the call using a ticker
-	ticker := time.NewTicker(c.watch)
-
-	for range ticker.C {
-		clearScreen()
+		// Print the output
+		fmt.Println(string(stdout))
+	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
 			return err
