@@ -550,8 +550,8 @@ github.com/juju/mutex v0.0.0-20171110020013-1fe2a4bf0a3a/go.mod h1:Y3oOzHH8CQ0Pp
 github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c h1:+wSxXZCFPw3Bs5ij3ZMV0njIKGVwl4+Ftb5vb0ij+7Y=
 github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c/go.mod h1:jwCfBs/smYDaeZLqeaCi8CB8M+tOes4yf827HoOEoqk=
 github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b/go.mod h1:gdlBx0aNufAMkEx3GjT8Yz4MChs3oVjCp/nEz/PrTX4=
-github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823 h1:Sv0+v4107/GHA0S25ay/rgGVmLyc+5Fjp0NnTksW/IQ=
-github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823/go.mod h1:xpkrQpHbz1DGY+0Geo32ZnyognGA/2vSB++rpu/Z+Lc=
+github.com/juju/names/v4 v4.0.0-20220518060443-d77cb46f6093 h1:KSZWGhPCzzxBV4uID3oWtZOXG02G4m3+mU7ww/2K79Q=
+github.com/juju/names/v4 v4.0.0-20220518060443-d77cb46f6093/go.mod h1:xpkrQpHbz1DGY+0Geo32ZnyognGA/2vSB++rpu/Z+Lc=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b h1:Ow9ltIspVQvDdGAmZRkbL8q62jqOo3MOLtWASCFc//4=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b/go.mod h1:Zqa/vGkXr78k47zM6tFmU9phhxKz/PIdqBzpLhJ86zc=
 github.com/juju/os v0.0.0-20190625135142-88a4c6ac59c1/go.mod h1:buR1fIbfLx3neIA/TKE8ZlS/nRR3keo+hjVqV+VR4ns=

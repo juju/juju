@@ -169,8 +169,8 @@ func connectFallback(
 
 func shortModelUUID(model names.ModelTag) string {
 	uuid := model.Id()
-	if len(uuid) > 6 {
-		return uuid[:6]
+	if names.IsValidModel(uuid) {
+		return model.ShortId()
 	}
 	return uuid
 }

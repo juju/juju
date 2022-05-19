@@ -19,7 +19,7 @@ const modelUUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 func (s *NamespaceSuite) TestInvalidModelTag(c *gc.C) {
 	ns, err := instance.NewNamespace("foo")
 	c.Assert(ns, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `model ID "foo" is not a valid model`)
+	c.Assert(err, gc.ErrorMatches, `model UUID "foo" not valid`)
 }
 
 func (s *NamespaceSuite) newNamespace(c *gc.C) instance.Namespace {
