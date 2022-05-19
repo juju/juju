@@ -1,0 +1,6 @@
+
+{
+  "ImageName": "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+  "Username": "docker-registry",,
+  "Password": "hunter2"
+}
