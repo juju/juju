@@ -170,7 +170,6 @@ require (
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
 	github.com/juju/usso v1.0.1 // indirect
-	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
