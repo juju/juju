@@ -758,7 +758,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 			Architecture: "amd64",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `base: empty channel not valid`)
+	c.Assert(err, gc.ErrorMatches, `base: channel cannot be empty`)
 }
 
 func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
