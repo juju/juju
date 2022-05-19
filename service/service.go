@@ -233,7 +233,13 @@ var installStartRetryStrategy = retry.CallArgs{
 // InstallAndStart installs the provided service and tries starting it.
 // The first few Start failures are ignored.
 func InstallAndStart(svc ServiceActions) error {
-	logger.Infof("Installing and starting service %+v", svc)
+	service, ok := svc.(Service)
+	if !ok {
+		return errors.Errorf("specified service has no name %+v", svc)
+	}
+	logger.Infof("Installing and starting service %s", service.Name())
+	logger.Debugf("Installing and starting service %+v", svc)
+
 	if err := svc.Install(); err != nil {
 		return errors.Trace(err)
 	}

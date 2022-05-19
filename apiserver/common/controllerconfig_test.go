@@ -6,16 +6,18 @@ package common_test
 import (
 	"fmt"
 
-	"github.com/juju/errors"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -29,31 +31,18 @@ type controllerConfigSuite struct {
 	testing.BaseSuite
 
 	testingEnvConfig *config.Config
+	st               *mocks.MockControllerConfigState
+	cc               *common.ControllerConfigAPI
 }
 
 var _ = gc.Suite(&controllerConfigSuite{})
 
-type fakeControllerAccessor struct {
-	controllerConfigError error
-}
+func (s *controllerConfigSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-func (f *fakeControllerAccessor) ControllerConfig() (controller.Config, error) {
-	if f.controllerConfigError != nil {
-		return nil, f.controllerConfigError
-	}
-	return map[string]interface{}{
-		controller.ControllerUUIDKey: testing.ControllerTag.Id(),
-		controller.CACertKey:         testing.CACert,
-		controller.APIPort:           4321,
-		controller.StatePort:         1234,
-	}, nil
-}
-
-func (f *fakeControllerAccessor) ControllerInfo(modelUUID string) ([]string, string, error) {
-	if modelUUID != testing.ModelTag.Id() {
-		return nil, "", errors.New("wrong model")
-	}
-	return []string{"192.168.1.1:17070"}, testing.CACert, nil
+	s.st = mocks.NewMockControllerConfigState(ctrl)
+	s.cc = common.NewStateControllerConfig(s.st)
+	return ctrl
 }
 
 func (s *controllerConfigSuite) TearDownTest(c *gc.C) {
@@ -61,11 +50,20 @@ func (s *controllerConfigSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (*controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
-	cc := common.NewControllerConfig(
-		&fakeControllerAccessor{},
+func (s *controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.EXPECT().ControllerConfig().Return(
+		map[string]interface{}{
+			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
+			controller.CACertKey:         testing.CACert,
+			controller.APIPort:           4321,
+			controller.StatePort:         1234,
+		},
+		nil,
 	)
-	result, err := cc.ControllerConfig()
+
+	result, err := s.cc.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(map[string]interface{}(result.Config), jc.DeepEquals, map[string]interface{}{
 		"ca-cert":         testing.CACert,
@@ -75,21 +73,30 @@ func (*controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 	})
 }
 
-func (*controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
-	cc := common.NewControllerConfig(
-		&fakeControllerAccessor{
-			controllerConfigError: fmt.Errorf("pow"),
-		},
-	)
-	_, err := cc.ControllerConfig()
+func (s *controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.EXPECT().ControllerConfig().Return(nil, fmt.Errorf("pow"))
+	_, err := s.cc.ControllerConfig()
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
-func (*controllerConfigSuite) TestControllerInfo(c *gc.C) {
-	cc := common.NewControllerConfig(
-		&fakeControllerAccessor{},
-	)
-	results, err := cc.ControllerAPIInfoForModels(params.Entities{
+func (s *controllerConfigSuite) expectStateControllerInfo(c *gc.C) {
+	s.st.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{
+		network.NewSpaceHostPorts(17070, "192.168.1.1"),
+	}, nil)
+	s.st.EXPECT().ControllerConfig().Return(map[string]interface{}{
+		controller.CACertKey: testing.CACert,
+	}, nil)
+}
+
+func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.EXPECT().ModelExists(testing.ModelTag.Id()).Return(true, nil)
+	s.expectStateControllerInfo(c)
+
+	results, err := s.cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: testing.ModelTag.String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

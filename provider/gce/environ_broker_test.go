@@ -64,7 +64,7 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.ic = &instances.InstanceConstraint{
 		Region:      "home",
 		Series:      "trusty",
-		Arches:      []string{amd64},
+		Arch:        amd64,
 		Constraints: s.StartInstArgs.Constraints,
 	}
 	s.imageMetadata = []*imagemetadata.ImageMetadata{{

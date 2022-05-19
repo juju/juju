@@ -67,7 +67,7 @@ func findInstanceSpec(
 		instanceType := instances.InstanceType{
 			Id:       flavor.Id,
 			Name:     flavor.Name,
-			Arches:   ic.Arches,
+			Arch:     ic.Arch,
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
 			RootDisk: uint64(flavor.Disk * 1024),

@@ -175,11 +175,13 @@ bind-addresses:
   interface-name: eth2
   addresses:
   - hostname: ""
-    address: 10.20.1.42
+    value: 10.20.1.42
     cidr: 10.20.1.42/24
+    address: 10.20.1.42
   - hostname: ""
-    address: fc00::1
+    value: fc00::1
     cidr: fc00::/64
+    address: fc00::1
   macaddress: "00:11:22:33:44:22"
   interfacename: eth2`[1:],
 	}, {
@@ -195,22 +197,26 @@ bind-addresses:
   interface-name: eth0
   addresses:
   - hostname: ""
-    address: 10.10.0.23
+    value: 10.10.0.23
     cidr: 10.10.0.0/24
+    address: 10.10.0.23
   - hostname: ""
-    address: 192.168.1.111
+    value: 192.168.1.111
     cidr: 192.168.1.0/24
+    address: 192.168.1.111
   macaddress: "00:11:22:33:44:00"
   interfacename: eth0
 - mac-address: "00:11:22:33:44:11"
   interface-name: eth1
   addresses:
   - hostname: ""
-    address: 10.10.1.23
+    value: 10.10.1.23
     cidr: 10.10.1.0/24
+    address: 10.10.1.23
   - hostname: ""
-    address: 192.168.2.111
+    value: 192.168.2.111
     cidr: 192.168.2.0/24
+    address: 192.168.2.111
   macaddress: "00:11:22:33:44:11"
   interfacename: eth1`[1:],
 	}, {
@@ -226,8 +232,9 @@ bind-addresses:
   interface-name: eth3
   addresses:
   - hostname: ""
-    address: 10.33.1.8
+    value: 10.33.1.8
     cidr: 10.33.1.8/24
+    address: 10.33.1.8
   macaddress: "00:11:22:33:44:33"
   interfacename: eth3`[1:],
 	}, {
@@ -248,8 +255,9 @@ bind-addresses:
   interface-name: eth3
   addresses:
   - hostname: ""
-    address: 10.33.1.8
+    value: 10.33.1.8
     cidr: 10.33.1.8/24
+    address: 10.33.1.8
   macaddress: "00:11:22:33:44:33"
   interfacename: eth3
 egress-subnets:

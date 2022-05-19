@@ -134,6 +134,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 		"unknown": {
 			Error: &params.Error{
 				Message: `undefined for unit charm: endpoint "unknown" not valid`,
+				Code:    params.CodeNotValid,
 			},
 		},
 	},

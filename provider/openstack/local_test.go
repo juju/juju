@@ -1559,7 +1559,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
-	c.Assert(err, gc.ErrorMatches, `no metadata for "saucy" images in some-region with arches \[amd64\]`)
+	c.Assert(err, gc.ErrorMatches, `no metadata for "saucy" images in some-region with arch amd64`)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
@@ -1677,7 +1677,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.large",
 		imageMetadata,
 	)
-	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
+	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "arch=amd64 instance-type=m1.large"`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {

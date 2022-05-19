@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"github.com/kr/pretty"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -47,7 +49,7 @@ func findInstanceSpec(
 		ic.Constraints = withDefaultNonControllerConstraints(ic.Constraints)
 	}
 	suitableImages := filterImages(allImageMetadata, ic)
-	logger.Debugf("found %d suitable image(s)", len(suitableImages))
+	logger.Debugf("found %d suitable image(s): %s", len(suitableImages), pretty.Sprint(suitableImages))
 	images := instances.ImageMetadataToImages(suitableImages)
 	return instances.FindInstanceSpec(images, ic, instanceTypes)
 }

@@ -6,7 +6,7 @@
 
  - [ ] Requires a [pylibjuju](https://github.com/juju/python-libjuju) change
  - [ ] Added [integration tests](https://github.com/juju/juju/tree/develop/tests) for the PR
- - [ ] Added or updated [doc.go](https://discourse.jujucharms.com/t/readme-in-packages/451) related to packages changed
+ - [ ] Added or updated [doc.go](https://discourse.charmhub.io/t/readme-in-packages/451) related to packages changed
  - [ ] Comments answer the question of why design decisions were made
 
 ## QA steps

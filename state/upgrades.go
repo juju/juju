@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/upgrade"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/tools"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -1328,7 +1329,7 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	return relations, nil
 }
 
-// unitAppName returns the name of the Application, given a Units name.
+// unitAppName returns the name of the Application, given a Unit's name.
 func unitAppName(unitName string) string {
 	unitParts := strings.Split(unitName, "/")
 	return unitParts[0]
@@ -2915,13 +2916,34 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 	coll, closer := st.db().GetRawCollection(unitsC)
 	defer closer()
 
-	// Load all the units into a map by full ID.
-	units := make(map[string]*unitDoc)
+	// unitDoc28 represents the unit document as at Juju version 2.8,
+	// to which this upgrade step applies.
+	// Later, in version 2.9.23, CharmURL was stored as *string
+	// instead of *charm.URL.
+	type unitDoc28 struct {
+		DocID                  string `bson:"_id"`
+		Name                   string `bson:"name"`
+		ModelUUID              string `bson:"model-uuid"`
+		Application            string
+		Series                 string
+		CharmURL               *charm.URL
+		Principal              string
+		Subordinates           []string
+		StorageAttachmentCount int `bson:"storageattachmentcount"`
+		MachineId              string
+		Resolved               ResolvedMode
+		Tools                  *tools.Tools `bson:",omitempty"`
+		Life                   Life
+		PasswordHash           string
+	}
 
-	var doc unitDoc
+	// Load all the units into a map by full ID.
+	units := make(map[string]*unitDoc28)
+
+	var doc unitDoc28
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		// Make a copy of the unitDoc and put the copy
+		// Make a copy of the doc and put the copy
 		// into the map.
 		unit := doc
 		units[unit.DocID] = &unit
@@ -3683,6 +3705,16 @@ func EnsureCharmOriginRisk(pool *StatePool) error {
 
 		var ops []txn.Op
 		for _, doc := range docs {
+			// It is expected that every application should have a charm URL.
+			charmURL := doc.CharmURL
+			if charmURL == nil {
+				return errors.Errorf("charmurl is empty")
+			}
+
+			if charmURL.Schema == "local" {
+				continue
+			}
+
 			// This should never happen, instead we should always have one.
 			// See: AddCharmOriginToApplications
 			if doc.CharmOrigin == nil {
@@ -4260,4 +4292,46 @@ func UpdateOperationWithEnqueuingErrors(pool *StatePool) error {
 		return nil
 	}
 	return st.runRawTransaction(ops)
+}
+
+// RemoveLocalCharmOriginChannels removes the charm-origin channel from all
+// local charms, it cannot have even an empty risk. See LP1970608.
+func RemoveLocalCharmOriginChannels(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			// It is expected that every application should have a charm URL.
+			charmURL := doc.CharmURL
+			if charmURL == nil {
+				return errors.Errorf("charmurl is empty")
+			}
+
+			if charmURL.Schema != "local" {
+				continue
+			}
+
+			if doc.CharmOrigin == nil || doc.CharmOrigin.Channel == nil {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$unset", bson.D{{"charm-origin.channel", nil}}}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
 }

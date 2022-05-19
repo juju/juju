@@ -14,6 +14,7 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	apicharm "github.com/juju/juju/api/common/charm"
 	commoncharms "github.com/juju/juju/api/common/charms"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -73,12 +74,12 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 	}
 	var result params.ResolveCharmWithChannelResults
 	if err := c.facade.FacadeCall("ResolveCharms", args, &result); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	resolvedCharms := make([]ResolvedCharm, len(charms))
 	for i, r := range result.Results {
 		if r.Error != nil {
-			resolvedCharms[i] = ResolvedCharm{Error: r.Error}
+			resolvedCharms[i] = ResolvedCharm{Error: apiservererrors.RestoreError(r.Error)}
 			continue
 		}
 		curl, err := charm.ParseURL(r.URL)

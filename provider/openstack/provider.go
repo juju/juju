@@ -56,7 +56,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -1085,24 +1084,20 @@ func (e *Environ) startInstance(
 		return nil, errors.Trace(err)
 	}
 
-	arches := args.Tools.Arches()
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
 		Series:      args.InstanceConfig.Series,
-		Arches:      arches,
+		Arch:        arch,
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
-	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return nil, common.ZoneIndependentError(
-			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
-		)
-	}
-
-	if err := args.InstanceConfig.SetTools(tools); err != nil {
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
 

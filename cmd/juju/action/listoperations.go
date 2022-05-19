@@ -244,7 +244,7 @@ func (c *listOperationsCommand) formatTabular(writer io.Writer, value interface{
 			w.Println(line.operation)
 		}
 	}
-	w.Println("Id", "Status", "Started", "Finished", "Task IDs", "Summary")
+	w.Println("ID", "Status", "Started", "Finished", "Task IDs", "Summary")
 	printOperations(actionOperationLinesFromResults(results), c.utc)
 	return tw.Flush()
 }

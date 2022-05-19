@@ -49,6 +49,11 @@ type ProvisionMachineArgs struct {
 	// ubuntu user's ~/.ssh/authorized_keys.
 	AuthorizedKeys string
 
+	// PrivateKey contains the path of the identify file containing the
+	// private key to be used during the ssh connection with a target
+	// machine.
+	PrivateKey string
+
 	// WinRM contains keys and client interface api with the remote windows machine
 	WinRM WinRMArgs
 

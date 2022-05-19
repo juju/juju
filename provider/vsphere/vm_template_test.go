@@ -7,20 +7,20 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock/testclock"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type vmTemplateSuite struct {
@@ -132,9 +132,6 @@ func (v *vmTemplateSuite) mockDownloadedTemplateToClient(arch string) {
 }
 
 func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedButImageExistsUpstream(c *gc.C) {
-	arches := []string{
-		"amd64",
-	}
 	resPool := v.client.resourcePools["/DC/host/z1/..."][0]
 	tplMgr := vsphere.NewVMTemplateManager(
 		nil, v.env, v.client, resPool.Reference(),
@@ -142,7 +139,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedButImageExist
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", arches)
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -150,9 +147,6 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedButImageExist
 }
 
 func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesNotExistUpstream(c *gc.C) {
-	arches := []string{
-		"amd64",
-	}
 	resPool := v.client.resourcePools["/DC/host/z1/..."][0]
 	tplMgr := vsphere.NewVMTemplateManager(
 		nil, v.env, v.client, resPool.Reference(),
@@ -160,16 +154,13 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	_, _, err := tplMgr.EnsureTemplate(context.Background(), "xenial", arches)
+	_, _, err := tplMgr.EnsureTemplate(context.Background(), "xenial", "amd64")
 	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 	c.Assert(err.Error(), gc.Matches, "no matching images found for given constraints.*")
 	v.client.CheckCallNames(c, "ListVMTemplates", "EnsureVMFolder")
 }
 
 func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *gc.C) {
-	arches := []string{
-		"amd64",
-	}
 	imgMeta := []*imagemetadata.ImageMetadata{
 		{
 			Id:         "custom-templates/trusty",
@@ -185,7 +176,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *gc.C) {
 		v.datastore, v.statusUpdateParams, "",
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", arches)
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, jc.DeepEquals, v.client.virtualMachineTemplates[0].vm)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -193,9 +184,6 @@ func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *gc.C) {
 }
 
 func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *gc.C) {
-	arches := []string{
-		"amd64",
-	}
 	imgMeta := []*imagemetadata.ImageMetadata{
 		{
 			// this image ID does not exist in our mocked templates.
@@ -214,7 +202,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 	// trusty exists in the image-download simplestreams
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", arches)
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -223,10 +211,6 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *gc.C) {
 }
 
 func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *gc.C) {
-	arches := []string{
-		"amd64",
-	}
-
 	v.addMockDownloadedTemplateToClient()
 	resPool := v.client.resourcePools["/DC/host/z1/..."][0]
 	tplMgr := vsphere.NewVMTemplateManager(
@@ -235,7 +219,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", arches)
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -243,10 +227,6 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *gc.C) {
 }
 
 func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImageNoArch(c *gc.C) {
-	arches := []string{
-		"amd64",
-	}
-
 	v.addMockDownloadedTemplateToClientNoArch()
 	resPool := v.client.resourcePools["/DC/host/z1/..."][0]
 	tplMgr := vsphere.NewVMTemplateManager(
@@ -255,7 +235,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImageNoArch(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", arches)
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "")

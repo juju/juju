@@ -169,8 +169,12 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 // interfaceAddressDisplay mirrors params.InterfaceAddress.
 type interfaceAddressDisplay struct {
 	Hostname string `json:"hostname" yaml:"hostname"`
-	Address  string `json:"value" yaml:"address"`
+	Address  string `json:"value" yaml:"value"`
 	CIDR     string `json:"cidr" yaml:"cidr"`
+
+	// This copy is used to preserve YAML serialisation that older agents
+	// may be expecting. Delete them for Juju 3/4.
+	AddressX string `json:"-" yaml:"address"`
 }
 
 // networkInfoDisplay mirrors params.NetworkInfo.
@@ -214,7 +218,13 @@ func resultToDisplay(result params.NetworkInfoResult) networkInfoResultDisplay {
 		}
 
 		for j, addr := range rInfo.Addresses {
-			dInfo.Addresses[j] = interfaceAddressDisplay(addr)
+			dInfo.Addresses[j] = interfaceAddressDisplay{
+				Hostname: addr.Hostname,
+				Address:  addr.Address,
+				CIDR:     addr.CIDR,
+
+				AddressX: addr.Address,
+			}
 		}
 
 		display.Info[i] = dInfo
