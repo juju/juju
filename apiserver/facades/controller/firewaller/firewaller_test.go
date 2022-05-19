@@ -30,6 +30,8 @@ type firewallerSuite struct {
 
 	firewaller *firewaller.FirewallerAPI
 	subnet     *state.Subnet
+
+	ctrl *gomock.Controller
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -40,10 +42,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.subnet = subnet
-}
-
-func (s *firewallerSuite) setup(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
@@ -53,7 +51,9 @@ func (s *firewallerSuite) setup(c *gc.C) *gomock.Controller {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(s.State),
 		common.AuthFuncForTag(s.Model.ModelTag()),
 	)
-	controllerConfigAPI := mocks.NewMockControllerConfigAPI(ctrl)
+
+	s.ctrl = gomock.NewController(c)
+	controllerConfigAPI := mocks.NewMockControllerConfigAPI(s.ctrl)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(s.State, s.Model),
@@ -65,11 +65,11 @@ func (s *firewallerSuite) setup(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
-
-	return ctrl
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	constructor := func(context facade.Context) error {
 		_, err := firewaller.NewFirewallerAPIV7(context)
 		return err
@@ -78,18 +78,26 @@ func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestLife(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testLife(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestInstanceId(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testInstanceId(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testWatchModelMachines(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatch(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testWatch(c, s.firewaller, cannotWatchUnits)
 }
 
@@ -98,6 +106,8 @@ func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testGetAssignedMachine(c, s.firewaller)
 }
 
@@ -125,6 +135,8 @@ func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName 
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	s.openPorts(c)
@@ -171,7 +183,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.ctrl.Finish()
 
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
@@ -209,7 +221,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.ctrl.Finish()
 
 	// Set the application to exposed first.
 	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -262,7 +274,7 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.ctrl.Finish()
 
 	// Set up a spaces with two subnets
 	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
