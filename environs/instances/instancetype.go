@@ -15,7 +15,7 @@ import (
 type InstanceType struct {
 	Id       string
 	Name     string
-	Arches   []string
+	Arch     string
 	CpuCores uint64
 	Mem      uint64
 	Cost     uint64
@@ -51,16 +51,13 @@ func CpuPower(power uint64) *uint64 {
 // constraints filtered out.
 func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	nothing := InstanceType{}
-	if cons.Arch != nil {
-		itype.Arches = filterArches(itype.Arches, []string{*cons.Arch})
+	if cons.HasArch() && *cons.Arch != itype.Arch {
+		return nothing, false
 	}
 	if itype.Deprecated && !cons.HasInstanceType() {
 		return nothing, false
 	}
 	if cons.HasInstanceType() && itype.Name != *cons.InstanceType {
-		return nothing, false
-	}
-	if len(itype.Arches) == 0 {
 		return nothing, false
 	}
 	if cons.CpuCores != nil && itype.CpuCores < *cons.CpuCores {
@@ -82,19 +79,6 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 		return nothing, false
 	}
 	return itype, true
-}
-
-// filterArches returns every element of src that also exists in filter.
-func filterArches(src, filter []string) (dst []string) {
-	for _, arch := range src {
-		for _, match := range filter {
-			if arch == match {
-				dst = append(dst, arch)
-				break
-			}
-		}
-	}
-	return dst
 }
 
 // minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (1GB)

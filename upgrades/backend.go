@@ -107,6 +107,7 @@ type StateBackend interface {
 	SetContainerAddressOriginToMachine() error
 	UpdateCharmOriginAfterSetSeries() error
 	UpdateOperationWithEnqueuingErrors() error
+	RemoveLocalCharmOriginChannels() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -467,4 +468,8 @@ func (s stateBackend) UpdateCharmOriginAfterSetSeries() error {
 
 func (s stateBackend) UpdateOperationWithEnqueuingErrors() error {
 	return state.UpdateOperationWithEnqueuingErrors(s.pool)
+}
+
+func (s stateBackend) RemoveLocalCharmOriginChannels() error {
+	return state.RemoveLocalCharmOriginChannels(s.pool)
 }

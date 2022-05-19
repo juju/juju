@@ -4,8 +4,6 @@
 package operation
 
 import (
-	"time"
-
 	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -243,9 +241,6 @@ type Callbacks interface {
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
-
-	// SetSecretRotated updates the time when the secret was rotated.
-	SetSecretRotated(url string, when time.Time) error
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

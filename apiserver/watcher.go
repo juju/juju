@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -1280,66 +1279,6 @@ func (w *SrvModelSummaryWatcher) translateMessages(messages []cache.ModelSummary
 		result[i] = params.ModelSummaryMessage{
 			Agent:   m.Agent,
 			Message: m.Message,
-		}
-	}
-	return result
-}
-
-// srvSecretRotationWatcher defines the API wrapping a SecretsRotationWatcher.
-type srvSecretRotationWatcher struct {
-	watcherCommon
-	st      *state.State
-	watcher state.SecretsRotationWatcher
-}
-
-func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
-	auth := context.Auth()
-	resources := context.Resources()
-
-	st := context.State()
-
-	if !isAgent(auth) {
-		return nil, apiservererrors.ErrPerm
-	}
-	watcher, ok := resources.Get(id).(state.SecretsRotationWatcher)
-	if !ok {
-		return nil, apiservererrors.ErrUnknownWatcher
-	}
-	return &srvSecretRotationWatcher{
-		watcherCommon: newWatcherCommon(context),
-		st:            st,
-		watcher:       watcher,
-	}, nil
-}
-
-// Next returns when a change has occurred to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvSecretRotationWatcher.
-func (w *srvSecretRotationWatcher) Next() (params.SecretRotationWatchResult, error) {
-	if changes, ok := <-w.watcher.Changes(); ok {
-		return params.SecretRotationWatchResult{
-			Changes: w.translateChanges(changes),
-		}, nil
-	}
-	err := w.watcher.Err()
-	if err == nil {
-		err = apiservererrors.ErrStoppedWatcher
-	}
-	return params.SecretRotationWatchResult{}, err
-}
-
-func (w *srvSecretRotationWatcher) translateChanges(changes []corewatcher.SecretRotationChange) []params.SecretRotationChange {
-	if changes == nil {
-		return nil
-	}
-	result := make([]params.SecretRotationChange, len(changes))
-	for i, c := range changes {
-		result[i] = params.SecretRotationChange{
-			ID:             c.ID,
-			URL:            c.URL.ID(),
-			RotateInterval: c.RotateInterval,
-			LastRotateTime: c.LastRotateTime,
 		}
 	}
 	return result

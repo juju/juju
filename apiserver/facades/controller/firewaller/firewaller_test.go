@@ -6,6 +6,7 @@ package firewaller_test
 import (
 	"sort"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +16,7 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
+	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -38,6 +40,10 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.subnet = subnet
+}
+
+func (s *firewallerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
@@ -47,7 +53,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(s.State),
 		common.AuthFuncForTag(s.Model.ModelTag()),
 	)
-	controllerConfigAPI := common.NewStateControllerConfig(s.State)
+	controllerConfigAPI := mocks.NewMockControllerConfigAPI(ctrl)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(s.State, s.Model),
@@ -59,6 +65,8 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
+
+	return ctrl
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
@@ -163,6 +171,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits},
@@ -199,6 +209,8 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	// Set the application to exposed first.
 	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
@@ -250,6 +262,8 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	// Set up a spaces with two subnets
 	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)

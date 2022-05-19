@@ -43,7 +43,7 @@ func (s *ListSuite) TestList(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-Unit          Storage id    Type        Pool      Size    Status    Message
+Unit          Storage ID    Type        Pool      Size    Status    Message
               persistent/1  filesystem                    detached  
 postgresql/0  db-dir/1100   block                 3.0MiB  attached  
 transcode/0   db-dir/1000   block                         pending   creating volume
@@ -60,7 +60,7 @@ func (s *ListSuite) TestListNoPool(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-Unit          Storage id    Type        Size    Status    Message
+Unit          Storage ID    Type        Size    Status    Message
               persistent/1  filesystem          detached  
 postgresql/0  db-dir/1100   block       3.0MiB  attached  
 transcode/0   db-dir/1000   block               pending   creating volume

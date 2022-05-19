@@ -46,11 +46,19 @@ func (src List) OneRelease() string {
 	return release[0]
 }
 
-// Arches returns all architectures for which some tools in src were built.
-func (src List) Arches() []string {
-	return src.collect(func(tools *Tools) string {
+// OneArch returns a single architecture for all tools in src,
+// or an error if there's more than one arch (or none) present.
+func (src List) OneArch() (string, error) {
+	allArches := src.collect(func(tools *Tools) string {
 		return tools.Version.Arch
 	})
+	if len(allArches) == 0 {
+		return "", errors.New("tools list is empty")
+	}
+	if len(allArches) != 1 {
+		return "", errors.Errorf("more than one agent arch present: %v", allArches)
+	}
+	return allArches[0], nil
 }
 
 // collect calls f on all values in src and returns an alphabetically

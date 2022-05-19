@@ -548,26 +548,6 @@ func allCollections() CollectionSchema {
 		// eg addresses.
 		cloudServicesC: {},
 
-		secretMetadataC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"controller-uuid", "model-uuid", "_id"},
-			}},
-		},
-
-		secretValuesC: {
-			global: true,
-		},
-
-		secretRotateC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"owner"},
-			}},
-		},
-
-		// ----------------------
-
 		// Raw-access collections
 		// ======================
 
@@ -675,9 +655,4 @@ const (
 	externalControllersC = "externalControllers"
 	relationNetworksC    = "relationNetworks"
 	firewallRulesC       = "firewallRules"
-
-	// Secrets
-	secretMetadataC = "secretMetadata"
-	secretValuesC   = "secretValues"
-	secretRotateC   = "secretRotate"
 )

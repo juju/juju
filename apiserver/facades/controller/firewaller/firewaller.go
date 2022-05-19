@@ -34,7 +34,7 @@ type FirewallerAPI struct {
 	*common.UnitsWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
-	*common.ControllerConfigAPI
+	ControllerConfigAPI
 	cloudspec.CloudSpecer
 
 	st                State
@@ -56,7 +56,7 @@ func NewStateFirewallerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	cloudSpecAPI cloudspec.CloudSpecer,
-	controllerConfigAPI *common.ControllerConfigAPI,
+	controllerConfigAPI ControllerConfigAPI,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.

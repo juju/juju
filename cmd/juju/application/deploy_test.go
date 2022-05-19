@@ -296,9 +296,6 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"bundle", "--map-machines", "foo"},
 		err:  `error in --map-machines: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
-	}, {
-		args: []string{"charm-name", "--revision", "3"},
-		err:  `when using --revision option, you must also use --channel option`,
 	},
 }
 
@@ -438,7 +435,7 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--series", "quantal")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty,xenial,yakkety,bionic`)
+	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise, trusty, xenial, yakkety, bionic`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {

@@ -812,7 +812,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	if err != nil {
 		return nil, err
 	}
-	arch := availableTools.Arches()[0]
+	arch, err := availableTools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {

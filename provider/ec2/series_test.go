@@ -80,18 +80,8 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 	// 14.04:amd64
 	makeImage("ami-00000033", "ssd", "hvm", "amd64", "14.04", "test"),
 
-	// 14.04:i386
-	makeImage("ami-00000034", "ssd", "pv", "i386", "14.04", "test"),
-
 	// 12.10:amd64
 	makeImage("ami-01000035", "ssd", "hvm", "amd64", "12.10", "test"),
-
-	// 12.10:i386
-	makeImage("ami-01000034", "ssd", "hvm", "i386", "12.10", "test"),
-
-	// 13.04:i386
-	makeImage("ami-02000034", "ssd", "hvm", "i386", "13.04", "test"),
-	makeImage("ami-02000035", "ssd", "pv", "i386", "13.04", "test"),
 }
 
 func MakeTestImageStreamsData(region types.Region) map[string]string {
@@ -122,10 +112,7 @@ const testImageMetadataIndex = `
     "com.ubuntu.cloud:server:20.04:amd64",
     "com.ubuntu.cloud:server:18.04:amd64",
     "com.ubuntu.cloud:server:16.04:amd64",
-    "com.ubuntu.cloud:server:14.04:amd64",
-    "com.ubuntu.cloud:server:14.04:i386",
-    "com.ubuntu.cloud:server:12.10:i386",
-    "com.ubuntu.cloud:server:13.04:i386"
+    "com.ubuntu.cloud:server:14.04:amd64"
    ],
    "path": "streams/v1/com.ubuntu.cloud:released:aws.json"
   }
@@ -322,25 +309,6 @@ const testImageMetadataProduct = `
        }
      }
    },
-   "com.ubuntu.cloud:server:14.04:i386": {
-     "release": "trusty",
-     "version": "14.04",
-     "arch": "i386",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "test",
-             "id": "ami-00000034"
-           }
-         },
-         "pubname": "ubuntu-trusty-14.04-i386-server-20121218",
-         "label": "release"
-       }
-     }
-   },
    "com.ubuntu.cloud:server:12.10:amd64": {
      "release": "quantal",
      "version": "12.10",
@@ -380,50 +348,6 @@ const testImageMetadataProduct = `
            }
          },
          "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:12.10:i386": {
-     "release": "quantal",
-     "version": "12.10",
-     "arch": "i386",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "test",
-             "id": "ami-01000034"
-           },
-           "apne1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "ap-northeast-1",
-             "id": "ami-01000023"
-           }
-         },
-         "pubname": "ubuntu-quantal-12.10-i386-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:13.04:i386": {
-     "release": "raring",
-     "version": "13.04",
-     "arch": "i386",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "test",
-             "id": "ami-02000034"
-           }
-         },
-         "pubname": "ubuntu-raring-13.04-i386-server-20121218",
          "label": "release"
        }
      }

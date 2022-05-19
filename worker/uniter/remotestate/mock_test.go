@@ -9,13 +9,14 @@ import (
 
 	"github.com/juju/charm/v9"
 
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/names/v4"
 )
 
 func newMockWatcher() *mockWatcher {
@@ -397,21 +398,4 @@ func (t *mockTicket) Ready() <-chan struct{} {
 
 func (t *mockTicket) Wait() bool {
 	return t.result
-}
-
-type mockRotateSecretsWatcher struct {
-	rotateCh chan []string
-	stopCh   chan struct{}
-}
-
-func (w *mockRotateSecretsWatcher) Kill() {
-	select {
-	case <-w.stopCh:
-	default:
-		close(w.stopCh)
-	}
-}
-
-func (*mockRotateSecretsWatcher) Wait() error {
-	return nil
 }

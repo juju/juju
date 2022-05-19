@@ -103,7 +103,9 @@ func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
 	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
-	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
+	arch, err := instanceConfig.ToolsList().OneArch()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(arch, gc.Equals, "amd64")
 }
 
 func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
@@ -133,7 +135,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 		}},
 		InstanceConfig: makeInstanceConfig(c, s, "1/lxd/0"),
 	})
-	c.Assert(err, gc.ErrorMatches, `need agent binaries for arch amd64, only found \[arm64\]`)
+	c.Assert(err, gc.ErrorMatches, `need agent binaries for arch amd64, only found arm64`)
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
