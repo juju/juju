@@ -389,12 +389,6 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	return nil
 }
 
-// clearScreen removes any character from the terminal
-// using ANSI scape characters.
-func clearScreen() {
-	fmt.Printf("\u001Bc")
-}
-
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
