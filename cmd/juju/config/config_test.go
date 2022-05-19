@@ -22,31 +22,40 @@ func TestPackage(t *stdtesting.T) {
 }
 
 func (s *suite) TestSetFlags(c *gc.C) {
-	cmd := ConfigCommandBase{}
-	f := flagSetForTest(c)
-	cmd.SetFlags(f)
+	for _, resettable := range []bool{true, false} {
+		cmd := ConfigCommandBase{Resettable: resettable}
+		f := flagSetForTest(c)
+		cmd.SetFlags(f)
 
-	// Collect all flags
-	expectedFlags := []string{"file", "reset"}
-	flags := []string{}
+		// Collect all flags
+		expectedFlags := []string{"file"}
+		if resettable {
+			expectedFlags = append(expectedFlags, "reset")
+		}
 
-	f.VisitAll(
-		func(f *gnuflag.Flag) { flags = append(flags, f.Name) },
-	)
-	c.Assert(flags, gc.DeepEquals, expectedFlags)
+		flags := []string{}
+		f.VisitAll(
+			func(f *gnuflag.Flag) { flags = append(flags, f.Name) },
+		)
+		c.Check(flags, jc.SameContents, expectedFlags)
+
+		c.Check(sliceContains(flags, "reset"), gc.Equals, resettable)
+	}
+
 }
 
 // parseFailTest holds args for which we expect parsing to fail.
 type parseFailTest struct {
-	about  string
-	args   []string
-	errMsg string
+	about      string
+	resettable bool
+	args       []string
+	errMsg     string
 }
 
 // testParse checks that parsing of the given args fails or succeeds
 // (depending on the value of `fail`).
 func testParse(c *gc.C, test parseFailTest, fail bool) {
-	cmd := ConfigCommandBase{}
+	cmd := ConfigCommandBase{Resettable: test.resettable}
 	parseFail := false
 	var errWriter bytes.Buffer
 
@@ -89,7 +98,8 @@ type initTest struct {
 // TestInitSucceed.
 func setupInitTest(c *gc.C, args []string, cantReset []string) (ConfigCommandBase, error) {
 	cmd := ConfigCommandBase{
-		CantReset: cantReset,
+		Resettable: true,
+		CantReset:  cantReset,
 	}
 	f := flagSetForTest(c)
 	cmd.SetFlags(f)
@@ -110,7 +120,7 @@ func (s *suite) TestInitFail(c *gc.C) {
 	for i, test := range initFailTests {
 		c.Logf("test %d: %s", i, test.about)
 		// Check parsing succeeds
-		testParse(c, parseFailTest{args: test.args}, false)
+		testParse(c, parseFailTest{resettable: true, args: test.args}, false)
 
 		_, err := setupInitTest(c, test.args, test.cantReset)
 		c.Check(err, gc.ErrorMatches, test.errMsg)
@@ -121,7 +131,7 @@ func (s *suite) TestInitSuccess(c *gc.C) {
 	for i, test := range initTests {
 		c.Logf("test %d: %s", i, test.about)
 		// Check parsing succeeds
-		testParse(c, parseFailTest{args: test.args}, false)
+		testParse(c, parseFailTest{resettable: true, args: test.args}, false)
 
 		cmd, err := setupInitTest(c, test.args, test.cantReset)
 		c.Assert(err, jc.ErrorIsNil)
@@ -149,9 +159,16 @@ var parseTests = []parseFailTest{
 		errMsg: " needs an argument: --file\n",
 	},
 	{
-		about:  "no argument provided to --reset",
-		args:   []string{"--reset"},
-		errMsg: " needs an argument: --reset\n",
+		about:      "--reset when unresettable",
+		resettable: false,
+		args:       []string{"--reset", "key1"},
+		errMsg:     " provided but not defined: --reset\n",
+	},
+	{
+		about:      "no argument provided to --reset",
+		resettable: true,
+		args:       []string{"--reset"},
+		errMsg:     " needs an argument: --reset\n",
 	},
 	{
 		about:  "undefined flag --foo",
