@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -216,7 +216,7 @@ func (d *deployCharm) deploy(
 
 	ids, err := d.deployResources(
 		applicationName,
-		client.CharmID{
+		resources.CharmID{
 			URL:    id.URL,
 			Origin: id.Origin,
 		},

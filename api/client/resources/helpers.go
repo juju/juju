@@ -26,8 +26,8 @@ func Resource2API(res resource.Resource) params.Resource {
 	}
 }
 
-// APIResult2ApplicationResources converts a ResourcesResult into a resource.ApplicationResources.
-func APIResult2ApplicationResources(apiResult params.ResourcesResult) (resource.ApplicationResources, error) {
+// apiResult2ApplicationResources converts a ResourcesResult into a resource.ApplicationResources.
+func apiResult2ApplicationResources(apiResult params.ResourcesResult) (resource.ApplicationResources, error) {
 	var result resource.ApplicationResources
 
 	if apiResult.Error != nil {

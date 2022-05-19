@@ -8,6 +8,3 @@ package resource
 
 // ComponentName is the name of the Juju component for resource management.
 const ComponentName = "resources"
-
-// FacadeName is the name of the api server facade.
-const FacadeName = "Resources"

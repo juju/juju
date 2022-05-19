@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/client/resources"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -29,25 +30,28 @@ type UploadClient interface {
 	Close() error
 }
 
-// UploadDeps is a type that contains external functions that Upload depends on
-// to function.
-type UploadDeps struct {
-	// NewClient returns the value that wraps the API for uploading to the server.
-	NewClient func(*UploadCommand) (UploadClient, error)
-}
-
 // UploadCommand implements the upload command.
 type UploadCommand struct {
-	deps UploadDeps
 	modelcmd.ModelCommandBase
+
+	newClient func() (UploadClient, error)
+
 	application   string
 	resourceValue resourceValue
 }
 
 // NewUploadCommand returns a new command that lists resources defined
 // by a charm.
-func NewUploadCommand(deps UploadDeps) modelcmd.ModelCommand {
-	return modelcmd.Wrap(&UploadCommand{deps: deps})
+func NewUploadCommand() modelcmd.ModelCommand {
+	c := &UploadCommand{}
+	c.newClient = func() (UploadClient, error) {
+		apiRoot, err := c.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return resources.NewClient(apiRoot)
+	}
+	return modelcmd.Wrap(c)
 }
 
 const (
@@ -115,7 +119,7 @@ func (c *UploadCommand) addResourceValue(arg string) error {
 
 // Run implements cmd.Command.Run.
 func (c *UploadCommand) Run(*cmd.Context) error {
-	apiclient, err := c.deps.NewClient(c)
+	apiclient, err := c.newClient()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -11,7 +11,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -19,7 +19,7 @@ import (
 // DeployResourcesFunc is the function type of DeployResources.
 type DeployResourcesFunc func(
 	applicationID string,
-	chID client.CharmID,
+	chID resources.CharmID,
 	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
 	resources map[string]charmresource.Meta,
@@ -32,20 +32,20 @@ type DeployResourcesFunc func(
 // metadata. It returns a map of resource name to pending resource IDs.
 func DeployResources(
 	applicationID string,
-	chID client.CharmID,
+	chID resources.CharmID,
 	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
-	resources map[string]charmresource.Meta,
+	res map[string]charmresource.Meta,
 	conn base.APICallCloser,
 	filesystem modelcmd.Filesystem,
 ) (ids map[string]string, err error) {
 
-	if len(filesAndRevisions)+len(resources) == 0 {
+	if len(filesAndRevisions)+len(res) == 0 {
 		// Nothing to upload.
 		return nil, nil
 	}
 
-	apiClient, err := NewAPIClient(conn)
+	apiClient, err := resources.NewClient(conn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -67,7 +67,7 @@ func DeployResources(
 		CharmStoreMacaroon: csMac,
 		ResourceValues:     filenames,
 		Revisions:          revisions,
-		ResourcesMeta:      resources,
+		ResourcesMeta:      res,
 		Client:             &deployClient{apiClient},
 		Filesystem:         filesystem,
 	})
@@ -78,15 +78,15 @@ func DeployResources(
 }
 
 type deployClient struct {
-	*client.Client
+	*resources.Client
 }
 
 // AddPendingResources adds pending metadata for store-based resources.
-func (cl *deployClient) AddPendingResources(applicationID string, chID client.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]string, error) {
-	return cl.Client.AddPendingResources(client.AddPendingResourcesArgs{
+func (cl *deployClient) AddPendingResources(applicationID string, chID resources.CharmID, csMac *macaroon.Macaroon, res []charmresource.Resource) ([]string, error) {
+	return cl.Client.AddPendingResources(resources.AddPendingResourcesArgs{
 		ApplicationID:      applicationID,
 		CharmID:            chID,
 		CharmStoreMacaroon: csMac,
-		Resources:          resources,
+		Resources:          res,
 	})
 }

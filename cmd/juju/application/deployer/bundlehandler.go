@@ -24,7 +24,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
@@ -882,7 +882,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	resources := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
+	resMap := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
 
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
 		CharmInfo: charmInfo,
@@ -892,12 +892,12 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	resNames2IDs, err := h.deployResources(
 		p.Application,
-		client.CharmID{
+		resources.CharmID{
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},
 		macaroon,
-		resources,
+		resMap,
 		charmInfo.Meta.Resources,
 		h.deployAPI,
 		h.filesystem,
@@ -1284,13 +1284,13 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	resources := h.makeResourceMap(meta, p.Resources, p.LocalResources)
+	resMap := h.makeResourceMap(meta, p.Resources, p.LocalResources)
 
-	resourceLister, err := resourceadapters.NewAPIClient(h.deployAPI)
+	resourceLister, err := resources.NewClient(h.deployAPI)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	filtered, err := utils.GetUpgradeResources(curl, resourceLister, p.Application, resources, meta)
+	filtered, err := utils.GetUpgradeResources(curl, resourceLister, p.Application, resMap, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1298,12 +1298,12 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
 			p.Application,
-			client.CharmID{
+			resources.CharmID{
 				URL:    chID.URL,
 				Origin: chID.Origin,
 			},
 			macaroon,
-			resources,
+			resMap,
 			filtered,
 			h.deployAPI,
 			h.filesystem,

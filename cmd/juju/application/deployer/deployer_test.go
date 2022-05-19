@@ -22,7 +22,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -451,7 +451,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 	dep := DeployerDependencies{
 		DeployResources: func(
 			string,
-			client.CharmID,
+			resources.CharmID,
 			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,

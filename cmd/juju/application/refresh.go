@@ -25,7 +25,7 @@ import (
 	apicharms "github.com/juju/juju/api/client/charms"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
@@ -56,7 +56,7 @@ func newRefreshCommand() *refreshCommand {
 			return application.NewClient(conn)
 		},
 		NewResourceLister: func(conn base.APICallCloser) (utils.ResourceLister, error) {
-			resclient, err := resourceadapters.NewAPIClient(conn)
+			resclient, err := resources.NewClient(conn)
 			if err != nil {
 				return nil, err
 			}
@@ -591,7 +591,7 @@ func (c *refreshCommand) upgradeResources(
 	// checked further down the stack.
 	ids, err := c.DeployResources(
 		c.ApplicationName,
-		client.CharmID{
+		resources.CharmID{
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},

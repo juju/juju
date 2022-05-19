@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/charmhub"
@@ -95,7 +95,7 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 
 	s.deployResources = func(
 		applicationID string,
-		chID client.CharmID,
+		chID resources.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
