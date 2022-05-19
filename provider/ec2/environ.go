@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
 )
 
 const (
@@ -278,18 +277,6 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	return validator, nil
 }
 
-func archMatches(arches []string, arch *string) bool {
-	if arch == nil {
-		return true
-	}
-	for _, a := range arches {
-		if a == *arch {
-			return true
-		}
-	}
-	return false
-}
-
 var ec2AvailabilityZones = func(client Client, ctx stdcontext.Context, in *ec2.DescribeAvailabilityZonesInput, opts ...func(*ec2.Options)) (*ec2.DescribeAvailabilityZonesOutput, error) {
 	return client.DescribeAvailabilityZones(ctx, in, opts...)
 }
@@ -452,7 +439,7 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 		if itype.Name != *args.Constraints.InstanceType {
 			continue
 		}
-		if archMatches(itype.Arches, args.Constraints.Arch) {
+		if !args.Constraints.HasArch() || *args.Constraints.Arch == itype.Arch {
 			return nil
 		}
 	}
@@ -578,6 +565,10 @@ func (e *environ) StartInstance(
 		return nil, wrapError(err)
 	}
 
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	spec, err := findInstanceSpec(
 		args.InstanceConfig.Controller != nil,
 		args.ImageMetadata,
@@ -585,7 +576,7 @@ func (e *environ) StartInstance(
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
 			Series:      args.InstanceConfig.Series,
-			Arches:      args.Tools.Arches(),
+			Arch:        arch,
 			Constraints: args.Constraints,
 			Storage:     []string{ssdStorage, ebsStorage},
 		},
@@ -773,17 +764,11 @@ func (e *environ) maybeAttachInstanceProfile(
 }
 
 func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
-	matchingTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return errors.Errorf("chosen architecture %v for image %q not present in %v",
-			spec.Image.Arch, spec.Image.Id, args.Tools.Arches())
-	}
-
 	if spec.InstanceType.Deprecated {
 		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
 	}
 
-	if err := args.InstanceConfig.SetTools(matchingTools); err != nil {
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return errors.Trace(err)
 	}
 

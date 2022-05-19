@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/dependency"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasprober"
+	"github.com/juju/juju/worker/caasunitsmanager"
 	"github.com/juju/juju/worker/caasunitterminationworker"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
@@ -106,6 +108,11 @@ type manifoldsConfig struct {
 
 	// ContainerNames this unit is running with.
 	ContainerNames []string
+
+	// LocalHub is a simple pubsub that is used for internal agent
+	// messaging only. This is used for interactions between workers
+	// and the introspection worker.
+	LocalHub *pubsub.SimpleHub
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -315,6 +322,15 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:        loggo.GetLogger("juju.worker.caasunitterminationworker"),
 			UniterName:    uniterName,
 		})),
+
+		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
+		caasUnitsManager: caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
+			Hub:           config.LocalHub,
+		}),
 	}
 }
 
@@ -353,6 +369,7 @@ const (
 	apiAddressUpdaterName    = "api-address-updater"
 
 	caasUnitTerminationWorker = "caas-unit-termination-worker"
+	caasUnitsManager          = "caas-units-manager"
 )
 
 type noopStatusSetter struct{}

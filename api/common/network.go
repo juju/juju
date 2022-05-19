@@ -4,6 +4,8 @@
 package common
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -57,6 +59,7 @@ func GetObservedNetworkConfig(source network.ConfigSource) ([]params.NetworkConf
 
 	var configs []params.NetworkConfig
 	var bridgeNames []string
+	var noAddressesNics []string
 
 	for _, nic := range interfaces {
 		virtualPortType := network.NonVirtualPort
@@ -100,10 +103,12 @@ func GetObservedNetworkConfig(source network.ConfigSource) ([]params.NetworkConf
 				return nil, errors.Trace(err)
 			}
 		} else {
-			logger.Infof("no addresses observed on interface %q", nic.Name())
+			noAddressesNics = append(noAddressesNics, nic.Name())
 		}
-
 		configs = append(configs, nicConfig)
+	}
+	if len(noAddressesNics) > 0 {
+		logger.Debugf("no addresses observed on interfaces %q", strings.Join(noAddressesNics, ", "))
 	}
 
 	updateParentsForBridgePorts(configs, bridgeNames, source)

@@ -33,7 +33,8 @@ const (
 // methods.
 type ConfigCommandBase struct {
 	// Fields to be set by child
-	CantReset []string // keys which can't be reset
+	Resettable bool     // does this command allow resetting config values?
+	CantReset  []string // keys which can't be reset
 
 	// Flag values
 	ConfigFile cmd.FileVar
@@ -51,8 +52,10 @@ type ConfigCommandBase struct {
 // SetFlags implements cmd.Command.SetFlags.
 func (c *ConfigCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.ConfigFile, "file", "path to yaml-formatted configuration file")
-	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset",
-		"Reset the provided comma delimited keys, deletes keys not in the model config")
+	if c.Resettable {
+		f.Var(cmd.NewAppendStringsValue(&c.reset), "reset",
+			"Reset the provided comma delimited keys, deletes keys not in the model config")
+	}
 }
 
 // Init provides a basic implementation of cmd.Command.Init.
@@ -68,7 +71,7 @@ func (c *ConfigCommandBase) Init(args []string) error {
 	}
 
 	// Check if --reset has been specified
-	if len(c.reset) != 0 {
+	if c.Resettable && len(c.reset) != 0 {
 		c.Actions = append(c.Actions, Reset)
 		err := c.parseResetKeys()
 		if err != nil {

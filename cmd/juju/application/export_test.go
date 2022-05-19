@@ -246,7 +246,7 @@ func NewShowUnitCommandForTest(api UnitsInfoAPI, store jujuclient.ClientStore) c
 
 // NewConfigCommandForTest returns a SetCommand with the api provided as specified.
 func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	c := modelcmd.Wrap(&configCommand{api: api})
+	c := modelcmd.Wrap(&configCommand{configBase: appConfigBase, api: api})
 	c.SetClientStore(store)
 	return c
 }

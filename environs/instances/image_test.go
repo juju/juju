@@ -90,10 +90,10 @@ var jsonImagesContent = `
        }
      }
    },
-   "com.ubuntu.cloud:server:12.04:armhf": {
+   "com.ubuntu.cloud:server:12.04:arm64": {
      "release": "precise",
      "version": "12.04",
-     "arch": "armhf",
+     "arch": "arm64",
      "versions": {
        "20121218": {
          "items": {
@@ -116,7 +116,7 @@ var jsonImagesContent = `
              "id": "ami-00000036"
            }
          },
-         "pubname": "ubuntu-precise-12.04-armhf-server-20121218",
+         "pubname": "ubuntu-precise-12.04-arm64-server-20121218",
          "label": "release"
        }
      }
@@ -204,7 +204,7 @@ var jsonImagesContent = `
 type instanceSpecTestParams struct {
 	desc             string
 	region           string
-	arches           []string
+	arch             string
 	stream           string
 	constraints      string
 	instanceTypes    []InstanceType
@@ -215,11 +215,11 @@ type instanceSpecTestParams struct {
 }
 
 func (p *instanceSpecTestParams) init() {
-	if p.arches == nil {
-		p.arches = []string{"amd64", "armhf"}
+	if p.arch == "" {
+		p.arch = "amd64"
 	}
 	if p.instanceTypes == nil {
-		p.instanceTypes = []InstanceType{{Id: "1", Name: "it-1", Arches: []string{"amd64", "armhf"}}}
+		p.instanceTypes = []InstanceType{{Id: "1", Name: "it-1", Arch: "amd64"}}
 		p.instanceTypeId = "1"
 		p.instanceTypeName = "it-1"
 	}
@@ -232,43 +232,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		region:  "test",
 		imageId: "ami-00000033",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &pv, Mem: 512},
-		},
-	},
-	{
-		desc:    "prefer amd64 over i386",
-		region:  "test",
-		imageId: "ami-00000033",
-		arches:  []string{"amd64", "i386"},
-		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"i386", "amd64"}, VirtType: &pv, Mem: 512},
-		},
-	},
-	{
-		desc:    "prefer armhf over i386 (first alphabetical wins)",
-		region:  "test",
-		imageId: "ami-00000034",
-		arches:  []string{"armhf", "i386"},
-		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"armhf", "i386"}, VirtType: &pv, Mem: 512},
-		},
-	},
-	{
-		desc:    "prefer ppc64el over i386 (64-bit trumps 32-bit, regardless of alphabetical order)",
-		region:  "test",
-		imageId: "ami-b79b09b9",
-		arches:  []string{"ppc64el", "i386"},
-		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"i386", "ppc64el"}, VirtType: &pv, Mem: 512},
-		},
-	},
-	{
-		desc:    "prefer amd64 over arm64 (first 64-bit alphabetical wins)",
-		region:  "test",
-		imageId: "ami-00000033",
-		arches:  []string{"arm64", "amd64"},
-		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"arm64", "amd64"}, VirtType: &pv, Mem: 512},
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &pv, Mem: 512},
 		},
 	},
 	{
@@ -277,7 +241,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		stream:  "released",
 		imageId: "ami-00000035",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &hvm, Mem: 512, CpuCores: 2},
 		},
 	},
 	{
@@ -286,7 +250,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		stream:  "daily",
 		imageId: "ami-10000035",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &hvm, Mem: 512, CpuCores: 2},
 		},
 	},
 	{
@@ -294,7 +258,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		region:  "test",
 		imageId: "ami-00000035",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &hvm, Mem: 512, CpuCores: 2},
 		},
 	},
 	{
@@ -303,7 +267,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		constraints: "instance-type=",
 		imageId:     "ami-00000033",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &pv, Mem: 512},
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &pv, Mem: 512},
 		},
 	},
 	{
@@ -312,8 +276,18 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		constraints: "instance-type=it-1",
 		imageId:     "ami-00000035",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 1024, CpuCores: 2},
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &hvm, Mem: 512, CpuCores: 2},
+			{Id: "2", Name: "it-2", Arch: "amd64", VirtType: &hvm, Mem: 1024, CpuCores: 2},
+		},
+	},
+	{
+		desc:    "use instance type non amd64 constraint",
+		region:  "test",
+		arch:    "ppc64el",
+		imageId: "ami-b79b09b9",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &pv, Mem: 4096, CpuCores: 2, Cost: 1},
+			{Id: "2", Name: "it-2", Arch: "ppc64el", VirtType: &pv, Mem: 4096, CpuCores: 2, Cost: 2},
 		},
 	},
 	{
@@ -321,25 +295,25 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		region:      "test",
 		constraints: "instance-type=it-10",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
+			{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &hvm, Mem: 512, CpuCores: 2},
 		},
-		err: `no instance types in test matching constraints "instance-type=it-10"`,
+		err: `no instance types in test matching constraints "arch=amd64 instance-type=it-10"`,
 	},
 	{
 		desc:   "no image exists in metadata",
 		region: "invalid-region",
-		err:    `no metadata for "precise" images in invalid-region with arches \[amd64 armhf\]`,
+		err:    `no metadata for "precise" images in invalid-region with arch amd64`,
 	},
 	{
 		desc:          "no valid instance types",
 		region:        "test",
 		instanceTypes: []InstanceType{},
-		err:           `no instance types in test matching constraints ""`,
+		err:           `no instance types in test matching constraints "arch=amd64"`,
 	},
 	{
 		desc:          "no compatible instance types",
 		region:        "arm-only",
-		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 2048}},
+		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arch: "amd64", Mem: 2048}},
 		err:           `no "precise" images in arm-only matching instance types \[it-1\]`,
 	},
 }
@@ -351,7 +325,6 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
 			Releases:  []string{"precise"},
-			Arches:    t.arches,
 			Stream:    t.stream,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -376,7 +349,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
 			Series:      "precise",
 			Region:      t.region,
-			Arches:      t.arches,
+			Arch:        t.arch,
 			Constraints: imageCons,
 		}, t.instanceTypes)
 		if t.err != "" {
@@ -404,30 +377,30 @@ var imageMatchtests = []struct {
 }{
 	{
 		image: Image{Arch: "amd64"},
-		itype: InstanceType{Arches: []string{"amd64"}},
+		itype: InstanceType{Arch: "amd64"},
 		match: exactMatch,
 	}, {
 		image: Image{Arch: "amd64"},
-		itype: InstanceType{Arches: []string{"amd64", "armhf"}},
+		itype: InstanceType{Arch: "amd64"},
 		match: exactMatch,
 	}, {
 		image: Image{Arch: "amd64", VirtType: hvm},
-		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
+		itype: InstanceType{Arch: "amd64", VirtType: &hvm},
 		match: exactMatch,
 	}, {
-		image: Image{Arch: "armhf"},
-		itype: InstanceType{Arches: []string{"amd64"}},
+		image: Image{Arch: "arm64"},
+		itype: InstanceType{Arch: "amd64"},
 	}, {
 		image: Image{Arch: "amd64", VirtType: hvm},
-		itype: InstanceType{Arches: []string{"amd64"}},
+		itype: InstanceType{Arch: "amd64"},
 		match: exactMatch,
 	}, {
 		image: Image{Arch: "amd64"}, // no known virt type
-		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
+		itype: InstanceType{Arch: "amd64", VirtType: &hvm},
 		match: partialMatch,
 	}, {
 		image: Image{Arch: "amd64", VirtType: "pv"},
-		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
+		itype: InstanceType{Arch: "amd64", VirtType: &hvm},
 		match: nonMatch,
 	},
 }
@@ -484,15 +457,15 @@ func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
 	ic := &InstanceConstraint{
 		Series:      "precise",
 		Region:      "region",
-		Arches:      []string{"amd64", "arm64"},
+		Arch:        "amd64",
 		Constraints: imageCons,
 	}
 	c.Assert(
 		ic.String(), gc.Equals,
-		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: []}")
+		"{region: region, series: precise, arch: amd64, constraints: mem=4096M, storage: []}")
 
 	ic.Storage = []string{"ebs", "ssd"}
 	c.Assert(
 		ic.String(), gc.Equals,
-		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: [ebs ssd]}")
+		"{region: region, series: precise, arch: amd64, constraints: mem=4096M, storage: [ebs ssd]}")
 }

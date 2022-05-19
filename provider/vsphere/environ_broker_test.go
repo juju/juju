@@ -341,31 +341,6 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c
 	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
-// if tools for multiple architectures are available, provider should filter tools by arch of the selected image
-func (s *legacyEnvironBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
-	startInstArgs := s.createStartInstanceArgs(c)
-	tools := []*coretools.Tools{{
-		Version: version.Binary{Arch: arch.I386, Release: "ubuntu"},
-		URL:     "https://example.org",
-	}, {
-		Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
-		URL:     "https://example.org",
-	}}
-
-	// Setting tools to I386, but provider should update them to AMD64,
-	// because our fake simplestream server returns only an AMD64 image.
-	startInstArgs.Tools = tools
-	err := startInstArgs.InstanceConfig.SetTools(coretools.List{
-		tools[0],
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.Arch, gc.Equals, arch.AMD64)
-	c.Assert(startInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.AMD64)
-}
-
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{

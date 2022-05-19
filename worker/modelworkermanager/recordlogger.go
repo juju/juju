@@ -50,13 +50,14 @@ type recordLogger struct {
 
 func (l *recordLogger) Write(entry loggo.Entry) {
 	err := l.buffer.Log([]corelogger.LogRecord{{
-		Time:     entry.Timestamp,
-		Entity:   l.name,
-		Module:   entry.Module,
-		Location: fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
-		Level:    entry.Level,
-		Message:  entry.Message,
-		Labels:   entry.Labels,
+		Time:      entry.Timestamp,
+		Entity:    l.name,
+		Module:    entry.Module,
+		Location:  fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
+		Level:     entry.Level,
+		Message:   entry.Message,
+		Labels:    entry.Labels,
+		ModelUUID: l.modelUUID,
 	}})
 
 	if err != nil {

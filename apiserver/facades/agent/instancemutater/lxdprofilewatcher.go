@@ -440,8 +440,12 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 
 	_, ok := w.applications[appName]
 	if !ok {
-		curl, ok := unit.CharmURL()
-		if !ok {
+		curl, err := unit.CharmURL()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		if curl == nil {
 			// this happens for new units to existing machines.
 			app, err := unit.Application()
 			if errors.IsNotFound(err) {
@@ -452,6 +456,7 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 			}
 			curl = app.CharmURL()
 		}
+
 		ch, err := w.backend.Charm(curl)
 		if errors.IsNotFound(err) {
 			logger.Debugf("charm %s removed for %s on machine-%s", curl, unitName, w.machine.Id())

@@ -10,10 +10,11 @@ import (
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-// RemoteRelationState provides the subset of global state required by the
+// RemoteRelationsState provides the subset of global state required by the
 // remote relations facade.
 type RemoteRelationsState interface {
 	common.Backend
@@ -40,6 +41,16 @@ type RemoteRelationsState interface {
 	// UpdateControllerForModel ensures that there is an external controller
 	// record for the input info, associated with the input model ID.
 	UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error
+}
+
+// ControllerConfigAPI provides the subset of common.ControllerConfigAPI
+// required by the remote firewaller facade
+type ControllerConfigAPI interface {
+	// ControllerConfig returns the controller's configuration.
+	ControllerConfig() (params.ControllerConfigResult, error)
+
+	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
+	ControllerAPIInfoForModels(args params.Entities) (params.ControllerAPIInfoResults, error)
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be

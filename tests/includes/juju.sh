@@ -1,9 +1,10 @@
 #!/bin/bash -e
-# juju_version will return only the version and not the architecture/substrait
+# juju_version will return only the version and not the architecture/substrate
 # of the juju version.
 # This will use any juju on $PATH
 juju_version() {
-	version=$(juju version | cut -f1 -d '-')
+	# Match only major, minor, and patch or tag
+	version=$(juju version | grep -oP '^\d+\.\d+(\.\d+|-\w+)')
 	echo "${version}"
 }
 

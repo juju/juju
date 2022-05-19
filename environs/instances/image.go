@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/arch"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -22,7 +23,7 @@ var logger = loggo.GetLogger("juju.environs.instances")
 type InstanceConstraint struct {
 	Region      string
 	Series      string
-	Arches      []string
+	Arch        string
 	Constraints constraints.Value
 
 	// Optional filtering criteria not supported by all providers. These
@@ -39,10 +40,10 @@ type InstanceConstraint struct {
 // String returns a human readable form of this InstanceConstraint.
 func (ic *InstanceConstraint) String() string {
 	return fmt.Sprintf(
-		"{region: %s, series: %s, arches: %s, constraints: %s, storage: %s}",
+		"{region: %s, series: %s, arch: %s, constraints: %s, storage: %s}",
 		ic.Region,
 		ic.Series,
-		ic.Arches,
+		ic.Arch,
 		ic.Constraints,
 		ic.Storage,
 	)
@@ -64,12 +65,18 @@ type InstanceSpec struct {
 func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
 	logger.Debugf("instance constraints %+v", ic)
 	if len(possibleImages) == 0 {
-		return nil, errors.Errorf("no metadata for %q images in %s with arches %s",
-			ic.Series, ic.Region, ic.Arches)
+		return nil, errors.Errorf("no metadata for %q images in %s with arch %s",
+			ic.Series, ic.Region, ic.Arch)
 	}
 
-	logger.Debugf("matching constraints %v against possible image metadata %+v", ic, possibleImages)
-	matchingTypes, err := MatchingInstanceTypes(allInstanceTypes, ic.Region, ic.Constraints)
+	logger.Debugf("matching constraints %v against possible image metadata %s", ic, pretty.Sprint(possibleImages))
+	// If no constraints arch is specified, we need to ensure instances are filtered
+	// on the arch of the agent binary.
+	cons := ic.Constraints
+	if !cons.HasArch() && ic.Arch != "" {
+		cons.Arch = &ic.Arch
+	}
+	matchingTypes, err := MatchingInstanceTypes(allInstanceTypes, ic.Region, cons)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +176,7 @@ const (
 
 // match returns true if the image can run on the supplied instance type.
 func (image Image) match(itype InstanceType) imageMatch {
-	if !image.matchArch(itype.Arches) {
+	if itype.Arch != image.Arch {
 		return nonMatch
 	}
 	if itype.VirtType == nil || image.VirtType == *itype.VirtType {
@@ -181,15 +188,6 @@ func (image Image) match(itype InstanceType) imageMatch {
 		return partialMatch
 	}
 	return nonMatch
-}
-
-func (image Image) matchArch(arches []string) bool {
-	for _, arch := range arches {
-		if arch == image.Arch {
-			return true
-		}
-	}
-	return false
 }
 
 // ImageMetadataToImages converts an array of ImageMetadata pointers (as

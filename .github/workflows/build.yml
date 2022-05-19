@@ -9,6 +9,7 @@ on:
       - 'testing/**'
       - 'tests/**'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - 'acceptancetests/**'
       - 'doc/**'
@@ -16,6 +17,10 @@ on:
       - 'testcharms/**'
       - 'testing/**'
       - 'tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   Build:

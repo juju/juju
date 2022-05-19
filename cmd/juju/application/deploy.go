@@ -656,7 +656,14 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.flagSet = f
 }
 
+// Init validates the flags.
 func (c *DeployCommand) Init(args []string) error {
+	// NOTE: For deploying a charm with the revision flag, a channel is
+	// also required. It's required to ensure that juju knows which channel
+	// should be used for refreshing/upgrading the charm in the future.However
+	// a bundle does not require a channel, today you cannot refresh/upgrade
+	// a bundle, only the components. These flags will be verified in the
+	// GetDeployer instead.
 	if err := c.validateStorageByModelType(); err != nil {
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
@@ -705,12 +712,6 @@ func (c *DeployCommand) Init(args []string) error {
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
 		c.unknownModel = true
-	}
-	if c.channelStr == "" && c.Revision != -1 {
-		// Tell the user they need to specify a channel
-		return errors.New(
-			`when using --revision option, you must also use --channel option`,
-		)
 	}
 	if c.channelStr != "" {
 		c.Channel, err = charm.ParseChannelNormalize(c.channelStr)

@@ -302,9 +302,6 @@ type Connection interface {
 	// connection.
 	AuthTag() names.Tag
 
-	// ModelAccess returns the access level of authorized user to the model.
-	ModelAccess() string
-
 	// ControllerAccess returns the access level of authorized user to the controller.
 	ControllerAccess() string
 

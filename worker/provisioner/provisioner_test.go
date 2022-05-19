@@ -1980,8 +1980,9 @@ func (f mockToolsFinder) FindTools(number version.Number, series string, a strin
 	if err != nil {
 		return nil, err
 	}
-	if a != "" {
-		v.Arch = a
+	if a == "" {
+		return nil, errors.New("missing arch")
 	}
+	v.Arch = a
 	return coretools.List{&coretools.Tools{Version: v}}, nil
 }
