@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	coreseries "github.com/juju/juju/core/series"
@@ -2771,7 +2772,7 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	}
 
 	httpClient := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.Child("http")),
+		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 	)
 
 	var err error
