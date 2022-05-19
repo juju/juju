@@ -84,6 +84,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 	w := s.MustStartManifold(c)
+	defer workertest.DirtyKill(c, w)
 
 	var wrong int
 	err := s.Manifold.Output(w, &wrong)

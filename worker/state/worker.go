@@ -30,8 +30,9 @@ type stateWorker struct {
 	// order to prevent restarts cascading through the dependency engine.
 	// The watcher will return an error if the state pings repeatedly fail
 	// anyway.
-	modelWatcher     state.StringsWatcher
-	modelWatcherDone chan struct{}
+	modelWatcher        state.StringsWatcher
+	modelWatcherDone    chan struct{}
+	modelWatcherChanges <-chan []string
 
 	pool              *state.StatePool
 	modelStateWorkers map[string]worker.Worker
@@ -61,7 +62,7 @@ func (w *stateWorker) loop() error {
 			return w.catacomb.ErrDying()
 		case <-w.modelWatcherDone:
 			w.startModelWatcher()
-		case modelUUIDs := <-w.modelWatcher.Changes():
+		case modelUUIDs := <-w.modelWatcherChanges:
 			for _, modelUUID := range modelUUIDs {
 				if err := w.processModelLifeChange(modelUUID); err != nil {
 					return errors.Trace(err)
@@ -78,7 +79,19 @@ func (w *stateWorker) loop() error {
 }
 
 func (w *stateWorker) startModelWatcher() {
+	// Don't bother starting a new watcher if we're dying.
+	// We use a variable for the changes channel, because
+	// if the watcher has stopped, reading from its channel
+	// in the loop above causes a nil ref error.
+	select {
+	case <-w.catacomb.Dying():
+		w.modelWatcherChanges = nil
+		return
+	default:
+	}
+
 	w.modelWatcher = w.pool.SystemState().WatchModelLives()
+	w.modelWatcherChanges = w.modelWatcher.Changes()
 
 	go func() {
 		err := w.modelWatcher.Wait()

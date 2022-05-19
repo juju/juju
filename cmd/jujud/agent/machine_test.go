@@ -940,19 +940,11 @@ func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
 }
 
 func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
-	// Set up a channel which fires when State is opened.
-	started := make(chan struct{}, 16)
-	s.PatchValue(&reportOpenedState, func(*state.State) {
-		started <- struct{}{}
-	})
-
 	// Start the agent.
 	go func() { c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	// Wait for State to be opened. Once this occurs we know that the
-	// agent's initial startup has happened.
-	s.assertChannelActive(c, started, "agent to start up")
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	// Check that certificate was updated when the agent started.
 	stateInfo, _ := a.CurrentConfig().StateServingInfo()
