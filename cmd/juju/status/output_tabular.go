@@ -123,7 +123,8 @@ func startSection(tw *ansiterm.TabWriter, top bool, headers ...interface{}) outp
 	if !top {
 		w.Println()
 	}
-	w.Println(headers...)
+	w.PrintHeaders(output.EmphasisHighlight.DefaultBold, headers...)
+
 	return w
 }
 
@@ -202,7 +203,12 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if len(version) > maxVersionWidth {
 			version = version[:truncatedWidth] + ellipsis
 		}
-		w.Print(appName, version)
+		w.Print(appName)
+		if version != app.CharmVersion {
+			w.PrintColor(output.WarningHighlight, version)
+		} else {
+			w.Print(version)
+		}
 		w.PrintStatus(app.StatusInfo.Current)
 		scale, warn := fs.applicationScale(appName)
 		if warn {
@@ -216,13 +222,17 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.PrintColor(output.InfoHighlight, app.Address)
 		}
 
-		exposed := "no"
+		var exposed string
 		if app.Exposed {
 			exposed = "yes"
+			w.PrintColor(output.EmphasisHighlight.BrightGreen, exposed)
+		} else {
+			exposed = "no"
+			w.Print(exposed)
 		}
-		w.Print(exposed)
 
-		w.Println(app.StatusInfo.Message)
+		w.PrintColor(output.EmphasisHighlight.Gray, app.StatusInfo.Message)
+		w.Println()
 		for un, u := range app.Units {
 			units[un] = u
 			if u.MeterStatus != nil {
@@ -251,16 +261,33 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		w.Print(indent("", level*2, name))
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
+
+		printPorts := func(ps []string) {
+			size := len(u.OpenedPorts)
+			for i, op := range u.OpenedPorts {
+				pp := strings.Split(op, "/")
+				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, fmt.Sprintf("%s ", pp[0])) //port e.g 3306
+				w.PrintNoTab(fmt.Sprintf("/%s", pp[1]))                                              //append back the forward slash to the protocol name (3306/tcp)
+
+				if i != size && size > 1 {
+					w.PrintNoTab(", ")
+				}
+			}
+			w.Print("") //Print empty tab after the ports
+		}
+
 		if fs.Model.Type == caasModelType {
 			w.PrintColor(output.InfoHighlight, u.Address)
-			w.PrintColor(output.EmphasisHighlight, strings.Join(u.OpenedPorts, ","))
-			w.Println(message)
+			printPorts(u.OpenedPorts)
+			w.PrintColor(output.EmphasisHighlight.Gray, message)
+			w.Println()
 			return
 		}
 		w.Print(u.Machine)
 		w.PrintColor(output.InfoHighlight, u.PublicAddress)
-		w.PrintColor(output.EmphasisHighlight, strings.Join(u.OpenedPorts, ","))
-		w.Println(message)
+		printPorts(u.OpenedPorts)
+		w.PrintColor(output.EmphasisHighlight.Gray, message)
+		w.Println()
 	}
 
 	if len(units) > 0 {
@@ -352,7 +379,13 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 	w := startSection(tw, false, "Relation provider", "Requirer", "Interface", "Type", "Message")
 
 	for _, r := range relations {
-		w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
+		provider := strings.Split(r.Provider, ":")
+		w.PrintNoTab(provider[0])
+		w.PrintColor(output.EmphasisHighlight.BrightMagenta, fmt.Sprintf(":%s", provider[1]))
+		requirer := strings.Split(r.Requirer, ":")
+		w.PrintNoTab(requirer[0])
+		w.PrintColor(output.EmphasisHighlight.BrightMagenta, fmt.Sprintf(":%s", requirer[1]))
+		w.Print(r.Interface, r.Type)
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
 			if r.Message != "" {
@@ -450,7 +483,10 @@ func printMachine(w output.Wrapper, m machineStatus) {
 
 	w.Print(m.Id)
 	w.PrintStatus(status)
-	w.Println(m.DNSName, m.machineName(), m.Series, az, message)
+	w.PrintColor(output.InfoHighlight, m.DNSName)
+	w.Print(m.machineName(), m.Series, az)
+	w.PrintColor(output.EmphasisHighlight.Gray, message)
+	w.Println()
 
 	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
