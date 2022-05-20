@@ -329,7 +329,7 @@ func bundleTools(
 		return version.Binary{}, official, "", errors.Trace(err)
 	}
 	if official && build {
-		return version.Binary{}, official, "", errors.Errorf("can not build agent for official build")
+		return version.Binary{}, official, "", errors.Errorf("cannot build agent for official build")
 	}
 
 	if err := packageLocalTools(dir, build); err != nil {

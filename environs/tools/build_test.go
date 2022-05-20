@@ -351,7 +351,7 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 
 	forceVersion := version.MustParse("1.2.3.1")
 	_, official, _, err := tools.BundleToolsForTest(true, bundleFile, &forceVersion, jujudVersion)
-	c.Assert(err, gc.ErrorMatches, `can not build agent for official build`)
+	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
 	c.Assert(official, jc.IsTrue)
 }
 
