@@ -7,14 +7,10 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api/client"
-	internalclient "github.com/juju/juju/payload/api/private/client"
 	"github.com/juju/juju/payload/context"
-	"github.com/juju/juju/payload/status"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -27,7 +23,6 @@ func (c payloads) registerForServer() error {
 }
 
 func (c payloads) registerForClient() error {
-	c.registerPublicCommands()
 	// needed for hook-tool
 	c.registerHookContextCommands()
 	return nil
@@ -35,39 +30,6 @@ func (c payloads) registerForClient() error {
 
 func (c payloads) registerForContainerAgent() error {
 	return nil
-}
-
-type facadeCaller struct {
-	base.FacadeCaller
-	closeFunc func() error
-}
-
-func (c facadeCaller) Close() error {
-	return c.closeFunc()
-}
-
-func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error) {
-	apiCaller, err := cmd.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, "Payloads", 1)
-
-	listAPI := client.NewPublicClient(&facadeCaller{
-		FacadeCaller: caller,
-		closeFunc:    apiCaller.Close,
-	})
-	return listAPI, nil
-}
-
-func (c payloads) registerPublicCommands() {
-	if !markRegistered(payload.ComponentName, "public-commands") {
-		return
-	}
-
-	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
-		return status.NewListCommand(c.newListAPIClient)
-	})
 }
 
 func (c payloads) registerHookContext() {
@@ -109,7 +71,7 @@ func (c payloadsHookContext) Component(name string) (context.Component, error) {
 
 func (payloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
 	facadeCaller := base.NewFacadeCallerForVersion(caller, "PayloadsHookContext", 1)
-	return internalclient.NewUnitFacadeClient(facadeCaller)
+	return uniter.NewPayloadFacadeClient(facadeCaller)
 }
 
 func (payloads) registerHookContextCommands() {

@@ -108,5 +108,5 @@ func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (
 	}
 	unitHTTPClient := uniter.NewUnitHTTPClient(caller.Context(), httpClient, unitName)
 
-	return uniter.NewUnitFacadeClient(facadeCaller.RawAPICaller().Context(), facadeCaller, unitHTTPClient), nil
+	return uniter.NewResourcesFacadeClient(facadeCaller.RawAPICaller().Context(), facadeCaller, unitHTTPClient), nil
 }

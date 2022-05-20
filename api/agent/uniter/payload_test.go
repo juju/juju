@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client_test
+package uniter_test
 
 import (
 	"github.com/juju/errors"
@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/agent/uniter"
+	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
-	"github.com/juju/juju/payload/api/private/client"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -62,7 +62,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 		return nil
 	}
 
-	pclient := client.NewUnitFacadeClient(s.facade)
+	pclient := uniter.NewPayloadFacadeClient(s.facade)
 
 	pl, err := api.API2Payload(s.payload)
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,7 +104,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
 
-	pclient := client.NewUnitFacadeClient(s.facade)
+	pclient := uniter.NewPayloadFacadeClient(s.facade)
 
 	results, err := pclient.List("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +157,7 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, response)
 
-	pclient := client.NewUnitFacadeClient(s.facade)
+	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.LookUp("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -211,7 +211,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, response)
 
-	pclient := client.NewUnitFacadeClient(s.facade)
+	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.LookUp("idfoo/bar", "idbaz/bam", "spam/eggs")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -281,7 +281,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
 
-	pclient := client.NewUnitFacadeClient(s.facade)
+	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.SetStatus(payload.StateRunning, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -346,7 +346,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
 
-	pclient := client.NewUnitFacadeClient(s.facade)
+	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.Untrack("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 

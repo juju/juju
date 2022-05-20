@@ -597,18 +597,6 @@ command\.(.|\n)*`)
 
 func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	stub := &jujutesting.Stub{}
-	extraNames := []string{"cmd-a", "cmd-b"}
-	for i := range extraNames {
-		name := extraNames[i]
-		RegisterCommand(func() cmd.Command {
-			return &stubCommand{
-				stub: stub,
-				info: &cmd.Info{
-					Name: name,
-				},
-			}
-		})
-	}
 
 	registry := &stubRegistry{stub: stub}
 	registry.names = append(registry.names, "help") // implicit
@@ -617,7 +605,6 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
-	expected = append(expected, extraNames...)
 	if !featureflag.Enabled(feature.ActionsV2) {
 		expected = append(expected, "cancel-action", "run-action", "show-action-status", "show-action-output")
 	}

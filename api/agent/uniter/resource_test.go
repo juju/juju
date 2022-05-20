@@ -21,37 +21,37 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&UnitFacadeClientSuite{})
+var _ = gc.Suite(&ResourcesFacadeClientSuite{})
 
-type UnitFacadeClientSuite struct {
+type ResourcesFacadeClientSuite struct {
 	testing.IsolationSuite
 
 	stub *testing.Stub
 	api  *stubAPI
 }
 
-func (s *UnitFacadeClientSuite) SetUpTest(c *gc.C) {
+func (s *ResourcesFacadeClientSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
 	s.api = &stubAPI{Stub: s.stub}
 }
 
-func (s *UnitFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
+func (s *ResourcesFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 	caller := &stubAPI{Stub: s.stub}
 	doer := &stubAPI{Stub: s.stub}
 
-	cl := uniter.NewUnitFacadeClient(context.Background(), caller, doer)
+	cl := uniter.NewResourcesFacadeClient(context.Background(), caller, doer)
 
 	s.stub.CheckNoCalls(c)
 	c.Check(cl.FacadeCaller, gc.Equals, caller)
 	c.Check(cl.HTTPClient, gc.Equals, doer)
 }
 
-func (s *UnitFacadeClientSuite) TestGetResource(c *gc.C) {
+func (s *ResourcesFacadeClientSuite) TestGetResource(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.api.setResource(opened.Resource, opened)
-	cl := uniter.NewUnitFacadeClient(context.Background(), s.api, s.api)
+	cl := uniter.NewResourcesFacadeClient(context.Background(), s.api, s.api)
 
 	info, content, err := cl.GetResource("spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -61,7 +61,7 @@ func (s *UnitFacadeClientSuite) TestGetResource(c *gc.C) {
 	c.Check(content, jc.DeepEquals, opened)
 }
 
-func (s *UnitFacadeClientSuite) TestUnitDoer(c *gc.C) {
+func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *gc.C) {
 	body := filetesting.NewStubFile(s.stub, nil)
 	req, err := http.NewRequest("GET", "/resources/eggs", body)
 	c.Assert(err, jc.ErrorIsNil)
