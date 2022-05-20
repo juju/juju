@@ -6,7 +6,6 @@ package commands_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/testing"
 )
 
@@ -22,12 +21,6 @@ import (
 // For upgrademodel:
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/controller_mock.go github.com/juju/juju/cmd/juju/commands ControllerAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/cmd/juju/commands ClientAPI
-
-func init() {
-	if err := all.RegisterForClient(); err != nil {
-		panic(err)
-	}
-}
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)

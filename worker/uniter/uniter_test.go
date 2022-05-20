@@ -20,7 +20,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -59,8 +58,6 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 
 	s.PatchEnvironment("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
-	err = all.RegisterForServer()
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {

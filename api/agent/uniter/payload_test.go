@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/payload"
@@ -118,9 +119,8 @@ func (s *clientSuite) TestList(c *gc.C) {
 		Error:    nil,
 	}})
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FacadeCall",
+		FuncName: "LookUp",
 		Args: []interface{}{
-			"LookUp",
 			&params.LookUpPayloadArgs{
 				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
@@ -130,9 +130,8 @@ func (s *clientSuite) TestList(c *gc.C) {
 			responses[0],
 		},
 	}, {
-		FuncName: "FacadeCall",
+		FuncName: "List",
 		Args: []interface{}{
-			"List",
 			&params.Entities{
 				Entities: []params.Entity{{
 					Tag: names.NewPayloadTag(id).String(),
@@ -168,9 +167,8 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 		Error:    nil,
 	}})
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FacadeCall",
+		FuncName: "LookUp",
 		Args: []interface{}{
-			"LookUp",
 			&params.LookUpPayloadArgs{
 				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
@@ -235,9 +233,8 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 		Error:    nil,
 	}})
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FacadeCall",
+		FuncName: "LookUp",
 		Args: []interface{}{
-			"LookUp",
 			&params.LookUpPayloadArgs{
 				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
@@ -292,9 +289,8 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 		Error:    nil,
 	}})
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FacadeCall",
+		FuncName: "LookUp",
 		Args: []interface{}{
-			"LookUp",
 			&params.LookUpPayloadArgs{
 				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
@@ -304,9 +300,8 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 			responses[0],
 		},
 	}, {
-		FuncName: "FacadeCall",
+		FuncName: "SetStatus",
 		Args: []interface{}{
-			"SetStatus",
 			&params.SetPayloadStatusArgs{
 				Args: []params.SetPayloadStatusArg{{
 					Entity: params.Entity{
@@ -357,9 +352,8 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 		Error:    nil,
 	}})
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "FacadeCall",
+		FuncName: "LookUp",
 		Args: []interface{}{
-			"LookUp",
 			&params.LookUpPayloadArgs{
 				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
@@ -369,9 +363,8 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 			responses[0],
 		},
 	}, {
-		FuncName: "FacadeCall",
+		FuncName: "Untrack",
 		Args: []interface{}{
-			"Untrack",
 			&params.Entities{
 				Entities: []params.Entity{{
 					Tag: names.NewPayloadTag(id).String(),
@@ -387,6 +380,7 @@ type apiMethods interface {
 }
 
 type stubFacade struct {
+	base.APICaller
 	stub      *testing.Stub
 	responses []interface{}
 	methods   apiMethods
@@ -404,15 +398,19 @@ func (s *stubFacade) nextResponse() interface{} {
 	return resp
 }
 
-func (s *stubFacade) FacadeCall(request string, params, response interface{}) error {
-	s.stub.AddCall("FacadeCall", request, params, response)
+func (s *stubFacade) BestFacadeVersion(_ string) int {
+	return 1
+}
+
+func (s *stubFacade) APICall(objType string, version int, id, request string, args, response interface{}) error {
+	s.stub.AddCall(request, args, response)
 	resp := s.nextResponse()
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
 	if s.FacadeCallFn != nil {
-		return s.FacadeCallFn(request, params, response)
+		return s.FacadeCallFn(request, args, response)
 	}
 
 	if resp == nil {
@@ -424,15 +422,6 @@ func (s *stubFacade) FacadeCall(request string, params, response interface{}) er
 		return errors.Errorf("unknown request %q", request)
 	}
 	handler(response, resp)
-	return nil
-}
-
-func (s *stubFacade) Close() error {
-	s.stub.AddCall("Close")
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
 	return nil
 }
 

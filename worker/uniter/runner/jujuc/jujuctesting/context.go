@@ -20,7 +20,6 @@ type ContextInfo struct {
 	Leadership
 	Metrics
 	Storage
-	Components
 	Relations
 	RelationHook
 	ActionHook
@@ -67,7 +66,8 @@ type Context struct {
 	ContextLeader
 	ContextMetrics
 	ContextStorage
-	ContextComponents
+	ContextResources
+	ContextPayloads
 	ContextRelations
 	ContextRelationHook
 	ContextActionHook
@@ -92,8 +92,8 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextMetrics.info = &info.Metrics
 	ctx.ContextStorage.stub = stub
 	ctx.ContextStorage.info = &info.Storage
-	ctx.ContextComponents.stub = stub
-	ctx.ContextComponents.info = &info.Components
+	ctx.ContextResources.stub = stub
+	ctx.ContextPayloads.stub = stub
 	ctx.ContextRelations.stub = stub
 	ctx.ContextRelations.info = &info.Relations
 	ctx.ContextRelationHook.stub = stub

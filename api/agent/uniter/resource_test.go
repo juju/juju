@@ -9,12 +9,15 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -37,26 +40,17 @@ func (s *ResourcesFacadeClientSuite) SetUpTest(c *gc.C) {
 	s.api = &stubAPI{Stub: s.stub}
 }
 
-func (s *ResourcesFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
-	caller := &stubAPI{Stub: s.stub}
-	doer := &stubAPI{Stub: s.stub}
-
-	cl := uniter.NewResourcesFacadeClient(context.Background(), caller, doer)
-
-	s.stub.CheckNoCalls(c)
-	c.Check(cl.FacadeCaller, gc.Equals, caller)
-	c.Check(cl.HTTPClient, gc.Equals, doer)
-}
-
 func (s *ResourcesFacadeClientSuite) TestGetResource(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.api.setResource(opened.Resource, opened)
-	cl := uniter.NewResourcesFacadeClient(context.Background(), s.api, s.api)
+	cl, err := uniter.NewResourcesFacadeClient(s.api, names.NewUnitTag("unit/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	cl.HTTPDoer = s.api
 
 	info, content, err := cl.GetResource("spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Do", "FacadeCall")
+	s.stub.CheckCallNames(c, "Do", "GetResourceInfo")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 	c.Check(content, jc.DeepEquals, opened)
 }
@@ -77,6 +71,7 @@ func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *gc.C) {
 }
 
 type stubAPI struct {
+	base.APICaller
 	*testing.Stub
 
 	ReturnFacadeCall params.UnitResourcesResult
@@ -95,8 +90,22 @@ func (s *stubAPI) setResource(info resource.Resource, reader io.ReadCloser) {
 	}
 }
 
-func (s *stubAPI) FacadeCall(request string, args, response interface{}) error {
-	s.AddCall("FacadeCall", args, response)
+func (s *stubAPI) Context() context.Context {
+	return context.TODO()
+}
+
+func (s *stubAPI) BestFacadeVersion(_ string) int {
+	return 1
+}
+
+func (s *stubAPI) HTTPClient() (*httprequest.Client, error) {
+	return &httprequest.Client{
+		//Doer: func,
+	}, nil
+}
+
+func (s *stubAPI) APICall(objType string, version int, id, request string, args, response interface{}) error {
+	s.AddCall(request, args, response)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

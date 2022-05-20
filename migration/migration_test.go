@@ -21,7 +21,6 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	coremigration "github.com/juju/juju/core/migration"
@@ -36,13 +35,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 )
-
-func init() {
-	// Required for resources.
-	if err := all.RegisterForServer(); err != nil {
-		panic(err)
-	}
-}
 
 type ImportSuite struct {
 	statetesting.StateSuite

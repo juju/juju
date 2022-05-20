@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -19,12 +18,6 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/state Resources
-
-func init() {
-	if err := all.RegisterForServer(); err != nil {
-		panic(err)
-	}
-}
 
 var _ = gc.Suite(&ResourcesSuite{})
 

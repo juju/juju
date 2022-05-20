@@ -14,16 +14,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/component/all"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func init() {
-	// Required for anything requiring components (e.g. resources).
-	if err := all.RegisterForServer(); err != nil {
-		panic(err)
-	}
-
 	// Initialize all suites here.
 	gc.Suite(&annotationsSuite{})
 	gc.Suite(&cmdApplicationSuite{})

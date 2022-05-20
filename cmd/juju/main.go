@@ -12,21 +12,11 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cmd/juju/commands"
-	components "github.com/juju/juju/component/all"
 	_ "github.com/juju/juju/provider/all" // Import the providers.
 )
 
-var log = loggo.GetLogger("juju.cmd.juju")
-
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
-}
-
-func init() {
-	if err := components.RegisterForClient(); err != nil {
-		log.Criticalf("unable to register client components: %v", err)
-		os.Exit(1)
-	}
 }
 
 func main() {

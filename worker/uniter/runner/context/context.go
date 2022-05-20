@@ -20,7 +20,6 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/application"
@@ -32,6 +31,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
+	"github.com/juju/juju/worker/uniter/runner/context/payloads"
+	"github.com/juju/juju/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -89,9 +90,9 @@ type Paths interface {
 	// to store metrics recorded during a single hook run.
 	GetMetricsSpoolDir() string
 
-	// ComponentDir returns the filesystem path to the directory
-	// containing all data files for a component.
-	ComponentDir(name string) string
+	// GetResourcesDir returns the filesystem path to the directory
+	// containing resource data files.
+	GetResourcesDir() string
 }
 
 // Clock defines the methods of the full clock.Clock that are needed here.
@@ -102,31 +103,6 @@ type Clock interface {
 }
 
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
-
-// ComponentConfig holds all the information related to a hook context
-// needed by components.
-type ComponentConfig struct {
-	// UnitName is the name of the unit.
-	UnitName string
-	// DataDir is the component's data directory.
-	DataDir string
-	// APICaller is the API caller the component may use.
-	APICaller base.APICaller
-}
-
-// ComponentFunc is a factory function for Context components.
-type ComponentFunc func(ComponentConfig) (jujuc.ContextComponent, error)
-
-var registeredComponentFuncs = map[string]ComponentFunc{}
-
-// Add the named component factory func to the registry.
-func RegisterComponentFunc(name string, f ComponentFunc) error {
-	if _, ok := registeredComponentFuncs[name]; ok {
-		return errors.AlreadyExistsf("%s", name)
-	}
-	registeredComponentFuncs[name] = f
-	return nil
-}
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
@@ -163,6 +139,8 @@ type HookUnit interface {
 
 // HookContext is the implementation of runner.Context.
 type HookContext struct {
+	*resources.ResourcesHookContext
+	*payloads.PayloadsHookContext
 	unit HookUnit
 
 	// state is the handle to the uniter State so that HookContext can make
@@ -298,9 +276,6 @@ type HookContext struct {
 	clock Clock
 
 	logger loggo.Logger
-
-	componentDir   func(string) string
-	componentFuncs map[string]ComponentFunc
 
 	// slaLevel contains the current SLA level.
 	slaLevel string
@@ -443,28 +418,6 @@ func (ctx *HookContext) ensureCharmStateLoaded() error {
 	ctx.cachedCharmState = charmState
 	ctx.charmStateCacheDirty = false
 	return nil
-}
-
-// Component returns the ContextComponent with the supplied name if
-// it was found.
-// Implements jujuc.HookContext.ContextComponents, part of runner.Context.
-func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
-	compCtxFunc, ok := ctx.componentFuncs[name]
-	if !ok {
-		return nil, errors.NotFoundf("context component %q", name)
-	}
-
-	facade := ctx.state.Facade()
-	config := ComponentConfig{
-		UnitName:  ctx.unit.Name(),
-		DataDir:   ctx.componentDir(name),
-		APICaller: facade.RawAPICaller(),
-	}
-	compCtx, err := compCtxFunc(config)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return compCtx, nil
 }
 
 // RequestReboot will set the reboot flag to true on the machine agent

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/payload"
@@ -20,8 +21,9 @@ type PayloadFacadeClient struct {
 }
 
 // NewPayloadFacadeClient builds a new payload API client.
-func NewPayloadFacadeClient(caller FacadeCaller) *PayloadFacadeClient {
-	return &PayloadFacadeClient{caller}
+func NewPayloadFacadeClient(caller base.APICaller) *PayloadFacadeClient {
+	facadeCaller := base.NewFacadeCaller(caller, "PayloadsHookContext")
+	return &PayloadFacadeClient{FacadeCaller: facadeCaller}
 }
 
 // Track calls the Track API server method.
