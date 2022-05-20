@@ -98,7 +98,27 @@ var InfoHighlight = ansiterm.Foreground(ansiterm.Cyan)
 
 // EmphasisHighlight is used to show accompanying information, which
 // might be deemed as important by the user.
-var EmphasisHighlight = ansiterm.Foreground(ansiterm.BrightMagenta)
+var EmphasisHighlight = struct {
+	White         *ansiterm.Context
+	DefaultBold   *ansiterm.Context
+	BoldWhite     *ansiterm.Context
+	Gray          *ansiterm.Context
+	BoldGray      *ansiterm.Context
+	DarkGray      *ansiterm.Context
+	BoldDarkGray  *ansiterm.Context
+	BrightMagenta *ansiterm.Context
+	BrightGreen   *ansiterm.Context
+}{
+	White:         ansiterm.Foreground(ansiterm.White),
+	DefaultBold:   ansiterm.Foreground(ansiterm.Default).SetStyle(ansiterm.Bold),
+	BoldWhite:     ansiterm.Foreground(ansiterm.White).SetStyle(ansiterm.Bold),
+	Gray:          ansiterm.Foreground(ansiterm.Gray),
+	BoldGray:      ansiterm.Foreground(ansiterm.Gray).SetStyle(ansiterm.Bold),
+	BoldDarkGray:  ansiterm.Foreground(ansiterm.DarkGray).SetStyle(ansiterm.Bold),
+	DarkGray:      ansiterm.Foreground(ansiterm.DarkGray),
+	BrightMagenta: ansiterm.Foreground(ansiterm.BrightMagenta),
+	BrightGreen:   ansiterm.Foreground(ansiterm.BrightGreen),
+}
 
 var statusColors = map[status.Status]*ansiterm.Context{
 	// good
