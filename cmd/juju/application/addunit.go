@@ -47,9 +47,13 @@ Add five units of mysql:
 
 For cloud models, by default, units are deployed to newly provisioned machines
 in accordance with any application or model constraints.
+
 This command also supports the placement directive ("--to") for targeting
 specific machines or containers, which will bypass application and model
-constraints.
+constraints. --to accepts a comma-separated list of placement specifications
+(see examples below). If the length of this list is less than the number of
+units being added, the remaining units will be added in the default way (i.e.
+to new machines).
 
 Examples:
 
@@ -77,6 +81,11 @@ Add a unit of mysql into a new LXD container on machine 7:
 Add two units of mysql into two new LXD containers on machine 7:
 
     juju add-unit mysql -n 2 --to lxd:7,lxd:7
+
+Add three units of mysql, one to a new LXD container on machine 7,
+and the others to new machines:
+
+    juju add-unit mysql -n 3 --to lxd:7
 
 Add a unit of mysql to LXD container number 3 on machine 24:
 
