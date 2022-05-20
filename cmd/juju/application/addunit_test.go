@@ -129,6 +129,11 @@ func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	}
 }
 
+func (s *AddUnitSuite) TestInitPlacement(c *gc.C) {
+	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), []string{"some-application-name", "--to", "4,5,,"})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // Must error at init when the model type is known (and args are invalid)
 func (s *AddUnitSuite) TestInitErrorsForCAAS(c *gc.C) {
 	m := s.store.Models["arthur"].Models["king/sword"]
