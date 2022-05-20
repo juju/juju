@@ -45,6 +45,13 @@ func (w *Wrapper) Print(values ...interface{}) {
 	}
 }
 
+// PrintNoTab writes each value adjacent to each other.
+func (w *Wrapper) PrintNoTab(values ...interface{}) {
+	for _, v := range values {
+		fmt.Fprintf(w, "%v", v)
+	}
+}
+
 // Printf writes the formatted text followed by a tab.
 func (w *Wrapper) Printf(format string, values ...interface{}) {
 	fmt.Fprintf(w, format+"\t", values...)
@@ -69,6 +76,27 @@ func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
 	} else {
 		fmt.Fprintf(w, "%v\t", value)
 	}
+}
+
+// PrintColorNoTab writes the value out in the color context specified.
+func (w *Wrapper) PrintColorNoTab(ctx *ansiterm.Context, value interface{}) {
+	if ctx != nil {
+		ctx.Fprintf(w.TabWriter, "%v", value)
+	} else {
+		fmt.Fprintf(w, "%v", value)
+	}
+}
+
+// PrintHeaders writes out many tab separated values in the color context specificed.
+func (w *Wrapper) PrintHeaders(ctx *ansiterm.Context, values ...interface{}) {
+	for i, v := range values {
+		if i != len(values)-1 {
+			ctx.Fprintf(w, "%v\t", v)
+		} else {
+			ctx.Fprintf(w, "%v", v)
+		}
+	}
+	fmt.Fprintln(w)
 }
 
 // PrintStatus writes out the status value in the standard color.
