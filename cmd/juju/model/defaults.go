@@ -43,26 +43,45 @@ model is deployed.
 If the controller host more then one cloud, the cloud (and optionally region)
 must be specified.
 
-Model defaults yaml configuration can be piped from stdin from the output of
-the command stdout. Some model-defaults configuration are read-only, to prevent
+Model defaults yaml configuration can be piped from stdin from the output in
+yaml format of the command stdout.
+
+Some model-defaults configuration are read-only, to prevent
 the command exiting on read-only fields, setting "ignore-read-only-fields" will
 cause it to skip over the fields when they're encountered.
 
 Examples:
+
+Display all model config default values
     juju model-defaults
+
+Display the value of http-proxy model config default
     juju model-defaults http-proxy
+
+Display the value of http-proxy model config default for the aws cloud
     juju model-defaults aws http-proxy
+
+Display the value of http-proxy model config default for the aws cloud
+and us-east-1 region
     juju model-defaults aws/us-east-1 http-proxy
+
+Display the value of http-proxy model config default for the us-east-1 region
     juju model-defaults us-east-1 http-proxy
+
+Set the value of ftp-proxy model config default to 10.0.0.1:8000
     juju model-defaults ftp-proxy=10.0.0.1:8000
-    juju model-defaults aws ftp-proxy=10.0.0.1:8000
-    juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
-    juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
+
+Set model default values for the us-east-1 region as defined in
+path/to/file.yaml and ftp-proxy on the command line
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000 path/to/file.yaml
-    juju model-defaults us-east-1 path/to/file.yaml    
+
+Set model default values for the aws cloud as defined in path/to/file.yaml
+    juju model-defaults aws path/to/file.yaml
+
+Reset the value of default-series and test-mode to default
     juju model-defaults --reset default-series test-mode
-    juju model-defaults aws --reset http-proxy
-    juju model-defaults aws/us-east-1 --reset http-proxy
+
+Reset the value of http-proxy for the us-east-1 region to default
     juju model-defaults us-east-1 --reset http-proxy
 
 See also:
