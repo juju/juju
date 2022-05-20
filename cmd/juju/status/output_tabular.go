@@ -269,7 +269,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, fmt.Sprintf("%s ", pp[0])) //port e.g 3306
 				w.PrintNoTab(fmt.Sprintf("/%s", pp[1]))                                              //append back the forward slash to the protocol name (3306/tcp)
 
-				if i != size && size > 1 {
+				if i != size-1 && size > 1 {
 					w.PrintNoTab(", ")
 				}
 			}
