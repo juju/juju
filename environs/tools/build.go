@@ -357,11 +357,12 @@ func bundleTools(
 	return tvers, official, sha256hash, err
 }
 
-var execCommand = exec.Command
+// Override for testing.
+var ExecCommand = exec.Command
 
 func getVersionFromJujud(dir string) (version.Binary, error) {
 	path := filepath.Join(dir, names.Jujud)
-	cmd := execCommand(path, "version")
+	cmd := ExecCommand(path, "version")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
