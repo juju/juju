@@ -45,7 +45,7 @@ You can add further slaves with:
 
 ## Monitoring
 
-This charm provides relations that support monitoring via either [Nagios](https://jujucharms.com/precise/nagios) or [Munin](https://jujucharms.com/precise/munin/). Refer to the appropriate charm for usage.
+This charm provides relations that support monitoring via either [Nagios](https://charmhub.io/nagios) or [Munin](https://charmhub.io/munin/). Refer to the appropriate charm for usage.
 
 # Configuration
 

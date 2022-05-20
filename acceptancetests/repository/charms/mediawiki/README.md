@@ -118,7 +118,7 @@ When set to true this option will enable the following MediaWiki options: `$wgDe
 
 [1]: https://juju.ubuntu.com/docs/getting-started.html
 [2]: https://juju.ubuntu.com/docs/getting-started.html#installation
-[3]: http://jujucharms.com/charms/precise/mysql
+[3]: http://charmhub.io/mysql
 [4]: http://www.mediawiki.org/wiki/Manual:$wgDefaultSkin
 [5]: http://packages.ubuntu.com/precise/mediawiki
 [6]: http://www.mediawiki.org/wiki/Download_from_Git

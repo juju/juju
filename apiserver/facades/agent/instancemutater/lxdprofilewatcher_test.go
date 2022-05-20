@@ -92,7 +92,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherProfile(c *gc.C) {
 
 	s.setupPrincipalUnit()
 	curl := charm.MustParseURL("ch:name-me")
-	s.unit.EXPECT().CharmURL().Return(curl, true)
+	s.unit.EXPECT().CharmURL().Return(curl, nil)
 	s.unitChanges <- []string{"foo/0"}
 	s.wc0.AssertOneChange()
 }
@@ -152,7 +152,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnit(c *gc.C) {
 	s.unit.EXPECT().PrincipalName().Return("", false)
 	s.unit.EXPECT().AssignedMachineId().Return("0", nil)
 	curl := charm.MustParseURL("ch:name-me")
-	s.unit.EXPECT().CharmURL().Return(curl, true)
+	s.unit.EXPECT().CharmURL().Return(curl, nil)
 	s.unitChanges <- []string{"bar/0"}
 	s.wc0.AssertOneChange()
 }
@@ -195,7 +195,7 @@ func (s *lxdProfileWatcherSuite) assertAddSubordinate() {
 	s.unit.EXPECT().AssignedMachineId().Return("0", nil)
 
 	curl := charm.MustParseURL("ch:name-me")
-	s.unit.EXPECT().CharmURL().Return(curl, true)
+	s.unit.EXPECT().CharmURL().Return(curl, nil)
 	s.unitChanges <- []string{"foo/0"}
 }
 
@@ -291,7 +291,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveOnlyUnit(c *g
 
 	s.setupPrincipalUnit()
 	curl := charm.MustParseURL("ch:name-me")
-	s.unit.EXPECT().CharmURL().Return(curl, true)
+	s.unit.EXPECT().CharmURL().Return(curl, nil)
 	s.unitChanges <- []string{"foo/0"}
 	s.wc0.AssertOneChange()
 
@@ -346,8 +346,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeAppNotFou
 	s.machine0.EXPECT().Units().Return(nil, nil)
 
 	s.setupPrincipalUnit()
-	curl := charm.MustParseURL("ch:name-me")
-	s.unit.EXPECT().CharmURL().Return(curl, false)
+	s.unit.EXPECT().CharmURL().Return(nil, nil)
 	s.unit.EXPECT().Application().Return(nil, errors.NotFoundf(""))
 
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
@@ -365,7 +364,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 
 	s.setupPrincipalUnit()
 	curl := charm.MustParseURL("ch:name-me")
-	s.unit.EXPECT().CharmURL().Return(curl, true)
+	s.unit.EXPECT().CharmURL().Return(curl, nil)
 	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf(""))
 
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))

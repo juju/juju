@@ -195,6 +195,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"upgrade-steps-runner",
 			"upgrader",
 			"valid-credential-flag",
+			"caas-units-manager",
 		},
 	)
 }
@@ -414,16 +415,25 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
-		expectedMachineManifoldsWithDependencies,
+		expectedMachineManifoldsWithDependenciesIAAS,
 	)
 }
 
-var expectedMachineManifoldsWithDependencies = map[string][]string{
+func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *gc.C) {
+	agenttest.AssertManifoldsDependencies(c,
+		machine.CAASManifolds(machine.ManifoldsConfig{
+			Agent: &mockAgent{},
+		}),
+		expectedMachineManifoldsWithDependenciesCAAS,
+	)
+}
+
+var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"agent": {},
 
@@ -1097,6 +1107,505 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	},
 
 	"valid-credential-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
+}
+
+var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
+
+	"agent": {},
+
+	"agent-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"central-hub",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"api-caller": {"agent", "api-config-watcher"},
+
+	"api-config-watcher": {"agent"},
+
+	"api-server": {
+		"agent",
+		"audit-config-updater",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"lease-manager",
+		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
+		"multiwatcher",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"syslog",
+		"upgrade-steps-gate",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+	},
+
+	"audit-config-updater": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
+
+	"central-hub": {"agent", "state-config-watcher"},
+
+	"certificate-watcher": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"clock": {},
+
+	"controller-port": {
+		"agent",
+		"central-hub",
+		"state",
+		"state-config-watcher",
+	},
+
+	"external-controller-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"http-server": {
+		"agent",
+		"api-server",
+		"audit-config-updater",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"lease-manager",
+		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
+		"multiwatcher",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"syslog",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+		"upgrade-steps-gate",
+	},
+
+	"http-server-args": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"state",
+		"state-config-watcher",
+	},
+
+	"is-controller-flag": {"agent", "state-config-watcher"},
+
+	"is-primary-controller-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"lease-clock-updater": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"raft",
+		"raft-leader-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"lease-manager": {
+		"agent",
+		"central-hub",
+		"clock",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
+
+	"log-sender": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"logging-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"mgo-txn-resumer": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"migration-fortress": {
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"migration-inactive-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
+
+	"migration-minion": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"model-cache": {
+		"agent",
+		"central-hub",
+		"is-controller-flag",
+		"model-cache-initialized-gate",
+		"multiwatcher",
+		"state",
+		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+	},
+
+	"model-cache-initialized-flag": {
+		"agent",
+		"is-controller-flag",
+		"model-cache-initialized-gate",
+		"state-config-watcher",
+	},
+
+	"model-cache-initialized-gate": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"model-worker-manager": {
+		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+		"syslog",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"multiwatcher": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+	},
+
+	"peer-grouper": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"presence": {"agent", "central-hub", "state-config-watcher"},
+
+	"proxy-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"pubsub-forwarder": {
+		"agent",
+		"central-hub",
+		"state-config-watcher",
+	},
+
+	"raft": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"raft-backstop": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"raft",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"raft-clusterer": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"raft",
+		"raft-leader-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"raft-forwarder": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"raft",
+		"raft-leader-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"raft-leader-flag": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"raft",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"raft-transport": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
+
+	"ssh-identity-writer": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"state": {"agent", "state-config-watcher"},
+
+	"state-config-watcher": {"agent"},
+
+	"syslog": {},
+
+	"termination-signal-handler": {},
+
+	"transaction-pruner": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"unconverted-api-workers": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"upgrade-check-flag": {"upgrade-check-gate"},
+
+	"upgrade-check-gate": {},
+
+	"upgrade-database-flag": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
+
+	"upgrade-database-gate": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"upgrade-database-runner": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
+
+	"upgrade-steps-flag": {"upgrade-steps-gate"},
+
+	"upgrade-steps-gate": {},
+
+	"upgrade-steps-runner": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"upgrade-steps-gate",
+	},
+
+	"upgrader": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"upgrade-check-gate",
+		"upgrade-steps-gate",
+	},
+
+	"valid-credential-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
+
+	"caas-units-manager": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

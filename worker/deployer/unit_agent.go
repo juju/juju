@@ -221,6 +221,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		_ = engine.Wait()
 		a.mu.Lock()
 		a.workerRunning = false
+		bufferedLogger.Close()
 		a.mu.Unlock()
 	}()
 	if err := addons.StartIntrospection(addons.IntrospectionConfig{

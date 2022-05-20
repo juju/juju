@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/tools"
 )
 
 // StartInstance implements environs.InstanceBroker.
@@ -77,12 +76,7 @@ var getHardwareCharacteristics = func(env *environ, spec *instances.InstanceSpec
 // finishInstanceConfig updates args.InstanceConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
 func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
-	envTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, machArches)
-	}
-
-	if err := args.InstanceConfig.SetTools(envTools); err != nil {
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return errors.Trace(err)
 	}
 	return instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
@@ -97,12 +91,15 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 		return nil, errors.Trace(err)
 	}
 
-	arches := args.Tools.Arches()
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	spec, err := findInstanceSpec(
 		env, &instances.InstanceConstraint{
 			Region:      env.cloud.Region,
 			Series:      args.InstanceConfig.Series,
-			Arches:      arches,
+			Arch:        arch,
 			Constraints: args.Constraints,
 		},
 		args.ImageMetadata,

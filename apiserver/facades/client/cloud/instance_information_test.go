@@ -97,7 +97,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		{
 			Error: &params.Error{Message: "Instances matching constraint  not found", Code: "not found"}},
 		{
-			Error: &params.Error{Message: "asking gce cloud information to aws cloud not valid", Code: ""}}}
+			Error: &params.Error{Message: "asking gce cloud information to aws cloud not valid", Code: "not valid"}}}
 	c.Assert(r.Results, gc.DeepEquals, expected)
 }
 

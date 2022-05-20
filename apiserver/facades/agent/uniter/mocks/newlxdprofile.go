@@ -234,11 +234,11 @@ func (mr *MockLXDProfileUnitV2MockRecorder) AssignedMachineId() *gomock.Call {
 }
 
 // CharmURL mocks base method.
-func (m *MockLXDProfileUnitV2) CharmURL() (*charm.URL, bool) {
+func (m *MockLXDProfileUnitV2) CharmURL() (*charm.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
 	ret0, _ := ret[0].(*charm.URL)
-	ret1, _ := ret[1].(bool)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 

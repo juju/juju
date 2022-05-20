@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/migration"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
 )
@@ -30,7 +31,7 @@ func (*ValidateSuite) TestValid(c *gc.C) {
 func (*ValidateSuite) TestMissingModelUUID(c *gc.C) {
 	config := validConfig()
 	config.ModelUUID = ""
-	checkNotValid(c, config, "empty ModelUUID not valid")
+	checkNotValid(c, config, `model UUID "" not valid`)
 }
 
 func (*ValidateSuite) TestMissingGuard(c *gc.C) {
@@ -77,7 +78,7 @@ func (*ValidateSuite) TestMissingClock(c *gc.C) {
 
 func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
-		ModelUUID:       "uuid",
+		ModelUUID:       coretesting.ModelTag.Id(),
 		Guard:           struct{ fortress.Guard }{},
 		Facade:          struct{ migrationmaster.Facade }{},
 		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },

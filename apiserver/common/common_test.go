@@ -5,7 +5,6 @@ package common_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -13,12 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type commonSuite struct{}
 

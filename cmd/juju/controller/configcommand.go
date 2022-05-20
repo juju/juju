@@ -7,50 +7,60 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/yaml.v3"
 
 	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/config"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/controller"
 )
 
+var ctrConfigBase = config.ConfigCommandBase{
+	Resettable: false,
+}
+
 // NewConfigCommand returns a new command that can retrieve or update
 // controller configuration.
 func NewConfigCommand() cmd.Command {
-	return modelcmd.WrapController(&configCommand{})
+	return modelcmd.WrapController(&configCommand{configBase: ctrConfigBase})
 }
 
 // configCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
 type configCommand struct {
 	modelcmd.ControllerCommandBase
-	api controllerAPI
-	out cmd.Output
+	configBase config.ConfigCommandBase
+	api        controllerAPI
+	out        cmd.Output
 
-	action     func(controllerAPI, *cmd.Context) error // The action we want to perform, set in cmd.Init.
-	key        string                                  // One config key to read.
-	setOptions common.ConfigFlag                       // Config values to set.
+	// Extra `controller-config`-specific fields
+	ignoreReadOnlyFields bool
 }
 
 const (
 	configCommandHelpDocPart1 = `
-By default, all configuration (keys and values) for the controller are
-displayed if a key is not specified. Supplying one key name returns
-only the value for that key.
+When run with no arguments, this command displays the whole configuration
+(keys and values) for the controller. Supplying a single key returns the value
+for that key.
 
-Supplying key=value will set the supplied key to the supplied value;
-this can be repeated for multiple keys. You can also specify a yaml
-file containing key values. Not all keys can be updated after
-bootstrap time.
+Supplying one or more key=value pairs will set the provided keys to those
+values. You can also set config values from a yaml file using the --file flag.
+Not all keys can be updated after bootstrap time.
+
+By default, all commands target the currently selected controller. You
+can target a different controller by using the -c flag.
 
 `
 	controllerConfigHelpDocKeys = `
@@ -60,12 +70,20 @@ The following keys are available:
 
 Examples:
 
+Print all config values for the current controller:
     juju controller-config
+
+Print the value of "api-port" for the current controller:
     juju controller-config api-port
+
+Print all config values for the controller "mycontroller":
     juju controller-config -c mycontroller
+
+Set the "auditing-enabled" and "audit-log-max-backups" keys:
     juju controller-config auditing-enabled=true audit-log-max-backups=5
-    juju controller-config auditing-enabled=true path/to/file.yaml
-    juju controller-config path/to/file.yaml
+
+Set the current controller's config from a yaml file:
+    juju controller-config --file path/to/file.yaml
 
 See also:
     controllers
@@ -103,66 +121,20 @@ func (c *configCommand) Info() *cmd.Info {
 // cmd.Command.
 func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
+	c.configBase.SetFlags(f)
+
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"json":    cmd.FormatJson,
 		"tabular": formatConfigTabular,
 		"yaml":    cmd.FormatYaml,
 	})
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
 }
 
 // Init initialised the command from the arguments - it's part of
 // cmd.Command.
 func (c *configCommand) Init(args []string) error {
-	switch len(args) {
-	case 0:
-		return c.handleZeroArgs()
-	case 1:
-		return c.handleOneArg(args[0])
-	default:
-		return c.handleArgs(args)
-	}
-}
-
-func (c *configCommand) handleZeroArgs() error {
-	c.action = c.getConfig
-	return nil
-}
-
-func (c *configCommand) handleOneArg(arg string) error {
-	// We may have a single config.yaml file
-	_, err := c.Filesystem().Stat(arg)
-	if err == nil || strings.Contains(arg, "=") {
-		return c.parseSetKeys([]string{arg})
-	}
-	c.key = arg
-	c.action = c.getConfig
-	return nil
-}
-
-func (c *configCommand) handleArgs(args []string) error {
-	if err := c.parseSetKeys(args); err != nil {
-		return errors.Trace(err)
-	}
-	for _, arg := range args {
-		// We may have a config.yaml file.
-		_, err := c.Filesystem().Stat(arg)
-		if err != nil && !strings.Contains(arg, "=") {
-			return errors.New("can only retrieve a single value, or all values")
-		}
-	}
-	return nil
-}
-
-// parseSetKeys iterates over the args and make sure that the key=value pairs
-// are valid.
-func (c *configCommand) parseSetKeys(args []string) error {
-	for _, arg := range args {
-		if err := c.setOptions.Set(arg); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	c.action = c.setConfig
-	return nil
+	return c.configBase.Init(args)
 }
 
 type controllerAPI interface {
@@ -190,9 +162,30 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return c.action(client, ctx)
+
+	switch c.configBase.Actions[0] {
+	case config.GetOne:
+		return c.getConfig(client, ctx)
+	case config.Set:
+		return c.setConfig(client, ctx)
+	case config.SetFile:
+		return c.setConfigFile(client, ctx)
+	default:
+		return c.getAllConfig(client, ctx)
+	}
 }
 
+// getAllConfig returns the entire configuration for the selected controller.
+func (c *configCommand) getAllConfig(client controllerAPI, ctx *cmd.Context) error {
+	attrs, err := client.ControllerConfig()
+	if err != nil {
+		return err
+	}
+	// Return whole config
+	return c.out.Write(ctx, attrs)
+}
+
+// getConfig returns the value of the specified key.
 func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error {
 	controllerName, err := c.ControllerName()
 	if err != nil {
@@ -202,41 +195,73 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 	if err != nil {
 		return err
 	}
-
-	if c.key != "" {
-		if value, found := attrs[c.key]; found {
-			if c.out.Name() == "tabular" {
-				// The user has not specified that they want
-				// YAML or JSON formatting, so we print out
-				// the value unadorned.
-				return c.out.WriteFormatter(ctx, cmd.FormatSmart, value)
-			}
-			return c.out.Write(ctx, value)
+	if value, found := attrs[c.configBase.KeyToGet]; found {
+		if c.out.Name() == "tabular" {
+			// The user has not specified that they want
+			// YAML or JSON formatting, so we print out
+			// the value unadorned.
+			return c.out.WriteFormatter(ctx, cmd.FormatSmart, value)
 		}
-		return errors.Errorf("key %q not found in %q controller", c.key, controllerName)
+		return c.out.Write(ctx, value)
 	}
-	// If key is empty, write out the whole lot.
-	return c.out.Write(ctx, attrs)
+	return errors.Errorf("key %q not found in controller %q",
+		c.configBase.KeyToGet, controllerName)
 }
 
+// setConfig sets config values from provided key=value arguments.
 func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error {
-	attrs, err := c.setOptions.ReadAttrs(ctx)
+	attrs := make(map[string]interface{})
+	for key, value := range c.configBase.ValsToSet {
+		attrs[key] = value
+	}
+	values, err := c.filterAttrs(attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	return errors.Trace(client.ConfigSet(values))
+}
+
+// setConfigFile sets config values from the provided yaml file.
+func (c *configCommand) setConfigFile(client controllerAPI, ctx *cmd.Context) error {
+	// Read file & unmarshal into yaml
+	path, err := utils.NormalizePath(c.configBase.ConfigFile.Path)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	data, err := os.ReadFile(ctx.AbsPath(path))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	attrs := make(map[string]interface{})
+	if err := yaml.Unmarshal(data, &attrs); err != nil {
+		return errors.Trace(err)
+	}
+
+	values, err := c.filterAttrs(attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(client.ConfigSet(values))
+}
+
+// filterAttrs checks if any of the `attrs` being set are unsettable. If so,
+// it will filter them out, and either log a warning or return an error
+// (depending on the value of `c.ignoreReadOnlyFields`).
+func (c *configCommand) filterAttrs(attrs map[string]interface{}) (map[string]interface{}, error) {
 	store := c.ClientStore()
 	controllerName, err := store.CurrentController()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	ctrl, err := store.ControllerByName(controllerName)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	_, err = controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	extraValues := set.NewStrings()
@@ -249,10 +274,13 @@ func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error 
 		}
 	}
 	if extraValues.Size() > 0 {
-		return errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
+		if c.ignoreReadOnlyFields {
+			logger.Warningf("invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
+		} else {
+			return nil, errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
+		}
 	}
-
-	return errors.Trace(client.ConfigSet(values))
+	return values, nil
 }
 
 // ConfigDetailsUpdatable gets information about the controller config

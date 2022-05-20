@@ -152,6 +152,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharmWithRevision(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerCharmHubCharmWithRevision(c *gc.C) {
 	cfg := s.channelDeployerConfig()
 	cfg.Revision = 42
+	cfg.Channel, _ = charm.ParseChannel("stable")
 	ch := charm.MustParseURL("ch:test-charm")
 	deployer, err := s.testGetDeployerRepositoryCharmWithRevision(c, ch, cfg)
 	c.Assert(err, jc.ErrorIsNil)

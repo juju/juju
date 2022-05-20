@@ -1445,11 +1445,11 @@ func getApplicationSourceChannel(a description.Application, url *charm.URL) (cor
 	}
 
 	c := a.Channel()
-	if c == "" {
+	if c == "" || source == corecharm.Local {
 		return source, nil
 	}
 
-	if source == corecharm.CharmStore || source == corecharm.Local {
+	if source == corecharm.CharmStore {
 		return source, &Channel{Risk: a.Channel()}
 	}
 
@@ -1561,10 +1561,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	// the charm url for each unit rather than grabbing the applications charm url.
 	// Currently the units charm url matching the application is a precondiation
 	// to migration.
-	charmURL, err := charm.ParseURL(s.CharmURL())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	charmURL := s.CharmURL()
 
 	var subordinates []string
 	if subs := u.Subordinates(); len(subs) > 0 {
@@ -1589,7 +1586,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Name:                   u.Name(),
 		Application:            s.Name(),
 		Series:                 s.Series(),
-		CharmURL:               charmURL,
+		CharmURL:               &charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
 		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),

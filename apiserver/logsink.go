@@ -128,7 +128,7 @@ type agentLoggingStrategy struct {
 	releaser     func()
 	version      version.Number
 	entity       string
-	filePrefix   string
+	modelUUID    string
 }
 
 // newAgentLogWriteCloserFunc returns a function that will create a
@@ -171,7 +171,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	}
 	s.version = ver
 	s.entity = entity.Tag().String()
-	s.filePrefix = st.ModelUUID() + ":"
+	s.modelUUID = st.ModelUUID()
 	s.recordLogger = s.apiServerLoggers.getLogger(st.State)
 	s.releaser = func() {
 		if removed := st.Release(); removed {
@@ -179,6 +179,10 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 		}
 	}
 	return nil
+}
+
+func (s *agentLoggingStrategy) filePrefix() string {
+	return s.modelUUID + ":"
 }
 
 // Close is part of the logsink.LogWriteCloser interface.
@@ -195,14 +199,15 @@ func (s *agentLoggingStrategy) Close() error {
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
 	dbErr := errors.Annotate(s.recordLogger.Log([]corelogger.LogRecord{{
-		Time:     m.Time,
-		Entity:   s.entity,
-		Version:  s.version,
-		Module:   m.Module,
-		Location: m.Location,
-		Level:    level,
-		Message:  m.Message,
-		Labels:   m.Labels,
+		Time:      m.Time,
+		Entity:    s.entity,
+		Version:   s.version,
+		Module:    m.Module,
+		Location:  m.Location,
+		Level:     level,
+		Message:   m.Message,
+		Labels:    m.Labels,
+		ModelUUID: s.modelUUID,
 	}}), "logging to DB failed")
 
 	// If the log entries cannot be inserted to the DB log out an error
@@ -210,7 +215,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	if dbErr != nil {
 		// If this fails then the next logToFile will fail as well; no
 		// need to check for errors here.
-		_ = logToFile(s.fileLogger, s.filePrefix, params.LogRecord{
+		_ = logToFile(s.fileLogger, s.filePrefix(), params.LogRecord{
 			Time:    time.Now(),
 			Module:  "juju.apiserver",
 			Level:   loggo.ERROR.String(),
@@ -220,7 +225,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 
 	m.Entity = s.entity
 	fileErr := errors.Annotate(
-		logToFile(s.fileLogger, s.filePrefix, m),
+		logToFile(s.fileLogger, s.filePrefix(), m),
 		"logging to logsink.log failed",
 	)
 	err := dbErr

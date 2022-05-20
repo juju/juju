@@ -10,6 +10,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -96,6 +97,17 @@ func (*ErrorSuite) TestNilAzureError(c *gc.C) {
 	returnedErr := errorutils.HandleCredentialError(nil, ctx)
 	c.Assert(called, jc.IsFalse)
 	c.Assert(returnedErr, jc.ErrorIsNil)
+}
+
+func (*ErrorSuite) TestQuotaExceededError(c *gc.C) {
+	se := &azure.ServiceError{
+		Details: []map[string]interface{}{{
+			"code":    "QuotaExceeded",
+			"message": "boom",
+		}}}
+	err, ok := errorutils.QuotaExceededError(se)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 var checkForGraphErrorTests = []struct {

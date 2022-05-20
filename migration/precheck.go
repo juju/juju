@@ -83,7 +83,7 @@ type PrecheckUnit interface {
 	Name() string
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
-	CharmURL() (*charm.URL, bool)
+	CharmURL() (*charm.URL, error)
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	ShouldBeAssigned() bool

@@ -1,5 +1,10 @@
 name: "Smoke"
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
 jobs:
 
   smoke:
@@ -46,12 +51,19 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo snap install *.snap --dangerous --classic
+        sudo snap install *.snap --dangerous
+        # Since we're installing dangerously, we need to
+        # manually grant permissions to juju
+        sudo snap connect juju:lxd lxd
+        sudo snap connect juju:dot-local-share-juju
+        sudo snap connect juju:ssh-public-keys
+        snap connections juju
 
     - name: Smoke Test
       shell: bash
       run: |
-        cd tests && ./main.sh smoke
+        cd tests
+        ./main.sh -v smoke
 
   Upgrade:
     name: Upgrade
@@ -152,7 +164,7 @@ jobs:
         sg microk8s "microk8s kubectl create -f .github/reg.yml"
 
         # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
-        sudo microk8s refresh-certs
+        sudo microk8s refresh-certs --cert ca.crt
 
         # Wait for registry
         sg microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
