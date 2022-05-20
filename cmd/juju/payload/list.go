@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package status
+package payload
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/client/payloads"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
@@ -28,16 +29,21 @@ type ListCommand struct {
 	out      cmd.Output
 	patterns []string
 
-	newAPIClient func(c *ListCommand) (ListAPI, error)
+	newAPIClient func() (ListAPI, error)
 }
 
 // NewListCommand returns a new command that lists charm payloads
 // in the current environment.
-func NewListCommand(newAPIClient func(c *ListCommand) (ListAPI, error)) *ListCommand {
-	cmd := &ListCommand{
-		newAPIClient: newAPIClient,
+func NewListCommand() modelcmd.ModelCommand {
+	c := &ListCommand{}
+	c.newAPIClient = func() (ListAPI, error) {
+		apiRoot, err := c.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return payloads.NewClient(apiRoot), nil
 	}
-	return cmd
+	return modelcmd.Wrap(c)
 }
 
 // TODO(ericsnow) Change "tag" to "label" in the help text?
@@ -84,7 +90,7 @@ func (c *ListCommand) Init(args []string) error {
 }
 
 func (c *ListCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.newAPIClient(c)
+	apiclient, err := c.newAPIClient()
 	if err != nil {
 		return errors.Trace(err)
 	}

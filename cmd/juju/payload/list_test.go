@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package status_test
+package payload_test
 
 import (
 	"bytes"
@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/status"
+	"github.com/juju/juju/cmd/juju/payload"
+	corepayload "github.com/juju/juju/payload"
 )
 
 var _ = gc.Suite(&listSuite{})
@@ -34,17 +34,12 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 	s.client = &stubClient{stub: s.stub}
 }
 
-func (s *listSuite) newAPIClient(c *status.ListCommand) (status.ListAPI, error) {
-	s.stub.AddCall("newAPIClient", c)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func (s *listSuite) newAPIClient() (payload.ListAPI, error) {
 	return s.client, nil
 }
 
 func (s *listSuite) TestInfo(c *gc.C) {
-	var command status.ListCommand
+	var command payload.ListCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &cmd.Info{
@@ -72,13 +67,13 @@ will be checked against the following info in Juju:
 	})
 }
 
-func (s *listSuite) TestOkay(c *gc.C) {
-	p1 := status.NewPayload("spam", "a-application", 1, 0)
+func (s *listSuite) TestList(c *gc.C) {
+	p1 := payload.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
-	p2 := status.NewPayload("eggs", "another-application", 2, 1)
+	p2 := payload.NewPayload("eggs", "another-application", 2, 1)
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
-	command := status.NewListCommand(s.newAPIClient)
+	command := payload.NewListCommandForTest(s.newAPIClient)
 	code, stdout, stderr := runList(c, command)
 	c.Assert(code, gc.Equals, 0)
 
@@ -93,7 +88,7 @@ another-application/1  2        eggs           running  docker  ideggs
 }
 
 func (s *listSuite) TestNoPayloads(c *gc.C) {
-	command := status.NewListCommand(s.newAPIClient)
+	command := payload.NewListCommandForTest(s.newAPIClient)
 	code, stdout, stderr := runList(c, command)
 	c.Assert(code, gc.Equals, 0)
 
@@ -102,13 +97,13 @@ func (s *listSuite) TestNoPayloads(c *gc.C) {
 }
 
 func (s *listSuite) TestPatternsOkay(c *gc.C) {
-	p1 := status.NewPayload("spam", "a-application", 1, 0)
+	p1 := payload.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
-	p2 := status.NewPayload("eggs", "another-application", 2, 1)
+	p2 := payload.NewPayload("eggs", "another-application", 2, 1)
 	p2.Labels = []string{"a-tag"}
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
-	command := status.NewListCommand(s.newAPIClient)
+	command := payload.NewListCommandForTest(s.newAPIClient)
 	args := []string{
 		"a-tag",
 		"other",
@@ -126,11 +121,6 @@ another-application/1  2        eggs           running  docker  ideggs  a-tag
 `[1:])
 	c.Check(stderr, gc.Equals, "")
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "newAPIClient",
-		Args: []interface{}{
-			command,
-		},
-	}, {
 		FuncName: "List",
 		Args: []interface{}{
 			[]string{
@@ -145,9 +135,9 @@ another-application/1  2        eggs           running  docker  ideggs  a-tag
 }
 
 func (s *listSuite) TestOutputFormats(c *gc.C) {
-	p1 := status.NewPayload("spam", "a-application", 1, 0)
+	p1 := payload.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
-	p2 := status.NewPayload("eggs", "another-application", 2, 1)
+	p2 := payload.NewPayload("eggs", "another-application", 2, 1)
 	s.client.payloads = append(s.client.payloads,
 		p1,
 		p2,
@@ -199,7 +189,7 @@ another-application/1  2        eggs           running  docker  ideggs
 			" ", "", -1),
 	}
 	for format, expected := range formats {
-		command := status.NewListCommand(s.newAPIClient)
+		command := payload.NewListCommandForTest(s.newAPIClient)
 		args := []string{
 			"--format", format,
 		}
@@ -211,7 +201,7 @@ another-application/1  2        eggs           running  docker  ideggs
 	}
 }
 
-func runList(c *gc.C, command *status.ListCommand, args ...string) (int, string, string) {
+func runList(c *gc.C, command *payload.ListCommand, args ...string) (int, string, string) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(command, ctx, args)
 	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
@@ -221,10 +211,10 @@ func runList(c *gc.C, command *status.ListCommand, args ...string) (int, string,
 
 type stubClient struct {
 	stub     *testing.Stub
-	payloads []payload.FullPayloadInfo
+	payloads []corepayload.FullPayloadInfo
 }
 
-func (s *stubClient) ListFull(patterns ...string) ([]payload.FullPayloadInfo, error) {
+func (s *stubClient) ListFull(patterns ...string) ([]corepayload.FullPayloadInfo, error) {
 	s.stub.AddCall("List", patterns)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

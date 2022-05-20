@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/juju/payload"
 	"github.com/juju/juju/cmd/juju/resource"
 	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
@@ -41,7 +42,6 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -565,7 +565,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(gui.NewGUICommand())
 	r.Register(gui.NewUpgradeGUICommand())
 
-	// Resource commands
+	// Resource commands.
 	r.Register(resource.NewUploadCommand())
 	r.Register(resource.NewListCommand())
 	r.Register(resource.NewCharmResourcesCommand())
@@ -575,15 +575,9 @@ func registerCommands(r commandRegistry) {
 	r.Register(charmhub.NewFindCommand())
 	r.Register(charmhub.NewDownloadCommand())
 
-	// Commands registered elsewhere.
-	for _, newCommand := range registeredCommands {
-		command := newCommand()
-		r.Register(command)
-	}
-	for _, newCommand := range registeredEnvCommands {
-		command := newCommand()
-		r.Register(modelcmd.Wrap(command))
-	}
+	// Payload commands.
+	r.Register(payload.NewListCommand())
+
 	rcmd.RegisterAll(r)
 }
 
