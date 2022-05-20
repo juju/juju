@@ -89,10 +89,12 @@ jobs:
     - name: "Test client: macOS-latest"
       if: (matrix.os == 'macOS-latest')
       run: |
-        # There is a concurrency issue with macos setup for the "./cmd/juju/..." packages.
-        # So we have to limit amount of used CPUs and therefore parallelization
-        go test -v -p 1 ./cmd/juju/... -check.v
-        go test -v  ./cmd/plugins/... -check.v
+        # We increase the number of file descriptors that processes can have 
+        # open so mongo doesn't fail. Client tests still rely on mongo and as
+        # such we have a high request count for FD's
+        ulimit -n 8192
+        go test -v ./cmd/juju/... -check.v
+        go test -v ./cmd/plugins/... -check.v
       shell: bash
 
     - name: "Test client: ubuntu-latest"
