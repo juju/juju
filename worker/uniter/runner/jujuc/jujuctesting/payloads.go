@@ -3,7 +3,7 @@
 
 package jujuctesting
 
-import "github.com/juju/juju/payload"
+import "github.com/juju/juju/core/payload"
 
 // ContextPayloads is a test double for jujuc.ContextResources.
 type ContextPayloads struct {

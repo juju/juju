@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 )
 
 // NewPayloadRegisterCmd returns a new PayloadRegisterCmd that wraps the given context.

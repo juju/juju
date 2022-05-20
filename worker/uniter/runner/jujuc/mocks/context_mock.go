@@ -12,7 +12,7 @@ import (
 	charm "github.com/juju/charm/v8"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
-	payload "github.com/juju/juju/payload"
+	payload "github.com/juju/juju/core/payload"
 	params "github.com/juju/juju/rpc/params"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"

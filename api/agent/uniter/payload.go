@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/rpc/params"
 )
 

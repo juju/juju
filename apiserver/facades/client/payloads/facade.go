@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	api "github.com/juju/juju/api/client/payloads"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/rpc/params"
 )
 

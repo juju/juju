@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 )
 
 // NewPayloadStatusSetCmd returns a new PayloadStatusSetCmd that wraps the given context.

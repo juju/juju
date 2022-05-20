@@ -13,7 +13,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	unitfacade "github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -4,7 +4,7 @@
 package payloads
 
 import (
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 )
 
 func ContextPayloads(ctx *PayloadsHookContext) map[string]payload.Payload {
