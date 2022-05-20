@@ -158,6 +158,7 @@ jobs:
 
         # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
         sudo microk8s refresh-certs --cert ca.crt
+        sudo microk8s refresh-certs --cert server.crt
 
         # Wait for registry
         sg microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
@@ -209,13 +210,18 @@ jobs:
       # and filter with as standard, instead of skipping over them with this flag
       run: |
         set -euxo pipefail
-        sleep 60
-        sg microk8s <<EOF
-          juju bootstrap microk8s c \
-            --config caas-image-repo='{"repository": "${DOCKER_REGISTRY}/test-repo", "serveraddress": "https://${DOCKER_REGISTRY}/"}' \
-            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
-            --config features="[developer-mode]"
+        
+        while true
+        do
+          sg microk8s <<EOF
+            juju bootstrap microk8s c \
+              --config caas-image-repo='{"repository": "${DOCKER_REGISTRY}/test-repo", "serveraddress": "https://${DOCKER_REGISTRY}/"}' \
+              --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
+              --config features="[developer-mode]" || true
         EOF
+          sleep 30
+        done
+        
         juju add-model m
 
         juju status
