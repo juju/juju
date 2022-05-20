@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	api "github.com/juju/juju/api/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
 	"github.com/juju/juju/rpc/params"
 )
 
