@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/rpc/params"
 )
 

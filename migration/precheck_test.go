@@ -13,10 +13,10 @@ import (
 
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/migration"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"

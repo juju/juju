@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
+	jujuresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
-	jujuresource "github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -524,10 +524,10 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{
-				Resources: map[string]resource.Meta{
+				Resources: map[string]charmresource.Meta{
 					"gitlab-image": {
 						Name: "gitlab-image",
-						Type: resource.TypeContainerImage,
+						Type: charmresource.TypeContainerImage,
 					},
 				},
 			},
@@ -539,7 +539,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 		},
 	}
 	s.st.resource = &mockResources{
-		resource: &resources.DockerImageDetails{
+		resource: &resource.DockerImageDetails{
 			RegistryPath: "gitlab:latest",
 			ImageRepoDetails: docker.ImageRepoDetails{
 				BasicAuthConfig: docker.BasicAuthConfig{

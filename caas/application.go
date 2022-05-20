@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 )
@@ -133,7 +133,7 @@ type ContainerConfig struct {
 	Name string
 
 	// Image used to create the container.
-	Image resources.DockerImageDetails
+	Image resource.DockerImageDetails
 
 	// Mounts to storage that are to be provided within this container.
 	Mounts []MountConfig

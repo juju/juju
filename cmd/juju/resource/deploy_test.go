@@ -21,7 +21,7 @@ import (
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/docker"
 )
 
@@ -462,7 +462,7 @@ password: hunter2
 	data := bytes.NewBufferString(content)
 	dets, err := unMarshalDockerDetails(data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(dets, gc.DeepEquals, resource.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -482,7 +482,7 @@ password: hunter2
 	data = bytes.NewBufferString(content)
 	dets, err = unMarshalDockerDetails(data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(dets, gc.DeepEquals, resource.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -514,7 +514,7 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 	fs := osFilesystem{}
 	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image", fs.Open)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(result, gc.DeepEquals, resource.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -536,7 +536,7 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	result, err = getDockerDetailsData(yamlFile, fs.Open)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(result, gc.DeepEquals, resource.DockerImageDetails{
 		RegistryPath: "mariadb/mariadb:10.2",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -586,7 +586,7 @@ func (s uploadDeps) Open(name string) (modelcmd.ReadSeekCloser, error) {
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	if err := resources.ValidateDockerRegistryPath(name); err == nil && !strings.HasSuffix(name, ".txt") {
+	if err := resource.ValidateDockerRegistryPath(name); err == nil && !strings.HasSuffix(name, ".txt") {
 		return nil, errors.New("invalid file")
 	}
 	return rsc{bytes.NewBuffer(s.data)}, nil

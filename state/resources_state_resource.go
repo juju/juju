@@ -17,8 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 var rLogger = logger.Child("resource")
@@ -317,7 +316,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader, increm
 		if err != nil {
 			return errors.Trace(err)
 		}
-		dockerDetails, err := resources.UnmarshalDockerResource(respBuf.Bytes())
+		dockerDetails, err := resource.UnmarshalDockerResource(respBuf.Bytes())
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -15,7 +15,7 @@ import (
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
 )
 

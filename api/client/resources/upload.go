@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 // UploadRequest defines a single upload request.

@@ -15,7 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 // UploadClient has the API client methods needed by UploadCommand.

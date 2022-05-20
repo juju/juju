@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/testcharms"
 )
 

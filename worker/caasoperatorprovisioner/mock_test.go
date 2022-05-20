@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	"github.com/juju/version/v2"
@@ -19,9 +18,10 @@ import (
 	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -66,7 +66,7 @@ func (m *mockProvisionerFacade) OperatorProvisioningInfo(appName string) (apicaa
 		return apicaasprovisioner.OperatorProvisioningInfo{}, err
 	}
 	result := apicaasprovisioner.OperatorProvisioningInfo{
-		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		ImageDetails: resource.DockerImageDetails{RegistryPath: "juju-operator-image"},
 		Version:      version.MustParse("2.99.0"),
 		APIAddresses: []string{"10.0.0.1:17070", "192.18.1.1:17070"},
 		Tags:         map[string]string{"fred": "mary"},

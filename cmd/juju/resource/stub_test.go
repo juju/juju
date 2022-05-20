@@ -8,9 +8,10 @@ import (
 
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
-	jujuresource "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/resource"
 	"github.com/juju/testing"
+
+	jujuresource "github.com/juju/juju/cmd/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 type stubCharmStore struct {

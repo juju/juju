@@ -12,7 +12,7 @@ import (
 	charm "github.com/juju/charm/v8"
 	resource "github.com/juju/charm/v8/resource"
 	controller "github.com/juju/juju/controller"
-	resource0 "github.com/juju/juju/resource"
+	resource0 "github.com/juju/juju/core/resource"
 	resourceadapters "github.com/juju/juju/resource/resourceadapters"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"

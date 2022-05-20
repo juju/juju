@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // This package provides helpers for testing with resources.
-package resourcetesting
+package testing
 
 import (
 	"io"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 type newCharmResourceFunc func(c *gc.C, name, content string) charmresource.Resource

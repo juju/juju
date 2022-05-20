@@ -13,8 +13,7 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 // OpenedResourceClient exposes the API functionality needed by OpenResource.
@@ -48,7 +47,7 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 		if err := reader.Close(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		yamlBody, err := resources.UnmarshalDockerResource(data)
+		yamlBody, err := resource.UnmarshalDockerResource(data)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
