@@ -375,6 +375,38 @@ func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
 	c.Assert(official, jc.IsFalse)
 }
 
+func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) {
+	dir := b.setUpFakeBinaries(c, "")
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Patch so that getting the version from our fake binary in the
+	// absence of a version file works.
+	ver := version.Binary{
+		Number: version.Number{
+			Major: 1,
+			Minor: 2,
+			Patch: 3,
+		},
+		Release: "ubuntu",
+		Arch:    "amd64",
+	}
+
+	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+		Stdout: ver.String(),
+		Args:   make(chan []string, 1),
+	})
+	b.PatchValue(tools.ExecCommand, execCommand)
+	jujudVersion := func(dir string) (version.Binary, bool, error) {
+		return version.Binary{}, true, nil
+	}
+
+	forceVersion := version.MustParse("1.2.3.1")
+	_, official, _, err := tools.BundleToolsForTest(true, bundleFile, &forceVersion, jujudVersion)
+	c.Assert(err, gc.ErrorMatches, `can not build agent for official build`)
+	c.Assert(official, jc.IsTrue)
+}
+
 func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) {
 	// No version file next to the binary.
 	dir := b.setUpFakeBinaries(c, "")
