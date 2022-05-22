@@ -354,7 +354,7 @@ func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error)
 func (c *Client) ClearApplicationResources(appName string) error {
 	var result params.ErrorResults
 	args := params.Entities{Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}}}
-	if err := c.facade.FacadeCall("ClearApplicationsResources", args, &result); err != nil {
+	if err := c.facade.FacadeCall("ClearApplicationzResources", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.Results) != len(args.Entities) {
