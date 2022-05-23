@@ -38,7 +38,7 @@ func (mp ModelPayloads) ListAll() ([]payload.FullPayloadInfo, error) {
 // UnitPayloads returns a UnitPayloads for the supplied unit.
 func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	machineID, err := unit.AssignedMachineId()
-	if err != nil {
+	if unit.ShouldBeAssigned() && err != nil {
 		return UnitPayloads{}, errors.Trace(err)
 	}
 	return UnitPayloads{

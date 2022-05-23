@@ -35,7 +35,7 @@ type UnitPayloadBackend interface {
 	// List returns information on the payload with the id on the unit.
 	List(ids ...string) ([]payload.Result, error)
 
-	// Settatus sets the status for the payload with the given id on the unit.
+	// SetStatus sets the status for the payload with the given id on the unit.
 	SetStatus(id, status string) error
 
 	// LookUp returns the payload ID for the given name/rawID pair.

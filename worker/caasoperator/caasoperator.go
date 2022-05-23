@@ -182,6 +182,12 @@ func (config Config) Validate() error {
 	if config.UniterFacadeFunc == nil {
 		return errors.NotValidf("missing UniterFacadeFunc")
 	}
+	if config.ResourcesFacadeFunc == nil {
+		return errors.NotValidf("missing ResourcesFacadeFunc")
+	}
+	if config.PayloadFacadeFunc == nil {
+		return errors.NotValidf("missing PayloadFacadeFunc")
+	}
 	if config.UniterParams == nil {
 		return errors.NotValidf("missing UniterParams")
 	}

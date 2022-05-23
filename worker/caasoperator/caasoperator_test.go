@@ -188,6 +188,14 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing UniterFacadeFunc not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.ResourcesFacadeFunc = nil
+	}, `missing ResourcesFacadeFunc not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.PayloadFacadeFunc = nil
+	}, `missing PayloadFacadeFunc not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterParams = nil
 	}, `missing UniterParams not valid`)
 
