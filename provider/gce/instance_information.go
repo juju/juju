@@ -86,6 +86,7 @@ func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext, clock c
 				Name:     m.Name,
 				CpuCores: uint64(m.GuestCpus),
 				Mem:      uint64(m.MemoryMb),
+				// TODO: support arm64 once the API can report arch.
 				Arch:     arch.AMD64,
 				VirtType: &virtType,
 			}
