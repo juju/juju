@@ -125,7 +125,7 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       uses: balchua/microk8s-actions@v0.2.2
       with:
-        channel: "latest/stable"
+        channel: "1.23/stable"
         addons: '["dns", "storage"]'
 
     - name: Setup local caas registry
