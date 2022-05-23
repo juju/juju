@@ -203,12 +203,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if len(version) > maxVersionWidth {
 			version = version[:truncatedWidth] + ellipsis
 		}
-		w.Print(appName)
-		if version != app.CharmVersion {
-			w.PrintColor(output.WarningHighlight, version)
-		} else {
-			w.Print(version)
-		}
+		w.Print(appName, version)
 		w.PrintStatus(app.StatusInfo.Current)
 		scale, warn := fs.applicationScale(appName)
 		if warn {
