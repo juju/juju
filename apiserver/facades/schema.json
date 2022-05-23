@@ -34599,7 +34599,10 @@
         "Description": "UnitFacade serves payload-specific API methods.",
         "Version": 1,
         "AvailableTo": [
-            "unit-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",

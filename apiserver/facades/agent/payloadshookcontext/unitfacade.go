@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.apiserver.payloadshookcontext")
 
 // NewHookContextFacade returns a new payloads hook context facade for
 // the State and Unit given. It is used for facade registration.
-func NewHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+func NewHookContextFacade(st *state.State, unit *state.Unit) (*UnitFacade, error) {
 	up, err := st.UnitPayloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)

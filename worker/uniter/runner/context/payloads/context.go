@@ -39,7 +39,7 @@ type PayloadsHookContext struct {
 func NewContext(client PayloadAPIClient) (*PayloadsHookContext, error) {
 	results, err := client.List()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting unit payloads")
 	}
 	ctx := &PayloadsHookContext{
 		client:   client,
