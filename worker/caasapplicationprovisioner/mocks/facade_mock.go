@@ -11,7 +11,7 @@ import (
 	charms "github.com/juju/juju/api/common/charms"
 	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	life "github.com/juju/juju/core/life"
-	resources "github.com/juju/juju/core/resources"
+	resource "github.com/juju/juju/core/resource"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
@@ -57,10 +57,10 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationCharmInfo(arg0 inter
 }
 
 // ApplicationOCIResources mocks base method.
-func (m *MockCAASProvisionerFacade) ApplicationOCIResources(arg0 string) (map[string]resources.DockerImageDetails, error) {
+func (m *MockCAASProvisionerFacade) ApplicationOCIResources(arg0 string) (map[string]resource.DockerImageDetails, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationOCIResources", arg0)
-	ret0, _ := ret[0].(map[string]resources.DockerImageDetails)
+	ret0, _ := ret[0].(map[string]resource.DockerImageDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

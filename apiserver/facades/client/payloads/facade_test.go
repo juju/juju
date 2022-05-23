@@ -13,7 +13,7 @@ import (
 
 	api "github.com/juju/juju/api/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/payloads"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/rpc/params"
 )
 

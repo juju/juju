@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/repositories"
 	corestate "github.com/juju/juju/state"
 )

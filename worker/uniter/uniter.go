@@ -81,6 +81,8 @@ type Uniter struct {
 	st                           *uniter.State
 	paths                        Paths
 	unit                         *uniter.Unit
+	resources                    *uniter.ResourcesFacadeClient
+	payloads                     *uniter.PayloadFacadeClient
 	modelType                    model.ModelType
 	sidecar                      bool
 	enforcedCharmModifiedVersion int
@@ -168,6 +170,8 @@ type Uniter struct {
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
 	UniterFacade                  *uniter.State
+	ResourcesFacade               *uniter.ResourcesFacadeClient
+	PayloadFacade                 *uniter.PayloadFacadeClient
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
@@ -239,6 +243,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	startFunc := func() (worker.Worker, error) {
 		u := &Uniter{
 			st:                            uniterParams.UniterFacade,
+			resources:                     uniterParams.ResourcesFacade,
+			payloads:                      uniterParams.PayloadFacade,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
@@ -793,6 +799,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            u.st,
 		Unit:             u.unit,
+		Resources:        u.resources,
+		Payloads:         u.payloads,
 		Tracker:          u.leadershipTracker,
 		GetRelationInfos: u.relationStateTracker.GetInfo,
 		Storage:          u.storage,

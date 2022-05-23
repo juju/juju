@@ -55,7 +55,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -2618,7 +2618,7 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 }
 
 func prepareWorkloadSpec(
-	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails coreresources.DockerImageDetails,
+	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails coreresource.DockerImageDetails,
 ) (*workloadSpec, error) {
 	var spec workloadSpec
 	if err := processContainers(deploymentName, podSpec, &spec.Pod.PodSpec); err != nil {

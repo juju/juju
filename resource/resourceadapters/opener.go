@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/resource/repositories"
 	corestate "github.com/juju/juju/state"
 )

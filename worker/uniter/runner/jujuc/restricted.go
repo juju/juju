@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -163,6 +164,41 @@ func (*RestrictedContext) AddUnitStorage(map[string]params.StorageConstraints) e
 	return ErrRestrictedContext
 }
 
+// DownloadResource implements hooks.Context.
+func (ctx *RestrictedContext) DownloadResource(name string) (filePath string, _ error) {
+	return "", ErrRestrictedContext
+}
+
+// GetPayload implements hooks.Context.
+func (ctx *RestrictedContext) GetPayload(class, id string) (*payload.Payload, error) {
+	return nil, ErrRestrictedContext
+}
+
+// TrackPayload implements hooks.Context.
+func (ctx *RestrictedContext) TrackPayload(payload payload.Payload) error {
+	return ErrRestrictedContext
+}
+
+// UntrackPayload implements hooks.Context.
+func (ctx *RestrictedContext) UntrackPayload(class, id string) error {
+	return ErrRestrictedContext
+}
+
+// SetPayloadStatus implements hooks.Context.
+func (ctx *RestrictedContext) SetPayloadStatus(class, id, status string) error {
+	return ErrRestrictedContext
+}
+
+// ListPayloads implements hooks.Context.
+func (ctx *RestrictedContext) ListPayloads() ([]string, error) {
+	return nil, ErrRestrictedContext
+}
+
+// FlushPayloads pushes the hook context data out to state.
+func (ctx *RestrictedContext) FlushPayloads() error {
+	return ErrRestrictedContext
+}
+
 // Relation implements hooks.Context.
 func (*RestrictedContext) Relation(id int) (ContextRelation, error) {
 	return nil, ErrRestrictedContext
@@ -200,11 +236,6 @@ func (*RestrictedContext) SetActionMessage(string) error { return ErrRestrictedC
 
 // SetActionFailed implements hooks.Context.
 func (*RestrictedContext) SetActionFailed() error { return ErrRestrictedContext }
-
-// Component implements jujc.Context.
-func (*RestrictedContext) Component(string) (ContextComponent, error) {
-	return nil, ErrRestrictedContext
-}
 
 // UnitWorkloadVersion implements hooks.Context.
 func (*RestrictedContext) UnitWorkloadVersion() (string, error) {

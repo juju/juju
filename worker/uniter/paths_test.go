@@ -50,6 +50,7 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
+			ResourcesDir:    relAgent("resources"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
@@ -79,6 +80,7 @@ func (s *PathsSuite) TestWorkerPathsWindows(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
+			ResourcesDir:    relAgent("resources"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
@@ -108,6 +110,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
+			ResourcesDir:    relAgent("resources"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
@@ -148,6 +151,7 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
+			ResourcesDir:    relAgent("resources"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
@@ -176,6 +180,7 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
+			ResourcesDir:    relAgent("resources"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),

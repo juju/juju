@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/resource/resourceadapters/mocks"
 	"github.com/juju/juju/state"

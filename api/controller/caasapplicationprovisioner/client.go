@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -125,7 +125,7 @@ type ProvisioningInfo struct {
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Series               string
-	ImageDetails         resources.DockerImageDetails
+	ImageDetails         resource.DockerImageDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
 	Trust                bool
@@ -290,7 +290,7 @@ func (c *Client) GarbageCollect(
 }
 
 // ApplicationOCIResources returns all the OCI image resources for an application.
-func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error) {
+func (c *Client) ApplicationOCIResources(appName string) (map[string]resource.DockerImageDetails, error) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}
@@ -309,9 +309,9 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 	if res.Result == nil {
 		return nil, errors.Errorf("missing result")
 	}
-	images := make(map[string]resources.DockerImageDetails)
+	images := make(map[string]resource.DockerImageDetails)
 	for k, v := range res.Result.Images {
-		images[k] = resources.DockerImageDetails{
+		images[k] = resource.DockerImageDetails{
 			RegistryPath: v.RegistryPath,
 			ImageRepoDetails: docker.ImageRepoDetails{
 				BasicAuthConfig: docker.BasicAuthConfig{

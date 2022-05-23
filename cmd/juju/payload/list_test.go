@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/payload"
-	corepayload "github.com/juju/juju/payload"
+	corepayload "github.com/juju/juju/core/payload"
 )
 
 var _ = gc.Suite(&listSuite{})

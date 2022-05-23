@@ -30,11 +30,10 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -760,7 +759,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 }
 
 func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
-	var details resources.DockerImageDetails
+	var details resource.DockerImageDetails
 	contents, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return params.DockerImageInfo{}, errors.Trace(err)
@@ -770,7 +769,7 @@ func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 			return params.DockerImageInfo{}, errors.Annotate(err, "file neither valid json or yaml")
 		}
 	}
-	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+	if err := resource.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
 		return params.DockerImageInfo{}, err
 	}
 	return params.DockerImageInfo{

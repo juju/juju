@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/state"
 )
 

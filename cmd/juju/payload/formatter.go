@@ -4,7 +4,7 @@
 package payload
 
 import (
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 )
 
 type listFormatter struct {

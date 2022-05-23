@@ -5,7 +5,7 @@ package utils
 
 import (
 	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmresource_mock.go github.com/juju/juju/cmd/juju/application/utils CharmClient
