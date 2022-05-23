@@ -389,7 +389,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
 			if r.Message != "" {
-				w.Print(" - " + r.Message)
+				w.PrintColor(output.EmphasisHighlight.Gray, " - "+r.Message)
 			}
 		}
 		w.Println()
