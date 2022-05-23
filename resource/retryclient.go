@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"fmt"
@@ -13,7 +13,6 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource/repositories"
 )
 
 // ResourceRetryClient is a wrapper around a Juju repository client that
@@ -47,7 +46,7 @@ func newRetryClient(client ResourceClient) *ResourceRetryClient {
 }
 
 // GetResource returns a reader for the resource's data.
-func (client ResourceRetryClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (client ResourceRetryClient) GetResource(req ResourceRequest) (charmstore.ResourceData, error) {
 	args := client.retryArgs // a copy
 
 	var data charmstore.ResourceData

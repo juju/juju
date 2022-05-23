@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters_test
+package resource_test
 
 import (
 	"fmt"
@@ -13,8 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource/repositories"
-	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 )
 
@@ -44,20 +43,20 @@ func (s *CharmStoreSuite) TestGetResourceTerminatesNoChannel(c *gc.C) {
 func (s *CharmStoreSuite) testGetResourceTerminates(c *gc.C, channel bool) {
 	msg := "trust"
 	attempts := int32(0)
-	s.resourceClient.getResourceF = func(req repositories.ResourceRequest) (data charmstore.ResourceData, err error) {
+	s.resourceClient.getResourceF = func(req resource.ResourceRequest) (data charmstore.ResourceData, err error) {
 		atomic.AddInt32(&attempts, 1)
 		return charmstore.ResourceData{}, errors.New(msg)
 	}
-	csRes := resourceadapters.NewCSRetryClientForTest(s.resourceClient)
+	csRes := resource.NewCSRetryClientForTest(s.resourceClient)
 
-	req := repositories.ResourceRequest{}
+	req := resource.ResourceRequest{}
 	if channel {
 		req.CharmID.Origin.Channel = &state.Channel{Risk: "stable"}
 	}
 	_, err := csRes.GetResource(req)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed after retrying: %v", msg))
 	// Ensure we logged attempts @ WARNING.
-	c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("WARNING juju.resource.resourceadapters attempt %d/%d to download resource ", attempts, attempts))
+	c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("WARNING juju.resource attempt %d/%d to download resource ", attempts, attempts))
 
 	callsMade := []string{}
 	for i := int32(0); i < attempts; i++ {
@@ -70,7 +69,7 @@ func (s *CharmStoreSuite) testGetResourceTerminates(c *gc.C, channel bool) {
 func (s *CharmStoreSuite) TestGetResourceAbortedOnNotFound(c *gc.C) {
 	msg := "trust"
 	s.assertAbortedGetResourceOnError(c,
-		resourceadapters.NewCSRetryClientForTest(s.resourceClient),
+		resource.NewCSRetryClientForTest(s.resourceClient),
 		errors.NotFoundf(msg),
 		fmt.Sprintf("%v not found", msg),
 	)
@@ -79,18 +78,18 @@ func (s *CharmStoreSuite) TestGetResourceAbortedOnNotFound(c *gc.C) {
 func (s *CharmStoreSuite) TestGetResourceAbortedOnNotValid(c *gc.C) {
 	msg := "trust"
 	s.assertAbortedGetResourceOnError(c,
-		resourceadapters.NewCSRetryClientForTest(s.resourceClient),
+		resource.NewCSRetryClientForTest(s.resourceClient),
 		errors.NotValidf(msg),
 		fmt.Sprintf("%v not valid", msg),
 	)
 }
 
-func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resourceadapters.ResourceRetryClient, expectedError error, expectedMessage string) {
-	s.resourceClient.getResourceF = func(req repositories.ResourceRequest) (data charmstore.ResourceData, err error) {
+func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resource.ResourceRetryClient, expectedError error, expectedMessage string) {
+	s.resourceClient.getResourceF = func(req resource.ResourceRequest) (data charmstore.ResourceData, err error) {
 		return charmstore.ResourceData{}, expectedError
 	}
-	_, err := csRes.GetResource(repositories.ResourceRequest{
-		CharmID: repositories.CharmID{
+	_, err := csRes.GetResource(resource.ResourceRequest{
+		CharmID: resource.CharmID{
 			URL: nil,
 			Origin: state.CharmOrigin{
 				Channel: &state.Channel{Risk: "stable"},
@@ -98,7 +97,7 @@ func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resour
 		},
 	})
 	c.Assert(err, gc.ErrorMatches, expectedMessage)
-	c.Assert(c.GetTestLog(), gc.Not(jc.Contains), "WARNING juju.resource.resourceadapters")
+	c.Assert(c.GetTestLog(), gc.Not(jc.Contains), "WARNING juju.resource")
 	// Since we have aborted re-tries, we should only call GetResources once.
 	s.resourceClient.stub.CheckCallNames(c, "GetResource")
 }
@@ -106,10 +105,10 @@ func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resour
 type testResourceClient struct {
 	stub *testing.Stub
 
-	getResourceF func(req repositories.ResourceRequest) (data charmstore.ResourceData, err error)
+	getResourceF func(req resource.ResourceRequest) (data charmstore.ResourceData, err error)
 }
 
-func (f *testResourceClient) GetResource(req repositories.ResourceRequest) (data charmstore.ResourceData, err error) {
+func (f *testResourceClient) GetResource(req resource.ResourceRequest) (data charmstore.ResourceData, err error) {
 	f.stub.AddCall("GetResource", req)
 	return f.getResourceF(req)
 }

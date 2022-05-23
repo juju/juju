@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters_test
+package resource_test
 
 import (
 	"sync"
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/resource"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -29,7 +29,7 @@ var shortAttempt = &utils.AttemptStrategy{
 func (s *LimiterSuite) TestNoLimits(c *gc.C) {
 
 	const totalToAcquire = 10
-	limiter := resourceadapters.NewResourceDownloadLimiter(0, 0)
+	limiter := resource.NewResourceDownloadLimiter(0, 0)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -88,7 +88,7 @@ func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
 		globalLimit    = 5
 		totalToAcquire = 10
 	)
-	limiter := resourceadapters.NewResourceDownloadLimiter(globalLimit, 0)
+	limiter := resource.NewResourceDownloadLimiter(globalLimit, 0)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -156,7 +156,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
 		numApplications              = 2
 		totalToAcquirePerApplication = 10
 	)
-	limiter := resourceadapters.NewResourceDownloadLimiter(0, applicationLimit)
+	limiter := resource.NewResourceDownloadLimiter(0, applicationLimit)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -230,7 +230,7 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
 		numApplications              = 3
 		totalToAcquirePerApplication = 2
 	)
-	limiter := resourceadapters.NewResourceDownloadLimiter(globalLimit, applicationLimit)
+	limiter := resource.NewResourceDownloadLimiter(globalLimit, applicationLimit)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})

@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"context"
@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/repositories"
 	corestate "github.com/juju/juju/state"
 )
 
@@ -85,7 +84,7 @@ type ResourceRetryClientGetter interface {
 // ResourceClient defines a set of functionality that a client
 // needs to define to support resources.
 type ResourceClient interface {
-	GetResource(req repositories.ResourceRequest) (data charmstore.ResourceData, err error)
+	GetResource(req ResourceRequest) (data charmstore.ResourceData, err error)
 }
 
 // CharmHub represents methods required from a charmhub client talking to the

@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters_test
+package resource_test
 
 import (
 	"bytes"
@@ -14,9 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/resource/repositories"
-	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/resource/resourceadapters/mocks"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/mocks"
 	"github.com/juju/juju/state"
 )
 
@@ -35,8 +34,8 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 
 	cl := s.newCharmHubClient()
 	curl, _ := charm.ParseURL("ch:postgresql")
-	result, err := cl.GetResource(repositories.ResourceRequest{
-		CharmID: repositories.CharmID{
+	result, err := cl.GetResource(resource.ResourceRequest{
+		CharmID: resource.CharmID{
 			URL: curl,
 			Origin: state.CharmOrigin{
 				ID:      "mycharmhubid",
@@ -66,8 +65,8 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	})
 }
 
-func (s *CharmHubSuite) newCharmHubClient() *resourceadapters.CharmHubClient {
-	return resourceadapters.NewCharmHubClientForTest(s.client, &noopLogger{})
+func (s *CharmHubSuite) newCharmHubClient() *resource.CharmHubClient {
+	return resource.NewCharmHubClientForTest(s.client, &noopLogger{})
 }
 
 func (s *CharmHubSuite) expectDownloadResource() {

@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -40,14 +41,13 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 
 func newRefreshCommand() *refreshCommand {
 	return &refreshCommand{
-		DeployResources: resourceadapters.DeployResources,
+		DeployResources: deployer.DeployResources,
 		NewCharmAdder:   newCharmAdder,
 		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
 			return apicharms.NewClient(conn)
@@ -136,7 +136,7 @@ type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy, sto
 type refreshCommand struct {
 	modelcmd.ModelCommandBase
 
-	DeployResources       resourceadapters.DeployResourcesFunc
+	DeployResources       deployer.DeployResourcesFunc
 	NewCharmAdder         NewCharmAdderFunc
 	NewCharmStore         NewCharmStoreFunc
 	NewCharmResolver      NewCharmResolverFunc

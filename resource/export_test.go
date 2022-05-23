@@ -1,14 +1,12 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"time"
 
 	"github.com/juju/names/v4"
-
-	"github.com/juju/juju/resource/repositories"
 )
 
 func NewCSRetryClientForTest(client ResourceClient) *ResourceRetryClient {
@@ -25,7 +23,7 @@ func NewCharmHubClientForTest(cl CharmHub, logger Logger) *CharmHubClient {
 	}
 }
 
-func NewResourceRetryClientForTest(cl repositories.ResourceGetter) *ResourceRetryClient {
+func NewResourceRetryClientForTest(cl ResourceGetter) *ResourceRetryClient {
 	return newRetryClient(cl)
 }
 

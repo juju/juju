@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters_test
+package resource_test
 
 import (
 	"bytes"
@@ -19,9 +19,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/resource/resourceadapters/mocks"
+	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/mocks"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -41,7 +41,7 @@ var _ = gc.Suite(&OpenerSuite{})
 func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := resource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -70,7 +70,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := resource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -128,7 +128,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 	defer s.setupMocks(c, false).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := resource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -196,15 +196,15 @@ func (s *OpenerSuite) expectCharmOrigin(numConcurrentRequests int) {
 	}).Times(numConcurrentRequests)
 }
 
-func (s *OpenerSuite) expectCacheMethods(res resource.Resource, numConcurrentRequests int) {
+func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurrentRequests int) {
 	if s.unit != nil {
-		s.resources.EXPECT().OpenResourceForUniter(gomock.Any(), gomock.Any()).DoAndReturn(func(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+		s.resources.EXPECT().OpenResourceForUniter(gomock.Any(), gomock.Any()).DoAndReturn(func(unit resource.Unit, name string) (coreresource.Resource, io.ReadCloser, error) {
 			s.unleash.Lock()
 			defer s.unleash.Unlock()
-			return resource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+			return coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
 		})
 	} else {
-		s.resources.EXPECT().OpenResource(gomock.Any(), gomock.Any()).Return(resource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
+		s.resources.EXPECT().OpenResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
 	}
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
 	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(res, nil)
@@ -218,20 +218,20 @@ func (s *OpenerSuite) expectCacheMethods(res resource.Resource, numConcurrentReq
 	}
 }
 
-func (s *OpenerSuite) newOpener(maxRequests int) *resourceadapters.ResourceOpener {
+func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {
 	tag, _ := names.ParseUnitTag("postgresql/0")
 	// preserve nil
-	unit := resourceadapters.Unit(nil)
+	unit := resource.Unit(nil)
 	if s.unit != nil {
 		unit = s.unit
 	}
-	return resourceadapters.NewResourceOpenerForTest(
+	return resource.NewResourceOpenerForTest(
 		s.resourceOpenerState,
 		s.resources,
 		tag,
 		unit,
 		s.app,
-		func(st resourceadapters.ResourceOpenerState) resourceadapters.ResourceRetryClientGetter {
+		func(st resource.ResourceOpenerState) resource.ResourceRetryClientGetter {
 			return &testNewClient{
 				resourceGetter: s.resourceGetter,
 			}
@@ -244,6 +244,6 @@ type testNewClient struct {
 	resourceGetter *mocks.MockResourceGetter
 }
 
-func (c testNewClient) NewClient() (*resourceadapters.ResourceRetryClient, error) {
-	return resourceadapters.NewResourceRetryClientForTest(c.resourceGetter), nil
+func (c testNewClient) NewClient() (*resource.ResourceRetryClient, error) {
+	return resource.NewResourceRetryClientForTest(c.resourceGetter), nil
 }

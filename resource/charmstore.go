@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"github.com/juju/charm/v8"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/resource/repositories"
 	"github.com/juju/juju/state"
 )
 
@@ -41,7 +40,7 @@ type csClient struct {
 	client charmstore.Client
 }
 
-func (cs *csClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (cs *csClient) GetResource(req ResourceRequest) (charmstore.ResourceData, error) {
 	csReq := charmstore.ResourceRequest{
 		Charm:    req.CharmID.URL,
 		Name:     req.Name,

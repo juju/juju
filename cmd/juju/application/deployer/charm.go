@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
@@ -42,7 +41,7 @@ type deployCharm struct {
 	modelConstraints constraints.Value
 	csMac            *macaroon.Macaroon
 	devices          map[string]devices.Constraints
-	deployResources  resourceadapters.DeployResourcesFunc
+	deployResources  DeployResourcesFunc
 	force            bool
 	id               application.CharmID
 	flagSet          *gnuflag.FlagSet
