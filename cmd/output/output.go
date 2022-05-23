@@ -134,6 +134,7 @@ var EmphasisHighlight = struct {
 	BoldGray      *ansiterm.Context
 	DarkGray      *ansiterm.Context
 	BoldDarkGray  *ansiterm.Context
+	Magenta       *ansiterm.Context
 	BrightMagenta *ansiterm.Context
 	BrightGreen   *ansiterm.Context
 }{
@@ -144,6 +145,7 @@ var EmphasisHighlight = struct {
 	BoldGray:      ansiterm.Foreground(ansiterm.Gray).SetStyle(ansiterm.Bold),
 	BoldDarkGray:  ansiterm.Foreground(ansiterm.DarkGray).SetStyle(ansiterm.Bold),
 	DarkGray:      ansiterm.Foreground(ansiterm.DarkGray),
+	Magenta:       ansiterm.Foreground(ansiterm.Magenta),
 	BrightMagenta: ansiterm.Foreground(ansiterm.BrightMagenta),
 	BrightGreen:   ansiterm.Foreground(ansiterm.BrightGreen),
 }
