@@ -127,8 +127,8 @@ type Config struct {
 
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
-	if config.ModelUUID == "" {
-		return errors.NotValidf("empty ModelUUID")
+	if !names.IsValidModel(config.ModelUUID) {
+		return errors.NotValidf("model UUID %q", config.ModelUUID)
 	}
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
@@ -162,9 +162,9 @@ func New(config Config) (*Worker, error) {
 
 	// Soon we will get model specific logs generated in the
 	// controller logged against the model. Until then, distinguish
-	// the logs from different migrationmaster insteads using the
+	// the logs from different migrationmaster insteads using the short
 	// model UUID suffix.
-	loggerName := "juju.worker.migrationmaster." + config.ModelUUID[len(config.ModelUUID)-6:]
+	loggerName := "juju.worker.migrationmaster." + names.NewModelTag(config.ModelUUID).ShortId()
 	logger := loggo.GetLogger(loggerName)
 
 	w := &Worker{

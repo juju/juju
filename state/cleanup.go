@@ -166,7 +166,7 @@ func (st *State) Cleanup() (err error) {
 	defer closer()
 
 	modelUUID := st.ModelUUID()
-	modelId := modelUUID[:6]
+	modelId := names.NewModelTag(modelUUID).ShortId()
 
 	// Only look at cleanups that should be run now.
 	query := bson.M{"$or": []bson.M{
