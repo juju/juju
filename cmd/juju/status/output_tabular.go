@@ -212,7 +212,12 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print(scale)
 		}
 
-		w.Print(app.CharmName, app.CharmChannel, app.CharmRev)
+		w.Print(app.CharmName, app.CharmChannel)
+		if app.CanUpgradeTo != "" {
+			w.PrintColor(output.WarningHighlight, app.CharmRev)
+		} else {
+			w.Print(app.CharmRev)
+		}
 		if fs.Model.Type == caasModelType {
 			w.PrintColor(output.InfoHighlight, app.Address)
 		}
@@ -376,10 +381,10 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 	for _, r := range relations {
 		provider := strings.Split(r.Provider, ":")
 		w.PrintNoTab(provider[0])
-		w.PrintColor(output.EmphasisHighlight.BrightMagenta, fmt.Sprintf(":%s", provider[1]))
+		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", provider[1]))//the service name (mysql)
 		requirer := strings.Split(r.Requirer, ":")
 		w.PrintNoTab(requirer[0])
-		w.PrintColor(output.EmphasisHighlight.BrightMagenta, fmt.Sprintf(":%s", requirer[1]))
+		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", requirer[1]))//the resource type (:cluster)
 		w.Print(r.Interface, r.Type)
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
