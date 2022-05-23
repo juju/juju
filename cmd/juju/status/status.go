@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -139,8 +138,8 @@ Examples:
     # Provide output as valid JSON
     juju status --format=json
 
-    # Watch the status of the mysql application every five seconds
-	# Only available for unix-based systems.
+    # Watch the status of the mysql application every five seconds. 
+	# Note: Watch functionally based on third-party "viddy" tool.  
     juju status --watch 5s mysql
 
 See also:
@@ -172,11 +171,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
-
-	if runtime.GOOS != "windows" {
-		// The watch flag is only available for unix-based systems.
-		f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
-	}
+	f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
 
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(
