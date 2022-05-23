@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmstore"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/mocks"
@@ -82,7 +81,7 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 		rg.EXPECT().GetResource(resource.ResourceRequest{
 			CharmID: resource.CharmID{URL: charm.MustParseURL("cs:gitlab")},
 			Name:    "company-icon",
-		}).Times(1).Return(charmstore.ResourceData{
+		}).Times(1).Return(resource.ResourceData{
 			ReadCloser: ioutil.NopCloser(bytes.NewBufferString("data")),
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{

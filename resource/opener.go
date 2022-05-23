@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/resource"
 	corestate "github.com/juju/juju/state"
 )
@@ -250,11 +249,11 @@ func (o *nopOpener) NewClient() (*ResourceRetryClient, error) {
 // scenarios covering local charms.
 type nopClient struct{}
 
-// GetResource is a no-op client implementation of a ResourceClient. The
+// GetResource is a no-op client implementation of a ResourceGetter. The
 // implementation expects to never call the underlying client and instead
 // returns a not-found error straight away.
-func (nopClient) GetResource(req ResourceRequest) (charmstore.ResourceData, error) {
-	return charmstore.ResourceData{}, errors.NotFoundf("resource %q", req.Name)
+func (nopClient) GetResource(req ResourceRequest) (ResourceData, error) {
+	return ResourceData{}, errors.NotFoundf("resource %q", req.Name)
 }
 
 type stateShim struct {

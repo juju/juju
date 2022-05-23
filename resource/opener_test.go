@@ -18,7 +18,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmstore"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/mocks"
@@ -56,7 +55,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 	}
 	s.expectCharmOrigin(1)
 	s.expectCacheMethods(res, 1)
-	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(charmstore.ResourceData{
+	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
 	}, nil)
@@ -89,7 +88,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	)
 	s.expectCharmOrigin(numConcurrentRequests)
 	s.expectCacheMethods(res, numConcurrentRequests)
-	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(charmstore.ResourceData{
+	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
 	}, nil)
@@ -143,7 +142,7 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 	}
 	s.expectCharmOrigin(1)
 	s.expectCacheMethods(res, 1)
-	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(charmstore.ResourceData{
+	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
 	}, nil)

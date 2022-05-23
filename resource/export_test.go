@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 )
 
-func NewCSRetryClientForTest(client ResourceClient) *ResourceRetryClient {
+func NewCSRetryClientForTest(client ResourceGetter) *ResourceRetryClient {
 	retryClient := newRetryClient(client)
 	// Reduce retry delay for test.
 	retryClient.retryArgs.Delay = 1 * time.Millisecond

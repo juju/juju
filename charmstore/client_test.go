@@ -187,7 +187,7 @@ func (s *ClientSuite) TestListResourcesAPI2ResourcesFailure(c *gc.C) {
 	c.Assert(ret, gc.IsNil)
 }
 
-func (s *ClientSuite) TestGetResource(c *gc.C) {
+func (s *ClientSuite) TestDownloadResource(c *gc.C) {
 	fp, err := resource.GenerateFingerprint(strings.NewReader("data"))
 	c.Assert(err, jc.ErrorIsNil)
 	rc := ioutil.NopCloser(strings.NewReader("data"))
@@ -195,16 +195,6 @@ func (s *ClientSuite) TestGetResource(c *gc.C) {
 		ReadCloser: rc,
 		Hash:       fp.String(),
 	}
-	apiRes := params.Resource{
-		Name:        "name",
-		Type:        "file",
-		Path:        "foo.zip",
-		Description: "something",
-		Revision:    5,
-		Fingerprint: fp.Bytes(),
-		Size:        4,
-	}
-	s.wrapper.ReturnResourceMeta = apiRes
 
 	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,15 +205,13 @@ func (s *ClientSuite) TestGetResource(c *gc.C) {
 		Name:     "name",
 		Revision: 5,
 	}
-	data, err := client.GetResource(req)
+	rdr, hash, err := client.DownloadResource(req)
 	c.Assert(err, jc.ErrorIsNil)
-	expected, err := params.API2Resource(apiRes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data.Resource, gc.DeepEquals, expected)
-	c.Check(data.ReadCloser, gc.DeepEquals, rc)
+	c.Check(hash, gc.Equals, fp.String())
+	c.Check(rdr, gc.DeepEquals, rc)
 	// call #0 is a call to makeWrapper
-	s.wrapper.stub.CheckCall(c, 1, "ResourceMeta", params.EdgeChannel, req.Charm, req.Name, req.Revision)
-	s.wrapper.stub.CheckCall(c, 2, "GetResource", params.EdgeChannel, req.Charm, req.Name, req.Revision)
+	s.wrapper.stub.CheckCall(c, 1, "GetResource", params.EdgeChannel, req.Charm, req.Name, req.Revision)
 }
 
 func (s *ClientSuite) TestGetResourceDockerType(c *gc.C) {
@@ -234,16 +222,6 @@ func (s *ClientSuite) TestGetResourceDockerType(c *gc.C) {
 		ReadCloser: rc,
 		Hash:       fp.String(),
 	}
-	apiRes := params.Resource{
-		Name:        "mysql_image",
-		Type:        "oci-image",
-		Description: "something",
-		Revision:    2,
-		Fingerprint: resource.Fingerprint{}.Bytes(),
-		Size:        4,
-	}
-	s.wrapper.ReturnResourceMeta = apiRes
-
 	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -253,15 +231,13 @@ func (s *ClientSuite) TestGetResourceDockerType(c *gc.C) {
 		Name:     "mysql_image",
 		Revision: 5,
 	}
-	data, err := client.GetResource(req)
+	rdr, hash, err := client.DownloadResource(req)
 	c.Assert(err, jc.ErrorIsNil)
-	expected, err := params.API2Resource(apiRes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data.Resource, gc.DeepEquals, expected)
-	c.Check(data.ReadCloser, gc.DeepEquals, rc)
+	c.Check(hash, gc.Equals, fp.String())
+	c.Check(rdr, gc.DeepEquals, rc)
 	// call #0 is a call to makeWrapper
-	s.wrapper.stub.CheckCall(c, 1, "ResourceMeta", params.EdgeChannel, req.Charm, req.Name, req.Revision)
-	s.wrapper.stub.CheckCall(c, 2, "GetResource", params.EdgeChannel, req.Charm, req.Name, req.Revision)
+	s.wrapper.stub.CheckCall(c, 1, "GetResource", params.EdgeChannel, req.Charm, req.Name, req.Revision)
 }
 
 func (s *ClientSuite) TestResourceInfo(c *gc.C) {
