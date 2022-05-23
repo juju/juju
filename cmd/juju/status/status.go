@@ -138,8 +138,8 @@ Examples:
     # Provide output as valid JSON
     juju status --format=json
 
-    # Watch the status of the mysql application every five seconds. 
-	# Note: Watch functionally based on third-party "viddy" tool.  
+    # Watch the status of the mysql application every five seconds.
+    # Note: Watch functionally based on third-party "viddy" tool.  
     juju status --watch 5s mysql
 
 See also:
