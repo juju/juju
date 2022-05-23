@@ -210,18 +210,13 @@ jobs:
       # and filter with as standard, instead of skipping over them with this flag
       run: |
         set -euxo pipefail
-        
-        while true
-        do
-          sg microk8s <<EOF
-            juju bootstrap microk8s c \
-              --config caas-image-repo='{"repository": "${DOCKER_REGISTRY}/test-repo", "serveraddress": "https://${DOCKER_REGISTRY}/"}' \
-              --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
-              --config features="[developer-mode]" || true
+
+        sg microk8s <<EOF
+          juju bootstrap microk8s c \
+            --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
+            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
+            --config features="[developer-mode]" --debug
         EOF
-          sleep 30
-        done
-        
         juju add-model m
 
         juju status
