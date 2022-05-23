@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/resource"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -103,7 +104,11 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
 		s.AddCall("DeployResources", applicationID, chID, csMac, filesAndRevisions, resources, conn)
-		return nil, s.NextErr()
+		ids = make(map[string]string)
+		for _, r := range resources {
+			ids[r.Name] = r.Name + "Id"
+		}
+		return ids, s.NextErr()
 	}
 
 	s.resolvedChannel = csclientparams.StableChannel
@@ -843,6 +848,45 @@ func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	})
 }
 
+func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
+	s.resolvedCharmURL = charm.MustParseURL("cs:quantal/foo-1")
+	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
+		URL: s.resolvedCharmURL.String(),
+		Meta: &charm.Meta{
+			Resources: map[string]charmresource.Meta{
+				"bar": {
+					Name: "bar",
+					Type: charmresource.TypeFile,
+				},
+			},
+		},
+	}
+	dir := c.MkDir()
+	barpath := path.Join(dir, "bar")
+	err := ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res1 := fmt.Sprintf("bar=%s", barpath)
+
+	_, err = s.runRefresh(c, "foo", "--resource="+res1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.charmAdder.CheckNoCalls(c)
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
+		ApplicationName: "foo",
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Source:       "charm-store",
+				Architecture: arch.DefaultArchitecture,
+				Risk:         "stable",
+			},
+		},
+		ResourceIDs: map[string]string{"bar": "barId"},
+	})
+}
+
 func (s *RefreshSuccessStateSuite) TestForcedUnitsUpgrade(c *gc.C) {
 	_, err := s.runRefresh(c, s.cmd, "riak", "--force-units", "--path", s.path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1041,6 +1085,21 @@ func (m *mockModelConfigGetter) Close() error {
 type mockResourceLister struct {
 	utils.ResourceLister
 	testing.Stub
+}
+
+func (m *mockResourceLister) ListResources([]string) ([]resource.ApplicationResources, error) {
+	return []resource.ApplicationResources{{
+		Resources: []resource.Resource{{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name: "bar",
+					Type: charmresource.TypeFile,
+					Path: "/path/to/bar",
+				},
+				Revision: 1,
+			},
+		}},
+	}}, nil
 }
 
 type mockSpacesClient struct {

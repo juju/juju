@@ -351,6 +351,8 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	}
 
 	authorizer := NewMockMacaroonGetter(ctrl)
+	authorizer.EXPECT().Get("/delegatable-macaroon?id=cs%3Ameshuggah", gomock.Any()).Return(errors.New("404 NOT FOUND"))
+
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
@@ -378,6 +380,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	}
 
 	authorizer := NewMockMacaroonGetter(ctrl)
+	authorizer.EXPECT().Get("/delegatable-macaroon?id=cs%3Ameshuggah-1", gomock.Any()).Return(errors.New("404 NOT FOUND"))
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
@@ -405,6 +408,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	}
 
 	authorizer := NewMockMacaroonGetter(ctrl)
+	authorizer.EXPECT().Get("/delegatable-macaroon?id=cs%3Aaloupi-1", gomock.Any()).Return(errors.New("404 NOT FOUND"))
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)

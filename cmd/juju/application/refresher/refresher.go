@@ -6,6 +6,7 @@ package refresher
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
@@ -97,12 +98,10 @@ func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 		// We've exhausted this refresh task, attempt another one.
 		if errors.Cause(err) == ErrExhausted {
 			continue
-		} else if err != nil {
-			return nil, errors.Trace(err)
 		}
-		// If there isn't an error, then it's expected that we found what we
-		// where looking for.
-		return charmID, nil
+		// err might be ErrAlreadyUpToDate but we still want
+		// to return the charmID for updating any resources.
+		return charmID, err
 	}
 	return nil, errors.Errorf("unable to refresh %q", cfg.CharmRef)
 }
@@ -291,19 +290,24 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	if r.charmURL == nil {
 		return nil, origin, errors.Errorf("unexpected charm URL")
 	}
+	var resolveErr error
 	if *newURL == *r.charmURL {
+		// Charm is uptodate so we return a suitable error.
+		// We also want to still return the URL and origin as these
+		// are used updating any resources.
 		if refURL.Revision != -1 {
-			return nil, commoncharm.Origin{}, errors.Annotatef(ErrAlreadyUpToDate,
+			resolveErr = errors.Annotatef(ErrAlreadyUpToDate,
 				"charm %q, revision %d", newURL.Name, newURL.Revision)
+		} else {
+			// No point in trying to upgrade a charm store charm when
+			// we just determined that's the latest revision
+			// available.
+			resolveErr = errors.Annotatef(ErrAlreadyUpToDate,
+				"charm %q", newURL.Name)
 		}
-		// No point in trying to upgrade a charm store charm when
-		// we just determined that's the latest revision
-		// available.
-		return nil, commoncharm.Origin{}, errors.Annotatef(ErrAlreadyUpToDate,
-			"charm %q", newURL.Name)
 	}
 	r.logger.Verbosef("Using channel %q", origin.CharmChannel().String())
-	return newURL, origin, nil
+	return newURL, origin, resolveErr
 }
 
 // stdOriginResolver attempts to resolve the origin required to resolve a
@@ -346,7 +350,20 @@ func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 // Bundles are not supported as there is no physical representation in Juju.
 func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	newURL, origin, err := r.ResolveCharm()
-	if err != nil {
+	if errors.Is(err, ErrAlreadyUpToDate) {
+		// The charm itself is uptodate but we may need the
+		// URL, origin and macaroon (if there is one)
+		// for updating resources.
+		csMac, csErr := store.AuthorizeCharmStoreEntity(r.authorizer, newURL)
+		if csErr != nil && !strings.Contains(csErr.Error(), "404 NOT FOUND") {
+			return nil, errors.Trace(csErr)
+		}
+		return &CharmID{
+			URL:      newURL,
+			Origin:   origin.CoreCharmOrigin(),
+			Macaroon: csMac,
+		}, err
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -432,7 +449,14 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 // Bundles are not supported as there is no physical representation in Juju.
 func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 	newURL, origin, err := r.ResolveCharm()
-	if err != nil {
+	if errors.Is(err, ErrAlreadyUpToDate) {
+		// The charm itself is uptodate but we may need the
+		// URL and origin for updating resources.
+		return &CharmID{
+			URL:    newURL,
+			Origin: origin.CoreCharmOrigin(),
+		}, err
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
