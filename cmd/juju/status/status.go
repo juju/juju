@@ -393,18 +393,18 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		//  Get list of all agrs, cut off '--watch' flag from 'juju status'
-		var jujuStatusWithoutWatch []string
+		//  Get list of all args, cut off '--watch' flag from 'juju status'
+		var jujuStatusArgsWithoutWatch []string
 		var watchValue string
 		for i := range os.Args {
 			if os.Args[i] == "--watch" {
 				watchValue = os.Args[i+1]
-				jujuStatusWithoutWatch = append(os.Args[:i], os.Args[i+2:]...)
+				jujuStatusArgsWithoutWatch = append(os.Args[:i], os.Args[i+2:]...)
 				break
 			}
 		}
 		// Use value of '--watch' flag as a value of '-n' flag of viddy command
-		viddyArgs := append([]string{"-n", watchValue}, jujuStatusWithoutWatch...)
+		viddyArgs := append([]string{"--no-title", "--differences", "--interval", watchValue}, jujuStatusArgsWithoutWatch...)
 		cmd := exec.Command("viddy", viddyArgs...)
 		stdout, err := cmd.Output()
 
