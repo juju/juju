@@ -60,7 +60,7 @@ Examples:
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000 path/to/file.yaml
     juju model-defaults us-east-1 path/to/file.yaml    
-    juju model-defaults --reset default-series test-mode
+    juju model-defaults --reset default-series,test-mode
     juju model-defaults aws --reset http-proxy
     juju model-defaults aws/us-east-1 --reset http-proxy
     juju model-defaults us-east-1 --reset http-proxy
