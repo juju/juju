@@ -380,11 +380,11 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 
 	for _, r := range relations {
 		provider := strings.Split(r.Provider, ":")
-		w.PrintNoTab(provider[0])
-		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", provider[1]))//the service name (mysql)
+		w.PrintNoTab(provider[0])                                                       //the service name (mysql)
+		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", provider[1])) //the resource type (:cluster)
 		requirer := strings.Split(r.Requirer, ":")
-		w.PrintNoTab(requirer[0])
-		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", requirer[1]))//the resource type (:cluster)
+		w.PrintNoTab(requirer[0])                                                       //the service name (mysql)
+		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", requirer[1])) //the resource type (:cluster)
 		w.Print(r.Interface, r.Type)
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
