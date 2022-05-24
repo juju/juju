@@ -8,6 +8,7 @@ import (
 	"io"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/docker/distribution/reference"
@@ -262,30 +263,16 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
 
-		printPorts := func(ps []string) {
-			size := len(u.OpenedPorts)
-			for i, op := range u.OpenedPorts {
-				pp := strings.Split(op, "/")
-				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, fmt.Sprintf("%s ", pp[0])) //port e.g 3306
-				w.PrintNoTab(fmt.Sprintf("/%s", pp[1]))                                              //append back the forward slash to the protocol name (3306/tcp)
-
-				if i != size-1 && size > 1 {
-					w.PrintNoTab(", ")
-				}
-			}
-			w.Print("") //Print empty tab after the ports
-		}
-
 		if fs.Model.Type == caasModelType {
 			w.PrintColor(output.InfoHighlight, u.Address)
-			printPorts(u.OpenedPorts)
+			printPorts(w, u.OpenedPorts)
 			w.PrintColor(output.EmphasisHighlight.Gray, message)
 			w.Println()
 			return
 		}
 		w.Print(u.Machine)
 		w.PrintColor(output.InfoHighlight, u.PublicAddress)
-		printPorts(u.OpenedPorts)
+		printPorts(w, u.OpenedPorts)
 		w.PrintColor(output.EmphasisHighlight.Gray, message)
 		w.Println()
 	}
@@ -328,6 +315,27 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		}
 	}
 	endSection(tw)
+}
+
+func printPorts(w output.Wrapper, ps []string) {
+	size := len(ps)
+	for i, op := range ps {
+		if strings.Contains(op, "/") { //some port values just contain the protocol name e.g icmp
+			pp := strings.Split(op, "/")
+			w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, pp[0]) //port e.g 3306
+			w.PrintNoTab(fmt.Sprintf("/%s", pp[1]))                          //append back the forward slash to the protocol name (3306/tcp)
+		} else {
+			if _, err := strconv.Atoi(op); err == nil { //if string is a port number i.e 3306
+				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, op)
+			} else { //the string is a protocol name i.e icmp
+				w.PrintNoTab(op)
+			}
+		}
+		if i != size-1 && size > 1 {
+			w.PrintNoTab(", ")
+		}
+	}
+	w.Print("") //Print empty tab after the ports
 }
 
 func printBranches(tw *ansiterm.TabWriter, branches map[string]branchStatus) {
