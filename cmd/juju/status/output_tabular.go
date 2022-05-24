@@ -78,10 +78,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	w := startSection(tw, true, header...)
 	versionPos := indexOf("Version", header)
 	w.Print(values[:versionPos]...)
-	staleVersion := false
 	modelVersionNum, err := version.Parse(fs.Model.Version)
-	staleVersion = err == nil && jujuversion.Current.Compare(modelVersionNum) > 0
-	if staleVersion {
+	if err == nil && jujuversion.Current.Compare(modelVersionNum) > 0 {
 		w.PrintColor(output.WarningHighlight, fs.Model.Version)
 	} else {
 		w.Print(fs.Model.Version)
@@ -223,13 +221,10 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.PrintColor(output.InfoHighlight, app.Address)
 		}
 
-		var exposed string
 		if app.Exposed {
-			exposed = "yes"
-			w.PrintColor(output.GoodHighlight, exposed)
+			w.PrintColor(output.GoodHighlight, "yes")
 		} else {
-			exposed = "no"
-			w.Print(exposed)
+			w.Print("no")
 		}
 
 		w.PrintColor(output.EmphasisHighlight.Gray, app.StatusInfo.Message)
