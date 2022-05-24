@@ -552,9 +552,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 			{},
 		},
 	})
-	s.st.application.CheckCallNames(c, "SetStatus", "Life", "Name", "GetScale", "SetScale")
+	s.st.application.CheckCallNames(c, "SetOperatorStatus", "Life", "Name", "GetScale", "SetScale")
 	now := s.clock.Now()
-	s.st.application.CheckCall(c, 0, "SetStatus",
+	s.st.application.CheckCall(c, 0, "SetOperatorStatus",
 		status.StatusInfo{Status: status.Active, Message: "working", Since: &now})
 	s.st.application.CheckCall(c, 4, "SetScale", 2)
 
