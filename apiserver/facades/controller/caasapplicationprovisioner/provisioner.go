@@ -807,7 +807,7 @@ func (a *API) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (pa
 		appStatus := appUpdate.Status
 		if appStatus.Status != "" && appStatus.Status != status.Unknown {
 			now := a.clock.Now()
-			err = app.SetStatus(status.StatusInfo{
+			err = app.SetOperatorStatus(status.StatusInfo{
 				Status:  appStatus.Status,
 				Message: appStatus.Info,
 				Data:    appStatus.Data,
