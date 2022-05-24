@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/state"
 )
 
 type charmHubOpener struct {
@@ -37,7 +38,7 @@ func (ch *charmHubOpener) NewClient() (*ResourceRetryClient, error) {
 // chClientState represents a state which can provide a model to create a
 // CharmHub client.
 type chClientState interface {
-	Model() (Model, error)
+	Model() (*state.Model, error)
 }
 
 func newCharmHubClient(st chClientState) (ResourceGetter, error) {

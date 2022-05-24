@@ -14,5 +14,5 @@ func Test(t *testing.T) {
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmhub_mock.go github.com/juju/juju/resource CharmHub
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/opener_mock.go github.com/juju/juju/resource ResourceOpenerState,Application,Unit,Resources
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/repositories_mock.go github.com/juju/juju/resource EntityRepository,ResourceGetter
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/cache_mock.go github.com/juju/juju/resource Resources
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/opener_mock.go github.com/juju/juju/resource ResourceGetter,ResourceDownloadLock

@@ -8,76 +8,24 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/environs/config"
-	corestate "github.com/juju/juju/state"
+	"github.com/juju/juju/state"
 )
 
-// ResourceOpenerState represents methods from state required to implement
-// a resource Opener.
-type ResourceOpenerState interface {
-	// required for csClientState
-	Charm(*charm.URL) (*corestate.Charm, error)
-	ControllerConfig() (controller.Config, error)
-
-	// required for the chClientState
-	Model() (Model, error)
-
-	// required for NewResourceOpener and OpenResource
-	Resources() (Resources, error)
-	Unit(string) (Unit, error)
-	Application(string) (Application, error)
-	ModelUUID() string
-}
-
-// Model represents model methods required to open a resource.
-type Model interface {
-	Config() (*config.Config, error)
-}
-
-// Unit represents unit methods required to open a resource.
-type Unit interface {
-	resource.Unit
-
-	Application() (Application, error)
-	Tag() names.Tag
-}
-
-// Application represents application methods required to open a resource.
-type Application interface {
-	CharmOrigin() *corestate.CharmOrigin
-	CharmURL() (*charm.URL, bool)
-	Name() string
-	Tag() names.Tag
-}
-
-// Resources represents the methods used by resourceCache from state.Resources .
+// Resources represents the methods used by the resource opener from state.Resources.
 type Resources interface {
 	// GetResource returns the identified resource.
 	GetResource(applicationID, name string) (resource.Resource, error)
 	// OpenResource returns the metadata for a resource and a reader for the resource.
 	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
-	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResourceForUniter(appName, unitName, resName string) (resource.Resource, io.ReadCloser, error)
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ corestate.IncrementCharmModifiedVersionType) (resource.Resource, error)
-}
-
-// ResourceRetryClientGetterFn allows the creation of ResourceRetryClientGetter
-// from a given state.
-type ResourceRetryClientGetterFn func(st ResourceOpenerState) ResourceRetryClientGetter
-
-// ResourceRetryClientGetter defines an interface for creating a new resource
-// retry clients.
-type ResourceRetryClientGetter interface {
-	NewClient() (*ResourceRetryClient, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
 }
 
 // ResourceGetter provides the functionality for getting a resource file.

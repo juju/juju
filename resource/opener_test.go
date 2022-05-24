@@ -26,11 +26,13 @@ import (
 )
 
 type OpenerSuite struct {
-	app                 *mocks.MockApplication
-	unit                *mocks.MockUnit
-	resources           *mocks.MockResources
-	resourceGetter      *mocks.MockResourceGetter
-	resourceOpenerState *mocks.MockResourceOpenerState
+	appName        string
+	unitName       string
+	charmURL       *charm.URL
+	charmOrigin    state.CharmOrigin
+	resources      *mocks.MockResources
+	resourceGetter *mocks.MockResourceGetter
+	limiter        *mocks.MockResourceDownloadLock
 
 	unleash sync.Mutex
 }
@@ -53,7 +55,6 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.expectCharmOrigin(1)
 	s.expectCacheMethods(res, 1)
 	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
@@ -86,7 +87,6 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 		numConcurrentRequests = 10
 		maxConcurrentRequests = 5
 	)
-	s.expectCharmOrigin(numConcurrentRequests)
 	s.expectCacheMethods(res, numConcurrentRequests)
 	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
@@ -140,7 +140,6 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.expectCharmOrigin(1)
 	s.expectCacheMethods(res, 1)
 	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
@@ -157,32 +156,16 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	if includeUnit {
-		s.unit = mocks.NewMockUnit(ctrl)
-	} else {
-		s.unit = nil
+		s.unitName = "postgresql/0"
 	}
-	s.app = mocks.NewMockApplication(ctrl)
+	s.appName = "postgresql"
 	s.resourceGetter = mocks.NewMockResourceGetter(ctrl)
 	s.resources = mocks.NewMockResources(ctrl)
-	s.resourceOpenerState = mocks.NewMockResourceOpenerState(ctrl)
-	s.resourceOpenerState.EXPECT().ModelUUID().Return("00000000-0000-0000-0000-000000000000").AnyTimes()
+	s.limiter = mocks.NewMockResourceDownloadLock(ctrl)
 
-	curl, _ := charm.ParseURL("postgresql")
-	if s.unit != nil {
-		s.unit.EXPECT().ApplicationName().Return("postgresql").AnyTimes()
-		s.unit.EXPECT().Application().Return(s.app, nil).AnyTimes()
-		s.unit.EXPECT().CharmURL().Return(curl, nil).AnyTimes()
-	} else {
-		s.app.EXPECT().CharmURL().Return(curl, false).AnyTimes()
-	}
-	s.app.EXPECT().Name().Return("postgresql").AnyTimes()
-
-	return ctrl
-}
-
-func (s *OpenerSuite) expectCharmOrigin(numConcurrentRequests int) {
+	s.charmURL, _ = charm.ParseURL("postgresql")
 	rev := 0
-	s.app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+	s.charmOrigin = state.CharmOrigin{
 		Source:   "charm-hub",
 		Type:     "charm",
 		Revision: &rev,
@@ -192,57 +175,80 @@ func (s *OpenerSuite) expectCharmOrigin(numConcurrentRequests int) {
 			OS:           "ubuntu",
 			Series:       "focal",
 		},
-	}).Times(numConcurrentRequests)
+	}
+	return ctrl
 }
 
 func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurrentRequests int) {
-	if s.unit != nil {
-		s.resources.EXPECT().OpenResourceForUniter(gomock.Any(), gomock.Any()).DoAndReturn(func(unit resource.Unit, name string) (coreresource.Resource, io.ReadCloser, error) {
+	if s.unitName != "" {
+		s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").DoAndReturn(func(appName, unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
 			s.unleash.Lock()
 			defer s.unleash.Unlock()
 			return coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
 		})
 	} else {
-		s.resources.EXPECT().OpenResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
+		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
 	}
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
 	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(res, nil)
 
 	other := res
 	other.ApplicationID = "postgreql"
-	if s.unit != nil {
-		s.resources.EXPECT().OpenResourceForUniter(gomock.Any(), gomock.Any()).Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
+	if s.unitName != "" {
+		s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
 	} else {
-		s.resources.EXPECT().OpenResource(gomock.Any(), gomock.Any()).Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
+		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
 	}
+}
+
+func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
+	defer s.setupMocks(c, true).Finish()
+	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
+	res := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "wal-e",
+				Type: 1,
+			},
+			Origin:      2,
+			Revision:    0,
+			Fingerprint: fp,
+			Size:        0,
+		},
+		ApplicationID: "postgreql",
+	}
+	s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").DoAndReturn(func(appName, unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
+		s.unleash.Lock()
+		defer s.unleash.Unlock()
+		return coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+	})
+	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
+	const retryCount = 3
+	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{}, errors.New("boom")).Times(retryCount)
+	s.limiter.EXPECT().Acquire("uuid:postgresql")
+	s.limiter.EXPECT().Release("uuid:postgresql")
+
+	opened, err := s.newOpener(-1).OpenResource("wal-e")
+	c.Assert(err, gc.ErrorMatches, "failed after retrying: boom")
+	c.Check(opened, gc.NotNil)
+	c.Check(opened.Resource, gc.DeepEquals, coreresource.Resource{})
+	c.Check(opened.ReadCloser, gc.IsNil)
 }
 
 func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {
 	tag, _ := names.ParseUnitTag("postgresql/0")
-	// preserve nil
-	unit := resource.Unit(nil)
-	if s.unit != nil {
-		unit = s.unit
+	var limiter resource.ResourceDownloadLock = resource.NewResourceDownloadLimiter(maxRequests, 0)
+	if maxRequests < 0 {
+		limiter = s.limiter
 	}
 	return resource.NewResourceOpenerForTest(
-		s.resourceOpenerState,
 		s.resources,
 		tag,
-		unit,
-		s.app,
-		func(st resource.ResourceOpenerState) resource.ResourceRetryClientGetter {
-			return &testNewClient{
-				resourceGetter: s.resourceGetter,
-			}
-		},
-		maxRequests,
+		s.unitName,
+		s.appName,
+		s.charmURL,
+		s.charmOrigin,
+		resource.NewResourceRetryClientForTest(s.resourceGetter),
+		limiter,
 	)
-}
-
-type testNewClient struct {
-	resourceGetter *mocks.MockResourceGetter
-}
-
-func (c testNewClient) NewClient() (*resource.ResourceRetryClient, error) {
-	return resource.NewResourceRetryClientForTest(c.resourceGetter), nil
 }
