@@ -226,7 +226,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		var exposed string
 		if app.Exposed {
 			exposed = "yes"
-			w.PrintColor(output.EmphasisHighlight.BrightGreen, exposed)
+			w.PrintColor(output.GoodHighlight, exposed)
 		} else {
 			exposed = "no"
 			w.Print(exposed)
