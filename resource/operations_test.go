@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package repositories_test
+package resource_test
 
 import (
 	"bytes"
@@ -17,10 +17,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/resource/repositories"
-	"github.com/juju/juju/resource/repositories/mocks"
+	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/mocks"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -42,13 +41,13 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 	er.EXPECT().FetchLock(gomock.Any()).AnyTimes().Return(fetchMut)
 
 	openState := struct {
-		res    resource.Resource
+		res    coreresource.Resource
 		buffer []byte
 		err    error
 	}{
 		err: errors.NotFoundf("resource"),
 	}
-	er.EXPECT().OpenResource(gomock.Any()).AnyTimes().DoAndReturn(func(name string) (resource.Resource, io.ReadCloser, error) {
+	er.EXPECT().OpenResource(gomock.Any()).AnyTimes().DoAndReturn(func(name string) (coreresource.Resource, io.ReadCloser, error) {
 		stateLock.Lock()
 		defer stateLock.Unlock()
 		reader := io.ReadCloser(nil)
@@ -59,9 +58,9 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 	})
 
 	getState := struct {
-		res resource.Resource
+		res coreresource.Resource
 	}{
-		res: resource.Resource{
+		res: coreresource.Resource{
 			ApplicationID: "gitlab",
 			Username:      "gitlab-0",
 			Resource: charmresource.Resource{
@@ -72,17 +71,17 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 			},
 		},
 	}
-	er.EXPECT().GetResource(gomock.Any()).AnyTimes().DoAndReturn(func(name string) (resource.Resource, error) {
+	er.EXPECT().GetResource(gomock.Any()).AnyTimes().DoAndReturn(func(name string) (coreresource.Resource, error) {
 		stateLock.Lock()
 		defer stateLock.Unlock()
 		return getState.res, nil
 	})
 
 	gomock.InOrder(
-		rg.EXPECT().GetResource(repositories.ResourceRequest{
-			CharmID: repositories.CharmID{URL: charm.MustParseURL("cs:gitlab")},
+		rg.EXPECT().GetResource(resource.ResourceRequest{
+			CharmID: resource.CharmID{URL: charm.MustParseURL("cs:gitlab")},
 			Name:    "company-icon",
-		}).Times(1).Return(charmstore.ResourceData{
+		}).Times(1).Return(resource.ResourceData{
 			ReadCloser: ioutil.NopCloser(bytes.NewBufferString("data")),
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
@@ -111,11 +110,11 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 
 	numRequests := 100
 	done := sync.WaitGroup{}
-	args := repositories.GetResourceArgs{
+	args := resource.GetResourceArgs{
 		Client:     rg,
 		Repository: er,
 		Name:       "company-icon",
-		CharmID:    repositories.CharmID{URL: charm.MustParseURL("cs:gitlab")},
+		CharmID:    resource.CharmID{URL: charm.MustParseURL("cs:gitlab")},
 		Done:       done.Done,
 	}
 
@@ -125,7 +124,7 @@ func (s *OperationsSuite) TestConcurrentGetResource(c *gc.C) {
 		done.Add(1)
 		go func() {
 			start.Done()
-			rsc, reader, err := repositories.GetResource(args)
+			rsc, reader, err := resource.GetResource(args)
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(reader, gc.NotNil)
 			defer func() { _ = reader.Close() }()
@@ -157,24 +156,24 @@ func (s *OperationsSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 
 	fetchMut := &sync.Mutex{}
 	er.EXPECT().FetchLock(gomock.Any()).AnyTimes().Return(fetchMut)
-	er.EXPECT().OpenResource(gomock.Any()).DoAndReturn(func(name string) (resource.Resource, io.ReadCloser, error) {
-		return resource.Resource{}, io.ReadCloser(nil), errors.NotFoundf("resource")
+	er.EXPECT().OpenResource(gomock.Any()).DoAndReturn(func(name string) (coreresource.Resource, io.ReadCloser, error) {
+		return coreresource.Resource{}, io.ReadCloser(nil), errors.NotFoundf("resource")
 	})
-	er.EXPECT().GetResource(gomock.Any()).AnyTimes().DoAndReturn(func(name string) (resource.Resource, error) {
-		return resource.Resource{}, errors.New("boom")
+	er.EXPECT().GetResource(gomock.Any()).AnyTimes().DoAndReturn(func(name string) (coreresource.Resource, error) {
+		return coreresource.Resource{}, errors.New("boom")
 	})
 	called := false
-	args := repositories.GetResourceArgs{
+	args := resource.GetResourceArgs{
 		Client:     rg,
 		Repository: er,
 		Name:       "company-icon",
-		CharmID:    repositories.CharmID{URL: charm.MustParseURL("cs:gitlab")},
+		CharmID:    resource.CharmID{URL: charm.MustParseURL("cs:gitlab")},
 		Done: func() {
 			called = true
 		},
 	}
 
-	_, _, err := repositories.GetResource(args)
+	_, _, err := resource.GetResource(args)
 	c.Check(err, gc.ErrorMatches, "boom")
 	c.Assert(called, jc.IsTrue)
 }

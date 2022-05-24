@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -60,7 +59,7 @@ type BaseRefreshSuite struct {
 	testing.IsolationSuite
 	testing.Stub
 
-	deployResources      resourceadapters.DeployResourcesFunc
+	deployResources      deployer.DeployResourcesFunc
 	fakeAPI              *fakeDeployAPI
 	resolveCharm         mockCharmResolver
 	resolvedCharmURL     *charm.URL
@@ -417,7 +416,7 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 		func(conn base.APICallCloser) utils.CharmClient {
 			return s.fakeAPI
 		},
-		resourceadapters.DeployResources,
+		deployer.DeployResources,
 		nil,
 	)
 }
@@ -535,7 +534,7 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 		func(conn base.APICallCloser) utils.CharmClient {
 			return &s.charmClient
 		},
-		resourceadapters.DeployResources,
+		deployer.DeployResources,
 		nil,
 	)
 	s.path = testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")

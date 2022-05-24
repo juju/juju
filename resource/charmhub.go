@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"context"
@@ -12,11 +12,10 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/charmstore"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/resource/repositories"
 )
 
 type charmHubOpener struct {
@@ -41,7 +40,7 @@ type chClientState interface {
 	Model() (Model, error)
 }
 
-func newCharmHubClient(st chClientState) (ResourceClient, error) {
+func newCharmHubClient(st chClientState) (ResourceGetter, error) {
 	m, err := st.Model()
 	if err != nil {
 		return &CharmHubClient{}, errors.Trace(err)
@@ -75,9 +74,9 @@ type CharmHubClient struct {
 
 // GetResource returns data about the resource including an io.ReadCloser
 // to download the resource.  The caller is responsible for closing it.
-func (ch *CharmHubClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (ch *CharmHubClient) GetResource(req ResourceRequest) (ResourceData, error) {
 	ch.logger.Tracef("GetResource(%s)", pretty.Sprint(req))
-	var data charmstore.ResourceData
+	var data ResourceData
 
 	origin := req.CharmID.Origin
 

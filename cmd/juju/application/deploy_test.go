@@ -67,7 +67,6 @@ import (
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -91,7 +90,7 @@ var defaultLocalOrigin = commoncharm.Origin{
 type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
-	DeployResources resourceadapters.DeployResourcesFunc
+	DeployResources deployer.DeployResourcesFunc
 
 	fakeAPI *fakeDeployAPI
 }
@@ -1000,7 +999,7 @@ type CAASDeploySuiteBase struct {
 	jujutesting.IsolationSuite
 	deployer.DeployerAPI
 	Store           *jujuclient.MemStore
-	DeployResources resourceadapters.DeployResourcesFunc
+	DeployResources deployer.DeployResourcesFunc
 
 	CharmsPath string
 	factory    *mocks.MockDeployerFactory

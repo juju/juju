@@ -13,13 +13,13 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/resource/resourceadapters"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory
@@ -27,7 +27,7 @@ import (
 func NewRefreshCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
-	deployResources resourceadapters.DeployResourcesFunc,
+	deployResources deployer.DeployResourcesFunc,
 	newCharmStore NewCharmStoreFunc,
 	newCharmResolver NewCharmResolverFunc,
 	newCharmAdder NewCharmAdderFunc,
@@ -63,7 +63,7 @@ func NewRefreshCommandForStateTest(
 	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
-	deployResources resourceadapters.DeployResourcesFunc,
+	deployResources deployer.DeployResourcesFunc,
 	newCharmAPIClient func(conn base.APICallCloser) CharmRefreshClient,
 ) cmd.Command {
 	cmd := newRefreshCommand()

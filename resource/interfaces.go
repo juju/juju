@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"context"
@@ -14,11 +14,9 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/repositories"
 	corestate "github.com/juju/juju/state"
 )
 
@@ -82,10 +80,17 @@ type ResourceRetryClientGetter interface {
 	NewClient() (*ResourceRetryClient, error)
 }
 
-// ResourceClient defines a set of functionality that a client
-// needs to define to support resources.
-type ResourceClient interface {
-	GetResource(req repositories.ResourceRequest) (data charmstore.ResourceData, err error)
+// ResourceGetter provides the functionality for getting a resource file.
+type ResourceGetter interface {
+	// GetResource returns a reader for the resource's data. That data
+	// is streamed from the charm store. The charm's revision, if any,
+	// is ignored. If the identified resource is not in the charm store
+	// then errors.NotFound is returned.
+	//
+	// But if you write any code that assumes a NotFound error returned
+	// from this method means that the resource was not found, you fail
+	// basic logic.
+	GetResource(ResourceRequest) (ResourceData, error)
 }
 
 // CharmHub represents methods required from a charmhub client talking to the

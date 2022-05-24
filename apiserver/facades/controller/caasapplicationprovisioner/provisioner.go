@@ -30,11 +30,11 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -56,7 +56,7 @@ type APIGroup struct {
 	*API
 }
 
-type NewResourceOpenerFunc func(appName string) (resource.Opener, error)
+type NewResourceOpenerFunc func(appName string) (coreresource.Opener, error)
 
 type API struct {
 	auth      facade.Authorizer
@@ -103,8 +103,8 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
-	newResourceOpener := func(appName string) (resource.Opener, error) {
-		return resourceadapters.NewResourceOpenerForApplication(resourceadapters.NewResourceOpenerState(st), appName)
+	newResourceOpener := func(appName string) (coreresource.Opener, error) {
+		return resource.NewResourceOpenerForApplication(resource.NewResourceOpenerState(st), appName)
 	}
 
 	api, err := NewCAASApplicationProvisionerAPI(
@@ -759,7 +759,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 }
 
 func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
-	var details resource.DockerImageDetails
+	var details coreresource.DockerImageDetails
 	contents, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return params.DockerImageInfo{}, errors.Trace(err)
@@ -769,7 +769,7 @@ func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 			return params.DockerImageInfo{}, errors.Annotate(err, "file neither valid json or yaml")
 		}
 	}
-	if err := resource.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+	if err := coreresource.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
 		return params.DockerImageInfo{}, err
 	}
 	return params.DockerImageInfo{

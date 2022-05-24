@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
@@ -46,7 +45,7 @@ type deployBundle struct {
 	resolver             Resolver
 	authorizer           store.MacaroonGetter
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
-	deployResources      resourceadapters.DeployResourcesFunc
+	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 
 	useExistingMachines bool

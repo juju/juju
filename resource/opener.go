@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"fmt"
@@ -14,9 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/resource/repositories"
 	corestate "github.com/juju/juju/state"
 )
 
@@ -153,7 +151,7 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		charmURL, _ = ro.application.CharmURL()
 	}
 
-	id := repositories.CharmID{
+	id := CharmID{
 		URL:    charmURL,
 		Origin: *ro.application.CharmOrigin(),
 	}
@@ -174,7 +172,7 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 	appKey := fmt.Sprintf("%s:%s", ro.st.ModelUUID(), ro.application.Name())
 	limiter := ro.resourceDownloadLimiterFunc()
 	limiter.Acquire(appKey)
-	res, reader, err := repositories.GetResource(repositories.GetResourceArgs{
+	res, reader, err := GetResource(GetResourceArgs{
 		Client:     client,
 		Repository: st,
 		CharmID:    id,
@@ -251,11 +249,11 @@ func (o *nopOpener) NewClient() (*ResourceRetryClient, error) {
 // scenarios covering local charms.
 type nopClient struct{}
 
-// GetResource is a no-op client implementation of a ResourceClient. The
+// GetResource is a no-op client implementation of a ResourceGetter. The
 // implementation expects to never call the underlying client and instead
 // returns a not-found error straight away.
-func (nopClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
-	return charmstore.ResourceData{}, errors.NotFoundf("resource %q", req.Name)
+func (nopClient) GetResource(req ResourceRequest) (ResourceData, error) {
+	return ResourceData{}, errors.NotFoundf("resource %q", req.Name)
 }
 
 type stateShim struct {

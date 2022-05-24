@@ -1,16 +1,16 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/resource/repositories"
 	"github.com/juju/juju/state"
 )
 
@@ -41,7 +41,7 @@ type csClient struct {
 	client charmstore.Client
 }
 
-func (cs *csClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (cs *csClient) GetResource(req ResourceRequest) (ResourceData, error) {
 	csReq := charmstore.ResourceRequest{
 		Charm:    req.CharmID.URL,
 		Name:     req.Name,
@@ -52,16 +52,35 @@ func (cs *csClient) GetResource(req repositories.ResourceRequest) (charmstore.Re
 	// an empty string is valid for the request channel.  It
 	// will be handled by the charmstore client.
 	stChannel := req.CharmID.Origin.Channel
-	if stChannel == nil {
-		return cs.client.GetResource(csReq)
+	if stChannel != nil {
+		channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
+		if err != nil {
+			return ResourceData{}, errors.Trace(err)
+		}
+		csReq.Channel = csparams.Channel(channel.String())
 	}
 
-	channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
+	var data ResourceData
+	meta, err := cs.client.ResourceInfo(csReq)
 	if err != nil {
-		return charmstore.ResourceData{}, errors.Trace(err)
+		return ResourceData{}, errors.Trace(err)
 	}
-	csReq.Channel = csparams.Channel(channel.String())
-	return cs.client.GetResource(csReq)
+	data.Resource = meta
+
+	rdr, hash, err := cs.client.DownloadResource(csReq)
+	if err != nil {
+		return ResourceData{}, errors.Trace(err)
+	}
+
+	if data.Resource.Type == charmresource.TypeFile {
+		fpHash := meta.Fingerprint.String()
+		if hash != fpHash {
+			return ResourceData{},
+				errors.Errorf("fingerprint for data (%s) does not match fingerprint in metadata (%s)", hash, fpHash)
+		}
+	}
+	data.ReadCloser = rdr
+	return data, nil
 }
 
 // NewClient opens a new charm store client.

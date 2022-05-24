@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resourceadapters
+package resource
 
 import (
 	"fmt"
@@ -11,19 +11,16 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource/repositories"
 )
 
 // ResourceRetryClient is a wrapper around a Juju repository client that
 // retries GetResource() calls.
 type ResourceRetryClient struct {
-	ResourceClient
+	ResourceGetter
 	retryArgs retry.CallArgs
 }
 
-func newRetryClient(client ResourceClient) *ResourceRetryClient {
+func newRetryClient(client ResourceGetter) *ResourceRetryClient {
 	retryArgs := retry.CallArgs{
 		// (anastasiamac 2017-05-25) This might not work as the error types
 		// may be lost after a call to some clients.
@@ -41,19 +38,19 @@ func newRetryClient(client ResourceClient) *ResourceRetryClient {
 		Clock: clock.WallClock,
 	}
 	return &ResourceRetryClient{
-		ResourceClient: client,
+		ResourceGetter: client,
 		retryArgs:      retryArgs,
 	}
 }
 
 // GetResource returns a reader for the resource's data.
-func (client ResourceRetryClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData, error) {
 	args := client.retryArgs // a copy
 
-	var data charmstore.ResourceData
+	var data ResourceData
 	args.Func = func() error {
 		var err error
-		data, err = client.ResourceClient.GetResource(req)
+		data, err = client.ResourceGetter.GetResource(req)
 		if err != nil {
 			return errors.Trace(err)
 		}
