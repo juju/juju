@@ -132,7 +132,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		c.Placement = make([]*instance.Placement, 0)
 		for _, spec := range placementSpecs {
 			if spec == "" {
-				continue
+				return errors.Errorf("invalid --to parameter %q", c.PlacementSpec)
 			}
 			placement, err := utils.ParsePlacement(spec)
 			if err != nil {

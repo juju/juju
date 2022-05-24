@@ -118,6 +118,9 @@ var initAddUnitErrorTests = []struct {
 	}, {
 		args: []string{"some-application-name", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
+	}, {
+		args: []string{"some-application-name", "--to", "4,5,,"},
+		err:  `invalid --to parameter "4,5,,"`,
 	},
 }
 
@@ -127,11 +130,6 @@ func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
-}
-
-func (s *AddUnitSuite) TestInitPlacement(c *gc.C) {
-	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), []string{"some-application-name", "--to", "4,5,,"})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 // Must error at init when the model type is known (and args are invalid)
