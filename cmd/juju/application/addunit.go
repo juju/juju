@@ -127,13 +127,18 @@ func (c *UnitCommandBase) Init(args []string) error {
 	}
 	if c.PlacementSpec != "" {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
-		c.Placement = make([]*instance.Placement, len(placementSpecs))
-		for i, spec := range placementSpecs {
+		// Ensure that Placement length is accurate, wait for valid placements
+		// to add.
+		c.Placement = make([]*instance.Placement, 0)
+		for _, spec := range placementSpecs {
+			if spec == "" {
+				return errors.Errorf("invalid --to parameter %q", c.PlacementSpec)
+			}
 			placement, err := utils.ParsePlacement(spec)
 			if err != nil {
 				return errors.Errorf("invalid --to parameter %q", spec)
 			}
-			c.Placement[i] = placement
+			c.Placement = append(c.Placement, placement)
 		}
 	}
 	if len(c.Placement) > c.NumUnits {
