@@ -414,24 +414,27 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	charmID, err := factory.Run(cfg)
-	if err != nil {
-		if errors.Is(err, refresher.ErrAlreadyUpToDate) {
-			// Charm already up-to-date - success
+	if err == nil {
+		curl := charmID.URL
+		charmOrigin := charmID.Origin
+		// The current charm URL that's been found and selected.
+		channel := ""
+		if charmOrigin.Source == corecharm.CharmHub || charmOrigin.Source == corecharm.CharmStore {
+			channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
+		}
+		ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmOrigin.Source, curl.Name, curl.Revision, channel)
+	} else if errors.Is(err, refresher.ErrAlreadyUpToDate) {
+		if len(c.Resources) == 0 {
+			// Charm already up-to-date and no resources to refresh.
 			ctx.Infof(err.Error())
 			return nil
 		}
+	} else {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	// The current charm URL that's been found and selected.
-	curl := charmID.URL
-	channel := ""
-	if charmID.Origin.Source == corecharm.CharmHub || charmID.Origin.Source == corecharm.CharmStore {
-		channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
-	}
-	ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmID.Origin.Source, curl.Name, curl.Revision, channel)
 
 	// Next, upgrade resources.
 
@@ -439,6 +442,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	curl := charmID.URL
 	charmsClient := c.NewCharmClient(apiRoot)
 	meta, err := utils.GetMetaResources(curl, charmsClient)
 	if err != nil {

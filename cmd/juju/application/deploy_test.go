@@ -2750,6 +2750,10 @@ func (f *fakeDeployAPI) CharmInfo(url string) (*apicommoncharms.CharmInfo, error
 	return results[0].(*apicommoncharms.CharmInfo), jujutesting.TypeAssertError(results[1])
 }
 
+func (f *fakeDeployAPI) Get(endpoint string, extra interface{}) error {
+	return nil
+}
+
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
 	results := f.MethodCall(f, "Deploy", args)
 	if len(results) != 1 {
