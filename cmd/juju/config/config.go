@@ -54,7 +54,7 @@ func (c *ConfigCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.ConfigFile, "file", "path to yaml-formatted configuration file")
 	if c.Resettable {
 		f.Var(cmd.NewAppendStringsValue(&c.reset), "reset",
-			"Reset the provided comma delimited keys, deletes keys not in the model config")
+			"Reset the provided comma delimited keys")
 	}
 }
 
@@ -104,6 +104,12 @@ func (c *ConfigCommandBase) Init(args []string) error {
 
 	if len(setKeys) == 0 && len(getKeys) > 1 {
 		// Trying to get multiple keys - error
+		// First check if they have specified reset/file - in this case, the
+		// multiple actions error message is more useful.
+		c.Actions = append(c.Actions, GetOne)
+		if err := c.checkSingleAction(); err != nil {
+			return err
+		}
 		return errors.New("cannot specify multiple keys to get")
 	}
 
