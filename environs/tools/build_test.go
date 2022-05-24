@@ -267,8 +267,7 @@ func (b *buildSuite) TestBundleToolsIncludesVersionFile(c *gc.C) {
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	forceVersion := version.MustParse("1.2.3.1")
-	resultVersion, official, sha256, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	resultVersion, official, sha256, err := tools.BundleTools(false, bundleFile, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Version should come from the version file.
@@ -308,8 +307,7 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	forceVersion := version.MustParse("1.2.3.1")
-	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
 	c.Assert(official, jc.IsTrue)
@@ -388,8 +386,7 @@ func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	forceVersion := version.MustParse("1.2.3.1")
-	resultVersion, official, sha256, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	resultVersion, official, sha256, err := tools.BundleTools(false, bundleFile, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Version should come from the version file.
@@ -424,8 +421,7 @@ func (b *buildSuite) TestBundleToolsUsesAdjacentVersionFirst(c *gc.C) {
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	forceVersion := version.MustParse("2.3.5.1")
-	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(resultVersion.String(), gc.Equals, "2.3.5-ubuntu-arm64")

@@ -183,7 +183,7 @@ func ExistingJujuLocation() (string, error) {
 // tests.)
 var VersionFileFallbackDir = "/usr/lib/juju"
 
-func copyExistingJujus(dir string) error {
+func copyExistingJujus(dir string, skipCopyVersionFile bool) error {
 	// Assume that the user is running juju.
 	jujuDir, err := ExistingJujuLocation()
 	if err != nil {
@@ -216,6 +216,9 @@ func copyExistingJujus(dir string) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if skipCopyVersionFile {
+		return nil
 	}
 	// If there's a version file beside the jujud binary or in the
 	// fallback location, include that.
@@ -282,9 +285,9 @@ func buildJujus(dir string) error {
 	return nil
 }
 
-func packageLocalTools(toolsDir string, buildAgent bool) error {
+func packageLocalTools(toolsDir string, buildAgent, skipCopyVersionFile bool) error {
 	if !buildAgent {
-		if err := copyExistingJujus(toolsDir); err != nil {
+		if err := copyExistingJujus(toolsDir, skipCopyVersionFile); err != nil {
 			return errors.New("no prepackaged agent available and no jujud binary can be found")
 		}
 		return nil
@@ -313,7 +316,8 @@ func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (_ versi
 		return version.Binary{}, false, "", err
 	}
 	defer os.RemoveAll(dir)
-	if err := packageLocalTools(dir, build); err != nil {
+	writeForceVersion := forceVersion != nil
+	if err := packageLocalTools(dir, build, writeForceVersion); err != nil {
 		return version.Binary{}, false, "", err
 	}
 
@@ -323,7 +327,8 @@ func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (_ versi
 	}
 	if official {
 		logger.Debugf("using official version %s", tvers)
-	} else if forceVersion != nil {
+	}
+	if writeForceVersion {
 		logger.Debugf("forcing version to %s", forceVersion)
 		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
 			return version.Binary{}, false, "", err
