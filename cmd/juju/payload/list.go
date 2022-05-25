@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/client/payloads"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 )
 
 // ListAPI has the API methods needed by ListCommand.

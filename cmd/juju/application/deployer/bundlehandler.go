@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v8/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -67,7 +66,7 @@ type bundleDeploySpec struct {
 	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
-	deployResources      resourceadapters.DeployResourcesFunc
+	deployResources      DeployResourcesFunc
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
@@ -145,7 +144,7 @@ type bundleHandler struct {
 	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
-	deployResources      resourceadapters.DeployResourcesFunc
+	deployResources      DeployResourcesFunc
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -771,7 +770,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	return nil
 }
 
-func (h *bundleHandler) makeResourceMap(meta map[string]resource.Meta, storeResources map[string]int, localResources map[string]string) map[string]string {
+func (h *bundleHandler) makeResourceMap(meta map[string]charmresource.Meta, storeResources map[string]int, localResources map[string]string) map[string]string {
 	resources := make(map[string]string)
 	for resName, path := range localResources {
 		// The resource may be a relative path, convert to absolute path.
@@ -782,7 +781,7 @@ func (h *bundleHandler) makeResourceMap(meta map[string]resource.Meta, storeReso
 			maybePath = filepath.Clean(filepath.Join(h.bundleDir, path))
 		}
 		_, err := h.filesystem.Stat(maybePath)
-		if err == nil || meta[resName].Type == resource.TypeFile {
+		if err == nil || meta[resName].Type == charmresource.TypeFile {
 			path = maybePath
 		}
 		resources[resName] = path

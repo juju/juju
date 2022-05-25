@@ -593,7 +593,7 @@ func (f *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 		appStatus := appUpdate.Status
 		if appStatus.Status != "" && appStatus.Status != status.Unknown {
 			now := f.clock.Now()
-			err = app.SetStatus(status.StatusInfo{
+			err = app.SetOperatorStatus(status.StatusInfo{
 				Status:  appStatus.Status,
 				Message: appStatus.Info,
 				Data:    appStatus.Data,

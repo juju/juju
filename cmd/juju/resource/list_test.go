@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 var _ = gc.Suite(&ShowApplicationSuite{})

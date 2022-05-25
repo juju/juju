@@ -24,7 +24,7 @@ import (
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -55,7 +55,7 @@ type CAASProvisionerFacade interface {
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]params.CAASUnit, error)
 	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
-	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
+	ApplicationOCIResources(appName string) (map[string]resource.DockerImageDetails, error)
 	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(appName string) (watcher.NotifyWatcher, error)
 	ClearApplicationResources(appName string) error

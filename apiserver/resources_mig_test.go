@@ -18,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -33,11 +32,6 @@ type resourcesUploadSuite struct {
 }
 
 var _ = gc.Suite(&resourcesUploadSuite{})
-
-func (s *resourcesUploadSuite) SetUpSuite(c *gc.C) {
-	s.apiserverBaseSuite.SetUpSuite(c)
-	all.RegisterForServer()
-}
 
 func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 	s.apiserverBaseSuite.SetUpTest(c)

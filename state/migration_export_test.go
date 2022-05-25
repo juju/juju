@@ -30,14 +30,14 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
@@ -2288,7 +2288,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	setUnitResource := func(u *state.Unit) {
-		_, reader, err := st.OpenResourceForUniter(u, "spam")
+		_, reader, err := st.OpenResourceForUniter(app.Name(), u.Name(), "spam")
 		c.Assert(err, jc.ErrorIsNil)
 		defer reader.Close()
 		_, err = ioutil.ReadAll(reader) // Need to read the content to set the resource for the unit.

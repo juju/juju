@@ -1091,7 +1091,7 @@ func (a *app) Service() (*caas.Service, error) {
 }
 
 func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
-	jujuStatus := status.Allocating
+	jujuStatus := status.Waiting
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		ss, err := a.getStatefulSet()

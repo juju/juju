@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/juju/osenv"
@@ -711,7 +711,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	}
 	for _, container := range opPod.Spec.Containers {
 		if container.Name == operatorContainerName {
-			cfg.ImageDetails = coreresources.DockerImageDetails{
+			cfg.ImageDetails = coreresource.DockerImageDetails{
 				RegistryPath: container.Image,
 			}
 			break
@@ -751,7 +751,7 @@ func operatorPod(
 	appName,
 	operatorServiceIP,
 	agentPath string,
-	operatorImageDetails coreresources.DockerImageDetails,
+	operatorImageDetails coreresource.DockerImageDetails,
 	selectorLabels map[string]string,
 	annotations k8sannotations.Annotation,
 	serviceAccountName string,

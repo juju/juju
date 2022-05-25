@@ -168,7 +168,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 		Args:   argsCh,
 	})
 
-	b.PatchValue(tools.ExecCommand, execCommand)
+	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	v, err := tools.GetVersionFromJujud("foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +191,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
 		Args:   argsCh,
 	})
 
-	b.PatchValue(tools.ExecCommand, execCommand)
+	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	_, err := tools.GetVersionFromJujud("foo")
 	c.Assert(err, gc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
@@ -214,7 +214,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 		Args:     argsCh,
 	})
 
-	b.PatchValue(tools.ExecCommand, execCommand)
+	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	_, err := tools.GetVersionFromJujud("foo")
 
@@ -314,26 +314,8 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 }
 
 func (b *buildSuite) TestJujudVersion(c *gc.C) {
+	b.patchExecCommand(c)
 	dir := b.setUpFakeBinaries(c, "")
-
-	// Patch so that getting the version from our fake binary in the
-	// absence of a version file works.
-	ver := version.Binary{
-		Number: version.Number{
-			Major: 1,
-			Minor: 2,
-			Patch: 3,
-		},
-		Release: "ubuntu",
-		Arch:    "amd64",
-	}
-
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
-		Stdout: ver.String(),
-		Args:   make(chan []string, 1),
-	})
-
-	b.PatchValue(tools.ExecCommand, execCommand)
 
 	resultVersion, official, err := tools.JujudVersion(dir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,29 +323,11 @@ func (b *buildSuite) TestJujudVersion(c *gc.C) {
 	c.Assert(official, jc.IsFalse)
 }
 
-func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
+func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *gc.C) {
+	b.patchExecCommand(c)
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Patch so that getting the version from our fake binary in the
-	// absence of a version file works.
-	ver := version.Binary{
-		Number: version.Number{
-			Major: 1,
-			Minor: 2,
-			Patch: 3,
-		},
-		Release: "ubuntu",
-		Arch:    "amd64",
-	}
-
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
-		Stdout: ver.String(),
-		Args:   make(chan []string, 1),
-	})
-
-	b.PatchValue(tools.ExecCommand, execCommand)
 
 	forceVersion := version.MustParse("1.2.3.1")
 	resultVersion, official, sha, err := tools.BundleTools(false, bundleFile, &forceVersion)
@@ -373,7 +337,44 @@ func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
 	c.Assert(official, jc.IsFalse)
 }
 
+func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) {
+	b.patchExecCommand(c)
+	dir := b.setUpFakeBinaries(c, "")
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	jujudVersion := func(dir string) (version.Binary, bool, error) {
+		return version.Binary{}, true, nil
+	}
+
+	forceVersion := version.MustParse("1.2.3.1")
+	_, official, _, err := tools.BundleToolsForTest(true, bundleFile, &forceVersion, jujudVersion)
+	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
+	c.Assert(official, jc.IsTrue)
+}
+
+func (b *buildSuite) patchExecCommand(c *gc.C) {
+	// Patch so that getting the version from our fake binary in the
+	// absence of a version file works.
+	ver := version.Binary{
+		Number: version.Number{
+			Major: 1,
+			Minor: 2,
+			Patch: 3,
+		},
+		Release: "ubuntu",
+		Arch:    "amd64",
+	}
+	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+		Stdout: ver.String(),
+		Args:   make(chan []string, 2),
+	})
+	b.PatchValue(&tools.ExecCommand, execCommand)
+}
+
 func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) {
+	b.patchExecCommand(c)
+
 	// No version file next to the binary.
 	dir := b.setUpFakeBinaries(c, "")
 	// But one in the fallback location.

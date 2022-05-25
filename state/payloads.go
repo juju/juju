@@ -8,7 +8,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payload"
 )
 
 // ModelPayloads returns a ModelPayloads for the state's model.
@@ -38,7 +38,7 @@ func (mp ModelPayloads) ListAll() ([]payload.FullPayloadInfo, error) {
 // UnitPayloads returns a UnitPayloads for the supplied unit.
 func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	machineID, err := unit.AssignedMachineId()
-	if err != nil {
+	if unit.ShouldBeAssigned() && err != nil {
 		return UnitPayloads{}, errors.Trace(err)
 	}
 	return UnitPayloads{

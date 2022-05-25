@@ -4,7 +4,6 @@
 package context_test
 
 import (
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -48,6 +47,7 @@ type HookContextSuite struct {
 
 	st             api.Connection
 	uniter         *uniter.State
+	payloads       *uniter.PayloadFacadeClient
 	apiUnit        *uniter.Unit
 	meteredAPIUnit *uniter.Unit
 	meteredCharm   *state.Charm
@@ -80,6 +80,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 	s.uniter, err = uniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
+	s.payloads = uniter.NewPayloadFacadeClient(s.st)
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -413,6 +414,10 @@ func (MockEnvPaths) GetCharmDir() string {
 	return "path-to-charm"
 }
 
+func (MockEnvPaths) GetResourcesDir() string {
+	return "path-to-resources"
+}
+
 func (MockEnvPaths) GetBaseDir() string {
 	return "path-to-base"
 }
@@ -433,8 +438,4 @@ func (MockEnvPaths) GetJujucServerSocket(remote bool) sockets.Socket {
 
 func (MockEnvPaths) GetMetricsSpoolDir() string {
 	return "path-to-metrics-spool-dir"
-}
-
-func (MockEnvPaths) ComponentDir(name string) string {
-	return filepath.Join("path-to-base-dir", name)
 }

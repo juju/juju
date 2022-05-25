@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
 	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
+	"github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
@@ -184,6 +185,7 @@ func AllFacades() *facade.Registry {
 	modelmanager.Register(registry)
 	modelupgrader.Register(registry)
 	payloads.Register(registry)
+	payloadshookcontext.Register(registry)
 	provisioner.Register(registry)
 	proxyupdater.Register(registry)
 	raftlease.Register(registry)

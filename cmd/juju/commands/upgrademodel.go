@@ -440,8 +440,8 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	}
 	haveControllerModelPermission := err == nil
 	isControllerModel := haveControllerModelPermission && cfg.UUID() == controllerModelConfig[config.UUIDKey]
-	modelStream := controllerModelConfig[config.AgentStreamKey]
-	if modelStream == "" {
+	modelStream, ok := controllerModelConfig[config.AgentStreamKey]
+	if modelStream == "" || !ok {
 		modelStream = tools.ReleasedStream
 	}
 	wantStream := c.AgentStream
