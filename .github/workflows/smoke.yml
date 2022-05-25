@@ -112,7 +112,7 @@ jobs:
         echo "::set-output name=go-version::$(grep '^go ' go.mod | awk '{print $2}')"
         echo "::set-output name=base-juju-version::$(juju version | cut -d '-' -f 1)"
         echo "::set-output name=upstream-juju-version::$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')"
-        echo "::set-output name=juju-db-version::$(grep -r 'DefaultJujuDBSnapChannel =' controller/config.go | sed -r 's/^\s*DefaultJujuDBSnapChannel = \"([[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+){0,1})\/.*\"$/\1/')"
+        echo "::set-output name=juju-db-version::4.0/stable"
       id: vars
 
     - name: Set up Go
