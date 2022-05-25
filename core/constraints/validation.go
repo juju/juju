@@ -6,6 +6,8 @@ package constraints
 import (
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 
 	"github.com/juju/collections/set"
 )
@@ -23,6 +25,11 @@ type Validator interface {
 	//  when a constraints Value overrides another which specifies a conflicting
 	//   attribute, the attribute in the overridden Value is cleared.
 	RegisterConflicts(reds, blues []string)
+
+	// RegisterConflictResolver defines a resolver between two conflicting constraints.
+	// When there is a registered conflict between two contraints, it can be resolved by
+	// calling the resolver, if it returns a nil error, the conflict is considered resolved.
+	RegisterConflictResolver(red, blue string, resolver ConflictResolver)
 
 	// RegisterUnsupported records attributes which are not supported by a constraints Value.
 	RegisterUnsupported(unsupported []string)
@@ -48,18 +55,22 @@ type Validator interface {
 	UpdateVocabulary(attributeName string, newValues interface{})
 }
 
+type ConflictResolver func(attrValues map[string]interface{}) error
+
 // NewValidator returns a new constraints Validator instance.
 func NewValidator() Validator {
 	return &validator{
-		conflicts: make(map[string]set.Strings),
-		vocab:     make(map[string][]interface{}),
+		conflicts:         make(map[string]set.Strings),
+		conflictResolvers: make(map[string]ConflictResolver),
+		vocab:             make(map[string][]interface{}),
 	}
 }
 
 type validator struct {
-	unsupported set.Strings
-	conflicts   map[string]set.Strings
-	vocab       map[string][]interface{}
+	unsupported       set.Strings
+	conflicts         map[string]set.Strings
+	conflictResolvers map[string]ConflictResolver
+	vocab             map[string][]interface{}
 }
 
 // RegisterConflicts is defined on Validator.
@@ -70,6 +81,17 @@ func (v *validator) RegisterConflicts(reds, blues []string) {
 	for _, blue := range blues {
 		v.conflicts[blue] = set.NewStrings(reds...)
 	}
+}
+
+func conflictResolverId(red, blue string) string {
+	idx := []string{red, blue}
+	sort.Strings(idx)
+	return strings.Join(idx, " ")
+}
+
+func (v *validator) RegisterConflictResolver(red, blue string, resolver ConflictResolver) {
+	id := conflictResolverId(red, blue)
+	v.conflictResolvers[id] = resolver
 }
 
 // RegisterUnsupported is defined on Validator.
@@ -148,9 +170,18 @@ func (v *validator) checkConflicts(cons Value) error {
 			continue
 		}
 		for _, conflict := range conflicts.SortedValues() {
-			if attrSet.Contains(conflict) {
-				return fmt.Errorf("ambiguous constraints: %q overlaps with %q", attrTag, conflict)
+			if !attrSet.Contains(conflict) {
+				continue
 			}
+			id := conflictResolverId(attrTag, conflict)
+			if resolver, ok := v.conflictResolvers[id]; ok {
+				err := resolver(attrValues)
+				if err != nil {
+					return fmt.Errorf("ambiguous constraints: %q overlaps with %q: %w", attrTag, conflict, err)
+				}
+				continue
+			}
+			return fmt.Errorf("ambiguous constraints: %q overlaps with %q", attrTag, conflict)
 		}
 	}
 	return nil
@@ -253,10 +284,12 @@ func withFallbacks(v Value, vFallback Value) Value {
 // Validate is defined on Validator.
 func (v *validator) Validate(cons Value) ([]string, error) {
 	unsupported := v.checkUnsupported(cons)
-	if err := v.checkConflicts(cons); err != nil {
+	if err := v.checkValidValues(cons); err != nil {
 		return unsupported, err
 	}
-	if err := v.checkValidValues(cons); err != nil {
+	// Conflicts are validated after values because normally conflicting
+	// constraints may be valid based on those constraint values.
+	if err := v.checkConflicts(cons); err != nil {
 		return unsupported, err
 	}
 	return unsupported, nil

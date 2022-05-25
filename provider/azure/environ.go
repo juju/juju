@@ -467,7 +467,8 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 		[]string{
 			constraints.Mem,
 			constraints.Cores,
-			constraints.Arch,
+			// TODO: move to a dynamic conflict for arch when azure supports more than amd64
+			//constraints.Arch,
 		},
 	)
 	return validator, nil
