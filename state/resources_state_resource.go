@@ -386,16 +386,15 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 // OpenResourceForUniter returns metadata about the resource and
 // a reader for the resource. The resource is associated with
 // the unit once the reader is completely exhausted.
-func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
-	rLogger.Tracef("open resource %q for uniter %q", name, unit.Name())
-	applicationID := unit.ApplicationName()
+func (st resourceState) OpenResourceForUniter(appName, unitName, resName string) (resource.Resource, io.ReadCloser, error) {
+	rLogger.Tracef("open resource %q for uniter %q", resName, unitName)
 
 	pendingID, err := newPendingID()
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	resourceInfo, resourceReader, err := st.OpenResource(applicationID, name)
+	resourceInfo, resourceReader, err := st.OpenResource(appName, resName)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -403,7 +402,7 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 	pending := resourceInfo // a copy
 	pending.PendingID = pendingID
 
-	if err := st.persist.SetUnitResourceProgress(unit.Name(), pending, 0); err != nil {
+	if err := st.persist.SetUnitResourceProgress(unitName, pending, 0); err != nil {
 		resourceReader.Close()
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -411,7 +410,7 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 	resourceReader = &unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
-		unit:       unit,
+		unitName:   unitName,
 		pending:    pending,
 		resource:   resourceInfo,
 		clock:      clock.WallClock,
@@ -505,7 +504,7 @@ func storagePath(name, applicationID, pendingID string) string {
 type unitSetter struct {
 	io.ReadCloser
 	persist            resourcePersistence
-	unit               resource.Unit
+	unitName           string
 	pending            resource.Resource
 	resource           resource.Resource
 	progress           int64
@@ -518,15 +517,15 @@ func (u *unitSetter) Read(p []byte) (n int, err error) {
 	n, err = u.ReadCloser.Read(p)
 	if err == io.EOF {
 		// record that the unit is now using this version of the resource
-		if err := u.persist.SetUnitResource(u.unit.Name(), u.resource); err != nil {
+		if err := u.persist.SetUnitResource(u.unitName, u.resource); err != nil {
 			msg := "Failed to record that unit %q is using resource %q revision %v"
-			rLogger.Errorf(msg, u.unit.Name(), u.resource.Name, u.resource.RevisionString())
+			rLogger.Errorf(msg, u.unitName, u.resource.Name, u.resource.RevisionString())
 		}
 	} else {
 		u.progress += int64(n)
 		if time.Since(u.lastProgressUpdate) > time.Second {
 			u.lastProgressUpdate = u.clock.Now()
-			if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
+			if err := u.persist.SetUnitResourceProgress(u.unitName, u.pending, u.progress); err != nil {
 				rLogger.Errorf("failed to track progress: %v", err)
 			}
 		}

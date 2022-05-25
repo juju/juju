@@ -104,7 +104,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	}
 
 	newResourceOpener := func(appName string) (coreresource.Opener, error) {
-		return resource.NewResourceOpenerForApplication(resource.NewResourceOpenerState(st), appName)
+		return resource.NewResourceOpenerForApplication(st, appName)
 	}
 
 	api, err := NewCAASApplicationProvisionerAPI(

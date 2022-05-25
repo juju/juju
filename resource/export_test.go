@@ -6,7 +6,10 @@ package resource
 import (
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/state"
 )
 
 func NewCSRetryClientForTest(client ResourceGetter) *ResourceRetryClient {
@@ -24,27 +27,32 @@ func NewCharmHubClientForTest(cl CharmHub, logger Logger) *CharmHubClient {
 }
 
 func NewResourceRetryClientForTest(cl ResourceGetter) *ResourceRetryClient {
-	return newRetryClient(cl)
+	client := newRetryClient(cl)
+	client.retryArgs.Delay = time.Millisecond
+	return client
 }
 
 func NewResourceOpenerForTest(
-	st ResourceOpenerState,
 	res Resources,
 	tag names.Tag,
-	unit Unit,
-	application Application,
-	fn func(st ResourceOpenerState) ResourceRetryClientGetter,
-	maxRequests int,
+	unitName string,
+	appName string,
+	charmURL *charm.URL,
+	charmOrigin state.CharmOrigin,
+	resourceClient ResourceGetter,
+	resourceDownloadLimiter ResourceDownloadLock,
 ) *ResourceOpener {
 	return &ResourceOpener{
-		st:                st,
-		res:               res,
-		userID:            tag,
-		unit:              unit,
-		application:       application,
-		newResourceOpener: fn,
+		modelUUID:      "uuid",
+		resourceCache:  res,
+		user:           tag,
+		unitName:       unitName,
+		appName:        appName,
+		charmURL:       charmURL,
+		charmOrigin:    charmOrigin,
+		resourceClient: resourceClient,
 		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
-			return NewResourceDownloadLimiter(maxRequests, 0)
+			return resourceDownloadLimiter
 		},
 	}
 }

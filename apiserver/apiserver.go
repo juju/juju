@@ -753,8 +753,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			opener, err := resource.NewResourceOpener(
-				resource.NewResourceOpenerState(st.State), srv.getResourceDownloadLimiter, tag.Id())
+			opener, err := resource.NewResourceOpener(st.State, srv.getResourceDownloadLimiter, tag.Id())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}

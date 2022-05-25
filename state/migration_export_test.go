@@ -2288,7 +2288,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	setUnitResource := func(u *state.Unit) {
-		_, reader, err := st.OpenResourceForUniter(u, "spam")
+		_, reader, err := st.OpenResourceForUniter(app.Name(), u.Name(), "spam")
 		c.Assert(err, jc.ErrorIsNil)
 		defer reader.Close()
 		_, err = ioutil.ReadAll(reader) // Need to read the content to set the resource for the unit.
