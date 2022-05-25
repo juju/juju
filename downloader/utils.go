@@ -13,6 +13,8 @@ import (
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/utils/v3"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // NewHTTPBlobOpener returns a blob opener func suitable for use with
@@ -23,6 +25,7 @@ func NewHTTPBlobOpener(hostnameVerification bool) func(*url.URL) (io.ReadCloser,
 		// TODO(rog) make the download operation interruptible.
 		client := jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(!hostnameVerification),
+			jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 		)
 
 		resp, err := client.Get(context.TODO(), url.String())

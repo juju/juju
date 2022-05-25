@@ -112,6 +112,9 @@ var initAddUnitErrorTests = []struct {
 	}, {
 		args: []string{"some-application-name", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
+	}, {
+		args: []string{"some-application-name", "--to", "4,5,,"},
+		err:  `invalid --to parameter "4,5,,"`,
 	},
 }
 

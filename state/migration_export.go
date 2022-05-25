@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
 )

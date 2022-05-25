@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	"strings"
@@ -14,9 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -53,7 +52,7 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	apiRes := api.Resource2API(res)
+	apiRes := Resource2API(res)
 
 	c.Check(apiRes, jc.DeepEquals, params.Resource{
 		CharmResource: params.CharmResource{
@@ -185,7 +184,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 		Size:        11,
 	}
 
-	resources, err := api.APIResult2ApplicationResources(params.ResourcesResult{
+	resources, err := apiResult2ApplicationResources(params.ResourcesResult{
 		Resources: []params.Resource{
 			apiRes,
 		},
@@ -315,7 +314,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 		Timestamp:     now,
 	}
 
-	_, err = api.APIResult2ApplicationResources(params.ResourcesResult{
+	_, err = apiResult2ApplicationResources(params.ResourcesResult{
 		Resources: []params.Resource{
 			apiRes,
 		},
@@ -349,7 +348,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesFailure(c *gc.C) {
 	}
 	failure := errors.New("<failure>")
 
-	_, err := api.APIResult2ApplicationResources(params.ResourcesResult{
+	_, err := apiResult2ApplicationResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: failure.Error(),
@@ -379,7 +378,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	_, err := api.APIResult2ApplicationResources(params.ResourcesResult{
+	_, err := apiResult2ApplicationResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: `application "a-application" not found`,
@@ -396,7 +395,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 
 func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 	now := time.Now()
-	res, err := api.API2Resource(params.Resource{
+	res, err := API2Resource(params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
@@ -459,7 +458,7 @@ func (HelpersSuite) TestCharmResource2API(c *gc.C) {
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	apiInfo := api.CharmResource2API(res)
+	apiInfo := CharmResource2API(res)
 
 	c.Check(apiInfo, jc.DeepEquals, params.CharmResource{
 		Name:        "spam",
@@ -474,7 +473,7 @@ func (HelpersSuite) TestCharmResource2API(c *gc.C) {
 }
 
 func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
-	res, err := api.API2CharmResource(params.CharmResource{
+	res, err := API2CharmResource(params.CharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
@@ -544,13 +543,13 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 		},
 	}
 
-	result := api.ApplicationResources2APIResult(svcRes)
+	result := ApplicationResources2APIResult(svcRes)
 
-	apiRes1 := api.Resource2API(res1)
-	apiRes2 := api.Resource2API(res2)
+	apiRes1 := Resource2API(res1)
+	apiRes2 := Resource2API(res2)
 
-	apiChRes1 := api.CharmResource2API(chres1)
-	apiChRes2 := api.CharmResource2API(chres2)
+	apiChRes1 := CharmResource2API(chres1)
+	apiChRes2 := CharmResource2API(chres2)
 
 	c.Check(result, jc.DeepEquals, params.ResourcesResult{
 		Resources: []params.Resource{

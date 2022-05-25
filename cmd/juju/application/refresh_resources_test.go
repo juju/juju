@@ -24,12 +24,12 @@ import (
 	"github.com/juju/juju/api"
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -137,7 +137,7 @@ func (s *RefreshStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 
 	deploy := newDeployCommand()
 	deploy.DeployResources = func(applicationID string,
-		chID client.CharmID,
+		chID resources.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -262,7 +262,7 @@ Deploying charm "cs:bionic/starsay-1".`
 			return charmClient
 		},
 		func(applicationID string,
-			chID client.CharmID,
+			chID resources.CharmID,
 			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,

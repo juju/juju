@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/rpc/params"
 )
 

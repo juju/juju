@@ -144,8 +144,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
+			resourcesFacade, err := uniter.NewResourcesFacadeClient(apiConn, unitTag)
+			if err != nil {
+				return nil, err
+			}
+			payloadFacade := uniter.NewPayloadFacadeClient(apiConn)
+
 			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:                 uniter.NewState(apiConn, unitTag),
+				ResourcesFacade:              resourcesFacade,
+				PayloadFacade:                payloadFacade,
 				SecretsFacade:                secretsmanager.NewClient(apiConn),
 				UnitTag:                      unitTag,
 				ModelType:                    config.ModelType,

@@ -173,6 +173,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           loggo.GetLogger("test"),

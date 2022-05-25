@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"

@@ -11,8 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -29,7 +28,9 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 	case "GET":
 		opener, ph, err := h.NewOpener(req, names.UnitTagKind, names.ApplicationTagKind)
 		if err != nil {
-			api.SendHTTPError(resp, err)
+			if err := sendError(resp, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
 		defer ph.Release()
@@ -43,7 +44,9 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 			} else {
 				logger.Errorf("cannot fetch resource reader: %v", err)
 			}
-			api.SendHTTPError(resp, err)
+			if err := sendError(resp, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
 		defer opened.Close()
@@ -61,6 +64,8 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 			return
 		}
 	default:
-		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }

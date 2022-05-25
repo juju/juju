@@ -118,10 +118,9 @@ func supportsClassic(instanceType string) bool {
 }
 
 var archNames = map[types.ArchitectureType]string{
-	"x86":     arch.I386,
-	"x86_64":  arch.AMD64,
-	"arm":     arch.ARM,
-	"aarch64": arch.ARM64,
+	types.ArchitectureTypeI386:  arch.I386,
+	types.ArchitectureTypeX8664: arch.AMD64,
+	types.ArchitectureTypeArm64: arch.ARM64,
 }
 
 func archName(in types.ArchitectureType) string {

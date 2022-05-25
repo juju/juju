@@ -33,6 +33,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -519,6 +520,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(true),
 		jujuhttp.WithCookieJar(cookieJar),
+		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {

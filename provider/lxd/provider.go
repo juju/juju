@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -116,7 +117,7 @@ var cloudSchema = &jsonschema.Schema{
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
 	httpClient := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.Child("http")),
+		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 	)
 	configReader := lxcConfigReader{}
 	factory := NewServerFactory(httpClient.Client())

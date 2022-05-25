@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/names/v4"
 
 	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -50,7 +51,9 @@ type ResourcesHandler struct {
 func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	backend, poolhelper, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	if err != nil {
-		api.SendHTTPError(resp, err)
+		if err := sendError(resp, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	defer poolhelper.Release()
@@ -59,7 +62,9 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 	case "GET":
 		reader, size, err := h.download(backend, req)
 		if err != nil {
-			api.SendHTTPError(resp, err)
+			if err := sendError(resp, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
 		defer reader.Close()
@@ -72,17 +77,25 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 		}
 	case "PUT":
 		if err := h.ChangeAllowedFunc(req); err != nil {
-			api.SendHTTPError(resp, err)
+			if err := sendError(resp, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
 		response, err := h.upload(backend, req, tagToUsername(tag))
 		if err != nil {
-			api.SendHTTPError(resp, err)
+			if err := sendError(resp, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
-		api.SendHTTPStatusAndJSON(resp, http.StatusOK, &response)
+		if err := sendStatusAndJSON(resp, http.StatusOK, &response); err != nil {
+			logger.Errorf("%v", err)
+		}
 	default:
-		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }
 
@@ -207,7 +220,7 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		return ur, errors.Errorf("unsupported content type %q", ctype)
 	}
 
-	application, name := api.ExtractEndpointDetails(req.URL)
+	application, name := extractEndpointDetails(req.URL)
 	fingerprint := req.Header.Get(api.HeaderContentSha384) // This parallels "Content-MD5".
 	sizeRaw := req.Header.Get(api.HeaderContentLength)
 	pendingID := req.URL.Query().Get(api.QueryParamPendingID)
@@ -236,6 +249,14 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		PendingID:   pendingID,
 	}
 	return ur, nil
+}
+
+// extractEndpointDetails pulls the endpoint wildcard values from
+// the provided URL.
+func extractEndpointDetails(url *url.URL) (application, name string) {
+	application = url.Query().Get(":application")
+	name = url.Query().Get(":resource")
+	return application, name
 }
 
 func extractFilename(req *http.Request) (string, error) {

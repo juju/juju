@@ -738,6 +738,9 @@ func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error
 	app := args.ApplicationName
 
 	for _, p := range args.Placement {
+		if p == nil {
+			continue
+		}
 		dir := p.Directive
 
 		toProvisionedMachine := p.Scope == instance.MachineScope

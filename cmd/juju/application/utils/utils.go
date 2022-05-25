@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.utils")

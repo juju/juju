@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/storage"
@@ -303,7 +303,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			Containers: map[string]caas.ContainerConfig{
 				"gitlab": {
 					Name: "gitlab",
-					Image: coreresources.DockerImageDetails{
+					Image: coreresource.DockerImageDetails{
 						RegistryPath: "gitlab-image:latest",
 					},
 					Mounts: []caas.MountConfig{
@@ -315,7 +315,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				},
 				"nginx": {
 					Name: "nginx",
-					Image: coreresources.DockerImageDetails{
+					Image: coreresource.DockerImageDetails{
 						RegistryPath: "nginx-image:latest",
 						ImageRepoDetails: docker.ImageRepoDetails{
 							BasicAuthConfig: docker.BasicAuthConfig{

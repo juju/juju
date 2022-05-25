@@ -10,7 +10,7 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 // Resources describes the state functionality for resources.
@@ -47,7 +47,7 @@ type Resources interface {
 	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
 
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
-	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResourceForUniter(appName, unitName, name string) (resource.Resource, io.ReadCloser, error)
 
 	// SetCharmStoreResources sets the "polled" resources for the
 	// application to the provided values.

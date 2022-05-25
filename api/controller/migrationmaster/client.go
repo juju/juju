@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -233,7 +233,7 @@ type ProvisioningInfo struct {
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Tags                 map[string]string
-	ImageDetails         resources.DockerImageDetails
+	ImageDetails         resource.DockerImageDetails
 	CharmModifiedVersion int
 }
 

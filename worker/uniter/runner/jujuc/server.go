@@ -41,12 +41,6 @@ var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
 type creator func(Context) (cmd.Command, error)
 
-var registeredCommands = map[string]creator{}
-
-func RegisterCommand(name string, f creator) {
-	registeredCommands[name+cmdSuffix] = f
-}
-
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
 	"close-port" + cmdSuffix:              NewClosePortCommand,
@@ -114,6 +108,16 @@ var leaderCommands = map[string]creator{
 	"leader-set" + cmdSuffix: NewLeaderSetCommand,
 }
 
+var resourceCommands = map[string]creator{
+	"resource-get" + cmdSuffix: NewResourceGetCmd,
+}
+
+var payloadCommands = map[string]creator{
+	"payload-register" + cmdSuffix:   NewPayloadRegisterCmd,
+	"payload-unregister" + cmdSuffix: NewPayloadUnregisterCmd,
+	"payload-status-set" + cmdSuffix: NewPayloadStatusSetCmd,
+}
+
 func allEnabledCommands() map[string]creator {
 	all := map[string]creator{}
 	add := func(m map[string]creator) {
@@ -124,10 +128,11 @@ func allEnabledCommands() map[string]creator {
 	add(baseCommands)
 	add(storageCommands)
 	add(leaderCommands)
+	add(resourceCommands)
+	add(payloadCommands)
 	if featureflag.Enabled(feature.Secrets) {
 		add(secretCommands)
 	}
-	add(registeredCommands)
 	return all
 }
 

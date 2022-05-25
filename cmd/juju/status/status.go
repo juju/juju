@@ -139,8 +139,14 @@ Examples:
     juju status --format=json
 
     # Watch the status of the mysql application every five seconds
-	# Only available for unix-based systems.
+    # Only available for unix-based systems.
     juju status --watch 5s mysql
+
+    # Show only applications/units in active status
+    juju status active
+
+    # Show only applications/units in error status
+    juju status error
 
 See also:
 

@@ -11,9 +11,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/client/resources"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 // ListClient has the API client methods needed by ListCommand.
@@ -24,27 +25,29 @@ type ListClient interface {
 	Close() error
 }
 
-// ListDeps is a type that contains external functions that List needs.
-type ListDeps struct {
-	// NewClient returns the value that wraps the API for showing
-	// resources from the server.
-	NewClient func(*ListCommand) (ListClient, error)
-}
-
 // ListCommand discovers and lists application or unit resources.
 type ListCommand struct {
 	modelcmd.ModelCommandBase
 
+	newClient func() (ListClient, error)
+
 	details bool
-	deps    ListDeps
 	out     cmd.Output
 	target  string
 }
 
 // NewListCommand returns a new command that lists resources defined
 // by a charm.
-func NewListCommand(deps ListDeps) modelcmd.ModelCommand {
-	return modelcmd.Wrap(&ListCommand{deps: deps})
+func NewListCommand() modelcmd.ModelCommand {
+	c := &ListCommand{}
+	c.newClient = func() (ListClient, error) {
+		apiRoot, err := c.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return resources.NewClient(apiRoot)
+	}
+	return modelcmd.Wrap(c)
 }
 
 // Info implements cmd.Command.Info.
@@ -90,7 +93,7 @@ func (c *ListCommand) Init(args []string) error {
 
 // Run implements cmd.Command.Run.
 func (c *ListCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.deps.NewClient(c)
+	apiclient, err := c.newClient()
 	if err != nil {
 		return errors.Trace(err)
 	}

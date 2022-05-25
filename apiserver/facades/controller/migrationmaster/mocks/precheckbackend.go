@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	migration "github.com/juju/juju/migration"
-	resource "github.com/juju/juju/resource"
+	resource "github.com/juju/juju/core/resource"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"

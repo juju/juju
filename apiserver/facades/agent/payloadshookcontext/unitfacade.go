@@ -8,9 +8,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.apiserver.payloadshookcontext")
 
 // NewHookContextFacade returns a new payloads hook context facade for
 // the State and Unit given. It is used for facade registration.
-func NewHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+func NewHookContextFacade(st *state.State, unit *state.Unit) (*UnitFacade, error) {
 	up, err := st.UnitPayloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -35,7 +35,7 @@ type UnitPayloadBackend interface {
 	// List returns information on the payload with the id on the unit.
 	List(ids ...string) ([]payload.Result, error)
 
-	// Settatus sets the status for the payload with the given id on the unit.
+	// SetStatus sets the status for the payload with the given id on the unit.
 	SetStatus(id, status string) error
 
 	// LookUp returns the payload ID for the given name/rawID pair.

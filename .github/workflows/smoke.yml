@@ -290,7 +290,7 @@ jobs:
       shell: bash
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
-        UPGRADE_PARAMS_localhost: "--build-agent"
+        UPGRADE_PARAMS_localhost: ""
         UPGRADE_PARAMS_microk8s: ""
       run: |
         set -euxo pipefail
