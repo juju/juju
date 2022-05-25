@@ -112,7 +112,7 @@ jobs:
         echo "::set-output name=go-version::$(grep '^go ' go.mod | awk '{print $2}')"
         echo "::set-output name=base-juju-version::$(juju version | cut -d '-' -f 1)"
         echo "::set-output name=upstream-juju-version::$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')"
-        echo "::set-output name=juju-db-version::4.0/stable"
+        echo "::set-output name=juju-db-version::4.0"
       id: vars
 
     - name: Set up Go
@@ -214,7 +214,6 @@ jobs:
         sg microk8s <<EOF
           juju bootstrap microk8s c \
             --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
-            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
             --config features="[developer-mode]" --debug
         EOF
         juju add-model m
