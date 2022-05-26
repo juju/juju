@@ -169,7 +169,8 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 			w.Print(getFilesystemAttachment(s, info).MountPoint)
 			w.Print(humanizeStorageSize(storageSize[storageId]))
 			w.PrintStatus(info.status.Current)
-			w.Println(info.status.Message)
+			w.PrintColor(output.EmphasisHighlight.Gray, info.status.Message)
+			w.Println()
 		}
 	}
 	return w.Flush()
