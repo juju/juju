@@ -695,10 +695,7 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	resourcesSt, err := e.st.Resources()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	resourcesSt := e.st.Resources()
 
 	appOfferMap, err := e.groupOffersByApplicationName()
 	if err != nil {

@@ -1043,9 +1043,8 @@ type pushResource struct{}
 func (s pushResource) step(c *gc.C, ctx *testContext) {
 	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ApplicationName(), "the bytes")
 
-	res, err := ctx.st.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = res.SetResource(
+	res := ctx.st.Resources()
+	_, err := res.SetResource(
 		ctx.unit.ApplicationName(),
 		opened.Username,
 		opened.Resource.Resource,

@@ -475,8 +475,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, app string, expected []resource.Resource) {
 	_, err := s.State.Application(app)
 	c.Check(err, jc.ErrorIsNil)
-	st, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.State.Resources()
 	svcResources, err := st.ListResources(app)
 	c.Assert(err, jc.ErrorIsNil)
 	resources := svcResources.Resources

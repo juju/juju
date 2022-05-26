@@ -100,9 +100,9 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 	return cons, nil
 }
 
-func (st *mockState) Resources() (caasapplicationprovisioner.Resources, error) {
+func (st *mockState) Resources() caasapplicationprovisioner.Resources {
 	st.MethodCall(st, "Resources")
-	return st.resource, nil
+	return st.resource
 }
 
 type mockResources struct {

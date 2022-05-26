@@ -181,7 +181,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 
 func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurrentRequests int) {
 	if s.unitName != "" {
-		s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").DoAndReturn(func(appName, unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
+		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
 			s.unleash.Lock()
 			defer s.unleash.Unlock()
 			return coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
@@ -195,7 +195,7 @@ func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurren
 	other := res
 	other.ApplicationID = "postgreql"
 	if s.unitName != "" {
-		s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
+		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
 	} else {
 		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
 	}
@@ -217,7 +217,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").DoAndReturn(func(appName, unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
+	s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
 		s.unleash.Lock()
 		defer s.unleash.Unlock()
 		return coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")

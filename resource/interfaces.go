@@ -23,7 +23,7 @@ type Resources interface {
 	// OpenResource returns the metadata for a resource and a reader for the resource.
 	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
-	OpenResourceForUniter(appName, unitName, resName string) (resource.Resource, io.ReadCloser, error)
+	OpenResourceForUniter(unitName, resName string) (resource.Resource, io.ReadCloser, error)
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
 }

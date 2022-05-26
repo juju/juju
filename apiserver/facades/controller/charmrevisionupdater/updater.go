@@ -77,10 +77,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	}
 
 	// Process the resulting info for each charm.
-	resources, err := api.state.Resources()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	resources := api.state.Resources()
 	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
 		if err := api.state.AddCharmPlaceholder(info.url); err != nil {

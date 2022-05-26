@@ -70,11 +70,6 @@ func newInternalResourceOpener(
 		return nil, errors.Trace(err)
 	}
 
-	resources, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var resourceClientGetter interface {
 		NewClient() (*ResourceRetryClient, error)
 	}
@@ -110,7 +105,7 @@ func newInternalResourceOpener(
 	}
 
 	return &ResourceOpener{
-		resourceCache:               resources,
+		resourceCache:               st.Resources(),
 		modelUUID:                   st.ModelUUID(),
 		resourceClient:              resourceClient,
 		user:                        userID,
@@ -260,7 +255,7 @@ func (ro ResourceOpener) open(resName string) (resource.Resource, io.ReadCloser,
 	if ro.unitName == "" {
 		return ro.resourceCache.OpenResource(ro.appName, resName)
 	}
-	return ro.resourceCache.OpenResourceForUniter(ro.appName, ro.unitName, resName)
+	return ro.resourceCache.OpenResourceForUniter(ro.unitName, resName)
 }
 
 // set stores the resource info and data in a repo, if there is one.

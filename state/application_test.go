@@ -3243,8 +3243,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Add a resource to the application, ensuring it is stored.
-	rSt, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := s.State.Resources()
 	const content = "abc"
 	res := resourcetesting.NewCharmResource(c, "blob", content)
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content), state.IncrementCharmModifiedVersion)
@@ -3274,8 +3273,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Add a placeholder resource to the application.
-	rSt, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := s.State.Resources()
 	res := resourcetesting.NewPlaceholderResource(c, "blob", s.mysql.Name())
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil, state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)

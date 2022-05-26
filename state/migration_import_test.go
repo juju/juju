@@ -636,8 +636,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 
-	rSt, err := newSt.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := newSt.Resources()
 	resources, err := rSt.ListResources(imported.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resources.Resources, gc.HasLen, 3)

@@ -73,10 +73,7 @@ func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	rSt, err := st.Resources()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
+	rSt := st.Resources()
 
 	reader := r.Body
 

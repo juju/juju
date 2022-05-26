@@ -15,7 +15,7 @@ import (
 // until finalized, at which point it moves out of the staging area and
 // replaces the current active resource info.
 type StagedResource struct {
-	base   ResourcePersistenceBase
+	p      *resourcePersistence
 	id     string
 	stored storedResource
 }
@@ -33,12 +33,12 @@ func (staged StagedResource) stage() error {
 		}
 		if staged.stored.PendingID == "" {
 			// Only non-pending resources must have an existing application.
-			ops = append(ops, staged.base.ApplicationExistsOps(staged.stored.ApplicationID)...)
+			ops = append(ops, applicationExistsOps(staged.stored.ApplicationID)...)
 		}
 
 		return ops, nil
 	}
-	if err := staged.base.Run(buildTxn); err != nil {
+	if err := staged.p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -57,7 +57,7 @@ func (staged StagedResource) Unstage() error {
 		ops := newRemoveStagedResourceOps(staged.id)
 		return ops, nil
 	}
-	if err := staged.base.Run(buildTxn); err != nil {
+	if err := staged.p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -78,7 +78,7 @@ func (staged StagedResource) Activate(incrementCharmModifiedVersion IncrementCha
 		}
 		if staged.stored.PendingID == "" {
 			// Only non-pending resources must have an existing application.
-			ops = append(ops, staged.base.ApplicationExistsOps(staged.stored.ApplicationID)...)
+			ops = append(ops, applicationExistsOps(staged.stored.ApplicationID)...)
 		}
 		// No matter what, we always remove any staging.
 		ops = append(ops, newRemoveStagedResourceOps(staged.id)...)
@@ -93,13 +93,13 @@ func (staged StagedResource) Activate(incrementCharmModifiedVersion IncrementCha
 				return nil, errors.Trace(err)
 			}
 			if hasNewBytes && incrementCharmModifiedVersion == IncrementCharmModifiedVersion {
-				incOps := staged.base.IncCharmModifiedVersionOps(staged.stored.ApplicationID)
+				incOps := incCharmModifiedVersionOps(staged.stored.ApplicationID)
 				ops = append(ops, incOps...)
 			}
 		}
 		return ops, nil
 	}
-	if err := staged.base.Run(buildTxn); err != nil {
+	if err := staged.p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -107,7 +107,7 @@ func (staged StagedResource) Activate(incrementCharmModifiedVersion IncrementCha
 
 func (staged StagedResource) hasNewBytes() (bool, error) {
 	var current resourceDoc
-	err := staged.base.One(resourcesC, staged.stored.ID, &current)
+	err := staged.p.one(resourcesC, staged.stored.ID, &current)
 	switch {
 	case errors.IsNotFound(err):
 		// if there's no current resource stored, then any non-zero bytes will

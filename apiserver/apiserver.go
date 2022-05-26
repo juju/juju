@@ -724,10 +724,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
-			rst, err := st.Resources()
-			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
-			}
+			rst := st.Resources()
 			return rst, st, entity.Tag(), nil
 		},
 		ChangeAllowedFunc: func(req *http.Request) error {

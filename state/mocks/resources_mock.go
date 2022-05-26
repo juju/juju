@@ -85,10 +85,10 @@ func (mr *MockResourcesMockRecorder) GetResource(arg0, arg1 interface{}) *gomock
 }
 
 // ListPendingResources mocks base method.
-func (m *MockResources) ListPendingResources(arg0 string) ([]resource0.Resource, error) {
+func (m *MockResources) ListPendingResources(arg0 string) (resource0.ApplicationResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListPendingResources", arg0)
-	ret0, _ := ret[0].([]resource0.Resource)
+	ret0, _ := ret[0].(resource0.ApplicationResources)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -146,9 +146,9 @@ func (mr *MockResourcesMockRecorder) OpenResource(arg0, arg1 interface{}) *gomoc
 }
 
 // OpenResourceForUniter mocks base method.
-func (m *MockResources) OpenResourceForUniter(arg0, arg1, arg2 string) (resource0.Resource, io.ReadCloser, error) {
+func (m *MockResources) OpenResourceForUniter(arg0, arg1 string) (resource0.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenResourceForUniter", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "OpenResourceForUniter", arg0, arg1)
 	ret0, _ := ret[0].(resource0.Resource)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
@@ -156,9 +156,9 @@ func (m *MockResources) OpenResourceForUniter(arg0, arg1, arg2 string) (resource
 }
 
 // OpenResourceForUniter indicates an expected call of OpenResourceForUniter.
-func (mr *MockResourcesMockRecorder) OpenResourceForUniter(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockResourcesMockRecorder) OpenResourceForUniter(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResourceForUniter", reflect.TypeOf((*MockResources)(nil).OpenResourceForUniter), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResourceForUniter", reflect.TypeOf((*MockResources)(nil).OpenResourceForUniter), arg0, arg1)
 }
 
 // RemovePendingAppResources mocks base method.

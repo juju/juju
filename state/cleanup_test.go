@@ -1215,9 +1215,8 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
+	resources := s.State.Resources()
+	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Destroy()
@@ -1240,9 +1239,8 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
+	resources := s.State.Resources()
+	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Destroy()

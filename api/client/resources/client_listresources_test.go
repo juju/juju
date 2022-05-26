@@ -4,8 +4,6 @@
 package resources_test
 
 import (
-	"fmt"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -115,6 +113,5 @@ func (s *ListResourcesSuite) TestConversionFailed(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("ListResources", args, gomock.Any()).SetArg(2, resultParams).Return(nil)
 
 	_, err := s.client.ListResources([]string{"a-application"})
-	fmt.Println(err.Error())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

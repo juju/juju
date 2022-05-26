@@ -88,8 +88,7 @@ resources:
 		"riak", "--path="+myriakPath.Path, "--resource", "data="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	resources := s.State.Resources()
 
 	sr, err := resources.ListResources("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,8 +167,7 @@ Deploying charm "cs:bionic/starsay-1".`
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 
-	res, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	res := s.State.Resources()
 	appResources, err := res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -284,8 +282,7 @@ Deploying charm "cs:bionic/starsay-1".`
 	charmAdder.CheckCall(c, 0,
 		"AddCharm", charm.MustParseURL("cs:bionic/starsay-2"), csclientparams.NoChannel, false)
 
-	res, err = s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	res = s.State.Resources()
 	appResources, err = res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 

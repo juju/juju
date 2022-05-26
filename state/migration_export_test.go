@@ -2284,11 +2284,10 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 		Application: app,
 	})
 
-	st, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.State.Resources()
 
 	setUnitResource := func(u *state.Unit) {
-		_, reader, err := st.OpenResourceForUniter(app.Name(), u.Name(), "spam")
+		_, reader, err := st.OpenResourceForUniter(u.Name(), "spam")
 		c.Assert(err, jc.ErrorIsNil)
 		defer reader.Close()
 		_, err = ioutil.ReadAll(reader) // Need to read the content to set the resource for the unit.
@@ -2300,7 +2299,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 
 	// Initially set revision 1 for the application.
 	res1 := s.newResource(c, app.Name(), "spam", 1, body)
-	res1, err = st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(body), state.IncrementCharmModifiedVersion)
+	res1, err := st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(body), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit 1 gets revision 1.

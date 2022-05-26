@@ -57,10 +57,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 	}
 
 	st := ctx.State()
-	rst, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	rst := st.Resources()
 
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {

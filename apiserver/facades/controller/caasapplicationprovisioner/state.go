@@ -26,7 +26,7 @@ type CAASApplicationProvisionerState interface {
 	Model() (Model, error)
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
-	Resources() (Resources, error)
+	Resources() Resources
 	WatchApplications() state.StringsWatcher
 }
 
@@ -104,7 +104,7 @@ func (s stateShim) Application(name string) (Application, error) {
 	return &applicationShim{app}, nil
 }
 
-func (s stateShim) Resources() (Resources, error) {
+func (s stateShim) Resources() Resources {
 	return s.State.Resources()
 }
 

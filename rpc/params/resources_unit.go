@@ -3,7 +3,7 @@
 
 package params
 
-// ListResourcesArgs holds the arguments for an API request to list
+// ListUnitResourcesArgs holds the arguments for an API request to list
 // resources for an application. The application is implicit to the uniter-
 // specific HTTP connection.
 type ListUnitResourcesArgs struct {

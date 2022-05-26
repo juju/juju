@@ -13,15 +13,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NewHookContextFacade adapts NewUnitFacade for facade registration.
-func NewHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
-	res, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
-}
-
 // resourcesUnitDatastore is a shim to elide serviceName from
 // ListResources.
 type resourcesUnitDataStore struct {
