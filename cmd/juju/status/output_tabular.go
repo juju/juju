@@ -488,7 +488,9 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	w.PrintStatus(status)
 	w.PrintColor(output.InfoHighlight, m.DNSName)
 	w.Print(m.machineName(), m.Series, az)
-	w.PrintColor(output.EmphasisHighlight.Gray, message)
+	if message != "" { //some unit tests were failing because of the printed empty string .
+		w.PrintColor(output.EmphasisHighlight.Gray, message)
+	}
 	w.Println()
 
 	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
