@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/state"
 )
 

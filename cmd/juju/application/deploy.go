@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/resourceadapters"
 	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -355,7 +354,7 @@ type DeployCommand struct {
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (deployer.ConsumeDetails, error)
 
 	// DeployResources stores a function which deploys charm resources.
-	DeployResources resourceadapters.DeployResourcesFunc
+	DeployResources deployer.DeployResourcesFunc
 
 	// When deploying a charm, Trust signifies that the charm should be
 	// deployed with access to trusted credentials. That is, hooks run by

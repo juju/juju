@@ -54,7 +54,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -2277,7 +2277,7 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 
 func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, status.Status, error) {
 	terminated := ss.DeletionTimestamp != nil
-	jujuStatus := status.Allocating
+	jujuStatus := status.Waiting
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2289,7 +2289,7 @@ func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, s
 
 func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
 	terminated := deployment.DeletionTimestamp != nil
-	jujuStatus := status.Allocating
+	jujuStatus := status.Waiting
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2301,7 +2301,7 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 
 func (k *kubernetesClient) getDaemonSetStatus(ds *apps.DaemonSet) (string, status.Status, error) {
 	terminated := ds.DeletionTimestamp != nil
-	jujuStatus := status.Allocating
+	jujuStatus := status.Waiting
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2404,7 +2404,7 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 }
 
 func prepareWorkloadSpec(
-	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails coreresources.DockerImageDetails,
+	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails coreresource.DockerImageDetails,
 ) (*workloadSpec, error) {
 	var spec workloadSpec
 	if err := processContainers(deploymentName, podSpec, &spec.Pod.PodSpec); err != nil {

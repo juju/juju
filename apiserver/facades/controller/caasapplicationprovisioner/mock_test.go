@@ -24,10 +24,9 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -108,7 +107,7 @@ func (st *mockState) Resources() (caasapplicationprovisioner.Resources, error) {
 
 type mockResources struct {
 	caasapplicationprovisioner.Resources
-	resource *resources.DockerImageDetails
+	resource *resource.DockerImageDetails
 }
 
 func (m *mockResources) OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error) {

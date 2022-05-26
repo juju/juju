@@ -6,8 +6,8 @@ package payloads
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
+	api "github.com/juju/juju/api/client/payloads"
+	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/rpc/params"
 )
 

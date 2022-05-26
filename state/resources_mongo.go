@@ -13,7 +13,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 const (

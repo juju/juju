@@ -15,6 +15,7 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
@@ -163,6 +164,7 @@ func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Clou
 		// of the environ.
 		HTTPClient: jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(spec.SkipTLSVerify),
+			jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 		),
 	}
 

@@ -45,11 +45,11 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -111,7 +111,7 @@ type Server struct {
 
 	// resourceLock is used to limit the number of
 	// concurrent resource downloads to units.
-	resourceLock resourceadapters.ResourceDownloadLock
+	resourceLock resource.ResourceDownloadLock
 
 	// registerIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
@@ -492,10 +492,10 @@ func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) {
 	defer srv.mu.Unlock()
 	globalLimit := cfg.ControllerResourceDownloadLimit()
 	appLimit := cfg.ApplicationResourceDownloadLimit()
-	srv.resourceLock = resourceadapters.NewResourceDownloadLimiter(globalLimit, appLimit)
+	srv.resourceLock = resource.NewResourceDownloadLimiter(globalLimit, appLimit)
 }
 
-func (srv *Server) getResourceDownloadLimiter() resourceadapters.ResourceDownloadLock {
+func (srv *Server) getResourceDownloadLimiter() resource.ResourceDownloadLock {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	return srv.resourceLock
@@ -732,7 +732,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	}
 	unitResourcesHandler := &UnitResourcesHandler{
-		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, state.PoolHelper, error) {
+		NewOpener: func(req *http.Request, tagKinds ...string) (coreresource.Opener, state.PoolHelper, error) {
 			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
@@ -742,8 +742,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			opener, err := resourceadapters.NewResourceOpener(
-				resourceadapters.NewResourceOpenerState(st.State), srv.getResourceDownloadLimiter, tag.Id())
+			opener, err := resource.NewResourceOpener(st.State, srv.getResourceDownloadLimiter, tag.Id())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}

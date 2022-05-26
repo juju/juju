@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/application/utils/mocks"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resource"
 )
 
 type utilsSuite struct{}

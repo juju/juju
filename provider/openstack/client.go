@@ -16,6 +16,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 
+	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
@@ -248,7 +249,7 @@ func newClient(
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(opts.skipHostnameVerification),
 		jujuhttp.WithCACertificates(opts.caCertificates...),
-		jujuhttp.WithLogger(logger.Child("http")),
+		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 	)
 	return client.NewClient(&cred, authMode, gooseLogger,
 		client.WithHTTPClient(httpClient.Client()),

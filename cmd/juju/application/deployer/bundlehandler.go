@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -24,7 +24,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -67,8 +66,7 @@ type bundleDeploySpec struct {
 	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
-	deployResources      resourceadapters.DeployResourcesFunc
-	getResourceLister    func(DeployerAPI) (utils.ResourceLister, error)
+	deployResources      DeployResourcesFunc
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
@@ -146,8 +144,7 @@ type bundleHandler struct {
 	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
-	deployResources      resourceadapters.DeployResourcesFunc
-	getResourceLister    func(DeployerAPI) (utils.ResourceLister, error)
+	deployResources      DeployResourcesFunc
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -242,7 +239,6 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		authorizer:           spec.authorizer,
 		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
 		deployResources:      spec.deployResources,
-		getResourceLister:    spec.getResourceLister,
 		bundleStorage:        spec.bundleStorage,
 		bundleDevices:        spec.bundleDevices,
 		ctx:                  spec.ctx,
@@ -774,7 +770,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	return nil
 }
 
-func (h *bundleHandler) makeResourceMap(meta map[string]resource.Meta, storeResources map[string]int, localResources map[string]string) map[string]string {
+func (h *bundleHandler) makeResourceMap(meta map[string]charmresource.Meta, storeResources map[string]int, localResources map[string]string) map[string]string {
 	resources := make(map[string]string)
 	for resName, path := range localResources {
 		// The resource may be a relative path, convert to absolute path.
@@ -785,7 +781,7 @@ func (h *bundleHandler) makeResourceMap(meta map[string]resource.Meta, storeReso
 			maybePath = filepath.Clean(filepath.Join(h.bundleDir, path))
 		}
 		_, err := h.filesystem.Stat(maybePath)
-		if err == nil || meta[resName].Type == resource.TypeFile {
+		if err == nil || meta[resName].Type == charmresource.TypeFile {
 			path = maybePath
 		}
 		resources[resName] = path
@@ -889,7 +885,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	resources := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
+	resMap := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
 
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
 		CharmInfo: charmInfo,
@@ -899,12 +895,12 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	resNames2IDs, err := h.deployResources(
 		p.Application,
-		client.CharmID{
+		resources.CharmID{
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},
 		macaroon,
-		resources,
+		resMap,
 		charmInfo.Meta.Resources,
 		h.deployAPI,
 		h.filesystem,
@@ -1327,13 +1323,13 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	resources := h.makeResourceMap(meta, param.Resources, param.LocalResources)
+	resMap := h.makeResourceMap(meta, param.Resources, param.LocalResources)
 
-	resourceLister, err := h.getResourceLister(h.deployAPI)
+	resourceLister, err := resources.NewClient(h.deployAPI)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filtered, err := utils.GetUpgradeResources(chID.URL, resourceLister, param.Application, resources, meta)
+	filtered, err := utils.GetUpgradeResources(chID.URL, resourceLister, param.Application, resMap, meta)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1342,12 +1338,12 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
 			param.Application,
-			client.CharmID{
+			resources.CharmID{
 				URL:    chID.URL,
 				Origin: chID.Origin,
 			},
 			mac,
-			resources,
+			resMap,
 			filtered,
 			h.deployAPI,
 			h.filesystem,

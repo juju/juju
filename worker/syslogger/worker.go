@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v3"
@@ -132,8 +133,8 @@ func (w *syslogWorker) Log(logs []corelogger.LogRecord) error {
 			continue
 		}
 		module := log.Module
-		if log.ModelUUID != "" {
-			module = fmt.Sprintf("%s.%s", log.Module, log.ModelUUID[:6])
+		if names.IsValidModel(log.ModelUUID) {
+			module = fmt.Sprintf("%s.%s", log.Module, names.NewModelTag(log.ModelUUID).ShortId())
 		}
 		dateTime := log.Time.In(time.UTC).Format("2006-01-02 15:04:05")
 		_, _ = fmt.Fprintf(writer, "%s %s %s %s\n", dateTime, log.Entity, module, log.Message)

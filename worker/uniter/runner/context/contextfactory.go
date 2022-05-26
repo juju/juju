@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/context/payloads"
+	"github.com/juju/juju/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -66,10 +68,12 @@ type RelationsFunc func() map[int]*RelationInfo
 
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit    *uniter.Unit
-	state   *uniter.State
-	secrets *secretsmanager.Client
-	tracker leadership.Tracker
+	unit      *uniter.Unit
+	state     *uniter.State
+	resources *uniter.ResourcesFacadeClient
+	payloads  *uniter.PayloadFacadeClient
+	secrets   *secretsmanager.Client
+	tracker   leadership.Tracker
 
 	logger loggo.Logger
 
@@ -98,6 +102,8 @@ type FactoryConfig struct {
 	State            *uniter.State
 	Secrets          *secretsmanager.Client
 	Unit             *uniter.Unit
+	Resources        *uniter.ResourcesFacadeClient
+	Payloads         *uniter.PayloadFacadeClient
 	Tracker          leadership.Tracker
 	GetRelationInfos RelationsFunc
 	Storage          StorageContextAccessor
@@ -138,6 +144,8 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	f := &contextFactory{
 		unit:             config.Unit,
 		state:            config.State,
+		resources:        config.Resources,
+		payloads:         config.Payloads,
 		secrets:          config.Secrets,
 		tracker:          config.Tracker,
 		logger:           config.Logger,
@@ -185,11 +193,19 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		storage:            f.storage,
 		clock:              f.clock,
 		logger:             f.logger,
-		componentDir:       f.paths.ComponentDir,
-		componentFuncs:     registeredComponentFuncs,
 		availabilityZone:   f.zone,
 		principal:          f.principal,
+		ResourcesHookContext: &resources.ResourcesHookContext{
+			Client:       f.resources,
+			ResourcesDir: f.paths.GetResourcesDir(),
+			Logger:       f.logger,
+		},
 	}
+	payloadCtx, err := payloads.NewContext(f.payloads)
+	if err != nil {
+		return nil, err
+	}
+	ctx.PayloadsHookContext = payloadCtx
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
 	}

@@ -1474,11 +1474,21 @@ func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cores=2 tags=bar")
-	consB := constraints.MustParse("arch=arm64 instance-type=m1.small")
+	consA := constraints.MustParse("arch=arm64 mem=1G cpu-power=10 cores=2 tags=bar")
+	consB := constraints.MustParse("arch=amd64 instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=arm64 instance-type=m1.small tags=bar"))
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=amd64 instance-type=m1.small tags=bar"))
+}
+
+func (t *localServerSuite) TestConstraintsConflict(c *gc.C) {
+	env := t.Prepare(c)
+	validator, err := env.ConstraintsValidator(t.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("arch=amd64 instance-type=m1.small"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("arch=arm64 instance-type=m1.small"))
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="m1.small" expected arch="amd64" not "arm64"`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
