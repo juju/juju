@@ -3053,6 +3053,37 @@ func (s *localServerSuite) TestICMPFirewallRules(c *gc.C) {
 	c.Assert(rules[0].SourceCIDRs.Contains("::/0"), jc.IsTrue)
 }
 
+// TestIPv6RuleCreationForEmptyCIDR is a regression test for lp1709312
+func (s *localServerSuite) TestIPv6RuleCreationForEmptyCIDR(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
+	firewaller := openstack.GetFirewaller(s.env)
+	err = firewaller.OpenInstancePorts(s.callCtx, inst, "100", firewall.IngressRules{
+		{
+			PortRange: network.PortRange{
+				FromPort: 443,
+				ToPort:   443,
+				Protocol: "tcp",
+			},
+			SourceCIDRs: set.NewStrings(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err := firewaller.InstanceIngressRules(s.callCtx, inst, "100")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(rules), gc.Equals, 1)
+	c.Assert(rules[0].PortRange.FromPort, gc.Equals, 443)
+	c.Assert(rules[0].PortRange.ToPort, gc.Equals, 443)
+	c.Assert(rules[0].PortRange.Protocol, gc.Equals, "tcp")
+	c.Assert(rules[0].SourceCIDRs.Size(), gc.Equals, 2)
+	c.Assert(rules[0].SourceCIDRs.Contains("0.0.0.0/0"), jc.IsTrue)
+	c.Assert(rules[0].SourceCIDRs.Contains("::/0"), jc.IsTrue)
+}
+
 func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Binary{

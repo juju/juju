@@ -1703,6 +1703,7 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules firewall.Ingr
 	for _, r := range rules {
 		if len(r.SourceCIDRs) == 0 {
 			r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
+			r.SourceCIDRs.Add(firewall.AllNetworksIPV6CIDR)
 		}
 		found := false
 		for _, rule := range estate.globalRules {
@@ -1730,6 +1731,10 @@ func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules firewall.Ing
 	defer estate.mu.Unlock()
 	for _, r := range rules {
 		for i, rule := range estate.globalRules {
+			if len(r.SourceCIDRs) == 0 {
+				r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
+				r.SourceCIDRs.Add(firewall.AllNetworksIPV6CIDR)
+			}
 			if r.String() == rule.String() {
 				estate.globalRules = estate.globalRules[:i+copy(estate.globalRules[i:], estate.globalRules[i+1:])]
 			}
@@ -1880,6 +1885,7 @@ func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	for _, newRule := range rules {
 		if len(newRule.SourceCIDRs) == 0 {
 			newRule.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
+			newRule.SourceCIDRs.Add(firewall.AllNetworksIPV6CIDR)
 		}
 		found := false
 
