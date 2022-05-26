@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payloads"
+	corepayloads "github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
 )
@@ -27,14 +27,14 @@ func (s *contextSuite) TestNewContext(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -42,12 +42,12 @@ func (s *contextSuite) TestNewContext(c *gc.C) {
 
 	ctx, err := payloads.NewContext(client)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]payloads.Payload{
+	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
 		"class": pl,
 	})
 	result, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []payloads.Payload{pl})
+	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl})
 
 }
 
@@ -57,21 +57,21 @@ func (s *contextSuite) TestTrackPayloads(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID: "id",
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
 	}}, nil)
 
-	pl2 := payloads.Payload{
+	pl2 := corepayloads.Payload{
 		ID:     "id",
 		Status: "starting",
 		Unit:   "a/0",
@@ -88,8 +88,8 @@ func (s *contextSuite) TestTrackPayloads(c *gc.C) {
 
 	result, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []payloads.Payload{pl, pl2})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]payloads.Payload{
+	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl, pl2})
+	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id": pl,
 	})
 }
@@ -100,21 +100,21 @@ func (s *contextSuite) TestTrackPayloadsFlush(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID: "id",
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
 	}}, nil)
 
-	pl2 := payloads.Payload{
+	pl2 := corepayloads.Payload{
 		ID:     "id",
 		Status: "starting",
 		Unit:   "a/0",
@@ -134,8 +134,8 @@ func (s *contextSuite) TestTrackPayloadsFlush(c *gc.C) {
 
 	result, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []payloads.Payload{pl, pl2})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]payloads.Payload{
+	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl, pl2})
+	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id":  pl,
 		"class2/id": pl2,
 	})
@@ -147,15 +147,15 @@ func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID: "id",
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -168,8 +168,8 @@ func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 
 	result, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []payloads.Payload{pl})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]payloads.Payload{
+	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl})
+	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id": pl,
 	})
 }
@@ -180,7 +180,7 @@ func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID:     "id",
 		Status: "starting",
 		PayloadClass: charm.PayloadClass{
@@ -189,9 +189,9 @@ func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
 		},
 		Unit: "a/0",
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -209,8 +209,8 @@ func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
 
 	result, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []payloads.Payload{pl})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]payloads.Payload{
+	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl})
+	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id": pl,
 	})
 }
@@ -221,15 +221,15 @@ func (s *contextSuite) TestUnTrackPayloads(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID: "id",
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -242,7 +242,7 @@ func (s *contextSuite) TestUnTrackPayloads(c *gc.C) {
 	err = ctx.UntrackPayload("class", "id")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]payloads.Payload{})
+	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{})
 }
 
 func (s *contextSuite) TestSetPayloadStatus(c *gc.C) {
@@ -251,15 +251,15 @@ func (s *contextSuite) TestSetPayloadStatus(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID: "id",
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -279,15 +279,15 @@ func (s *contextSuite) TestGetPayload(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID: "id",
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -306,7 +306,7 @@ func (s *contextSuite) TestTrackedPayload(c *gc.C) {
 
 	client := mocks.NewMockPayloadAPIClient(ctrl)
 
-	pl := payloads.Payload{
+	pl := corepayloads.Payload{
 		ID:     "id",
 		Status: "starting",
 		PayloadClass: charm.PayloadClass{
@@ -315,9 +315,9 @@ func (s *contextSuite) TestTrackedPayload(c *gc.C) {
 		},
 		Unit: "a/0",
 	}
-	client.EXPECT().List().Return([]payloads.Result{{
+	client.EXPECT().List().Return([]corepayloads.Result{{
 		ID: "id",
-		Payload: &payloads.FullPayloadInfo{
+		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},

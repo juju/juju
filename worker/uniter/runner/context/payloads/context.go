@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/core/payloads"
+	corepayloads "github.com/juju/juju/core/payloads"
 )
 
 var logger = loggo.GetLogger("juju.payload.context")
@@ -17,13 +17,13 @@ var logger = loggo.GetLogger("juju.payload.context")
 // PayloadAPIClient represents the API needs of a PayloadContext.
 type PayloadAPIClient interface {
 	// List requests the payload info for the given IDs.
-	List(fullIDs ...string) ([]payloads.Result, error)
+	List(fullIDs ...string) ([]corepayloads.Result, error)
 	// Track sends a request to update state with the provided payloads.
-	Track(payloads ...payloads.Payload) ([]payloads.Result, error)
+	Track(payloads ...corepayloads.Payload) ([]corepayloads.Result, error)
 	// Untrack removes the payloads from our list track.
-	Untrack(fullIDs ...string) ([]payloads.Result, error)
+	Untrack(fullIDs ...string) ([]corepayloads.Result, error)
 	// SetStatus sets the status for the given IDs.
-	SetStatus(status string, fullIDs ...string) ([]payloads.Result, error)
+	SetStatus(status string, fullIDs ...string) ([]corepayloads.Result, error)
 }
 
 // PayloadsHookContext is the implementation of runner.ContextPayloads.
@@ -31,8 +31,8 @@ type PayloadsHookContext struct {
 	client PayloadAPIClient
 
 	// TODO(ericsnow) Use the Juju ID for the key rather than Info.ID().
-	payloads map[string]payloads.Payload
-	updates  map[string]payloads.Payload
+	payloads map[string]corepayloads.Payload
+	updates  map[string]corepayloads.Payload
 }
 
 // NewContext returns a new hooks.PayloadsHookContext for payloads.
@@ -43,8 +43,8 @@ func NewContext(client PayloadAPIClient) (*PayloadsHookContext, error) {
 	}
 	ctx := &PayloadsHookContext{
 		client:   client,
-		payloads: make(map[string]payloads.Payload),
-		updates:  make(map[string]payloads.Payload),
+		payloads: make(map[string]corepayloads.Payload),
+		updates:  make(map[string]corepayloads.Payload),
 	}
 	for _, result := range results {
 		pl := result.Payload
@@ -55,7 +55,7 @@ func NewContext(client PayloadAPIClient) (*PayloadsHookContext, error) {
 }
 
 // Payloads returns the payloads known to the context.
-func (c *PayloadsHookContext) Payloads() ([]payloads.Payload, error) {
+func (c *PayloadsHookContext) Payloads() ([]corepayloads.Payload, error) {
 	payloads := mergePayloadMaps(c.payloads, c.updates)
 	var keys []string
 	for k := range payloads {
@@ -63,7 +63,7 @@ func (c *PayloadsHookContext) Payloads() ([]payloads.Payload, error) {
 	}
 	sort.Strings(keys)
 
-	var newPayloads []payloads.Payload
+	var newPayloads []corepayloads.Payload
 	for _, k := range keys {
 		newPayloads = append(newPayloads, payloads[k])
 	}
@@ -71,10 +71,10 @@ func (c *PayloadsHookContext) Payloads() ([]payloads.Payload, error) {
 	return newPayloads, nil
 }
 
-func mergePayloadMaps(payloads, updates map[string]payloads.Payload) map[string]payloads.Payload {
+func mergePayloadMaps(payloads, updates map[string]corepayloads.Payload) map[string]corepayloads.Payload {
 	// At this point payloads and updates have already been checked for
 	// nil values so we won't see any here.
-	result := make(map[string]payloads.Payload)
+	result := make(map[string]corepayloads.Payload)
 	for k, v := range payloads {
 		result[k] = v
 	}
@@ -85,8 +85,8 @@ func mergePayloadMaps(payloads, updates map[string]payloads.Payload) map[string]
 }
 
 // GetPayload returns the payload info corresponding to the given ID.
-func (c *PayloadsHookContext) GetPayload(class, id string) (*payloads.Payload, error) {
-	fullID := payloads.BuildID(class, id)
+func (c *PayloadsHookContext) GetPayload(class, id string) (*corepayloads.Payload, error) {
+	fullID := corepayloads.BuildID(class, id)
 	logger.Tracef("getting %q from hook context", fullID)
 
 	actual, ok := c.updates[fullID]
@@ -119,7 +119,7 @@ func (c *PayloadsHookContext) ListPayloads() ([]string, error) {
 }
 
 // TrackPayload records the payload info in the hook context.
-func (c *PayloadsHookContext) TrackPayload(pl payloads.Payload) error {
+func (c *PayloadsHookContext) TrackPayload(pl corepayloads.Payload) error {
 	logger.Tracef("adding %q to hook context: %#v", pl.FullID(), pl)
 
 	if err := pl.Validate(); err != nil {
@@ -134,7 +134,7 @@ func (c *PayloadsHookContext) TrackPayload(pl payloads.Payload) error {
 
 // UntrackPayload tells juju to stop tracking this payload.
 func (c *PayloadsHookContext) UntrackPayload(class, id string) error {
-	fullID := payloads.BuildID(class, id)
+	fullID := corepayloads.BuildID(class, id)
 	logger.Tracef("Calling untrack on payload context %q", fullID)
 
 	res, err := c.client.Untrack(fullID)
@@ -152,7 +152,7 @@ func (c *PayloadsHookContext) UntrackPayload(class, id string) error {
 
 // SetPayloadStatus sets the identified payload's status.
 func (c *PayloadsHookContext) SetPayloadStatus(class, id, status string) error {
-	fullID := payloads.BuildID(class, id)
+	fullID := corepayloads.BuildID(class, id)
 	logger.Tracef("Calling status-set on payload context %q", fullID)
 
 	res, err := c.client.SetStatus(status, fullID)
@@ -185,7 +185,7 @@ func (c *PayloadsHookContext) FlushPayloads() error {
 	// TODO(natefinch): make this a noop and move this code into set.
 
 	if len(c.updates) > 0 {
-		var updates []payloads.Payload
+		var updates []corepayloads.Payload
 		for _, pl := range c.updates {
 			updates = append(updates, pl)
 		}
@@ -201,7 +201,7 @@ func (c *PayloadsHookContext) FlushPayloads() error {
 		for k, v := range c.updates {
 			c.payloads[k] = v
 		}
-		c.updates = map[string]payloads.Payload{}
+		c.updates = map[string]corepayloads.Payload{}
 	}
 	return nil
 }
