@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/migrations"
@@ -765,8 +765,8 @@ func (e *exporter) storageConstraints(doc storageConstraintsDoc) map[string]desc
 	return result
 }
 
-func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, error) {
-	result := make(map[string][]payload.FullPayloadInfo)
+func (e *exporter) readAllPayloads() (map[string][]payloads.FullPayloadInfo, error) {
+	result := make(map[string][]payloads.FullPayloadInfo)
 	all, err := ModelPayloads{db: e.st.database}.ListAll()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -782,7 +782,7 @@ type addApplicationContext struct {
 	units            []*Unit
 	meterStatus      map[string]*meterStatusDoc
 	leader           string
-	payloads         map[string][]payload.FullPayloadInfo
+	payloads         map[string][]payloads.FullPayloadInfo
 	resources        resources.ApplicationResources
 	endpoingBindings map[string]bindingsMap
 
@@ -1158,7 +1158,7 @@ func findUnitResources(unitName string, allResources []resources.UnitResources) 
 	return nil
 }
 
-func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payload.FullPayloadInfo) error {
+func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payloads.FullPayloadInfo) error {
 	if len(payloads) == 0 {
 		return nil
 	}

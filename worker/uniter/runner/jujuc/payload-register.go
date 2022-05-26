@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
 // NewPayloadRegisterCmd returns a new PayloadRegisterCmd that wraps the given context.
@@ -68,13 +68,13 @@ func (c *PayloadRegisterCmd) Run(ctx *cmd.Context) error {
 	if err := c.validate(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	pl := payload.Payload{
+	pl := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: c.class,
 			Type: c.typ,
 		},
 		ID:     c.id,
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Labels: c.labels,
 		Unit:   "a-application/0", // TODO(ericsnow) eliminate this!
 	}

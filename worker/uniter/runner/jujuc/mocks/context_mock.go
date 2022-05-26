@@ -12,7 +12,7 @@ import (
 	charm "github.com/juju/charm/v8"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
-	payload "github.com/juju/juju/core/payload"
+	payloads "github.com/juju/juju/core/payloads"
 	params "github.com/juju/juju/rpc/params"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"
@@ -261,10 +261,10 @@ func (mr *MockContextMockRecorder) GetLogger(arg0 interface{}) *gomock.Call {
 }
 
 // GetPayload mocks base method.
-func (m *MockContext) GetPayload(arg0, arg1 string) (*payload.Payload, error) {
+func (m *MockContext) GetPayload(arg0, arg1 string) (*payloads.Payload, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPayload", arg0, arg1)
-	ret0, _ := ret[0].(*payload.Payload)
+	ret0, _ := ret[0].(*payloads.Payload)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -713,7 +713,7 @@ func (mr *MockContextMockRecorder) StorageTags() *gomock.Call {
 }
 
 // TrackPayload mocks base method.
-func (m *MockContext) TrackPayload(arg0 payload.Payload) error {
+func (m *MockContext) TrackPayload(arg0 payloads.Payload) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TrackPayload", arg0)
 	ret0, _ := ret[0].(error)

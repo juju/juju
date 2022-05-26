@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package payload_test
+package payloads_test
 
 import (
 	"github.com/juju/charm/v8"
@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
 var _ = gc.Suite(&payloadSuite{})
@@ -18,14 +18,14 @@ type payloadSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *payloadSuite) newPayload(name, pType string) payload.Payload {
-	return payload.Payload{
+func (s *payloadSuite) newPayload(name, pType string) payloads.Payload {
+	return payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: name,
 			Type: pType,
 		},
 		ID:     "id" + name,
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Labels: []string{"a-tag"},
 		Unit:   "a-application/0",
 	}

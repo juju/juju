@@ -1,13 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package payload_test
+package payloads_test
 
 import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
 var _ = gc.Suite(&idSuite{})
@@ -17,21 +17,21 @@ type idSuite struct {
 }
 
 func (s *idSuite) TestParseIDFull(c *gc.C) {
-	name, id := payload.ParseID("a-payload/my-payload")
+	name, id := payloads.ParseID("a-payload/my-payload")
 
 	c.Check(name, gc.Equals, "a-payload")
 	c.Check(id, gc.Equals, "my-payload")
 }
 
 func (s *idSuite) TestParseIDNameOnly(c *gc.C) {
-	name, id := payload.ParseID("a-payload")
+	name, id := payloads.ParseID("a-payload")
 
 	c.Check(name, gc.Equals, "a-payload")
 	c.Check(id, gc.Equals, "")
 }
 
 func (s *idSuite) TestParseIDExtras(c *gc.C) {
-	name, id := payload.ParseID("somecharm/0/a-payload/my-payload")
+	name, id := payloads.ParseID("somecharm/0/a-payload/my-payload")
 
 	c.Check(name, gc.Equals, "somecharm")
 	c.Check(id, gc.Equals, "0/a-payload/my-payload")

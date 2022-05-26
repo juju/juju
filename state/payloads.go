@@ -8,7 +8,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
 // ModelPayloads returns a ModelPayloads for the state's model.
@@ -24,7 +24,7 @@ type ModelPayloads struct {
 }
 
 // ListAll builds the list of payload information that is registered in state.
-func (mp ModelPayloads) ListAll() ([]payload.FullPayloadInfo, error) {
+func (mp ModelPayloads) ListAll() ([]payloads.FullPayloadInfo, error) {
 	coll, closer := mp.db.GetCollection(payloadsC)
 	defer closer()
 
@@ -60,16 +60,16 @@ type UnitPayloads struct {
 // tracked by the unit; if you pass names, it returns a slice of results
 // corresponding to names, in which any names not tracked have both the
 // NotFound field *and* an Error set.
-func (up UnitPayloads) List(names ...string) ([]payload.Result, error) {
+func (up UnitPayloads) List(names ...string) ([]payloads.Result, error) {
 
 	var sel bson.D
-	var out func([]payloadDoc) []payload.Result
+	var out func([]payloadDoc) []payloads.Result
 	if len(names) == 0 {
 		sel = nsPayloads.forUnit(up.unit)
 		out = nsPayloads.asResults
 	} else {
 		sel = nsPayloads.forUnitWithNames(up.unit, names)
-		out = func(docs []payloadDoc) []payload.Result {
+		out = func(docs []payloadDoc) []payloads.Result {
 			return nsPayloads.orderedResults(docs, names)
 		}
 	}
@@ -98,7 +98,7 @@ func (UnitPayloads) LookUp(name, rawID string) (string, error) {
 
 // Track inserts the provided payload info in state. If the payload
 // is already in the DB then it is replaced.
-func (up UnitPayloads) Track(pl payload.Payload) error {
+func (up UnitPayloads) Track(pl payloads.Payload) error {
 
 	// XXX OMFG payload/context/register.go:83 launches bad data
 	// which flies on a majestic unvalidated arc right through the
@@ -115,7 +115,7 @@ func (up UnitPayloads) Track(pl payload.Payload) error {
 		return errors.Trace(err)
 	}
 
-	doc := nsPayloads.asDoc(payload.FullPayloadInfo{
+	doc := nsPayloads.asDoc(payloads.FullPayloadInfo{
 		Payload: pl,
 		Machine: up.machine,
 	})
@@ -127,10 +127,10 @@ func (up UnitPayloads) Track(pl payload.Payload) error {
 }
 
 // SetStatus updates the raw status for the identified payload to the
-// provided value. If the payload is missing then payload.ErrNotFound
+// provided value. If the payload is missing then payloads.ErrNotFound
 // is returned.
 func (up UnitPayloads) SetStatus(name, status string) error {
-	if err := payload.ValidateState(status); err != nil {
+	if err := payloads.ValidateState(status); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -197,12 +197,12 @@ type payloadSetStatusChange struct {
 // Prepare is part of the Change interface.
 func (change payloadSetStatusChange) Prepare(db Database) ([]txn.Op, error) {
 	docID := nsPayloads.docID(change.Unit, change.Name)
-	payloads, closer := db.GetCollection(payloadsC)
+	payloadColl, closer := db.GetCollection(payloadsC)
 	defer closer()
 
-	op, err := nsPayloads.setStatusOp(payloads, docID, change.Status)
+	op, err := nsPayloads.setStatusOp(payloadColl, docID, change.Status)
 	if errors.Cause(err) == errAlreadyRemoved {
-		return nil, payload.ErrNotFound
+		return nil, payloads.ErrNotFound
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

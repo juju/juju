@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -1240,14 +1240,14 @@ func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg contr
 	})
 }
 
-func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload) error {
+func (i *importer) importUnitPayloads(unit *Unit, payloadInfo []description.Payload) error {
 	up, err := i.st.UnitPayloads(unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, p := range payloads {
-		if err := up.Track(payload.Payload{
+	for _, p := range payloadInfo {
+		if err := up.Track(payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: p.Name(),
 				Type: p.Type(),

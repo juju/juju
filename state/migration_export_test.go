@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -2243,7 +2243,7 @@ func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
 	up, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
-	original := payload.Payload{
+	original := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "something",
 			Type: "special",

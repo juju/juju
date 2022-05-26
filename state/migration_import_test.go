@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -2424,7 +2424,7 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	unitID := originalUnit.UnitTag().Id()
 	up, err := s.State.UnitPayloads(originalUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	original := payload.Payload{
+	original := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "something",
 			Type: "special",

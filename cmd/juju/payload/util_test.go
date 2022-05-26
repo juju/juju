@@ -8,21 +8,21 @@ import (
 
 	"github.com/juju/charm/v8"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
-func NewPayload(name, application string, machine, unit int, labels ...string) payload.FullPayloadInfo {
+func NewPayload(name, application string, machine, unit int, labels ...string) payloads.FullPayloadInfo {
 	if len(labels) == 0 {
 		labels = nil
 	}
-	return payload.FullPayloadInfo{
-		Payload: payload.Payload{
+	return payloads.FullPayloadInfo{
+		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: name,
 				Type: "docker",
 			},
 			ID:     "id" + name,
-			Status: payload.StateRunning,
+			Status: payloads.StateRunning,
 			Labels: labels,
 			Unit:   fmt.Sprintf("%s/%d", application, unit),
 		},
@@ -30,7 +30,7 @@ func NewPayload(name, application string, machine, unit int, labels ...string) p
 	}
 }
 
-func Formatted(payloads ...payload.FullPayloadInfo) []FormattedPayload {
+func Formatted(payloads ...payloads.FullPayloadInfo) []FormattedPayload {
 	var formatted []FormattedPayload
 	for _, payload := range payloads {
 		formatted = append(formatted, FormatPayload(payload))
