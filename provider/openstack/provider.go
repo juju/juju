@@ -2072,9 +2072,11 @@ func rulesToRuleInfo(groupId string, rules firewall.IngressRules) []neutron.Rule
 		ruleInfo := neutron.RuleInfoV2{
 			Direction:     "ingress",
 			ParentGroupId: groupId,
-			PortRangeMin:  r.PortRange.FromPort,
-			PortRangeMax:  r.PortRange.ToPort,
 			IPProtocol:    r.PortRange.Protocol,
+		}
+		if ruleInfo.IPProtocol != "icmp" {
+			ruleInfo.PortRangeMin = r.PortRange.FromPort
+			ruleInfo.PortRangeMax = r.PortRange.ToPort
 		}
 		sourceCIDRs := r.SourceCIDRs.Values()
 		if len(sourceCIDRs) == 0 {
