@@ -4,10 +4,10 @@
 package config
 
 import (
-	"bytes"
+	"io"
 	stdtesting "testing"
 
-	"github.com/juju/cmd/v3"
+	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -56,19 +56,15 @@ type parseFailTest struct {
 // (depending on the value of `fail`).
 func testParse(c *gc.C, test parseFailTest, fail bool) {
 	cmd := ConfigCommandBase{Resettable: test.resettable}
-	parseFail := false
-	var errWriter bytes.Buffer
-
-	f := &gnuflag.FlagSet{
-		Usage: func() { parseFail = true },
-	}
-	f.SetOutput(&errWriter)
+	f := &gnuflag.FlagSet{}
+	f.SetOutput(io.Discard)
 
 	cmd.SetFlags(f)
-	f.Parse(true, test.args)
-	c.Assert(parseFail, gc.Equals, fail)
+	err := f.Parse(true, test.args)
 	if fail {
-		c.Assert(errWriter.String(), gc.Equals, test.errMsg)
+		c.Assert(err, gc.ErrorMatches, test.errMsg)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -88,7 +84,7 @@ type initTest struct {
 	args        []string
 	cantReset   []string
 	action      ConfigAction
-	configFile  cmd.FileVar
+	configFile  jujucmd.FileVar
 	keyToGet    string
 	keysToReset []string
 	valsToSet   map[string]string
@@ -103,8 +99,9 @@ func setupInitTest(c *gc.C, args []string, cantReset []string) (ConfigCommandBas
 	}
 	f := flagSetForTest(c)
 	cmd.SetFlags(f)
-	f.Parse(true, args)
-	err := cmd.Init(f.Args())
+	err := f.Parse(true, args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Init(f.Args())
 
 	return cmd, err
 }
@@ -156,24 +153,24 @@ var parseTests = []parseFailTest{
 	{
 		about:  "no argument provided to --file",
 		args:   []string{"--file"},
-		errMsg: " needs an argument: --file\n",
+		errMsg: " needs an argument: --file",
 	},
 	{
 		about:      "--reset when unresettable",
 		resettable: false,
 		args:       []string{"--reset", "key1"},
-		errMsg:     " provided but not defined: --reset\n",
+		errMsg:     " provided but not defined: --reset",
 	},
 	{
 		about:      "no argument provided to --reset",
 		resettable: true,
 		args:       []string{"--reset"},
-		errMsg:     " needs an argument: --reset\n",
+		errMsg:     " needs an argument: --reset",
 	},
 	{
 		about:  "undefined flag --foo",
 		args:   []string{"--foo"},
-		errMsg: " provided but not defined: --foo\n",
+		errMsg: " provided but not defined: --foo",
 	},
 }
 
@@ -265,6 +262,11 @@ var initFailTests = []initFailTest{
 		args:   []string{"--reset", "key1,key2=val2,key3"},
 		errMsg: `--reset accepts a comma delimited set of keys "a,b,c", received: "key2=val2"`,
 	},
+	{
+		about:  "--reset with multiple get keys",
+		args:   []string{"--reset", "key1,key2,key3", "key4", "key5"},
+		errMsg: "cannot use --reset flag and get value simultaneously",
+	},
 }
 
 var initTests = []initTest{
@@ -311,7 +313,7 @@ var initTests = []initTest{
 		about:      "set from file",
 		args:       []string{"--file", "path"},
 		action:     SetFile,
-		configFile: cmd.FileVar{Path: "path"},
+		configFile: jujucmd.FileVar{Path: "path"},
 	},
 	{
 		about:       "reset resettable key",

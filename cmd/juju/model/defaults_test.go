@@ -70,20 +70,20 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		args:        []string{"--reset"},
 		errorMatch:  "option needs an argument: --reset",
 	}, {
-		description: "test reset with positional arg interpereted as invalid region",
-		args:        []string{"--reset", "something", "weird"},
+		description: "test reset with invalid region",
+		args:        []string{"--reset", "something", "--region", "weird"},
 		errorMatch:  `invalid region specified: "weird"`,
 	}, {
 		description: "test reset with valid region and duplicate key set",
-		args:        []string{"--reset", "something", "dummy-region", "something=weird"},
-		errorMatch:  `key "something" cannot be both set and unset in the same command`,
+		args:        []string{"--reset", "something", "--region", "dummy-region", "something=weird"},
+		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
 	}, {
 		description: "test reset with valid region and extra positional arg",
-		args:        []string{"--reset", "something", "dummy-region", "weird"},
-		errorMatch:  "cannot retrieve defaults for a region and reset attributes at the same time",
+		args:        []string{"--reset", "something", "--region", "dummy-region", "weird"},
+		errorMatch:  "cannot use --reset flag and get value simultaneously",
 	}, {
 		description: "test reset with valid region only",
-		args:        []string{"--reset", "foo", "dummy-region"},
+		args:        []string{"--reset", "foo", "--region", "dummy-region"},
 		nilErr:      true,
 	}, {
 		description: "test cannot reset agent version",
@@ -112,11 +112,11 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test reset with two positional args fails expecting a region",
 		args:        []string{"--reset", "a", "b", "c"},
-		errorMatch:  `invalid region specified: "b"`,
+		errorMatch:  "cannot use --reset flag and get value simultaneously",
 	}, {
 		description: "test reset with two positional args fails expecting a region reordered",
 		args:        []string{"a", "--reset", "b", "c"},
-		errorMatch:  `invalid region specified: "a"`,
+		errorMatch:  "cannot use --reset flag and get value simultaneously",
 	}, {
 		description: "test multiple reset inits",
 		args:        []string{"--reset", "a", "--reset", "b"},
@@ -124,15 +124,15 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test multiple reset and set inits",
 		args:        []string{"--reset", "a", "b=c", "--reset", "d"},
-		nilErr:      true,
+		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
 	}, {
 		description: "test multiple reset with valid region inits",
-		args:        []string{"dummy-region", "--reset", "a", "--reset", "b"},
+		args:        []string{"--region", "dummy-region", "--reset", "a", "--reset", "b"},
 		nilErr:      true,
 	}, {
 		description: "test multiple reset with two positional args fails expecting a region reordered",
 		args:        []string{"a", "--reset", "b", "--reset", "c", "d"},
-		errorMatch:  `invalid region specified: "a"`,
+		errorMatch:  "cannot use --reset flag and get value simultaneously",
 	}, {
 		description: "test reset multiple with key=val fails",
 		args:        []string{"--reset", "a", "--reset", "b,foo=bar,c"},
@@ -149,82 +149,78 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test two key args fails",
 		args:        []string{"one", "two"},
-		errorMatch:  "can only retrieve defaults for one key or all",
+		errorMatch:  "cannot specify multiple keys to get",
 	}, {
 		description: "test multiple key args fails",
 		args:        []string{"one", "two", "three"},
-		errorMatch:  "can only retrieve defaults for one key or all",
+		errorMatch:  "cannot specify multiple keys to get",
 	}, {
 		description: "test valid region and one arg",
-		args:        []string{"dummy-region", "attr2"},
+		args:        []string{"--region", "dummy-region", "attr2"},
 		nilErr:      true,
 	}, {
 		description: "test valid cloud and no args",
-		args:        []string{"dummy"},
+		args:        []string{"--cloud", "dummy"},
 		nilErr:      true,
 	}, {
 		description: "test valid region and no args",
-		args:        []string{"dummy-region"},
+		args:        []string{"--region", "dummy-region"},
 		nilErr:      true,
 	}, {
 		// test cloud/region
 		description: "test invalid cloud fails",
-		args:        []string{"invalidCloud/invalidRegion", "one=two"},
+		args:        []string{"--region", "invalidCloud/invalidRegion", "one=two"},
 		errorMatch:  `cloud "invalidCloud" not found`,
 	}, {
 		description: "test valid cloud with invalid region fails",
-		args:        []string{"dummy/invalidRegion", "one=two"},
-		errorMatch:  `invalid cloud or region specified: "dummy/invalidRegion"`,
+		args:        []string{"--region", "dummy/invalidRegion", "one=two"},
+		errorMatch:  `invalid region specified: "invalidRegion"`,
 	}, {
 		description: "test no cloud with invalid region fails",
-		args:        []string{"invalidRegion", "one=two"},
-		errorMatch:  `invalid cloud or region specified: "invalidRegion"`,
+		args:        []string{"--region", "invalidRegion", "one=two"},
+		errorMatch:  `invalid region specified: "invalidRegion"`,
 	}, {
 		description: "test valid region with set arg succeeds",
-		args:        []string{"dummy-region", "one=two"},
+		args:        []string{"--region", "dummy-region", "one=two"},
 		nilErr:      true,
 	}, {
-		description: "test valid cloud with set and reset succeeds",
-		args:        []string{"dummy", "one=two", "--reset", "three"},
-		nilErr:      true,
+		description: "test valid cloud with set and reset fails",
+		args:        []string{"--cloud", "dummy", "one=two", "--reset", "three"},
+		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
 	}, {
-		description: "test valid region with set and reset succeeds",
-		args:        []string{"dummy-region", "one=two", "--reset", "three"},
-		nilErr:      true,
-	}, {
-		description: "test reset and set with extra key is interpereted as invalid region",
-		args:        []string{"--reset", "something,else", "invalidRegion", "is=weird"},
-		errorMatch:  `invalid cloud or region specified: "invalidRegion"`,
+		description: "test valid region with set and reset fails",
+		args:        []string{"--region", "dummy-region", "one=two", "--reset", "three"},
+		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
 	}, {
 		description: "test reset and set with valid region and extra key fails",
-		args:        []string{"--reset", "something,else", "dummy-region", "invalidkey", "is=weird"},
-		errorMatch:  "cannot set and retrieve default values simultaneously",
+		args:        []string{"--reset", "something,else", "--region", "dummy-region", "invalidkey", "is=weird"},
+		errorMatch:  "cannot use --reset flag, get value and set key=value pairs simultaneously",
 	}, {
 		// test various invalid
 		description: "test too many positional args with reset",
 		args:        []string{"--reset", "a", "b", "c", "d"},
-		errorMatch:  "invalid input",
+		errorMatch:  "cannot use --reset flag and get value simultaneously",
 	}, {
 		description: "test too many positional args with invalid region set",
-		args:        []string{"a", "a=b", "b", "c=d"},
-		errorMatch:  `invalid cloud or region specified: "a"`,
+		args:        []string{"--region", "a", "a=b", "b", "c=d"},
+		errorMatch:  "cannot get value and set key=value pairs simultaneously",
 	}, {
 		description: "test invalid positional args with set",
 		args:        []string{"a=b", "b", "c=d"},
-		errorMatch:  `.*(no such file or directory|cannot find the file specified).*`,
+		errorMatch:  "cannot get value and set key=value pairs simultaneously",
 	}, {
 		description: "test invalid positional args with set and trailing key",
 		args:        []string{"a=b", "c=d", "e"},
-		errorMatch:  "cannot set and retrieve default values simultaneously",
+		errorMatch:  "cannot get value and set key=value pairs simultaneously",
 	}, {
 		description: "test invalid positional args with valid region, set, reset",
-		args:        []string{"dummy-region", "a=b", "--reset", "c,d,", "e=f", "g"},
-		errorMatch:  "cannot set and retrieve default values simultaneously",
+		args:        []string{"--region", "dummy-region", "a=b", "--reset", "c,d,", "e=f", "g"},
+		errorMatch:  "cannot use --reset flag, get value and set key=value pairs simultaneously",
 	}, {
 		// Test some random orderings
 		description: "test invalid positional args with set, reset with trailing comman and split key=values",
-		args:        []string{"dummy-region", "a=b", "--reset", "c,d,", "e=f"},
-		nilErr:      true,
+		args:        []string{"--region", "dummy-region", "a=b", "--reset", "c,d,", "e=f"},
+		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
 	}, {
 		description: "test leading comma with reset",
 		args:        []string{"--reset", ",a,b"},
@@ -281,7 +277,7 @@ func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
 }
 
 func (s *DefaultsCommandSuite) TestResetRegionAttr(c *gc.C) {
-	ctx, err := s.run(c, "--reset", "attr,unknown", "dummy-region")
+	ctx, err := s.run(c, "--reset", "attr,unknown", "--region", "dummy-region")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
@@ -349,7 +345,7 @@ func (s *DefaultsCommandSuite) TestSetFromFile(c *gc.C) {
 	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, configFile)
+	_, err = s.run(c, "--file", configFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: nil, Default: "foo", Regions: nil},
@@ -370,7 +366,9 @@ func (s *DefaultsCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, configFile, "attr=baz")
+	_, err = s.run(c, "--file", configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.run(c, "attr=baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
@@ -394,7 +392,9 @@ special:
 `), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, configFile, "attr=baz")
+	_, err = s.run(c, "--file", configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.run(c, "attr=baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
@@ -419,7 +419,9 @@ special:
 `), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, configFile, "attr=baz")
+	_, err = s.run(c, "--file", configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.run(c, "attr=baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
@@ -456,7 +458,7 @@ special:
 `), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 
-		_, err = s.run(c, test.input, configFile)
+		_, err = s.run(c, "--region", test.input, "--file", configFile)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 			"attr": {Controller: nil, Default: "foo", Regions: nil},
@@ -488,9 +490,9 @@ func (s *DefaultsCommandSuite) TestSetConveysCloudRegion(c *gc.C) {
 		c.Logf("test %d", i)
 		var err error
 		if test.input == "" {
-			_, err = s.run(c, "special=extra", "--reset", "attr")
+			_, err = s.run(c, "special=extra")
 		} else {
-			_, err = s.run(c, test.input, "special=extra", "--reset", "attr")
+			_, err = s.run(c, "--region", test.input, "special=extra")
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(s.fakeDefaultsAPI.region, jc.DeepEquals, test.region)
@@ -569,7 +571,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesTabular(c *gc.C) {
 }
 
 func (s *DefaultsCommandSuite) TestGetRegionValuesTabular(c *gc.C) {
-	context, err := s.run(c, "dummy-region")
+	context, err := s.run(c, "--region", "dummy-region")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
@@ -583,13 +585,61 @@ func (s *DefaultsCommandSuite) TestGetRegionValuesTabular(c *gc.C) {
 func (s *DefaultsCommandSuite) TestGetRegionNoValuesTabular(c *gc.C) {
 	_, err := s.run(c, "--reset", "attr2")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := s.run(c, "dummy-region")
+	ctx, err := s.run(c, "--region", "dummy-region")
 	c.Assert(err, gc.ErrorMatches, `there are no default model values in region "dummy-region"`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *DefaultsCommandSuite) TestGetRegionOneArgNoValuesTabular(c *gc.C) {
-	ctx, err := s.run(c, "dummy-region", "attr")
+	ctx, err := s.run(c, "--region", "dummy-region", "attr")
 	c.Assert(err, gc.ErrorMatches, `there are no default model values for "attr" in region "dummy-region"`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *DefaultsCommandSuite) TestCloudRegion(c *gc.C) {
+	// Test different ways of specifying cloud/region
+	tests := []struct {
+		about              string
+		args               []string
+		cloud, region, err string
+	}{{
+		about: "no cloud/region specified",
+		args:  []string{},
+		cloud: "dummy",
+	}, {
+		about: "--cloud=<cloud>",
+		args:  []string{"--cloud", "dummy"},
+		cloud: "dummy",
+	}, {
+		about:  "--region=<region>",
+		args:   []string{"--region", "dummy-region"},
+		cloud:  "dummy",
+		region: "dummy-region",
+	}, {
+		about:  "--cloud=<cloud> --region=<region>",
+		args:   []string{"--cloud", "dummy", "--region", "dummy-region"},
+		cloud:  "dummy",
+		region: "dummy-region",
+	}, {
+		about:  "--region=<cloud>/<region>",
+		args:   []string{"--region", "dummy/dummy-region"},
+		cloud:  "dummy",
+		region: "dummy-region",
+	}, {
+		about: "--cloud=<cloud> --region=<cloud>/<region>",
+		args:  []string{"--cloud", "dummy", "--region", "dummy/dummy-region"},
+		err:   "(?m)cannot specify cloud using both --cloud and --region flags.*",
+	}}
+
+	for i, t := range tests {
+		c.Logf("test %d: %s", i, t.about)
+		_, err := s.run(c, append(t.args, "foo=bar")...)
+		if t.err == "" {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(s.fakeDefaultsAPI.cloud, gc.Equals, t.cloud)
+			c.Check(s.fakeDefaultsAPI.region, gc.Equals, t.region)
+		} else {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		}
+	}
 }
