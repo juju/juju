@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	coreresources "github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -45,19 +45,19 @@ func (s *BaseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func newResourceResult(c *gc.C, names ...string) ([]resource.Resource, params.ResourcesResult) {
-	var resources []resource.Resource
+func newResourceResult(c *gc.C, names ...string) ([]coreresources.Resource, params.ResourcesResult) {
+	var res []coreresources.Resource
 	var apiResult params.ResourcesResult
 	for _, name := range names {
 		data := name + "...spamspamspam"
-		res, apiRes := newResource(c, name, "a-user", data)
-		resources = append(resources, res)
+		newRes, apiRes := newResource(c, name, "a-user", data)
+		res = append(res, newRes)
 		apiResult.Resources = append(apiResult.Resources, apiRes)
 	}
-	return resources, apiResult
+	return res, apiResult
 }
 
-func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
+func newResource(c *gc.C, name, username, data string) (coreresources.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Revision = 1

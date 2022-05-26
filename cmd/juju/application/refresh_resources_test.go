@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resource"
+	coreresouces "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -88,8 +88,7 @@ resources:
 		"riak", "--path="+myriakPath.Path, "--resource", "data="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	resources := s.State.Resources()
 
 	sr, err := resources.ListResources("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,8 +167,7 @@ Deploying charm "cs:bionic/starsay-1".`
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 
-	res, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	res := s.State.Resources()
 	appResources, err := res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -181,7 +179,7 @@ Deploying charm "cs:bionic/starsay-1".`
 
 	// Note that all charm resources were uploaded by testcharms.UploadCharm
 	// so that the charm could be published.
-	expectedResources := []resource.Resource{{
+	expectedResources := []coreresouces.Resource{{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "install-resource",
@@ -284,8 +282,7 @@ Deploying charm "cs:bionic/starsay-1".`
 	charmAdder.CheckCall(c, 0,
 		"AddCharm", charm.MustParseURL("cs:bionic/starsay-2"), csclientparams.NoChannel, false)
 
-	res, err = s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	res = s.State.Resources()
 	appResources, err = res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -310,7 +307,7 @@ func resourceHash(content string) charmresource.Fingerprint {
 	return fp
 }
 
-type byname []resource.Resource
+type byname []coreresouces.Resource
 
 func (b byname) Len() int           { return len(b) }
 func (b byname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }

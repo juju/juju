@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -36,7 +36,7 @@ func (s *ListResourcesSuite) TestListResources(c *gc.C) {
 
 	results, err := s.client.ListResources([]string{"a-application", "other-application"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []resource.ApplicationResources{
+	c.Check(results, jc.DeepEquals, []resources.ApplicationResources{
 		{Resources: expected1},
 		{Resources: expected2},
 	})
@@ -64,7 +64,7 @@ func (s *ListResourcesSuite) TestEmptyResources(c *gc.C) {
 
 	results, err := s.client.ListResources([]string{"a-application", "other-application"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []resource.ApplicationResources{{}, {}})
+	c.Check(results, jc.DeepEquals, []resources.ApplicationResources{{}, {}})
 }
 
 func (s *ListResourcesSuite) TestServerError(c *gc.C) {

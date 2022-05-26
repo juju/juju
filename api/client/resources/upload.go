@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 // UploadRequest defines a single upload request.
@@ -46,7 +46,7 @@ func NewUploadRequest(application, name, filename string, r io.ReadSeeker) (Uplo
 		return UploadRequest{}, errors.Errorf("invalid application %q", application)
 	}
 
-	content, err := resource.GenerateContent(r)
+	content, err := resources.GenerateContent(r)
 	if err != nil {
 		return UploadRequest{}, errors.Trace(err)
 	}

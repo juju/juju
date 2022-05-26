@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremigration "github.com/juju/juju/core/migration"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"

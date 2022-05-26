@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
@@ -171,12 +171,12 @@ func (ctx *RestrictedContext) DownloadResource(name string) (filePath string, _ 
 }
 
 // GetPayload implements hooks.Context.
-func (ctx *RestrictedContext) GetPayload(class, id string) (*payload.Payload, error) {
+func (ctx *RestrictedContext) GetPayload(class, id string) (*payloads.Payload, error) {
 	return nil, ErrRestrictedContext
 }
 
 // TrackPayload implements hooks.Context.
-func (ctx *RestrictedContext) TrackPayload(payload payload.Payload) error {
+func (ctx *RestrictedContext) TrackPayload(payload payloads.Payload) error {
 	return ErrRestrictedContext
 }
 

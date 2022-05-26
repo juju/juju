@@ -9,7 +9,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	migration "github.com/juju/juju/migration"
-	resource "github.com/juju/juju/core/resource"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
@@ -171,21 +170,6 @@ func (m *MockPrecheckBackend) IsUpgrading() (bool, error) {
 func (mr *MockPrecheckBackendMockRecorder) IsUpgrading() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUpgrading", reflect.TypeOf((*MockPrecheckBackend)(nil).IsUpgrading))
-}
-
-// ListPendingResources mocks base method.
-func (m *MockPrecheckBackend) ListPendingResources(arg0 string) ([]resource.Resource, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListPendingResources", arg0)
-	ret0, _ := ret[0].([]resource.Resource)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListPendingResources indicates an expected call of ListPendingResources.
-func (mr *MockPrecheckBackendMockRecorder) ListPendingResources(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingResources", reflect.TypeOf((*MockPrecheckBackend)(nil).ListPendingResources), arg0)
 }
 
 // Model mocks base method.

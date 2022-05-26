@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -37,15 +37,15 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	apiChRes1.Revision++
 	apiChRes2.Revision++
 
-	s.data.ReturnListResources = resource.ApplicationResources{
-		Resources: []resource.Resource{
+	s.data.ReturnListResources = resources.ApplicationResources{
+		Resources: []resources.Resource{
 			res1,
 			res2,
 		},
-		UnitResources: []resource.UnitResources{
+		UnitResources: []resources.UnitResources{
 			{
 				Tag: tag0,
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					res1,
 					res2,
 				},

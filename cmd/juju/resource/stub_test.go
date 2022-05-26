@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 
 	jujuresource "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 type stubCharmStore struct {
@@ -32,7 +32,7 @@ func (s *stubCharmStore) ListResources(charms []jujuresource.CharmID) ([][]charm
 type stubAPIClient struct {
 	stub *testing.Stub
 
-	resources resource.ApplicationResources
+	resources resources.ApplicationResources
 }
 
 func (s *stubAPIClient) Upload(application, name, filename string, resource io.ReadSeeker) error {
@@ -44,12 +44,12 @@ func (s *stubAPIClient) Upload(application, name, filename string, resource io.R
 	return nil
 }
 
-func (s *stubAPIClient) ListResources(applications []string) ([]resource.ApplicationResources, error) {
+func (s *stubAPIClient) ListResources(applications []string) ([]resources.ApplicationResources, error) {
 	s.stub.AddCall("ListResources", applications)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return []resource.ApplicationResources{s.resources}, nil
+	return []resources.ApplicationResources{s.resources}, nil
 }
 
 func (s *stubAPIClient) Close() error {

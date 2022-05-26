@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/application/utils/mocks"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 type utilsSuite struct{}
@@ -66,7 +66,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
 		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
@@ -81,7 +81,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
 		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
@@ -96,7 +96,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
 		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
@@ -114,7 +114,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
 		newCharmURL.Schema = charm.CharmHub.String()
@@ -131,7 +131,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
 		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
@@ -143,7 +143,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
 		newCharmURL.Schema = charm.CharmHub.String()
@@ -164,7 +164,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
 		newCharmURL.Schema = charm.CharmHub.String()
@@ -186,7 +186,7 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 	f func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
-		resourcesInController []resource.ApplicationResources,
+		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string),
 ) {
@@ -203,15 +203,15 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 		"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
 		"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
 	}
-	r1 := resource.Resource{}
+	r1 := resources.Resource{}
 	r1.Name = "redis-image"
-	r2 := resource.Resource{}
+	r2 := resources.Resource{}
 	r2.Name = "snappass-image"
-	r3 := resource.Resource{}
+	r3 := resources.Resource{}
 	r3.Name = "test-file"
-	resourcesInController := []resource.ApplicationResources{
+	resourcesInController := []resources.ApplicationResources{
 		{
-			Resources: []resource.Resource{
+			Resources: []resources.Resource{
 				r1, r2, r3,
 			},
 		},

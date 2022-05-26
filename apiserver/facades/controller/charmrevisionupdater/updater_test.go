@@ -280,7 +280,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 		},
 	}, nil)
 
-	s.state.EXPECT().Resources().Return(s.resources, nil).AnyTimes()
+	s.state.EXPECT().Resources().Return(s.resources).AnyTimes()
 	s.state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
 		makeApplication(ctrl, "ch", "resourcey", "charm-3", "app-1", 1),
 	}, nil).AnyTimes()
@@ -415,7 +415,7 @@ func (s *updaterSuite) setupMocksNoResources(c *gc.C) *gomock.Controller {
 	s.state.EXPECT().Cloud(gomock.Any()).Return(cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
 	s.state.EXPECT().ControllerUUID().Return("controller-1").AnyTimes()
 	s.state.EXPECT().Model().Return(s.model, nil).AnyTimes()
-	s.state.EXPECT().Resources().Return(s.resources, nil).AnyTimes()
+	s.state.EXPECT().Resources().Return(s.resources).AnyTimes()
 	return ctrl
 }
 

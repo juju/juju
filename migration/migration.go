@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
@@ -126,9 +126,9 @@ type ResourceDownloader interface {
 // ResourceUploader defines the interface for uploading resources into
 // the target controller during a migration.
 type ResourceUploader interface {
-	UploadResource(resource.Resource, io.ReadSeeker) error
-	SetPlaceholderResource(resource.Resource) error
-	SetUnitResource(string, resource.Resource) error
+	UploadResource(resources.Resource, io.ReadSeeker) error
+	SetPlaceholderResource(resources.Resource) error
+	SetUnitResource(string, resources.Resource) error
 }
 
 // UploadBinariesConfig provides all the configuration that the
@@ -298,7 +298,7 @@ func uploadResources(config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadAppResource(config UploadBinariesConfig, rev resource.Resource) error {
+func uploadAppResource(config UploadBinariesConfig, rev resources.Resource) error {
 	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
 	reader, err := config.ResourceDownloader.OpenResource(rev.ApplicationID, rev.Name)
 	if err != nil {

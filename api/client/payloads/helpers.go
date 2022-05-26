@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -25,9 +25,9 @@ func API2ID(tagStr string) (string, error) {
 	return tag.Id(), nil
 }
 
-// Payload2api converts a payload.FullPayloadInfo struct into
+// Payload2api converts a payloads.FullPayloadInfo struct into
 // a Payload struct.
-func Payload2api(p payload.FullPayloadInfo) params.Payload {
+func Payload2api(p payloads.FullPayloadInfo) params.Payload {
 	labels := make([]string, len(p.Labels))
 	copy(labels, p.Labels)
 
@@ -52,13 +52,13 @@ func Payload2api(p payload.FullPayloadInfo) params.Payload {
 }
 
 // API2Payload converts an API Payload info struct into
-// a payload.FullPayloadInfo struct.
-func API2Payload(apiInfo params.Payload) (payload.FullPayloadInfo, error) {
+// a payloads.FullPayloadInfo struct.
+func API2Payload(apiInfo params.Payload) (payloads.FullPayloadInfo, error) {
 	labels := make([]string, len(apiInfo.Labels))
 	copy(labels, apiInfo.Labels)
 
 	var unit, machine string
-	var empty payload.FullPayloadInfo
+	var empty payloads.FullPayloadInfo
 	if apiInfo.Unit != "" {
 		tag, err := names.ParseUnitTag(apiInfo.Unit)
 		if err != nil {
@@ -74,8 +74,8 @@ func API2Payload(apiInfo params.Payload) (payload.FullPayloadInfo, error) {
 		machine = tag.Id()
 	}
 
-	return payload.FullPayloadInfo{
-		Payload: payload.Payload{
+	return payloads.FullPayloadInfo{
+		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: apiInfo.Class,
 				Type: apiInfo.Type,

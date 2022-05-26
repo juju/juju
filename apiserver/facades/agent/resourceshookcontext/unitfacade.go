@@ -8,19 +8,10 @@ import (
 
 	"github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/resource"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// NewHookContextFacade adapts NewUnitFacade for facade registration.
-func NewHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
-	res, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
-}
 
 // resourcesUnitDatastore is a shim to elide serviceName from
 // ListResources.
@@ -30,7 +21,7 @@ type resourcesUnitDataStore struct {
 }
 
 // ListResources implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) ListResources() (resource.ApplicationResources, error) {
+func (ds *resourcesUnitDataStore) ListResources() (coreresources.ApplicationResources, error) {
 	return ds.resources.ListResources(ds.unit.ApplicationName())
 }
 
@@ -38,7 +29,7 @@ func (ds *resourcesUnitDataStore) ListResources() (resource.ApplicationResources
 // All functionality is tied to the unit's application.
 type UnitDataStore interface {
 	// ListResources lists all the resources for the application.
-	ListResources() (resource.ApplicationResources, error)
+	ListResources() (coreresources.ApplicationResources, error)
 }
 
 // NewUnitFacade returns the resources portion of the uniter's API facade.
@@ -79,11 +70,11 @@ func (uf UnitFacade) GetResourceInfo(args params.ListUnitResourcesArgs) (params.
 	return r, nil
 }
 
-func lookUpResource(name string, resources []resource.Resource) (resource.Resource, bool) {
+func lookUpResource(name string, resources []coreresources.Resource) (coreresources.Resource, bool) {
 	for _, res := range resources {
 		if name == res.Name {
 			return res, true
 		}
 	}
-	return resource.Resource{}, false
+	return coreresources.Resource{}, false
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
-	coreresource "github.com/juju/juju/core/resource"
+	coreresources "github.com/juju/juju/core/resources"
 )
 
 // ModelOperatorBroker defines a broker for Executing Kubernetes ensure
@@ -384,7 +384,7 @@ func modelOperatorDeployment(
 	namespace string,
 	labels,
 	selectorLabels map[string]string,
-	operatorImageDetails coreresource.DockerImageDetails,
+	operatorImageDetails coreresources.DockerImageDetails,
 	port int32,
 	modelUUID,
 	serviceName,

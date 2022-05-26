@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -19,7 +19,7 @@ import (
 // UnitResourcesHandler is the HTTP handler for unit agent downloads of
 // resources.
 type UnitResourcesHandler struct {
-	NewOpener func(*http.Request, ...string) (resource.Opener, state.PoolHelper, error)
+	NewOpener func(*http.Request, ...string) (resources.Opener, state.PoolHelper, error)
 }
 
 // ServeHTTP implements http.Handler.

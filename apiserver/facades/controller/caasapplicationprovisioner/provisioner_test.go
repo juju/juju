@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/resource"
-	jujuresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
+	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
@@ -539,7 +539,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 		},
 	}
 	s.st.resource = &mockResources{
-		resource: &resource.DockerImageDetails{
+		resource: &resources.DockerImageDetails{
 			RegistryPath: "gitlab:latest",
 			ImageRepoDetails: docker.ImageRepoDetails{
 				BasicAuthConfig: docker.BasicAuthConfig{

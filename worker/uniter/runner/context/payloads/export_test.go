@@ -4,9 +4,9 @@
 package payloads
 
 import (
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
-func ContextPayloads(ctx *PayloadsHookContext) map[string]payload.Payload {
+func ContextPayloads(ctx *PayloadsHookContext) map[string]payloads.Payload {
 	return ctx.payloads
 }

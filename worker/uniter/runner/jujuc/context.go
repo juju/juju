@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
@@ -326,9 +326,9 @@ type ContextResources interface {
 // "payload-*" hook commands.
 type ContextPayloads interface {
 	// GetPayload returns the payload info corresponding to the given ID.
-	GetPayload(class, id string) (*payload.Payload, error)
+	GetPayload(class, id string) (*payloads.Payload, error)
 	// TrackPayload records the payload info in the hook context.
-	TrackPayload(payload payload.Payload) error
+	TrackPayload(payload payloads.Payload) error
 	// UntrackPayload removes the payload from our list of payloads to track.
 	UntrackPayload(class, id string) error
 	// SetPayloadStatus sets the status of the payload.

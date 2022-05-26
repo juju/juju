@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/runner/jujuc/mocks"
 )
@@ -27,7 +27,7 @@ func (s *PayloadStatusSetSuiye) TestTooFewArgs(c *gc.C) {
 	err := cmd.Init([]string{})
 	c.Check(err, gc.ErrorMatches, `missing .*`)
 
-	err = cmd.Init([]string{payload.StateRunning})
+	err = cmd.Init([]string{payloads.StateRunning})
 	c.Check(err, gc.ErrorMatches, `missing .*`)
 }
 

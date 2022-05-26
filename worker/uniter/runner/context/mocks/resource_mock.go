@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	resource "github.com/juju/juju/core/resource"
+	resources "github.com/juju/juju/core/resources"
 )
 
 // MockOpenedResourceClient is a mock of OpenedResourceClient interface.
@@ -36,10 +36,10 @@ func (m *MockOpenedResourceClient) EXPECT() *MockOpenedResourceClientMockRecorde
 }
 
 // GetResource mocks base method.
-func (m *MockOpenedResourceClient) GetResource(arg0 string) (resource.Resource, io.ReadCloser, error) {
+func (m *MockOpenedResourceClient) GetResource(arg0 string) (resources.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResource", arg0)
-	ret0, _ := ret[0].(resource.Resource)
+	ret0, _ := ret[0].(resources.Resource)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2

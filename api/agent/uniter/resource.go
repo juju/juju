@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -62,20 +62,20 @@ type ResourcesFacadeClient struct {
 // GetResource opens the resource (metadata/blob), if it exists, via
 // the HTTP API and returns it. If it does not exist or hasn't been
 // uploaded yet then errors.NotFound is returned.
-func (c *ResourcesFacadeClient) GetResource(resourceName string) (resource.Resource, io.ReadCloser, error) {
+func (c *ResourcesFacadeClient) GetResource(resourceName string) (resources.Resource, io.ReadCloser, error) {
 	var response *http.Response
 	req, err := api.NewHTTPDownloadRequest(resourceName)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Annotate(err, "failed to build API request")
+		return resources.Resource{}, nil, errors.Annotate(err, "failed to build API request")
 	}
 	if err := c.Do(c.ctx, req, &response); err != nil {
-		return resource.Resource{}, nil, errors.Annotate(err, "HTTP request failed")
+		return resources.Resource{}, nil, errors.Annotate(err, "HTTP request failed")
 	}
 
 	// HACK(katco): Combine this into one request?
 	resourceInfo, err := c.getResourceInfo(resourceName)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	// TODO(katco): Check headers against resource info
@@ -83,30 +83,30 @@ func (c *ResourcesFacadeClient) GetResource(resourceName string) (resource.Resou
 	return resourceInfo, response.Body, nil
 }
 
-func (c *ResourcesFacadeClient) getResourceInfo(resourceName string) (resource.Resource, error) {
+func (c *ResourcesFacadeClient) getResourceInfo(resourceName string) (resources.Resource, error) {
 	var response params.UnitResourcesResult
 
 	args := params.ListUnitResourcesArgs{
 		ResourceNames: []string{resourceName},
 	}
 	if err := c.FacadeCall("GetResourceInfo", &args, &response); err != nil {
-		return resource.Resource{}, errors.Annotate(err, "could not get resource info")
+		return resources.Resource{}, errors.Annotate(err, "could not get resource info")
 	}
 	if response.Error != nil {
 		err := apiservererrors.RestoreError(response.Error)
-		return resource.Resource{}, errors.Annotate(err, "request failed on server")
+		return resources.Resource{}, errors.Annotate(err, "request failed on server")
 	}
 
 	if len(response.Resources) != 1 {
-		return resource.Resource{}, errors.New("got bad response from API server")
+		return resources.Resource{}, errors.New("got bad response from API server")
 	}
 	if response.Resources[0].Error != nil {
 		err := apiservererrors.RestoreError(response.Error)
-		return resource.Resource{}, errors.Annotate(err, "request failed for resource")
+		return resources.Resource{}, errors.Annotate(err, "request failed for resource")
 	}
 	res, err := api.API2Resource(response.Resources[0].Resource)
 	if err != nil {
-		return resource.Resource{}, errors.Annotate(err, "got bad data from API server")
+		return resources.Resource{}, errors.Annotate(err, "got bad data from API server")
 	}
 	return res, nil
 }

@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/payload"
-	corepayload "github.com/juju/juju/core/payload"
+	corepayloads "github.com/juju/juju/core/payloads"
 )
 
 var _ = gc.Suite(&listSuite{})
@@ -211,10 +211,10 @@ func runList(c *gc.C, command *payload.ListCommand, args ...string) (int, string
 
 type stubClient struct {
 	stub     *testing.Stub
-	payloads []corepayload.FullPayloadInfo
+	payloads []corepayloads.FullPayloadInfo
 }
 
-func (s *stubClient) ListFull(patterns ...string) ([]corepayload.FullPayloadInfo, error) {
+func (s *stubClient) ListFull(patterns ...string) ([]corepayloads.FullPayloadInfo, error) {
 	s.stub.AddCall("List", patterns)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

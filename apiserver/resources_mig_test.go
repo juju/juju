@@ -156,8 +156,7 @@ func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
-	rSt, err := s.importingState.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := s.importingState.Resources()
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -193,8 +192,7 @@ func (s *resourcesUploadSuite) TestPlaceholder(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsTrue)
 
-	rSt, err := s.importingState.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := s.importingState.Resources()
 	res, err := rSt.GetResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res.IsPlaceholder(), jc.IsTrue)
