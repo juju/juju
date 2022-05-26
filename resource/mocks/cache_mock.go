@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/charm/v8/resource"
-	resource0 "github.com/juju/juju/core/resource"
+	resource0 "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
 )
 

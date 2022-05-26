@@ -12,7 +12,7 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -111,7 +111,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // OperatorProvisioningInfo holds the info needed to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImageDetails resource.DockerImageDetails
+	ImageDetails resources.DockerImageDetails
 	Version      version.Number
 	APIAddresses []string
 	Tags         map[string]string

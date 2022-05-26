@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource_test
+package resources_test
 
 import (
 	charmresource "github.com/juju/charm/v8/resource"
@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 )
 
 type ServiceResourcesSuite struct {
@@ -23,8 +23,8 @@ func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *gc.C) {
 	csRes := newStoreResource(c, "spam", "a-application", 2)
 	res := csRes // a copy
 	res.Origin = charmresource.OriginUpload
-	sr := resource.ApplicationResources{
-		Resources: []resource.Resource{
+	sr := resources.ApplicationResources{
+		Resources: []resources.Resource{
 			res,
 		},
 		CharmStoreResources: []charmresource.Resource{
@@ -43,8 +43,8 @@ func (s *ServiceResourcesSuite) TestUpdatesDifferent(c *gc.C) {
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	expected := eggs.Resource
 	expected.Revision += 1
-	sr := resource.ApplicationResources{
-		Resources: []resource.Resource{
+	sr := resources.ApplicationResources{
+		Resources: []resources.Resource{
 			spam,
 			eggs,
 		},
@@ -65,8 +65,8 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	expected := eggs.Resource
 	expected.Revision += 1
-	sr := resource.ApplicationResources{
-		Resources: []resource.Resource{
+	sr := resources.ApplicationResources{
+		Resources: []resources.Resource{
 			spam,
 			eggs,
 		},
@@ -85,8 +85,8 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
 func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
-	sr := resource.ApplicationResources{
-		Resources: []resource.Resource{
+	sr := resources.ApplicationResources{
+		Resources: []resources.Resource{
 			spam,
 			eggs,
 		},
@@ -102,7 +102,7 @@ func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	c.Check(updates, gc.HasLen, 0)
 }
 
-func newStoreResource(c *gc.C, name, applicationID string, revision int) resource.Resource {
+func newStoreResource(c *gc.C, name, applicationID string, revision int) resources.Resource {
 	content := name
 	opened := resourcetesting.NewResource(c, nil, name, applicationID, content)
 	res := opened.Resource

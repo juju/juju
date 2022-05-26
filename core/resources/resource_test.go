@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource_test
+package resources_test
 
 import (
 	"time"
@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 type ResourceSuite struct {
@@ -22,7 +22,7 @@ type ResourceSuite struct {
 var _ = gc.Suite(&ResourceSuite{})
 
 func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
 		ApplicationID: "a-application",
@@ -36,7 +36,7 @@ func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
 		ApplicationID: "a-application",
@@ -48,7 +48,7 @@ func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateUploadPending(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
 		PendingID:     "some-unique-ID",
@@ -63,7 +63,7 @@ func (ResourceSuite) TestValidateUploadPending(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateZeroValue(c *gc.C) {
-	var res resource.Resource
+	var res resources.Resource
 
 	err := res.Validate()
 
@@ -75,7 +75,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 	var charmRes charmresource.Resource
 	c.Assert(charmRes.Validate(), gc.NotNil)
 
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource: charmRes,
 	}
 
@@ -86,7 +86,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateMissingID(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ApplicationID: "a-application",
 		Username:      "a-user",
@@ -99,7 +99,7 @@ func (ResourceSuite) TestValidateMissingID(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateMissingApplicationID(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
 		ID:        "a-application/spam",
 		Username:  "a-user",
@@ -113,7 +113,7 @@ func (ResourceSuite) TestValidateMissingApplicationID(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
 		ApplicationID: "a-application",
@@ -127,7 +127,7 @@ func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
 		ApplicationID: "a-application",
@@ -142,7 +142,7 @@ func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 }
 
 func (ResourceSuite) TestRevisionStringNone(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "foo",
@@ -162,7 +162,7 @@ func (ResourceSuite) TestRevisionStringNone(c *gc.C) {
 }
 
 func (ResourceSuite) TestRevisionStringTime(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "foo",
@@ -184,7 +184,7 @@ func (ResourceSuite) TestRevisionStringTime(c *gc.C) {
 }
 
 func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "foo",
@@ -209,14 +209,14 @@ func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
 func (s *ResourceSuite) TestAsMap(c *gc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
-	resources := []resource.Resource{
+	res := []resources.Resource{
 		spam,
 		eggs,
 	}
 
-	resMap := resource.AsMap(resources)
+	resMap := resources.AsMap(res)
 
-	c.Check(resMap, jc.DeepEquals, map[string]resource.Resource{
+	c.Check(resMap, jc.DeepEquals, map[string]resources.Resource{
 		"spam": spam,
 		"eggs": eggs,
 	})

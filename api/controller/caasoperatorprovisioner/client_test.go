@@ -14,7 +14,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -183,7 +183,7 @@ func (s *provisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	info, err := client.OperatorProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
-		ImageDetails: resource.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags:         map[string]string{"foo": "bar"},

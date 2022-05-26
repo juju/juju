@@ -14,7 +14,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -81,7 +81,7 @@ type Unit interface {
 }
 
 type Resources interface {
-	OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(applicationID string, name string) (resources.Resource, io.ReadCloser, error)
 }
 
 type stateShim struct {

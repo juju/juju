@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"

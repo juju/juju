@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -56,7 +56,7 @@ type APIGroup struct {
 	*API
 }
 
-type NewResourceOpenerFunc func(appName string) (coreresource.Opener, error)
+type NewResourceOpenerFunc func(appName string) (resources.Opener, error)
 
 type API struct {
 	auth      facade.Authorizer
@@ -74,7 +74,6 @@ type API struct {
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
 func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	authorizer := ctx.Auth()
-	resources := ctx.Resources()
 
 	st := ctx.State()
 	sb, err := state.NewStorageBackend(ctx.State())
@@ -103,14 +102,14 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
-	newResourceOpener := func(appName string) (coreresource.Opener, error) {
+	newResourceOpener := func(appName string) (resources.Opener, error) {
 		return resource.NewResourceOpenerForApplication(st, appName)
 	}
 
 	api, err := NewCAASApplicationProvisionerAPI(
 		stateShim{ctx.StatePool().SystemState()},
 		stateShim{st},
-		resources,
+		ctx.Resources(),
 		newResourceOpener,
 		authorizer,
 		sb,
@@ -134,7 +133,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
@@ -759,7 +758,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 }
 
 func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
-	var details coreresource.DockerImageDetails
+	var details resources.DockerImageDetails
 	contents, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return params.DockerImageInfo{}, errors.Trace(err)
@@ -769,7 +768,7 @@ func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 			return params.DockerImageInfo{}, errors.Annotate(err, "file neither valid json or yaml")
 		}
 	}
-	if err := coreresource.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
 		return params.DockerImageInfo{}, err
 	}
 	return params.DockerImageInfo{

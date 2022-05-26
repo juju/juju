@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payload"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
@@ -783,7 +783,7 @@ type addApplicationContext struct {
 	meterStatus      map[string]*meterStatusDoc
 	leader           string
 	payloads         map[string][]payload.FullPayloadInfo
-	resources        resource.ApplicationResources
+	resources        resources.ApplicationResources
 	endpoingBindings map[string]bindingsMap
 
 	// CAAS
@@ -1095,7 +1095,7 @@ func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
 	return info.Message, nil
 }
 
-func (e *exporter) setResources(exApp description.Application, resources resource.ApplicationResources) error {
+func (e *exporter) setResources(exApp description.Application, resources resources.ApplicationResources) error {
 	if len(resources.Resources) != len(resources.CharmStoreResources) {
 		return errors.New("number of resources don't match charm store resources")
 	}
@@ -1130,7 +1130,7 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 	return nil
 }
 
-func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
+func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resources.UnitResources) {
 	for _, res := range findUnitResources(exUnit.Name(), allResources) {
 		exUnit.AddResource(description.UnitResourceArgs{
 			Name: res.Name,
@@ -1149,7 +1149,7 @@ func (e *exporter) setUnitResources(exUnit description.Unit, allResources []reso
 	}
 }
 
-func findUnitResources(unitName string, allResources []resource.UnitResources) []resource.Resource {
+func findUnitResources(unitName string, allResources []resources.UnitResources) []resources.Resource {
 	for _, unitResources := range allResources {
 		if unitResources.Tag.Id() == unitName {
 			return unitResources.Resources

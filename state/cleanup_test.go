@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"

@@ -1,9 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The resource package provides the functionality of the "resources"
+// Package resources provides the functionality of the "resources"
 // feature in Juju.
-package resource
+package resources
 
 import (
 	"fmt"

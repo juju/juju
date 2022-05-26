@@ -31,7 +31,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -873,7 +873,7 @@ func ResourceStoragePath(c *gc.C, st *State, id string) string {
 	return storagePath
 }
 
-func StagedResourceForTest(c *gc.C, st *State, res resource.Resource) *StagedResource {
+func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedResource {
 	persist := st.Resources().(*resourcePersistence)
 	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
 	r, err := persist.stageResource(res, storagePath)

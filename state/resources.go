@@ -21,18 +21,18 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/state/storage"
 )
 
 // Resources describes the state functionality for resources.
 type Resources interface {
 	// ListResources returns the list of resources for the given application.
-	ListResources(applicationID string) (resource.ApplicationResources, error)
+	ListResources(applicationID string) (resources.ApplicationResources, error)
 
 	// ListPendingResources returns the list of pending resources for
 	// the given application.
-	ListPendingResources(applicationID string) (resource.ApplicationResources, error)
+	ListPendingResources(applicationID string) (resources.ApplicationResources, error)
 
 	// AddPendingResource adds the resource to the data store in a
 	// "pending" state. It will stay pending (and unavailable) until
@@ -41,25 +41,25 @@ type Resources interface {
 	AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (string, error)
 
 	// GetResource returns the identified resource.
-	GetResource(applicationID, name string) (resource.Resource, error)
+	GetResource(applicationID, name string) (resources.Resource, error)
 
 	// GetPendingResource returns the identified resource.
-	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
+	GetPendingResource(applicationID, name, pendingID string) (resources.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ IncrementCharmModifiedVersionType) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ IncrementCharmModifiedVersionType) (resources.Resource, error)
 
 	// SetUnitResource sets the resource metadata for a specific unit.
-	SetUnitResource(unitName, userID string, res charmresource.Resource) (resource.Resource, error)
+	SetUnitResource(unitName, userID string, res charmresource.Resource) (resources.Resource, error)
 
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
-	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resources.Resource, error)
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
-	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(applicationID, name string) (resources.Resource, io.ReadCloser, error)
 
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
-	OpenResourceForUniter(unitName, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResourceForUniter(unitName, name string) (resources.Resource, io.ReadCloser, error)
 
 	// SetCharmStoreResources sets the "polled" resources for the
 	// application to the provided values.
@@ -174,7 +174,7 @@ type resourceDoc struct {
 
 // storedResource holds all model-stored information for a resource.
 type storedResource struct {
-	resource.Resource
+	resources.Resource
 
 	// storagePath is the path to where the resource content is stored.
 	storagePath string
@@ -191,7 +191,7 @@ type charmStoreResource struct {
 
 func charmStoreResource2Doc(id string, res charmStoreResource) *resourceDoc {
 	stored := storedResource{
-		Resource: resource.Resource{
+		Resource: resources.Resource{
 			Resource:      res.Resource,
 			ID:            res.id,
 			ApplicationID: res.applicationID,
@@ -280,8 +280,8 @@ func doc2resource(doc resourceDoc) (storedResource, error) {
 }
 
 // doc2basicResource returns the resource info represented by the doc.
-func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
-	var res resource.Resource
+func doc2basicResource(doc resourceDoc) (resources.Resource, error) {
+	var res resources.Resource
 
 	resType, err := charmresource.ParseType(doc.Type)
 	if err != nil {
@@ -293,12 +293,12 @@ func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 		return res, errors.Annotate(err, "got invalid data from DB")
 	}
 
-	fp, err := resource.DeserializeFingerprint(doc.Fingerprint)
+	fp, err := resources.DeserializeFingerprint(doc.Fingerprint)
 	if err != nil {
 		return res, errors.Annotate(err, "got invalid data from DB")
 	}
 
-	res = resource.Resource{
+	res = resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        doc.Name,
@@ -428,19 +428,19 @@ func (p *resourcePersistence) verifyApplication(id string) error {
 
 // listResources returns the info for each non-pending resource of the
 // identified application.
-func (p *resourcePersistence) listResources(applicationID string, pending bool) (resource.ApplicationResources, error) {
+func (p *resourcePersistence) listResources(applicationID string, pending bool) (resources.ApplicationResources, error) {
 	rLogger.Tracef("listing all resources for application %q, pending=%v", applicationID, pending)
 
 	docs, err := p.resources(applicationID)
 	if err != nil {
-		return resource.ApplicationResources{}, errors.Trace(err)
+		return resources.ApplicationResources{}, errors.Trace(err)
 	}
 
 	store := map[string]charmresource.Resource{}
-	units := map[names.UnitTag][]resource.Resource{}
+	units := map[names.UnitTag][]resources.Resource{}
 	downloadProgress := make(map[names.UnitTag]map[string]int64)
 
-	var results resource.ApplicationResources
+	var results resources.ApplicationResources
 	for _, doc := range docs {
 		if !pending && doc.PendingID != "" {
 			continue
@@ -451,7 +451,7 @@ func (p *resourcePersistence) listResources(applicationID string, pending bool) 
 
 		res, err := doc2basicResource(doc)
 		if err != nil {
-			return resource.ApplicationResources{}, errors.Trace(err)
+			return resources.ApplicationResources{}, errors.Trace(err)
 		}
 		if !doc.LastPolled.IsZero() {
 			store[res.Name] = res.Resource
@@ -477,7 +477,7 @@ func (p *resourcePersistence) listResources(applicationID string, pending bool) 
 		}
 	}
 	for tag, res := range units {
-		results.UnitResources = append(results.UnitResources, resource.UnitResources{
+		results.UnitResources = append(results.UnitResources, resources.UnitResources{
 			Tag:              tag,
 			Resources:        res,
 			DownloadProgress: downloadProgress[tag],
@@ -491,58 +491,58 @@ func (p *resourcePersistence) listResources(applicationID string, pending bool) 
 
 // ListPendingResources returns the extended, model-related info for
 // each pending resource of the identifies application.
-func (p *resourcePersistence) ListPendingResources(applicationID string) (resource.ApplicationResources, error) {
+func (p *resourcePersistence) ListPendingResources(applicationID string) (resources.ApplicationResources, error) {
 	rLogger.Tracef("listing all pending resources for application %q", applicationID)
-	resources, err := p.listResources(applicationID, true)
+	res, err := p.listResources(applicationID, true)
 	if err != nil {
 		if err := p.verifyApplication(applicationID); err != nil {
-			return resource.ApplicationResources{}, errors.Trace(err)
+			return resources.ApplicationResources{}, errors.Trace(err)
 		}
-		return resource.ApplicationResources{}, errors.Trace(err)
+		return resources.ApplicationResources{}, errors.Trace(err)
 	}
-	return resources, nil
+	return res, nil
 }
 
 // ListResources returns the non pending resource data for the given application ID.
-func (p *resourcePersistence) ListResources(applicationID string) (resource.ApplicationResources, error) {
-	resources, err := p.listResources(applicationID, false)
+func (p *resourcePersistence) ListResources(applicationID string) (resources.ApplicationResources, error) {
+	res, err := p.listResources(applicationID, false)
 	if err != nil {
 		if err := p.verifyApplication(applicationID); err != nil {
-			return resource.ApplicationResources{}, errors.Trace(err)
+			return resources.ApplicationResources{}, errors.Trace(err)
 		}
-		return resource.ApplicationResources{}, errors.Trace(err)
+		return resources.ApplicationResources{}, errors.Trace(err)
 	}
 
 	units, err := allUnits(p.st, applicationID)
 	if err != nil {
-		return resource.ApplicationResources{}, errors.Trace(err)
+		return resources.ApplicationResources{}, errors.Trace(err)
 	}
 	for _, u := range units {
 		found := false
-		for _, unitRes := range resources.UnitResources {
+		for _, unitRes := range res.UnitResources {
 			if u.Tag().String() == unitRes.Tag.String() {
 				found = true
 				break
 			}
 		}
 		if !found {
-			unitRes := resource.UnitResources{
+			unitRes := resources.UnitResources{
 				Tag: u.UnitTag(),
 			}
-			resources.UnitResources = append(resources.UnitResources, unitRes)
+			res.UnitResources = append(res.UnitResources, unitRes)
 		}
 	}
 
-	return resources, nil
+	return res, nil
 }
 
 // GetResource returns the resource data for the identified resource.
-func (p *resourcePersistence) GetResource(applicationID, name string) (resource.Resource, error) {
+func (p *resourcePersistence) GetResource(applicationID, name string) (resources.Resource, error) {
 	id := newAppResourceID(applicationID, name)
 	res, _, err := p.getResource(id)
 	if err != nil {
 		if err := p.verifyApplication(applicationID); err != nil {
-			return resource.Resource{}, errors.Trace(err)
+			return resources.Resource{}, errors.Trace(err)
 		}
 		return res, errors.Trace(err)
 	}
@@ -550,8 +550,8 @@ func (p *resourcePersistence) GetResource(applicationID, name string) (resource.
 }
 
 // GetPendingResource returns the resource data for the identified resource.
-func (p *resourcePersistence) GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error) {
-	var res resource.Resource
+func (p *resourcePersistence) GetPendingResource(applicationID, name, pendingID string) (resources.Resource, error) {
+	var res resources.Resource
 
 	resources, err := p.ListPendingResources(applicationID)
 	if err != nil {
@@ -570,7 +570,7 @@ func (p *resourcePersistence) GetPendingResource(applicationID, name, pendingID 
 
 // getResource returns the extended, model-related info for the non-pending
 // resource.
-func (p *resourcePersistence) getResource(id string) (res resource.Resource, storagePath string, _ error) {
+func (p *resourcePersistence) getResource(id string) (res resources.Resource, storagePath string, _ error) {
 	rLogger.Tracef("get resource %q", id)
 	doc, err := p.getOne(id)
 	if err != nil {
@@ -590,7 +590,7 @@ func (p *resourcePersistence) SetResource(
 	applicationID, userID string,
 	chRes charmresource.Resource,
 	r io.Reader, incrementCharmModifiedVersion IncrementCharmModifiedVersionType,
-) (resource.Resource, error) {
+) (resources.Resource, error) {
 	rLogger.Tracef("adding resource %q for application %q", chRes.Name, applicationID)
 	pendingID := ""
 	res, err := p.setResource(pendingID, applicationID, userID, chRes, r, incrementCharmModifiedVersion)
@@ -602,16 +602,16 @@ func (p *resourcePersistence) SetResource(
 
 // SetUnitResource stores the resource info for a particular unit. The
 // resource must already be set for the application.
-func (p *resourcePersistence) SetUnitResource(unitName, userID string, chRes charmresource.Resource) (_ resource.Resource, outErr error) {
+func (p *resourcePersistence) SetUnitResource(unitName, userID string, chRes charmresource.Resource) (_ resources.Resource, outErr error) {
 	rLogger.Tracef("adding resource %q for unit %q", chRes.Name, unitName)
-	var empty resource.Resource
+	var empty resources.Resource
 
 	applicationID, err := names.UnitApplication(unitName)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
 
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      chRes,
 		ID:            newAppResourceID(applicationID, chRes.Name),
 		ApplicationID: applicationID,
@@ -696,7 +696,7 @@ func (st resourcePersistence) AddPendingResource(applicationID, userID string, c
 }
 
 // UpdatePendingResource stores the resource in the Juju model.
-func (st resourcePersistence) UpdatePendingResource(applicationID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+func (st resourcePersistence) UpdatePendingResource(applicationID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resources.Resource, error) {
 	rLogger.Tracef("updating pending resource %q (%s) for application %q", chRes.Name, pendingID, applicationID)
 	res, err := st.setResource(pendingID, applicationID, userID, chRes, r, IncrementCharmModifiedVersion)
 	if err != nil {
@@ -707,19 +707,19 @@ func (st resourcePersistence) UpdatePendingResource(applicationID, pendingID, us
 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (p *resourcePersistence) OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error) {
+func (p *resourcePersistence) OpenResource(applicationID, name string) (resources.Resource, io.ReadCloser, error) {
 	rLogger.Tracef("open resource %q of %q", name, applicationID)
 	id := newAppResourceID(applicationID, name)
 	resourceInfo, storagePath, err := p.getResource(id)
 	if err != nil {
 		if err := p.verifyApplication(applicationID); err != nil {
-			return resource.Resource{}, nil, errors.Trace(err)
+			return resources.Resource{}, nil, errors.Trace(err)
 		}
-		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
+		return resources.Resource{}, nil, errors.Annotate(err, "while getting resource info")
 	}
 	if resourceInfo.IsPlaceholder() {
 		rLogger.Tracef("placeholder resource %q treated as not found", name)
-		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
+		return resources.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
 	var resourceReader io.ReadCloser
@@ -730,10 +730,10 @@ func (p *resourcePersistence) OpenResource(applicationID, name string) (resource
 	case charmresource.TypeFile:
 		resourceReader, resSize, err = p.storage.Get(storagePath)
 	default:
-		return resource.Resource{}, nil, errors.New("unknown resource type")
+		return resources.Resource{}, nil, errors.New("unknown resource type")
 	}
 	if err != nil {
-		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
+		return resources.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}
 	switch resourceInfo.Type {
 	case charmresource.TypeContainerImage:
@@ -741,12 +741,12 @@ func (p *resourcePersistence) OpenResource(applicationID, name string) (resource
 		// Store it as it's used later for verification (in a separate call than this one)
 		resourceInfo.Size = resSize
 		if err := p.storeResourceInfo(resourceInfo); err != nil {
-			return resource.Resource{}, nil, errors.Annotate(err, "failed to update resource details with docker detail size")
+			return resources.Resource{}, nil, errors.Annotate(err, "failed to update resource details with docker detail size")
 		}
 	case charmresource.TypeFile:
 		if resSize != resourceInfo.Size {
 			msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
-			return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+			return resources.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 		}
 	}
 
@@ -756,21 +756,21 @@ func (p *resourcePersistence) OpenResource(applicationID, name string) (resource
 // OpenResourceForUniter returns metadata about the resource and
 // a reader for the resource. The resource is associated with
 // the unit once the reader is completely exhausted.
-func (p *resourcePersistence) OpenResourceForUniter(unitName, resName string) (resource.Resource, io.ReadCloser, error) {
+func (p *resourcePersistence) OpenResourceForUniter(unitName, resName string) (resources.Resource, io.ReadCloser, error) {
 	rLogger.Tracef("open resource %q for uniter %q", resName, unitName)
 
 	pendingID, err := newPendingID()
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	appName, err := names.UnitApplication(unitName)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 	resourceInfo, resourceReader, err := p.OpenResource(appName, resName)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	pending := resourceInfo // a copy
@@ -779,7 +779,7 @@ func (p *resourcePersistence) OpenResourceForUniter(unitName, resName string) (r
 	progress := int64(0)
 	if err := p.setUnitResourceProgress(unitName, pending, &progress); err != nil {
 		_ = resourceReader.Close()
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	resourceReader = &unitSetter{
@@ -800,8 +800,8 @@ type unitSetter struct {
 	io.ReadCloser
 	persist            *resourcePersistence
 	unitName           string
-	pending            resource.Resource
-	resource           resource.Resource
+	pending            resources.Resource
+	resource           resources.Resource
 	progress           int64
 	lastProgressUpdate time.Time
 	clock              clock.Clock
@@ -833,7 +833,7 @@ func (u *unitSetter) Read(p []byte) (n int, err error) {
 // errors.AlreadyExists is returned. A wrapper around the staged
 // resource is returned which supports both finalizing and removing
 // the staged resource.
-func (p *resourcePersistence) stageResource(res resource.Resource, storagePath string) (*StagedResource, error) {
+func (p *resourcePersistence) stageResource(res resources.Resource, storagePath string) (*StagedResource, error) {
 	rLogger.Tracef("stage resource %q for %q", res.Name, res.ApplicationID)
 	if storagePath == "" {
 		return nil, errors.Errorf("missing storage path")
@@ -862,10 +862,10 @@ func (p *resourcePersistence) setResource(
 	pendingID, applicationID, userID string,
 	chRes charmresource.Resource, r io.Reader,
 	incrementCharmModifiedVersion IncrementCharmModifiedVersionType,
-) (resource.Resource, error) {
+) (resources.Resource, error) {
 	id := newAppResourceID(applicationID, chRes.Name)
 
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource:      chRes,
 		ID:            id,
 		PendingID:     pendingID,
@@ -894,7 +894,7 @@ func (p *resourcePersistence) setResource(
 	return res, nil
 }
 
-func (p *resourcePersistence) getStored(res resource.Resource) (storedResource, error) {
+func (p *resourcePersistence) getStored(res resources.Resource) (storedResource, error) {
 	doc, err := p.getOne(res.ID)
 	if errors.IsNotFound(err) {
 		err = errors.NotFoundf("resource %q", res.Name)
@@ -912,7 +912,7 @@ func (p *resourcePersistence) getStored(res resource.Resource) (storedResource, 
 }
 
 // storeResource stores the info for the resource.
-func (p *resourcePersistence) storeResourceInfo(res resource.Resource) error {
+func (p *resourcePersistence) storeResourceInfo(res resources.Resource) error {
 	rLogger.Tracef("set resource %q for %q", res.Name, res.ApplicationID)
 	stored, err := p.getStored(res)
 	if errors.IsNotFound(err) {
@@ -952,7 +952,7 @@ func (p *resourcePersistence) storeResourceInfo(res resource.Resource) error {
 	return nil
 }
 
-func (p *resourcePersistence) storeResource(res resource.Resource, r io.Reader, incrementCharmModifiedVersion IncrementCharmModifiedVersionType) (err error) {
+func (p *resourcePersistence) storeResource(res resources.Resource, r io.Reader, incrementCharmModifiedVersion IncrementCharmModifiedVersionType) (err error) {
 	// We use a staging approach for adding the resource metadata
 	// to the model. This is necessary because the resource data
 	// is stored separately and adding to both should be an atomic
@@ -983,7 +983,7 @@ func (p *resourcePersistence) storeResource(res resource.Resource, r io.Reader, 
 		if err != nil {
 			return errors.Trace(err)
 		}
-		dockerDetails, err := resource.UnmarshalDockerResource(respBuf.Bytes())
+		dockerDetails, err := resources.UnmarshalDockerResource(respBuf.Bytes())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1005,7 +1005,7 @@ func (p *resourcePersistence) storeResource(res resource.Resource, r io.Reader, 
 // setUnitResourceProgress stores the resource info for a particular unit. The
 // resource must already be set for the application. The provided progress
 // is stored in the DB.
-func (p *resourcePersistence) setUnitResourceProgress(unitID string, res resource.Resource, progress *int64) error {
+func (p *resourcePersistence) setUnitResourceProgress(unitID string, res resources.Resource, progress *int64) error {
 	rLogger.Tracef("set unit %q resource %q progress", unitID, res.Name)
 	if res.PendingID == "" && progress != nil {
 		return errors.Errorf("only pending resources may track progress")

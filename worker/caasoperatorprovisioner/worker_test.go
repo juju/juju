@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )
@@ -218,7 +218,7 @@ func (s *CAASProvisionerSuite) TestNewApplicationNoStorage(c *gc.C) {
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *gc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
-		ImageDetails: resource.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
 		Version:      version.MustParse("2.99.0"),
 		AgentConf: []byte(fmt.Sprintf(`
 # format 2.0
@@ -254,7 +254,7 @@ mongoversion: "0.0"
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAgentConfAPIAddresses(c *gc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
-		ImageDetails: resource.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
 		Version:      version.MustParse("2.99.0"),
 		AgentConf: []byte(fmt.Sprintf(`
 # format 2.0
@@ -289,7 +289,7 @@ mongoversion: "0.0"
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAndIssueCerts(c *gc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
-		ImageDetails: resource.DockerImageDetails{RegistryPath: "juju-operator-image"},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
 		Version:      version.MustParse("2.99.0"),
 		AgentConf: []byte(fmt.Sprintf(`
 # format 2.0

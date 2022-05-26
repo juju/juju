@@ -32,8 +32,8 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/payload"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -2342,7 +2342,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 		c.Check(exRev.Size(), gc.Equals, bodySize)
 	}
 
-	checkExRev := func(exRev description.ResourceRevision, res resource.Resource) {
+	checkExRev := func(exRev description.ResourceRevision, res resources.Resource) {
 		checkExRevBase(exRev, res.Resource)
 		c.Check(exRev.Timestamp().UTC(), gc.Equals, truncateDBTime(res.Timestamp))
 		c.Check(exRev.Username(), gc.Equals, res.Username)
@@ -2360,7 +2360,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	units := exApp.Units()
 	c.Assert(units, gc.HasLen, 2)
 
-	checkUnitRes := func(exUnit description.Unit, unit *state.Unit, res resource.Resource) {
+	checkUnitRes := func(exUnit description.Unit, unit *state.Unit, res resources.Resource) {
 		c.Check(exUnit.Name(), gc.Equals, unit.Name())
 		exResources := exUnit.Resources()
 		c.Assert(exResources, gc.HasLen, 1)
@@ -2372,7 +2372,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	checkUnitRes(units[1], unit2, res2)
 }
 
-func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, body string) resource.Resource {
+func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, body string) resources.Resource {
 	opened := resourcetesting.NewResource(c, nil, name, appName, body)
 	res := opened.Resource
 	res.Revision = revision

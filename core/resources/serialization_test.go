@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource_test
+package resources_test
 
 import (
 	"strings"
@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 type SerializationSuite struct {
@@ -26,20 +26,20 @@ func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *gc.C) {
 	expected, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
 
-	fp, err := resource.DeserializeFingerprint(expected.Bytes())
+	fp, err := resources.DeserializeFingerprint(expected.Bytes())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(fp, jc.DeepEquals, expected)
 }
 
 func (s *SerializationSuite) TestDeserializeFingerprintInvalid(c *gc.C) {
-	_, err := resource.DeserializeFingerprint([]byte("<too short>"))
+	_, err := resources.DeserializeFingerprint([]byte("<too short>"))
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *SerializationSuite) TestDeserializeFingerprintZeroValue(c *gc.C) {
-	fp, err := resource.DeserializeFingerprint(nil)
+	fp, err := resources.DeserializeFingerprint(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(fp, jc.DeepEquals, charmresource.Fingerprint{})

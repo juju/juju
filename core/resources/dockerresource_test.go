@@ -1,13 +1,13 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource_test
+package resources_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
 )
 
@@ -27,21 +27,21 @@ func (s *DockerResourceSuite) TestValidRegistryPath(c *gc.C) {
 	}, {
 		registryPath: "me/mygitlab:latest",
 	}} {
-		err := resource.ValidateDockerRegistryPath(registryTest.registryPath)
+		err := resources.ValidateDockerRegistryPath(registryTest.registryPath)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
 func (s *DockerResourceSuite) TestInvalidRegistryPath(c *gc.C) {
-	err := resource.ValidateDockerRegistryPath("blah:sha256@")
+	err := resources.ValidateDockerRegistryPath("blah:sha256@")
 	c.Assert(err, gc.ErrorMatches, "docker image path .* not valid")
 }
 
 func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalJson(c *gc.C) {
 	data := []byte(`{"ImageName":"testing@sha256:beef-deed","Username":"docker-registry","Password":"fragglerock"}`)
-	result, err := resource.UnmarshalDockerResource(data)
+	result, err := resources.UnmarshalDockerResource(data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resource.DockerImageDetails{
+	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -58,9 +58,9 @@ registrypath: testing@sha256:beef-deed
 username: docker-registry
 password: fragglerock
 `[1:])
-	result, err := resource.UnmarshalDockerResource(data)
+	result, err := resources.UnmarshalDockerResource(data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resource.DockerImageDetails{
+	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{

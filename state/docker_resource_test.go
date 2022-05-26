@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/state"
 )
@@ -36,7 +36,7 @@ func (s *dockerMetadataStorageSuite) Test(c *gc.C) {}
 func (s *dockerMetadataStorageSuite) TestSaveNewResource(c *gc.C) {
 	id := "test-123"
 	registryPath := "url@sha256:abc123"
-	resource := resource.DockerImageDetails{
+	resource := resources.DockerImageDetails{
 		RegistryPath: registryPath,
 	}
 	err := s.metadataStorage.Save(id, resource)
@@ -47,14 +47,14 @@ func (s *dockerMetadataStorageSuite) TestSaveNewResource(c *gc.C) {
 
 func (s *dockerMetadataStorageSuite) TestSaveUpdatesExistingResource(c *gc.C) {
 	id := "test-123"
-	resource1 := resource.DockerImageDetails{
+	resource1 := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 	}
 	err := s.metadataStorage.Save(id, resource1)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSavedDockerResource(c, id, resource1)
 
-	resource2 := resource.DockerImageDetails{
+	resource2 := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:deadbeef",
 	}
 	err = s.metadataStorage.Save(id, resource2)
@@ -64,7 +64,7 @@ func (s *dockerMetadataStorageSuite) TestSaveUpdatesExistingResource(c *gc.C) {
 
 func (s *dockerMetadataStorageSuite) TestSaveIdempotent(c *gc.C) {
 	id := "test-123"
-	resource := resource.DockerImageDetails{
+	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 	}
 	err := s.metadataStorage.Save(id, resource)
@@ -74,7 +74,7 @@ func (s *dockerMetadataStorageSuite) TestSaveIdempotent(c *gc.C) {
 	s.assertSavedDockerResource(c, id, resource)
 }
 
-func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *gc.C, resourceID string, registryInfo resource.DockerImageDetails) {
+func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *gc.C, resourceID string, registryInfo resources.DockerImageDetails) {
 	coll, closer := state.GetCollection(s.State, "dockerResources")
 	defer closer()
 
@@ -89,7 +89,7 @@ func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *gc.C, resource
 
 func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
 	id := "test-123"
-	resource := resource.DockerImageDetails{
+	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -113,7 +113,7 @@ func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
 
 func (s *dockerMetadataStorageSuite) TestRemove(c *gc.C) {
 	id := "test-123"
-	resource := resource.DockerImageDetails{
+	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 	}
 	err := s.metadataStorage.Save(id, resource)
@@ -125,8 +125,8 @@ func (s *dockerMetadataStorageSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func readerToDockerDetails(c *gc.C, r io.ReadCloser) *resource.DockerImageDetails {
-	var info resource.DockerImageDetails
+func readerToDockerDetails(c *gc.C, r io.ReadCloser) *resources.DockerImageDetails {
+	var info resources.DockerImageDetails
 	respBuf := new(bytes.Buffer)
 	_, err := respBuf.ReadFrom(r)
 	c.Assert(err, jc.ErrorIsNil)

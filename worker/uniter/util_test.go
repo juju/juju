@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

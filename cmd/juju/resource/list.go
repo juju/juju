@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/api/client/resources"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resource"
+	coreresources "github.com/juju/juju/core/resources"
 )
 
 // ListClient has the API client methods needed by ListCommand.
 type ListClient interface {
 	// ListResources returns info about resources for applications in the model.
-	ListResources(applications []string) ([]resource.ApplicationResources, error)
+	ListResources(applications []string) ([]coreresources.ApplicationResources, error)
 	// Close closes the connection.
 	Close() error
 }
@@ -136,7 +136,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 
 const noResources = "No resources to display."
 
-func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr resource.ApplicationResources) error {
+func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr coreresources.ApplicationResources) error {
 	if c.details {
 		formatted, err := FormatApplicationDetails(sr)
 		if err != nil {
@@ -161,7 +161,7 @@ func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr resource.A
 	return c.out.Write(ctx, formatted)
 }
 
-func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application string, sr resource.ApplicationResources) error {
+func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application string, sr coreresources.ApplicationResources) error {
 	if len(sr.Resources) == 0 && len(sr.UnitResources) == 0 {
 		ctx.Infof(noResources)
 		return nil
@@ -192,18 +192,18 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application st
 
 }
 
-func unitResources(unit, application string, sr resource.ApplicationResources) map[string]resource.Resource {
-	var resources []resource.Resource
-	for _, res := range sr.UnitResources {
-		if res.Tag.Id() == unit {
-			resources = res.Resources
+func unitResources(unit, application string, sr coreresources.ApplicationResources) map[string]coreresources.Resource {
+	var res []coreresources.Resource
+	for _, r := range sr.UnitResources {
+		if r.Tag.Id() == unit {
+			res = r.Resources
 		}
 	}
-	if len(resources) == 0 {
+	if len(res) == 0 {
 		return nil
 	}
-	unitResourcesById := make(map[string]resource.Resource)
-	for _, r := range resources {
+	unitResourcesById := make(map[string]coreresources.Resource)
+	for _, r := range res {
 		unitResourcesById[r.ID] = r
 	}
 	return unitResourcesById

@@ -15,7 +15,7 @@ import (
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -186,8 +186,8 @@ username: docker-registry
 password: hunter2
 `
 	s.stubDeps.file = rsc{bytes.NewBuffer([]byte(fileContents))}
-	s.stubDeps.client.(*stubAPIClient).resources = resource.ApplicationResources{
-		Resources: []resource.Resource{{Resource: charmresource.Resource{
+	s.stubDeps.client.(*stubAPIClient).resources = resources.ApplicationResources{
+		Resources: []resources.Resource{{Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "foo",
 				Type: charmresource.TypeContainerImage,

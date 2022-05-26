@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -27,7 +27,7 @@ var logger = loggo.GetLogger("juju.apiserver.resources")
 // Backend is the functionality of Juju's state needed for the resources API.
 type Backend interface {
 	// ListResources returns the resources for the given application.
-	ListResources(application string) (resource.ApplicationResources, error)
+	ListResources(application string) (resources.ApplicationResources, error)
 
 	// AddPendingResource adds the resource to the data backend in a
 	// "pending" state. It will stay pending (and unavailable) until

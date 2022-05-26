@@ -46,7 +46,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resource"
+	coreresouces "github.com/juju/juju/core/resources"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -1086,9 +1086,9 @@ type mockResourceLister struct {
 	testing.Stub
 }
 
-func (m *mockResourceLister) ListResources([]string) ([]resource.ApplicationResources, error) {
-	return []resource.ApplicationResources{{
-		Resources: []resource.Resource{{
+func (m *mockResourceLister) ListResources([]string) ([]coreresouces.ApplicationResources, error) {
+	return []coreresouces.ApplicationResources{{
+		Resources: []coreresouces.Resource{{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
 					Name: "bar",

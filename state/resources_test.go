@@ -18,8 +18,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -44,15 +44,15 @@ func (s *ResourcesSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func newResource(c *gc.C, name, data string) resource.Resource {
+func newResource(c *gc.C, name, data string) resources.Resource {
 	opened := resourcetesting.NewResource(c, nil, name, "wordpress", data)
 	res := opened.Resource
 	res.Timestamp = time.Unix(res.Timestamp.Unix(), 0)
 	return res
 }
 
-func newResourceFromCharm(ch charm.Charm, name string) resource.Resource {
-	return resource.Resource{
+func newResourceFromCharm(ch charm.Charm, name string) resources.Resource {
+	return resources.Resource{
 		Resource: charmresource.Resource{
 			Meta:   ch.Meta().Resources[name],
 			Origin: charmresource.OriginUpload,
@@ -73,20 +73,20 @@ func (s *ResourcesSuite) TestListResources(c *gc.C) {
 	_, err := res.SetResource("wordpress", spam.Username, spam.Resource, file, state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := res.ListResources("wordpress")
+	resultRes, err := res.ListResources("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 
-	spam.Timestamp = resources.Resources[0].Timestamp
-	c.Assert(resources, jc.DeepEquals, resource.ApplicationResources{
-		Resources: []resource.Resource{spam},
+	spam.Timestamp = resultRes.Resources[0].Timestamp
+	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
+		Resources: []resources.Resource{spam},
 	})
 }
 
 func (s *ResourcesSuite) TestListResourcesNoResources(c *gc.C) {
 	res := s.State.Resources()
-	resources, err := res.ListResources("wordpress")
+	resultRes, err := res.ListResources("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(resources.Resources, gc.HasLen, 0)
+	c.Check(resultRes.Resources, gc.HasLen, 0)
 }
 
 func (s *ResourcesSuite) TestListResourcesIgnorePending(c *gc.C) {
@@ -107,12 +107,12 @@ func (s *ResourcesSuite) TestListResourcesIgnorePending(c *gc.C) {
 	err = res.SetCharmStoreResources("wordpress", csResources, testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := res.ListResources("wordpress")
+	resultRes, err := res.ListResources("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 
-	spam.Timestamp = resources.Resources[0].Timestamp
-	c.Assert(resources, jc.DeepEquals, resource.ApplicationResources{
-		Resources:           []resource.Resource{spam},
+	spam.Timestamp = resultRes.Resources[0].Timestamp
+	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
+		Resources:           []resources.Resource{spam},
 		CharmStoreResources: csResources,
 	})
 }
@@ -132,13 +132,13 @@ func (s *ResourcesSuite) TestListPendingResources(c *gc.C) {
 	pendingID, err := res.AddPendingResource("wordpress", ham.Username, ham.Resource)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := res.ListPendingResources("wordpress")
+	resultRes, err := res.ListPendingResources("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	ham.PendingID = pendingID
 	ham.Username = ""
-	ham.Timestamp = resources.Resources[0].Timestamp
-	c.Assert(resources, jc.DeepEquals, resource.ApplicationResources{
-		Resources: []resource.Resource{ham},
+	ham.Timestamp = resultRes.Resources[0].Timestamp
+	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
+		Resources: []resources.Resource{ham},
 	})
 }
 
@@ -244,22 +244,22 @@ func (s *ResourcesSuite) TestSetCharmStoreResources(c *gc.C) {
 	err := res.SetCharmStoreResources("starsay", csResources, testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := res.ListResources("starsay")
+	resultRes, err := res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
-	sort.Slice(resources.Resources, func(i, j int) bool {
-		return resources.Resources[i].Name < resources.Resources[j].Name
+	sort.Slice(resultRes.Resources, func(i, j int) bool {
+		return resultRes.Resources[i].Name < resultRes.Resources[j].Name
 	})
-	sort.Slice(resources.CharmStoreResources, func(i, j int) bool {
-		return resources.CharmStoreResources[i].Name < resources.CharmStoreResources[j].Name
+	sort.Slice(resultRes.CharmStoreResources, func(i, j int) bool {
+		return resultRes.CharmStoreResources[i].Name < resultRes.CharmStoreResources[j].Name
 	})
 
-	expected := []resource.Resource{
+	expected := []resources.Resource{
 		newResourceFromCharm(s.ch, "install-resource"),
 		newResourceFromCharm(s.ch, "store-resource"),
 		newResourceFromCharm(s.ch, "upload-resource"),
 	}
-	c.Assert(resources, jc.DeepEquals, resource.ApplicationResources{
+	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
 		Resources: expected,
 		CharmStoreResources: []charmresource.Resource{
 			expected[0].Resource,
@@ -287,15 +287,15 @@ func (s *ResourcesSuite) TestUnitResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	spam.Timestamp = r.Timestamp
 	c.Assert(r, jc.DeepEquals, spam)
-	resources, err := res.ListResources("wordpress")
+	resultRes, err := res.ListResources("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 
-	spam.Timestamp = resources.Resources[0].Timestamp
-	c.Assert(resources, jc.DeepEquals, resource.ApplicationResources{
-		Resources: []resource.Resource{spam},
-		UnitResources: []resource.UnitResources{{
+	spam.Timestamp = resultRes.Resources[0].Timestamp
+	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
+		Resources: []resources.Resource{spam},
+		UnitResources: []resources.UnitResources{{
 			Tag:       names.NewUnitTag("wordpress/0"),
-			Resources: []resource.Resource{spam},
+			Resources: []resources.Resource{spam},
 		}},
 	})
 }
@@ -336,18 +336,18 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(resData), gc.Equals, data)
 
-	resources, err := res.ListResources("starsay")
+	resultRes, err := res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resources.Resources, gc.HasLen, 3)
+	c.Assert(resultRes.Resources, gc.HasLen, 3)
 
-	sort.Slice(resources.Resources, func(i, j int) bool {
-		return resources.Resources[i].Name < resources.Resources[j].Name
+	sort.Slice(resultRes.Resources, func(i, j int) bool {
+		return resultRes.Resources[i].Name < resultRes.Resources[j].Name
 	})
-	sort.Slice(resources.CharmStoreResources, func(i, j int) bool {
-		return resources.CharmStoreResources[i].Name < resources.CharmStoreResources[j].Name
+	sort.Slice(resultRes.CharmStoreResources, func(i, j int) bool {
+		return resultRes.CharmStoreResources[i].Name < resultRes.CharmStoreResources[j].Name
 	})
 
-	expected := []resource.Resource{
+	expected := []resources.Resource{
 		newResourceFromCharm(s.ch, "install-resource"),
 		newResourceFromCharm(s.ch, "store-resource"),
 		newResourceFromCharm(s.ch, "upload-resource"),
@@ -358,14 +358,14 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 		expected[2].Resource,
 	}
 	expected[0].Resource = spam.Resource
-	expected[0].Timestamp = resources.Resources[0].Timestamp
+	expected[0].Timestamp = resultRes.Resources[0].Timestamp
 
-	c.Assert(resources, jc.DeepEquals, resource.ApplicationResources{
+	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
 		Resources:           expected,
 		CharmStoreResources: chRes,
-		UnitResources: []resource.UnitResources{{
+		UnitResources: []resources.UnitResources{{
 			Tag:       names.NewUnitTag("starsay/0"),
-			Resources: []resource.Resource{spam},
+			Resources: []resources.Resource{spam},
 		}},
 	})
 }
@@ -400,16 +400,16 @@ func (s *ResourcesSuite) TestOpenResourceForUniter(c *gc.C) {
 	_, err = rdr.Read(buf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := res.ListPendingResources("starsay")
+	resultRes, err := res.ListPendingResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(resources.UnitResources, gc.HasLen, 1)
-	c.Assert(resources.UnitResources[0].Resources, gc.HasLen, 1)
-	resources.UnitResources[0].Resources[0].PendingID = ""
-	c.Assert(resources, jc.DeepEquals, resource.ApplicationResources{
-		UnitResources: []resource.UnitResources{{
+	c.Assert(resultRes.UnitResources, gc.HasLen, 1)
+	c.Assert(resultRes.UnitResources[0].Resources, gc.HasLen, 1)
+	resultRes.UnitResources[0].Resources[0].PendingID = ""
+	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
+		UnitResources: []resources.UnitResources{{
 			Tag:              names.NewUnitTag("starsay/0"),
-			Resources:        []resource.Resource{unitRes},
+			Resources:        []resources.Resource{unitRes},
 			DownloadProgress: map[string]int64{"install-resource": 2},
 		}},
 	})
@@ -420,10 +420,6 @@ func (s *ResourcesSuite) TestRemovePendingAppResources(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", ch)
 
 	res := s.State.Resources()
-	//spam := newResource(c, "store-resource", "")
-	//file := bytes.NewBufferString(data)
-	//_, err := res.SetResource("wordpress", spam.Username, spam.Resource, file, state.IncrementCharmModifiedVersion)
-	//c.Assert(err, jc.ErrorIsNil)
 
 	spam := newResource(c, "install-resource", "install-resource")
 	pendingID, err := res.AddPendingResource("wordpress", spam.Username, spam.Resource)

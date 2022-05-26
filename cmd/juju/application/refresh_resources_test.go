@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resource"
+	coreresouces "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -179,7 +179,7 @@ Deploying charm "cs:bionic/starsay-1".`
 
 	// Note that all charm resources were uploaded by testcharms.UploadCharm
 	// so that the charm could be published.
-	expectedResources := []resource.Resource{{
+	expectedResources := []coreresouces.Resource{{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "install-resource",
@@ -307,7 +307,7 @@ func resourceHash(content string) charmresource.Fingerprint {
 	return fp
 }
 
-type byname []resource.Resource
+type byname []coreresouces.Resource
 
 func (b byname) Len() int           { return len(b) }
 func (b byname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
