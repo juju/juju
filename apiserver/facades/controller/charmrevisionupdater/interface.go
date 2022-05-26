@@ -25,7 +25,7 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerUUID() string
 	Model() (Model, error)
-	Resources() (state.Resources, error)
+	Resources() state.Resources
 	AliveRelationKeys() []string
 }
 

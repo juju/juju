@@ -611,8 +611,7 @@ func resourceDocID(modelUUID, resourceID string) string {
 // readApplicationsAndUnits figures out what CharmURLs are referenced by apps and units
 func (checker *ModelChecker) readApplicationsAndUnits() {
 	resourcesCollection := checker.session.DB("juju").C(resourcesC)
-	charmResources, err := checker.model.State().Resources()
-	checkErr(err, "resources")
+	charmResources := checker.model.State().Resources()
 	agentVersion, err := checker.model.AgentVersion()
 	checkErr(err, "model AgentVersion")
 	// Models track the desired version.Number, but Units track version.Binary

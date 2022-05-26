@@ -15,7 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resource"
+	coreresources "github.com/juju/juju/core/resources"
 )
 
 // UploadClient has the API client methods needed by UploadCommand.
@@ -24,7 +24,7 @@ type UploadClient interface {
 	Upload(application, name, filename string, resource io.ReadSeeker) error
 
 	// ListResources returns info about resources for applications in the model.
-	ListResources(applications []string) ([]resource.ApplicationResources, error)
+	ListResources(applications []string) ([]coreresources.ApplicationResources, error)
 
 	// Close closes the client.
 	Close() error

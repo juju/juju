@@ -11,7 +11,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/mongo"
 )
 
@@ -83,7 +83,7 @@ func (nsPayloads_) forUnitWithNames(unit string, names []string) bson.D {
 }
 
 // asDoc converts a FullPayloadInfo into an independent payloadDoc.
-func (nsPayloads_) asDoc(p payload.FullPayloadInfo) payloadDoc {
+func (nsPayloads_) asDoc(p payloads.FullPayloadInfo) payloadDoc {
 	labels := make([]string, len(p.Labels))
 	copy(labels, p.Labels)
 	return payloadDoc{
@@ -98,11 +98,11 @@ func (nsPayloads_) asDoc(p payload.FullPayloadInfo) payloadDoc {
 }
 
 // asPayload converts a payloadDoc into an independent FullPayloadInfo.
-func (nsPayloads_) asPayload(doc payloadDoc) payload.FullPayloadInfo {
+func (nsPayloads_) asPayload(doc payloadDoc) payloads.FullPayloadInfo {
 	labels := make([]string, len(doc.Labels))
 	copy(labels, doc.Labels)
-	p := payload.FullPayloadInfo{
-		Payload: payload.Payload{
+	p := payloads.FullPayloadInfo{
+		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: doc.Name,
 				Type: doc.Type,
@@ -119,8 +119,8 @@ func (nsPayloads_) asPayload(doc payloadDoc) payload.FullPayloadInfo {
 
 // asPayloads converts a slice of payloadDocs into a corresponding slice
 // of independent FullPayloadInfos.
-func (nsPayloads_) asPayloads(docs []payloadDoc) []payload.FullPayloadInfo {
-	payloads := make([]payload.FullPayloadInfo, 0, len(docs))
+func (nsPayloads_) asPayloads(docs []payloadDoc) []payloads.FullPayloadInfo {
+	payloads := make([]payloads.FullPayloadInfo, 0, len(docs))
 	for _, doc := range docs {
 		payloads = append(payloads, nsPayloads.asPayload(doc))
 	}
@@ -129,11 +129,11 @@ func (nsPayloads_) asPayloads(docs []payloadDoc) []payload.FullPayloadInfo {
 
 // asResults converts a slice of payloadDocs into a corresponding slice
 // of independent payload.Results.
-func (nsPayloads_) asResults(docs []payloadDoc) []payload.Result {
-	results := make([]payload.Result, 0, len(docs))
+func (nsPayloads_) asResults(docs []payloadDoc) []payloads.Result {
+	results := make([]payloads.Result, 0, len(docs))
 	for _, doc := range docs {
 		full := nsPayloads.asPayload(doc)
-		results = append(results, payload.Result{
+		results = append(results, payloads.Result{
 			ID:      doc.Name,
 			Payload: &full,
 		})
@@ -144,12 +144,12 @@ func (nsPayloads_) asResults(docs []payloadDoc) []payload.Result {
 // orderedResults converts payloadDocs into payload.Results, in the
 // order defined by names, and represents missing names in the highly
 // baroque fashion apparently designed into Results.
-func (nsPayloads_) orderedResults(docs []payloadDoc, names []string) []payload.Result {
+func (nsPayloads_) orderedResults(docs []payloadDoc, names []string) []payloads.Result {
 	found := make(map[string]payloadDoc)
 	for _, doc := range docs {
 		found[doc.Name] = doc
 	}
-	results := make([]payload.Result, len(names))
+	results := make([]payloads.Result, len(names))
 	for i, name := range names {
 		results[i].ID = name
 		if doc, ok := found[name]; ok {

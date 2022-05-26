@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -90,7 +90,7 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 		PodSpec:     "foo",
 		Tags:        map[string]string{"foo": "bar"},
 		Constraints: constraints.MustParse("mem=4G"),
-		ImageDetails: resource.DockerImageDetails{
+		ImageDetails: resources.DockerImageDetails{
 			RegistryPath: "operator/image-path",
 		},
 		DeploymentInfo: caasunitprovisioner.DeploymentInfo{

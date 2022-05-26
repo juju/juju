@@ -432,12 +432,11 @@ func (mr *MockStateMockRecorder) Model() *gomock.Call {
 }
 
 // Resources mocks base method.
-func (m *MockState) Resources() (state.Resources, error) {
+func (m *MockState) Resources() state.Resources {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Resources")
 	ret0, _ := ret[0].(state.Resources)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // Resources indicates an expected call of Resources.

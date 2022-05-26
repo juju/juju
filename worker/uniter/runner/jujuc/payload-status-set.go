@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
 // NewPayloadStatusSetCmd returns a new PayloadStatusSetCmd that wraps the given context.
@@ -74,5 +74,5 @@ func (c *PayloadStatusSetCmd) Run(ctx *cmd.Context) error {
 }
 
 func (c *PayloadStatusSetCmd) validate(ctx *cmd.Context) error {
-	return payload.ValidateState(c.status)
+	return payloads.ValidateState(c.status)
 }

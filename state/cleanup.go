@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
+	statestorage "github.com/juju/juju/state/storage"
 )
 
 type cleanupKind string
@@ -263,8 +264,7 @@ func (st *State) cleanupResourceBlob(storagePath string) error {
 		return nil
 	}
 
-	persist := st.newPersistence()
-	storage := persist.NewStorage()
+	storage := statestorage.NewStorage(st.modelUUID(), st.MongoSession())
 	err := storage.Remove(storagePath)
 	if errors.IsNotFound(err) {
 		return nil

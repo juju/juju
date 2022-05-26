@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/api/client/payloads"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/payload"
+	corepayloads "github.com/juju/juju/core/payloads"
 )
 
 // ListAPI has the API methods needed by ListCommand.
 type ListAPI interface {
-	ListFull(patterns ...string) ([]payload.FullPayloadInfo, error)
+	ListFull(patterns ...string) ([]corepayloads.FullPayloadInfo, error)
 	io.Closer
 }
 

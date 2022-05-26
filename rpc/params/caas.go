@@ -8,7 +8,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
 )
 
@@ -123,8 +123,8 @@ func NewDockerImageInfo(info docker.ImageRepoDetails, registryPath string) Docke
 }
 
 // ConvertDockerImageInfo converts DockerImageInfo to resources.ImageRepoDetails.
-func ConvertDockerImageInfo(info DockerImageInfo) resource.DockerImageDetails {
-	return resource.DockerImageDetails{
+func ConvertDockerImageInfo(info DockerImageInfo) resources.DockerImageDetails {
+	return resources.DockerImageDetails{
 		RegistryPath: info.RegistryPath,
 		ImageRepoDetails: docker.ImageRepoDetails{
 			Repository:    info.Repository,

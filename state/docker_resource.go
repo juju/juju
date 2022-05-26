@@ -13,7 +13,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
 )
 
@@ -38,7 +38,7 @@ type dockerMetadataDoc struct {
 
 // DockerMetadataStorage provides the interface for storing Docker resource-type data
 type DockerMetadataStorage interface {
-	Save(resourceID string, drInfo resource.DockerImageDetails) error
+	Save(resourceID string, drInfo resources.DockerImageDetails) error
 	Remove(resourceID string) error
 	Get(resourceID string) (io.ReadCloser, int64, error)
 }
@@ -51,7 +51,7 @@ func NewDockerMetadataStorage(st *State) DockerMetadataStorage {
 }
 
 // Save creates a new record for a Docker resource.
-func (dr *dockerMetadataStorage) Save(resourceID string, drInfo resource.DockerImageDetails) error {
+func (dr *dockerMetadataStorage) Save(resourceID string, drInfo resources.DockerImageDetails) error {
 	doc := dockerMetadataDoc{
 		Id:           resourceID,
 		RegistryPath: drInfo.RegistryPath,
@@ -111,7 +111,7 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
-	details := resource.DockerImageDetails{
+	details := resources.DockerImageDetails{
 		RegistryPath: doc.RegistryPath,
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{

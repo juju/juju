@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -423,7 +423,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 		return fp
 	}
 
-	s.checkResources(c, "starsay", []resource.Resource{{
+	s.checkResources(c, "starsay", []resources.Resource{{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "install-resource",
@@ -472,19 +472,18 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 	}})
 }
 
-func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, app string, expected []resource.Resource) {
+func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, app string, expected []resources.Resource) {
 	_, err := s.State.Application(app)
 	c.Check(err, jc.ErrorIsNil)
-	st, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.State.Resources()
 	svcResources, err := st.ListResources(app)
 	c.Assert(err, jc.ErrorIsNil)
-	resources := svcResources.Resources
-	resource.Sort(resources)
-	c.Assert(resources, gc.HasLen, 3)
-	c.Check(resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
-	resources[2].Timestamp = time.Time{}
-	c.Assert(resources, jc.DeepEquals, expected)
+	res := svcResources.Resources
+	resources.Sort(res)
+	c.Assert(res, gc.HasLen, 3)
+	c.Check(res[2].Timestamp, gc.Not(gc.Equals), time.Time{})
+	res[2].Timestamp = time.Time{}
+	c.Assert(res, jc.DeepEquals, expected)
 }
 
 type BundleDeployCharmStoreSuite struct {

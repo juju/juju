@@ -4,14 +4,14 @@
 package payload
 
 import (
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 )
 
 type listFormatter struct {
-	payloads []payload.FullPayloadInfo
+	payloads []payloads.FullPayloadInfo
 }
 
-func newListFormatter(payloads []payload.FullPayloadInfo) *listFormatter {
+func newListFormatter(payloads []payloads.FullPayloadInfo) *listFormatter {
 	lf := listFormatter{
 		payloads: payloads,
 	}
@@ -31,7 +31,7 @@ func (lf *listFormatter) format() []FormattedPayload {
 }
 
 // FormatPayload converts the Payload into a FormattedPayload.
-func FormatPayload(payload payload.FullPayloadInfo) FormattedPayload {
+func FormatPayload(payload payloads.FullPayloadInfo) FormattedPayload {
 	var labels []string
 	if len(payload.Labels) > 0 {
 		labels = make([]string, len(payload.Labels))

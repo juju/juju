@@ -204,10 +204,7 @@ func deployResources(
 	if len(resources) == 0 {
 		return nil, nil
 	}
-	stRes, err := st.Resources()
-	if err != nil {
-		return nil, err
-	}
+	stRes := st.Resources()
 	ids = make(map[string]string)
 	for _, res := range resources {
 		content := res.Name + " content"

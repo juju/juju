@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -866,10 +867,18 @@ func GetInternalWorkers(st *State) worker.Worker {
 // ResourceStoragePath returns the path used to store resource content
 // in the managed blob store, given the resource ID.
 func ResourceStoragePath(c *gc.C, st *State, id string) string {
-	p := NewResourcePersistence(st.newPersistence())
-	_, storagePath, err := p.GetResource(id)
+	p := st.Resources().(*resourcePersistence)
+	_, storagePath, err := p.getResource(id)
 	c.Assert(err, jc.ErrorIsNil)
 	return storagePath
+}
+
+func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedResource {
+	persist := st.Resources().(*resourcePersistence)
+	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
+	r, err := persist.stageResource(res, storagePath)
+	c.Assert(err, jc.ErrorIsNil)
+	return r
 }
 
 // IsBlobStored returns true if a given storage path is in used in the
@@ -901,6 +910,22 @@ func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 			c.Fatalf("found cleanup of kind %q", kind)
 		}
 	}
+}
+
+// AssertNoCleanupsWithKind checks that there is at least
+// one cleanup of a given kind scheduled.
+func AssertCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
+	var docs []cleanupDoc
+	cleanups, closer := st.db().GetCollection(cleanupsC)
+	defer closer()
+	err := cleanups.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, doc := range docs {
+		if doc.Kind == kind {
+			return
+		}
+	}
+	c.Fatalf("found no cleanups of kind %q", kind)
 }
 
 // AssertNoCleanups checks that there are no cleanups scheduled.

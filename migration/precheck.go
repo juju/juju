@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
@@ -35,7 +34,6 @@ type PrecheckBackend interface {
 	AllRelations() ([]PrecheckRelation, error)
 	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
-	ListPendingResources(string) ([]resource.Resource, error)
 }
 
 // Pool defines the interface to a StatePool used by the migration

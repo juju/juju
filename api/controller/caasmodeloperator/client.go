@@ -8,7 +8,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -30,7 +30,7 @@ func NewClient(caller base.APICaller) *Client {
 // provisioning a caas model operator
 type ModelOperatorProvisioningInfo struct {
 	APIAddresses []string
-	ImageDetails resource.DockerImageDetails
+	ImageDetails resources.DockerImageDetails
 	Version      version.Number
 }
 
@@ -42,7 +42,7 @@ func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo,
 		return ModelOperatorProvisioningInfo{}, err
 	}
 	d := result.ImageDetails
-	imageRepo := resource.DockerImageDetails{
+	imageRepo := resources.DockerImageDetails{
 		RegistryPath: d.RegistryPath,
 		ImageRepoDetails: docker.ImageRepoDetails{
 			Repository:    d.Repository,

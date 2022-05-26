@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/state"
 )
 
@@ -23,7 +23,7 @@ import (
 // responsibility to close it.
 func NewResourceOpener(
 	st *state.State, resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string,
-) (opener resource.Opener, err error) {
+) (opener resources.Opener, err error) {
 	return newInternalResourceOpener(st, resourceDownloadLimiterFunc, unitName, "")
 }
 
@@ -31,7 +31,7 @@ func NewResourceOpener(
 //
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
-func NewResourceOpenerForApplication(st *state.State, applicationName string) (opener resource.Opener, err error) {
+func NewResourceOpenerForApplication(st *state.State, applicationName string) (opener resources.Opener, err error) {
 	return newInternalResourceOpener(st, func() ResourceDownloadLock {
 		return noopDownloadResourceLocker{}
 	}, "", applicationName)
@@ -50,7 +50,7 @@ func (noopDownloadResourceLocker) Release(appName string) {}
 
 func newInternalResourceOpener(
 	st *state.State, resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string, appName string,
-) (opener resource.Opener, err error) {
+) (opener resources.Opener, err error) {
 	var unit *state.Unit
 	if unitName != "" {
 		unit, err = st.Unit(unitName)
@@ -66,11 +66,6 @@ func newInternalResourceOpener(
 		appName = unit.ApplicationName()
 	}
 	application, err := st.Application(appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	resources, err := st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,7 +105,7 @@ func newInternalResourceOpener(
 	}
 
 	return &ResourceOpener{
-		resourceCache:               resources,
+		resourceCache:               st.Resources(),
 		modelUUID:                   st.ModelUUID(),
 		resourceClient:              resourceClient,
 		user:                        userID,
@@ -139,9 +134,9 @@ type ResourceOpener struct {
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err error) {
+func (ro *ResourceOpener) OpenResource(name string) (o resources.Opened, err error) {
 	if ro.appName == "" {
-		return resource.Opened{}, errors.Errorf("missing application")
+		return resources.Opened{}, errors.Errorf("missing application")
 	}
 
 	appKey := fmt.Sprintf("%s:%s", ro.modelUUID, ro.appName)
@@ -153,10 +148,10 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 	}
 	res, reader, err := ro.getResource(name, done)
 	if err != nil {
-		return resource.Opened{}, errors.Trace(err)
+		return resources.Opened{}, errors.Trace(err)
 	}
 
-	opened := resource.Opened{
+	opened := resources.Opened{
 		Resource:   res,
 		ReadCloser: reader,
 	}
@@ -174,7 +169,7 @@ var resourceMutex = kmutex.New()
 // If only the resource's details are in the cache (but not the actual
 // file) then the file is read from charmhub. In that case the
 // cache is updated to contain the file too.
-func (ro ResourceOpener) getResource(resName string, done func()) (_ resource.Resource, rdr io.ReadCloser, err error) {
+func (ro ResourceOpener) getResource(resName string, done func()) (_ resources.Resource, rdr io.ReadCloser, err error) {
 	defer func() {
 		if err == nil {
 			rdr = &resourceAccess{
@@ -193,7 +188,7 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resource.Re
 
 	res, reader, err := ro.get(resName)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 	if reader != nil {
 		// Both the info *and* the data were found in the cache.
@@ -205,7 +200,7 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resource.Re
 	// for the resource in the cache.
 
 	if res.Origin != charmresource.OriginStore {
-		return resource.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
+		return resources.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
 	}
 
 	id := CharmID{
@@ -223,14 +218,14 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resource.Re
 	// But for these cases, the next block will bubble an un-annotated error up.
 	if errors.IsNotFound(err) {
 		msg := "while getting resource from charmhub"
-		return resource.Resource{}, nil, errors.Annotate(err, msg)
+		return resources.Resource{}, nil, errors.Annotate(err, msg)
 	}
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 	res, reader, err = ro.set(data.Resource, data, state.DoNotIncrementCharmModifiedVersion)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	return res, reader, nil
@@ -239,9 +234,9 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resource.Re
 // get retrieves the resource info and data from a repo. If only
 // the info is found then the returned reader will be nil. If a
 // repo is not in use then errors.NotFound is returned.
-func (ro ResourceOpener) get(name string) (resource.Resource, io.ReadCloser, error) {
+func (ro ResourceOpener) get(name string) (resources.Resource, io.ReadCloser, error) {
 	if ro.resourceCache == nil {
-		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
+		return resources.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
 	res, reader, err := ro.open(name)
@@ -250,25 +245,25 @@ func (ro ResourceOpener) get(name string) (resource.Resource, io.ReadCloser, err
 		res, err = ro.resourceCache.GetResource(ro.appName, name)
 	}
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	return res, reader, nil
 }
 
-func (ro ResourceOpener) open(resName string) (resource.Resource, io.ReadCloser, error) {
+func (ro ResourceOpener) open(resName string) (resources.Resource, io.ReadCloser, error) {
 	if ro.unitName == "" {
 		return ro.resourceCache.OpenResource(ro.appName, resName)
 	}
-	return ro.resourceCache.OpenResourceForUniter(ro.appName, ro.unitName, resName)
+	return ro.resourceCache.OpenResourceForUniter(ro.unitName, resName)
 }
 
 // set stores the resource info and data in a repo, if there is one.
 // If no repo is in use then this is a no-op. Note that the returned
 // reader may or may not be the same one that was passed in.
-func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser, incrementCharmModifiedVersion state.IncrementCharmModifiedVersionType) (_ resource.Resource, _ io.ReadCloser, err error) {
+func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser, incrementCharmModifiedVersion state.IncrementCharmModifiedVersionType) (_ resources.Resource, _ io.ReadCloser, err error) {
 	if ro.resourceCache == nil {
-		res := resource.Resource{
+		res := resources.Resource{
 			Resource: chRes,
 		}
 		return res, reader, nil // a no-op
@@ -284,13 +279,13 @@ func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser,
 	appName := ro.appName
 	res, err := ro.resourceCache.SetResource(appName, ro.user.Id(), chRes, reader, incrementCharmModifiedVersion)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	// Make sure to use the potentially updated resource details.
 	res, reader, err = ro.open(res.Name)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 
 	return res, reader, nil

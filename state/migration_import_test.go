@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -636,8 +636,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 
-	rSt, err := newSt.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := newSt.Resources()
 	resources, err := rSt.ListResources(imported.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resources.Resources, gc.HasLen, 3)
@@ -2425,7 +2424,7 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	unitID := originalUnit.UnitTag().Id()
 	up, err := s.State.UnitPayloads(originalUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	original := payload.Payload{
+	original := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "something",
 			Type: "special",

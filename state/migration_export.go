@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payload"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
@@ -695,10 +695,7 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	resourcesSt, err := e.st.Resources()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	resourcesSt := e.st.Resources()
 
 	appOfferMap, err := e.groupOffersByApplicationName()
 	if err != nil {
@@ -768,8 +765,8 @@ func (e *exporter) storageConstraints(doc storageConstraintsDoc) map[string]desc
 	return result
 }
 
-func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, error) {
-	result := make(map[string][]payload.FullPayloadInfo)
+func (e *exporter) readAllPayloads() (map[string][]payloads.FullPayloadInfo, error) {
+	result := make(map[string][]payloads.FullPayloadInfo)
 	all, err := ModelPayloads{db: e.st.database}.ListAll()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -785,8 +782,8 @@ type addApplicationContext struct {
 	units            []*Unit
 	meterStatus      map[string]*meterStatusDoc
 	leader           string
-	payloads         map[string][]payload.FullPayloadInfo
-	resources        resource.ApplicationResources
+	payloads         map[string][]payloads.FullPayloadInfo
+	resources        resources.ApplicationResources
 	endpoingBindings map[string]bindingsMap
 
 	// CAAS
@@ -1098,7 +1095,7 @@ func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
 	return info.Message, nil
 }
 
-func (e *exporter) setResources(exApp description.Application, resources resource.ApplicationResources) error {
+func (e *exporter) setResources(exApp description.Application, resources resources.ApplicationResources) error {
 	if len(resources.Resources) != len(resources.CharmStoreResources) {
 		return errors.New("number of resources don't match charm store resources")
 	}
@@ -1133,7 +1130,7 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 	return nil
 }
 
-func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
+func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resources.UnitResources) {
 	for _, res := range findUnitResources(exUnit.Name(), allResources) {
 		exUnit.AddResource(description.UnitResourceArgs{
 			Name: res.Name,
@@ -1152,7 +1149,7 @@ func (e *exporter) setUnitResources(exUnit description.Unit, allResources []reso
 	}
 }
 
-func findUnitResources(unitName string, allResources []resource.UnitResources) []resource.Resource {
+func findUnitResources(unitName string, allResources []resources.UnitResources) []resources.Resource {
 	for _, unitResources := range allResources {
 		if unitResources.Tag.Id() == unitName {
 			return unitResources.Resources
@@ -1161,7 +1158,7 @@ func findUnitResources(unitName string, allResources []resource.UnitResources) [
 	return nil
 }
 
-func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payload.FullPayloadInfo) error {
+func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payloads.FullPayloadInfo) error {
 	if len(payloads) == 0 {
 		return nil
 	}

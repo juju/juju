@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/runner/jujuc/mocks"
 )
@@ -45,13 +45,13 @@ func (s *registerSuite) TestRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	hctx := mocks.NewMockContext(ctrl)
-	payload := payload.Payload{
+	payload := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 			Type: "type",
 		},
 		ID:     "id",
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Labels: []string{"tag1", "tag2"},
 		Unit:   "a-application/0",
 	}
@@ -100,13 +100,13 @@ func (s *registerSuite) TestRunError(c *gc.C) {
 	defer ctrl.Finish()
 
 	hctx := mocks.NewMockContext(ctrl)
-	payload := payload.Payload{
+	payload := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 			Type: "type",
 		},
 		ID:     "id",
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Labels: []string{"tag1", "tag2"},
 		Unit:   "a-application/0",
 	}

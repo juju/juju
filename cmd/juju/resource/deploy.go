@@ -20,7 +20,7 @@ import (
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 // DeployClient exposes the functionality of the resources API needed
@@ -143,13 +143,13 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 		case charmresource.TypeFile:
 			err = d.checkFile(name, value)
 		case charmresource.TypeContainerImage:
-			var dockerDetails resource.DockerImageDetails
+			var dockerDetails resources.DockerImageDetails
 			dockerDetails, err = getDockerDetailsData(value, d.filesystem.Open)
 			if err != nil {
 				return errors.Annotatef(err, "resource %q", name)
 			}
 			// At the moment this is the same validation that occurs in getDockerDetailsData
-			err = resource.CheckDockerDetails(name, dockerDetails)
+			err = resources.CheckDockerDetails(name, dockerDetails)
 		default:
 			return fmt.Errorf("unknown resource: %s", name)
 		}
@@ -249,7 +249,7 @@ func (d deployUploader) checkExpectedResources(filenames map[string]string, revi
 
 // getDockerDetailsData determines if path is a local file path and extracts the
 // details from that otherwise path is considered to be a registry path.
-func getDockerDetailsData(path string, osOpen osOpenFunc) (resource.DockerImageDetails, error) {
+func getDockerDetailsData(path string, osOpen osOpenFunc) (resources.DockerImageDetails, error) {
 	f, err := osOpen(path)
 	if err == nil {
 		defer f.Close()
@@ -258,17 +258,17 @@ func getDockerDetailsData(path string, osOpen osOpenFunc) (resource.DockerImageD
 			return details, errors.Trace(err)
 		}
 		return details, nil
-	} else if err := resource.ValidateDockerRegistryPath(path); err == nil {
-		return resource.DockerImageDetails{
+	} else if err := resources.ValidateDockerRegistryPath(path); err == nil {
+		return resources.DockerImageDetails{
 			RegistryPath: path,
 		}, nil
 	}
-	return resource.DockerImageDetails{}, errors.NotValidf("filepath or registry path: %s", path)
+	return resources.DockerImageDetails{}, errors.NotValidf("filepath or registry path: %s", path)
 
 }
 
-func unMarshalDockerDetails(data io.Reader) (resource.DockerImageDetails, error) {
-	var details resource.DockerImageDetails
+func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error) {
+	var details resources.DockerImageDetails
 	contents, err := ioutil.ReadAll(data)
 	if err != nil {
 		return details, errors.Trace(err)
@@ -287,8 +287,8 @@ func unMarshalDockerDetails(data io.Reader) (resource.DockerImageDetails, error)
 			return details, errors.New("expected json or yaml file containing oci-image registry details")
 		}
 	}
-	if err := resource.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
-		return resource.DockerImageDetails{}, err
+	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+		return resources.DockerImageDetails{}, err
 	}
 	return details, nil
 }
