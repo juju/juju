@@ -68,12 +68,12 @@ type RelationsFunc func() map[int]*RelationInfo
 
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit    *uniter.Unit
-	state   *uniter.State
+	unit      *uniter.Unit
+	state     *uniter.State
 	resources *uniter.ResourcesFacadeClient
 	payloads  *uniter.PayloadFacadeClient
-	secrets *secretsmanager.Client
-	tracker leadership.Tracker
+	secrets   *secretsmanager.Client
+	tracker   leadership.Tracker
 
 	logger loggo.Logger
 

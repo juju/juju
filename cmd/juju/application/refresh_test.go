@@ -857,7 +857,8 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
 				Risk:         "stable",
 			},
 		},
-		ResourceIDs: map[string]string{"bar": "barId"},
+		EndpointBindings: map[string]string{},
+		ResourceIDs:      map[string]string{"bar": "barId"},
 	})
 }
 
