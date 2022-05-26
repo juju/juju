@@ -73,6 +73,11 @@ type Resources interface {
 
 // Resources returns the resources functionality for the current state.
 func (st *State) Resources() Resources {
+	return st.resources()
+}
+
+// Resources returns the resources functionality for the current state.
+func (st *State) resources() *resourcePersistence {
 	return &resourcePersistence{
 		st:                    st,
 		storage:               storage.NewStorage(st.ModelUUID(), st.MongoSession()),

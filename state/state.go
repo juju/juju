@@ -1344,7 +1344,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		if len(args.Resources) > 0 {
 			// Collect pending resource resolution operations.
-			resources := st.Resources().(*resourcePersistence)
+			resources := st.resources()
 			resOps, err := resources.resolveApplicationPendingResourcesOps(args.Name, args.Resources)
 			if err != nil {
 				return nil, errors.Trace(err)

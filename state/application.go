@@ -619,7 +619,7 @@ func (op *DestroyApplicationOperation) unassignBranchOps() ([]txn.Op, error) {
 }
 
 func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
-	resources := st.Resources().(*resourcePersistence)
+	resources := st.resources()
 	ops, err := resources.removeResourcesOps(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2681,7 +2681,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 }
 
 func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
-	resources := st.Resources().(*resourcePersistence)
+	resources := st.resources()
 	ops, err := resources.removeUnitResourcesOps(unitID)
 	if err != nil {
 		return nil, errors.Trace(err)
