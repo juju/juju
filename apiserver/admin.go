@@ -104,7 +104,10 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	// Fetch the API server addresses from state.
 	// If the login comes from a client, return all available addresses.
 	// Otherwise return the addresses suitable for agent use.
-	ctrlSt := a.root.shared.statePool.SystemState()
+	ctrlSt, err := a.root.shared.statePool.SystemState()
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
 	getHostPorts := ctrlSt.APIHostPortsForAgents
 	if k, _ := names.TagKind(req.AuthTag); k == names.UserTagKind {
 		getHostPorts = ctrlSt.APIHostPortsForClients

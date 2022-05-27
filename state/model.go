@@ -329,7 +329,10 @@ func (m ModelArgs) Validate() error {
 // models, perhaps for future use around cross model
 // relations.
 func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
-	st := ctlr.pool.SystemState()
+	st, err := ctlr.pool.SystemState()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	if err := args.Validate(); err != nil {
 		return nil, nil, errors.Trace(err)

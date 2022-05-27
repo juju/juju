@@ -67,10 +67,12 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
+	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
+	c.Assert(err, jc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
-		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

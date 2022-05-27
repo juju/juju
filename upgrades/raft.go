@@ -190,7 +190,10 @@ func MigrateLegacyLeases(context Context) error {
 	}
 
 	entries := make(map[raftlease.SnapshotKey]raftlease.SnapshotEntry, len(legacyLeases))
-	target := st.LeaseNotifyTarget(logger)
+	target, err := st.LeaseNotifyTarget(logger)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Populate the snapshot and the leaseholders collection.
 	for key, info := range legacyLeases {

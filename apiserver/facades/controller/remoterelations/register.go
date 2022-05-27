@@ -34,9 +34,13 @@ func newAPIv1(ctx facade.Context) (*APIv1, error) {
 
 // newAPI creates a new server-side API facade backed by global state.
 func newAPI(ctx facade.Context) (*API, error) {
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		common.NewStateControllerConfig(ctx.StatePool().SystemState()),
+		common.NewStateControllerConfig(systemState),
 		ctx.Resources(), ctx.Auth(),
 	)
 }

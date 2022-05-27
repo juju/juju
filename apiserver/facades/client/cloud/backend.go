@@ -88,7 +88,7 @@ type ModelPoolBackend interface {
 	GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error)
 
 	// SystemState allows access to an underlying controller state.
-	SystemState() *state.State
+	SystemState() (*state.State, error)
 }
 
 type statePoolShim struct {

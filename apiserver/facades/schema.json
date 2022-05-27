@@ -10327,7 +10327,10 @@
         "Description": "API represents the controller model operator facade.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",
@@ -18966,6 +18969,9 @@
         "Description": "CloudAPI implements the cloud interface and is the concrete implementation\nof the api end point.",
         "Version": 7,
         "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
             "controller-user"
         ],
         "Schema": {
@@ -29295,7 +29301,9 @@
         "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
-            "machine-agent"
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",

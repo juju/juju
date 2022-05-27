@@ -47,7 +47,10 @@ func newMigrationMasterFacadeV2(ctx facade.Context) (*APIV2, error) {
 // newMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
-	controllerState := ctx.StatePool().SystemState()
+	controllerState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating precheck backend")

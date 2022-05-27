@@ -134,7 +134,11 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
 
-	urlGetter := common.NewToolsURLGetter(model.UUID(), ctx.StatePool().SystemState())
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 	callCtx := context.CallContext(st)
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
@@ -144,7 +148,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
 		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:            common.NewAPIAddresser(ctx.StatePool().SystemState(), resources),
+		APIAddresser:            common.NewAPIAddresser(systemState, resources),
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
