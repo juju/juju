@@ -413,7 +413,7 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
 
     def success_hook():
         dump_success_logs()
-        caas_client.ensure_cleanup()
+        caas_client.ensure_cleanup()  # see comment on keep_env below
 
     def fail_hook():
         dump_success_logs()
