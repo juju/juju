@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	activeState           = "active"
-	availableState        = "available"
-	localRouteGatewayID   = "local"
-	defaultRouteCIDRBlock = "0.0.0.0/0"
-	vpcIDNone             = "none"
+	activeState               = "active"
+	availableState            = "available"
+	localRouteGatewayID       = "local"
+	defaultRouteCIDRBlock     = "0.0.0.0/0"
+	defaultRouteIPv6CIDRBlock = "::/0"
+	vpcIDNone                 = "none"
 )
 
 var (
