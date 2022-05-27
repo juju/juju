@@ -602,7 +602,10 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 		"baz": "qux",
 	})
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -705,7 +708,10 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 		"baz": "qux",
 	})
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -3997,14 +4003,15 @@ func (s *upgradesSuite) TestRemoveControllerConfigMaxLogAgeAndSize(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestIncrementTaskSequence(c *gc.C) {
-	st := s.pool.SystemState()
+	st, err := s.pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	st1 := s.newState(c)
 	st2 := s.newState(c)
 	sequenceColl, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
 
 	// No tasks sequence requests, so no update.
-	err := IncrementTasksSequence(s.pool)
+	err = IncrementTasksSequence(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, s := range []*State{st, st1, st2} {
 		n, err := sequenceColl.FindId(s.ModelUUID() + ":tasks").Count()
@@ -5051,7 +5058,10 @@ func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsCertificate(c 
 	}}
 
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyKubernetesCloudCredentials(st)
 	}
 	s.assertUpgradedData(c, f,
@@ -5122,7 +5132,10 @@ func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsOAuth2(c *gc.C
 	}}
 
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyKubernetesCloudCredentials(st)
 	}
 	s.assertUpgradedData(c, f,
@@ -5195,7 +5208,10 @@ func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsOAuth2Cert(c *
 	}}
 
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyKubernetesCloudCredentials(st)
 	}
 	s.assertUpgradedData(c, f,

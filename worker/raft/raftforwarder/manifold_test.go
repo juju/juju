@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/raft/raftforwarder"
@@ -29,6 +30,7 @@ import (
 
 type manifoldSuite struct {
 	testing.IsolationSuite
+	statetesting.StateSuite
 
 	context  dependency.Context
 	manifold dependency.Manifold
@@ -51,13 +53,15 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.stub.ResetCalls()
 
-	s.stateTracker = &stubStateTracker{
-		done: make(chan struct{}),
-	}
-
 	s.raft = &raft.Raft{}
 	s.hub = &pubsub.StructuredHub{}
 
+	s.StateSuite.SetUpTest(c)
+
+	s.stateTracker = &stubStateTracker{
+		pool: s.StatePool,
+		done: make(chan struct{}),
+	}
 	s.worker = &mockWorker{}
 	s.logger = loggo.GetLogger("juju.worker.raftforwarder_test")
 	s.target = &struct{ raftlease.NotifyTarget }{}
@@ -74,6 +78,27 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 		NewTarget:            s.newTarget,
 	}
 	s.manifold = raftforwarder.Manifold(s.config)
+
+}
+
+func (s *manifoldSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+
+	err := testing.MgoServer.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.IsolationSuite.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })
+
+	s.StateSuite.SetUpSuite(c)
+}
+
+func (s *manifoldSuite) TearDownSuite(c *gc.C) {
+	s.StateSuite.TearDownSuite(c)
+	s.IsolationSuite.TearDownSuite(c)
+}
+
+func (s *manifoldSuite) TearDownTest(c *gc.C) {
+	s.StateSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
@@ -167,7 +192,9 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 2)
-	c.Assert(args[0], gc.Equals, s.stateTracker.pool.SystemState())
+	systemState, err := s.stateTracker.pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(args[0], gc.Equals, systemState)
 	var logWriter raftleasestore.Logger
 	c.Assert(args[1], gc.Implements, &logWriter)
 
@@ -207,13 +234,13 @@ func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool state.StatePool
+	pool *state.StatePool
 	done chan struct{}
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
+	return s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

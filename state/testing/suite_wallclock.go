@@ -56,7 +56,9 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 		s.Controller.Close()
 	})
 	s.StatePool = s.Controller.StatePool()
-	s.State = s.StatePool.SystemState()
+	var err error
+	s.State, err = s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.Model = model

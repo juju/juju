@@ -30,10 +30,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.logger = loggo.GetLogger("test")
 	s.logger.SetLogLevel(loggo.TRACE)
 
+	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
+	c.Assert(err, jc.ErrorIsNil)
 	s.config = multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               s.logger,
-		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	}
 }

@@ -79,11 +79,15 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, err
 	}
 
+	systemState, err := context.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
-		APIAddresser:               common.NewAPIAddresser(context.StatePool().SystemState(), resources),
+		APIAddresser:               common.NewAPIAddresser(systemState, resources),
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),

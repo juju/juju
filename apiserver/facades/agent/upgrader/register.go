@@ -45,7 +45,10 @@ func newUpgraderFacade(ctx facade.Context) (Upgrader, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ctrlSt := ctx.StatePool().SystemState()
+	ctrlSt, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	resources := ctx.Resources()
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:

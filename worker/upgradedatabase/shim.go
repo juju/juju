@@ -72,7 +72,10 @@ type pool struct {
 // IsPrimary (Pool) returns true if the Mongo primary is
 // running on the controller with the input ID.
 func (p *pool) IsPrimary(controllerId string) (bool, error) {
-	st := p.SystemState()
+	st, err := p.SystemState()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 
 	// For IAAS models, controllers are machines.
 	// For CAAS models, until we support HA, there is only one Mongo
@@ -95,7 +98,11 @@ func (p *pool) IsPrimary(controllerId string) (bool, error) {
 }
 
 func (p *pool) hasMachine() (bool, error) {
-	model, err := p.SystemState().Model()
+	systemState, err := p.SystemState()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	model, err := systemState.Model()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -113,7 +120,11 @@ func (p *pool) SetStatus(controllerId string, sts status.Status, msg string) err
 		// Nothing we can do for now because we do not have any machine for CAAS controller.
 		return nil
 	}
-	machine, err := p.SystemState().Machine(controllerId)
+	systemState, err := p.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := systemState.Machine(controllerId)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -129,6 +140,10 @@ func (p *pool) SetStatus(controllerId string, sts status.Status, msg string) err
 // EnsureUpgradeInfo (Pool) ensures that a document exists in the "upgradeInfo"
 // collection for coordinating the current upgrade.
 func (p *pool) EnsureUpgradeInfo(controllerId string, fromVersion, toVersion version.Number) (UpgradeInfo, error) {
-	info, err := p.SystemState().EnsureUpgradeInfo(controllerId, fromVersion, toVersion)
+	systemState, err := p.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info, err := systemState.EnsureUpgradeInfo(controllerId, fromVersion, toVersion)
 	return info, errors.Trace(err)
 }

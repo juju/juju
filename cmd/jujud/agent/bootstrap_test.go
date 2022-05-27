@@ -171,7 +171,9 @@ func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return pool.SystemState(), func() { pool.Close() }
+	systemState, err := pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	return systemState, func() { pool.Close() }
 }
 
 func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {

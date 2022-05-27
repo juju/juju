@@ -37,8 +37,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		NewWorker: func(multiwatcher.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},
-		NewAllWatcher: func(*state.StatePool) state.AllWatcherBacking {
-			return &fakeAllWatcher{}
+		NewAllWatcher: func(*state.StatePool) (state.AllWatcherBacking, error) {
+			return &fakeAllWatcher{}, nil
 		},
 	}
 }

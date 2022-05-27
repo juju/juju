@@ -147,7 +147,10 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	st := statePool.SystemState()
+	st, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// We require the controller config to get the
 	controllerConfig, err := st.ControllerConfig()
