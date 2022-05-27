@@ -505,7 +505,8 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 				return errUpToDate
 			}
 		}
-		if packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent(); packagedAgentErr != nil {
+		packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent()
+		if packagedAgentErr != nil && packagedAgentErr != errUpToDate {
 			ctx.Verbosef("%v", packagedAgentErr)
 		}
 		uploadLocalBinary = isControllerModel && packagedAgentErr != nil && tryImplicit
@@ -1002,10 +1003,15 @@ func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 			return nil
 		}
 		newestCurrent, found := context.packagedAgents.NewestCompatible(context.agent)
-		if found && newestCurrent.Compare(context.agent) > 0 {
-			logger.Debugf("found more recent current version %s", newestCurrent)
-			context.chosen = newestCurrent
-			return nil
+		if found {
+			if newestCurrent.Compare(context.agent) == 0 {
+				return errUpToDate
+			}
+			if newestCurrent.Compare(context.agent) > 0 {
+				context.chosen = newestCurrent
+				logger.Debugf("found more recent current version %s", newestCurrent)
+				return nil
+			}
 		}
 		if context.agent.Major != context.client.Major {
 			return errors.New("no compatible agent versions available")

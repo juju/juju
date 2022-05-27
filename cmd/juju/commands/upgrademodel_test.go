@@ -170,7 +170,7 @@ var upgradeJujuTests = []upgradeTest{{
 	available:      []string{"2.8.2-ubuntu-amd64"},
 	currentVersion: "3.0.2-ubuntu-amd64",
 	agentVersion:   "2.8.2",
-	expectErr:      "no compatible agent versions available",
+	expectVersion:  "2.8.2",
 }, {
 	about:          "latest current release matching CLI, major version, no matching agent binaries",
 	available:      []string{"3.3.0-ubuntu-amd64"},
