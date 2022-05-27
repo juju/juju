@@ -484,8 +484,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		return err
 	}
 
-	tryImplicit := implicitUploadAllowed && len(upgradeCtx.packagedAgents) == 0
-
+	tryImplicit := implicitUploadAllowed && !upgradeCtx.isClientPublished()
 	// Look for any packaged binaries but only if we haven't been asked to build an agent.
 	var packagedAgentErr error
 	uploadLocalBinary := false
@@ -506,7 +505,8 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 				return errUpToDate
 			}
 		}
-		if packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent(); packagedAgentErr != nil {
+		packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent()
+		if packagedAgentErr != nil && packagedAgentErr != errUpToDate {
 			ctx.Verbosef("%v", packagedAgentErr)
 		}
 		uploadLocalBinary = isControllerModel && packagedAgentErr != nil && tryImplicit
@@ -881,6 +881,15 @@ type upgradeContext struct {
 	config         *config.Config
 }
 
+func (context *upgradeContext) isClientPublished() bool {
+	for _, v := range context.packagedAgents {
+		if v.AgentVersion().Compare(context.client) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // uploadTools compiles jujud from $GOPATH and uploads it into the supplied
 // storage. If no version has been explicitly chosen, the version number
 // reported by the built tools will be based on the client version number.
@@ -991,27 +1000,31 @@ func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 		if found {
 			logger.Debugf("found a more recent stable version %s", newestNextStable)
 			context.chosen = newestNextStable
-		} else {
-			newestCurrent, found := context.packagedAgents.NewestCompatible(context.agent)
-			if found {
-				logger.Debugf("found more recent current version %s", newestCurrent)
+			return nil
+		}
+		newestCurrent, found := context.packagedAgents.NewestCompatible(context.agent)
+		if found {
+			if newestCurrent.Compare(context.agent) == 0 {
+				return errUpToDate
+			}
+			if newestCurrent.Compare(context.agent) > 0 {
 				context.chosen = newestCurrent
-			} else {
-				if context.agent.Major != context.client.Major {
-					return errors.New("no compatible agent versions available")
-				} else {
-					return errors.New("no more recent supported versions available")
-				}
+				logger.Debugf("found more recent current version %s", newestCurrent)
+				return nil
 			}
 		}
-	} else {
-		// If not completely specified already, pick a single tools version.
-		filter := coretools.Filter{Number: context.chosen}
-		if context.packagedAgents, err = context.packagedAgents.Match(filter); err != nil {
-			return errors.Wrap(err, errors.New("no matching agent versions available"))
+		if context.agent.Major != context.client.Major {
+			return errors.New("no compatible agent versions available")
 		}
-		context.chosen, context.packagedAgents = context.packagedAgents.Newest()
+		return errors.New("no more recent supported versions available")
 	}
+
+	// If not completely specified already, pick a single tools version.
+	filter := coretools.Filter{Number: context.chosen}
+	if context.packagedAgents, err = context.packagedAgents.Match(filter); err != nil {
+		return errors.Wrap(err, errors.New("no matching agent versions available"))
+	}
+	context.chosen, context.packagedAgents = context.packagedAgents.Newest()
 	return nil
 }
 
