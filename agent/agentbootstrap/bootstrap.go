@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
@@ -501,7 +501,7 @@ func initControllerCloudService(
 		// this should never happen.
 		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
 	}
-	svc, err := broker.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, true)
+	svc, err := broker.GetService(k8sconstants.JujuControllerStackName, caas.ModeWorkload, true)
 	if err != nil {
 		return errors.Trace(err)
 	}

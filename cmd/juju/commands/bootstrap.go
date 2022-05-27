@@ -27,7 +27,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -1050,7 +1049,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	} else if env, ok := environ.(caas.ServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
-		svc, err = env.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, false)
+		svc, err = env.GetService(k8sconstants.JujuControllerStackName, caas.ModeWorkload, false)
 		if err != nil {
 			return errors.Trace(err)
 		}

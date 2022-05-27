@@ -50,6 +50,12 @@ const (
 
 	// CAASImageRepoSecretName is the name of the secret for image pull.
 	CAASImageRepoSecretName = "juju-image-pull-secret"
+
+	// JujuControllerStackName is the juju CAAS controller stack name.
+	JujuControllerStackName = "controller"
+
+	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
+	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
 )
 
 // DefaultPropagationPolicy returns the default propagation policy.
