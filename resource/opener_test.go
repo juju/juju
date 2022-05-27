@@ -18,7 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/mocks"
 	"github.com/juju/juju/state"
@@ -42,7 +42,7 @@ var _ = gc.Suite(&OpenerSuite{})
 func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -70,7 +70,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -127,7 +127,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 	defer s.setupMocks(c, false).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -179,15 +179,15 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	return ctrl
 }
 
-func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurrentRequests int) {
+func (s *OpenerSuite) expectCacheMethods(res resources.Resource, numConcurrentRequests int) {
 	if s.unitName != "" {
-		s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").DoAndReturn(func(appName, unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
+		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (resources.Resource, io.ReadCloser, error) {
 			s.unleash.Lock()
 			defer s.unleash.Unlock()
-			return coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+			return resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
 		})
 	} else {
-		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
+		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
 	}
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
 	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(res, nil)
@@ -195,7 +195,7 @@ func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurren
 	other := res
 	other.ApplicationID = "postgreql"
 	if s.unitName != "" {
-		s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
+		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
 	} else {
 		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
 	}
@@ -204,7 +204,7 @@ func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurren
 func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -217,10 +217,10 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.resources.EXPECT().OpenResourceForUniter("postgresql", "postgresql/0", "wal-e").DoAndReturn(func(appName, unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
+	s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (resources.Resource, io.ReadCloser, error) {
 		s.unleash.Lock()
 		defer s.unleash.Unlock()
-		return coreresource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+		return resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
 	})
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
 	const retryCount = 3
@@ -231,7 +231,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	opened, err := s.newOpener(-1).OpenResource("wal-e")
 	c.Assert(err, gc.ErrorMatches, "failed after retrying: boom")
 	c.Check(opened, gc.NotNil)
-	c.Check(opened.Resource, gc.DeepEquals, coreresource.Resource{})
+	c.Check(opened.Resource, gc.DeepEquals, resources.Resource{})
 	c.Check(opened.ReadCloser, gc.IsNil)
 }
 

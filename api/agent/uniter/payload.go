@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -27,7 +27,7 @@ func NewPayloadFacadeClient(caller base.APICaller) *PayloadFacadeClient {
 }
 
 // Track calls the Track API server method.
-func (c PayloadFacadeClient) Track(payloads ...payload.Payload) ([]payload.Result, error) {
+func (c PayloadFacadeClient) Track(payloads ...payloads.Payload) ([]payloads.Result, error) {
 	args := payloads2TrackArgs(payloads)
 
 	var rs params.PayloadResults
@@ -39,7 +39,7 @@ func (c PayloadFacadeClient) Track(payloads ...payload.Payload) ([]payload.Resul
 }
 
 // List calls the List API server method.
-func (c PayloadFacadeClient) List(fullIDs ...string) ([]payload.Result, error) {
+func (c PayloadFacadeClient) List(fullIDs ...string) ([]payloads.Result, error) {
 	var ids []string
 	if len(fullIDs) > 0 {
 		actual, err := c.lookUp(fullIDs)
@@ -59,7 +59,7 @@ func (c PayloadFacadeClient) List(fullIDs ...string) ([]payload.Result, error) {
 }
 
 // LookUp calls the LookUp API server method.
-func (c PayloadFacadeClient) LookUp(fullIDs ...string) ([]payload.Result, error) {
+func (c PayloadFacadeClient) LookUp(fullIDs ...string) ([]payloads.Result, error) {
 	if len(fullIDs) == 0 {
 		// Unlike List(), LookUp doesn't fall back to looking up all IDs.
 		return nil, nil
@@ -75,7 +75,7 @@ func (c PayloadFacadeClient) LookUp(fullIDs ...string) ([]payload.Result, error)
 }
 
 // SetStatus calls the SetStatus API server method.
-func (c PayloadFacadeClient) SetStatus(status string, fullIDs ...string) ([]payload.Result, error) {
+func (c PayloadFacadeClient) SetStatus(status string, fullIDs ...string) ([]payloads.Result, error) {
 	ids, err := c.lookUp(fullIDs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -91,7 +91,7 @@ func (c PayloadFacadeClient) SetStatus(status string, fullIDs ...string) ([]payl
 }
 
 // Untrack calls the Untrack API server method.
-func (c PayloadFacadeClient) Untrack(fullIDs ...string) ([]payload.Result, error) {
+func (c PayloadFacadeClient) Untrack(fullIDs ...string) ([]payloads.Result, error) {
 	ids, err := c.lookUp(fullIDs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -123,8 +123,8 @@ func (c PayloadFacadeClient) lookUp(fullIDs []string) ([]string, error) {
 	return ids, nil
 }
 
-func api2results(rs params.PayloadResults) ([]payload.Result, error) {
-	var results []payload.Result
+func api2results(rs params.PayloadResults) ([]payloads.Result, error) {
+	var results []payloads.Result
 	for _, r := range rs.Results {
 		result, err := api2Result(r)
 		if err != nil {
@@ -136,9 +136,9 @@ func api2results(rs params.PayloadResults) ([]payload.Result, error) {
 	return results, nil
 }
 
-// api2Result converts the API result to a payload.Result.
-func api2Result(r params.PayloadResult) (payload.Result, error) {
-	result := payload.Result{
+// api2Result converts the API result to a payloads.Result.
+func api2Result(r params.PayloadResult) (payloads.Result, error) {
+	result := payloads.Result{
 		NotFound: r.NotFound,
 	}
 
@@ -165,10 +165,10 @@ func api2Result(r params.PayloadResult) (payload.Result, error) {
 
 // payloads2TrackArgs converts the provided payload info into arguments
 // for the Track API endpoint.
-func payloads2TrackArgs(payloads []payload.Payload) params.TrackPayloadArgs {
+func payloads2TrackArgs(payloadInfo []payloads.Payload) params.TrackPayloadArgs {
 	var args params.TrackPayloadArgs
-	for _, pl := range payloads {
-		fullPayload := payload.FullPayloadInfo{Payload: pl}
+	for _, pl := range payloadInfo {
+		fullPayload := payloads.FullPayloadInfo{Payload: pl}
 		arg := api.Payload2api(fullPayload)
 		args.Payloads = append(args.Payloads, arg)
 	}
@@ -180,7 +180,7 @@ func payloads2TrackArgs(payloads []payload.Payload) params.TrackPayloadArgs {
 func fullIDs2LookUpArgs(fullIDs []string) params.LookUpPayloadArgs {
 	var args params.LookUpPayloadArgs
 	for _, fullID := range fullIDs {
-		name, rawID := payload.ParseID(fullID)
+		name, rawID := payloads.ParseID(fullID)
 		args.Args = append(args.Args, params.LookUpPayloadArg{
 			Name: name,
 			ID:   rawID,

@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -21,14 +21,14 @@ type helpersSuite struct {
 var _ = gc.Suite(&helpersSuite{})
 
 func (helpersSuite) TestPayload2api(c *gc.C) {
-	apiPayload := Payload2api(payload.FullPayloadInfo{
-		Payload: payload.Payload{
+	apiPayload := Payload2api(payloads.FullPayloadInfo{
+		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: "spam",
 				Type: "docker",
 			},
 			ID:     "idspam",
-			Status: payload.StateRunning,
+			Status: payloads.StateRunning,
 			Labels: []string{"a-tag"},
 			Unit:   "a-application/0",
 		},
@@ -39,7 +39,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
-		Status:  payload.StateRunning,
+		Status:  payloads.StateRunning,
 		Labels:  []string{"a-tag"},
 		Unit:    names.NewUnitTag("a-application/0").String(),
 		Machine: names.NewMachineTag("1").String(),
@@ -51,21 +51,21 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
-		Status:  payload.StateRunning,
+		Status:  payloads.StateRunning,
 		Labels:  []string{"a-tag"},
 		Unit:    names.NewUnitTag("a-application/0").String(),
 		Machine: names.NewMachineTag("1").String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(pl, jc.DeepEquals, payload.FullPayloadInfo{
-		Payload: payload.Payload{
+	c.Check(pl, jc.DeepEquals, payloads.FullPayloadInfo{
+		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: "spam",
 				Type: "docker",
 			},
 			ID:     "idspam",
-			Status: payload.StateRunning,
+			Status: payloads.StateRunning,
 			Labels: []string{"a-tag"},
 			Unit:   "a-application/0",
 		},

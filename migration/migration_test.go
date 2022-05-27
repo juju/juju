@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
@@ -182,7 +182,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		{ApplicationRevision: app0Res},
 		{
 			ApplicationRevision: app1Res,
-			UnitRevisions:       map[string]resource.Resource{"app1/99": app1UnitRes},
+			UnitRevisions:       map[string]resources.Resource{"app1/99": app1UnitRes},
 		},
 		{ApplicationRevision: app2Res},
 	}
@@ -314,7 +314,7 @@ func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, e
 	return &outU, nil
 }
 
-func (f *fakeUploader) UploadResource(res resource.Resource, r io.ReadSeeker) error {
+func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) error {
 	body, err := ioutil.ReadAll(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -323,12 +323,12 @@ func (f *fakeUploader) UploadResource(res resource.Resource, r io.ReadSeeker) er
 	return nil
 }
 
-func (f *fakeUploader) SetPlaceholderResource(res resource.Resource) error {
+func (f *fakeUploader) SetPlaceholderResource(res resources.Resource) error {
 	f.resources[res.ApplicationID+"/"+res.Name] = "<placeholder>"
 	return nil
 }
 
-func (f *fakeUploader) SetUnitResource(unit string, res resource.Resource) error {
+func (f *fakeUploader) SetUnitResource(unit string, res resources.Resource) error {
 	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
 }

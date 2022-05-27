@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	coreresource "github.com/juju/juju/core/resource"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/testing"
@@ -196,7 +196,7 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	labels := map[string]string{"operator.juju.is/name": "gitlab", "operator.juju.is/target": "application"}
 	pod, err := provider.OperatorPod(
 		"gitlab", "gitlab", "10666", "/var/lib/juju",
-		coreresource.DockerImageDetails{RegistryPath: "jujusolutions/jujud-operator"},
+		coreresources.DockerImageDetails{RegistryPath: "jujusolutions/jujud-operator"},
 		labels, tags, "operator-service-account",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,7 +362,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresource.DockerImageDetails{RegistryPath: "/path/to/image"},
+		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
 		Version:      version.MustParse("2.99.0"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
@@ -477,7 +477,7 @@ func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo 
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(statefulSetArg, nil),
 	)
-	imageDetails := coreresource.DockerImageDetails{RegistryPath: "/path/to/image"}
+	imageDetails := coreresources.DockerImageDetails{RegistryPath: "/path/to/image"}
 	if isPrivateImageRepo {
 		imageDetails.BasicAuthConfig.Auth = docker.NewToken("xxxxxxxx===")
 	}
@@ -620,7 +620,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	errChan := make(chan error)
 	go func() {
 		errChan <- s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-			ImageDetails: coreresource.DockerImageDetails{RegistryPath: "/path/to/image"},
+			ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
 			Version:      version.MustParse("2.99.0"),
 			AgentConf:    []byte("agent-conf-data"),
 			OperatorInfo: []byte("operator-info-data"),
@@ -768,7 +768,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresource.DockerImageDetails{RegistryPath: "/path/to/image"},
+		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
 		Version:      version.MustParse("2.99.0"),
 		AgentConf:    []byte("agent-conf-data"),
 		OperatorInfo: []byte("operator-info-data"),
@@ -883,7 +883,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresource.DockerImageDetails{RegistryPath: "/path/to/image"},
+		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
 		Version:      version.MustParse("2.99.0"),
 		AgentConf:    []byte("agent-conf-data"),
 		OperatorInfo: []byte("operator-info-data"),
@@ -983,7 +983,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresource.DockerImageDetails{RegistryPath: "/path/to/image"},
+		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
 		Version:      version.MustParse("2.99.0"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",

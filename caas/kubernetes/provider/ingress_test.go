@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
 )
@@ -37,7 +37,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8ss
 		},
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec(
-		"app-name", "app-name", basicPodSpec, resource.DockerImageDetails{RegistryPath: "operator/image-path"},
+		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
@@ -118,7 +118,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8ss
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 		},
-		ImageDetails: resource.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, e string, _ map[string]interface{}) error {

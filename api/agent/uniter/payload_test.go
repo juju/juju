@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -38,7 +38,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Class:  "foobar",
 		Type:   "type",
 		ID:     "idfoo",
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 	}
 
 }
@@ -71,7 +71,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
@@ -112,7 +112,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 
 	expected, err := api.API2Payload(s.payload)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  &expected,
 		NotFound: false,
@@ -160,7 +160,7 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	results, err := pclient.LookUp("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
@@ -216,7 +216,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	c.Assert(results, gc.HasLen, 3)
 	c.Assert(results[1].Error, gc.NotNil)
 	results[1].Error = nil
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID:       id1,
 		Payload:  nil,
 		NotFound: false,
@@ -279,10 +279,10 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	s.facade.responses = append(s.facade.responses, responses...)
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
-	results, err := pclient.SetStatus(payload.StateRunning, "idfoo/bar")
+	results, err := pclient.SetStatus(payloads.StateRunning, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
@@ -345,7 +345,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	results, err := pclient.Untrack("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,

@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
@@ -713,10 +713,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
-			rst, err := st.Resources()
-			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
-			}
+			rst := st.Resources()
 			return rst, st, entity.Tag(), nil
 		},
 		ChangeAllowedFunc: func(req *http.Request) error {
@@ -732,7 +729,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	}
 	unitResourcesHandler := &UnitResourcesHandler{
-		NewOpener: func(req *http.Request, tagKinds ...string) (coreresource.Opener, state.PoolHelper, error) {
+		NewOpener: func(req *http.Request, tagKinds ...string) (resources.Opener, state.PoolHelper, error) {
 			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, errors.Trace(err)

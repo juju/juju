@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names/v4"
 
 	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -25,19 +25,19 @@ import (
 // ResourcesBackend is the functionality of Juju's state needed for the resources API.
 type ResourcesBackend interface {
 	// OpenResource returns the identified resource and its content.
-	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(applicationID, name string) (resources.Resource, io.ReadCloser, error)
 
 	// GetResource returns the identified resource.
-	GetResource(applicationID, name string) (resource.Resource, error)
+	GetResource(applicationID, name string) (resources.Resource, error)
 
 	// GetPendingResource returns the identified resource.
-	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
+	GetPendingResource(applicationID, name, pendingID string) (resources.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resources.Resource, error)
 
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
-	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resources.Resource, error)
 }
 
 // ResourcesHandler is the HTTP handler for client downloads and
@@ -119,7 +119,7 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 	}
 
 	// UpdatePendingResource does the same as SetResource (just calls setResource) except SetResouce just blanks PendingID.
-	var stored resource.Resource
+	var stored resources.Resource
 	if uploaded.PendingID != "" {
 		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
 	} else {
@@ -158,7 +158,7 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var res resource.Resource
+	var res resources.Resource
 	if uReq.PendingID != "" {
 		res, err = backend.GetPendingResource(uReq.Application, uReq.Name, uReq.PendingID)
 	} else {

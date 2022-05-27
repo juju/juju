@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,7 +29,7 @@ func NewClient(apiCaller base.APICallCloser) *Client {
 }
 
 // ListFull calls the List API server method.
-func (c Client) ListFull(patterns ...string) ([]payload.FullPayloadInfo, error) {
+func (c Client) ListFull(patterns ...string) ([]payloads.FullPayloadInfo, error) {
 	var result params.PayloadListResults
 
 	args := params.PayloadListArgs{
@@ -39,7 +39,7 @@ func (c Client) ListFull(patterns ...string) ([]payload.FullPayloadInfo, error) 
 		return nil, errors.Trace(err)
 	}
 
-	payloads := make([]payload.FullPayloadInfo, len(result.Results))
+	payloads := make([]payloads.FullPayloadInfo, len(result.Results))
 	for i, apiInfo := range result.Results {
 		payload, err := API2Payload(apiInfo)
 		if err != nil {

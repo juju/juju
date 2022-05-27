@@ -25,7 +25,7 @@ import (
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -45,7 +45,7 @@ type ApplicationWorkerSuite struct {
 
 	appCharmInfo        *charmscommon.CharmInfo
 	appProvisioningInfo api.ProvisioningInfo
-	ociResources        map[string]resource.DockerImageDetails
+	ociResources        map[string]resources.DockerImageDetails
 }
 
 func (s *ApplicationWorkerSuite) SetUpTest(c *gc.C) {
@@ -116,7 +116,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 		Trust: true,
 		Scale: 3,
 	}
-	s.ociResources = map[string]resource.DockerImageDetails{
+	s.ociResources = map[string]resources.DockerImageDetails{
 		"test-oci": {
 			RegistryPath: "some/test:img",
 		},
@@ -182,7 +182,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 						Containers: map[string]caas.ContainerConfig{
 							name: {
 								Name: name,
-								Image: resource.DockerImageDetails{
+								Image: resources.DockerImageDetails{
 									RegistryPath: "some/test:img",
 								},
 							},
@@ -377,7 +377,7 @@ func (s *ApplicationWorkerSuite) assertWorker(c *gc.C, name string) {
 		tc.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
 		}),
-		tc.facade.EXPECT().ApplicationOCIResources(name).DoAndReturn(func(string) (map[string]resource.DockerImageDetails, error) {
+		tc.facade.EXPECT().ApplicationOCIResources(name).DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
 			return s.ociResources, nil
 		}),
 
@@ -687,7 +687,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNewUnitsAllocating(
 		tc.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
 		}),
-		tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resource.DockerImageDetails, error) {
+		tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
 			return s.ociResources, nil
 		}),
 
@@ -729,7 +729,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusAllUnitsAreSettled(
 		tc.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
 		}),
-		tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resource.DockerImageDetails, error) {
+		tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
 			return s.ociResources, nil
 		}),
 
@@ -771,7 +771,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusTransitionFromWaiti
 		tc.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
 		}),
-		tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resource.DockerImageDetails, error) {
+		tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
 			return s.ociResources, nil
 		}),
 		// No change, so no Ensure().

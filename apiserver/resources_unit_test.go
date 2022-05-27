@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -63,7 +63,7 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	failure, expectedBody := apiFailure("boom", "")
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resources.Opener, state.PoolHelper, error) {
 			return nil, nil, failure
 		},
 	}
@@ -87,7 +87,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 	failure, expectedBody := apiFailure("boom", "")
 	s.stub.SetErrors(failure)
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resources.Opener, state.PoolHelper, error) {
 			s.stub.AddCall("NewOpener", kinds)
 			return opener, apiservertesting.StubPoolHelper{StubRelease: s.closer}, nil
 		},
@@ -114,7 +114,7 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 		ReturnOpenResource: opened,
 	}
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resources.Opener, state.PoolHelper, error) {
 			s.stub.AddCall("NewOpener", kinds)
 			return opener, apiservertesting.StubPoolHelper{StubRelease: s.closer}, nil
 		},
@@ -138,13 +138,13 @@ func (s *UnitResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body s
 
 type stubResourceOpener struct {
 	*testing.Stub
-	ReturnOpenResource resource.Opened
+	ReturnOpenResource resources.Opened
 }
 
-func (s *stubResourceOpener) OpenResource(name string) (resource.Opened, error) {
+func (s *stubResourceOpener) OpenResource(name string) (resources.Opened, error) {
 	s.AddCall("OpenResource", name)
 	if err := s.NextErr(); err != nil {
-		return resource.Opened{}, err
+		return resources.Opened{}, err
 	}
 	return s.ReturnOpenResource, nil
 }

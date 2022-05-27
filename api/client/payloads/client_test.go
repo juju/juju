@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/payloads"
-	"github.com/juju/juju/core/payload"
+	corepayloads "github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -51,7 +51,7 @@ func (s *ClientSuite) TestList(c *gc.C) {
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
-		Status:  payload.StateRunning,
+		Status:  corepayloads.StateRunning,
 		Labels:  []string{"label"},
 		Unit:    names.NewUnitTag("a-application/0").String(),
 		Machine: names.NewMachineTag("1").String(),
@@ -63,12 +63,12 @@ func (s *ClientSuite) TestList(c *gc.C) {
 
 	results, err := s.client.ListFull("a-tag", "a-application/0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []payload.FullPayloadInfo{
+	c.Check(results, jc.DeepEquals, []corepayloads.FullPayloadInfo{
 		{
-			Payload: payload.Payload{
+			Payload: corepayloads.Payload{
 				PayloadClass: charm.PayloadClass{Name: "spam", Type: "docker"},
 				ID:           "idspam",
-				Status:       payload.StateRunning,
+				Status:       corepayloads.StateRunning,
 				Labels:       []string{"label"},
 				Unit:         "a-application/0",
 			},

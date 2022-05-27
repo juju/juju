@@ -118,7 +118,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/quota",
 		"core/raftlease",
 		"core/relation",
-		"core/resource",
+		"core/resources",
 		"core/secrets",
 		"core/series",
 		"core/snap",

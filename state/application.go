@@ -620,15 +620,8 @@ func (op *DestroyApplicationOperation) unassignBranchOps() ([]txn.Op, error) {
 }
 
 func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
-	persist, err := st.ResourcesPersistence()
-	if errors.IsNotSupported(err) {
-		// Nothing to see here, move along.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops, err := persist.NewRemoveResourcesOps(applicationID)
+	resources := st.resources()
+	ops, err := resources.removeResourcesOps(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1494,11 +1487,8 @@ func incCharmModifiedVersionOps(applicationID string) []txn.Op {
 
 func (a *Application) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
 	// Collect pending resource resolution operations.
-	resources, err := a.st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return resources.NewResolvePendingResourcesOps(a.doc.Name, resourceIDs)
+	resources := a.st.Resources().(*resourcePersistence)
+	return resources.resolveApplicationPendingResourcesOps(a.doc.Name, resourceIDs)
 }
 
 // SetCharmConfig contains the parameters for Application.SetCharm.
@@ -2692,15 +2682,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 }
 
 func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
-	persist, err := st.ResourcesPersistence()
-	if errors.IsNotSupported(err) {
-		// Nothing to see here, move along.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops, err := persist.NewRemoveUnitResourcesOps(unitID)
+	resources := st.resources()
+	ops, err := resources.removeUnitResourcesOps(unitID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
