@@ -91,6 +91,37 @@ var WarningHighlight = ansiterm.Foreground(ansiterm.Yellow)
 // GoodHighlight is used to indicate good or success conditions.
 var GoodHighlight = ansiterm.Foreground(ansiterm.Green)
 
+// InfoHighlight is  the color used to indicate important details.
+// Generally that might be important to a user but not necessarily that
+// obvious.
+var InfoHighlight = ansiterm.Foreground(ansiterm.Cyan)
+
+// EmphasisHighlight is used to show accompanying information, which
+// might be deemed as important by the user.
+var EmphasisHighlight = struct {
+	White         *ansiterm.Context
+	DefaultBold   *ansiterm.Context
+	BoldWhite     *ansiterm.Context
+	Gray          *ansiterm.Context
+	BoldGray      *ansiterm.Context
+	DarkGray      *ansiterm.Context
+	BoldDarkGray  *ansiterm.Context
+	Magenta       *ansiterm.Context
+	BrightMagenta *ansiterm.Context
+	BrightGreen   *ansiterm.Context
+}{
+	White:         ansiterm.Foreground(ansiterm.White),
+	DefaultBold:   ansiterm.Foreground(ansiterm.Default).SetStyle(ansiterm.Bold),
+	BoldWhite:     ansiterm.Foreground(ansiterm.White).SetStyle(ansiterm.Bold),
+	Gray:          ansiterm.Foreground(ansiterm.Gray),
+	BoldGray:      ansiterm.Foreground(ansiterm.Gray).SetStyle(ansiterm.Bold),
+	BoldDarkGray:  ansiterm.Foreground(ansiterm.DarkGray).SetStyle(ansiterm.Bold),
+	DarkGray:      ansiterm.Foreground(ansiterm.DarkGray),
+	Magenta:       ansiterm.Foreground(ansiterm.Magenta),
+	BrightMagenta: ansiterm.Foreground(ansiterm.BrightMagenta),
+	BrightGreen:   ansiterm.Foreground(ansiterm.BrightGreen),
+}
+
 var statusColors = map[status.Status]*ansiterm.Context{
 	// good
 	status.Active:    GoodHighlight,
