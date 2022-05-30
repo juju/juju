@@ -69,7 +69,7 @@ jobs:
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
-      DOCKER_REGISTRY: 10.152.183.69:5000
+      DOCKER_REGISTRY: 10.152.183.69
 
     steps:
 
