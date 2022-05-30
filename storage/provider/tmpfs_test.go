@@ -5,7 +5,6 @@ package provider_test
 
 import (
 	"errors"
-	"runtime"
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -29,9 +28,6 @@ type tmpfsSuite struct {
 }
 
 func (s *tmpfsSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Tests relevant only on *nix systems")
-	}
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
 	s.fakeEtcDir = c.MkDir()

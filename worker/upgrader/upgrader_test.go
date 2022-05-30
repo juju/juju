@@ -525,9 +525,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
 
 	_, err = agenttools.ReadTools(s.DataDir(), newTools.Version)
-	// Would end with "no such file or directory" on *nix - not sure
-	// about Windows so leaving it off.
-	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory .*`)
+	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory.*: no such file or directory`)
 }
 
 func (s *UpgraderSuite) waitForUpgradeCheck(c *gc.C) {

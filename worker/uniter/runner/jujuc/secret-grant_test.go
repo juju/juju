@@ -45,7 +45,7 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR invalid value "-666" for option --relation: relation not found`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, cmdString("secret-grant"))
+		com, err := jujuc.NewCommand(hctx, "secret-grant")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -60,7 +60,7 @@ func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
 	info.SetNewRelation(1, "db", s.Stub)
 	info.SetAsRelationHook(1, "mediawiki")
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-grant"))
+	com, err := jujuc.NewCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{

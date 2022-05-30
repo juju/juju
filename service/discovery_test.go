@@ -12,11 +12,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/testing"
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/feature"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
 )
 
 var maybeSystemd = service.InitSystemSystemd
@@ -82,8 +82,6 @@ func (dt discoveryTest) checkService(c *gc.C, svc service.Service, err error, na
 		c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
 	case service.InitSystemSystemd:
 		c.Check(svc, gc.FitsTypeOf, &systemd.Service{})
-	case service.InitSystemWindows:
-		c.Check(svc, gc.FitsTypeOf, &windows.Service{})
 	default:
 		c.Errorf("unknown expected init system %q", dt.expected)
 		return
@@ -108,10 +106,6 @@ func (dt discoveryTest) checkInitSystem(c *gc.C, name string, err error) {
 }
 
 var discoveryTests = []discoveryTest{{
-	os:       jujuos.Windows,
-	series:   "win2012",
-	expected: service.InitSystemWindows,
-}, {
 	os:       jujuos.Ubuntu,
 	series:   "oneiric",
 	expected: "",
@@ -179,8 +173,6 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	var localInitSystem string
 	var err error
 	switch runtime.GOOS {
-	case "windows":
-		localInitSystem = service.InitSystemWindows
 	case "linux":
 		localInitSystem, err = service.VersionInitSystem(testing.HostSeries(c))
 	}
@@ -335,10 +327,6 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemErrorAll(c *gc.C) {
 }
 
 func (s *discoverySuite) TestDiscoverInitSystemScriptBash(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not supported on windows")
-	}
-
 	script, filename := s.newDiscoverInitSystemScript(c)
 	script += filename
 	response, err := exec.RunCommands(exec.RunParams{
@@ -354,10 +342,6 @@ func (s *discoverySuite) TestDiscoverInitSystemScriptBash(c *gc.C) {
 }
 
 func (s *discoverySuite) TestDiscoverInitSystemScriptPosix(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not supported on windows")
-	}
-
 	script, filename := s.newDiscoverInitSystemScript(c)
 	script += "sh " + filename
 	response, err := exec.RunCommands(exec.RunParams{
@@ -391,10 +375,6 @@ func (s *discoverySuite) newDiscoverInitSystemScript(c *gc.C) (string, string) {
 }
 
 func (s *discoverySuite) TestNewShellSelectCommandBash(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not supported on windows")
-	}
-
 	discoveryScript := service.DiscoverInitSystemScript()
 	handler := func(initSystem string) (string, bool) {
 		return "echo -n " + initSystem, true
@@ -415,10 +395,6 @@ func (s *discoverySuite) TestNewShellSelectCommandBash(c *gc.C) {
 }
 
 func (s *discoverySuite) TestNewShellSelectCommandPosix(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not supported on windows")
-	}
-
 	discoveryScript := service.DiscoverInitSystemScript()
 	handler := func(initSystem string) (string, bool) {
 		return "echo -n " + initSystem, true

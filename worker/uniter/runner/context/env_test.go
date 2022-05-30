@@ -4,8 +4,6 @@
 package context_test
 
 import (
-	"path/filepath"
-	"runtime"
 	"sort"
 
 	"github.com/juju/names/v4"
@@ -182,54 +180,7 @@ func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 	vars, err := keyvalues.Parse(paths, true)
 	c.Assert(err, jc.ErrorIsNil)
 	key := "PATH"
-	if runtime.GOOS == "windows" {
-		key = "Path"
-	}
 	c.Assert(vars[key], gc.Not(gc.Equals), "")
-}
-
-func (s *EnvSuite) TestEnvWindows(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-	windowsVars := []string{
-		"Path=path-to-tools;foo;bar",
-		"PSModulePath=ping;pong;" + filepath.FromSlash("path-to-charm/lib/Modules"),
-	}
-
-	environmenter := context.NewRemoteEnvironmenter(
-		func() []string { return []string{} },
-		func(k string) string {
-			switch k {
-			case "Path":
-				return "foo;bar"
-			case "PSModulePath":
-				return "ping;pong"
-			}
-			return ""
-		},
-		func(k string) (string, bool) {
-			switch k {
-			case "Path":
-				return "foo;bar", true
-			case "PSModulePath":
-				return "ping;pong", true
-			}
-			return "", false
-		},
-	)
-
-	ctx, contextVars := s.getContext(false)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
-
-	relationVars := s.setRelation(ctx)
-	secretVars := s.setSecret(ctx)
-	storageVars := s.setStorage(ctx)
-	actualVars, err = ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars, secretVars, storageVars)
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {

@@ -15,10 +15,12 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -26,6 +28,7 @@ var logger = loggo.GetLogger("juju.cmd.jujud")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 const (

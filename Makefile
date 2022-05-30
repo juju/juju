@@ -43,9 +43,9 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 # - We filter pebble here for only linux builds as that is only what it will
 #   compile for at the moment.
 define BUILD_AGENT_TARGETS
-	$(call bin_platform_paths,jujuc,${AGENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,jujud,${AGENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,containeragent,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call bin_platform_paths,jujud,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call bin_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call bin_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
@@ -68,6 +68,13 @@ define INSTALL_TARGETS
 	juju-metadata \
 	juju-wait-for
 endef
+
+# Windows doesn't support the agent binaries
+ifeq ($(GOOS), windows)
+	INSTALL_TARGETS = juju \
+                      juju-metadata \
+                      juju-wait-for
+endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)

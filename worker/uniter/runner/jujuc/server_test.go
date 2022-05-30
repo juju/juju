@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -91,12 +90,7 @@ var _ = gc.Suite(&ServerSuite{})
 
 func (s *ServerSuite) osDependentSockPath(c *gc.C) sockets.Socket {
 	pipeRoot := c.MkDir()
-	var sock string
-	if runtime.GOOS == "windows" {
-		sock = fmt.Sprintf(`\\.\pipe%s`, filepath.ToSlash(pipeRoot[2:]))
-	} else {
-		sock = filepath.Join(pipeRoot, "test.sock")
-	}
+	sock := filepath.Join(pipeRoot, "test.sock")
 	return sockets.Socket{Network: "unix", Address: sock}
 }
 
@@ -266,14 +260,13 @@ var newCommandTests = []struct {
 	{"storage-get", ""},
 	{"status-get", ""},
 	{"status-set", ""},
-	// The error message contains .exe on Windows
-	{"random", "unknown command: random(.exe)?"},
+	{"random", "unknown command: random"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
 	ctx, _ := s.newHookContext(0, "", "")
 	for _, t := range newCommandTests {
-		com, err := jujuc.NewCommand(ctx, cmdString(t.name))
+		com, err := jujuc.NewCommand(ctx, t.name)
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.

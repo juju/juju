@@ -1006,8 +1006,6 @@ func (env *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudini
 		return nil, errors.Trace(err)
 	}
 	switch operatingSystem {
-	case os.Windows:
-		cloudcfg.AddScripts(runCmd)
 	case os.Ubuntu:
 		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)

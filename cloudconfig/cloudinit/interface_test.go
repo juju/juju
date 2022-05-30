@@ -6,4 +6,3 @@ package cloudinit
 
 var _ CloudConfig = (*ubuntuCloudConfig)(nil)
 var _ CloudConfig = (*centOSCloudConfig)(nil)
-var _ CloudConfig = (*windowsCloudConfig)(nil)

@@ -607,16 +607,6 @@ func (env *azureEnviron) startInstance(
 	instanceSpec *instances.InstanceSpec, envTags map[string]string,
 ) (*environs.StartInstanceResult, error) {
 
-	// Windows images are 127GiB, and cannot be made smaller.
-	const windowsMinRootDiskMB = 127 * 1024
-	seriesOS := args.Tools.OneRelease()
-	if seriesOS == strings.ToLower(os.Windows.String()) {
-		if instanceSpec.InstanceType.RootDisk < windowsMinRootDiskMB {
-			logger.Infof("root disk size has been increased to 127GiB")
-			instanceSpec.InstanceType.RootDisk = windowsMinRootDiskMB
-		}
-	}
-
 	// Pick tools by filtering the available tools down to the architecture of
 	// the image that will be provisioned.
 	selectedTools, err := args.Tools.Match(tools.Filter{
@@ -760,7 +750,6 @@ func (env *azureEnviron) createVirtualMachine(
 
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
-		env.provider.config.RandomWindowsAdminPassword,
 		env.provider.config.GenerateSSHKey,
 	)
 	if err != nil {
@@ -931,10 +920,9 @@ func (env *azureEnviron) createVirtualMachine(
 		DependsOn: vmDependsOn,
 	})
 
-	// On Windows and CentOS, we must add the CustomScript VM
-	// extension to run the CustomData script.
-	switch seriesOS {
-	case os.Windows, os.CentOS:
+	// On CentOS, we must add the CustomScript VM extension to run the
+	// CustomData script.
+	if seriesOS == os.CentOS {
 		properties, err := vmExtensionProperties(seriesOS)
 		if err != nil {
 			return errors.Annotate(
@@ -1155,7 +1143,6 @@ func mibToGB(mib uint64) uint64 {
 func newOSProfile(
 	vmName string,
 	instanceConfig *instancecfg.InstanceConfig,
-	randomAdminPassword func() string,
 	generateSSHKey func(string) (string, string, error),
 ) (*armcompute.OSProfile, os.OSType, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
@@ -1202,17 +1189,6 @@ func newOSProfile(
 		osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
 			DisablePasswordAuthentication: to.Ptr(true),
 			SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
-		}
-	case os.Windows:
-		osProfile.AdminUsername = to.Ptr("JujuAdministrator")
-		// A password is required by Azure, but we will never use it.
-		// We generate something sufficiently long and random that it
-		// should be infeasible to guess.
-		osProfile.AdminPassword = to.Ptr(randomAdminPassword())
-		osProfile.WindowsConfiguration = &armcompute.WindowsConfiguration{
-			ProvisionVMAgent:       to.Ptr(true),
-			EnableAutomaticUpdates: to.Ptr(true),
-			// TODO(?) add WinRM configuration here.
 		}
 	default:
 		return nil, os.Unknown, errors.NotSupportedf("%s", seriesOS)

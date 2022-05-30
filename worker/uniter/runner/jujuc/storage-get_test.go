@@ -38,7 +38,7 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 	for i, t := range storageGetTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx, _ := s.newHookContext()
-		com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
+		com, err := jujuc.NewCommand(hctx, "storage-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -63,7 +63,7 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 
 func (s *storageGetSuite) TestHelp(c *gc.C) {
 	hctx, _ := s.newHookContext()
-	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
+	com, err := jujuc.NewCommand(hctx, "storage-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
@@ -89,7 +89,7 @@ When no <key> is supplied, all keys values are printed.
 
 func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	hctx, _ := s.newHookContext()
-	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
+	com, err := jujuc.NewCommand(hctx, "storage-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})

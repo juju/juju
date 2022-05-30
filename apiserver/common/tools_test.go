@@ -310,7 +310,7 @@ func (s *findToolsSuite) expectMatchingStorageTools(c *gc.C, storageMetadata []b
 	s.storage.EXPECT().Close().Return(nil)
 }
 
-func (s *findToolsSuite) expectBootstrapEnvionConfig(c *gc.C) {
+func (s *findToolsSuite) expectBootstrapEnvironConfig(c *gc.C) {
 	current := coretesting.CurrentVersion(c)
 	configAttrs := map[string]interface{}{
 		"name":                 "some-name",
@@ -353,7 +353,7 @@ func (s *findToolsSuite) TestFindTools(c *gc.C) {
 		SHA256:  "feedface",
 	}}
 	s.expectMatchingStorageTools(c, storageMetadata, nil)
-	s.expectBootstrapEnvionConfig(c)
+	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
@@ -410,7 +410,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 		SHA256:  "feedface",
 	}}
 	s.expectMatchingStorageTools(c, storageMetadata, nil)
-	s.expectBootstrapEnvionConfig(c)
+	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
@@ -460,11 +460,11 @@ func (s *findToolsSuite) TestFindToolsOldAgent(c *gc.C) {
 	})
 
 	s.expectMatchingStorageTools(c, []binarystorage.Metadata{{
-		Version: "2.8.9-win2012-amd64",
+		Version: "2.8.9-centos-amd64",
 		Size:    1024,
 		SHA256:  "feedface",
 	}}, nil)
-	s.expectBootstrapEnvionConfig(c)
+	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
@@ -510,11 +510,11 @@ func (s *findToolsSuite) TestFindToolsOldAgentRequestAgentStream(c *gc.C) {
 	})
 
 	s.expectMatchingStorageTools(c, []binarystorage.Metadata{{
-		Version: "2.8.9-win2012-amd64",
+		Version: "2.8.9-centos-amd64",
 		Size:    1024,
 		SHA256:  "feedface",
 	}}, nil)
-	s.expectBootstrapEnvionConfig(c)
+	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
@@ -547,7 +547,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 	})
 
 	s.expectMatchingStorageTools(c, []binarystorage.Metadata{}, nil)
-	s.expectBootstrapEnvionConfig(c)
+	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, nil, s.newEnviron)
 	result, err := toolsFinder.FindTools(params.FindToolsParams{})
@@ -578,12 +578,12 @@ func (s *findToolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectMatchingStorageTools(c, []binarystorage.Metadata{}, nil)
-	s.expectBootstrapEnvionConfig(c)
+	s.expectBootstrapEnvironConfig(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.22-beta1"))
 	s.testFindToolsExact(c, false, true)
 
 	s.expectMatchingStorageTools(c, []binarystorage.Metadata{}, nil)
-	s.expectBootstrapEnvionConfig(c)
+	s.expectBootstrapEnvironConfig(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.22.0"))
 	s.testFindToolsExact(c, false, false)
 }

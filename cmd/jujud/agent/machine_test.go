@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -850,10 +849,6 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
-	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
-	}
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
@@ -904,12 +899,6 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		// Cannot make symlink to nonexistent file on windows or
-		// create a file point a symlink to it then remove it
-		c.Skip("Cannot test this on windows")
-	}
-
 	stm, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
@@ -1494,10 +1483,6 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 }
 
 func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("controllers on windows aren't supported")
-	}
-
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()

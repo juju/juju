@@ -45,11 +45,6 @@ func defaultOplogSize(dir string) (int, error) {
 		return 183, nil
 	}
 
-	// FIXME calculate disk size on Windows like on Linux below.
-	if runtimeGOOS == "windows" {
-		return smallOplogSizeMB, nil
-	}
-
 	avail, err := availSpace(dir)
 	if err != nil {
 		return -1, err

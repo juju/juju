@@ -694,8 +694,8 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 		logger.Infof("Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
-	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
-	// so the agent will simply exit without error pending reboot/shutdown.
+	// We return ErrRebootMachine so the agent will simply exit without error
+	// pending reboot/shutdown.
 	return jworker.ErrRebootMachine
 }
 

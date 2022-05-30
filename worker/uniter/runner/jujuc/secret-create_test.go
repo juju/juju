@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coresecrets "github.com/juju/juju/core/secrets"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -46,7 +47,7 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR rotate interval "-1h0m0s" not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
+		com, err := jujuc.NewCommand(hctx, "secret-create")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -75,7 +76,7 @@ func tagPtr(t map[string]string) *map[string]string {
 func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
+	com, err := jujuc.NewCommand(hctx, "secret-create")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -102,7 +103,7 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-create"))
+	com, err := jujuc.NewCommand(hctx, "secret-create")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "apikey", "token=key="})
