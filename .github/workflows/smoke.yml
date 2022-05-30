@@ -302,6 +302,9 @@ jobs:
       run: |
         set -euxo pipefail
 
+        # upgrade to the latest stable.
+        juju upgrade-controller --debug
+
         juju upgrade-controller ${UPGRADE_PARAMS_${{ matrix.model_type }}}
 
         attempt=0
