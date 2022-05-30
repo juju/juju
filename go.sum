@@ -500,6 +500,8 @@ github.com/juju/errors v0.0.0-20180726005433-812b06ada177/go.mod h1:W54LbzXuIE0b
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20220316043928-e10eb17a9eeb h1:4e8FtfnfajZwu+aKGeDH1I1IRs/NsDlbvBPuu61gZNE=
 github.com/juju/errors v0.0.0-20220316043928-e10eb17a9eeb/go.mod h1:jMGj9DWF/qbo91ODcfJq6z/RYc3FX3taCBZMCcpI4Ls=
+github.com/juju/errors v0.0.0-20220331221717-b38fca44723b h1:AxFeSQJfcm2O3ov1wqAkTKYFsnMw2g1B4PkYujfAdkY=
+github.com/juju/errors v0.0.0-20220331221717-b38fca44723b/go.mod h1:jMGj9DWF/qbo91ODcfJq6z/RYc3FX3taCBZMCcpI4Ls=
 github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24 h1:MmwFTLD6youIUvG5FWjx3pAtEDdQO+PaxGcL6PGooSE=
 github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24/go.mod h1:g6bvykW7D6L/R2iZgiWatlCz9RadldeybAte71GgFg8=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d h1:c93kUJDtVAXFEhsCh5jSxyOJmFHuzcihnslQiX8Urwo=

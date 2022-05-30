@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -81,7 +81,7 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 					},
 				},
 			},
-		}, v1.CreateOptions{})
+		}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerUpgrade(appName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
