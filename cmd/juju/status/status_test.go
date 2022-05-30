@@ -67,7 +67,7 @@ func (s *MinimalStatusSuite) TestWatchUntilError(c *gc.C) {
 		errors.New("boom"),
 	}
 
-	ctx, err := s.runStatus(c, "--watch", "1ms", "--retry-count", "0")
+	ctx, err := s.runStatus(c, "--no-color", "--watch", "1ms", "--retry-count", "0")
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 	// We expect the correct output for the first 3 nil errors before termination.
@@ -86,7 +86,7 @@ test   test        foo
 }
 
 func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
-	context, err := s.runStatus(c, "--storage")
+	context, err := s.runStatus(c, "--no-color", "--storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clock.waits, gc.HasLen, 0)
 
