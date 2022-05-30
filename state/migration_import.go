@@ -1062,10 +1062,7 @@ func (i *importer) appResourceOps(app description.Application) []txn.Op {
 		}
 		if storeRev := r.CharmStoreRevision(); storeRev.Timestamp().IsZero() {
 			doc := makeResourceDoc(resID, resName, storeRev)
-			// Now the resource code is particularly stupid and instead of using
-			// the ID, or encoding the type somewhere, it uses the fact that the
-			// LastPolled time to indicate it is the charm store version.
-			doc.LastPolled = time.Now()
+			doc.LastPolled = i.st.nowToTheSecond()
 			result = append(result, txn.Op{
 				C:      resourcesC,
 				Id:     charmStoreResourceID(resID),

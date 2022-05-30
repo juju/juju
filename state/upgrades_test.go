@@ -6698,6 +6698,87 @@ func (s *upgradesSuite) TestRemoveLocalCharmOriginChannels(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestFixCharmhubLastPolltime(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+	model1.stateClock = s.state.stateClock
+	model2.stateClock = s.state.stateClock
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	coll, resCloser := s.state.db().GetRawCollection(resourcesC)
+	defer resCloser()
+
+	existingNow := time.Now().Round(time.Second).UTC()
+	var err error
+	err = coll.Insert(bson.M{
+		"_id":         ensureModelUUID(uuid1, "res1"),
+		"resource-id": "res1-id",
+		"name":        "res1",
+		"model-uuid":  uuid1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":                        ensureModelUUID(uuid1, "res1#charmstore"),
+		"resource-id":                "res1-id",
+		"name":                       "res1",
+		"model-uuid":                 uuid1,
+		"timestamp-when-last-polled": existingNow,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":         ensureModelUUID(uuid1, "res2#charmstore"),
+		"resource-id": "res2-id",
+		"name":        "res2",
+		"model-uuid":  uuid1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":                        ensureModelUUID(uuid2, "res3#charmstore"),
+		"resource-id":                "res3-id",
+		"name":                       "res3",
+		"model-uuid":                 uuid2,
+		"timestamp-when-last-polled": time.Time{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	expected := bsonMById{
+		{
+			"_id":         ensureModelUUID(uuid1, "res1"),
+			"resource-id": "res1-id",
+			"name":        "res1",
+			"model-uuid":  uuid1,
+		}, {
+			"_id":                        ensureModelUUID(uuid1, "res1#charmstore"),
+			"resource-id":                "res1-id",
+			"name":                       "res1",
+			"model-uuid":                 uuid1,
+			"timestamp-when-last-polled": existingNow,
+		}, {
+			"_id":                        ensureModelUUID(uuid1, "res2#charmstore"),
+			"resource-id":                "res2-id",
+			"name":                       "res2",
+			"model-uuid":                 uuid1,
+			"timestamp-when-last-polled": model1.nowToTheSecond(),
+		}, {
+			"_id":                        ensureModelUUID(uuid2, "res3#charmstore"),
+			"resource-id":                "res3-id",
+			"name":                       "res3",
+			"model-uuid":                 uuid2,
+			"timestamp-when-last-polled": model2.nowToTheSecond(),
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, FixCharmhubLastPolltime,
+		upgradedData(coll, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"strings"
 	"time"
 
 	charmresource "github.com/juju/charm/v8/resource"
@@ -88,8 +89,6 @@ func (st *State) resources() *resourcePersistence {
 var rLogger = logger.Child("resource")
 
 const (
-	resourcesC = "resources"
-
 	resourcesStagedIDSuffix     = "#staged"
 	resourcesCharmstoreIDSuffix = "#charmstore"
 )
@@ -458,7 +457,7 @@ func (p *resourcePersistence) listResources(applicationID string, pending bool) 
 		if err != nil {
 			return resources.ApplicationResources{}, errors.Trace(err)
 		}
-		if !doc.LastPolled.IsZero() {
+		if strings.HasSuffix(doc.DocID, resourcesCharmstoreIDSuffix) {
 			store[res.Name] = res.Resource
 			continue
 		}
@@ -1259,7 +1258,7 @@ func resourceDocToUpdateOp(doc *resourceDoc) bson.M {
 		"timestamp-when-added":       doc.Timestamp,
 		"storage-path":               doc.StoragePath,
 		"download-progress":          doc.DownloadProgress,
-		"timestamp-when-last-polled": doc.LastPolled,
+		"timestamp-when-last-polled": doc.LastPolled.Round(time.Second).UTC(),
 	}}
 }
 

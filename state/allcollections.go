@@ -648,6 +648,7 @@ const (
 	settingsC                  = "settings"
 	generationsC               = "generations"
 	refcountsC                 = "refcounts"
+	resourcesC                 = "resources"
 	sshHostKeysC               = "sshhostkeys"
 	spacesC                    = "spaces"
 	statusesC                  = "statuses"
@@ -671,8 +672,6 @@ const (
 	volumeAttachmentsC         = "volumeattachments"
 	volumeAttachmentPlanC      = "volumeattachmentplan"
 	volumesC                   = "volumes"
-
-	// "resources" (see state/resources_mongo.go)
 
 	// Cross model relations
 	applicationOffersC   = "applicationOffers"
