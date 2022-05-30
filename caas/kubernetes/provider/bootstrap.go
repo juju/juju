@@ -48,14 +48,6 @@ import (
 )
 
 const (
-	/*
-		// JujuControllerStackName is the juju CAAS controller stack name.
-		JujuControllerStackName = "controller"
-
-		// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
-		ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
-	*/
-
 	proxyResourceName = "proxy"
 	storageName       = "storage"
 )
