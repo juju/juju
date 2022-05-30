@@ -83,7 +83,7 @@ type initTest struct {
 	about       string
 	args        []string
 	cantReset   []string
-	action      ConfigAction
+	actions     []Action
 	configFile  jujucmd.FileVar
 	keyToGet    string
 	keysToReset []string
@@ -132,12 +132,33 @@ func (s *suite) TestInitSuccess(c *gc.C) {
 
 		cmd, err := setupInitTest(c, test.args, test.cantReset)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(cmd.Actions), gc.Equals, 1)
-		c.Check(cmd.Actions[0], gc.Equals, test.action)
+		c.Check(cmd.Actions, jc.SameContents, test.actions)
+		s.checkFileFirst(c, cmd.Actions)
 		c.Check(cmd.ConfigFile, gc.DeepEquals, test.configFile)
-		c.Check(cmd.KeyToGet, gc.DeepEquals, test.keyToGet)
+
+		if sliceContains(cmd.Actions, GetOne) {
+			c.Assert(cmd.KeysToGet, gc.HasLen, 1)
+			c.Check(cmd.KeysToGet[0], gc.Equals, test.keyToGet)
+		} else {
+			c.Assert(cmd.KeysToGet, gc.HasLen, 0)
+		}
+
 		c.Check(cmd.KeysToReset, gc.DeepEquals, test.keysToReset)
-		c.Check(cmd.ValsToSet, gc.DeepEquals, test.valsToSet)
+		if test.valsToSet == nil {
+			c.Check(cmd.ValsToSet, gc.HasLen, 0)
+		} else {
+			c.Check(cmd.ValsToSet, gc.DeepEquals, test.valsToSet)
+		}
+	}
+}
+
+// checkFileFirst checks that if the provided list of Actions contains the
+// SetFile action, then this is the first action in the list. This is important
+// so that set/reset values from the command-line will override anything
+// specified in a file.
+func (s *suite) checkFileFirst(c *gc.C, actions []Action) {
+	if sliceContains(actions, SetFile) {
+		c.Check(actions[0], gc.Equals, SetFile)
 	}
 }
 
@@ -201,14 +222,9 @@ var initFailTests = []initFailTest{
 		errMsg: "cannot use --reset flag and get value simultaneously",
 	},
 	{
-		about:  "set and reset",
-		args:   []string{"key1=val1", "--reset", "key2"},
-		errMsg: "cannot use --reset flag and set key=value pairs simultaneously",
-	},
-	{
 		about:  "set and reset same key",
 		args:   []string{"key1=val1", "--reset", "key1"},
-		errMsg: "cannot use --reset flag and set key=value pairs simultaneously",
+		errMsg: `cannot set and reset key "key1" simultaneously`,
 	},
 	{
 		about:  "get and set from file",
@@ -216,24 +232,14 @@ var initFailTests = []initFailTest{
 		errMsg: "cannot use --file flag and get value simultaneously",
 	},
 	{
-		about:  "set and set from file",
-		args:   []string{"key1=val1", "--file", "path"},
-		errMsg: "cannot use --file flag and set key=value pairs simultaneously",
-	},
-	{
-		about:  "set from file and reset",
-		args:   []string{"--file", "path", "--reset", "key1,key2"},
-		errMsg: "cannot use --file flag and use --reset flag simultaneously",
-	},
-	{
 		about:  "get, set from file & reset",
 		args:   []string{"key1", "--file", "path", "--reset", "key1,key2"},
 		errMsg: "cannot use --file flag, use --reset flag and get value simultaneously",
 	},
 	{
-		about:  "set, set from file and reset",
+		about:  "set from file, set/reset same key",
 		args:   []string{"key1=val1", "--file", "path", "--reset", "key1,key2"},
-		errMsg: "cannot use --file flag, use --reset flag and set key=value pairs simultaneously",
+		errMsg: `cannot set and reset key "key1" simultaneously`,
 	},
 	{
 		about:  "get, set, set from file and reset",
@@ -267,30 +273,35 @@ var initFailTests = []initFailTest{
 		args:   []string{"--reset", "key1,key2,key3", "key4", "key5"},
 		errMsg: "cannot use --reset flag and get value simultaneously",
 	},
+	{
+		about:  "setting empty key is invalid",
+		args:   []string{"=val"},
+		errMsg: `expected "key=value", got "=val"`,
+	},
 }
 
 var initTests = []initTest{
 	{
-		about:  "no args",
-		args:   []string{},
-		action: GetAll,
+		about:   "no args",
+		args:    []string{},
+		actions: []Action{GetAll},
 	},
 	{
 		about:    "get single key",
 		args:     []string{"key1"},
-		action:   GetOne,
+		actions:  []Action{GetOne},
 		keyToGet: "key1",
 	},
 	{
 		about:     "set key",
 		args:      []string{"key1=val1"},
-		action:    Set,
+		actions:   []Action{Set},
 		valsToSet: map[string]string{"key1": "val1"},
 	},
 	{
-		about:  "set multiple keys",
-		args:   []string{"key1=val1", "key2=val2", "key3=val3"},
-		action: Set,
+		about:   "set multiple keys",
+		args:    []string{"key1=val1", "key2=val2", "key3=val3"},
+		actions: []Action{Set},
 		valsToSet: map[string]string{
 			"key1": "val1",
 			"key2": "val2",
@@ -300,33 +311,88 @@ var initTests = []initTest{
 	{
 		about:       "reset key",
 		args:        []string{"--reset", "key1"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1"},
 	},
 	{
 		about:       "reset multiple keys",
 		args:        []string{"--reset", "key1,key2,key3"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1", "key2", "key3"},
 	},
 	{
 		about:      "set from file",
 		args:       []string{"--file", "path"},
-		action:     SetFile,
+		actions:    []Action{SetFile},
 		configFile: jujucmd.FileVar{Path: "path"},
 	},
 	{
 		about:       "reset resettable key",
 		args:        []string{"--reset", "key1"},
 		cantReset:   []string{"key2"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1"},
 	},
 	{
 		about:       "reset resettable keys",
 		args:        []string{"--reset", "key1,key2,key3"},
 		cantReset:   []string{"key4", "key5"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1", "key2", "key3"},
+	},
+	{
+		about:   "set and reset",
+		args:    []string{"key1=val1", "--reset", "key2"},
+		actions: []Action{Set, Reset},
+		valsToSet: map[string]string{
+			"key1": "val1",
+		},
+		keysToReset: []string{"key2"},
+	},
+	{
+		about:   "set and reset multiple",
+		args:    []string{"key1=val1", "key2=val2", "--reset", "key3,key4"},
+		actions: []Action{Set, Reset},
+		valsToSet: map[string]string{
+			"key1": "val1",
+			"key2": "val2",
+		},
+		keysToReset: []string{"key3", "key4"},
+	},
+	{
+		about:   "set multiple with multiple --reset",
+		args:    []string{"key1=val1", "--reset", "key2", "key3=val3", "--reset", "key4"},
+		actions: []Action{Set, Reset},
+		valsToSet: map[string]string{
+			"key1": "val1",
+			"key3": "val3",
+		},
+		keysToReset: []string{"key2", "key4"},
+	},
+	{
+		about:   "set and set from file",
+		args:    []string{"key1=val1", "--file", "path"},
+		actions: []Action{Set, SetFile},
+		valsToSet: map[string]string{
+			"key1": "val1",
+		},
+		configFile: jujucmd.FileVar{Path: "path"},
+	},
+	{
+		about:       "set from file and reset",
+		args:        []string{"--file", "path", "--reset", "key1,key2"},
+		actions:     []Action{SetFile, Reset},
+		configFile:  jujucmd.FileVar{Path: "path"},
+		keysToReset: []string{"key1", "key2"},
+	},
+	{
+		about:   "set from file, set and reset",
+		args:    []string{"key1=val1", "--file", "path", "--reset", "key2,key3"},
+		actions: []Action{SetFile, Reset, Set},
+		valsToSet: map[string]string{
+			"key1": "val1",
+		},
+		configFile:  jujucmd.FileVar{Path: "path"},
+		keysToReset: []string{"key2", "key3"},
 	},
 }

@@ -248,22 +248,29 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	switch c.configBase.Actions[0] {
-	case config.GetOne:
-		return c.getConfig(client, ctx)
-	case config.Set:
-		return c.setConfig(client, ctx)
-	case config.SetFile:
-		return c.setConfigFile(client, ctx)
-	case config.Reset:
-		return c.resetConfig(client, ctx)
-	default:
-		return c.getAllConfig(client, ctx)
+	for _, action := range c.configBase.Actions {
+		var err error
+		switch action {
+		case config.GetOne:
+			err = c.getConfig(client, ctx)
+		case config.Set:
+			err = c.setConfig(client)
+		case config.SetFile:
+			err = c.setConfigFile(client, ctx)
+		case config.Reset:
+			err = c.resetConfig(client)
+		default:
+			err = c.getAllConfig(client, ctx)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+	return nil
 }
 
 // resetConfig unsets the keys provided to the command.
-func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
+func (c *configCommand) resetConfig(client configCommandAPI) error {
 	// ctx unused in this method
 	if err := c.verifyKnownKeys(client, c.configBase.KeysToReset); err != nil {
 		return errors.Trace(err)
@@ -273,7 +280,7 @@ func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) e
 }
 
 // setConfig sets the provided key/value pairs on the model.
-func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
+func (c *configCommand) setConfig(client configCommandAPI) error {
 	// Have to convert c.configBase.ValsToSet to a map[string]interface{}
 	// This could probably be done better with generics: we could change
 	// c.validateValues to accept a `map[string]V` for `V any`
@@ -354,7 +361,10 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		return err
 	}
 
-	if value, found := attrs[c.configBase.KeyToGet]; found {
+	if len(c.configBase.KeysToGet) == 0 {
+		return errors.New("c.configBase.KeysToGet is empty")
+	}
+	if value, found := attrs[c.configBase.KeysToGet[0]]; found {
 		if c.out.Name() == "tabular" {
 			// The user has not specified that they want
 			// YAML or JSON formatting, so we print out
@@ -363,14 +373,14 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		}
 		// Return value in JSON / YAML format
 		return c.out.Write(ctx, envconfig.ConfigValues{
-			c.configBase.KeyToGet: envconfig.ConfigValue{Source: value.Source, Value: value.Value},
+			c.configBase.KeysToGet[0]: envconfig.ConfigValue{Source: value.Source, Value: value.Value},
 		})
 	}
 
 	// Key not found - error
 	mod, _ := c.ModelIdentifier()
 	return errors.Errorf("%q is not a key of the currently targeted model: %q",
-		c.configBase.KeyToGet, mod)
+		c.configBase.KeysToGet[0], mod)
 }
 
 // getAllConfig writes the full model config to the cmd.Context.

@@ -210,22 +210,29 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	switch c.configBase.Actions[0] {
-	case config.GetOne:
-		return c.getConfig(client, ctx)
-	case config.Set:
-		return c.setConfig(client, ctx)
-	case config.SetFile:
-		return c.setConfigFile(client, ctx)
-	case config.Reset:
-		return c.resetConfig(client, ctx)
-	default:
-		return c.getAllConfig(client, ctx)
+	for _, action := range c.configBase.Actions {
+		var err error
+		switch action {
+		case config.GetOne:
+			err = c.getConfig(client, ctx)
+		case config.Set:
+			err = c.setConfig(client, ctx)
+		case config.SetFile:
+			err = c.setConfigFile(client, ctx)
+		case config.Reset:
+			err = c.resetConfig(client)
+		default:
+			err = c.getAllConfig(client, ctx)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+	return nil
 }
 
 // resetConfig is the run action when we are resetting attributes.
-func (c *configCommand) resetConfig(client ApplicationAPI, ctx *cmd.Context) error {
+func (c *configCommand) resetConfig(client ApplicationAPI) error {
 	err := client.UnsetApplicationConfig(c.branchName, c.applicationName, c.configBase.KeysToReset)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
@@ -291,7 +298,10 @@ func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error
 	}
 
 	logger.Infof("format %v is ignored", c.out.Name())
-	key := c.configBase.KeyToGet
+	if len(c.configBase.KeysToGet) == 0 {
+		return errors.New("c.configBase.KeysToGet is empty")
+	}
+	key := c.configBase.KeysToGet[0]
 	info, found := results.CharmConfig[key].(map[string]interface{})
 	if !found && len(results.ApplicationConfig) > 0 {
 		info, found = results.ApplicationConfig[key].(map[string]interface{})

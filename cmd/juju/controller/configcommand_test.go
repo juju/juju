@@ -39,8 +39,6 @@ func (s *ConfigSuite) runWithAPI(c *gc.C, api *fakeControllerAPI, args ...string
 }
 
 func (s *ConfigSuite) TestInit(c *gc.C) {
-	path := writeFile(c, "yamlfile", "")
-
 	tests := []struct {
 		desc string
 		args []string
@@ -64,10 +62,6 @@ func (s *ConfigSuite) TestInit(c *gc.C) {
 		desc: "can't mix setting and getting",
 		args: []string{"juju-ha-space=value", "hey2"},
 		err:  "cannot get value and set key=value pairs simultaneously",
-	}, {
-		desc: "can't mix setting with files",
-		args: []string{"juju-ha-space=value", "--file", path},
-		err:  "cannot use --file flag and set key=value pairs simultaneously",
 	}, {
 		desc: "can't reset",
 		args: []string{"--reset", "key1,key2"},
@@ -208,6 +202,19 @@ func (s *ConfigSuite) TestSettingFromFile(c *gc.C) {
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
 }
 
+func (s *ConfigSuite) TestOverrideFileFromArgs(c *gc.C) {
+	path := writeFile(c, "yaml", "juju-ha-space: value\naudit-log-max-backups: 2\n")
+	var api fakeControllerAPI
+	context, err := s.runWithAPI(c, &api, "--file", path, "audit-log-max-backups=4")
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
+	c.Assert(output, gc.Equals, "")
+
+	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
+		"juju-ha-space": "value", "audit-log-max-backups": "4"})
+}
+
 func (s *ConfigSuite) TestErrorOnSetting(c *gc.C) {
 	api := fakeControllerAPI{err: errors.Errorf("kablooie")}
 	context, err := s.runWithAPI(c, &api, "juju-ha-space=value")
@@ -253,6 +260,13 @@ func (f *fakeControllerAPI) ControllerConfig() (jujucontroller.Config, error) {
 }
 
 func (f *fakeControllerAPI) ConfigSet(values map[string]interface{}) error {
-	f.values = values
+	if f.values == nil {
+		f.values = values
+	} else {
+		// Append values rather than overwriting
+		for key, val := range values {
+			f.values[key] = val
+		}
+	}
 	return f.err
 }
