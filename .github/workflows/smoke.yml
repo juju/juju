@@ -69,7 +69,7 @@ jobs:
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
-      DOCKER_REGISTRY: 10.152.183.69:5000
+      DOCKER_REGISTRY: 10.152.183.69
 
     steps:
 
@@ -214,7 +214,7 @@ jobs:
         sg microk8s <<EOF
           juju bootstrap microk8s c \
             --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
-            --config features="[developer-mode]" --debug
+            --config features="[developer-mode]" --debug --keep-broken
         EOF
         juju add-model m
 
