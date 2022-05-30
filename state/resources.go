@@ -655,6 +655,9 @@ func (p *resourcePersistence) setCharmStoreResource(id, applicationID string, re
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
+	if lastPolled.IsZero() {
+		return errors.NotValidf("empty last polled timestamp for charm resource %s/%s", applicationID, id)
+	}
 
 	csRes := charmStoreResource{
 		Resource:      res,
