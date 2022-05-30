@@ -244,7 +244,7 @@ jobs:
         # Required for elasticsearch
         sudo sysctl -w vm.max_map_count=262144
 
-        juju deploy ${CHARM_${{ matrix.model_type }}} --series focal
+        juju deploy ${CHARM_${{ matrix.model_type }}}
 
         juju wait-for application ${CHARM_${{ matrix.model_type }}}
 
