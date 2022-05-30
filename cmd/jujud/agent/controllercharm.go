@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,6 +99,20 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	if controllerUnit, err = addControllerApplication(st, curl, *origin, controllerAddress, series); err != nil {
 		return errors.Annotate(err, "cannot add controller application")
 	}
+
+	// Force CAAS unit's providerId on CAAS.
+	// TODO(caas): this assumes k8s is the provider
+	if isCAAS {
+		providerID := fmt.Sprintf("controller-%d", controllerUnit.UnitTag().Number())
+		op := controllerUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: &providerID,
+		})
+		err = st.ApplyOperation(op)
+		if err != nil {
+			return errors.Annotate(err, "cannot update controller unit")
+		}
+	}
+
 	logger.Debugf("Successfully deployed %s Juju controller charm", source)
 	return nil
 }

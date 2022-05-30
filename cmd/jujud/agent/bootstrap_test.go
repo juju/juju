@@ -23,6 +23,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
+	osseries "github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -47,7 +48,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -119,7 +120,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
 		return "private-key", "public-key", nil
 	})
-	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&coreseries.UbuntuDistroInfo, "/path/notexists")
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
@@ -201,9 +202,12 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
+	series, err := osseries.HostSeries()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Remove the local controller charm so we use the store one.
 	controllerCharmPath := filepath.Join(s.dataDir, "charms", "controller.charm")
-	err := os.Remove(controllerCharmPath)
+	err = os.Remove(controllerCharmPath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrl := gomock.NewController(c)
@@ -225,19 +229,19 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Series:       series,
 		},
 	}
 
 	storeCurl := *curl
 	storeCurl.Revision = 666
-	storeCurl.Series = "focal"
+	storeCurl.Series = series
 	storeCurl.Architecture = "amd64"
 	storeOrigin := origin
 	storeOrigin.Type = "charm"
 	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
 
-	origin.Platform.Series = "focal"
+	origin.Platform.Series = series
 	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, nil, false).
 		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (*charm.CharmArchive, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")

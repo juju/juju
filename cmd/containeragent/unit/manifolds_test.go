@@ -74,6 +74,44 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
+func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *gc.C) {
+	config := unit.ManifoldsConfig{
+		ColocatedWithController: true,
+	}
+	manifolds := unit.Manifolds(config)
+	expectedKeys := []string{
+		"agent",
+		"api-config-watcher",
+		"api-caller",
+		"uniter",
+		"log-sender",
+
+		"charm-dir",
+		"leadership-tracker",
+		"hook-retry-strategy",
+
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-minion",
+
+		"proxy-config-updater",
+		"logging-config-updater",
+
+		"upgrader",
+		"upgrade-steps-runner",
+		"upgrade-steps-gate",
+		"upgrade-steps-flag",
+
+		"caas-unit-termination-worker",
+		"caas-units-manager",
+	}
+	keys := make([]string, 0, len(manifolds))
+	for k := range manifolds {
+		keys = append(keys, k)
+	}
+	c.Assert(keys, jc.SameContents, expectedKeys)
+}
+
 func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 	exempt := set.NewStrings(
 		"agent",
