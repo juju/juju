@@ -85,9 +85,9 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	w.Print(values[:versionPos]...)
 	modelVersionNum, err := version.Parse(fs.Model.Version)
 	if err == nil && jujuversion.Current.Compare(modelVersionNum) > 0 {
-		w.PrintColor(output.WarningHighlight, fs.Model.Version)
+		w.PrintColorNoTab(output.WarningHighlight, fs.Model.Version)
 	} else {
-		w.Print(fs.Model.Version)
+		w.PrintNoTab(fs.Model.Version)
 	}
 	w.Println(values[versionPos:]...)
 	if len(fs.Branches) > 0 {
