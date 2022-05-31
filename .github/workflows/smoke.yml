@@ -92,6 +92,7 @@ jobs:
         sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
         sudo snap install lxd
+        sudo snap install yq
         sudo snap install juju --classic --channel=${{ matrix.snap_version }}
 
         sudo lxd waitready
@@ -111,7 +112,11 @@ jobs:
 
         echo "::set-output name=go-version::$(grep '^go ' go.mod | awk '{print $2}')"
         echo "::set-output name=base-juju-version::$(juju version | cut -d '-' -f 1)"
-        echo "::set-output name=upstream-juju-version::$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')"
+        upstreamJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
+        echo "::set-output name=upstream-juju-version::${upstreamJujuVersion}"
+        currentStableChannel="$(echo $upstreamJujuVersion | cut -d'.' -f1,2)/stable"
+        currentStableVersion=$(snap info juju | yq ".channels[\"$currentStableChannel\"]" | cut -d' ' -f1)
+        echo "::set-output name=current-stable-juju-version::$currentStableVersion"
         echo "::set-output name=juju-db-version::4.0"
       id: vars
 
@@ -268,6 +273,7 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
+        CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
       run: |
         set -euxo pipefail
 
@@ -283,6 +289,16 @@ jobs:
         EOL
         docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
         docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
+        
+        cat >~/Dockerfile <<EOL
+          FROM jujusolutions/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
+
+          COPY certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+
+          RUN update-ca-certificates
+        EOL
+        docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
+        docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
 
     - name: Preflight
       if: env.RUN_TEST == 'RUN'
@@ -304,7 +320,7 @@ jobs:
 
         # upgrade to the latest stable.
         juju upgrade-controller --debug
-
+        sleep 20
         juju upgrade-controller ${UPGRADE_PARAMS_${{ matrix.model_type }}}
 
         attempt=0
