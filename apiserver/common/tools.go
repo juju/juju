@@ -27,6 +27,10 @@ import (
 
 var envtoolsFindTools = envtools.FindTools
 
+type ToolsFindEntity interface {
+	FindEntity(tag names.Tag) (state.Entity, error)
+}
+
 // ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
@@ -49,13 +53,24 @@ type ToolsStorageGetter interface {
 	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
+// AgentTooler is implemented by entities
+// that have associated agent tools.
+type AgentTooler interface {
+	AgentTools() (*coretools.Tools, error)
+	SetAgentVersion(version.Binary) error
+
+	// Tag is included in this interface only so the generated mock of
+	// AgentTooler implements state.Entity, returned by FindEntity
+	Tag() names.Tag
+}
+
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
-	newEnviron         NewEnvironFunc
-	entityFinder       state.EntityFinder
+	entityFinder       ToolsFindEntity
 	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
+	toolsFinder        ToolsFinder
 	urlGetter          ToolsURLGetter
 	getCanRead         GetAuthFunc
 }
@@ -63,19 +78,19 @@ type ToolsGetter struct {
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
 func NewToolsGetter(
-	f state.EntityFinder,
-	c environs.EnvironConfigGetter,
-	s ToolsStorageGetter,
-	t ToolsURLGetter,
+	entityFinder ToolsFindEntity,
+	configGetter environs.EnvironConfigGetter,
+	toolsStorageGetter ToolsStorageGetter,
+	urlGetter ToolsURLGetter,
+	toolsFinder ToolsFinder,
 	getCanRead GetAuthFunc,
-	newEnviron NewEnvironFunc,
 ) *ToolsGetter {
 	return &ToolsGetter{
-		newEnviron:         newEnviron,
-		entityFinder:       f,
-		configGetter:       c,
-		toolsStorageGetter: s,
-		urlGetter:          t,
+		entityFinder:       entityFinder,
+		configGetter:       configGetter,
+		toolsStorageGetter: toolsStorageGetter,
+		urlGetter:          urlGetter,
+		toolsFinder:        toolsFinder,
 		getCanRead:         getCanRead,
 	}
 }
@@ -131,7 +146,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	tooler, ok := entity.(state.AgentTooler)
+	tooler, ok := entity.(AgentTooler)
 	if !ok {
 		return nil, apiservererrors.NotSupportedError(tag, "agent binaries")
 	}
@@ -159,24 +174,23 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		findParams.OSType = ""
 	}
 
-	toolsFinder := newToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter, t.newEnviron)
-	list, err := toolsFinder.findTools(findParams)
+	tools, err := t.toolsFinder.FindTools(findParams)
 	if err != nil {
 		return nil, err
 	}
-	return list, nil
+	return tools.List, nil
 }
 
 // ToolsSetter implements a common Tools method for use by various
 // facades.
 type ToolsSetter struct {
-	st          state.EntityFinder
+	st          ToolsFindEntity
 	getCanWrite GetAuthFunc
 }
 
 // NewToolsSetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsSetter(st state.EntityFinder, getCanWrite GetAuthFunc) *ToolsSetter {
+func NewToolsSetter(st ToolsFindEntity, getCanWrite GetAuthFunc) *ToolsSetter {
 	return &ToolsSetter{
 		st:          st,
 		getCanWrite: getCanWrite,
@@ -212,7 +226,7 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 	if err != nil {
 		return err
 	}
-	entity, ok := entity0.(state.AgentTooler)
+	entity, ok := entity0.(AgentTooler)
 	if !ok {
 		return apiservererrors.NotSupportedError(tag, "agent binaries")
 	}
@@ -234,17 +248,12 @@ type toolsFinder struct {
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
 func NewToolsFinder(
-	c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter,
-	newEnviron NewEnvironFunc,
-) ToolsFinder {
-	return newToolsFinder(c, s, t, newEnviron)
-}
-
-func newToolsFinder(
-	c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter,
+	configGetter environs.EnvironConfigGetter,
+	toolsStorageGetter ToolsStorageGetter,
+	urlGetter ToolsURLGetter,
 	newEnviron NewEnvironFunc,
 ) *toolsFinder {
-	return &toolsFinder{c, s, t, newEnviron}
+	return &toolsFinder{configGetter, toolsStorageGetter, urlGetter, newEnviron}
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
