@@ -141,7 +141,7 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) {
+func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 	var returnErr error
 	accumulateErrors := func(err error) {
 		if returnErr != nil {
@@ -200,10 +200,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	details, err := c.getCloudList(ctxt)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	details, listErr := c.getCloudList() // error checked below, after printing out best-effort results
 	if c.showAllMessage {
 		if details.len() != 0 {
 			ctxt.Infof("Only clouds with registered credentials are shown.")
@@ -223,7 +220,11 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	default:
 		result = details
 	}
-	return c.out.Write(ctxt, result)
+	err := c.out.Write(ctxt, result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return listErr
 }
 
 type cloudList struct {

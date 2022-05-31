@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"errors"
 	"io/ioutil"
 	"strings"
 
@@ -112,6 +113,23 @@ beehive:
       display-name: Fred
       access: admin
 `[1:])
+}
+
+func (s *listSuite) TestListControllerError(c *gc.C) {
+	cmd := cloud.NewListCloudCommandForTest(
+		s.store,
+		func() (cloud.ListCloudsAPI, error) {
+			return nil, errors.New("bad problem")
+		},
+	)
+
+	// Command should return an error
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--all")
+	c.Assert(err, gc.ErrorMatches, `getting controller clouds: bad problem`)
+	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+
+	// But also print out what it can (the client clouds)
+	s.assertCloudsOutput(c, cmdtesting.Stdout(ctx))
 }
 
 func (s *listSuite) TestListClientAndController(c *gc.C) {
