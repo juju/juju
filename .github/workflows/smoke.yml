@@ -359,7 +359,7 @@ jobs:
             exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 3
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
 
     - name: Test upgrade model
       if: env.RUN_TEST == 'RUN'
