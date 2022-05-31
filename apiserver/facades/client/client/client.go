@@ -881,7 +881,7 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 			}
 		}
 		arch, err := reg.GetArchitecture(imageName, number.String())
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(errors.Cause(err)) {
 			continue
 		}
 		if err != nil {
