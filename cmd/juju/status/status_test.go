@@ -73,13 +73,13 @@ func (s *MinimalStatusSuite) TestWatchUntilError(c *gc.C) {
 	// We expect the correct output for the first 3 nil errors before termination.
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Model  Controller  Cloud/Region  Version
-test   test        foo            
+test   test        foo           
 
 Model  Controller  Cloud/Region  Version
-test   test        foo            
+test   test        foo           
 
 Model  Controller  Cloud/Region  Version
-test   test        foo            
+test   test        foo           
 
 `[1:])
 
@@ -93,7 +93,7 @@ func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
 	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Equals, `
 Model  Controller  Cloud/Region  Version
-test   test        foo            
+test   test        foo           
 
 Storage Unit  Storage ID    Type        Pool      Mountpoint  Size    Status    Message
               persistent/1  filesystem                                detached  
@@ -111,7 +111,7 @@ func (s *MinimalStatusSuite) TestRetryOnError(c *gc.C) {
 		errors.New("splat"),
 	}
 
-	_, err := s.runStatus(c)
+	_, err := s.runStatus(c, "--no-color")
 	c.Assert(err, jc.ErrorIsNil)
 	delay := 100 * time.Millisecond
 	// Two delays of the default time.
@@ -124,7 +124,7 @@ func (s *MinimalStatusSuite) TestRetryDelays(c *gc.C) {
 		errors.New("splat"),
 	}
 
-	_, err := s.runStatus(c, "--retry-delay", "250ms")
+	_, err := s.runStatus(c, "--no-color", "--retry-delay", "250ms")
 	c.Assert(err, jc.ErrorIsNil)
 	delay := 250 * time.Millisecond
 	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay})
@@ -141,7 +141,7 @@ func (s *MinimalStatusSuite) TestRetryCount(c *gc.C) {
 		errors.New("error 7"),
 	}
 
-	_, err := s.runStatus(c, "--retry-count", "5")
+	_, err := s.runStatus(c, "--no-color", "--retry-count", "5")
 	c.Assert(err.Error(), gc.Equals, "error 6")
 	// We expect five waits of the default duration.
 	delay := 100 * time.Millisecond
@@ -155,7 +155,7 @@ func (s *MinimalStatusSuite) TestRetryCountOfZero(c *gc.C) {
 		errors.New("error 3"),
 	}
 
-	_, err := s.runStatus(c, "--retry-count", "0")
+	_, err := s.runStatus(c, "--no-color", "--retry-count", "0")
 	c.Assert(err.Error(), gc.Equals, "error 1")
 	// No delays.
 	c.Assert(s.clock.waits, gc.HasLen, 0)
