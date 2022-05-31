@@ -733,11 +733,11 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
-			Name: insecureCred.Label,
-			Type: "client",
+			Name:        insecureCred.Label,
+			Type:        "client",
+			Certificate: clientX509Base64,
 		},
-		Certificate: clientX509Base64,
-		Password:    "fred",
+		Password: "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(&api.Server{
 		Environment: api.ServerEnvironment{
@@ -873,11 +873,11 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
-			Name: insecureCred.Label,
-			Type: "client",
+			Name:        insecureCred.Label,
+			Type:        "client",
+			Certificate: clientX509Base64,
 		},
-		Certificate: clientX509Base64,
-		Password:    "fred",
+		Password: "fred",
 	}).Return(errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
@@ -916,11 +916,11 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
-			Name: insecureCred.Label,
-			Type: "client",
+			Name:        insecureCred.Label,
+			Type:        "client",
+			Certificate: clientX509Base64,
 		},
-		Certificate: clientX509Base64,
-		Password:    "fred",
+		Password: "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(nil, "etag", errors.New("bad"))
 
@@ -969,11 +969,11 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
-			Name: insecureCred.Label,
-			Type: "client",
+			Name:        insecureCred.Label,
+			Type:        "client",
+			Certificate: clientX509Base64,
 		},
-		Certificate: clientX509Base64,
-		Password:    "fred",
+		Password: "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(&api.Server{
 		Environment: api.ServerEnvironment{
