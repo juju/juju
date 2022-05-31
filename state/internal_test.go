@@ -92,6 +92,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.pool = ctlr.StatePool()
 	s.state, err = ctlr.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
+	s.state.stateClock = testclock.NewClock(testing.NonZeroTime())
 	s.AddCleanup(func(*gc.C) {
 		// Controller closes pool, pool closes all states.
 		s.controller.Close()

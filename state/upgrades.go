@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -4472,5 +4473,47 @@ func RemoveLocalCharmOriginChannels(pool *StatePool) error {
 			return errors.Trace(st.db().RunTransaction(ops))
 		}
 		return nil
+	}))
+}
+
+// FixCharmhubLastPolltime adds a non-zero last poll time to
+// charmhub resource records. We don't know the exact time (it
+// would have been sometime in the last 24 hours, so time.Now()
+// will suffice.
+func FixCharmhubLastPolltime(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		coll, closer := st.db().GetCollection(resourcesC)
+		defer closer()
+
+		query := bson.M{
+			"_id": bson.M{"$regex": ".*" + resourcesCharmstoreIDSuffix + "$"},
+		}
+		iter := coll.Find(query).Select(bson.M{
+			"_id":                        1,
+			"timestamp-when-last-polled": 1,
+		}).Iter()
+		defer iter.Close()
+		var ops []txn.Op
+		var doc bson.M
+		for iter.Next(&doc) {
+			id, ok := doc["_id"]
+			if !ok {
+				return errors.New("no id found in resource doc")
+			}
+			t, ok := doc["timestamp-when-last-polled"].(time.Time)
+			if ok && !t.IsZero() {
+				continue
+			}
+			ops = append(ops, txn.Op{
+				C:      resourcesC,
+				Id:     id,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"timestamp-when-last-polled", st.nowToTheSecond()}}}},
+			})
+		}
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+		return st.runRawTransaction(ops)
 	}))
 }

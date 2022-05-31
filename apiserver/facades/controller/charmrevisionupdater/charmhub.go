@@ -54,7 +54,7 @@ type CharmhubRefreshClient interface {
 
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID, now time.Time) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		base := charmhub.RefreshBase{
@@ -83,14 +83,14 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.M
 
 	results := make([]charmhubResult, len(responses))
 	for i, response := range responses {
-		results[i] = refreshResponseToCharmhubResult(response)
+		results[i] = refreshResponseToCharmhubResult(response, now)
 	}
 	return results, nil
 }
 
 // refreshResponseToCharmhubResult converts a raw RefreshResponse from the
 // charmhub API into a charmhubResult.
-func refreshResponseToCharmhubResult(response transport.RefreshResponse) charmhubResult {
+func refreshResponseToCharmhubResult(response transport.RefreshResponse, now time.Time) charmhubResult {
 	if response.Error != nil {
 		return charmhubResult{
 			error: errors.Errorf("charmhub API error %s: %s", response.Error.Code, response.Error.Message),
@@ -108,7 +108,7 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse) charmhu
 			logger.Warningf("invalid resource type %q: %v", r.Type, err)
 			continue
 		}
-		resource := resource.Resource{
+		res := resource.Resource{
 			Meta: resource.Meta{
 				Name:        r.Name,
 				Type:        typ,
@@ -120,11 +120,11 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse) charmhu
 			Fingerprint: fingerprint,
 			Size:        int64(r.Download.Size),
 		}
-		resources = append(resources, resource)
+		resources = append(resources, res)
 	}
 	return charmhubResult{
 		name:      response.Name,
-		timestamp: response.Entity.CreatedAt,
+		timestamp: now,
 		revision:  response.Entity.Revision,
 		resources: resources,
 	}

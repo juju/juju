@@ -109,6 +109,7 @@ type StateBackend interface {
 	UpdateCharmOriginAfterSetSeries() error
 	UpdateOperationWithEnqueuingErrors() error
 	RemoveLocalCharmOriginChannels() error
+	FixCharmhubLastPolltime() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -498,4 +499,8 @@ func (s stateBackend) UpdateOperationWithEnqueuingErrors() error {
 
 func (s stateBackend) RemoveLocalCharmOriginChannels() error {
 	return state.RemoveLocalCharmOriginChannels(s.pool)
+}
+
+func (s stateBackend) FixCharmhubLastPolltime() error {
+	return state.FixCharmhubLastPolltime(s.pool)
 }
