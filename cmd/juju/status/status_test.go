@@ -73,13 +73,13 @@ func (s *MinimalStatusSuite) TestWatchUntilError(c *gc.C) {
 	// We expect the correct output for the first 3 nil errors before termination.
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Model  Controller  Cloud/Region  Version
-test   test        foo           
+test   test        foo            
 
 Model  Controller  Cloud/Region  Version
-test   test        foo           
+test   test        foo            
 
 Model  Controller  Cloud/Region  Version
-test   test        foo           
+test   test        foo            
 
 `[1:])
 
@@ -93,7 +93,7 @@ func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
 	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Equals, `
 Model  Controller  Cloud/Region  Version
-test   test        foo           
+test   test        foo            
 
 Storage Unit  Storage ID    Type        Pool      Mountpoint  Size    Status    Message
               persistent/1  filesystem                                detached  
