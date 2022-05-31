@@ -360,7 +360,7 @@ All PRs run pre-merge check - unit tests and a small but representative sample
 of functional tests. This check is re-run anytime the PR changes, for example
 when a new commit is added.
 
-You can also initiate this check by commenting !!build!! in the PR.
+You can also initiate this check by commenting /build in the PR.
 
 Code review
 -----------
@@ -380,7 +380,7 @@ Continuous integration
 Continuous integration is automated through Jenkins:
 
 The bot runs on all commits during the PRE process, as well as handles merges.
-Use the `$$merge$$` comment to land a PR.
+Use the `/merge` comment to land a PR.
 
 Static Analysis
 ---------------
