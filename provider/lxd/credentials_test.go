@@ -6,6 +6,7 @@ package lxd_test
 import (
 	"encoding/base64"
 	"net"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -35,6 +36,8 @@ type credentialsSuite struct {
 }
 
 var _ = gc.Suite(&credentialsSuite{})
+
+var errNotFound = api.StatusErrorf(http.StatusNotFound, "")
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 	provider := lxd.NewProvider()
@@ -551,7 +554,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyExists(c *gc
 	deps := s.createProvider(ctrl)
 
 	gomock.InOrder(
-		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
+		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errNotFound),
 		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: interactives.fingerprint")),
 		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil),
 		deps.server.EXPECT().ServerCertificate().Return("server-cert"),
@@ -585,9 +588,9 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
 	deps := s.createProvider(ctrl)
 
 	gomock.InOrder(
-		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
+		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errNotFound),
 		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: interactives.fingerprint")),
-		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
+		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errNotFound),
 	)
 
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
@@ -730,7 +733,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
-	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name:        insecureCred.Label,
@@ -870,7 +873,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
-	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name:        insecureCred.Label,
@@ -913,7 +916,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
-	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name:        insecureCred.Label,
@@ -966,7 +969,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
-	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name:        insecureCred.Label,
