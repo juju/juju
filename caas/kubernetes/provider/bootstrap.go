@@ -1507,6 +1507,10 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 			continue
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+		ct.Args = append(ct.Args, "--controller")
+		ct.LivenessProbe = nil
+		ct.ReadinessProbe = nil
+		ct.StartupProbe = nil
 		spec.Containers[i] = ct
 	}
 	return spec, nil
