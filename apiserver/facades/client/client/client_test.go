@@ -2140,6 +2140,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.12-ubuntu-amd64")},
 		},
 	}
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
@@ -2173,11 +2174,13 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.10.1")),
 			image.NewImageInfo(version.MustParse("2.9.10")),
 			image.NewImageInfo(version.MustParse("2.9.11")),
-			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
+			image.NewImageInfo(version.MustParse("2.9.12")),
+			image.NewImageInfo(version.MustParse("2.9.13")), // skip: it's not released in simplestream yet.
 		}, nil),
 		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
 		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
 		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.12").Return("", errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
 		registryProvider.EXPECT().Close().Return(nil),
 	)
 
