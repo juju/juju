@@ -74,9 +74,9 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		args:        []string{"--reset", "something", "--region", "weird"},
 		errorMatch:  `invalid region specified: "weird"`,
 	}, {
-		description: "test reset with valid region and duplicate key set",
+		description: "test valid region, set and reset same key",
 		args:        []string{"--reset", "something", "--region", "dummy-region", "something=weird"},
-		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
+		errorMatch:  `cannot set and reset key "something" simultaneously`,
 	}, {
 		description: "test reset with valid region and extra positional arg",
 		args:        []string{"--reset", "something", "--region", "dummy-region", "weird"},
@@ -124,7 +124,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test multiple reset and set inits",
 		args:        []string{"--reset", "a", "b=c", "--reset", "d"},
-		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
+		nilErr:      true,
 	}, {
 		description: "test multiple reset with valid region inits",
 		args:        []string{"--region", "dummy-region", "--reset", "a", "--reset", "b"},
@@ -184,13 +184,13 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		args:        []string{"--region", "dummy-region", "one=two"},
 		nilErr:      true,
 	}, {
-		description: "test valid cloud with set and reset fails",
+		description: "test valid cloud with set and reset",
 		args:        []string{"--cloud", "dummy", "one=two", "--reset", "three"},
-		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
+		nilErr:      true,
 	}, {
-		description: "test valid region with set and reset fails",
+		description: "test valid region with set and reset",
 		args:        []string{"--region", "dummy-region", "one=two", "--reset", "three"},
-		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
+		nilErr:      true,
 	}, {
 		description: "test reset and set with valid region and extra key fails",
 		args:        []string{"--reset", "something,else", "--region", "dummy-region", "invalidkey", "is=weird"},
@@ -218,9 +218,9 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		errorMatch:  "cannot use --reset flag, get value and set key=value pairs simultaneously",
 	}, {
 		// Test some random orderings
-		description: "test invalid positional args with set, reset with trailing comman and split key=values",
+		description: "test region set and split key=values",
 		args:        []string{"--region", "dummy-region", "a=b", "--reset", "c,d,", "e=f"},
-		errorMatch:  "cannot use --reset flag and set key=value pairs simultaneously",
+		nilErr:      true,
 	}, {
 		description: "test leading comma with reset",
 		args:        []string{"--reset", ",a,b"},
@@ -321,6 +321,23 @@ func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 	})
 }
 
+func (s *DefaultsCommandSuite) TestSetReset(c *gc.C) {
+	ctx, err := s.run(c, "special=extra", "--reset", "attr,unknown")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
+	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"special": {Controller: "extra", Default: nil, Regions: nil},
+	})
+	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
+}
+
 func (s *DefaultsCommandSuite) TestSetValueWithSlash(c *gc.C) {
 	// A value with a "/" might be interpreted as a cloud/region.
 	_, err := s.run(c, `juju-no-proxy=localhost,127.0.0.1,127.0.0.53,10.0.8.0/24`)
@@ -363,15 +380,37 @@ func (s *DefaultsCommandSuite) TestSetFromFile(c *gc.C) {
 func (s *DefaultsCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	err := ioutil.WriteFile(configFile, []byte(`
+special: extra
+attr: foo`), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, "--file", configFile)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.run(c, "attr=baz")
+	_, err = s.run(c, "--file", configFile, "attr=baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"special": {Controller: "extra", Default: nil, Regions: nil},
+	})
+}
+
+func (s *DefaultsCommandSuite) TestSetFromFileReset(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte(`
+special: extra
+attr: foo`), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, "--file", configFile, "--reset", "attr")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",

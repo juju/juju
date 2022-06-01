@@ -303,18 +303,25 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 	client := c.newDefaultsAPI(root)
 	defer client.Close()
 
-	switch c.configBase.Actions[0] {
-	case config.GetOne:
-		return c.getDefaults(client, ctx)
-	case config.Set:
-		return c.setDefaults(client)
-	case config.SetFile:
-		return c.setDefaultsFile(client, ctx)
-	case config.Reset:
-		return c.resetDefaults(client)
-	default:
-		return c.getAllDefaults(client, ctx)
+	for _, action := range c.configBase.Actions {
+		var err error
+		switch action {
+		case config.GetOne:
+			err = c.getDefaults(client, ctx)
+		case config.Set:
+			err = c.setDefaults(client)
+		case config.SetFile:
+			err = c.setDefaultsFile(client, ctx)
+		case config.Reset:
+			err = c.resetDefaults(client)
+		default:
+			err = c.getAllDefaults(client, ctx)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+	return nil
 }
 
 // validateCloudRegion checks that the supplied cloud and region is valid.
@@ -394,10 +401,13 @@ func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 		return errors.Trace(err)
 	}
 
-	if value, ok := attrs[c.configBase.KeyToGet]; ok {
-		return c.out.Write(ctx, envconfig.ModelDefaultAttributes{c.configBase.KeyToGet: value})
+	if len(c.configBase.KeysToGet) == 0 {
+		return errors.New("c.configBase.KeysToGet is empty")
+	}
+	if value, ok := attrs[c.configBase.KeysToGet[0]]; ok {
+		return c.out.Write(ctx, envconfig.ModelDefaultAttributes{c.configBase.KeysToGet[0]: value})
 	} else {
-		msg := fmt.Sprintf("there are no default model values for %q", c.configBase.KeyToGet)
+		msg := fmt.Sprintf("there are no default model values for %q", c.configBase.KeysToGet[0])
 		if c.region != "" {
 			msg += fmt.Sprintf(" in region %q", c.region)
 		}

@@ -163,16 +163,23 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	switch c.configBase.Actions[0] {
-	case config.GetOne:
-		return c.getConfig(client, ctx)
-	case config.Set:
-		return c.setConfig(client, ctx)
-	case config.SetFile:
-		return c.setConfigFile(client, ctx)
-	default:
-		return c.getAllConfig(client, ctx)
+	for _, action := range c.configBase.Actions {
+		var err error
+		switch action {
+		case config.GetOne:
+			err = c.getConfig(client, ctx)
+		case config.Set:
+			err = c.setConfig(client)
+		case config.SetFile:
+			err = c.setConfigFile(client, ctx)
+		default:
+			err = c.getAllConfig(client, ctx)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+	return nil
 }
 
 // getAllConfig returns the entire configuration for the selected controller.
@@ -195,7 +202,10 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 	if err != nil {
 		return err
 	}
-	if value, found := attrs[c.configBase.KeyToGet]; found {
+	if len(c.configBase.KeysToGet) == 0 {
+		return errors.New("c.configBase.KeysToGet is empty")
+	}
+	if value, found := attrs[c.configBase.KeysToGet[0]]; found {
 		if c.out.Name() == "tabular" {
 			// The user has not specified that they want
 			// YAML or JSON formatting, so we print out
@@ -205,11 +215,11 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 		return c.out.Write(ctx, value)
 	}
 	return errors.Errorf("key %q not found in controller %q",
-		c.configBase.KeyToGet, controllerName)
+		c.configBase.KeysToGet[0], controllerName)
 }
 
 // setConfig sets config values from provided key=value arguments.
-func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error {
+func (c *configCommand) setConfig(client controllerAPI) error {
 	attrs := make(map[string]interface{})
 	for key, value := range c.configBase.ValsToSet {
 		attrs[key] = value
