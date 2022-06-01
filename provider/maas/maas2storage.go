@@ -5,6 +5,7 @@ package maas
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -37,7 +38,7 @@ func (stor *maas2Storage) Get(name string) (io.ReadCloser, error) {
 	file, err := stor.maasController.GetFile(name)
 	if err != nil {
 		if gomaasapi.IsNoMatchError(err) {
-			return nil, errors.NewNotFound(err, name+" not found")
+			return nil, fmt.Errorf("%s %w", name, errors.NotFound)
 		}
 		return nil, errors.Trace(err)
 	}
