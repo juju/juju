@@ -130,7 +130,7 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       uses: balchua/microk8s-actions@v0.2.2
       with:
-        channel: "1.23/stable"
+        channel: "latest/stable"
         addons: '["dns", "storage"]'
 
     - name: Setup local caas registry
@@ -219,7 +219,7 @@ jobs:
         sg microk8s <<EOF
           juju bootstrap microk8s c \
             --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
-            --config features="[developer-mode]" --debug --keep-broken
+            --config features="[developer-mode]"
         EOF
         juju add-model m
 
@@ -319,7 +319,7 @@ jobs:
       run: |
         set -euxo pipefail
 
-        # upgrade to the latest stable.
+        # Upgrade to the latest stable.
         juju upgrade-controller --debug
         
         attempt=0
@@ -336,6 +336,7 @@ jobs:
           fi
         done
         
+        # Upgrade to local built version.
         juju upgrade-controller ${UPGRADE_PARAMS_${{ matrix.model_type }}}
 
         attempt=0
@@ -398,7 +399,7 @@ jobs:
           exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 3
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
 
     - name: Wrap up
       if: env.RUN_TEST == 'RUN'
@@ -410,7 +411,3 @@ jobs:
 
         sg microk8s "microk8s kubectl get all -A" || true
         lxc ls || true
-
-    - name: Setup tmate session
-      if: ${{ failure() }}
-      uses: mxschmitt/action-tmate@v3
