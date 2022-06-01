@@ -18,10 +18,10 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
+	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 )
@@ -1772,6 +1772,7 @@ func validateStorageConstraintsAgainstCharm(
 				humanize.Bytes(cons.Size*humanize.MByte),
 			)
 		}
+
 		kind := storageKind(charmStorage.Type)
 		if err := validateStoragePool(sb, cons.Pool, kind, nil); err != nil {
 			return err
@@ -1877,17 +1878,22 @@ func validateStoragePool(
 		}
 	}
 
-	// Validate any k8s config.
-	if sb.modelType == ModelTypeCAAS {
-		if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
-			return errors.Annotatef(err, "invalid storage config")
+	// Validate the storage provider for this type and configuration
+	aProvider.ValidateConfig(poolConfig)
+
+	/*
+		// Validate any k8s config.
+		if sb.modelType == ModelTypeCAAS {
+			if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
+				return errors.Annotatef(err, "invalid storage config")
+			}
 		}
-	}
+	*/
 
 	return nil
 }
 
-func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]interface{}, error) {
+func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, *jujustorage.Config, error) {
 	registry, err := sb.registry()
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
@@ -1913,7 +1919,8 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	return providerType, aProvider, pool.Attrs(), nil
+	//return providerType, aProvider, pool.Attrs(), nil
+	return providerType, aProvider, pool, nil
 }
 
 // ErrNoDefaultStoragePool is returned when a storage pool is required but none
