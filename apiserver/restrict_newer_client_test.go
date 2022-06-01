@@ -24,7 +24,7 @@ var _ = gc.Suite(&restrictNewerClientSuite{})
 
 func (r *restrictNewerClientSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
-	r.PatchValue(&jujuversion.Current, version.MustParse("3.0.0"))
+	r.PatchValue(&jujuversion.Current, version.MustParse("3.1.0"))
 	r.olderVersion = jujuversion.Current
 	r.olderVersion.Major--
 }
@@ -41,6 +41,19 @@ func (r *restrictNewerClientSuite) TestOldClientAllowedMethods(c *gc.C) {
 	// Worker calls for migrations.
 	checkAllowed("MigrationTarget", "Prechecks", 1)
 	checkAllowed("UserManager", "UserInfo", userManagerFacadeVersion)
+}
+
+func (r *restrictNewerClientSuite) TestRecentClientAllowedAll(c *gc.C) {
+	r.PatchValue(&jujuversion.Current, version.MustParse("3.0.0"))
+	r.olderVersion = jujuversion.Current
+	r.olderVersion.Major--
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.olderVersion)
+	checkAllowed := func(facade, method string, version int) {
+		caller, err := root.FindMethod(facade, version, method)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(caller, gc.NotNil)
+	}
+	checkAllowed("ModelManager", "CreateModel", modelManagerFacadeVersion)
 }
 
 func (r *restrictNewerClientSuite) TestNewClientAllowedMethods(c *gc.C) {
