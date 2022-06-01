@@ -291,7 +291,7 @@ jobs:
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
         UPGRADE_PARAMS_localhost: ""
-        UPGRADE_PARAMS_microk8s: ""
+        UPGRADE_PARAMS_microk8s: "--agent-stream=develop --debug"
       run: |
         set -euxo pipefail
 
