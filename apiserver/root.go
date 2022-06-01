@@ -266,7 +266,7 @@ func restrictAPIRoot(
 		// If the client version is different to the server version,
 		// add extra checks to ensure older clients cannot be used.
 		if clientVersion.Major != jujuversion.Current.Major {
-			apiRoot = restrictRoot(apiRoot, checkClientVersion(auth.userLogin, clientVersion))
+			apiRoot = restrictRoot(apiRoot, checkClientVersion(auth.userLogin, clientVersion, jujuversion.Current))
 		}
 	}
 	if auth.controllerOnlyLogin {
