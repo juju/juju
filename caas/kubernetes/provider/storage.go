@@ -20,35 +20,6 @@ import (
 	storageprovider "github.com/juju/juju/storage/provider"
 )
 
-//ValidateStorageProvider returns an error if the storage type and config is not valid
-// for a Kubernetes deployment.
-/*
-func ValidateStorageProvider(providerType jujustorage.ProviderType, attributes jujustorage.Attrs) error {
-	switch providerType {
-	case constants.StorageProviderType:
-	case storageprovider.RootfsProviderType:
-	case storageprovider.TmpfsProviderType:
-	default:
-		return errors.NotValidf("storage provider type %q", providerType)
-	}
-	if attributes == nil {
-		return nil
-	}
-	if mediumValue, ok := attributes[constants.StorageMedium]; ok {
-		medium := core.StorageMedium(fmt.Sprintf("%v", mediumValue))
-		if medium != core.StorageMediumMemory && medium != core.StorageMediumHugePages {
-			return errors.NotValidf("storage medium %q", mediumValue)
-		}
-	}
-	if providerType == constants.StorageProviderType {
-		if err := validateStorageAttributes(attributes); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-*/
-
 func validateStorageAttributes(attributes map[string]interface{}) error {
 	if _, err := storage.ParseStorageConfig(attributes); err != nil {
 		return errors.Trace(err)
