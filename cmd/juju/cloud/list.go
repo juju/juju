@@ -154,7 +154,7 @@ func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 	details := newCloudList()
 	if c.Client {
 		if d, err := listLocalCloudDetails(c.Store); err != nil {
-			accumulateErrors(errors.Annotate(err, "getting local clouds"))
+			accumulateErrors(errors.Annotate(err, "could not get local clouds"))
 		} else {
 			details = d
 		}
@@ -188,7 +188,7 @@ func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 			return nil
 		}
 		if err := remotes(); err != nil {
-			accumulateErrors(errors.Annotate(err, "getting controller clouds"))
+			accumulateErrors(errors.Annotatef(err, "could not get clouds from controller %q", c.ControllerName))
 		}
 	}
 	c.showAllMessage = !c.Embedded && details.filter(c.all)

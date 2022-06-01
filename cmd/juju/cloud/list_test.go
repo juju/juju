@@ -125,7 +125,7 @@ func (s *listSuite) TestListControllerError(c *gc.C) {
 
 	// Command should return an error
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--all")
-	c.Assert(err, gc.ErrorMatches, `getting controller clouds: bad problem`)
+	c.Assert(err, gc.ErrorMatches, `could not get clouds from controller "mycontroller": bad problem`)
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 
 	// But also print out what it can (the client clouds)
