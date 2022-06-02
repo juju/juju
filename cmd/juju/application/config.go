@@ -3,8 +3,10 @@
 package application
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"unicode/utf8"
 
@@ -145,8 +147,12 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	// Set ConfigCommandBase flags
 	c.configBase.SetFlags(f)
+
 	// Set the --format and -o flags
-	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+		"yaml": c.FormatYaml,
+		"json": c.FormatJson,
+	})
 
 	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		f.StringVar(&c.branchName, "branch", "", "Specifically target config for the supplied branch")
@@ -374,4 +380,24 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 		settings[k] = nv
 	}
 	return settings, nil
+}
+
+// FormatYaml serializes value into valid yaml string. If color flag is passed it adds ANSI color escape codes to the output.
+func (c *configCommand) FormatYaml(w io.Writer, value interface{}) error {
+	if c.configBase.Color {
+		// use a buffered writer, we need to process(color) data into a buffer before writing to IO
+		colorBufferedWriter := output.Writer(bufio.NewWriter(w))
+		return output.FormatYamlWithColor(colorBufferedWriter, value)
+	}
+	return cmd.FormatYaml(w, value)
+}
+
+// FormatJson serializes value into valid json string. If color flag is passed it adds ANSI color escape codes to the output.
+func (c *configCommand) FormatJson(w io.Writer, val interface{}) error {
+	if c.configBase.Color {
+		// use a buffered writer, we need to process(color) data into a buffer before writing to IO
+		colorBufferedWriter := output.Writer(bufio.NewWriter(w))
+		return output.FormatJsonWithColor(colorBufferedWriter, val)
+	}
+	return cmd.FormatJson(w, val)
 }
