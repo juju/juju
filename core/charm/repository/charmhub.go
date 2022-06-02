@@ -541,10 +541,16 @@ func (c *CharmHubRepository) selectNextBasesFromReleases(releases []transport.Re
 		suggestions := c.composeSuggestions(releases, origin)
 		var s string
 		if len(suggestions) > 0 {
-			s = fmt.Sprintf("; suggestions: %v", strings.Join(suggestions, ", "))
+			s = fmt.Sprintf("\navailable releases are:\n  %v", strings.Join(suggestions, "\n  "))
+		}
+		var channelName string
+		if origin.Channel != nil {
+			channelName = origin.Channel.String()
 		}
 		return nil, errSelection{
-			err: errors.Errorf("no charm or bundle matching channel or platform%s", s),
+			err: errors.Errorf(
+				"charm or bundle not found for channel %q, platform %q%s",
+				channelName, origin.Platform.String(), s),
 		}
 	}
 
@@ -691,13 +697,13 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 	for _, r := range charm.Risks {
 		risk := string(r)
 		if values, ok := channelSeries[risk]; ok {
-			suggestions = append(suggestions, fmt.Sprintf("%s with %s", risk, strings.Join(values, ", ")))
+			suggestions = append(suggestions, fmt.Sprintf("channel %q: available series are: %s", risk, strings.Join(values, ", ")))
 			delete(channelSeries, risk)
 		}
 	}
 
 	for channel, values := range channelSeries {
-		suggestions = append(suggestions, fmt.Sprintf("%s with %s", channel, strings.Join(values, ", ")))
+		suggestions = append(suggestions, fmt.Sprintf("channel %q: available series are: %s", channel, strings.Join(values, ", ")))
 	}
 	return suggestions
 }
