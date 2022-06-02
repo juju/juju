@@ -205,7 +205,7 @@ func (w *Worker) WatchModel(modelUUID string) multiwatcher.Watcher {
 }
 
 func (w *Worker) newWatcher(filter func([]multiwatcher.Delta) []multiwatcher.Delta) *Watcher {
-
+	w.mu.Lock()
 	watch := &Watcher{
 		request: w.request,
 		control: &w.tomb,
@@ -215,7 +215,6 @@ func (w *Worker) newWatcher(filter func([]multiwatcher.Delta) []multiwatcher.Del
 		err:    make(chan error, 1),
 		filter: filter,
 	}
-	w.mu.Lock()
 	w.watchers = append(w.watchers, watch)
 	w.mu.Unlock()
 	return watch
