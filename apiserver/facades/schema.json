@@ -5358,8 +5358,8 @@
     },
     {
         "Name": "Backups",
-        "Description": "APIv2 serves backup-specific API methods for version 2.",
-        "Version": 2,
+        "Description": "APIv3 serves backup-specific API methods for version 3.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -5477,12 +5477,6 @@
                 "BackupsMetadataResult": {
                     "type": "object",
                     "properties": {
-                        "ca-cert": {
-                            "type": "string"
-                        },
-                        "ca-private-key": {
-                            "type": "string"
-                        },
                         "checksum": {
                             "type": "string"
                         },
@@ -5559,8 +5553,6 @@
                         "hostname",
                         "version",
                         "series",
-                        "ca-cert",
-                        "ca-private-key",
                         "filename",
                         "format-version",
                         "controller-uuid",

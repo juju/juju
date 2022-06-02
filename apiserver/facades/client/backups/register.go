@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -18,6 +19,19 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Backups", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV2(ctx)
 	}, reflect.TypeOf((*APIv2)(nil)))
+	registry.MustRegister("Backups", 3, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV3(ctx)
+	}, reflect.TypeOf((*APIv3)(nil)))
+}
+
+// newFacadeV3 provides the required signature for version 3 facade registration.
+func newFacadeV3(ctx facade.Context) (*APIv3, error) {
+	st := ctx.State()
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewAPIv3(&stateShim{st, model}, ctx.Resources(), ctx.Auth())
 }
 
 // newFacadeV2 provides the required signature for version 2 facade registration.
