@@ -340,9 +340,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 
 	// Select a suitable default URL schema for charm URLs that don't
 	// provide one depending on whether the current controller supports
-	// charmhub (i.e. it is a 2.9+ controller).
+	// resources v2 facades which is for charmhub (i.e. it is a 2.9+ controller).
 	var defaultCharmSchema = charm.CharmHub
-	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
+	if apiRoot.BestFacadeVersion("Resources") < 2 {
 		defaultCharmSchema = charm.CharmStore
 	}
 

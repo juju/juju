@@ -69,9 +69,7 @@ type BackupsMetadataResult struct {
 	Version  version.Number `json:"version"`
 	Series   string         `json:"series"`
 
-	CACert       string `json:"ca-cert"`
-	CAPrivateKey string `json:"ca-private-key"`
-	Filename     string `json:"filename"`
+	Filename string `json:"filename"`
 
 	// FormatVersion stores the version of the backup format.
 	// All unversioned backup files are considered 0,

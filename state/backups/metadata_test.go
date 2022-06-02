@@ -45,9 +45,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		`"ControllerUUID":"",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"",`+
-		`"ControllerMachineInstanceID":"",`+
-		`"CACert":"ca-cert",`+
-		`"CAPrivateKey":"ca-private-key"`+
+		`"ControllerMachineInstanceID":""`+
 		`}`+"\n")
 }
 
@@ -64,8 +62,6 @@ func (s *metadataSuite) createTestMetadata(c *gc.C) *backups.Metadata {
 
 	meta.SetID("20140909-115934.asdf-zxcv-qwe")
 
-	meta.CACert = "ca-cert"
-	meta.CAPrivateKey = "ca-private-key"
 	return meta
 }
 
@@ -107,9 +103,7 @@ func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *gc.C) {
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"10",`+
-		`"ControllerMachineInstanceID":"inst-10101010",`+
-		`"CACert":"ca-cert",`+
-		`"CAPrivateKey":"ca-private-key"`+
+		`"ControllerMachineInstanceID":"inst-10101010"`+
 		`}`+"\n")
 }
 
@@ -141,9 +135,7 @@ func (s *metadataSuite) TestAsJSONBufferV1HA(c *gc.C) {
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":3,`+
 		`"ControllerMachineID":"10",`+
-		`"ControllerMachineInstanceID":"inst-10101010",`+
-		`"CACert":"ca-cert",`+
-		`"CAPrivateKey":"ca-private-key"`+
+		`"ControllerMachineInstanceID":"inst-10101010"`+
 		`}`+"\n")
 }
 
