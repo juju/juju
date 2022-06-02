@@ -154,8 +154,8 @@ func PatchGetMigrationBackend(p Patcher, ctrlSt controllerBackend, st migrationB
 	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
 		return st
 	})
-	p.PatchValue(&getControllerBackend, func(pool *state.StatePool) controllerBackend {
-		return ctrlSt
+	p.PatchValue(&getControllerBackend, func(pool *state.StatePool) (controllerBackend, error) {
+		return ctrlSt, nil
 	})
 }
 

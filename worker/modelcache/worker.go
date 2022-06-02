@@ -171,7 +171,11 @@ func (c *cacheWorker) Report() map[string]interface{} {
 
 func (c *cacheWorker) init() error {
 	// Initialize the cache controller with controller config.
-	controllerConfig, err := c.config.StatePool.SystemState().ControllerConfig()
+	systemState, err := c.config.StatePool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerConfig, err := systemState.ControllerConfig()
 	if err != nil {
 		return errors.Annotate(err, "unable to get controller config")
 	}

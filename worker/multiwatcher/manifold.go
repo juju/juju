@@ -41,7 +41,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 
 	NewWorker     func(Config) (worker.Worker, error)
-	NewAllWatcher func(*state.StatePool) state.AllWatcherBacking
+	NewAllWatcher func(*state.StatePool) (state.AllWatcherBacking, error)
 }
 
 // Validate validates the manifold configuration.
@@ -95,10 +95,15 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	allWatcher, err := config.NewAllWatcher(pool)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(Config{
 		Clock:                config.Clock,
 		Logger:               config.Logger,
-		Backing:              config.NewAllWatcher(pool),
+		Backing:              allWatcher,
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		Cleanup:              func() { _ = stTracker.Done() },
 	})

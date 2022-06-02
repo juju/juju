@@ -801,10 +801,10 @@ func (c *neutronFirewaller) openPortsInGroup(ctx context.ProviderCallContext, na
 	ruleInfo := rulesToRuleInfo(group.Id, rules)
 	for _, rule := range ruleInfo {
 		_, err := neutronClient.CreateSecurityGroupRuleV2(rule)
-		if err != nil {
+		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			handleCredentialError(err, ctx)
 			// TODO: if err is not rule already exists, raise?
-			logger.Debugf("error creating security group rule: %v", err.Error())
+			return fmt.Errorf("creating security group rule %q for parent group id %q using proto %q: %w", rule.Direction, rule.ParentGroupId, rule.IPProtocol, err)
 		}
 	}
 	return nil
@@ -879,11 +879,17 @@ func (c *neutronFirewaller) ingressRulesInGroup(ctx context.ProviderCallContext,
 		portRange := corenetwork.PortRange{
 			Protocol: *p.IPProtocol,
 		}
+		// NOTE: Juju firewall rule validation expects that icmp rules have port
+		// values set to -1
 		if p.PortRangeMin != nil {
 			portRange.FromPort = *p.PortRangeMin
+		} else if portRange.Protocol == "icmp" {
+			portRange.FromPort = -1
 		}
 		if p.PortRangeMax != nil {
 			portRange.ToPort = *p.PortRangeMax
+		} else if portRange.Protocol == "icmp" {
+			portRange.ToPort = -1
 		}
 		// Record the RemoteIPPrefix for the port range.
 		remotePrefix := p.RemoteIPPrefix

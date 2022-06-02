@@ -398,9 +398,10 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
     model_name = 'kubeflow'
     k8s_model = caas_client.add_model(model_name)
 
-    def dump_log(file_name, content): dump_k8s_log(os.path.join(log_dir, model_name), file_name, content)
+    def dump_log(file_name, content):
+        dump_k8s_log(os.path.join(log_dir, model_name), file_name, content)
 
-    def success_hook():
+    def dump_success_logs():
         dump_log(
             'all_pv_pvc_ing.txt',
             caas_client.kubectl('get', 'all,pv,pvc,ing', '--all-namespaces', '-o', 'wide'),
@@ -410,8 +411,12 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
             caas_client.kubectl('get', 'sa,roles,clusterroles,rolebindings,clusterrolebindings', '-oyaml', '-A'),
         )
 
+    def success_hook():
+        dump_success_logs()
+        caas_client.ensure_cleanup()  # see comment on keep_env below
+
     def fail_hook():
-        success_hook()
+        dump_success_logs()
         dump_log(
             f'all_pv_pvc_ing_{model_name}.yaml',
             caas_client.kubectl('get', 'all,pv,pvc,ing', '-n', model_name, '-o', 'yaml'),
@@ -439,6 +444,11 @@ def assess_caas_kubeflow_deployment(caas_client, caas_provider, bundle, build=Fa
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
         success_hook()
     except:  # noqa: E722
+        # Show "juju status" output on failure
+        try:
+            k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+        except Exception as e:
+            log.error('error with "juju status": %s', e)
         # run cleanup steps then raise.
         fail_hook()
         raise
@@ -487,6 +497,13 @@ def main(argv=None):
 
     k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
+
+    # Don't test teardown (destroy-model) for this test, as it's been failing
+    # due to a bug in one of the charms [1], and it's not actually what we're
+    # testing here anyway.
+    #
+    # [1] https://github.com/canonical/metacontroller-operator/issues/5
+    bs_manager.keep_env = False
 
     with k8s_provider(
         bs_manager,

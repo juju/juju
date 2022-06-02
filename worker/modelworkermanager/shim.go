@@ -55,7 +55,10 @@ func (g StatePoolController) RecordLogger(modelUUID string) (RecordLogger, error
 
 // Config is part of the Controller interface.
 func (g StatePoolController) Config() (controller.Config, error) {
-	sys := g.StatePool.SystemState()
+	sys, err := g.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if sys == nil {
 		return nil, errors.New("state pool closed")
 	}

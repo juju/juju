@@ -36,8 +36,12 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewFacade(resources, authorizer,
-		stateShim{ctx.StatePool().SystemState()},
+		stateShim{systemState},
 		stateShim{ctx.State()},
 		unitcommon.Backend(ctx.State()),
 		caasBroker, leadershipRevoker)

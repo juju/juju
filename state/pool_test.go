@@ -65,8 +65,16 @@ func (s *statePoolSuite) TestGetWithControllerModel(c *gc.C) {
 }
 
 func (s *statePoolSuite) TestGetSystemState(c *gc.C) {
-	st0 := s.StatePool.SystemState()
+	st0, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st0, gc.Equals, s.State)
+}
+
+func (s *statePoolSuite) TestSystemStateErrorPoolIsClosed(c *gc.C) {
+	err := s.StatePool.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	_, errSysState := s.StatePool.SystemState()
+	c.Assert(errSysState, gc.ErrorMatches, "pool is closed")
 }
 
 func (s *statePoolSuite) TestClose(c *gc.C) {

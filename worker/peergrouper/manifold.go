@@ -98,7 +98,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	st := statePool.SystemState()
+	st, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	mongoSession := st.MongoSession()
 	agentConfig := agent.CurrentConfig()
 	stateServingInfo, ok := agentConfig.StateServingInfo()

@@ -98,7 +98,8 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -203,7 +204,8 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	hostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
@@ -247,7 +249,8 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -279,7 +282,8 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -305,7 +309,8 @@ func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -401,8 +406,9 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 		Scope: network.ScopeCloudLocal,
 	}
 
-	ctrlSt := s.StatePool.SystemState()
-	_, err := ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
 		ProviderId: "whatever",
 		Addresses:  network.SpaceAddresses{{MachineAddress: machineAddr}},
@@ -442,8 +448,9 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 		Scope: network.ScopeCloudLocal,
 	}
 
-	ctrlSt := s.StatePool.SystemState()
-	_, err := ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
 		ProviderId: "whatever",
 		Addresses:  network.SpaceAddresses{{MachineAddress: machineAddr}},
@@ -498,8 +505,9 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 		Scope: network.ScopeCloudLocal,
 	}
 
-	ctrlSt := s.StatePool.SystemState()
-	_, err := ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
 		ProviderId: "whatever",
 		Addresses: network.SpaceAddresses{

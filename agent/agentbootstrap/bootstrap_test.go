@@ -212,7 +212,8 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = ctlr.Close() }()
 
-	st := ctlr.SystemState()
+	st, err := ctlr.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	err = cfg.Write()
 	c.Assert(err, jc.ErrorIsNil)
 

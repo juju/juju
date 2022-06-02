@@ -121,12 +121,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	machineID := agent.CurrentConfig().Tag().Id()
 
+	systemState, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	w, err := config.NewWorker(Config{
 		Authority:    authority,
 		Clock:        config.Clock,
 		Logger:       config.Logger,
 		MachineID:    machineID,
-		ModelWatcher: statePool.SystemState(),
+		ModelWatcher: systemState,
 		ModelMetrics: config.ModelMetrics,
 		Mux:          mux,
 		Controller: StatePoolController{
