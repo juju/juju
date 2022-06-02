@@ -5,6 +5,7 @@ package output
 
 import (
 	"fmt"
+	goyaml "gopkg.in/yaml.v2"
 	"io"
 
 	"github.com/juju/ansiterm"
@@ -18,6 +19,33 @@ import (
 var DefaultFormatters = map[string]cmd.Formatter{
 	"yaml": cmd.FormatYaml,
 	"json": cmd.FormatJson,
+}
+
+// FormatYamlWithColor formats yaml output with color. w is a colored Writer. (appends ansi color escape
+// codes) to the output.
+func FormatYamlWithColor(w io.Writer, value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	result, err := goyaml.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	// Parse the result and color it as we output it token by token.
+	fmt.Printf("%v\n", result)
+	return nil
+}
+
+// FormatJsonWithColor formats json output with color. w is a colored Writer. (appends ansi color escape
+// codes) to the output.
+func FormatJsonWithColor(w io.Writer, val interface{}) error {
+	return nil
+}
+
+// Writer returns a new writer that appends ansi color codes to the output.
+func Writer(writer io.Writer) *ansiterm.Writer {
+	return ansiterm.NewWriter(writer)
 }
 
 // TabWriter returns a new tab writer with common layout definition.
