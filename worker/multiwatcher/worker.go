@@ -154,9 +154,9 @@ func (w *Worker) Report() map[string]interface{} {
 	count := len(w.watchers)
 	store := w.store.Size()
 	restart := w.restartCount
-	var errors []string
+	var errs []string
 	for _, err := range w.errors {
-		errors = append(errors, err.Error())
+		errs = append(errs, err.Error())
 	}
 	var queueAge float64
 	var queueSize int
@@ -176,8 +176,8 @@ func (w *Worker) Report() map[string]interface{} {
 		reportQueueSizeKey: queueSize,
 		reportQueueAgeKey:  queueAge,
 	}
-	if len(errors) > 0 {
-		report[reportErrorsKey] = errors
+	if len(errs) > 0 {
+		report[reportErrorsKey] = errs
 	}
 	return report
 }
@@ -205,7 +205,8 @@ func (w *Worker) WatchModel(modelUUID string) multiwatcher.Watcher {
 }
 
 func (w *Worker) newWatcher(filter func([]multiwatcher.Delta) []multiwatcher.Delta) *Watcher {
-	watcher := &Watcher{
+
+	watch := &Watcher{
 		request: w.request,
 		control: &w.tomb,
 		logger:  w.config.Logger,
@@ -215,9 +216,9 @@ func (w *Worker) newWatcher(filter func([]multiwatcher.Delta) []multiwatcher.Del
 		filter: filter,
 	}
 	w.mu.Lock()
-	w.watchers = append(w.watchers, watcher)
+	w.watchers = append(w.watchers, watch)
 	w.mu.Unlock()
-	return watcher
+	return watch
 }
 
 func (w *Worker) loop() error {
@@ -253,8 +254,8 @@ func (w *Worker) loop() error {
 			w.waiting = make(map[*Watcher]*request)
 			// Since the worker itself isn't dying, we need to manually stop all
 			// the watchers.
-			for _, watcher := range w.watchers {
-				watcher.err <- err
+			for _, watch := range w.watchers {
+				watch.err <- err
 			}
 			w.watchers = nil
 			w.mu.Unlock()
@@ -454,35 +455,35 @@ func (w *Worker) handle(req *request) {
 func (w *Worker) respond() {
 	w.config.Logger.Tracef("start respond")
 	defer w.config.Logger.Tracef("finish respond")
-	for watcher, req := range w.waiting {
-		revno := watcher.revno
+	for watch, req := range w.waiting {
+		revno := watch.revno
 		changes, latestRevno := w.store.ChangesSince(revno)
-		w.config.Logger.Tracef("%d changes since %d for watcher %p", len(changes), revno, watcher)
+		w.config.Logger.Tracef("%d changes since %d for watcher %p", len(changes), revno, watch)
 		if len(changes) == 0 {
 			if req.noChanges != nil {
-				w.config.Logger.Tracef("sending down noChanges for watcher %p", watcher)
+				w.config.Logger.Tracef("sending down noChanges for watcher %p", watch)
 				select {
 				case req.noChanges <- struct{}{}:
 				case <-w.tomb.Dying():
 					return
 				}
 
-				w.removeWaitingReq(watcher, req)
+				w.removeWaitingReq(watch, req)
 			}
 			continue
 		}
 
 		req.changes = changes
-		watcher.revno = latestRevno
+		watch.revno = latestRevno
 
-		w.config.Logger.Tracef("sending changes down reply channel for watcher %p", watcher)
+		w.config.Logger.Tracef("sending changes down reply channel for watcher %p", watch)
 		select {
 		case req.reply <- true:
 		case <-w.tomb.Dying():
 			return
 		}
 
-		w.removeWaitingReq(watcher, req)
+		w.removeWaitingReq(watch, req)
 		w.store.AddReference(revno)
 	}
 }
