@@ -28,6 +28,9 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Action", 6, func(ctx facade.Context) (facade.Facade, error) {
 		return newActionAPIV6(ctx)
 	}, reflect.TypeOf((*APIv6)(nil)))
+	registry.MustRegister("Action", 7, func(ctx facade.Context) (facade.Facade, error) {
+		return newActionAPIV7(ctx)
+	}, reflect.TypeOf((*APIv7)(nil)))
 }
 
 // newActionAPIV2 returns an initialized ActionAPI for version 2.
@@ -68,10 +71,19 @@ func newActionAPIV5(ctx facade.Context) (*APIv5, error) {
 
 // newActionAPIV6 returns an initialized ActionAPI for version 6.
 func newActionAPIV6(ctx facade.Context) (*APIv6, error) {
+	api, err := newActionAPIV7(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv6{api}, nil
+}
+
+// newActionAPIV7 returns an initialized ActionAPI for version 7.
+func newActionAPIV7(ctx facade.Context) (*APIv7, error) {
 	st := ctx.State()
 	api, err := newActionAPI(&stateShim{st: st}, ctx.Resources(), ctx.Auth())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv6{api}, nil
+	return &APIv7{api}, nil
 }

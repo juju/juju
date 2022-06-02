@@ -213,11 +213,41 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := c.api.Enqueue(actions)
+	var enqueued []actionapi.ActionResult
+	if c.api.BestAPIVersion() > 6 {
+		results, err := c.api.EnqueueOperation(actions)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		enqueued = results.Actions
+	} else {
+		results, err := c.api.Enqueue(actions)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, r := range results {
+			if r.Action == nil {
+				enqueued = append(enqueued, actionapi.ActionResult{
+					Error: r.Error,
+				})
+				continue
+			}
+			enqueued = append(enqueued, actionapi.ActionResult{
+				Action: &actionapi.Action{
+					ID:       r.Action.ID,
+					Receiver: r.Action.Receiver,
+				},
+				Error: r.Error,
+			})
+		}
+	}
 	if err != nil {
 		return err
 	}
+	return c.processResults(ctx, enqueued)
+}
 
+func (c *runActionCommand) processResults(ctx *cmd.Context, results []actionapi.ActionResult) error {
 	if len(results) != len(c.unitReceivers) {
 		return errors.New("illegal number of results returned")
 	}
@@ -227,7 +257,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		if results[0].Error != nil {
 			return results[0].Error
 		}
-		if results[0].Action != nil {
+		if results[0].Action.ID != "" {
 			out := map[string]string{"Action queued with id": results[0].Action.ID}
 			return c.out.Write(ctx, out)
 		}
@@ -241,7 +271,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	// default with Juju 3.0.
 	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
 		for i, result := range results {
-			if result.Action == nil {
+			if result.Error != nil {
 				if errOut, ok := out["errors"]; !ok {
 					out["errors"] = map[int]string{i: result.Error.Error()}
 				} else {
@@ -276,7 +306,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	}
 
 	for i, result := range results {
-		if result.Action == nil {
+		if result.Error != nil {
 			if errOut, ok := out["errors"]; !ok {
 				out["errors"] = map[int]string{i: result.Error.Error()}
 			} else {
@@ -288,7 +318,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 			}
 			continue
 		}
-		result, err = GetActionResult(c.api, result.Action.ID, wait, true)
+		result, err := GetActionResult(c.api, result.Action.ID, wait, true)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -384,12 +384,13 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction,
 	}
 	tasks := make([]enqueuedAction, len(results.Actions))
 	for i, a := range results.Actions {
-		tasks[i] = enqueuedAction{
-			task:     a.ID,
-			receiver: c.unitReceivers[i],
-		}
 		if a.Error != nil {
 			tasks[i].err = a.Error
+			continue
+		}
+		tasks[i] = enqueuedAction{
+			task:     a.Action.ID,
+			receiver: c.unitReceivers[i],
 		}
 	}
 	return results.OperationID, tasks, nil

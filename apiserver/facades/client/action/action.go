@@ -51,6 +51,11 @@ type APIv5 struct {
 
 // APIv6 provides the Action API facade for version 6.
 type APIv6 struct {
+	*APIv7
+}
+
+// APIv7 provides the Action API facade for version 7.
+type APIv7 struct {
 	*ActionAPI
 }
 

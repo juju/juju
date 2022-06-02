@@ -388,7 +388,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	}})
 }
 
-func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
+func (s *actionSuite) TestEnqueueOperationLegacy(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -429,7 +429,55 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 	result, err := client.EnqueueOperation(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
-		Actions: []action.ActionReference{{
+		Actions: []action.ActionResult{{
+			Error: &params.Error{Message: "FAIL"},
+		}},
+		OperationID: "1",
+	})
+}
+
+func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Assert(request, gc.Equals, "EnqueueOperation")
+				c.Assert(a, jc.DeepEquals, params.Actions{
+					Actions: []params.Action{{
+						Receiver: "unit/0",
+						Name:     "test",
+						Parameters: map[string]interface{}{
+							"foo": "bar",
+						},
+					}},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActionsV2{})
+				*(result.(*params.EnqueuedActionsV2)) = params.EnqueuedActionsV2{
+					OperationTag: "operation-1",
+					Actions: []params.ActionResult{{
+						Error: &params.Error{Message: "FAIL"},
+					}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 7,
+	}
+	args := []action.Action{{
+		Receiver: "unit/0",
+		Name:     "test",
+		Parameters: map[string]interface{}{
+			"foo": "bar",
+		}},
+	}
+	client := action.NewClient(apiCaller)
+	result, err := client.EnqueueOperation(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+		Actions: []action.ActionResult{{
 			Error: &params.Error{Message: "FAIL"},
 		}},
 		OperationID: "1",

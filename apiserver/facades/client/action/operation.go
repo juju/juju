@@ -23,7 +23,22 @@ func (*APIv5) EnqueueOperation(_, _ struct{}) {}
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
-func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
+func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActionsV2, error) {
+	operationId, actionResults, err := a.enqueue(arg)
+	if err != nil {
+		return params.EnqueuedActionsV2{}, err
+	}
+	results := params.EnqueuedActionsV2{
+		OperationTag: names.NewOperationTag(operationId).String(),
+		Actions:      actionResults.Results,
+	}
+	return results, nil
+}
+
+// EnqueueOperation takes a list of Actions and queues them up to be executed as
+// an operation, each action running as a task on the designated ActionReceiver.
+// We return the ID of the overall operation and each individual task.
+func (a *APIv6) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
 	operationId, actionResults, err := a.enqueue(arg)
 	if err != nil {
 		return params.EnqueuedActions{}, err

@@ -5,11 +5,22 @@
 package actions
 
 import (
+	"strings"
+
 	"github.com/juju/charm/v8"
 )
 
 // JujuRunActionName defines the action name used by juju-run.
 const JujuRunActionName = "juju-run"
+
+// JujuExecActionName defines the action name used by juju-exec.
+const JujuExecActionName = "juju-exec"
+
+// HasJujuExecAction returns true if the "juju-exec" binary name appears
+// anywhere in the specified commands.
+func HasJujuExecAction(commands string) bool {
+	return strings.Contains(commands, JujuExecActionName) || strings.Contains(commands, JujuRunActionName)
+}
 
 // PredefinedActionsSpec defines a spec for each predefined action.
 var PredefinedActionsSpec = map[string]charm.ActionSpec{

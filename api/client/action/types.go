@@ -59,17 +59,10 @@ type ActionResult struct {
 	Error     error
 }
 
-// ActionReference is a reference to an action on a receiver.
-type ActionReference struct {
-	ID       string
-	Receiver string
-	Error    error
-}
-
 // EnqueuedActions represents the result of enqueuing actions to run.
 type EnqueuedActions struct {
 	OperationID string
-	Actions     []ActionReference
+	Actions     []ActionResult
 }
 
 // ActionSpec is a definition of the parameters and traits of an Action.
@@ -117,20 +110,20 @@ func unmarshallEnqueuedActions(in params.EnqueuedActions) (EnqueuedActions, erro
 
 	result := EnqueuedActions{
 		OperationID: tag.Id(),
-		Actions:     make([]ActionReference, len(in.Actions)),
+		Actions:     make([]ActionResult, len(in.Actions)),
 	}
 	for i, a := range in.Actions {
 		var err error
 		if a.Error != nil {
 			err = a.Error
 		}
-		result.Actions[i] = ActionReference{
+		result.Actions[i] = ActionResult{
 			Error: err,
 		}
 		if a.Result != "" {
 			actionTag, tagErr := names.ParseActionTag(a.Result)
 			if tagErr == nil {
-				result.Actions[i].ID = actionTag.Id()
+				result.Actions[i].Action = &Action{ID: actionTag.Id()}
 			} else {
 				result.Actions[i].Error = tagErr
 			}
@@ -139,27 +132,24 @@ func unmarshallEnqueuedActions(in params.EnqueuedActions) (EnqueuedActions, erro
 	return result, nil
 }
 
+func unmarshallEnqueuedActionsV2(in params.EnqueuedActionsV2) (EnqueuedActions, error) {
+	tag, err := names.ParseOperationTag(in.OperationTag)
+	if err != nil {
+		return EnqueuedActions{}, errors.Trace(err)
+	}
+
+	return EnqueuedActions{
+		OperationID: tag.Id(),
+		Actions:     unmarshallActionResults(in.Actions),
+	}, nil
+}
+
 func unmarshallEnqueuedRunActions(in []params.ActionResult) (EnqueuedActions, error) {
 	result := EnqueuedActions{
-		Actions: make([]ActionReference, len(in)),
+		Actions: make([]ActionResult, len(in)),
 	}
 	for i, a := range in {
-		var err error
-		if a.Error != nil {
-			err = a.Error
-		}
-		result.Actions[i] = ActionReference{
-			Error: err,
-		}
-		if a.Action != nil {
-			result.Actions[i].Receiver = a.Action.Receiver
-			tag, tagErr := names.ParseActionTag(a.Action.Tag)
-			if tagErr == nil {
-				result.Actions[i].ID = tag.Id()
-			} else {
-				result.Actions[i].Error = tagErr
-			}
-		}
+		result.Actions[i] = unmarshallActionResult(a)
 	}
 	return result, nil
 }

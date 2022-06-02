@@ -78,7 +78,27 @@ func getAllUnitNames(st State, units, applications []string) (result []names.Tag
 
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
-func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err error) {
+func (a *ActionAPI) Run(run params.RunParams) (params.EnqueuedActionsV2, error) {
+	actionParams, err := a.run(run)
+	if err != nil {
+		return params.EnqueuedActionsV2{}, errors.Trace(err)
+	}
+	return a.EnqueueOperation(actionParams)
+}
+
+// Run the commands specified on the machines identified through the
+// list of machines, units and services.
+func (a *APIv6) Run(run params.RunParams) (params.ActionResults, error) {
+	actionParams, err := a.run(run)
+	if err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+	return a.Enqueue(actionParams)
+}
+
+// Run the commands specified on the machines identified through the
+// list of machines, units and services.
+func (a *ActionAPI) run(run params.RunParams) (results params.Actions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -100,15 +120,28 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 		machines[i] = names.NewMachineTag(machineId)
 	}
 
-	actionParams, err := a.createActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	return queueActions(a, actionParams)
+	return a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.ActionResults, err error) {
+func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActionsV2, err error) {
+	actionParams, err := a.runOnAllMachines(run)
+	if err != nil {
+		return params.EnqueuedActionsV2{}, errors.Trace(err)
+	}
+	return a.EnqueueOperation(actionParams)
+}
+
+// RunOnAllMachines attempts to run the specified command on all the machines.
+func (a *APIv6) RunOnAllMachines(run params.RunParams) (params.ActionResults, error) {
+	actionParams, err := a.runOnAllMachines(run)
+	if err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+	return a.Enqueue(actionParams)
+}
+
+func (a *ActionAPI) runOnAllMachines(run params.RunParams) (results params.Actions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -134,14 +167,10 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 		machineTags[i] = machine.Tag()
 	}
 
-	actionParams, err := a.createActionsParams(machineTags, run.Commands, run.Timeout, false)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	return queueActions(a, actionParams)
+	return a.createRunActionsParams(machineTags, run.Commands, run.Timeout, false)
 }
 
-func (a *ActionAPI) createActionsParams(
+func (a *ActionAPI) createRunActionsParams(
 	actionReceiverTags []names.Tag,
 	quotedCommands string,
 	timeout time.Duration,
@@ -149,8 +178,7 @@ func (a *ActionAPI) createActionsParams(
 ) (params.Actions, error) {
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
-	actionRunnerName := actions.JujuRunActionName
-	if strings.Contains(quotedCommands, actionRunnerName) {
+	if actions.HasJujuExecAction(quotedCommands) {
 		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
 	}
 
@@ -162,14 +190,10 @@ func (a *ActionAPI) createActionsParams(
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
 			Receiver:   tag.String(),
-			Name:       actionRunnerName,
+			Name:       actions.JujuRunActionName,
 			Parameters: actionParams,
 		})
 	}
 
 	return apiActionParams, nil
-}
-
-var queueActions = func(a *ActionAPI, args params.Actions) (results params.ActionResults, err error) {
-	return a.Enqueue(args)
 }
