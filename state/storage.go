@@ -1879,18 +1879,7 @@ func validateStoragePool(
 	}
 
 	// Validate the storage provider for this type and configuration
-	aProvider.ValidateConfig(poolConfig)
-
-	/*
-		// Validate any k8s config.
-		if sb.modelType == ModelTypeCAAS {
-			if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
-				return errors.Annotatef(err, "invalid storage config")
-			}
-		}
-	*/
-
-	return nil
+	return aProvider.ValidateConfig(poolConfig)
 }
 
 func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, *jujustorage.Config, error) {
