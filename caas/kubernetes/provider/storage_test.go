@@ -174,29 +174,49 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	c1, _ := storage.NewConfig("c1",
+		storageprovider.RootfsProviderType,
+		nil)
+	c2, _ := storage.NewConfig("c2",
+		storageprovider.TmpfsProviderType,
+		nil)
+	c3, _ := storage.NewConfig("c3",
+		storageprovider.LoopProviderType,
+		nil)
+	c4, _ := storage.NewConfig("c4",
+		storageprovider.TmpfsProviderType,
+		map[string]interface{}{"storage-medium": "foo"})
+
 	for _, t := range []struct {
-		providerType storage.ProviderType
-		attrs        map[string]interface{}
-		err          string
+		config *storage.Config
+		err    string
 	}{
 		{
-			providerType: storageprovider.RootfsProviderType,
-		}, {
-			providerType: storageprovider.TmpfsProviderType,
-		}, {
-			providerType: storageprovider.LoopProviderType,
-			err:          `storage provider type "loop" not valid`,
-		}, {
-			providerType: storageprovider.TmpfsProviderType,
-			attrs:        map[string]interface{}{"storage-medium": "foo"},
-			err:          `storage medium "foo" not valid`,
+			config: c1,
+		},
+		{
+			config: c2,
+		},
+		{
+			config: c3,
+			err:    `storage provider type "loop" not valid`,
+		},
+		{
+			config: c4,
+			err:    `storage medium "foo" not valid`,
 		},
 	} {
-		err := provider.ValidateStorageProvider(t.providerType, t.attrs)
+		p := s.k8sProvider(c, ctrl)
+
+		err := p.ValidateConfig(t.config)
 		if t.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, t.err)
 		}
 	}
+
 }
