@@ -6,6 +6,7 @@ package action
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -24,6 +25,12 @@ var logger = loggo.GetLogger("juju.cmd.juju.action")
 func getActionTagsByPrefix(api APIClient, prefix string) ([]names.ActionTag, error) {
 	results := []names.ActionTag{}
 
+	if api.BestAPIVersion() > 6 {
+		if _, err := strconv.Atoi(prefix); err != nil {
+			return nil, errors.NotValidf("task id %q", prefix)
+		}
+		return []names.ActionTag{names.NewActionTag(prefix)}, nil
+	}
 	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
 	if err != nil {
 		return results, err

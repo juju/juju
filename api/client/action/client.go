@@ -137,6 +137,16 @@ func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
 			Parameters: a.Parameters,
 		}
 	}
+
+	if c.BestAPIVersion() > 6 {
+		var results params.EnqueuedActionsV2
+		err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
+		if err != nil {
+			return EnqueuedActions{}, errors.Trace(err)
+		}
+		return unmarshallEnqueuedActionsV2(results)
+	}
+
 	results := params.EnqueuedActions{}
 	err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
 	if err != nil {

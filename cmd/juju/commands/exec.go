@@ -323,9 +323,9 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 			fmt.Fprintf(ctx.GetStderr(), "couldn't queue one action: %v\n", result.Error)
 			continue
 		}
-		receiverTag, err := names.ActionReceiverFromTag(result.Receiver)
+		receiverTag, err := names.ActionReceiverFromTag(result.Action.Receiver)
 		if err != nil {
-			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %q for action %v\n", result.Receiver, result.ID)
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %q for action %v\n", result.Action.Receiver, result.Action.ID)
 			continue
 		}
 		var receiverType string
@@ -338,7 +338,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 			receiverType = "ReceiverId"
 		}
 		actionsToQuery = append(actionsToQuery, actionQuery{
-			actionID: result.ID,
+			actionID: result.Action.ID,
 			receiver: actionReceiver{
 				receiverType: receiverType,
 				tag:          receiverTag,

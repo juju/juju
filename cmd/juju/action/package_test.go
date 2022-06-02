@@ -178,13 +178,15 @@ func (c *fakeAPIClient) Enqueue(actions []actionapi.Action) ([]actionapi.ActionR
 
 func (c *fakeAPIClient) EnqueueOperation(args []actionapi.Action) (actionapi.EnqueuedActions, error) {
 	c.enqueuedActions = args
-	actions := make([]actionapi.ActionReference, len(c.actionResults))
+	actions := make([]actionapi.ActionResult, len(c.actionResults))
 	for i, a := range c.actionResults {
-		actions[i] = actionapi.ActionReference{
+		actions[i] = actionapi.ActionResult{
 			Error: a.Error,
 		}
 		if a.Action != nil {
-			actions[i].ID = a.Action.ID
+			actions[i].Action = &actionapi.Action{
+				ID: a.Action.ID,
+			}
 		}
 	}
 	return actionapi.EnqueuedActions{

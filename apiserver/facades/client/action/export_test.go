@@ -10,7 +10,6 @@ import (
 
 var (
 	GetAllUnitNames = getAllUnitNames
-	QueueActions    = &queueActions
 )
 
 func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {

@@ -169,7 +169,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 			wg.Done()
 			continue
 		}
-		actionResult, err := getActionResult(runnerClient, r.ID, wait)
+		actionResult, err := getActionResult(runnerClient, r.Action.ID, wait)
 		if err != nil {
 			_, _ = fmt.Fprintf(ctx.Stderr, "failed to collect metrics: %v\n", err)
 			wg.Done()
@@ -201,7 +201,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, sendResults.Actions[0].Error)
 				return
 			}
-			actionResult, err := getActionResult(runnerClient, sendResults.Actions[0].ID, wait)
+			actionResult, err := getActionResult(runnerClient, sendResults.Actions[0].Action.ID, wait)
 			if err != nil {
 				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return

@@ -351,14 +351,18 @@ func (t *testRunClient) Run(run actionapi.RunParams) (actionapi.EnqueuedActions,
 	}
 	r := t.results[0]
 	t.results = t.results[1:]
-	result := actionapi.EnqueuedActions{Actions: make([]actionapi.ActionReference, len(r))}
+	result := actionapi.EnqueuedActions{Actions: make([]actionapi.ActionResult, len(r))}
 	for i, a := range r {
-		result.Actions[i] = actionapi.ActionReference{
+		result.Actions[i] = actionapi.ActionResult{
 			Error: a.Error,
 		}
 		if a.Action != nil {
-			result.Actions[i].ID = a.Action.ID
-			result.Actions[i].Receiver = a.Action.Receiver
+			result.Actions[i] = actionapi.ActionResult{
+				Action: &actionapi.Action{
+					ID:       a.Action.ID,
+					Receiver: a.Action.Receiver,
+				},
+			}
 		}
 	}
 	return result, nil

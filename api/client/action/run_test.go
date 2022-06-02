@@ -18,7 +18,7 @@ type runSuite struct{}
 
 var _ = gc.Suite(&runSuite{})
 
-func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
+func (s *actionSuite) TestRunOnAllMachinesLegacy(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -47,14 +47,55 @@ func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
 	result, err := client.RunOnAllMachines("pwd", time.Millisecond)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
-		Actions: []action.ActionReference{{
-			ID:       "1",
-			Receiver: "machine-0",
+		Actions: []action.ActionResult{{
+			Action: &action.Action{
+				ID:       "1",
+				Receiver: "machine-0",
+			},
 		}},
 	})
 }
 
-func (s *actionSuite) TestRun(c *gc.C) {
+func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Assert(request, gc.Equals, "RunOnAllMachines")
+				c.Assert(a, jc.DeepEquals, params.RunParams{
+					Commands: "pwd", Timeout: time.Millisecond})
+				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActionsV2{})
+				*(result.(*params.EnqueuedActionsV2)) = params.EnqueuedActionsV2{
+					OperationTag: "operation-666",
+					Actions: []params.ActionResult{{
+						Action: &params.Action{
+							Tag:      "action-1",
+							Receiver: "machine-0",
+						}}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 7,
+	}
+	client := action.NewClient(apiCaller)
+	result, err := client.RunOnAllMachines("pwd", time.Millisecond)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+		OperationID: "666",
+		Actions: []action.ActionResult{{
+			Action: &action.Action{
+				ID:       "1",
+				Receiver: "machine-0",
+			},
+		}},
+	})
+}
+
+func (s *actionSuite) TestRunLegacy(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -90,9 +131,57 @@ func (s *actionSuite) TestRun(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
-		Actions: []action.ActionReference{{
-			ID:       "1",
-			Receiver: "machine-0",
+		Actions: []action.ActionResult{{
+			Action: &action.Action{
+				ID:       "1",
+				Receiver: "machine-0",
+			},
+		}},
+	})
+}
+
+func (s *actionSuite) TestRun(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Assert(request, gc.Equals, "Run")
+				c.Assert(a, jc.DeepEquals, params.RunParams{
+					Commands: "pwd",
+					Timeout:  time.Millisecond,
+					Machines: []string{"0"},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActionsV2{})
+				*(result.(*params.EnqueuedActionsV2)) = params.EnqueuedActionsV2{
+					OperationTag: "operation-666",
+					Actions: []params.ActionResult{{
+						Action: &params.Action{
+							Tag:      "action-1",
+							Receiver: "machine-0",
+						}}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 7,
+	}
+	client := action.NewClient(apiCaller)
+	result, err := client.Run(action.RunParams{
+		Commands: "pwd",
+		Timeout:  time.Millisecond,
+		Machines: []string{"0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+		OperationID: "666",
+		Actions: []action.ActionResult{{
+			Action: &action.Action{
+				ID:       "1",
+				Receiver: "machine-0",
+			},
 		}},
 	})
 }
