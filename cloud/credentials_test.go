@@ -712,3 +712,49 @@ func (s *credentialsSuite) TestExpandFilePathsOfCredential(c *gc.C) {
 	c.Assert(cred.Attributes()["test-key"], gc.Equals, "test")
 	c.Assert(cred.Attributes()["test-key1"], gc.Equals, "test-value")
 }
+
+// Regression test for lp1976620
+func (s *credentialsSuite) TestExpandFilePathsOfPem(c *gc.C) {
+	testPemCert := `
+-----BEGIN CERTIFICATE-----
+MIIB5DCCAWugAwIBAgIRAI0U9NoAVVolPG4O85Zr3dgwCgYIKoZIzj0EAwMwOjEc
+MBoGA1UEChMTbGludXhjb250YWluZXJzLm9yZzEaMBgGA1UEAwwRdGxtQHRsbS1t
+YnAubG9jYWwwHhcNMjIwMzAzMTMxNzMxWhcNMzIwMjI5MTMxNzMxWjA6MRwwGgYD
+VQQKExNsaW51eGNvbnRhaW5lcnMub3JnMRowGAYDVQQDDBF0bG1AdGxtLW1icC5s
+b2NhbDB2MBAGByqGSM49AgEGBSuBBAAiA2IABHvoqBLC2amlFuAQq/IrMUd4Cver
+teYK/BkJfTOx5M6Gt+RE7Vi0uVO0MfzOPrtTKQQPtffSelyGtpxZtQjRLKhdzCa9
+E2lDhIf/j6axT64cp3vdA3XU96pIfFH32Ff1yqM1MDMwDgYDVR0PAQH/BAQDAgWg
+MBMGA1UdJQQMMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAwCgYIKoZIzj0EAwMD
+ZwAwZAIwcac9nw5lXFtQyO9d5ZDUBfjafw/fg0YvaypV5KeRhC/ljB4ooN+DuJjy
+L8jEeLyWAjA53jxIoL5A5CyXKhqQPcYyfTMHstcP7ip8wLMnee1y3b8wwq9celAa
+QD0jIrgXpik=
+-----END CERTIFICATE-----
+`
+
+	cred := cloud.NewNamedCredential("test",
+		cloud.AuthType("test"),
+		map[string]string{
+			"test-key": testPemCert,
+		},
+		false,
+	)
+
+	credSchema := cloud.CredentialSchema{
+		{
+			Name: "test-key",
+			CredentialAttr: cloud.CredentialAttr{
+				Description:    "test credential attribute",
+				ExpandFilePath: true,
+				Hidden:         false,
+			},
+		},
+	}
+
+	cred, err := cloud.ExpandFilePathsOfCredential(
+		cred, map[cloud.AuthType]cloud.CredentialSchema{
+			cloud.AuthType("test"): credSchema,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred.Attributes()["test-key"], gc.Equals, testPemCert)
+}
