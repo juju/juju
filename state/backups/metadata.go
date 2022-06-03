@@ -90,19 +90,6 @@ type Metadata struct {
 
 	// Controller contains metadata about the controller where the backup was taken.
 	Controller ControllerMetadata
-
-	// TODO(wallyworld) - remove these ASAP
-	// These are only used by the restore CLI when re-bootstrapping.
-	// We will use a better solution but the way restore currently
-	// works, we need them and they are no longer available via
-	// bootstrap config. We will need to fix how re-bootstrap deals
-	// with these keys to address the issue.
-
-	// CACert is the controller CA certificate.
-	CACert string
-
-	// CAPrivateKey is the controller CA private key.
-	CAPrivateKey string
 }
 
 // ControllerMetadata contains controller specific metadata.
@@ -159,17 +146,10 @@ func NewMetadataState(db backend, machine, series string) (*Metadata, error) {
 	meta.Origin.Hostname = hostname
 	meta.Origin.Series = series
 
-	si, err := db.StateServingInfo()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not get server secrets")
-	}
-	meta.CAPrivateKey = si.CAPrivateKey
-
 	controllerCfg, err := db.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get controller config")
 	}
-	meta.CACert, _ = controllerCfg.CACert()
 	meta.Controller.UUID = controllerCfg.ControllerUUID()
 	return meta, nil
 }
@@ -246,11 +226,6 @@ func (flat *flatMetadataV0) inflate() (*Metadata, error) {
 		Version:  flat.Version,
 		Series:   flat.Series,
 	}
-
-	// TODO(wallyworld) - put these in a separate file.
-	meta.CACert = flat.CACert
-	meta.CAPrivateKey = flat.CAPrivateKey
-
 	return meta, nil
 }
 
@@ -283,8 +258,6 @@ type flatMetadata struct {
 	HANodes                     int64
 	ControllerMachineID         string
 	ControllerMachineInstanceID string
-	CACert                      string
-	CAPrivateKey                string
 }
 
 func (m *Metadata) flat() flatMetadata {
@@ -300,8 +273,6 @@ func (m *Metadata) flat() flatMetadata {
 		Hostname:                    m.Origin.Hostname,
 		Version:                     m.Origin.Version,
 		Series:                      m.Origin.Series,
-		CACert:                      m.CACert,
-		CAPrivateKey:                m.CAPrivateKey,
 		FormatVersion:               m.FormatVersion,
 		ControllerUUID:              m.Controller.UUID,
 		ControllerMachineID:         m.Controller.MachineID,
@@ -352,11 +323,6 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		MachineInstanceID: flat.ControllerMachineInstanceID,
 		HANodes:           flat.HANodes,
 	}
-
-	// TODO(wallyworld) - put these in a separate file.
-	meta.CACert = flat.CACert
-	meta.CAPrivateKey = flat.CAPrivateKey
-
 	return meta, nil
 }
 

@@ -2080,7 +2080,7 @@ func rulesToRuleInfo(groupId string, rules firewall.IngressRules) []neutron.Rule
 		}
 		sourceCIDRs := r.SourceCIDRs.Values()
 		if len(sourceCIDRs) == 0 {
-			sourceCIDRs = append(sourceCIDRs, firewall.AllNetworksIPV4CIDR)
+			sourceCIDRs = append(sourceCIDRs, firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)
 		}
 		for _, sr := range sourceCIDRs {
 			addrType, _ := network.CIDRAddressType(sr)

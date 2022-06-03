@@ -197,9 +197,6 @@ type flatMetadataV0 struct {
 	Hostname    string
 	Version     version.Number
 	Series      string
-
-	CACert       string
-	CAPrivateKey string
 }
 
 func flatV0(m *backups.Metadata) flatMetadataV0 {
@@ -215,8 +212,6 @@ func flatV0(m *backups.Metadata) flatMetadataV0 {
 		Hostname:       m.Origin.Hostname,
 		Version:        m.Origin.Version,
 		Series:         m.Origin.Series,
-		CACert:         m.CACert,
-		CAPrivateKey:   m.CAPrivateKey,
 	}
 	stored := m.Stored()
 	if stored != nil {

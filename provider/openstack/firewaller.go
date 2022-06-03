@@ -826,7 +826,9 @@ func secGroupMatchesIngressRule(secGroupRule neutron.SecurityGroupRuleV2, rule f
 	// The ports match, so if the security group RemoteIPPrefix matches *any* of the
 	// rule's source ranges, then that's a match.
 	if len(rule.SourceCIDRs) == 0 {
-		return secGroupRule.RemoteIPPrefix == "" || secGroupRule.RemoteIPPrefix == "0.0.0.0/0"
+		return secGroupRule.RemoteIPPrefix == "" ||
+			secGroupRule.RemoteIPPrefix == "0.0.0.0/0" ||
+			secGroupRule.RemoteIPPrefix == "::/0"
 	}
 	return rule.SourceCIDRs.Contains(secGroupRule.RemoteIPPrefix)
 }

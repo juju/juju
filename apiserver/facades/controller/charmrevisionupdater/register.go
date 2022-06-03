@@ -6,6 +6,7 @@ package charmrevisionupdater
 import (
 	"reflect"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
@@ -42,6 +43,7 @@ func newCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
+		clock.WallClock,
 		newCharmstoreClient,
 		newCharmhubClient,
 	)
