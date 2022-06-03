@@ -5,6 +5,9 @@ package provider
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 
 	jujuclock "github.com/juju/clock"
@@ -64,11 +67,29 @@ func attemptMicroK8sCredential(cmdRunner CommandRunner) (jujucloud.Credential, e
 	return k8scloud.CredentialFromKubeConfig(context.AuthInfo, conf)
 }
 
+func readMicroK8sConfigFromContentInterface() []byte {
+	snapDataPath := os.Getenv("SNAP_DATA")
+	if snapDataPath == "" {
+		return nil
+	}
+	clientConfigPath := filepath.Join(snapDataPath, "credentials", "client.config")
+	content, err := ioutil.ReadFile(clientConfigPath)
+	if err != nil {
+		logger.Debugf("cannot read %q: %v", clientConfigPath, err)
+	}
+	return content
+}
+
 func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
 	_, err := cmdRunner.LookPath("microk8s")
 	if err != nil {
 		return []byte{}, errors.NotFoundf("microk8s")
 	}
+
+	if content := readMicroK8sConfigFromContentInterface(); len(content) > 0 {
+		return content, nil
+	}
+
 	execParams := exec.RunParams{
 		Commands: "microk8s config",
 	}

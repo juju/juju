@@ -5,6 +5,9 @@ package provider_test
 
 import (
 	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -128,7 +131,21 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfigNotRunning(c *gc.C) {
 	c.Assert(string(result), gc.Equals, "")
 }
 
-func (s *builtinSuite) TestGetLocalMicroK8sConfig(c *gc.C) {
+func (s *builtinSuite) TestGetLocalMicroK8sConfigReadContentFile(c *gc.C) {
+	s.runner.Call("LookPath", "microk8s").Returns("", nil)
+
+	dir := c.MkDir()
+	s.PatchEnvironment("SNAP_DATA", dir)
+	os.MkdirAll(filepath.Join(dir, "credentials"), os.ModePerm)
+	err := ioutil.WriteFile(filepath.Join(dir, "credentials", "client.config"), []byte("client config file"), 0660)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := provider.GetLocalMicroK8sConfig(s.runner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(result), gc.Equals, "client config file")
+}
+
+func (s *builtinSuite) TestGetLocalMicroK8sConfigViaCMD(c *gc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	s.runner.Call(
 		"RunCommands",
