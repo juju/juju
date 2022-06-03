@@ -503,7 +503,7 @@ def main(argv=None):
     # testing here anyway.
     #
     # [1] https://github.com/canonical/metacontroller-operator/issues/5
-    bs_manager.keep_env = False
+    bs_manager.keep_env = True
 
     with k8s_provider(
         bs_manager,
