@@ -1914,7 +1914,6 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	//return providerType, aProvider, pool.Attrs(), nil
 	return providerType, aProvider, pool, nil
 }
 
