@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -346,14 +348,7 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
     enqueued: 2015-02-14 08:13:00 +0000 UTC
     started: 2015-02-14 08:15:00 +0000 UTC
 `[1:])
-	c.Check(cmdtesting.Stderr(context), gc.Equals, `
-Running operation 1 with 2 tasks
-  - task 1 on machine-0
-  - task 2 on machine-1
-
-Waiting for task 1...
-Waiting for task 2...
-`[1:])
+	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *ExecSuite) TestAllMachinesWithError(c *gc.C) {
@@ -422,14 +417,7 @@ use 'juju show-task' to inspect the failures
     enqueued: 2015-02-14 08:13:00 +0000 UTC
     started: 2015-02-14 08:15:00 +0000 UTC
 `[1:])
-	c.Check(cmdtesting.Stderr(context), gc.Equals, `
-Running operation 1 with 2 tasks
-  - task 1 on machine-0
-  - task 2 on machine-1
-
-Waiting for task 1...
-Waiting for task 2...
-`[1:])
+	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *ExecSuite) TestTimeout(c *gc.C) {
@@ -493,15 +481,158 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
 
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, `
-Running operation 1 with 3 tasks
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *ExecSuite) TestVerbosity(c *gc.C) {
+	tests := []struct {
+		about          string
+		args           []string
+		verbose, quiet bool
+		output, error  string
+	}{{
+		about:  "normal output",
+		args:   []string{"--machine=0", "marco"},
+		output: "polo\n\n",
+	}, {
+		about:   "verbose",
+		args:    []string{"--machine=0", "marco"},
+		verbose: true,
+		output: `
+Running operation 1 with 1 task
   - task 1 on machine-0
-  - task 2 on machine-1
-  - task 3 on machine-2
 
 Waiting for task 1...
+polo
+
+`[1:],
+	}, {
+		about:  "quiet",
+		args:   []string{"--machine=0", "marco"},
+		quiet:  true,
+		output: "polo\n\n",
+	}, {
+		about: "background",
+		args:  []string{"--machine=0", "marco", "--background"},
+		output: `
+Scheduled operation 1 with task 1
+Check operation status with 'juju show-operation 1'
+Check task status with 'juju show-task 1'
+`[1:],
+	}, {
+		about:   "background verbose",
+		args:    []string{"--machine=0", "marco", "--background"},
+		verbose: true,
+		output: `
+Scheduled operation 1 with task 1
+Check operation status with 'juju show-operation 1'
+Check task status with 'juju show-task 1'
+`[1:],
+	}, {
+		about:  "background quiet",
+		args:   []string{"--machine=0", "marco", "--background"},
+		quiet:  true,
+		output: "",
+	}, {
+		about:  "command failure",
+		args:   []string{"--machine=1", "marco"},
+		output: "I failed you\n\n",
+		error: `(?m)the following task failed:
+ - id "2" with return code 1
+
+use 'juju show-task' to inspect the failure
+`,
+	}, {
+		about:   "command failure verbose",
+		args:    []string{"--machine=1", "marco"},
+		verbose: true,
+		output: `
+Running operation 1 with 1 task
+  - task 2 on machine-1
+
 Waiting for task 2...
-`[1:])
+I failed you
+
+`[1:],
+		error: `(?m)the following task failed:
+ - id "2" with return code 1
+
+use 'juju show-task' to inspect the failure
+`,
+	}, {
+		about:  "command failure quiet",
+		args:   []string{"--machine=1", "marco"},
+		quiet:  true,
+		output: "I failed you\n\n",
+		error: `(?m)the following task failed:
+ - id "2" with return code 1
+
+use 'juju show-task' to inspect the failure
+`,
+	}, {
+		about:  "failed to schedule",
+		args:   []string{"--machine=2", "marco"},
+		output: "Operation 1 failed to schedule any tasks:\n",
+	}}
+
+	// Set up fake API client
+	fakeClient := &fakeAPIClient{}
+	restore := s.patchAPIClient(fakeClient)
+	defer restore()
+
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		// machine 0 is control
+		Action: &actionapi.Action{
+			ID:       validActionId,
+			Receiver: "machine-0",
+		},
+		Output: map[string]interface{}{
+			"stdout": "polo",
+		},
+	}, {
+		// machine 1: command fails returning exit code 1
+		Action: &actionapi.Action{
+			ID:       validActionId2,
+			Receiver: "machine-1",
+		},
+		Output: map[string]interface{}{
+			"stdout":      "I failed you",
+			"return-code": "1",
+		},
+	}}
+	fakeClient.machines = set.NewStrings("0", "1")
+
+	for i, t := range tests {
+		c.Logf("test %d: %s", i, t.about)
+
+		// Set up context
+		output := bytes.Buffer{}
+		ctx := &cmd.Context{
+			Context: context.TODO(),
+			Stdout:  &output,
+			Stderr:  &output,
+		}
+		log := cmd.Log{
+			Verbose: t.verbose,
+			Quiet:   t.quiet,
+		}
+		log.Start(ctx) // sets the verbose/quiet options in `ctx`
+
+		// Run command
+		runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
+		err := cmdtesting.InitCommand(runCmd, t.args)
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = runCmd.Run(ctx)
+		if t.error == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.NotNil)
+			c.Check(err, gc.ErrorMatches, t.error)
+		}
+
+		c.Check(output.String(), gc.Equals, t.output)
+	}
 }
 
 func (s *ExecSuite) TestCAASCantTargetMachine(c *gc.C) {
@@ -697,13 +828,6 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
     started: 2015-02-14 08:15:00 +0000 UTC
 `[1:]
 
-	stdErr := `
-Running operation 1 with 1 task
-  - task 1 on machine-0
-
-Waiting for task 1...
-`[1:]
-
 	errStr := `
 the following task failed:
  - id "1" with return code 42
@@ -715,24 +839,20 @@ use 'juju show-task' to inspect the failure
 		message string
 		format  string
 		stdout  string
-		stderr  string
 		err     string
 	}{{
 		message: "smart (default)",
 		stdout:  "\n",
-		stderr:  stdErr,
 		err:     errStr,
 	}, {
 		message: "yaml output",
 		format:  "yaml",
 		stdout:  yamlFormatted,
-		stderr:  stdErr,
 		err:     errStr,
 	}, {
 		message: "json output",
 		format:  "json",
 		stdout:  jsonFormatted,
-		stderr:  stdErr,
 		err:     errStr,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
@@ -750,6 +870,6 @@ use 'juju show-task' to inspect the failure
 			c.Check(err, jc.ErrorIsNil)
 		}
 		c.Check(cmdtesting.Stdout(context), gc.Equals, test.stdout)
-		c.Check(cmdtesting.Stderr(context), gc.Equals, test.stderr)
+		c.Check(cmdtesting.Stderr(context), gc.Equals, "")
 	}
 }
