@@ -71,7 +71,7 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["3.0/stable"]
+        snap_version: ["2.9/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
@@ -101,8 +101,8 @@ jobs:
         sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
         sudo snap install lxd
-        sudo snap install yq
         sudo snap install juju --classic --channel=${{ matrix.snap_version }}
+        sudo snap install simplestreams
 
         sudo lxd waitready
         sudo lxd init --auto
@@ -123,9 +123,6 @@ jobs:
         echo "::set-output name=base-juju-version::$(juju version | cut -d '-' -f 1)"
         upstreamJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
         echo "::set-output name=upstream-juju-version::${upstreamJujuVersion}"
-        currentStableChannel="$(echo $upstreamJujuVersion | cut -d'.' -f1,2)/stable"
-        currentStableVersion=$(snap info juju | yq ".channels[\"$currentStableChannel\"]" | cut -d' ' -f1)
-        echo "::set-output name=current-stable-juju-version::$currentStableVersion"
         echo "::set-output name=juju-db-version::4.0"
       id: vars
 
@@ -202,13 +199,51 @@ jobs:
         docker tag jujusolutions/juju-db:${JUJU_DB_TAG} ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
         docker push ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
 
+    - name: Set up simplestream
+      id: ss
+      shell: bash
+      env:
+        JUJU_VERSION: ${{ steps.vars.outputs.upstream-juju-version }}
+      run: |
+        # Build new jujuc/jujud binaries
+        mkdir -p ~/bin
+        go build -o ~/bin github.com/juju/juju/cmd/jujuc github.com/juju/juju/cmd/jujud
+        
+        # Build agent tarball tgz
+        cd ~
+        # will have to change if we wanna build on another os/arch
+        AGENT_TARBALL_NAME=juju-${JUJU_VERSION}-linux-amd64.tgz
+        tar -C ~/bin -cvzf $AGENT_TARBALL_NAME jujuc jujud
+        
+        # Generate agent json
+        export output_dir=~/simplestream/agent_json
+        mkdir -p ${output_dir}
+        export SHORT_GIT_COMMIT=deadbeef
+        export platforms=linux/amd64
+        export product_name=ubuntu
+        ~/work/juju/juju/.github/generate-agent-json.sh
+        
+        # Generate the streams data.
+        mkdir -p ~/simplestream/generated
+        agent_json_file_path=~/simplestream/agent_json/build-${JUJU_VERSION}-${SHORT_GIT_COMMIT}-agent.json
+        simplestreams.json2streams --juju-format \
+          "${agent_json_file_path}" \
+          "~/simplestream/generated/"
+        
+        # Save stream flags for later
+        AGENT_STREAM=build-${SHORT_GIT_COMMIT}
+        echo "::set-output name=agent-stream::${AGENT_STREAM}"
+        echo "::set-output name=bootstrap-stream-flags::--metadata-source=~/simplestream/generated --config agent-stream=${AGENT_STREAM}"
+
     - name: Bootstrap Juju - localhost
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
       shell: bash
+      env:
+        STREAM_FLAGS: ${{ steps.ss.outputs.bootstrap-stream-flags }}
       run: |
         set -euxo pipefail
 
-        juju bootstrap localhost c
+        juju bootstrap localhost c ${STREAM_FLAGS}
         juju add-model m
 
         juju status
@@ -218,37 +253,20 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       env:
         JUJU_DB_TAG: ${{ steps.vars.outputs.juju-db-version }}
+        STREAM_FLAGS: ${{ steps.ss.outputs.bootstrap-stream-flags }}
 
-      # TODO: Enabling developer-mode is a bit of a hack to get this working for now.
-      # Ideally, we would mock our own simplestream, similar to Jenkins, to select
-      # and filter with as standard, instead of skipping over them with this flag
       run: |
         set -euxo pipefail
 
         sg microk8s <<EOF
           juju bootstrap microk8s c \
             --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
-            --config features="[developer-mode]"
+            ${STREAM_FLAGS}
         EOF
         juju add-model m
 
         juju status
         juju version
-
-    # The `wait-for` plugin is used after deploying an application
-    # This was added in Juju 2.9, so it's not installed by the 2.8 snap
-    # However we just need to install the `wait-for` binary ourselves,
-    # and then Juju 2.8 can use it (amazing!)
-    - name: Add `wait-for` plugin
-      if: env.RUN_TEST == 'RUN'
-      shell: bash
-      run: |
-        # Download a stable version of Juju
-        curl -L -O https://github.com/juju/juju/archive/refs/tags/juju-2.9.29.tar.gz
-        tar -xf juju-2.9.29.tar.gz
-        cd juju-juju-2.9.29/
-        go install github.com/juju/juju/cmd/plugins/juju-wait-for
-        cd ..
 
     - name: Deploy some applications
       if: env.RUN_TEST == 'RUN'
@@ -283,7 +301,6 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
-        CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
       run: |
         set -euxo pipefail
 
@@ -299,16 +316,6 @@ jobs:
         EOL
         docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
         docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
-        
-        cat >~/Dockerfile <<EOL
-          FROM jujusolutions/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
-
-          COPY certs/ca.crt /usr/local/share/ca-certificates/ca.crt
-
-          RUN update-ca-certificates
-        EOL
-        docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
-        docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
 
     - name: Preflight
       if: env.RUN_TEST == 'RUN'
@@ -323,31 +330,12 @@ jobs:
       shell: bash
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
-        CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
-        UPGRADE_PARAMS_localhost: ""
-        UPGRADE_PARAMS_microk8s: "--agent-stream=develop --debug"
+        AGENT_STREAM: ${{ steps.ss.outputs.agent-stream }}
       run: |
         set -euxo pipefail
-
-        # Upgrade to the latest stable.
-        juju upgrade-controller --debug
-        
-        attempt=0
-        while true; do
-          UPDATED=$((juju show-controller --format=json || echo "") | jq -r '.c.details."agent-version"')
-          if [[ $UPDATED == $CURRENT_STABLE_JUJU_TAG* ]]; then
-              break
-          fi
-          sleep 10
-          attempt=$((attempt+1))
-          if [ "$attempt" -eq 48 ]; then
-              echo "Upgrade controller timed out"
-              exit 1
-          fi
-        done
         
         # Upgrade to local built version.
-        juju upgrade-controller ${UPGRADE_PARAMS_${{ matrix.model_type }}}
+        juju upgrade-controller --agent-stream=${AGENT_STREAM} --debug
 
         attempt=0
         while true; do
@@ -421,3 +409,7 @@ jobs:
 
         sg microk8s "microk8s kubectl get all -A" || true
         lxc ls || true
+
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3

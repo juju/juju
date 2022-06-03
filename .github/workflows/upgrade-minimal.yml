@@ -1,0 +1,60 @@
+name: "Upgrade MWE"
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  upgrade:
+    name: Upgrade-test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get remove lxd lxd-client
+        sudo snap install lxd
+        sudo snap install juju --classic --channel=2.9/stable
+        
+        sudo lxd waitready
+        sudo lxd init --auto
+        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+        lxc network set lxdbr0 ipv6.address none
+        echo "/snap/bin" >> $GITHUB_PATH
+
+    - name: Find required go version
+      id: go-version
+      run: |
+        set -euxo pipefail
+        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ steps.go-version.outputs.go-version }}
+
+    - name: Set up simplestream server
+      run: |
+        cd simplestream
+        python3 -m http.server 5000 &
+        cd ..
+
+    - name: Bootstrap Juju 2.9
+      run: |
+        juju version
+        juju bootstrap lxd c
+
+    - name: Upgrade Juju to 3.0
+      run: |
+        sudo snap remove juju
+        make install
+        juju version
+
+    - name: Try to upgrade controller
+      run: |
+        juju model-config -m controller agent-metadata-url=http://0.0.0.0:5000
+        OUTPUT=$(juju upgrade-controller)
+        echo $OUTPUT
+        if [ $OUTPUT = 'no upgrades available' ]
+        then
+          exit 1
+        fi

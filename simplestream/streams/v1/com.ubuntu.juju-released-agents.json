@@ -1,0 +1,2241 @@
+{
+  "content_id": "com.ubuntu.juju:released:agents",
+  "datatype": "content-download",
+  "format": "products:1.0",
+  "products": {
+    "com.ubuntu.juju:centos:amd64": {
+      "arch": "amd64",
+      "format": "products:1.0",
+      "ftype": "tar.gz",
+      "release": "centos",
+      "versions": {
+        "20210325": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.10-amd64": {
+              "md5": "bf3a2cb60d7d1e6ef370b330ba320843",
+              "path": "agent/2.8.10/juju-2.8.10-centos-amd64.tgz",
+              "sha256": "970b1f73a710588da712d9f99d22f029f6135ddda52331753d95408643bc324d",
+              "size": 39526132
+            }
+          },
+          "updated": "Thu, 25 Mar 2021 17:30:52 +0000",
+          "version": "2.8.10"
+        },
+        "20210428": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.0-amd64": {
+              "md5": "1ed168e8a19b48d5acf497272b1c6b0e",
+              "path": "agent/2.9.0/juju-2.9.0-centos-amd64.tgz",
+              "sha256": "855270af8516fb63d649ebed7ee8bde1721bcac5eeea3190cf0ab5f02ce417f8",
+              "size": 44364120
+            }
+          },
+          "updated": "Wed, 28 Apr 2021 11:58:38 +0000",
+          "version": "2.9.0"
+        },
+        "20210524": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.2-amd64": {
+              "md5": "f992dd0e82dff7121219f7aa7d10c5df",
+              "path": "agent/2.9.2/juju-2.9.2-centos-amd64.tgz",
+              "sha256": "8415b2c211caa639f0294624f882df301f005eae652eef88ffcc36f9074ba4bf",
+              "size": 44398415
+            }
+          },
+          "updated": "Mon, 24 May 2021 23:18:51 +0000",
+          "version": "2.9.2"
+        },
+        "20210530": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.3-amd64": {
+              "md5": "c8f6692a4b8f8f5942f587808ce6a3d8",
+              "path": "agent/2.9.3/juju-2.9.3-centos-amd64.tgz",
+              "sha256": "c2618176aad78cf20f26aec24607683766a73138d96c117654dc66254ade22bf",
+              "size": 44403752
+            }
+          },
+          "updated": "Sun, 30 May 2021 22:26:23 +0000",
+          "version": "2.9.3"
+        },
+        "20210608": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.4-amd64": {
+              "md5": "9a6be74c285d3d16339ca41be445e3a1",
+              "path": "agent/2.9.4/juju-2.9.4-centos-amd64.tgz",
+              "sha256": "fa1828eda195d51b4410775975cbbe197dbf493d727c8bff3af021ac98177adb",
+              "size": 44412108
+            }
+          },
+          "updated": "Tue, 08 Jun 2021 21:58:09 +0000",
+          "version": "2.9.4"
+        },
+        "20210610": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.11-amd64": {
+              "md5": "4ba63a3996e265331ebba824a759e7a2",
+              "path": "agent/2.8.11/juju-2.8.11-centos-amd64.tgz",
+              "sha256": "cce93c52f3891f68e414224f6ce4072532f2a9fa49f8bdcc1282d375635ba0d6",
+              "size": 39531428
+            }
+          },
+          "updated": "Thu, 10 Jun 2021 22:13:09 +0000",
+          "version": "2.8.11"
+        },
+        "20210623": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.5-amd64": {
+              "md5": "8796a2ce91cb58f50aed1f0ebd2022b2",
+              "path": "agent/2.9.5/juju-2.9.5-centos-amd64.tgz",
+              "sha256": "6342476af2775c62b7d427c366b3bd8fe146e4f72db6c9ee7968e4b1d0f507ee",
+              "size": 44495237
+            }
+          },
+          "updated": "Wed, 23 Jun 2021 09:41:48 +0000",
+          "version": "2.9.5"
+        },
+        "20210706": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.7-amd64": {
+              "md5": "2a8df26c6b0c66b6ef11fd08699b8227",
+              "path": "agent/2.9.7/juju-2.9.7-centos-amd64.tgz",
+              "sha256": "0fd633062444a68c4f12cf9c86eed01c2998de5d247270784c52b8b0b9a7550e",
+              "size": 45968662
+            }
+          },
+          "updated": "Tue, 06 Jul 2021 21:48:02 +0000",
+          "version": "2.9.7"
+        },
+        "20210712": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.8-amd64": {
+              "md5": "5b3e7cdcabfdc6a85512a63cf9cd7438",
+              "path": "agent/2.9.8/juju-2.9.8-centos-amd64.tgz",
+              "sha256": "ab1b6fb8c5704bfcc9d83ac29ce37abfa0be2535ceab2a8747077c14dafefb7d",
+              "size": 46140061
+            }
+          },
+          "updated": "Mon, 12 Jul 2021 23:19:36 +0000",
+          "version": "2.9.8"
+        },
+        "20210719": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.9-amd64": {
+              "md5": "9d3ac839e70ca382aa4e657e326d4d23",
+              "path": "agent/2.9.9/juju-2.9.9-centos-amd64.tgz",
+              "sha256": "d5e151902eeb45e56f260dba6ebeab5851d8ede4dd9a2d47beb732c70ebc7219",
+              "size": 46170276
+            }
+          },
+          "updated": "Mon, 19 Jul 2021 12:18:47 +0000",
+          "version": "2.9.9"
+        },
+        "20210802": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.10-amd64": {
+              "md5": "b9442fbae91d51dd46a1842fd59f5766",
+              "path": "agent/2.9.10/juju-2.9.10-centos-amd64.tgz",
+              "sha256": "ef5ce8399bbac15f24da849fe2df3234790ebe54d7bb1129455fc158eb1376b9",
+              "size": 46293588
+            }
+          },
+          "updated": "Mon, 02 Aug 2021 23:38:37 +0000",
+          "version": "2.9.10"
+        },
+        "20210817": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.11-amd64": {
+              "md5": "2fa2ade36eaa076303b8213baf5f3913",
+              "path": "agent/2.9.11/juju-2.9.11-centos-amd64.tgz",
+              "sha256": "aaed390f897b0c2453009446296cf66655eb0de88359710248067bdb4efcee19",
+              "size": 46071074
+            }
+          },
+          "updated": "Tue, 17 Aug 2021 20:25:20 +0000",
+          "version": "2.9.11"
+        },
+        "20210830": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.12-amd64": {
+              "md5": "48fca8fdba4598267f476c5845deb8c2",
+              "path": "agent/2.9.12/juju-2.9.12-centos-amd64.tgz",
+              "sha256": "97f0dca5374f850b0a91aff8da99d34de6b3d34db37a0006cff5c6ed4952390a",
+              "size": 46165666
+            }
+          },
+          "updated": "Mon, 30 Aug 2021 14:59:16 +0000",
+          "version": "2.9.12"
+        },
+        "20210913": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.14-amd64": {
+              "md5": "37e908dcc1362c6c1b2659e01bf96c99",
+              "path": "agent/2.9.14/juju-2.9.14-centos-amd64.tgz",
+              "sha256": "d065493e5c0bc605f06f56cecda524c69ca9bb5c8b6d82848b1bb307e5a5c5ef",
+              "size": 46270460
+            }
+          },
+          "updated": "Mon, 13 Sep 2021 19:53:16 +0000",
+          "version": "2.9.14"
+        },
+        "20210927": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.15-amd64": {
+              "md5": "fccb505f45188b73bf3666b5c31c7089",
+              "path": "agent/2.9.15/juju-2.9.15-centos-amd64.tgz",
+              "sha256": "e563d5ed2cd2ed505bdd9fc12c4a72d26aaa668986932bec436458b43af3fefe",
+              "size": 47096028
+            }
+          },
+          "updated": "Mon, 27 Sep 2021 23:29:23 +0000",
+          "version": "2.9.15"
+        },
+        "20211011": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.16-amd64": {
+              "md5": "bbafe486630a37446dd6576f15af2cc2",
+              "path": "agent/2.9.16/juju-2.9.16-centos-amd64.tgz",
+              "sha256": "c7744bb237335bb5e8dcca6cf06a6ec59a8f80bb77f03b97db5e3366da99a6d3",
+              "size": 48045578
+            }
+          },
+          "updated": "Mon, 11 Oct 2021 09:37:57 +0000",
+          "version": "2.9.16"
+        },
+        "20211027": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.17-amd64": {
+              "md5": "aeb6b02cfc708a509938a0422fd12c9b",
+              "path": "agent/2.9.17/juju-2.9.17-centos-amd64.tgz",
+              "sha256": "2dfa023484059e99a3020d7a4006b6997f50590ba00b876ee15579503cd52a86",
+              "size": 48141798
+            }
+          },
+          "updated": "Wed, 27 Oct 2021 18:25:45 +0000",
+          "version": "2.9.17"
+        },
+        "20211108": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.18-amd64": {
+              "md5": "b391631f814b65b44fc2fece57419b85",
+              "path": "agent/2.9.18/juju-2.9.18-centos-amd64.tgz",
+              "sha256": "9c20994fcef0aad080bce66838b24d54642d5747de3f918350db9900edd9859d",
+              "size": 48203173
+            }
+          },
+          "updated": "Mon, 08 Nov 2021 16:21:11 +0000",
+          "version": "2.9.18"
+        },
+        "20211111": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.13-amd64": {
+              "md5": "a181b8aa9cc660b3798b793d2feac19c",
+              "path": "agent/2.8.13/juju-2.8.13-centos-amd64.tgz",
+              "sha256": "afaecc5ad4e6b6dc96f096793803423521dcdbf00a73f209a191789dbde5dd81",
+              "size": 39557609
+            }
+          },
+          "updated": "Thu, 11 Nov 2021 05:09:26 +0000",
+          "version": "2.8.13"
+        },
+        "20211123": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.19-amd64": {
+              "md5": "a97a6c0fa38f61474ee73db9404943e2",
+              "path": "agent/2.9.19/juju-2.9.19-centos-amd64.tgz",
+              "sha256": "bcca533a1967561b7eaf7b4fe5a1803452d8c433d44b739a0264ea62b3c7d9d8",
+              "size": 48241509
+            }
+          },
+          "updated": "Tue, 23 Nov 2021 21:10:14 +0000",
+          "version": "2.9.19"
+        },
+        "20211202": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.21-amd64": {
+              "md5": "611072560b6e8da5337148de1fbce884",
+              "path": "agent/2.9.21/juju-2.9.21-centos-amd64.tgz",
+              "sha256": "31353df434b5de52a5559426703da16e3a786893da59f548802546f65e410767",
+              "size": 48267397
+            }
+          },
+          "updated": "Thu, 02 Dec 2021 21:11:35 +0000",
+          "version": "2.9.21"
+        },
+        "20211213": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.22-amd64": {
+              "md5": "8cdc16eb8675e5feb0804bef90393efb",
+              "path": "agent/2.9.22/juju-2.9.22-centos-amd64.tgz",
+              "sha256": "e924c7806f3fff385a7beb31656c80798c32655729cdaecdcea6211d5f25a72f",
+              "size": 48167760
+            }
+          },
+          "updated": "Mon, 13 Dec 2021 19:59:56 +0000",
+          "version": "2.9.22"
+        },
+        "20220223": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.25-amd64": {
+              "md5": "b413b3c83fd98ddade7dc87cb3ae7707",
+              "path": "agent/2.9.25/juju-2.9.25-centos-amd64.tgz",
+              "sha256": "6fdf5e80b0bea9239d07c5ad0a8cb329d437fa69b7f0562f3617bb18fe4c26b6",
+              "size": 39942122
+            }
+          },
+          "updated": "Wed, 23 Feb 2022 21:16:53 +0000",
+          "version": "2.9.25"
+        },
+        "20220311": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.26-amd64": {
+              "md5": "f695ec008a7fcfddd2cfc57be8517cc6",
+              "path": "agent/2.9.26/juju-2.9.26-centos-amd64.tgz",
+              "sha256": "8456a9713aeb690fdb39cdc5d562f453ac6f882842354ce36ffed41d6728f512",
+              "size": 41413014
+            }
+          },
+          "updated": "Fri, 11 Mar 2022 21:30:37 +0000",
+          "version": "2.9.26"
+        },
+        "20220321": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.27-amd64": {
+              "md5": "4e8bea29f3f58fa5f41cdc85822e7b2d",
+              "path": "agent/2.9.27/juju-2.9.27-centos-amd64.tgz",
+              "sha256": "cf2dd85e491a48518820db6dafe00caf72a33d20e9dda0b3564288390b389185",
+              "size": 41401666
+            }
+          },
+          "updated": "Mon, 21 Mar 2022 19:04:31 +0000",
+          "version": "2.9.27"
+        },
+        "20220407": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.28-amd64": {
+              "md5": "e69981f6f4813cc1fbef813919e24375",
+              "path": "agent/2.9.28/juju-2.9.28-centos-amd64.tgz",
+              "sha256": "420c671e940c772b18a076a7f9767b2879ce83a41fe85b84aa45f5b93ed02c7c",
+              "size": 41617323
+            }
+          },
+          "updated": "Thu, 07 Apr 2022 05:57:47 +0000",
+          "version": "2.9.28"
+        },
+        "20220503": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.29-amd64": {
+              "md5": "ac1be4c4e8407599f21034a3c624b885",
+              "path": "agent/2.9.29/juju-2.9.29-linux-amd64.tgz",
+              "sha256": "2cc94598b89a64c15aced653bc0c6409dd455f2caed101fd87224c9aa62a01cd",
+              "size": 41647571
+            }
+          },
+          "updated": "Tue, 03 May 2022 14:14:13 +0000",
+          "version": "2.9.29"
+        },
+        "20220531": {
+          "items": {
+            "2.9.31-amd64": {
+              "md5": "62e7dbad824faee90e39c0860640ffda",
+              "path": "agent/2.9.31/juju-2.9.31-linux-amd64.tgz",
+              "sha256": "ce34ed381c2dae5718e2aa8d8535599b05f7fcc39cc27acde0c58eb485d6e56d",
+              "size": 42178559
+            }
+          },
+          "version": "2.9.31"
+        }
+      }
+    },
+    "com.ubuntu.juju:ubuntu:amd64": {
+      "arch": "amd64",
+      "format": "products:1.0",
+      "ftype": "tar.gz",
+      "release": "ubuntu",
+      "versions": {
+        "20210325": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.10-amd64": {
+              "md5": "08475e97ed2326b36c8e175251d9c01f",
+              "path": "agent/2.8.10/juju-2.8.10-ubuntu-amd64.tgz",
+              "sha256": "7208b6ceb103a2f93cad1a2b1d1dd47b3351c6267aa3fb626cab1d32e014e206",
+              "size": 63582739
+            }
+          },
+          "updated": "Thu, 25 Mar 2021 17:30:52 +0000",
+          "version": "2.8.10"
+        },
+        "20210428": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.0-amd64": {
+              "md5": "86bce448d51e75203bdea592f9bf8087",
+              "path": "agent/2.9.0/juju-2.9.0-ubuntu-amd64.tgz",
+              "sha256": "05b7063e1054c9063a38e0e454e80be3690b4a39d6c012a2ac624dc8ef1ea55d",
+              "size": 116543367
+            }
+          },
+          "updated": "Wed, 28 Apr 2021 11:58:38 +0000",
+          "version": "2.9.0"
+        },
+        "20210524": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.2-amd64": {
+              "md5": "2859f808bdb23d1ced0114c6f204c381",
+              "path": "agent/2.9.2/juju-2.9.2-ubuntu-amd64.tgz",
+              "sha256": "4145d97dfba5984c4281602d79d703d8339811b30f43a6c526ccb73d390b2e7c",
+              "size": 119579024
+            }
+          },
+          "updated": "Mon, 24 May 2021 23:18:51 +0000",
+          "version": "2.9.2"
+        },
+        "20210530": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.3-amd64": {
+              "md5": "2378c1f7c2749b0a55fdda46f149a7b3",
+              "path": "agent/2.9.3/juju-2.9.3-ubuntu-amd64.tgz",
+              "sha256": "4afd744d08c150467adc94bc91f014bba6f7790b4e4eb072515034cd62ddb539",
+              "size": 119617839
+            }
+          },
+          "updated": "Sun, 30 May 2021 22:26:23 +0000",
+          "version": "2.9.3"
+        },
+        "20210608": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.4-amd64": {
+              "md5": "b0e5e91e6e5d234a5a37967671e5dcdd",
+              "path": "agent/2.9.4/juju-2.9.4-ubuntu-amd64.tgz",
+              "sha256": "d752b800c72514a1202b60c9b5c68912d150e16d34b61afb41be8bfd29a9ff51",
+              "size": 119648134
+            }
+          },
+          "updated": "Tue, 08 Jun 2021 21:58:09 +0000",
+          "version": "2.9.4"
+        },
+        "20210610": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.11-amd64": {
+              "md5": "0ca7c3ce5a88603be99316d1b1d86bd9",
+              "path": "agent/2.8.11/juju-2.8.11-ubuntu-amd64.tgz",
+              "sha256": "a61db2516cd56b7727b664e8b7c229c834da45a7a1632c3a2d898c3905056c0d",
+              "size": 63620309
+            }
+          },
+          "updated": "Thu, 10 Jun 2021 22:13:09 +0000",
+          "version": "2.8.11"
+        },
+        "20210623": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.5-amd64": {
+              "md5": "501517b024322af80305fe22da6f7fde",
+              "path": "agent/2.9.5/juju-2.9.5-ubuntu-amd64.tgz",
+              "sha256": "3a9ed7596be604066fc1df3902c2d06a03cdb453eb6d7e83409225b6678594f5",
+              "size": 119815781
+            }
+          },
+          "updated": "Wed, 23 Jun 2021 09:41:48 +0000",
+          "version": "2.9.5"
+        },
+        "20210706": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.7-amd64": {
+              "md5": "236696db27d4565651bc9af67165be85",
+              "path": "agent/2.9.7/juju-2.9.7-ubuntu-amd64.tgz",
+              "sha256": "aa4b21a530e9d4cb4d79b0f60fee68deff18ca8a9918c716ed755340a6ecb714",
+              "size": 124181294
+            }
+          },
+          "updated": "Tue, 06 Jul 2021 21:48:02 +0000",
+          "version": "2.9.7"
+        },
+        "20210712": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.8-amd64": {
+              "md5": "378314df93565d53bc679163555b40f9",
+              "path": "agent/2.9.8/juju-2.9.8-ubuntu-amd64.tgz",
+              "sha256": "635a3524acc09a557d92c53d3d3a6fa0b3b428fbd504c8d1b8e0d3dbefbf3176",
+              "size": 124661048
+            }
+          },
+          "updated": "Mon, 12 Jul 2021 23:19:36 +0000",
+          "version": "2.9.8"
+        },
+        "20210719": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.9-amd64": {
+              "md5": "9b67dbe623eeffea4572f253bd741dd8",
+              "path": "agent/2.9.9/juju-2.9.9-ubuntu-amd64.tgz",
+              "sha256": "6a57f848950f78b639c880dea148a71ef7d49cca9b1b9f8ac8ce9dbd00bf650d",
+              "size": 124719096
+            }
+          },
+          "updated": "Mon, 19 Jul 2021 12:18:47 +0000",
+          "version": "2.9.9"
+        },
+        "20210802": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.10-amd64": {
+              "md5": "a6d694daa37878cb8a39f6060bf1b103",
+              "path": "agent/2.9.10/juju-2.9.10-ubuntu-amd64.tgz",
+              "sha256": "d9284e67acd6f6c9715f931b95d76fa70f44c18ff431558d6a6031a604e62eed",
+              "size": 46243316
+            }
+          },
+          "updated": "Mon, 02 Aug 2021 23:38:37 +0000",
+          "version": "2.9.10"
+        },
+        "20210817": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.11-amd64": {
+              "md5": "154e112cef6174a9fe9c7d27b62bf983",
+              "path": "agent/2.9.11/juju-2.9.11-ubuntu-amd64.tgz",
+              "sha256": "0aeca1f19acdf21ab3d55080fb138ac82f43381ab7a6015e1782f7f37b88bdc6",
+              "size": 46015625
+            }
+          },
+          "updated": "Tue, 17 Aug 2021 20:25:20 +0000",
+          "version": "2.9.11"
+        },
+        "20210830": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.12-amd64": {
+              "md5": "9203d57e52e4ac4006f13484282f1380",
+              "path": "agent/2.9.12/juju-2.9.12-ubuntu-amd64.tgz",
+              "sha256": "69149422f7b34038cdcf821b721c0c0243de4886f800a9c4b7ac130bb880529c",
+              "size": 46124039
+            }
+          },
+          "updated": "Mon, 30 Aug 2021 14:59:16 +0000",
+          "version": "2.9.12"
+        },
+        "20210913": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.14-amd64": {
+              "md5": "5d5cbde21b6aae5869dd67abebc14142",
+              "path": "agent/2.9.14/juju-2.9.14-ubuntu-amd64.tgz",
+              "sha256": "39c151c8a432dc25708dfcc43b482a11d4adf448a9b04d142a983948968a2de5",
+              "size": 46220477
+            }
+          },
+          "updated": "Mon, 13 Sep 2021 19:53:16 +0000",
+          "version": "2.9.14"
+        },
+        "20210927": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.15-amd64": {
+              "md5": "bac89a82640029cea66d229381d1425a",
+              "path": "agent/2.9.15/juju-2.9.15-ubuntu-amd64.tgz",
+              "sha256": "5f7b727883f85733b37e1d26ada9300002ff7dacf05b14ab7362eeca53f574ad",
+              "size": 47044341
+            }
+          },
+          "updated": "Mon, 27 Sep 2021 23:29:23 +0000",
+          "version": "2.9.15"
+        },
+        "20211011": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.16-amd64": {
+              "md5": "e998e7f65e7c275acea79a1dccc398a1",
+              "path": "agent/2.9.16/juju-2.9.16-ubuntu-amd64.tgz",
+              "sha256": "2a54cb9fb70ad80818bb6233c25bca3050df60fe85e25331660117b3759f03f4",
+              "size": 47993406
+            }
+          },
+          "updated": "Mon, 11 Oct 2021 09:37:57 +0000",
+          "version": "2.9.16"
+        },
+        "20211027": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.17-amd64": {
+              "md5": "04e4d0458c8b8eba94fcf685889bacb2",
+              "path": "agent/2.9.17/juju-2.9.17-ubuntu-amd64.tgz",
+              "sha256": "f48a24916e64225a8c586dce2eb86db3391b94c81b4b463d132f6d28d459c8f9",
+              "size": 48087607
+            }
+          },
+          "updated": "Wed, 27 Oct 2021 18:25:45 +0000",
+          "version": "2.9.17"
+        },
+        "20211108": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.18-amd64": {
+              "md5": "4759a177dea1770f9c070a0216783ebb",
+              "path": "agent/2.9.18/juju-2.9.18-ubuntu-amd64.tgz",
+              "sha256": "b63dcafdfb52a22ece973d7d36918712c287d500a15ded821d8c080c5ab91516",
+              "size": 48153950
+            }
+          },
+          "updated": "Mon, 08 Nov 2021 16:21:11 +0000",
+          "version": "2.9.18"
+        },
+        "20211111": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.13-amd64": {
+              "md5": "64483f219cad15b740e2b68a7d01c7d7",
+              "path": "agent/2.8.13/juju-2.8.13-ubuntu-amd64.tgz",
+              "sha256": "18dc0be53cf3cee87bd731f9daa663c417b199c7e5022aeb89a6a9c82b7c21c5",
+              "size": 39498765
+            }
+          },
+          "updated": "Thu, 11 Nov 2021 05:09:26 +0000",
+          "version": "2.8.13"
+        },
+        "20211123": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.19-amd64": {
+              "md5": "aea7adac893e8d4a9e303439289760ff",
+              "path": "agent/2.9.19/juju-2.9.19-ubuntu-amd64.tgz",
+              "sha256": "1350ecf3b87e18b3fc4194132e15b7b20acd04d65b428f41786b18ebdbc66392",
+              "size": 48182174
+            }
+          },
+          "updated": "Tue, 23 Nov 2021 21:10:14 +0000",
+          "version": "2.9.19"
+        },
+        "20211202": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.21-amd64": {
+              "md5": "d42e70d0fc2710cc2bf0949990e5c6a9",
+              "path": "agent/2.9.21/juju-2.9.21-ubuntu-amd64.tgz",
+              "sha256": "08c250e07b9e93b25b09b15d9f475b9de8a8d5214c773c63c05a00053da8d0db",
+              "size": 48216967
+            }
+          },
+          "updated": "Thu, 02 Dec 2021 21:11:35 +0000",
+          "version": "2.9.21"
+        },
+        "20211213": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.22-amd64": {
+              "md5": "efdbed3029de6f5725635e6ee827354a",
+              "path": "agent/2.9.22/juju-2.9.22-ubuntu-amd64.tgz",
+              "sha256": "98051a4dce2561124448686c7a21e38899b9d228f95d64879cc128ae6cf35b55",
+              "size": 48112057
+            }
+          },
+          "updated": "Mon, 13 Dec 2021 19:59:56 +0000",
+          "version": "2.9.22"
+        },
+        "20220223": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.25-amd64": {
+              "md5": "2e1fd65f275da45c211cdfc61b3c097b",
+              "path": "agent/2.9.25/juju-2.9.25-ubuntu-amd64.tgz",
+              "sha256": "29e2342a53251f8acce963d3d384965faaa2982a18c1090597a606ade06fd20c",
+              "size": 39905812
+            }
+          },
+          "updated": "Wed, 23 Feb 2022 21:16:53 +0000",
+          "version": "2.9.25"
+        },
+        "20220311": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.26-amd64": {
+              "md5": "fc84421947a22860f2027b9c484fda89",
+              "path": "agent/2.9.26/juju-2.9.26-ubuntu-amd64.tgz",
+              "sha256": "7f56fe2c30c2b8914c714f1e9808add2f8a03726ce737ee0f1f5e2274dae6fe3",
+              "size": 41356805
+            }
+          },
+          "updated": "Fri, 11 Mar 2022 21:30:37 +0000",
+          "version": "2.9.26"
+        },
+        "20220321": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.27-amd64": {
+              "md5": "4284635db09b1e9d4b58aacdb0bb3af2",
+              "path": "agent/2.9.27/juju-2.9.27-ubuntu-amd64.tgz",
+              "sha256": "7a381d5b98fd6672d4f0cb58d60bb0da45e0918fb836a84cb076dc99c4f3735b",
+              "size": 41368510
+            }
+          },
+          "updated": "Mon, 21 Mar 2022 19:04:31 +0000",
+          "version": "2.9.27"
+        },
+        "20220407": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.28-amd64": {
+              "md5": "5ae0bb6b2a44ba09616b23a6d3d5ed89",
+              "path": "agent/2.9.28/juju-2.9.28-ubuntu-amd64.tgz",
+              "sha256": "967239bd05815dcbc8971172a88069e74be7329b0f31581a84d08c51c868d20e",
+              "size": 41617295
+            }
+          },
+          "updated": "Thu, 07 Apr 2022 05:57:47 +0000",
+          "version": "2.9.28"
+        },
+        "20220503": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.29-amd64": {
+              "md5": "ac1be4c4e8407599f21034a3c624b885",
+              "path": "agent/2.9.29/juju-2.9.29-linux-amd64.tgz",
+              "sha256": "2cc94598b89a64c15aced653bc0c6409dd455f2caed101fd87224c9aa62a01cd",
+              "size": 41647571
+            }
+          },
+          "updated": "Tue, 03 May 2022 14:14:13 +0000",
+          "version": "2.9.29"
+        },
+        "20220531": {
+          "items": {
+            "2.9.31-amd64": {
+              "md5": "62e7dbad824faee90e39c0860640ffda",
+              "path": "agent/2.9.31/juju-2.9.31-linux-amd64.tgz",
+              "sha256": "ce34ed381c2dae5718e2aa8d8535599b05f7fcc39cc27acde0c58eb485d6e56d",
+              "size": 42178559
+            }
+          },
+          "version": "2.9.31"
+        },
+        "20220614": {
+          "datatype": "content-download",
+          "items": {
+            "3.0-beta1-amd64": {
+              "md5": "e760cfce6a3b5651b3f71390fe94cf86",
+              "path": "agent/3.0-beta1/juju-3.0-beta1-linux-amd64.tgz",
+              "sha256": "a529a1e28c91a0cac6c51d0e41028aada54c5222a6b6f14dd69cb47a852d5f25",
+              "size": 41744125
+            }
+          },
+          "updated": "Tue, 14 Jun 2022 14:14:13 +0000",
+          "version": "3.0-beta1"
+        }
+      }
+    },
+    "com.ubuntu.juju:ubuntu:arm64": {
+      "arch": "arm64",
+      "format": "products:1.0",
+      "ftype": "tar.gz",
+      "release": "ubuntu",
+      "versions": {
+        "20210325": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.10-arm64": {
+              "md5": "573d830a71a6d60f98da980001f2c1cf",
+              "path": "agent/2.8.10/juju-2.8.10-ubuntu-arm64.tgz",
+              "sha256": "66d45f9448cc1f4a472000173253b9ac3e8693040c27dfeb7d2fbca4a4cd174b",
+              "size": 57988723
+            }
+          },
+          "updated": "Thu, 25 Mar 2021 17:30:52 +0000",
+          "version": "2.8.10"
+        },
+        "20210428": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.0-arm64": {
+              "md5": "f707c3b3c499f5dac0980afb217ce934",
+              "path": "agent/2.9.0/juju-2.9.0-ubuntu-arm64.tgz",
+              "sha256": "02ecfcafbb46bde04e0126c1941a7a375cdd6bb615cc50e7744197adf6b77dae",
+              "size": 106366348
+            }
+          },
+          "updated": "Wed, 28 Apr 2021 11:58:38 +0000",
+          "version": "2.9.0"
+        },
+        "20210524": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.2-arm64": {
+              "md5": "6eb6ecf18cf00e9d9746347a3717964c",
+              "path": "agent/2.9.2/juju-2.9.2-ubuntu-arm64.tgz",
+              "sha256": "09dedb80fcbc2f474c12a5ac9ca3f90a09a069aa1c7dc8df744378e589e59911",
+              "size": 109120365
+            }
+          },
+          "updated": "Mon, 24 May 2021 23:18:51 +0000",
+          "version": "2.9.2"
+        },
+        "20210530": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.3-arm64": {
+              "md5": "345cd2a1e4d93272537d8baeb8d98172",
+              "path": "agent/2.9.3/juju-2.9.3-ubuntu-arm64.tgz",
+              "sha256": "7570a034fbd8762e6965e1789a9f867812bae1acc2e5b72b94633abe18f16409",
+              "size": 109154359
+            }
+          },
+          "updated": "Sun, 30 May 2021 22:26:23 +0000",
+          "version": "2.9.3"
+        },
+        "20210608": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.4-arm64": {
+              "md5": "91a8acfd24f5b235631119439c4d8915",
+              "path": "agent/2.9.4/juju-2.9.4-ubuntu-arm64.tgz",
+              "sha256": "5a0579a8c8d3b3ad41fbcecb5fc9ab91b7f00e909e4b4d60cb9e81950fba9554",
+              "size": 109183822
+            }
+          },
+          "updated": "Tue, 08 Jun 2021 21:58:09 +0000",
+          "version": "2.9.4"
+        },
+        "20210610": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.11-arm64": {
+              "md5": "28f9d2d52147cb0a0b67645e198d28f0",
+              "path": "agent/2.8.11/juju-2.8.11-ubuntu-arm64.tgz",
+              "sha256": "f1e4ee3b7b26ef84d4687cbdfed17e7433f99a0983e21b16f588a493cf871021",
+              "size": 58017589
+            }
+          },
+          "updated": "Thu, 10 Jun 2021 22:13:09 +0000",
+          "version": "2.8.11"
+        },
+        "20210623": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.5-arm64": {
+              "md5": "8fdc58e46a8fbfd46582fc0204bfa155",
+              "path": "agent/2.9.5/juju-2.9.5-ubuntu-arm64.tgz",
+              "sha256": "a42e27dad5b05b6fad6cdcfe70893587809500bfe2cd5c0994dc83d8601cac14",
+              "size": 109361199
+            }
+          },
+          "updated": "Wed, 23 Jun 2021 09:41:48 +0000",
+          "version": "2.9.5"
+        },
+        "20210706": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.7-arm64": {
+              "md5": "6dd357af34c1cba5fb3eb22203e32134",
+              "path": "agent/2.9.7/juju-2.9.7-ubuntu-arm64.tgz",
+              "sha256": "7afe033ea5d83b3d5516699b644f8c4bc8940e920d1683c0cd97b0212d63e5e5",
+              "size": 112929106
+            }
+          },
+          "updated": "Tue, 06 Jul 2021 21:48:02 +0000",
+          "version": "2.9.7"
+        },
+        "20210712": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.8-arm64": {
+              "md5": "63efa6231b90f605757492fe7922a310",
+              "path": "agent/2.9.8/juju-2.9.8-ubuntu-arm64.tgz",
+              "sha256": "89d6515ea93b2d5d64719932f8319b147ec6a47a736588a1163f3d8eca53fbd7",
+              "size": 113368099
+            }
+          },
+          "updated": "Mon, 12 Jul 2021 23:19:36 +0000",
+          "version": "2.9.8"
+        },
+        "20210719": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.9-arm64": {
+              "md5": "7156ec75245fe5ca42fc2c2edd2c475b",
+              "path": "agent/2.9.9/juju-2.9.9-ubuntu-arm64.tgz",
+              "sha256": "336bd0ec4e876b3aee9d5f513e0ee1d136c7d790e9d08477cdbb44caf21f89a8",
+              "size": 113406818
+            }
+          },
+          "updated": "Mon, 19 Jul 2021 12:18:47 +0000",
+          "version": "2.9.9"
+        },
+        "20210802": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.10-arm64": {
+              "md5": "9ebc18109fe655b11619e3f2edd0912e",
+              "path": "agent/2.9.10/juju-2.9.10-ubuntu-arm64.tgz",
+              "sha256": "ed6325ed8c5badf987258db97a67876013d5c7db968e650cd3f1b69cc79602f8",
+              "size": 42076893
+            }
+          },
+          "updated": "Mon, 02 Aug 2021 23:38:37 +0000",
+          "version": "2.9.10"
+        },
+        "20210817": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.11-arm64": {
+              "md5": "808ad0eed6dcadb1d1a6f9c68ecee86f",
+              "path": "agent/2.9.11/juju-2.9.11-ubuntu-arm64.tgz",
+              "sha256": "a76a2b4bef1f518797144a52fa2ceebbca5ed706d9d902bce2203b2d4b5b1beb",
+              "size": 41870899
+            }
+          },
+          "updated": "Tue, 17 Aug 2021 20:25:20 +0000",
+          "version": "2.9.11"
+        },
+        "20210830": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.12-arm64": {
+              "md5": "bad938e9440a39bedf061ae821f25c57",
+              "path": "agent/2.9.12/juju-2.9.12-ubuntu-arm64.tgz",
+              "sha256": "52be31b3a60dcd1069bf15abe8ac2b6b71a7c59bb919018e68c72d0191d23a3b",
+              "size": 41979881
+            }
+          },
+          "updated": "Mon, 30 Aug 2021 14:59:16 +0000",
+          "version": "2.9.12"
+        },
+        "20210913": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.14-arm64": {
+              "md5": "331956432df2711152e80d9dd38c7e94",
+              "path": "agent/2.9.14/juju-2.9.14-ubuntu-arm64.tgz",
+              "sha256": "78e8922597571b414335c43dcd910d3dd5d374dadd5de778e36d27e9c5a06b72",
+              "size": 42059927
+            }
+          },
+          "updated": "Mon, 13 Sep 2021 19:53:16 +0000",
+          "version": "2.9.14"
+        },
+        "20210927": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.15-arm64": {
+              "md5": "264ca383d7af61e658fea293ea18a97c",
+              "path": "agent/2.9.15/juju-2.9.15-ubuntu-arm64.tgz",
+              "sha256": "d4a997e4ff5533dc0f1fd7ff80c704ae1553e192b0c8fb3730f6168cf32424e0",
+              "size": 42801771
+            }
+          },
+          "updated": "Mon, 27 Sep 2021 23:29:23 +0000",
+          "version": "2.9.15"
+        },
+        "20211011": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.16-arm64": {
+              "md5": "84eb4112765dfe95cdb293ddc32dbfc0",
+              "path": "agent/2.9.16/juju-2.9.16-ubuntu-arm64.tgz",
+              "sha256": "27bc403d30d60c5074ba06d360b5a9f27ba8fba435b7632540ba9efcc6479944",
+              "size": 43689024
+            }
+          },
+          "updated": "Mon, 11 Oct 2021 09:37:57 +0000",
+          "version": "2.9.16"
+        },
+        "20211027": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.17-arm64": {
+              "md5": "5969716fa7f6117a3f8aedcafb94c839",
+              "path": "agent/2.9.17/juju-2.9.17-ubuntu-arm64.tgz",
+              "sha256": "249cdca74b74b46116d193c359ffddf1eb5f37040c36d9f2cb08f25013706ddf",
+              "size": 43771774
+            }
+          },
+          "updated": "Wed, 27 Oct 2021 18:25:45 +0000",
+          "version": "2.9.17"
+        },
+        "20211108": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.18-arm64": {
+              "md5": "0e08c7b902cd851b4e8c36076376b3d0",
+              "path": "agent/2.9.18/juju-2.9.18-ubuntu-arm64.tgz",
+              "sha256": "62f163dc01b7b49da53475a7c384160b18c7299821acc1cd4fb90f961e5be22b",
+              "size": 43823888
+            }
+          },
+          "updated": "Mon, 08 Nov 2021 16:21:11 +0000",
+          "version": "2.9.18"
+        },
+        "20211111": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.13-arm64": {
+              "md5": "2ccaa4cfcadadc57366bcc0436c70c29",
+              "path": "agent/2.8.13/juju-2.8.13-ubuntu-arm64.tgz",
+              "sha256": "58c969d00fb9622c9a04879d59f6bfe72395a4d99fbb39fbdf4de9a4b5188a95",
+              "size": 36002740
+            }
+          },
+          "updated": "Thu, 11 Nov 2021 05:09:26 +0000",
+          "version": "2.8.13"
+        },
+        "20211123": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.19-arm64": {
+              "md5": "bea92ec4b464b5b34f1b848b1188fb06",
+              "path": "agent/2.9.19/juju-2.9.19-ubuntu-arm64.tgz",
+              "sha256": "0f81ea7965fa1cd314d8125de6fe600a127621777218b9866a1ae1e5dc0f516d",
+              "size": 43855841
+            }
+          },
+          "updated": "Tue, 23 Nov 2021 21:10:14 +0000",
+          "version": "2.9.19"
+        },
+        "20211202": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.21-arm64": {
+              "md5": "782500cfa74e5439a6b4138efeb06446",
+              "path": "agent/2.9.21/juju-2.9.21-ubuntu-arm64.tgz",
+              "sha256": "46e2aa5377d60eb1b22ff9feb8bbd1eafd50f1e4efd2935341f3b35f38b45cd0",
+              "size": 43878349
+            }
+          },
+          "updated": "Thu, 02 Dec 2021 21:11:35 +0000",
+          "version": "2.9.21"
+        },
+        "20211213": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.22-arm64": {
+              "md5": "21010b7901fe0896ddcfdacfd133500f",
+              "path": "agent/2.9.22/juju-2.9.22-ubuntu-arm64.tgz",
+              "sha256": "5b5917738e05cc854dc3b531fd78c7bf8cd7def3ef66e84f0241f260235425b6",
+              "size": 43788906
+            }
+          },
+          "updated": "Mon, 13 Dec 2021 19:59:56 +0000",
+          "version": "2.9.22"
+        },
+        "20220223": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.25-arm64": {
+              "md5": "34eac5148bc0f23b9fd8aed01186b54a",
+              "path": "agent/2.9.25/juju-2.9.25-ubuntu-arm64.tgz",
+              "sha256": "3ca317b4fb5a6b44e27fbe044049f04016f911a30e1fb9ab3ee5a625701f96a0",
+              "size": 35932751
+            }
+          },
+          "updated": "Wed, 23 Feb 2022 21:16:53 +0000",
+          "version": "2.9.25"
+        },
+        "20220311": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.26-arm64": {
+              "md5": "1acd3b50afd20eed13621b547e328d81",
+              "path": "agent/2.9.26/juju-2.9.26-ubuntu-arm64.tgz",
+              "sha256": "7a5584f287cff984c7cb8048e43ff3cb650fea8f4704eddb4b85a0d5b1718b82",
+              "size": 37242433
+            }
+          },
+          "updated": "Fri, 11 Mar 2022 21:30:37 +0000",
+          "version": "2.9.26"
+        },
+        "20220321": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.27-arm64": {
+              "md5": "0837baf35835d63de5b02d9fed897382",
+              "path": "agent/2.9.27/juju-2.9.27-ubuntu-arm64.tgz",
+              "sha256": "cf822dc4d2dba6f684cf4a95b7a6c3e480693103eeb546dd70a9663e88a43c40",
+              "size": 37249030
+            }
+          },
+          "updated": "Mon, 21 Mar 2022 19:04:31 +0000",
+          "version": "2.9.27"
+        },
+        "20220407": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.28-arm64": {
+              "md5": "51adb9e6571cd8d42afafaeb7c20fd8f",
+              "path": "agent/2.9.28/juju-2.9.28-ubuntu-arm64.tgz",
+              "sha256": "20cb204ca9a50110571866f3a31e6d3c600ca0223bbc91b063b83eb69a7ae389",
+              "size": 37485970
+            }
+          },
+          "updated": "Thu, 07 Apr 2022 05:57:47 +0000",
+          "version": "2.9.28"
+        },
+        "20220503": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.29-arm64": {
+              "md5": "7486540af702dd79d5f1c8be511c80fc",
+              "path": "agent/2.9.29/juju-2.9.29-linux-arm64.tgz",
+              "sha256": "9eb007a2ea42cd7f28b9f64d863e463853aa8da7b12d874b3cd0fe5b56df7371",
+              "size": 37508824
+            }
+          },
+          "updated": "Tue, 03 May 2022 14:14:13 +0000",
+          "version": "2.9.29"
+        },
+        "20220531": {
+          "items": {
+            "2.9.31-arm64": {
+              "md5": "22693bc6b1491bcf40a6e57029915559",
+              "path": "agent/2.9.31/juju-2.9.31-linux-arm64.tgz",
+              "sha256": "675633194bba5556abcb2ed6fa2eb830d290b4cf71f3f38b07b3d4ca62af7358",
+              "size": 38328098
+            }
+          },
+          "version": "2.9.31"
+        }
+      }
+    },
+    "com.ubuntu.juju:ubuntu:ppc64el": {
+      "arch": "ppc64el",
+      "format": "products:1.0",
+      "ftype": "tar.gz",
+      "release": "ubuntu",
+      "versions": {
+        "20210325": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.10-ppc64el": {
+              "md5": "3a4e49f534120bc8246ecc17c5b8c7f0",
+              "path": "agent/2.8.10/juju-2.8.10-ubuntu-ppc64el.tgz",
+              "sha256": "812cd58fba5cff25180cf861c82e28ac3de5f70d06dc6eb0b4890c49c3734a81",
+              "size": 74726811
+            }
+          },
+          "updated": "Thu, 25 Mar 2021 17:30:52 +0000",
+          "version": "2.8.10"
+        },
+        "20210428": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.0-ppc64el": {
+              "md5": "6971e5df5639b6a604428a1db2b2d90e",
+              "path": "agent/2.9.0/juju-2.9.0-ubuntu-ppc64el.tgz",
+              "sha256": "b29dcc5fc3aa311285b3c177a16bfda767bf38670e37dba987f2fbbe391acddc",
+              "size": 137124497
+            }
+          },
+          "updated": "Wed, 28 Apr 2021 11:58:38 +0000",
+          "version": "2.9.0"
+        },
+        "20210524": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.2-ppc64el": {
+              "md5": "13af172211e87f1c89a1f46e92534395",
+              "path": "agent/2.9.2/juju-2.9.2-ubuntu-ppc64el.tgz",
+              "sha256": "176b831ebe6a154222674a7a459f38369c9e2c15682ba467188dbeaf50a8b80d",
+              "size": 140963274
+            }
+          },
+          "updated": "Mon, 24 May 2021 23:18:51 +0000",
+          "version": "2.9.2"
+        },
+        "20210530": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.3-ppc64el": {
+              "md5": "3b9155406950f5fd77aec02502634ad2",
+              "path": "agent/2.9.3/juju-2.9.3-ubuntu-ppc64el.tgz",
+              "sha256": "121e4189fe4db32a2834ac75840b0ca42743787b79886a241ad56f98041448f5",
+              "size": 140989612
+            }
+          },
+          "updated": "Sun, 30 May 2021 22:26:23 +0000",
+          "version": "2.9.3"
+        },
+        "20210608": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.4-ppc64el": {
+              "md5": "19be81d0266fdd2419f64086df628eff",
+              "path": "agent/2.9.4/juju-2.9.4-ubuntu-ppc64el.tgz",
+              "sha256": "ef4665b57bd5a44fe91d0231da6d92f569f0827f568f755bd00edf22d9e44baf",
+              "size": 141025018
+            }
+          },
+          "updated": "Tue, 08 Jun 2021 21:58:09 +0000",
+          "version": "2.9.4"
+        },
+        "20210610": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.11-ppc64el": {
+              "md5": "2fa756d542cd153d09a1add456994a43",
+              "path": "agent/2.8.11/juju-2.8.11-ubuntu-ppc64el.tgz",
+              "sha256": "2f39532724011fb4a21ae048c29e4ca5a0841b0313cf5754614f089b7160cc32",
+              "size": 74764751
+            }
+          },
+          "updated": "Thu, 10 Jun 2021 22:13:09 +0000",
+          "version": "2.8.11"
+        },
+        "20210623": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.5-ppc64el": {
+              "md5": "d871798fa96ebd9fc1a27bb6f9fe2468",
+              "path": "agent/2.9.5/juju-2.9.5-ubuntu-ppc64el.tgz",
+              "sha256": "1eac9b1c9d79771fce9a1f8f55ddb26d639b36d276b47b17a8d5f332630e9951",
+              "size": 141192688
+            }
+          },
+          "updated": "Wed, 23 Jun 2021 09:41:48 +0000",
+          "version": "2.9.5"
+        },
+        "20210706": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.7-ppc64el": {
+              "md5": "a2060ab0396586f165e0bd2b255de773",
+              "path": "agent/2.9.7/juju-2.9.7-ubuntu-ppc64el.tgz",
+              "sha256": "6d4afa61ad17beac97d2afd8b636d35b2b7cbcb9958da92a96b37f19aeeda090",
+              "size": 146863697
+            }
+          },
+          "updated": "Tue, 06 Jul 2021 21:48:02 +0000",
+          "version": "2.9.7"
+        },
+        "20210712": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.8-ppc64el": {
+              "md5": "bbcd38bd36e85ead5a94da0c5a23c8a4",
+              "path": "agent/2.9.8/juju-2.9.8-ubuntu-ppc64el.tgz",
+              "sha256": "23def9be2a533b4c9da579a7ade57b5c506fcacb8f1d2e4374a46107ed538e0d",
+              "size": 147435822
+            }
+          },
+          "updated": "Mon, 12 Jul 2021 23:19:36 +0000",
+          "version": "2.9.8"
+        },
+        "20210719": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.9-ppc64el": {
+              "md5": "d2751809cb9424280654b5a354c1958d",
+              "path": "agent/2.9.9/juju-2.9.9-ubuntu-ppc64el.tgz",
+              "sha256": "dbd59366358f609a86a760e370ac4ed30ca09c5d6aa55f3176ba2f297956fdf0",
+              "size": 147498722
+            }
+          },
+          "updated": "Mon, 19 Jul 2021 12:18:47 +0000",
+          "version": "2.9.9"
+        },
+        "20210802": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.10-ppc64el": {
+              "md5": "85cf07b7162376e147d279763eeefd0e",
+              "path": "agent/2.9.10/juju-2.9.10-ubuntu-ppc64el.tgz",
+              "sha256": "b93eab87c63c72988744494070649929e284afbe1ee5801e1b578c2fbc70a707",
+              "size": 54745673
+            }
+          },
+          "updated": "Mon, 02 Aug 2021 23:38:37 +0000",
+          "version": "2.9.10"
+        },
+        "20210817": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.11-ppc64el": {
+              "md5": "8f843e77ec1226777c6ca4fc0a00ba34",
+              "path": "agent/2.9.11/juju-2.9.11-ubuntu-ppc64el.tgz",
+              "sha256": "878a4e6853f069e33da369d11fa1c254e2448e1386014d1ce5d8d3d51ec24231",
+              "size": 54455587
+            }
+          },
+          "updated": "Tue, 17 Aug 2021 20:25:20 +0000",
+          "version": "2.9.11"
+        },
+        "20210830": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.12-ppc64el": {
+              "md5": "faec45ee156cd66d7bcfb23e1c0ef31c",
+              "path": "agent/2.9.12/juju-2.9.12-ubuntu-ppc64el.tgz",
+              "sha256": "7b7eb0b6313693e4c0e82759872b12d379d987bf28c2876b657c8b27694a03a0",
+              "size": 54592383
+            }
+          },
+          "updated": "Mon, 30 Aug 2021 14:59:16 +0000",
+          "version": "2.9.12"
+        },
+        "20210913": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.14-ppc64el": {
+              "md5": "cb5abaded597306a16a0bdca4072d9ab",
+              "path": "agent/2.9.14/juju-2.9.14-ubuntu-ppc64el.tgz",
+              "sha256": "8c6a8b39123aeb71f98051f49e1b7b4a07e82b70c84cacf4ef358d989a2cd140",
+              "size": 54702457
+            }
+          },
+          "updated": "Mon, 13 Sep 2021 19:53:16 +0000",
+          "version": "2.9.14"
+        },
+        "20210927": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.15-ppc64el": {
+              "md5": "d99bfe0f960d89faec42815fa757b6f3",
+              "path": "agent/2.9.15/juju-2.9.15-ubuntu-ppc64el.tgz",
+              "sha256": "e137d90eb91624a1329e15b59e8be3937189604acf41aa67487984b29d7de572",
+              "size": 55650893
+            }
+          },
+          "updated": "Mon, 27 Sep 2021 23:29:23 +0000",
+          "version": "2.9.15"
+        },
+        "20211011": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.16-ppc64el": {
+              "md5": "72351a068032067b6a483b7ec4634ede",
+              "path": "agent/2.9.16/juju-2.9.16-ubuntu-ppc64el.tgz",
+              "sha256": "f8023dd73ab68c9a669ec62fe6a1df18b90644cc9ba4fc7a1d778a782203f970",
+              "size": 56678754
+            }
+          },
+          "updated": "Mon, 11 Oct 2021 09:37:57 +0000",
+          "version": "2.9.16"
+        },
+        "20211027": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.17-ppc64el": {
+              "md5": "109655ade187db61d97eb0a32b83dc69",
+              "path": "agent/2.9.17/juju-2.9.17-ubuntu-ppc64el.tgz",
+              "sha256": "b7055228f5637499227f6bf35bbec73b0883aa9ada2f0d141895b554513c945c",
+              "size": 56807207
+            }
+          },
+          "updated": "Wed, 27 Oct 2021 18:25:45 +0000",
+          "version": "2.9.17"
+        },
+        "20211108": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.18-ppc64el": {
+              "md5": "4bc3d22e5b03a67429fbacfe6d5b6bfd",
+              "path": "agent/2.9.18/juju-2.9.18-ubuntu-ppc64el.tgz",
+              "sha256": "de1ae1cf39c24a8a82992c9cf1f7fde8e1e989b2c452240291616dbfde261f6c",
+              "size": 56861001
+            }
+          },
+          "updated": "Mon, 08 Nov 2021 16:21:11 +0000",
+          "version": "2.9.18"
+        },
+        "20211111": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.13-ppc64el": {
+              "md5": "e88bece7248ed20971c34c8af5fa8b14",
+              "path": "agent/2.8.13/juju-2.8.13-ubuntu-ppc64el.tgz",
+              "sha256": "0e3fca7f2bb8bd477cf45e384e9a5f568a5f2a825e44f853a43a638c38cf93c9",
+              "size": 46612492
+            }
+          },
+          "updated": "Thu, 11 Nov 2021 05:09:26 +0000",
+          "version": "2.8.13"
+        },
+        "20211123": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.19-ppc64el": {
+              "md5": "d966dc6ec5184b5f600afb5f5b0f18ec",
+              "path": "agent/2.9.19/juju-2.9.19-ubuntu-ppc64el.tgz",
+              "sha256": "7e547e1fdbc1908bdf79780614e255b09c16f32f877567323721b3a2721b06f6",
+              "size": 56906469
+            }
+          },
+          "updated": "Tue, 23 Nov 2021 21:10:14 +0000",
+          "version": "2.9.19"
+        },
+        "20211202": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.21-ppc64el": {
+              "md5": "4f8d69f31c21a3198846671449048307",
+              "path": "agent/2.9.21/juju-2.9.21-ubuntu-ppc64el.tgz",
+              "sha256": "981d07d0e0c8442ed05eda7eba01d7f38042836f53813c5bc4cdd2eddaf1c2ee",
+              "size": 56943853
+            }
+          },
+          "updated": "Thu, 02 Dec 2021 21:11:35 +0000",
+          "version": "2.9.21"
+        },
+        "20211213": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.22-ppc64el": {
+              "md5": "ad2c6a383e5861e4889db5179d980da5",
+              "path": "agent/2.9.22/juju-2.9.22-ubuntu-ppc64el.tgz",
+              "sha256": "bbfdecb12cf6408395bc102fd88fa8cf9d2e8e9bd0bb6d23d0f70ec5bd5cb11a",
+              "size": 56816938
+            }
+          },
+          "updated": "Mon, 13 Dec 2021 19:59:56 +0000",
+          "version": "2.9.22"
+        },
+        "20220223": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.25-ppc64el": {
+              "md5": "be9971ab68fa4bb29ddab5e4c3b6f06f",
+              "path": "agent/2.9.25/juju-2.9.25-ubuntu-ppc64el.tgz",
+              "sha256": "26fc8da3c439b10f149b4af4d6849b35859f227f74f0d2b58b0a6ed37bb43f37",
+              "size": 43089887
+            }
+          },
+          "updated": "Wed, 23 Feb 2022 21:16:53 +0000",
+          "version": "2.9.25"
+        },
+        "20220311": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.26-ppc64el": {
+              "md5": "cbebf313cd14a24fef79b8cf515e69e5",
+              "path": "agent/2.9.26/juju-2.9.26-ubuntu-ppc64el.tgz",
+              "sha256": "39c6f63bdaca0e82aecdd718c19c9d81d48d891bd4c423f325cb141a8b3ac347",
+              "size": 35162600
+            }
+          },
+          "updated": "Fri, 11 Mar 2022 21:30:37 +0000",
+          "version": "2.9.26"
+        },
+        "20220321": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.27-ppc64el": {
+              "md5": "aa5c8a04c49ee9fa47d4f53b0ab8ede0",
+              "path": "agent/2.9.27/juju-2.9.27-ubuntu-ppc64el.tgz",
+              "sha256": "99e6f72399c10078533cb51cc5f836e62201fe808bf833386f02b841b9cfb2bf",
+              "size": 35169287
+            }
+          },
+          "updated": "Mon, 21 Mar 2022 19:04:31 +0000",
+          "version": "2.9.27"
+        },
+        "20220407": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.28-ppc64el": {
+              "md5": "daa73356266ee9eb7ee6429035ba5066",
+              "path": "agent/2.9.28/juju-2.9.28-ubuntu-ppc64el.tgz",
+              "sha256": "2fe64612dc3c37d40490ede87057a04d45dbb1e2d6ea49d13d4d4e58d294059f",
+              "size": 35383566
+            }
+          },
+          "updated": "Thu, 07 Apr 2022 05:57:47 +0000",
+          "version": "2.9.28"
+        },
+        "20220503": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.29-ppc64el": {
+              "md5": "4cbe2b47ef1b4c822f6e48c09ff4812c",
+              "path": "agent/2.9.29/juju-2.9.29-linux-ppc64el.tgz",
+              "sha256": "5a1a2eab1a0773b7bed58845527419d363d6df3b71fe8314150ac38fdfa75be3",
+              "size": 35413397
+            }
+          },
+          "updated": "Tue, 03 May 2022 14:14:13 +0000",
+          "version": "2.9.29"
+        },
+        "20220531": {
+          "items": {
+            "2.9.31-ppc64el": {
+              "md5": "467a5eaf20e39e70dd4bef14d1334836",
+              "path": "agent/2.9.31/juju-2.9.31-linux-ppc64el.tgz",
+              "sha256": "ed9d98f9f7ede27c72091b8e85e35a6b2c67bfb31d4a91af53254d03230ba87d",
+              "size": 36316951
+            }
+          },
+          "version": "2.9.31"
+        }
+      }
+    },
+    "com.ubuntu.juju:ubuntu:s390x": {
+      "arch": "s390x",
+      "format": "products:1.0",
+      "ftype": "tar.gz",
+      "release": "ubuntu",
+      "versions": {
+        "20210325": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.10-s390x": {
+              "md5": "296872e463c51dc2de865cc27b95d79c",
+              "path": "agent/2.8.10/juju-2.8.10-ubuntu-s390x.tgz",
+              "sha256": "09279ef955aa3efb9f2694e336bed7e332cf3181cc40c33596588368e91efa34",
+              "size": 61775472
+            }
+          },
+          "updated": "Thu, 25 Mar 2021 17:30:52 +0000",
+          "version": "2.8.10"
+        },
+        "20210428": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.0-s390x": {
+              "md5": "748fe51221144fb79c18191b4b56ba93",
+              "path": "agent/2.9.0/juju-2.9.0-ubuntu-s390x.tgz",
+              "sha256": "8c55270ea0c02d70e786fe4eb8258d456d5f5ee68b2dd3920366ef2ac97e82b2",
+              "size": 113504433
+            }
+          },
+          "updated": "Wed, 28 Apr 2021 11:58:38 +0000",
+          "version": "2.9.0"
+        },
+        "20210524": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.2-s390x": {
+              "md5": "b8b42f2f36d574d317b2cc8dd176efd3",
+              "path": "agent/2.9.2/juju-2.9.2-ubuntu-s390x.tgz",
+              "sha256": "098e259ff107ef822a66bd4ef3fd9c006608c68c13b4d81ce5325607d83d3f34",
+              "size": 116393098
+            }
+          },
+          "updated": "Mon, 24 May 2021 23:18:51 +0000",
+          "version": "2.9.2"
+        },
+        "20210530": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.3-s390x": {
+              "md5": "7ab638c7fbefa49e08acf880c773055d",
+              "path": "agent/2.9.3/juju-2.9.3-ubuntu-s390x.tgz",
+              "sha256": "574b0218790261b43b78f69ccabb427491e6a5ff67f48ab02d6d737876553700",
+              "size": 116413043
+            }
+          },
+          "updated": "Sun, 30 May 2021 22:26:23 +0000",
+          "version": "2.9.3"
+        },
+        "20210608": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.4-s390x": {
+              "md5": "b91587d39d9e832558274eed6759f716",
+              "path": "agent/2.9.4/juju-2.9.4-ubuntu-s390x.tgz",
+              "sha256": "f58c0b1c71f889d4bb3704a9adfa7bea0c1a5f5d15ef9d6045eefe6e78af1674",
+              "size": 116449592
+            }
+          },
+          "updated": "Tue, 08 Jun 2021 21:58:09 +0000",
+          "version": "2.9.4"
+        },
+        "20210610": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.11-s390x": {
+              "md5": "bfbc4b476104ecdb5702d89e41e491ce",
+              "path": "agent/2.8.11/juju-2.8.11-ubuntu-s390x.tgz",
+              "sha256": "99067fbaa58335c75b998d5a347c33c8e48c357c484f5b79e6ad830d0a307956",
+              "size": 61809577
+            }
+          },
+          "updated": "Thu, 10 Jun 2021 22:13:09 +0000",
+          "version": "2.8.11"
+        },
+        "20210623": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.5-s390x": {
+              "md5": "45b7b2f6a5aab47b1655e6b5475dad8a",
+              "path": "agent/2.9.5/juju-2.9.5-ubuntu-s390x.tgz",
+              "sha256": "d8e1d67e3c6bbd708e8e2a027748d70e8c760a59310b0355c0e84a704583c949",
+              "size": 116624745
+            }
+          },
+          "updated": "Wed, 23 Jun 2021 09:41:48 +0000",
+          "version": "2.9.5"
+        },
+        "20210706": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.7-s390x": {
+              "md5": "1d952c096d2ef38bb8d4dd34298accf4",
+              "path": "agent/2.9.7/juju-2.9.7-ubuntu-s390x.tgz",
+              "sha256": "b48edacf40dc1c4a1c2d98d7d3faf6ecfae01af7166416fd4595dbec8c868f47",
+              "size": 120184078
+            }
+          },
+          "updated": "Tue, 06 Jul 2021 21:48:02 +0000",
+          "version": "2.9.7"
+        },
+        "20210712": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.8-s390x": {
+              "md5": "58a1f6bb02f067af751e735622facbe7",
+              "path": "agent/2.9.8/juju-2.9.8-ubuntu-s390x.tgz",
+              "sha256": "c10558b228423199c7582fad9bf16ab2b6ac413182e154c040a7f8792c018bf0",
+              "size": 120664074
+            }
+          },
+          "updated": "Mon, 12 Jul 2021 23:19:36 +0000",
+          "version": "2.9.8"
+        },
+        "20210719": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.9-s390x": {
+              "md5": "03c546ef9aa0a40855d4d7cc6172e962",
+              "path": "agent/2.9.9/juju-2.9.9-ubuntu-s390x.tgz",
+              "sha256": "1961db0d35b5a0e0a08b37b4b4d495a52330e22fded34b565bb39fadd3c84f3f",
+              "size": 120701722
+            }
+          },
+          "updated": "Mon, 19 Jul 2021 12:18:47 +0000",
+          "version": "2.9.9"
+        },
+        "20210802": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.10-s390x": {
+              "md5": "7a54eccb6154433ce270a3a76f4045ca",
+              "path": "agent/2.9.10/juju-2.9.10-ubuntu-s390x.tgz",
+              "sha256": "1eb8c1ee438ffa6940f903a735ef676cd4465d50909cab09fa441d2c9b89a31a",
+              "size": 44697672
+            }
+          },
+          "updated": "Mon, 02 Aug 2021 23:38:37 +0000",
+          "version": "2.9.10"
+        },
+        "20210817": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.11-s390x": {
+              "md5": "d65b9f871efc7c5e343dcd29610b1edc",
+              "path": "agent/2.9.11/juju-2.9.11-ubuntu-s390x.tgz",
+              "sha256": "fb5dd4fcd63e2f2ff43b9d97abd1b58bfedeeb9eff35905a5c4faf5a03f80427",
+              "size": 44480651
+            }
+          },
+          "updated": "Tue, 17 Aug 2021 20:25:20 +0000",
+          "version": "2.9.11"
+        },
+        "20210830": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.12-s390x": {
+              "md5": "1f7ae4cd99b69d46b5a3de1cedbe6c19",
+              "path": "agent/2.9.12/juju-2.9.12-ubuntu-s390x.tgz",
+              "sha256": "90b9a8c39811d7e6f81ca4495bde61c94999b87d2bbba3ab5751d99fb2b11816",
+              "size": 44585056
+            }
+          },
+          "updated": "Mon, 30 Aug 2021 14:59:16 +0000",
+          "version": "2.9.12"
+        },
+        "20210913": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.14-s390x": {
+              "md5": "4a54cef51e2f4e6ba1f623866b147eaa",
+              "path": "agent/2.9.14/juju-2.9.14-ubuntu-s390x.tgz",
+              "sha256": "eadd0b26aae6a40f42ae59adcadb8e19bd33ee32c849e280158602a1882fe7c2",
+              "size": 44683678
+            }
+          },
+          "updated": "Mon, 13 Sep 2021 19:53:16 +0000",
+          "version": "2.9.14"
+        },
+        "20210927": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.15-s390x": {
+              "md5": "a4f18fc6c77b15fd9e2bc90897dd39e2",
+              "path": "agent/2.9.15/juju-2.9.15-ubuntu-s390x.tgz",
+              "sha256": "714c213772fa5982113c7e71eccdcc13cc0b2dfef628118513361b87f4db5107",
+              "size": 45492551
+            }
+          },
+          "updated": "Mon, 27 Sep 2021 23:29:23 +0000",
+          "version": "2.9.15"
+        },
+        "20211011": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.16-s390x": {
+              "md5": "77917d8876fd45a0c3cbae5cf490f883",
+              "path": "agent/2.9.16/juju-2.9.16-ubuntu-s390x.tgz",
+              "sha256": "b9a666f5eaa44f81c884bb5077dd784e3c23fba88fb6df16d7b48673de4ba46f",
+              "size": 46379707
+            }
+          },
+          "updated": "Mon, 11 Oct 2021 09:37:57 +0000",
+          "version": "2.9.16"
+        },
+        "20211027": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.17-s390x": {
+              "md5": "aef5a3109362a3df4aa5efe1c09d7c91",
+              "path": "agent/2.9.17/juju-2.9.17-ubuntu-s390x.tgz",
+              "sha256": "0a1c3774362b4ab155af093e4f83c9bd25fa59d2f23a7d81585b0b2d85380497",
+              "size": 46474661
+            }
+          },
+          "updated": "Wed, 27 Oct 2021 18:25:45 +0000",
+          "version": "2.9.17"
+        },
+        "20211108": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.18-s390x": {
+              "md5": "0687b9721a0849fe711263a5c8c1dc69",
+              "path": "agent/2.9.18/juju-2.9.18-ubuntu-s390x.tgz",
+              "sha256": "4e5e41870bdb63f5a64687f0906bebbdebe3077347cde089a5b890c241bbf573",
+              "size": 46534794
+            }
+          },
+          "updated": "Mon, 08 Nov 2021 16:21:11 +0000",
+          "version": "2.9.18"
+        },
+        "20211111": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.13-s390x": {
+              "md5": "41403cc492bc2ecb47fa92560ea128b1",
+              "path": "agent/2.8.13/juju-2.8.13-ubuntu-s390x.tgz",
+              "sha256": "925e289648ad194c5af703f0d649f7ed779435b300fb3844fc281f99f3e92a83",
+              "size": 38387000
+            }
+          },
+          "updated": "Thu, 11 Nov 2021 05:09:26 +0000",
+          "version": "2.8.13"
+        },
+        "20211123": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.19-s390x": {
+              "md5": "db2d7b40f026cc0e4a47860a67e57754",
+              "path": "agent/2.9.19/juju-2.9.19-ubuntu-s390x.tgz",
+              "sha256": "e8191302e7df822f8d9914d5fd585734aedb73d17d42da0cc8a872382dd8e20e",
+              "size": 46567539
+            }
+          },
+          "updated": "Tue, 23 Nov 2021 21:10:14 +0000",
+          "version": "2.9.19"
+        },
+        "20211202": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.21-s390x": {
+              "md5": "b1657e770ca74f46a790312655800d5f",
+              "path": "agent/2.9.21/juju-2.9.21-ubuntu-s390x.tgz",
+              "sha256": "1210ef031e0b78739c1b004de8f03c02cf151ed41c360e90c2341aa67602cfc2",
+              "size": 46594306
+            }
+          },
+          "updated": "Thu, 02 Dec 2021 21:11:35 +0000",
+          "version": "2.9.21"
+        },
+        "20211213": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.22-s390x": {
+              "md5": "64dc9521de8816cbb8dfb700a2c6c97f",
+              "path": "agent/2.9.22/juju-2.9.22-ubuntu-s390x.tgz",
+              "sha256": "90cfb7f8b9508a3a889f256d6de04c68fb60d0859a14d9a067187998e2a3f3af",
+              "size": 46489130
+            }
+          },
+          "updated": "Mon, 13 Dec 2021 19:59:56 +0000",
+          "version": "2.9.22"
+        },
+        "20220223": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.25-s390x": {
+              "md5": "0834b21fbf0b595324c2905f5c8ab921",
+              "path": "agent/2.9.25/juju-2.9.25-ubuntu-s390x.tgz",
+              "sha256": "5646f567dca6b0b154c1bc8848febeb877e24d3f623fcc2207195ca9a4433fc0",
+              "size": 38168585
+            }
+          },
+          "updated": "Wed, 23 Feb 2022 21:16:53 +0000",
+          "version": "2.9.25"
+        },
+        "20220311": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.26-s390x": {
+              "md5": "eebf6530f0003ca4fdf26a97ecfd8811",
+              "path": "agent/2.9.26/juju-2.9.26-ubuntu-s390x.tgz",
+              "sha256": "95ba4397bd154a47fa9804879b5a26fe38f9d51fece863d78f3895e6f61b196e",
+              "size": 39611590
+            }
+          },
+          "updated": "Fri, 11 Mar 2022 21:30:37 +0000",
+          "version": "2.9.26"
+        },
+        "20220321": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.27-s390x": {
+              "md5": "a980bb8c49feecffb47da0d52bc5f20c",
+              "path": "agent/2.9.27/juju-2.9.27-ubuntu-s390x.tgz",
+              "sha256": "357c6b387176588f319a7a1b072bb77df557579d3724d1cd7286707a3fd09bfd",
+              "size": 39631096
+            }
+          },
+          "updated": "Mon, 21 Mar 2022 19:04:31 +0000",
+          "version": "2.9.27"
+        },
+        "20220407": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.28-s390x": {
+              "md5": "145665ffd6927f57617c62b750d22e30",
+              "path": "agent/2.9.28/juju-2.9.28-ubuntu-s390x.tgz",
+              "sha256": "baa38d64bee078a88c560720a691150e2491592fbccb833d55ed2610a5496fa4",
+              "size": 39876484
+            }
+          },
+          "updated": "Thu, 07 Apr 2022 05:57:47 +0000",
+          "version": "2.9.28"
+        },
+        "20220503": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.29-s390x": {
+              "md5": "dd963fca9aa4ab9796da1600828770fc",
+              "path": "agent/2.9.29/juju-2.9.29-linux-s390x.tgz",
+              "sha256": "19f36b3d8fb01ebaf32d05f68d430ce390d336d505b62b53c93e5b3b45289292",
+              "size": 39902262
+            }
+          },
+          "updated": "Tue, 03 May 2022 14:14:13 +0000",
+          "version": "2.9.29"
+        },
+        "20220531": {
+          "items": {
+            "2.9.31-s390x": {
+              "md5": "6d971794f4a8a45160e9aad90383d33d",
+              "path": "agent/2.9.31/juju-2.9.31-linux-s390x.tgz",
+              "sha256": "56e508e490021b7b987fd45a20a6db5fcc8e4750a297cf7605cee529737dadca",
+              "size": 40827110
+            }
+          },
+          "version": "2.9.31"
+        }
+      }
+    },
+    "com.ubuntu.juju:windows:amd64": {
+      "arch": "amd64",
+      "format": "products:1.0",
+      "ftype": "tar.gz",
+      "release": "windows",
+      "versions": {
+        "20210325": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.10-amd64": {
+              "md5": "dbd6c1c77a515f87c75c03609cc62957",
+              "path": "agent/2.8.10/juju-2.8.10-windows-amd64.tgz",
+              "sha256": "a8a4735adef747ec4f8fc6f729b58c8dd2aaeb09b8ea611a7cbae4eacebf71cc",
+              "size": 39441921
+            }
+          },
+          "updated": "Thu, 25 Mar 2021 17:30:52 +0000",
+          "version": "2.8.10"
+        },
+        "20210428": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.0-amd64": {
+              "md5": "c6183dbedfcb63743c9287be4fbdd3fb",
+              "path": "agent/2.9.0/juju-2.9.0-windows-amd64.tgz",
+              "sha256": "4795b2bce9b9205776b6ebb81f1c469a0ca6473fa7aec94a7456147ad6b3acab",
+              "size": 43891162
+            }
+          },
+          "updated": "Wed, 28 Apr 2021 11:58:38 +0000",
+          "version": "2.9.0"
+        },
+        "20210524": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.2-amd64": {
+              "md5": "4b66eba30b55a7b2017c529930a580a5",
+              "path": "agent/2.9.2/juju-2.9.2-windows-amd64.tgz",
+              "sha256": "b7b9ca1a1d7fd048f917ca3f2fd617c351d38c14448348b31c9f8f3dad116cb2",
+              "size": 43940469
+            }
+          },
+          "updated": "Mon, 24 May 2021 23:18:51 +0000",
+          "version": "2.9.2"
+        },
+        "20210530": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.3-amd64": {
+              "md5": "3c2b40d78032999e9fa3cabdbffae3f8",
+              "path": "agent/2.9.3/juju-2.9.3-windows-amd64.tgz",
+              "sha256": "89d8a2de136fa739243be42acfc5fadc088296afe87f7b3f42f07b36b4562ff0",
+              "size": 43948009
+            }
+          },
+          "updated": "Sun, 30 May 2021 22:26:23 +0000",
+          "version": "2.9.3"
+        },
+        "20210608": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.4-amd64": {
+              "md5": "04ca96e88569e7afcd6b886d68dbec9f",
+              "path": "agent/2.9.4/juju-2.9.4-windows-amd64.tgz",
+              "sha256": "91dad11c3a6206d635f06d4711e361e28f5b2c919da1a2beabd08f278cb1c9b1",
+              "size": 43956265
+            }
+          },
+          "updated": "Tue, 08 Jun 2021 21:58:09 +0000",
+          "version": "2.9.4"
+        },
+        "20210610": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.11-amd64": {
+              "md5": "8a615860e5d741cdbd84262509ff305c",
+              "path": "agent/2.8.11/juju-2.8.11-windows-amd64.tgz",
+              "sha256": "8a35accf1fb2658caefef880ff6887fd447ad0597e544904dec81843ac209414",
+              "size": 39459638
+            }
+          },
+          "updated": "Thu, 10 Jun 2021 22:13:09 +0000",
+          "version": "2.8.11"
+        },
+        "20210623": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.5-amd64": {
+              "md5": "353d680b7a9ca8ad06e8806c9ea0d2b2",
+              "path": "agent/2.9.5/juju-2.9.5-windows-amd64.tgz",
+              "sha256": "a8beb2abaa36f1ccc9ed0db71023ea4f995e06abd54923f67041dbc4b6b8b40b",
+              "size": 44032073
+            }
+          },
+          "updated": "Wed, 23 Jun 2021 09:41:48 +0000",
+          "version": "2.9.5"
+        },
+        "20210706": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.7-amd64": {
+              "md5": "2aab7bc57f5c2f0f29059ab7f5f255dd",
+              "path": "agent/2.9.7/juju-2.9.7-windows-amd64.tgz",
+              "sha256": "eee64d68f9b356dde20a5b89324c0143f9fc86f91f11fcaf48ef7efef38373a3",
+              "size": 45500742
+            }
+          },
+          "updated": "Tue, 06 Jul 2021 21:48:02 +0000",
+          "version": "2.9.7"
+        },
+        "20210712": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.8-amd64": {
+              "md5": "b61c57fab49ecbef8469cb0b425e3831",
+              "path": "agent/2.9.8/juju-2.9.8-windows-amd64.tgz",
+              "sha256": "9395ec929045ef8e63c34848d388d46a6970f198a5dfde32c22f5130c56aaf4c",
+              "size": 45662139
+            }
+          },
+          "updated": "Mon, 12 Jul 2021 23:19:36 +0000",
+          "version": "2.9.8"
+        },
+        "20210719": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.9-amd64": {
+              "md5": "e4c3a8ceb2fb17c6cff9bf00488192ce",
+              "path": "agent/2.9.9/juju-2.9.9-windows-amd64.tgz",
+              "sha256": "1484a58df4e43ae0f6d6d8e4825d1e60d5cb060c5741e01e43a428e46130ca7b",
+              "size": 45689826
+            }
+          },
+          "updated": "Mon, 19 Jul 2021 12:18:47 +0000",
+          "version": "2.9.9"
+        },
+        "20210802": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.10-amd64": {
+              "md5": "f927c3762c5dbb384baafd879afc6126",
+              "path": "agent/2.9.10/juju-2.9.10-windows-amd64.tgz",
+              "sha256": "1303c38a7a389658d3aabb781483536776ef1e3a42b59d350053886d7dce76b5",
+              "size": 45816395
+            }
+          },
+          "updated": "Mon, 02 Aug 2021 23:38:37 +0000",
+          "version": "2.9.10"
+        },
+        "20210817": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.11-amd64": {
+              "md5": "9b8e44d2268331225889ebff7c9c6274",
+              "path": "agent/2.9.11/juju-2.9.11-windows-amd64.tgz",
+              "sha256": "6acf55113e5aabb6ca8a6f3ec726316af4b8ff5d998b990ceb18bb7f6a9654fc",
+              "size": 45592368
+            }
+          },
+          "updated": "Tue, 17 Aug 2021 20:25:20 +0000",
+          "version": "2.9.11"
+        },
+        "20210830": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.12-amd64": {
+              "md5": "60365730b8f4439bfb865a0136182c92",
+              "path": "agent/2.9.12/juju-2.9.12-windows-amd64.tgz",
+              "sha256": "ad4471276978c57aa090cc745e39b1218ab58a94180222ca7b6a20cd5bd4e783",
+              "size": 45696340
+            }
+          },
+          "updated": "Mon, 30 Aug 2021 14:59:16 +0000",
+          "version": "2.9.12"
+        },
+        "20210913": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.14-amd64": {
+              "md5": "5b5d605d24dc0621c121dd428d3144a0",
+              "path": "agent/2.9.14/juju-2.9.14-windows-amd64.tgz",
+              "sha256": "0a1922d4652f043ed2f65b8604f5f6092f3b05100a1563cc98ed9a45ad3c1b28",
+              "size": 45788351
+            }
+          },
+          "updated": "Mon, 13 Sep 2021 19:53:16 +0000",
+          "version": "2.9.14"
+        },
+        "20210927": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.15-amd64": {
+              "md5": "67d8f001068cb0e92082ee785095c5fc",
+              "path": "agent/2.9.15/juju-2.9.15-windows-amd64.tgz",
+              "sha256": "150a2a87ce00c3bee7c9d184075e145afa481fa7f8063a57d9800483b1f69ea8",
+              "size": 46612003
+            }
+          },
+          "updated": "Mon, 27 Sep 2021 23:29:23 +0000",
+          "version": "2.9.15"
+        },
+        "20211011": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.16-amd64": {
+              "md5": "cb0b5198f4250ed0613115688a9e7b9b",
+              "path": "agent/2.9.16/juju-2.9.16-windows-amd64.tgz",
+              "sha256": "4bd44e94979bf1b23145cead1048ab27d6c1ccefe196da5492f8ca31d398e80d",
+              "size": 47575466
+            }
+          },
+          "updated": "Mon, 11 Oct 2021 09:37:57 +0000",
+          "version": "2.9.16"
+        },
+        "20211027": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.17-amd64": {
+              "md5": "9114ef133e13e3bb22fa4d87c5695663",
+              "path": "agent/2.9.17/juju-2.9.17-windows-amd64.tgz",
+              "sha256": "56c2d97215180b54d7c2373e8416fefd4494c997c58c5a714885a5d3d0193537",
+              "size": 47677570
+            }
+          },
+          "updated": "Wed, 27 Oct 2021 18:25:45 +0000",
+          "version": "2.9.17"
+        },
+        "20211108": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.18-amd64": {
+              "md5": "d7e115ae3fdeb605b66c5c50136588d4",
+              "path": "agent/2.9.18/juju-2.9.18-windows-amd64.tgz",
+              "sha256": "c35af7d09c28e1c4888603110f467d9f2aeef652115683e07211ebf2c0db9d9a",
+              "size": 47734712
+            }
+          },
+          "updated": "Mon, 08 Nov 2021 16:21:11 +0000",
+          "version": "2.9.18"
+        },
+        "20211111": {
+          "datatype": "content-download",
+          "items": {
+            "2.8.13-amd64": {
+              "md5": "4f7734641da2955ecbbcb360bd623e7d",
+              "path": "agent/2.8.13/juju-2.8.13-windows-amd64.tgz",
+              "sha256": "0544b56e52ee5898b7d8576ed2a6baef395aae9134e085fd379f050cfd54c897",
+              "size": 39472026
+            }
+          },
+          "updated": "Thu, 11 Nov 2021 05:09:26 +0000",
+          "version": "2.8.13"
+        },
+        "20211123": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.19-amd64": {
+              "md5": "e5c9262e8789261f7b592b8af16e8769",
+              "path": "agent/2.9.19/juju-2.9.19-windows-amd64.tgz",
+              "sha256": "01519c4606ca61c7d50ac8d9dd0fb5d2aadd6148af6c7655588e5d6eda63ef72",
+              "size": 47774093
+            }
+          },
+          "updated": "Tue, 23 Nov 2021 21:10:14 +0000",
+          "version": "2.9.19"
+        },
+        "20211202": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.21-amd64": {
+              "md5": "2a276982f207815bb34107419b33db47",
+              "path": "agent/2.9.21/juju-2.9.21-windows-amd64.tgz",
+              "sha256": "645a900710415adec82400e7b425bdf1a33af0da9d268a29d3e084f5acf2df4d",
+              "size": 47798205
+            }
+          },
+          "updated": "Thu, 02 Dec 2021 21:11:35 +0000",
+          "version": "2.9.21"
+        },
+        "20211213": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.22-amd64": {
+              "md5": "b483da93595b7c21e07d6042a8809e02",
+              "path": "agent/2.9.22/juju-2.9.22-windows-amd64.tgz",
+              "sha256": "23e0513817b0fec7ea2cc46244555280115dba3edc5a7b93dbbba674692fbba4",
+              "size": 47730192
+            }
+          },
+          "updated": "Mon, 13 Dec 2021 19:59:56 +0000",
+          "version": "2.9.22"
+        },
+        "20220223": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.25-amd64": {
+              "md5": "b928600af57739845dc17ef5b9fc8e49",
+              "path": "agent/2.9.25/juju-2.9.25-windows-amd64.tgz",
+              "sha256": "7471bd10734d05f53a199b7cb795a56670ad5c341fe35a9ddba36756701aed42",
+              "size": 39804521
+            }
+          },
+          "updated": "Wed, 23 Feb 2022 21:16:53 +0000",
+          "version": "2.9.25"
+        },
+        "20220311": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.26-amd64": {
+              "md5": "6c71fc522af0e32feb176f861d75fe1e",
+              "path": "agent/2.9.26/juju-2.9.26-windows-amd64.tgz",
+              "sha256": "b78b5017dee342123cf3fa73fa25d0b3937be0750c021fc29236f052851e636f",
+              "size": 41276963
+            }
+          },
+          "updated": "Fri, 11 Mar 2022 21:30:37 +0000",
+          "version": "2.9.26"
+        },
+        "20220321": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.27-amd64": {
+              "md5": "56154e421f1b5d90a8b85a47cca3e23d",
+              "path": "agent/2.9.27/juju-2.9.27-windows-amd64.tgz",
+              "sha256": "0d9afcc6c080bfe8767c1ed344e6d9d0df99e33aa42f2b87f050fb141c275124",
+              "size": 41284565
+            }
+          },
+          "updated": "Mon, 21 Mar 2022 19:04:31 +0000",
+          "version": "2.9.27"
+        },
+        "20220407": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.28-amd64": {
+              "md5": "f12cd20372b111f3046f224376080e92",
+              "path": "agent/2.9.28/juju-2.9.28-windows-amd64.tgz",
+              "sha256": "383aa8a0025143ee0075f34f00e4fbf393f56b7f2cd61bbe6357f3b293f578e0",
+              "size": 41540994
+            }
+          },
+          "updated": "Thu, 07 Apr 2022 05:57:47 +0000",
+          "version": "2.9.28"
+        },
+        "20220503": {
+          "datatype": "content-download",
+          "items": {
+            "2.9.29-amd64": {
+              "md5": "6753d2aceb9121b930b3d82c1ab3b3d5",
+              "path": "agent/2.9.29/juju-2.9.29-windows-amd64.tgz",
+              "sha256": "ba5341131cdd6c963811107a6993487e1f425ab9a603bc5e1932dd3a7033751f",
+              "size": 41565474
+            }
+          },
+          "updated": "Tue, 03 May 2022 14:14:13 +0000",
+          "version": "2.9.29"
+        },
+        "20220531": {
+          "items": {
+            "2.9.31-amd64": {
+              "md5": "992da1553bbb922e10f3d126a1e4e1f2",
+              "path": "agent/2.9.31/juju-2.9.31-windows-amd64.tgz",
+              "sha256": "78e600ed79576167ccee661567be3ec94ae93291076265009463bedce5ea0c40",
+              "size": 41823587
+            }
+          },
+          "version": "2.9.31"
+        }
+      }
+    }
+  },
+  "updated": "Tue, 31 May 2022 13:25:29 +0000"
+}
