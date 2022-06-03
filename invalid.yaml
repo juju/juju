@@ -1,4 +1,0 @@
-
-registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
-username: docker-registry
-password: 'hunter2',,

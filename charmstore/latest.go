@@ -4,8 +4,7 @@
 package charmstore
 
 import (
-	"time"
-
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 )
 
@@ -17,9 +16,9 @@ const jujuMetadataHTTPHeader = "Juju-Metadata"
 // the macaroon has been updated. This updated macaroon should be stored for
 // use in any further requests.  Note that this map may be non-empty even if
 // this method returns an error (and the macaroons should be stored).
-func LatestCharmInfo(client Client, charms []CharmID, metadata map[string]string) ([]CharmInfoResult, error) {
+func LatestCharmInfo(client Client, charms []CharmID, metadata map[string]string, clock clock.Clock) ([]CharmInfoResult, error) {
 	// TODO(perrito666) 2016-05-02 lp:1558657
-	now := time.Now().UTC()
+	now := clock.Now().UTC()
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(charms))
 	revResults, err := client.LatestRevisions(charms, metadata)

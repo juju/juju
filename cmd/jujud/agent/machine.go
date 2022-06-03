@@ -1061,7 +1061,11 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 	}
 	logger.Infof("juju database opened")
 
-	reportOpenedState(pool.SystemState())
+	systemState, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	reportOpenedState(systemState)
 
 	return pool, nil
 }
@@ -1275,7 +1279,10 @@ func openStatePool(
 			pool.Close()
 		}
 	}()
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	controller, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {

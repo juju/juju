@@ -71,12 +71,12 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["latest/stable", "latest/beta"]
+        snap_version: ["2.8/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
-      DOCKER_REGISTRY: 10.152.183.69:5000
+      DOCKER_REGISTRY: 10.152.183.69
 
     steps:
 
@@ -99,6 +99,7 @@ jobs:
         sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
         sudo snap install lxd
+        sudo snap install yq
         sudo snap install juju --classic --channel=${{ matrix.snap_version }}
 
         sudo lxd waitready
@@ -118,8 +119,12 @@ jobs:
 
         echo "::set-output name=go-version::$(grep '^go ' go.mod | awk '{print $2}')"
         echo "::set-output name=base-juju-version::$(juju version | cut -d '-' -f 1)"
-        echo "::set-output name=upstream-juju-version::$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')"
-        echo "::set-output name=juju-db-version::$(grep -r 'DefaultJujuDBSnapChannel =' controller/config.go | sed -r 's/^\s*DefaultJujuDBSnapChannel = \"([[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+){0,1})\/.*\"$/\1/')"
+        upstreamJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
+        echo "::set-output name=upstream-juju-version::${upstreamJujuVersion}"
+        currentStableChannel="$(echo $upstreamJujuVersion | cut -d'.' -f1,2)/stable"
+        currentStableVersion=$(snap info juju | yq ".channels[\"$currentStableChannel\"]" | cut -d' ' -f1)
+        echo "::set-output name=current-stable-juju-version::$currentStableVersion"
+        echo "::set-output name=juju-db-version::4.0"
       id: vars
 
     - name: Set up Go
@@ -132,7 +137,7 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       uses: balchua/microk8s-actions@v0.2.2
       with:
-        channel: "latest/stable"
+        channel: "1.23/stable"
         addons: '["dns", "storage"]'
 
     - name: Setup local caas registry
@@ -165,6 +170,7 @@ jobs:
 
         # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
         sudo microk8s refresh-certs --cert ca.crt
+        sudo microk8s refresh-certs --cert server.crt
 
         # Wait for registry
         sg microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
@@ -219,14 +225,27 @@ jobs:
 
         sg microk8s <<EOF
           juju bootstrap microk8s c \
-            --config caas-image-repo='{"repository": "${DOCKER_REGISTRY}/test-repo", "serveraddress": "https://${DOCKER_REGISTRY}/"}' \
-            --config juju-db-snap-channel="${JUJU_DB_TAG}/stable" \
+            --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
             --config features="[developer-mode]"
         EOF
         juju add-model m
 
         juju status
         juju version
+
+    # The `wait-for` plugin is used after deploying an application
+    # This was added in Juju 2.9, so it's not installed by the 2.8 snap
+    # However we just need to install the `wait-for` binary ourselves,
+    # and then Juju 2.8 can use it (amazing!)
+    - name: Add `wait-for` plugin
+      shell: bash
+      run: |
+        # Download a stable version of Juju
+        curl -L -O https://github.com/juju/juju/archive/refs/tags/juju-2.9.29.tar.gz
+        tar -xf juju-2.9.29.tar.gz
+        cd juju-juju-2.9.29/
+        go install github.com/juju/juju/cmd/plugins/juju-wait-for
+        cd ..
 
     - name: Deploy some applications
       if: env.RUN_TEST == 'RUN'
@@ -237,7 +256,7 @@ jobs:
         # Required for elasticsearch
         sudo sysctl -w vm.max_map_count=262144
 
-        juju deploy ${CHARM_${{ matrix.model_type }}} --series focal
+        juju deploy ${CHARM_${{ matrix.model_type }}}
 
         juju wait-for application ${CHARM_${{ matrix.model_type }}}
 
@@ -261,6 +280,7 @@ jobs:
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
+        CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
       run: |
         set -euxo pipefail
 
@@ -276,6 +296,16 @@ jobs:
         EOL
         docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
         docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
+        
+        cat >~/Dockerfile <<EOL
+          FROM jujusolutions/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
+
+          COPY certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+
+          RUN update-ca-certificates
+        EOL
+        docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
+        docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
 
     - name: Preflight
       if: env.RUN_TEST == 'RUN'
@@ -290,11 +320,30 @@ jobs:
       shell: bash
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
+        CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
         UPGRADE_PARAMS_localhost: ""
         UPGRADE_PARAMS_microk8s: "--agent-stream=develop --debug"
       run: |
         set -euxo pipefail
 
+        # Upgrade to the latest stable.
+        juju upgrade-controller --debug
+        
+        attempt=0
+        while true; do
+          UPDATED=$((juju show-controller --format=json || echo "") | jq -r '.c.details."agent-version"')
+          if [[ $UPDATED == $CURRENT_STABLE_JUJU_TAG* ]]; then
+              break
+          fi
+          sleep 10
+          attempt=$((attempt+1))
+          if [ "$attempt" -eq 48 ]; then
+              echo "Upgrade controller timed out"
+              exit 1
+          fi
+        done
+        
+        # Upgrade to local built version.
         juju upgrade-controller ${UPGRADE_PARAMS_${{ matrix.model_type }}}
 
         attempt=0
@@ -318,7 +367,7 @@ jobs:
             exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 3
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
 
     - name: Test upgrade model
       if: env.RUN_TEST == 'RUN'
@@ -357,7 +406,7 @@ jobs:
           exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 3
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
 
     - name: Wrap up
       if: env.RUN_TEST == 'RUN'

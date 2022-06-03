@@ -1496,7 +1496,9 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, apiParams.Nonce, "")
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	icfg, err := client.InstanceConfig(systemState, s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 	provisioningScript, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1667,7 +1669,9 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that address filtering by management space occurred.
-	agentHostPorts, err := s.StatePool.SystemState().APIHostPortsForAgents()
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	agentHostPorts, err := systemState.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agentHostPorts, gc.Not(gc.DeepEquals), stateAPIHostPorts)
 
@@ -2040,6 +2044,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.12-ubuntu-amd64")},
 		},
 	}
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
@@ -2073,11 +2078,13 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.10.1")),
 			image.NewImageInfo(version.MustParse("2.9.10")),
 			image.NewImageInfo(version.MustParse("2.9.11")),
-			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
+			image.NewImageInfo(version.MustParse("2.9.12")),
+			image.NewImageInfo(version.MustParse("2.9.13")), // skip: it's not released in simplestream yet.
 		}, nil),
 		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
 		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
 		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.12").Return("", errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
 		registryProvider.EXPECT().Close().Return(nil),
 	)
 

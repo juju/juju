@@ -1976,6 +1976,7 @@ func rulesToIPPerms(rules firewall.IngressRules) []types.IpPermission {
 		}
 		if len(r.SourceCIDRs) == 0 {
 			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock)}}
+			ipPerms[i].Ipv6Ranges = []types.Ipv6Range{{CidrIpv6: aws.String(defaultRouteIPv6CIDRBlock)}}
 		} else {
 			for _, cidr := range r.SourceCIDRs.SortedValues() {
 				// CIDRs are pre-validated; if an invalid CIDR
@@ -2067,6 +2068,7 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 		}
 		if len(sourceCIDRs) == 0 {
 			sourceCIDRs = append(sourceCIDRs, defaultRouteCIDRBlock)
+			sourceCIDRs = append(sourceCIDRs, defaultRouteIPv6CIDRBlock)
 		}
 		portRange := network.PortRange{
 			Protocol: aws.ToString(p.IpProtocol),

@@ -115,10 +115,12 @@ func NewBlobStoreChecker() *BlobStoreChecker {
 	jujuDB := session.DB("juju")
 	managedResources := jujuDB.C(managedResourceC)
 	resources := jujuDB.C(resourceCatalogC)
+	systemState, err := statePool.SystemState()
+	checkErr(err, "pool is closed")
 	return &BlobStoreChecker{
 		pool:    statePool,
 		session: session,
-		system:  statePool.SystemState(),
+		system:  systemState,
 
 		managedResources: managedResources,
 		resources:        resources,

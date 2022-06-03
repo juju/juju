@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/juju/docker/registry/internal/mocks"
 )
 
-func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, contentType string, result *internal.ManifestsResult) {
+func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, contentType string, statusCode int, f func(*internal.ManifestsResult, error)) {
 	// Use v2 for private repository.
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
@@ -60,15 +61,14 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 					http.CanonicalHeaderKey("Content-Type"): []string{contentType},
 				},
 				Request:    req,
-				StatusCode: http.StatusOK,
+				StatusCode: statusCode,
 				Body:       ioutil.NopCloser(strings.NewReader(responseData)),
 			}
 			return resps, nil
 		}),
 	)
 	manifests, err := reg.GetManifests("jujud-operator", "2.9.10")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(manifests, jc.DeepEquals, result)
+	f(manifests, err)
 }
 
 func (s *baseSuite) TestGetManifestsSchemaVersion1(c *gc.C) {
@@ -77,7 +77,11 @@ func (s *baseSuite) TestGetManifestsSchemaVersion1(c *gc.C) {
 { "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "amd64"}
 `[1:],
 		`application/vnd.docker.distribution.manifest.v1+prettyjws`,
-		&internal.ManifestsResult{Architecture: "amd64"},
+		http.StatusOK,
+		func(result *internal.ManifestsResult, err error) {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(result, jc.DeepEquals, &internal.ManifestsResult{Architecture: "amd64"})
+		},
 	)
 }
 
@@ -95,7 +99,33 @@ func (s *baseSuite) TestGetManifestsSchemaVersion2(c *gc.C) {
 }
 `[1:],
 		`application/vnd.docker.distribution.manifest.v2+prettyjws`,
-		&internal.ManifestsResult{Digest: "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"},
+		http.StatusOK,
+		func(result *internal.ManifestsResult, err error) {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(result, jc.DeepEquals, &internal.ManifestsResult{Digest: "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"})
+		},
+	)
+}
+
+func (s *baseSuite) TestGetManifestsSchemaVersion2NotFound(c *gc.C) {
+	s.assertGetManifestsSchemaVersion1(c,
+		`
+{
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "config": {
+        "mediaType": "application/vnd.docker.container.image.v1+json",
+        "size": 4596,
+        "digest": "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"
+    }
+}
+`[1:],
+		`application/vnd.docker.distribution.manifest.v2+prettyjws`,
+		http.StatusNotFound,
+		func(_ *internal.ManifestsResult, err error) {
+			c.Assert(err, jc.Satisfies, errors.IsNotFound)
+			c.Assert(err, gc.ErrorMatches, `Get "https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10": non-successful response status=404 not found`)
+		},
 	)
 }
 

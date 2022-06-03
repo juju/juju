@@ -48,7 +48,11 @@ type Authenticator struct {
 
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(statePool *state.StatePool, clock clock.Clock) (*Authenticator, error) {
-	authContext, err := newAuthContext(statePool.SystemState(), clock)
+	systemState, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	authContext, err := newAuthContext(systemState, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -83,13 +87,18 @@ func (a *Authenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.
 
 // AddHandlers adds the handlers to the given mux for handling local
 // macaroon logins.
-func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) {
+func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) error {
+	systemState, err := a.statePool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	h := &localLoginHandlers{
 		authCtxt:   a.authContext,
-		finder:     a.statePool.SystemState(),
+		finder:     systemState,
 		userTokens: map[string]string{},
 	}
 	h.AddHandlers(mux)
+	return nil
 }
 
 // Authenticate is part of the httpcontext.Authenticator interface.
@@ -138,12 +147,16 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		}
 		_, isMachineTag := authTag.(names.MachineTag)
 		_, isControllerAgentTag := authTag.(names.ControllerAgentTag)
+		systemState, errS := a.statePool.SystemState()
+		if errS != nil {
+			return httpcontext.AuthInfo{}, errors.Trace(err)
+		}
 		if (isMachineTag || isControllerAgentTag) && !st.IsController() {
 			// Controller agents are allowed to log into any model.
 			var err2 error
 			authInfo, err2 = a.checkCreds(
 				ctx,
-				a.statePool.SystemState(),
+				systemState,
 				req, authTag, false, authenticator,
 			)
 			if err2 == nil && authInfo.Controller {

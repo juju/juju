@@ -183,7 +183,10 @@ func (w *upgradeSteps) run() error {
 		}
 		defer func() { _ = w.pool.Close() }()
 
-		st := w.pool.SystemState()
+		st, err := w.pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		model, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
@@ -249,7 +252,10 @@ func (w *upgradeSteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 
 func (w *upgradeSteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("signalling that this controller is ready for upgrade")
-	st := w.pool.SystemState()
+	st, err := w.pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	info, err := st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
 		return nil, errors.Trace(err)

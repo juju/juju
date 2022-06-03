@@ -42,7 +42,10 @@ import (
 
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
-	st := ctrl.pool.SystemState()
+	st, err := ctrl.pool.SystemState()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	modelUUID := model.Tag().Id()
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", modelUUID)
@@ -1059,10 +1062,7 @@ func (i *importer) appResourceOps(app description.Application) []txn.Op {
 		}
 		if storeRev := r.CharmStoreRevision(); storeRev.Timestamp().IsZero() {
 			doc := makeResourceDoc(resID, resName, storeRev)
-			// Now the resource code is particularly stupid and instead of using
-			// the ID, or encoding the type somewhere, it uses the fact that the
-			// LastPolled time to indicate it is the charm store version.
-			doc.LastPolled = time.Now()
+			doc.LastPolled = i.st.nowToTheSecond()
 			result = append(result, txn.Op{
 				C:      resourcesC,
 				Id:     charmStoreResourceID(resID),

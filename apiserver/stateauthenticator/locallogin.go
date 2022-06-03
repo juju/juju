@@ -19,7 +19,6 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -54,8 +53,6 @@ func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
 	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/publickey", dischargeMux)
 	_ = mux.AddHandler("GET", localUserIdentityLocationPath+"/form", dischargeMux)
 	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
-
-	h.AddLegacyHandlers(mux, dischargeMux)
 }
 
 func (h *localLoginHandlers) bakeryError(w http.ResponseWriter, err error) {
@@ -131,18 +128,6 @@ func (h *localLoginHandlers) checkThirdPartyCaveat(stdCtx context.Context, req *
 		}
 		err2 := httpbakery.NewInteractionRequiredError(nil, req)
 		err2.SetInteraction("juju_userpass", form.InteractionInfo{URL: localUserIdentityLocationPath + formURL})
-
-		// TODO(juju3) - remove legacy client support
-		waitID, err := h.authCtxt.localUserInteractions.Start(
-			cavInfo.Caveat,
-			h.authCtxt.clock.Now().Add(authentication.LocalLoginInteractionTimeout),
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		visitURL := localUserIdentityLocationPath + "/login?waitid=" + waitID
-		waitURL := localUserIdentityLocationPath + "/wait?waitid=" + waitID
-		httpbakery.SetLegacyInteraction(err2, visitURL, waitURL)
 		return nil, err2
 	}
 
