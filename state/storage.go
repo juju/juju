@@ -1878,8 +1878,14 @@ func validateStoragePool(
 		}
 	}
 
-	// Validate the storage provider for this type and configuration
-	return aProvider.ValidateConfig(poolConfig)
+	if sb.modelType == ModelTypeCAAS {
+		// Validate the storage provider for this type and configuration
+		err = aProvider.ValidateConfig(poolConfig)
+		if err != nil {
+			return errors.Annotatef(err, "invalid storage config")
+		}
+	}
+	return nil
 }
 
 func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, *jujustorage.Config, error) {
