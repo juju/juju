@@ -1878,13 +1878,12 @@ func validateStoragePool(
 		}
 	}
 
-	if sb.modelType == ModelTypeCAAS {
-		// Validate the storage provider for this type and configuration
-		err = aProvider.ValidateConfig(poolConfig)
-		if err != nil {
-			return errors.Annotatef(err, "invalid storage config")
-		}
+	// Validate the storage provider for this type and configuration
+	err = aProvider.ValidateConfig(poolConfig)
+	if err != nil {
+		return errors.Annotatef(err, "invalid storage config")
 	}
+
 	return nil
 }
 
