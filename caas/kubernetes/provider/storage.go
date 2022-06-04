@@ -38,11 +38,13 @@ var _ jujustorage.Provider = (*storageProvider)(nil)
 
 // ValidateConfig is defined on the jujustorage.Provider interface.
 func (g *storageProvider) ValidateConfig(cfg *jujustorage.Config) error {
+
 	if cfg == nil {
 		return nil
 	}
 
 	providerType := cfg.Provider()
+
 	switch providerType {
 	case constants.StorageProviderType:
 	case storageprovider.RootfsProviderType:
