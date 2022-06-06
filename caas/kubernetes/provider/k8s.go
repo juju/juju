@@ -2262,6 +2262,21 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 	return units, nil
 }
 
+// ListPods filters a list of pods for the provided namespace and labels.
+func (k *kubernetesClient) ListPods(namespace string, selector k8slabels.Selector) ([]core.Pod, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: selector.String(),
+	}
+	list, err := k.client().CoreV1().Pods(namespace).List(context.TODO(), listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(list.Items) == 0 {
+		return nil, errors.NotFoundf("pods with selector %q", selector)
+	}
+	return list.Items, nil
+}
+
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace

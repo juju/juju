@@ -12,7 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/utils/v3/exec"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -31,11 +34,17 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
+type ClusterMetadataStorageChecker interface {
+	k8s.ClusterMetadataChecker
+	ListStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error)
+	ListPods(namespace string, selector k8slabels.Selector) ([]corev1.Pod, error)
+}
+
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, error)
-	brokerGetter       func(environs.OpenParams) (k8s.ClusterMetadataChecker, error)
+	brokerGetter       func(environs.OpenParams) (ClusterMetadataStorageChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
@@ -46,13 +55,13 @@ var providerInstance = kubernetesEnvironProvider{
 	},
 	cmdRunner:          defaultRunner{},
 	builtinCloudGetter: attemptMicroK8sCloud,
-	brokerGetter: func(args environs.OpenParams) (k8s.ClusterMetadataChecker, error) {
+	brokerGetter: func(args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
 		broker, err := caas.New(stdcontext.TODO(), args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		metaChecker, supported := broker.(k8s.ClusterMetadataChecker)
+		metaChecker, supported := broker.(ClusterMetadataStorageChecker)
 		if !supported {
 			return nil, errors.NotSupportedf("cluster metadata ")
 		}

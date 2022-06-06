@@ -5,16 +5,17 @@ package provider
 
 import (
 	"fmt"
-	"strings"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -250,9 +251,6 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 
 		credentials = cloudCred.AuthCredentials[creds[cld.Name].DefaultCredential]
 	} else {
-		if err := ensureMicroK8sSuitable(p.cmdRunner); err != nil {
-			return cld, errors.Trace(err)
-		}
 		// Need the credentials, need to query for those details
 		mk8sCloud, err := p.builtinCloudGetter(p.cmdRunner)
 		if err != nil {
@@ -280,6 +278,11 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
+	if cld.Name == k8s.K8sCloudMicrok8s {
+		if err := ensureMicroK8sSuitable(broker); err != nil {
+			return cld, errors.Trace(err)
+		}
+	}
 	storageUpdateParams := KubeCloudStorageParams{
 		MetadataChecker: broker,
 		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
@@ -303,38 +306,36 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	return cld, nil
 }
 
-func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
-	status, err := microK8sStatus(cmdRunner)
-	if err != nil {
+func checkDefaultStorageExist(broker ClusterMetadataStorageChecker) error {
+	storageClasses, err := broker.ListStorageClasses(k8slabels.NewSelector())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot list storage classes")
+	}
+	for _, sc := range storageClasses {
+		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			return nil
+		}
+	}
+	return errors.New("required storage addon is not enabled")
+}
+
+func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
+	pods, err := broker.ListPods("kube-system", k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}))
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot list kube-dns pods")
+	}
+	if len(pods) > 0 {
+		return nil
+	}
+	return errors.New("required dns addon is not enabled")
+}
+
+func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
+	if err := checkDefaultStorageExist(broker); err != nil {
 		return errors.Trace(err)
 	}
-	var requiredAddons []string
-	if storageStatus, ok := status.Addons["storage"]; ok {
-		if storageStatus != "enabled" {
-			requiredAddons = append(requiredAddons, "storage")
-		}
-	}
-	if dns, ok := status.Addons["dns"]; ok {
-		if dns != "enabled" {
-			requiredAddons = append(requiredAddons, "dns")
-		}
-	}
-	if len(requiredAddons) > 0 {
-		return errors.Errorf("required addons not enabled for microk8s, run 'microk8s enable %s'", strings.Join(requiredAddons, " "))
+	if err := checkDNSAddonEnabled(broker); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
-}
-
-func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
-	// TODO: implement checking required addons.
-	return microk8sStatus{
-		Addons: map[string]string{
-			"storage": "enabled",
-			"dns":     "enabled",
-		},
-	}, nil
-}
-
-type microk8sStatus struct {
-	Addons map[string]string `yaml:"addons"`
 }
