@@ -19,10 +19,9 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	"github.com/juju/version/v2"
-
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -335,9 +334,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 			shquote(w.icfg.LegacyProxySettings.AsSystemdDefaultEnv())))
 	}
 
-	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {
+	if w.icfg.PublicImageSigningKey != "" {
 		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
-		w.conf.AddRunTextFile(keyFile, w.icfg.Controller.PublicImageSigningKey, 0644)
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to

@@ -193,7 +193,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
-		ControllerUUID: instanceConfig.Controller.Config.ControllerUUID(),
+		ControllerUUID: instanceConfig.ControllerConfig.ControllerUUID(),
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
@@ -804,7 +804,7 @@ func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C, series string) environs.Sta
 	c.Assert(err, jc.ErrorIsNil)
 
 	return environs.StartInstanceParams{
-		ControllerUUID: iConfig.Controller.Config.ControllerUUID(),
+		ControllerUUID: iConfig.ControllerConfig.ControllerUUID(),
 		InstanceConfig: iConfig,
 		Tools:          tools,
 		Constraints:    cons,

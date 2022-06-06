@@ -558,8 +558,8 @@ func (e *Environ) startInstance(
 	// will take care of it's initial setup, and waiting for a running
 	// status is not necessary
 	if args.InstanceConfig.IsController() {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
-		statePort = args.InstanceConfig.Controller.Config.StatePort()
+		apiPort = args.InstanceConfig.ControllerConfig.APIPort()
+		statePort = args.InstanceConfig.ControllerConfig.StatePort()
 		desiredStatus = ociCore.InstanceLifecycleStateRunning
 	} else {
 		desiredStatus = ociCore.InstanceLifecycleStateProvisioning

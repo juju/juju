@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -22,6 +23,13 @@ type instancecfgSuite struct {
 }
 
 var _ = gc.Suite(&instancecfgSuite{})
+
+func (*instancecfgSuite) TestIsController(c *gc.C) {
+	cfg := instancecfg.InstanceConfig{}
+	c.Assert(cfg.IsController(), jc.IsFalse)
+	cfg.Jobs = []model.MachineJob{model.JobManageModel}
+	c.Assert(cfg.IsController(), jc.IsTrue)
+}
 
 func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{})
@@ -120,11 +128,9 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *gc.C) {
 			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
 			Password: "secret123",
 		},
-		Controller: &instancecfg.ControllerConfig{
-			Config: controller.Config{
-				"agent-logfile-max-size":    "123MB",
-				"agent-logfile-max-backups": 7,
-			},
+		ControllerConfig: controller.Config{
+			"agent-logfile-max-size":    "123MB",
+			"agent-logfile-max-backups": 7,
 		},
 		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
 		DataDir:       "/path/to/datadir/",

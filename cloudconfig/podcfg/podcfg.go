@@ -48,7 +48,7 @@ type ControllerPodConfig struct {
 
 	// Controller contains controller-specific configuration. If this is
 	// set, then the instance will be configured as a controller pod.
-	Controller *ControllerConfig
+	Controller controller.Config
 
 	// APIInfo holds the means for the new pod to communicate with the
 	// juju state API. Unless the new pod is running a controller (Controller is
@@ -91,12 +91,6 @@ type BootstrapConfig struct {
 	instancecfg.BootstrapConfig
 }
 
-// ControllerConfig represents controller-specific initialization information
-// for a new juju caas pod. This is only relevant for controller pod.
-type ControllerConfig struct {
-	instancecfg.ControllerConfig
-}
-
 // AgentConfig returns an agent config.
 func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWriter, error) {
 	mongoVers, err := cfg.mongoVersion()
@@ -118,7 +112,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Controller:         cfg.ControllerTag,
 		Model:              cfg.APIInfo.ModelTag,
 		MongoVersion:       *mongoVers,
-		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.Config.MongoMemoryProfile()),
+		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.MongoMemoryProfile()),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }
@@ -289,10 +283,9 @@ func NewBootstrapControllerPodConfig(
 	if err != nil {
 		return nil, err
 	}
-	pcfg.Controller = &ControllerConfig{}
-	pcfg.Controller.Config = make(map[string]interface{})
+	pcfg.Controller = make(map[string]interface{})
 	for k, v := range config {
-		pcfg.Controller.Config[k] = v
+		pcfg.Controller[k] = v
 	}
 	pcfg.Bootstrap = &BootstrapConfig{
 		BootstrapConfig: instancecfg.BootstrapConfig{

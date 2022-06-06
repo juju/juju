@@ -782,10 +782,9 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Trace(err)
 	}
 
-	instanceConfig.Controller = &instancecfg.ControllerConfig{}
-	instanceConfig.Controller.Config = make(map[string]interface{})
+	instanceConfig.ControllerConfig = make(map[string]interface{})
 	for k, v := range pInfo.ControllerConfig {
-		instanceConfig.Controller.Config[k] = v
+		instanceConfig.ControllerConfig[k] = v
 	}
 
 	instanceConfig.Tags = pInfo.Tags
@@ -798,7 +797,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		instanceConfig.Controller.PublicImageSigningKey = publicKey
+		instanceConfig.PublicImageSigningKey = publicKey
 	}
 
 	instanceConfig.CloudInitUserData = pInfo.CloudInitUserData

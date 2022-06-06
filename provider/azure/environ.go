@@ -688,8 +688,8 @@ func (env *azureEnviron) createVirtualMachine(
 	instanceConfig := args.InstanceConfig
 	apiPorts := make([]int, 0, 2)
 	if instanceConfig.IsController() {
-		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
-		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
+		apiPorts = append(apiPorts, instanceConfig.ControllerConfig.APIPort())
+		if instanceConfig.ControllerConfig.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
 			apiPorts = append(apiPorts, 80)
 		}

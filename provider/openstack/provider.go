@@ -1170,7 +1170,7 @@ func (e *Environ) startInstance(
 	if createSecurityGroups {
 		var apiPort int
 		if args.InstanceConfig.IsController() {
-			apiPort = args.InstanceConfig.Controller.Config.APIPort()
+			apiPort = args.InstanceConfig.ControllerConfig.APIPort()
 		} else {
 			// All ports are the same so pick the first.
 			apiPort = args.InstanceConfig.APIInfo.Ports()[0]

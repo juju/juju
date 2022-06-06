@@ -623,8 +623,8 @@ func (e *environ) StartInstance(
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	apiPorts := make([]int, 0, 2)
 	if args.InstanceConfig.IsController() {
-		apiPorts = append(apiPorts, args.InstanceConfig.Controller.Config.APIPort())
-		if args.InstanceConfig.Controller.Config.AutocertDNSName() != "" {
+		apiPorts = append(apiPorts, args.InstanceConfig.ControllerConfig.APIPort())
+		if args.InstanceConfig.ControllerConfig.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
 			apiPorts = append(apiPorts, 80)
 		}

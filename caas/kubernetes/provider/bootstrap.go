@@ -300,7 +300,7 @@ func newcontrollerStack(
 
 	cs.pvcNameControllerPodStorage = "storage"
 
-	if cs.dockerAuthSecretData, err = pcfg.Controller.Config.CAASImageRepo().SecretData(); err != nil {
+	if cs.dockerAuthSecretData, err = pcfg.Controller.CAASImageRepo().SecretData(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return cs, nil
@@ -1159,7 +1159,7 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 
 func (c *controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
 	var wiredTigerCacheSize float32
-	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
+	if c.pcfg.Controller.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
 		wiredTigerCacheSize = mongo.Mongo34LowCacheSize
 	}
 	generateContainerSpecs := func(jujudCmd string) ([]core.Container, error) {
