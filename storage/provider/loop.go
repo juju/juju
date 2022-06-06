@@ -31,8 +31,11 @@ type loopProvider struct {
 
 var _ storage.Provider = (*loopProvider)(nil)
 
-func (*loopProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
-	// no validation required
+func (*loopProvider) ValidateStorageProvider(isCaas bool, _ map[string]any) error {
+	// loop does not work with CaaS
+	if isCaas {
+		return errors.NotValidf("storage provider type %q", LoopProviderType)
+	}
 	return nil
 }
 

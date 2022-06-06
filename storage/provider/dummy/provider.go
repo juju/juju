@@ -76,7 +76,7 @@ func (p *StorageProvider) ValidateConfig(providerConfig *storage.Config) error {
 	return nil
 }
 
-func (p *StorageProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+func (p *StorageProvider) ValidateStorageProvider(bool, map[string]any) error {
 	// no validation required
 	return nil
 }

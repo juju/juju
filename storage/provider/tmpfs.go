@@ -30,8 +30,11 @@ var (
 	_ storage.Provider = (*tmpfsProvider)(nil)
 )
 
-func (p *tmpfsProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
-	// no validation required
+func (p *tmpfsProvider) ValidateStorageProvider(isCaas bool, config map[string]any) error {
+	if !isCaas {
+		return errors.NotValidf("storage provider type %q", TmpfsProviderType)
+	}
+
 	return nil
 }
 

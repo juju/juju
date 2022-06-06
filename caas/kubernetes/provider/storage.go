@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	jujucontext "github.com/juju/juju/environs/context"
 	jujustorage "github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
 )
 
 func validateStorageAttributes(attributes map[string]interface{}) error {
@@ -38,14 +37,10 @@ var _ jujustorage.Provider = (*storageProvider)(nil)
 
 //ValidateStorageProvider returns an error if the storage type and config is not valid
 // for a Kubernetes deployment.
-func (g *storageProvider) ValidateStorageProvider(providerType jujustorage.ProviderType, attributes map[string]any) error {
+func (g *storageProvider) ValidateStorageProvider(isCaas bool, attributes map[string]any) error {
 
-	switch providerType {
-	case constants.StorageProviderType:
-	case storageprovider.RootfsProviderType:
-	case storageprovider.TmpfsProviderType:
-	default:
-		return errors.NotValidf("storage provider type %q", providerType)
+	if !isCaas {
+		return errors.NotValidf("storage provider type %q", constants.StorageProviderType)
 	}
 
 	if attributes == nil {
@@ -58,11 +53,11 @@ func (g *storageProvider) ValidateStorageProvider(providerType jujustorage.Provi
 			return errors.NotValidf("storage medium %q", mediumValue)
 		}
 	}
-	if providerType == constants.StorageProviderType {
-		if err := validateStorageAttributes(attributes); err != nil {
-			return errors.Trace(err)
-		}
+
+	if err := validateStorageAttributes(attributes); err != nil {
+		return errors.Trace(err)
 	}
+
 	return nil
 }
 

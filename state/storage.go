@@ -1875,28 +1875,10 @@ func validateStoragePool(
 			*machineId = ""
 		}
 	}
-
-	// Validate any config.
-
-	returned := aProvider.ValidateStorageProvider(providerType, poolConfig)
-
-	fmt.Printf("ValidateStorageProvider with %v ::: %v ::: %v returns %s\n", providerType, aProvider, poolConfig, returned)
-
-	if returned != nil {
-		return errors.Annotatef(returned, "invalid storage config")
+	isCaas := sb.modelType == ModelTypeCAAS
+	if err := aProvider.ValidateStorageProvider(isCaas, poolConfig); err != nil {
+		return errors.Annotatef(err, "invalid storage config")
 	}
-
-	// if err := aProvider.ValidateStorageProvider(providerType, poolConfig); err != nil {
-	// 	return errors.Annotatef(err, "invalid storage config")
-	// }
-
-	/*
-		if sb.modelType == ModelTypeCAAS {
-			if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
-				return errors.Annotatef(err, "invalid storage config")
-			}
-		}
-	*/
 
 	return nil
 }

@@ -28,8 +28,11 @@ var (
 	_ storage.Provider = (*rootfsProvider)(nil)
 )
 
-func (p *rootfsProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
-	// no validation required
+func (p *rootfsProvider) ValidateStorageProvider(isCaas bool, config map[string]any) error {
+	if isCaas {
+		return errors.NotValidf("storage provider type %q", RootfsProviderType)
+	}
+
 	return nil
 }
 

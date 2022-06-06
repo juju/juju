@@ -83,7 +83,7 @@ func (s *storageProvider) DefaultPools() []*storage.Config {
 	return []*storage.Config{pool}
 }
 
-func (s *storageProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+func (s *storageProvider) ValidateStorageProvider(bool, map[string]any) error {
 	// no validation required
 	return nil
 }
