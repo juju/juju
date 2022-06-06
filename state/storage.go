@@ -1849,6 +1849,10 @@ func validateStoragePool(
 		return errors.Trace(err)
 	}
 
+	fmt.Println("---------------------")
+	fmt.Printf("%v ::: %v ::: %v\n", providerType, aProvider, poolConfig)
+	fmt.Println("---------------------")
+
 	// Ensure the storage provider supports the specified kind.
 	kindSupported := aProvider.Supports(kind)
 	if !kindSupported && kind == storage.StorageKindFilesystem {
