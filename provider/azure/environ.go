@@ -686,9 +686,8 @@ func (env *azureEnviron) createVirtualMachine(
 		BaseClient: env.resources,
 	}
 	instanceConfig := args.InstanceConfig
-	controller := instanceConfig.Controller != nil
 	apiPorts := make([]int, 0, 2)
-	if controller {
+	if instanceConfig.IsController() {
 		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
 		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
@@ -763,7 +762,7 @@ func (env *azureEnviron) createVirtualMachine(
 
 	var availabilitySetSubResource *compute.SubResource
 	availabilitySetName, err := availabilitySetName(
-		vmName, vmTags, instanceConfig.Controller != nil,
+		vmName, vmTags, instanceConfig.IsController(),
 	)
 	if err != nil {
 		return errors.Annotate(err, "getting availability set name")
@@ -811,7 +810,7 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return common.ZoneIndependentError(err)
 	}
-	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, controller, placementSubnetID)
+	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
 	if err != nil {
 		return common.ZoneIndependentError(err)
 	}

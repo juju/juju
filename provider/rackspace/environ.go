@@ -66,7 +66,7 @@ func (e environ) StartInstance(ctx envcontext.ProviderCallContext, args environs
 		}
 		client := newInstanceConfigurator(addr)
 		apiPort := 0
-		if args.InstanceConfig.Controller != nil {
+		if args.InstanceConfig.IsController() {
 			apiPort = args.InstanceConfig.Controller.Config.APIPort()
 		}
 		err = client.DropAllPorts([]int{apiPort, 22}, addr)

@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -794,7 +793,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		instanceConfig.Jobs = pInfo.Jobs
 	}
 
-	if model.AnyJobNeedsState(instanceConfig.Jobs...) {
+	if instanceConfig.IsController() {
 		publicKey, err := simplestreams.UserPublicSigningKey()
 		if err != nil {
 			return nil, errors.Trace(err)

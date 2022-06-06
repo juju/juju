@@ -1222,7 +1222,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	if args.InstanceConfig.MachineNonce == "" {
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
-	if args.InstanceConfig.Controller != nil {
+	if args.InstanceConfig.IsController() {
 		if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 			return nil, errors.New("entity tag must match started machine")
 		}

@@ -53,8 +53,8 @@ type InstanceConfig struct {
 	// Controller must also be set.
 	Bootstrap *BootstrapConfig
 
-	// Controller contains controller-specific configuration. If this is
-	// set, then the instance will be configured as a controller machine.
+	// Controller contains configuration for the controller
+	// used to manage this new instance.
 	Controller *ControllerConfig
 
 	// APIInfo holds the means for the new instance to communicate with the
@@ -445,6 +445,10 @@ func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
 		cfg.DataDir,
 		cfg.LogDir,
 	)
+}
+
+func (cfg *InstanceConfig) IsController() bool {
+	return model.AnyJobNeedsState(cfg.Jobs...)
 }
 
 func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
@@ -919,9 +923,9 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	); err != nil {
 		return errors.Trace(err)
 	}
-	if icfg.Controller != nil {
+	if icfg.IsController() {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
-		// Only makes sense for controller
+		// Only makes sense for controller,
 		logger.Debugf("Setting numa ctl preference to %v", icfg.Controller.Config.NUMACtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
 		icfg.AgentEnvironment[agent.NUMACtlPreference] = fmt.Sprintf("%v", icfg.Controller.Config.NUMACtlPreference())
@@ -931,13 +935,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
-func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []model.MachineJob) map[string]string {
+func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, isController bool) map[string]string {
 	instanceTags := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
 		names.NewControllerTag(controllerUUID),
 		tagger,
 	)
-	if model.AnyJobNeedsState(jobs...) {
+	if isController {
 		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags

@@ -22,6 +22,8 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/os/v2/series"
+
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -30,7 +32,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/os/v2/series"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig")

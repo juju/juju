@@ -98,7 +98,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	if err := w.icfg.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
-	if w.icfg.Controller != nil {
+	if w.icfg.IsController() {
 		return errors.Errorf("controllers not supported on windows")
 	}
 

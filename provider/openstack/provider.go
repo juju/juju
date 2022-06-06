@@ -1169,7 +1169,7 @@ func (e *Environ) startInstance(
 	var novaGroupNames []nova.SecurityGroupName
 	if createSecurityGroups {
 		var apiPort int
-		if args.InstanceConfig.Controller != nil {
+		if args.InstanceConfig.IsController() {
 			apiPort = args.InstanceConfig.Controller.Config.APIPort()
 		} else {
 			// All ports are the same so pick the first.
