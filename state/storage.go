@@ -1849,10 +1849,6 @@ func validateStoragePool(
 		return errors.Trace(err)
 	}
 
-	fmt.Println("---------------------")
-	fmt.Printf("%v ::: %v ::: %v\n", providerType, aProvider, poolConfig)
-	fmt.Println("---------------------")
-
 	// Ensure the storage provider supports the specified kind.
 	kindSupported := aProvider.Supports(kind)
 	if !kindSupported && kind == storage.StorageKindFilesystem {
@@ -1880,12 +1876,19 @@ func validateStoragePool(
 		}
 	}
 
-	// Validate any k8s config.
-	if sb.modelType == ModelTypeCAAS {
-		if err := aProvider.ValidateStorageProvider(providerType, poolConfig); err != nil {
-			return errors.Annotatef(err, "invalid storage config")
-		}
+	// Validate any config.
+
+	returned := aProvider.ValidateStorageProvider(providerType, poolConfig)
+
+	fmt.Printf("ValidateStorageProvider with %v ::: %v ::: %v returns %s\n", providerType, aProvider, poolConfig, returned)
+
+	if returned != nil {
+		return errors.Annotatef(returned, "invalid storage config")
 	}
+
+	// if err := aProvider.ValidateStorageProvider(providerType, poolConfig); err != nil {
+	// 	return errors.Annotatef(err, "invalid storage config")
+	// }
 
 	/*
 		if sb.modelType == ModelTypeCAAS {

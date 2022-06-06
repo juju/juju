@@ -40,9 +40,6 @@ var _ jujustorage.Provider = (*storageProvider)(nil)
 // for a Kubernetes deployment.
 func (g *storageProvider) ValidateStorageProvider(providerType jujustorage.ProviderType, attributes map[string]any) error {
 
-	fmt.Println("--------ValidateStorageProvider-------------")
-	fmt.Printf("%v ::: %v\n", providerType, attributes)
-	fmt.Println("--------EndValidateStorageProvider-------------")
 	switch providerType {
 	case constants.StorageProviderType:
 	case storageprovider.RootfsProviderType:
@@ -50,6 +47,7 @@ func (g *storageProvider) ValidateStorageProvider(providerType jujustorage.Provi
 	default:
 		return errors.NotValidf("storage provider type %q", providerType)
 	}
+
 	if attributes == nil {
 		return nil
 	}
