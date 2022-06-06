@@ -105,7 +105,7 @@ func (c *slaCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "sla",
 		Args:    "<level>",
-		Purpose: "Set the SLA level for a model.",
+		Purpose: "Set the SLA level for a model.\nWarning: this command is DEPRECATED and no longer supported",
 		Doc: `
 Set the support level for the model, effective immediately.
 Examples:
