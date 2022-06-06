@@ -31,6 +31,11 @@ type loopProvider struct {
 
 var _ storage.Provider = (*loopProvider)(nil)
 
+func (*loopProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (*loopProvider) ValidateConfig(*storage.Config) error {
 	// Loop provider has no configuration.

@@ -130,6 +130,11 @@ func newLXDStorageConfig(attrs map[string]interface{}) (*lxdStorageConfig, error
 	return lxdStorageConfig, nil
 }
 
+func (e *lxdStorageProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // ValidateConfig is part of the Provider interface.
 func (e *lxdStorageProvider) ValidateConfig(cfg *storage.Config) error {
 	lxdStorageConfig, err := newLXDStorageConfig(cfg.Attrs())

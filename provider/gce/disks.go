@@ -41,6 +41,11 @@ type storageProvider struct {
 
 var _ storage.Provider = (*storageProvider)(nil)
 
+func (g *storageProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// no validation required
+	return nil
+}
+
 func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
 	return nil
 }

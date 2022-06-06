@@ -188,6 +188,11 @@ func (s *cinderProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
+func (p *cinderProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // ValidateConfig implements storage.Provider.
 func (p *cinderProvider) ValidateConfig(cfg *storage.Config) error {
 	// TODO(axw) 2015-05-01 #1450737

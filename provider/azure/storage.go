@@ -83,6 +83,11 @@ func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, e
 	return azureStorageConfig, nil
 }
 
+func (e *azureStorageProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// No validation required
+	return nil
+}
+
 // ValidateConfig is part of the Provider interface.
 func (e *azureStorageProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newAzureStorageConfig(cfg.Attrs())

@@ -76,6 +76,11 @@ func (p *StorageProvider) ValidateConfig(providerConfig *storage.Config) error {
 	return nil
 }
 
+func (p *StorageProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // Supports is defined on storage.Provider.
 func (p *StorageProvider) Supports(kind storage.StorageKind) bool {
 	p.MethodCall(p, "Supports", kind)

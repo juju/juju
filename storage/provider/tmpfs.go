@@ -30,6 +30,11 @@ var (
 	_ storage.Provider = (*tmpfsProvider)(nil)
 )
 
+func (p *tmpfsProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (p *tmpfsProvider) ValidateConfig(cfg *storage.Config) error {
 	// Tmpfs provider has no configuration.

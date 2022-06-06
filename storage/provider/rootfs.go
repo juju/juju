@@ -28,6 +28,11 @@ var (
 	_ storage.Provider = (*rootfsProvider)(nil)
 )
 
+func (p *rootfsProvider) ValidateStorageProvider(storage.ProviderType, map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (p *rootfsProvider) ValidateConfig(cfg *storage.Config) error {
 	// Rootfs provider has no configuration.

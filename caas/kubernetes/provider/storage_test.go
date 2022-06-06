@@ -174,6 +174,11 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	prov := s.k8sProvider(c, ctrl)
+
 	for _, t := range []struct {
 		providerType storage.ProviderType
 		attrs        map[string]interface{}
@@ -192,7 +197,8 @@ func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
 			err:          `storage medium "foo" not valid`,
 		},
 	} {
-		err := provider.ValidateStorageProvider(t.providerType, t.attrs)
+		err := prov.ValidateStorageProvider(t.providerType, t.attrs)
+		// err := provider.ValidateStorageProvider(t.providerType, t.attrs)
 		if t.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
