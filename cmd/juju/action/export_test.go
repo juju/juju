@@ -163,6 +163,7 @@ func NewExecCommandForTest(store jujuclient.ClientStore, clock clock.Clock, logM
 			defaultWait:       5 * time.Minute,
 			logMessageHandler: logMessageHandler,
 			clock:             clock,
+			hideProgress:      true,
 		},
 	}
 	c.SetClientStore(store)

@@ -5,6 +5,7 @@ package action_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -819,6 +820,81 @@ mysql/1:
 				t.expectedActionEnqueued,
 				t.expectedLogs)
 		}
+	}
+}
+
+func (s *RunSuite) TestVerbosity(c *gc.C) {
+	tests := []struct {
+		about   string
+		verbose bool
+		quiet   bool
+		output  string
+	}{{
+		about: "normal output",
+		output: `
+Running operation 1 with 1 task
+  - task 1 on unit-mysql-0
+
+Waiting for task 1...
+hello
+
+`[1:],
+	}, {
+		about:   "verbose",
+		verbose: true,
+		output: `
+Running operation 1 with 1 task
+  - task 1 on unit-mysql-0
+
+Waiting for task 1...
+hello
+
+`[1:],
+	}, {
+		about:  "quiet",
+		quiet:  true,
+		output: "hello\n\n",
+	}}
+
+	// Set up fake API client
+	fakeClient := &fakeAPIClient{}
+	restore := s.patchAPIClient(fakeClient)
+	defer restore()
+
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
+			Receiver: names.NewUnitTag(validUnitId).String(),
+			Name:     "some-action",
+		},
+		Output: map[string]interface{}{
+			"stdout": "hello",
+		},
+	}}
+
+	for i, t := range tests {
+		c.Logf("test %d: %s", i, t.about)
+
+		// Set up context
+		output := bytes.Buffer{}
+		ctx := &cmd.Context{
+			Context: context.TODO(),
+			Stdout:  &output,
+			Stderr:  &output,
+		}
+		log := cmd.Log{
+			Verbose: t.verbose,
+			Quiet:   t.quiet,
+		}
+		log.Start(ctx) // sets the verbose/quiet options in `ctx`
+
+		// Run command
+		runCmd, _ := action.NewRunCommandForTest(s.store, s.clock, nil)
+		err := cmdtesting.InitCommand(runCmd, []string{"-m", "admin", validUnitId, "some-action"})
+		c.Assert(err, jc.ErrorIsNil)
+		err = runCmd.Run(ctx)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(output.String(), gc.Equals, t.output)
 	}
 }
 

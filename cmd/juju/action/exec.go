@@ -37,6 +37,7 @@ func newExecCommand(store jujuclient.ClientStore, logMessageHandler func(*cmd.Co
 			defaultWait:       5 * time.Minute,
 			logMessageHandler: logMessageHandler,
 			clock:             clock,
+			hideProgress:      true,
 		},
 	})
 	cmd.SetClientStore(store)
