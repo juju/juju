@@ -316,7 +316,7 @@ func checkDefaultStorageExist(broker ClusterMetadataStorageChecker) error {
 			return nil
 		}
 	}
-	return errors.New("required storage addon is not enabled")
+	return errors.NotFoundf("default storage")
 }
 
 func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
@@ -327,15 +327,20 @@ func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
 	if len(pods) > 0 {
 		return nil
 	}
-	return errors.New("required dns addon is not enabled")
+	return errors.NotFoundf("dns pod")
 }
 
 func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
-	if err := checkDefaultStorageExist(broker); err != nil {
+	err := checkDefaultStorageExist(broker)
+	if errors.IsNotFound(err) {
+		return errors.New("required storage addon is not enabled")
+	}
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := checkDNSAddonEnabled(broker); err != nil {
-		return errors.Trace(err)
+	err = checkDNSAddonEnabled(broker)
+	if errors.IsNotFound(err) {
+		return errors.New("required dns addon is not enabled")
 	}
-	return nil
+	return errors.Trace(err)
 }

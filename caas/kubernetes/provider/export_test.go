@@ -49,6 +49,7 @@ var (
 	UpdateStrategyForDeployment  = updateStrategyForDeployment
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	UpdateStrategyForDaemonSet   = updateStrategyForDaemonSet
+	DecideKubeConfigDir          = decideKubeConfigDir
 )
 
 type (

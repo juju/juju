@@ -51,11 +51,15 @@ type kubernetesEnvironProvider struct {
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
 var providerInstance = kubernetesEnvironProvider{
 	environProviderCredentials: environProviderCredentials{
-		cmdRunner:               defaultRunner{},
-		builtinCredentialGetter: attemptMicroK8sCredential,
+		cmdRunner: defaultRunner{},
+		builtinCredentialGetter: func(cmdRunner CommandRunner) (cloud.Credential, error) {
+			return attemptMicroK8sCredential(cmdRunner, decideKubeConfigDir)
+		},
 	},
-	cmdRunner:          defaultRunner{},
-	builtinCloudGetter: attemptMicroK8sCloud,
+	cmdRunner: defaultRunner{},
+	builtinCloudGetter: func(cmdRunner CommandRunner) (cloud.Cloud, error) {
+		return attemptMicroK8sCloud(cmdRunner, decideKubeConfigDir)
+	},
 	brokerGetter: func(args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
 		broker, err := caas.New(stdcontext.TODO(), args)
 		if err != nil {
