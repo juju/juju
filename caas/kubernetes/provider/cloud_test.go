@@ -175,6 +175,35 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 	c.Assert(provider.EnsureMicroK8sSuitable(&s.fakeBroker), jc.ErrorIsNil)
 }
 
+func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNotEnabled(c *gc.C) {
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{}, nil,
+	)
+	err := provider.EnsureMicroK8sSuitable(&s.fakeBroker)
+	c.Assert(err, gc.ErrorMatches, `required storage addon is not enabled`)
+}
+
+func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSNotEnabled(c *gc.C) {
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{}, nil)
+	err := provider.EnsureMicroK8sSuitable(&s.fakeBroker)
+	c.Assert(err, gc.ErrorMatches, `required dns addon is not enabled`)
+}
+
 type mockContext struct {
 	testing.Stub
 }

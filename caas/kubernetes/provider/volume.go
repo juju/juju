@@ -52,7 +52,7 @@ func (k *kubernetesClient) deleteStorageClasses(selector k8slabels.Selector) err
 	return errors.Annotate(err, "deleting model storage classes")
 }
 
-// ListStorageClasses retuns a list of storage classes for the provided labels.
+// ListStorageClasses returns a list of storage classes for the provided labels.
 func (k *kubernetesClient) ListStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error) {
 	listOps := v1.ListOptions{
 		LabelSelector: selector.String(),
