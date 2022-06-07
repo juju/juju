@@ -35,12 +35,7 @@ clouds:
 `,
 	})
 
-	ctx, err := s.run(c, "controller-config", "features=[multi-cloud]")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-
-	ctx, err = s.run(c, "add-cloud", "testcloud", "-c", "kontroll", "--force")
+	ctx, err := s.run(c, "add-cloud", "testcloud", "-c", "kontroll", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cloud "testcloud" added to controller "kontroll".`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")

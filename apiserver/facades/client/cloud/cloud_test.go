@@ -229,9 +229,6 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 
 func (s *cloudSuite) TestAddCloud(c *gc.C) {
 	s.backend.cloud.Type = "maas"
-	s.backend.controllerCfg = controller.Config{
-		"features": []interface{}{"multi-cloud"},
-	}
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -268,9 +265,6 @@ func createAddCloudParam(cloudType string) params.AddCloudArgs {
 }
 
 func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
-	s.backend.controllerCfg = controller.Config{
-		"features": []interface{}{"multi-cloud"},
-	}
 	err := s.api.AddCloud(createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
 controller cloud type "dummy" is not whitelisted, current whitelist: 
@@ -282,9 +276,6 @@ controller cloud type "dummy" is not whitelisted, current whitelist:
 }
 
 func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
-	s.backend.controllerCfg = controller.Config{
-		"features": []interface{}{"multi-cloud"},
-	}
 	force := true
 	addCloudArg := createAddCloudParam("")
 	addCloudArg.Force = &force
@@ -301,9 +292,6 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 }
 
 func (s *cloudSuite) TestAddCloudControllerInfoErr(c *gc.C) {
-	s.backend.controllerCfg = controller.Config{
-		"features": []interface{}{"multi-cloud"},
-	}
 	s.backend.controllerInfoF = func() (*state.ControllerInfo, error) {
 		return nil, errors.New("kaboom")
 	}
@@ -313,9 +301,6 @@ func (s *cloudSuite) TestAddCloudControllerInfoErr(c *gc.C) {
 }
 
 func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
-	s.backend.controllerCfg = controller.Config{
-		"features": []interface{}{"multi-cloud"},
-	}
 	s.backend.SetErrors(
 		// Since ControllerConfig and ControllerInfo do not use Stub errors, the first error will be used by Cloud call.
 		errors.New("kaboom"), // Cloud
@@ -326,9 +311,6 @@ func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
 }
 
 func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
-	s.backend.controllerCfg = controller.Config{
-		"features": []interface{}{"multi-cloud"},
-	}
 	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
 	add := func() {
 		err := s.api.AddCloud(addCloudArg)
