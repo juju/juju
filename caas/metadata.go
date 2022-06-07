@@ -50,6 +50,7 @@ type PreferredStorage struct {
 	Name              string
 	Provisioner       string
 	Parameters        map[string]string
+	SupportsDefault   bool
 	VolumeBindingMode string
 }
 
@@ -62,6 +63,7 @@ type StorageProvisioner struct {
 	Model             string
 	ReclaimPolicy     string
 	VolumeBindingMode string
+	IsDefault         bool
 }
 
 // ClusterMetadata defines metadata about a cluster.
