@@ -2345,9 +2345,8 @@ func (t *localServerSuite) TestInstanceGroupsWithAutocert(c *gc.C) {
 	}
 	err := testing.FillInStartInstanceParams(t.Env, "42", true, &params)
 	c.Assert(err, jc.ErrorIsNil)
-	config := params.InstanceConfig.Controller.Config
-	config["api-port"] = 443
-	config["autocert-dns-name"] = "example.com"
+	params.InstanceConfig.ControllerConfig["api-port"] = 443
+	params.InstanceConfig.ControllerConfig["autocert-dns-name"] = "example.com"
 
 	// Bootstrap the controller.
 	result, err := t.Env.StartInstance(t.callCtx, params)

@@ -24,16 +24,21 @@ type instancecfgSuite struct {
 
 var _ = gc.Suite(&instancecfgSuite{})
 
+func (*instancecfgSuite) TestIsController(c *gc.C) {
+	cfg := instancecfg.InstanceConfig{}
+	c.Assert(cfg.IsController(), jc.IsFalse)
+	cfg.Jobs = []model.MachineJob{model.JobManageModel}
+	c.Assert(cfg.IsController(), jc.IsTrue)
+}
+
 func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{})
-	controllerJobs := []model.MachineJob{model.JobManageModel}
-	nonControllerJobs := []model.MachineJob{model.JobHostUnits}
-	testInstanceTags(c, cfg, controllerJobs, map[string]string{
+	testInstanceTags(c, cfg, true, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": testing.ControllerTag.Id(),
 		"juju-is-controller":   "true",
 	})
-	testInstanceTags(c, cfg, nonControllerJobs, map[string]string{
+	testInstanceTags(c, cfg, false, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": testing.ControllerTag.Id(),
 	})
@@ -43,7 +48,7 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"resource-tags": "a=b c=",
 	})
-	testInstanceTags(c, cfg, nil, map[string]string{
+	testInstanceTags(c, cfg, false, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": testing.ControllerTag.Id(),
 		"a":                    "b",
@@ -51,8 +56,8 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 	})
 }
 
-func testInstanceTags(c *gc.C, cfg *config.Config, jobs []model.MachineJob, expectTags map[string]string) {
-	tags := instancecfg.InstanceTags(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, jobs)
+func testInstanceTags(c *gc.C, cfg *config.Config, isController bool, expectTags map[string]string) {
+	tags := instancecfg.InstanceTags(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, isController)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }
 
@@ -123,11 +128,9 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *gc.C) {
 			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
 			Password: "secret123",
 		},
-		Controller: &instancecfg.ControllerConfig{
-			Config: controller.Config{
-				"agent-logfile-max-size":    "123MB",
-				"agent-logfile-max-backups": 7,
-			},
+		ControllerConfig: controller.Config{
+			"agent-logfile-max-size":    "123MB",
+			"agent-logfile-max-backups": 7,
 		},
 		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
 		DataDir:       "/path/to/datadir/",

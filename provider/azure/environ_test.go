@@ -35,6 +35,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 
@@ -592,6 +593,7 @@ func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.St
 		series, apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	icfg.ControllerConfig = controller.Config{}
 	icfg.Tags = map[string]string{
 		tags.JujuModel:      testing.ModelTag.Id(),
 		tags.JujuController: controllerUUID,

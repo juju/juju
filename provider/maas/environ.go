@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
@@ -1199,7 +1198,7 @@ func (env *maasEnviron) StartInstance(
 }
 
 func (env *maasEnviron) tagInstance1(inst *maas1Instance, instanceConfig *instancecfg.InstanceConfig) {
-	if !model.AnyJobNeedsState(instanceConfig.Jobs...) {
+	if !instanceConfig.IsController() {
 		return
 	}
 	err := common.AddStateInstance(env.Storage(), inst.Id())

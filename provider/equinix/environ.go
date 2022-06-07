@@ -271,7 +271,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.Trace(err)
 	}
 	spec, err := e.findInstanceSpec(
-		args.InstanceConfig.Controller != nil,
+		args.InstanceConfig.IsController(),
 		args.ImageMetadata,
 		instanceTypes.InstanceTypes,
 		&instances.InstanceConstraint{

@@ -24,11 +24,11 @@ const (
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
-	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
+	return GetJujuOCIImagePath(cfg.Controller, cfg.JujuVersion)
 }
 
 func (cfg *ControllerPodConfig) mongoVersion() (*mongo.Version, error) {
-	snapChannel := cfg.Controller.Config.JujuDBSnapChannel()
+	snapChannel := cfg.Controller.JujuDBSnapChannel()
 	vers := strings.Split(snapChannel, "/")[0] + ".0"
 	versionNum, err := version.Parse(vers)
 	if err != nil {
@@ -42,7 +42,7 @@ func (cfg *ControllerPodConfig) mongoVersion() (*mongo.Version, error) {
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
-	imageRepo := cfg.Controller.Config.CAASImageRepo().Repository
+	imageRepo := cfg.Controller.CAASImageRepo().Repository
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
