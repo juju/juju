@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sort"
 	"strings"
 
@@ -15,8 +14,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
-	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -308,10 +305,15 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 		switch action {
 		case config.GetOne:
 			err = c.getDefaults(client, ctx)
-		case config.Set:
-			err = c.setDefaults(client)
+		case config.SetArgs:
+			err = c.setDefaults(client, c.configBase.ValsToSet)
 		case config.SetFile:
-			err = c.setDefaultsFile(client, ctx)
+			var attrs config.Attrs
+			attrs, err = c.configBase.ReadFile(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = c.setDefaults(client, attrs)
 		case config.Reset:
 			err = c.resetDefaults(client)
 		default:
@@ -465,49 +467,8 @@ func (c *defaultsCommand) getFilteredDefaults(client defaultsCommandAPI) (envcon
 }
 
 // setDefaults sets defaults as provided by key=value command-line args.
-func (c *defaultsCommand) setDefaults(client defaultsCommandAPI) error {
-	// Have to convert c.configBase.ValsToSet to a map[string]interface{}
-	attrs := make(map[string]interface{})
-	for key, value := range c.configBase.ValsToSet {
-		attrs[key] = value
-	}
-	coerced, err := c.handleAttrs(client, attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return block.ProcessBlockedError(
-		client.SetModelDefaults(
-			c.cloud, c.region, coerced), block.BlockChange)
-}
-
-// setDefaultsFile sets defaults provided from a yaml file.
-func (c *defaultsCommand) setDefaultsFile(client defaultsCommandAPI, ctx *cmd.Context) error {
-	// Read file & unmarshal into yaml
-	attrs := make(map[string]interface{})
-	path, err := utils.NormalizePath(c.configBase.ConfigFile.Path)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	data, err := ioutil.ReadFile(ctx.AbsPath(path))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := yaml.Unmarshal(data, &attrs); err != nil {
-		return errors.Trace(err)
-	}
-	coerced, err := c.handleAttrs(client, attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return block.ProcessBlockedError(
-		client.SetModelDefaults(
-			c.cloud, c.region, coerced), block.BlockChange)
-}
-
-// handleAttrs performs common logic for the set key methods - checking all
-// keys are valid and settable, and coercing them to the correct format.
-func (c *defaultsCommand) handleAttrs(client defaultsCommandAPI,
-	attrs defaultAttrs) (defaultAttrs, error) {
+func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, attrs config.Attrs) error {
+	// Check all keys are settable
 	var keys []string
 	values := make(defaultAttrs)
 	for k, v := range attrs {
@@ -515,7 +476,7 @@ func (c *defaultsCommand) handleAttrs(client defaultsCommandAPI,
 			if c.ignoreReadOnlyFields {
 				continue
 			}
-			return nil, errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
+			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
 		}
 		values[k] = v
 		keys = append(keys, k)
@@ -523,13 +484,16 @@ func (c *defaultsCommand) handleAttrs(client defaultsCommandAPI,
 
 	coerced, err := values.CoerceFormat(c.region)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if err := c.verifyKnownKeys(client, keys); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return coerced, nil
+
+	return block.ProcessBlockedError(
+		client.SetModelDefaults(
+			c.cloud, c.region, coerced), block.BlockChange)
 }
 
 // resetDefaults resets the keys in resetKeys.

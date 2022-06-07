@@ -4,10 +4,16 @@
 package config
 
 import (
+	"bytes"
+	"context"
 	"io"
+	"io/fs"
+	"os"
+	"path"
 	stdtesting "testing"
 
 	jujucmd "github.com/juju/cmd/v3"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -87,7 +93,7 @@ type initTest struct {
 	configFile  jujucmd.FileVar
 	keyToGet    string
 	keysToReset []string
-	valsToSet   map[string]string
+	valsToSet   Attrs
 }
 
 // setupInitTest sets up the ConfigCommandBase and error for TestInitFail and
@@ -150,6 +156,89 @@ func (s *suite) TestInitSuccess(c *gc.C) {
 			c.Check(cmd.ValsToSet, gc.DeepEquals, test.valsToSet)
 		}
 	}
+}
+
+var fileContents = []byte(`
+key1: val1
+key2: val2`)
+var configAttrs = Attrs{
+	"key1": "val1",
+	"key2": "val2",
+}
+
+func (s *suite) TestReadFile(c *gc.C) {
+	// Create file to read from
+	dir := c.MkDir()
+	filename := "cfg.yaml"
+	err := os.WriteFile(path.Join(dir, filename), fileContents, 0666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: filename},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Dir:     dir,
+	}
+
+	attrs, err := cmd.ReadFile(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attrs, gc.DeepEquals, configAttrs)
+}
+
+func (s *suite) TestReadFileStdin(c *gc.C) {
+	stdin := &bytes.Buffer{}
+	stdin.Write(fileContents)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: "-"},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Stdin:   stdin,
+	}
+
+	attrs, err := cmd.ReadFile(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attrs, gc.DeepEquals, configAttrs)
+}
+
+func (s *suite) TestReadNoSuchFile(c *gc.C) {
+	// Create empty dir
+	dir := c.MkDir()
+	filename := "cfg.yaml"
+	_, err := os.Stat(path.Join(dir, filename))
+	c.Assert(errors.Is(err, fs.ErrNotExist), jc.IsTrue)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: filename},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Dir:     dir,
+	}
+
+	_, err = cmd.ReadFile(ctx)
+	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+}
+
+func (s *suite) TestReadFileBadYAML(c *gc.C) {
+	// Create file to read from
+	dir := c.MkDir()
+	filename := "cfg.yaml"
+	err := os.WriteFile(path.Join(dir, filename), []byte("foo: foo: foo"), 0666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: filename},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Dir:     dir,
+	}
+
+	_, err = cmd.ReadFile(ctx)
+	c.Assert(err, gc.ErrorMatches, ".*yaml.*")
 }
 
 // checkFileFirst checks that if the provided list of Actions contains the
@@ -295,14 +384,14 @@ var initTests = []initTest{
 	{
 		about:     "set key",
 		args:      []string{"key1=val1"},
-		actions:   []Action{Set},
-		valsToSet: map[string]string{"key1": "val1"},
+		actions:   []Action{SetArgs},
+		valsToSet: Attrs{"key1": "val1"},
 	},
 	{
 		about:   "set multiple keys",
 		args:    []string{"key1=val1", "key2=val2", "key3=val3"},
-		actions: []Action{Set},
-		valsToSet: map[string]string{
+		actions: []Action{SetArgs},
+		valsToSet: Attrs{
 			"key1": "val1",
 			"key2": "val2",
 			"key3": "val3",
@@ -343,8 +432,8 @@ var initTests = []initTest{
 	{
 		about:   "set and reset",
 		args:    []string{"key1=val1", "--reset", "key2"},
-		actions: []Action{Set, Reset},
-		valsToSet: map[string]string{
+		actions: []Action{SetArgs, Reset},
+		valsToSet: Attrs{
 			"key1": "val1",
 		},
 		keysToReset: []string{"key2"},
@@ -352,8 +441,8 @@ var initTests = []initTest{
 	{
 		about:   "set and reset multiple",
 		args:    []string{"key1=val1", "key2=val2", "--reset", "key3,key4"},
-		actions: []Action{Set, Reset},
-		valsToSet: map[string]string{
+		actions: []Action{SetArgs, Reset},
+		valsToSet: Attrs{
 			"key1": "val1",
 			"key2": "val2",
 		},
@@ -362,8 +451,8 @@ var initTests = []initTest{
 	{
 		about:   "set multiple with multiple --reset",
 		args:    []string{"key1=val1", "--reset", "key2", "key3=val3", "--reset", "key4"},
-		actions: []Action{Set, Reset},
-		valsToSet: map[string]string{
+		actions: []Action{SetArgs, Reset},
+		valsToSet: Attrs{
 			"key1": "val1",
 			"key3": "val3",
 		},
@@ -372,8 +461,8 @@ var initTests = []initTest{
 	{
 		about:   "set and set from file",
 		args:    []string{"key1=val1", "--file", "path"},
-		actions: []Action{Set, SetFile},
-		valsToSet: map[string]string{
+		actions: []Action{SetArgs, SetFile},
+		valsToSet: Attrs{
 			"key1": "val1",
 		},
 		configFile: jujucmd.FileVar{Path: "path"},
@@ -388,11 +477,17 @@ var initTests = []initTest{
 	{
 		about:   "set from file, set and reset",
 		args:    []string{"key1=val1", "--file", "path", "--reset", "key2,key3"},
-		actions: []Action{SetFile, Reset, Set},
-		valsToSet: map[string]string{
+		actions: []Action{SetFile, Reset, SetArgs},
+		valsToSet: Attrs{
 			"key1": "val1",
 		},
 		configFile:  jujucmd.FileVar{Path: "path"},
 		keysToReset: []string{"key2", "key3"},
+	},
+	{
+		about:      "read from stdin",
+		args:       []string{"--file", "-"},
+		actions:    []Action{SetFile},
+		configFile: jujucmd.FileVar{Path: "-"},
 	},
 }

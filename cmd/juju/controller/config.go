@@ -7,16 +7,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/yaml.v3"
 
 	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
@@ -168,10 +165,15 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		switch action {
 		case config.GetOne:
 			err = c.getConfig(client, ctx)
-		case config.Set:
-			err = c.setConfig(client)
+		case config.SetArgs:
+			err = c.setConfig(client, c.configBase.ValsToSet)
 		case config.SetFile:
-			err = c.setConfigFile(client, ctx)
+			var attrs config.Attrs
+			attrs, err = c.configBase.ReadFile(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = c.setConfig(client, attrs)
 		default:
 			err = c.getAllConfig(client, ctx)
 		}
@@ -218,62 +220,23 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 		c.configBase.KeysToGet[0], controllerName)
 }
 
-// setConfig sets config values from provided key=value arguments.
-func (c *configCommand) setConfig(client controllerAPI) error {
-	attrs := make(map[string]interface{})
-	for key, value := range c.configBase.ValsToSet {
-		attrs[key] = value
-	}
-	values, err := c.filterAttrs(attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(client.ConfigSet(values))
-}
-
-// setConfigFile sets config values from the provided yaml file.
-func (c *configCommand) setConfigFile(client controllerAPI, ctx *cmd.Context) error {
-	// Read file & unmarshal into yaml
-	path, err := utils.NormalizePath(c.configBase.ConfigFile.Path)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	data, err := os.ReadFile(ctx.AbsPath(path))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	attrs := make(map[string]interface{})
-	if err := yaml.Unmarshal(data, &attrs); err != nil {
-		return errors.Trace(err)
-	}
-
-	values, err := c.filterAttrs(attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(client.ConfigSet(values))
-}
-
-// filterAttrs checks if any of the `attrs` being set are unsettable. If so,
-// it will filter them out, and either log a warning or return an error
-// (depending on the value of `c.ignoreReadOnlyFields`).
-func (c *configCommand) filterAttrs(attrs map[string]interface{}) (map[string]interface{}, error) {
+// setConfig sets config values from the provided config.Attrs.
+func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) error {
 	store := c.ClientStore()
 	controllerName, err := store.CurrentController()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	ctrl, err := store.ControllerByName(controllerName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	_, err = controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
+	// Check if any of the `attrs` are not allowed to be set
 	extraValues := set.NewStrings()
 	values := make(map[string]interface{})
 	for k := range attrs {
@@ -287,10 +250,11 @@ func (c *configCommand) filterAttrs(attrs map[string]interface{}) (map[string]in
 		if c.ignoreReadOnlyFields {
 			logger.Warningf("invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
 		} else {
-			return nil, errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
+			return errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
 		}
 	}
-	return values, nil
+
+	return errors.Trace(client.ConfigSet(values))
 }
 
 // ConfigDetailsUpdatable gets information about the controller config

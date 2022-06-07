@@ -5,12 +5,14 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
+	"gopkg.in/yaml.v3"
 )
 
 // Action represents the action we want to perform here.
@@ -23,10 +25,14 @@ type Action string
 const (
 	GetOne  Action = "get value"
 	GetAll  Action = "get all values"
-	Set     Action = "set key=value pairs"
+	SetArgs Action = "set key=value pairs"
 	SetFile Action = "use --file flag"
 	Reset   Action = "use --reset flag"
 )
+
+// Attrs represents configuration attributes from either the command-line
+// (key=value arguments) or a yaml file.
+type Attrs map[string]interface{}
 
 // ConfigCommandBase provides a common interface/functionality for configuration
 // commands (such as config and model-config). It defines SetFlags and Init
@@ -45,7 +51,7 @@ type ConfigCommandBase struct {
 	Actions     []Action // The action which we want to handle, set in Init.
 	KeysToGet   []string
 	KeysToReset []string // Holds keys to be reset after parsing.
-	ValsToSet   map[string]string
+	ValsToSet   Attrs
 }
 
 // Info - to be implemented by child command
@@ -85,7 +91,7 @@ func (c *ConfigCommandBase) Init(args []string) error {
 
 	// The remaining arguments are divided into keys to set (if the arg
 	// contains `=`) and keys to get (otherwise).
-	c.ValsToSet = make(map[string]string)
+	c.ValsToSet = make(Attrs)
 	for _, arg := range args {
 		splitArg := strings.SplitN(arg, "=", 2)
 		if len(splitArg) == 2 {
@@ -107,7 +113,7 @@ func (c *ConfigCommandBase) Init(args []string) error {
 		c.Actions = append(c.Actions, GetOne)
 	}
 	if len(c.ValsToSet) > 0 {
-		c.Actions = append(c.Actions, Set)
+		c.Actions = append(c.Actions, SetArgs)
 	}
 	if len(c.Actions) == 0 {
 		// Nothing has been specified - so we get all
@@ -200,3 +206,30 @@ func multiActionError(actions []Action) error {
 }
 
 // Run - to be implemented by child command
+
+// Helper methods - to be used by child commands
+
+// ReadFile reads the yaml file at c.ConfigFile.Path, and parses it into
+// an Attrs object.
+func (c *ConfigCommandBase) ReadFile(ctx *cmd.Context) (Attrs, error) {
+	var (
+		data []byte
+		err  error
+	)
+	if c.ConfigFile.Path == "-" {
+		// Read from stdin
+		data, err = io.ReadAll(ctx.Stdin)
+	} else {
+		// Read from file
+		data, err = c.ConfigFile.Read(ctx)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	attrs := make(Attrs)
+	if err := yaml.Unmarshal(data, &attrs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return attrs, nil
+}
