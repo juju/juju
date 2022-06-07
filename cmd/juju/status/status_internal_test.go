@@ -4715,7 +4715,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		args := []string{"--no-color","--format", format.name}
+		args := []string{"--no-color", "--format", format.name}
 		if ctx.expectIsoTime {
 			args = append(args, "--utc")
 		}
@@ -4810,7 +4810,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	}
 
 	for _, format := range statusFormats {
-		code, stdout, stderr := runStatus(c,"--no-color", "-m", "hosted", "--format", format.name)
+		code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
 		c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
@@ -4839,7 +4839,7 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
-	code, stdout, stderr := runStatus(c, "--no-color","-m", "hosted", "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
@@ -4863,7 +4863,7 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 	err = model.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	code, stdout, stderr := runStatus(c,"--no-color", "-m", "hosted", "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
@@ -4959,7 +4959,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	for _, s := range steps {
 		s.step(c, ctx)
 	}
-	code, stdout, stderr := runStatus(c, "--no-color","--format", "summary")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "summary")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, `
@@ -5041,19 +5041,19 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 }
 
 func assertOneLineStatus(c *gc.C, expected string) {
-	code, stdout, stderr := runStatus(c, "--no-color","--format", "oneline")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 
 	c.Log(`Check that "short" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c, "--no-color","--format", "short")
+	code, stdout, stderr = runStatus(c, "--no-color", "--format", "short")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 
 	c.Log(`Check that "line" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c,"--no-color", "--format", "line")
+	code, stdout, stderr = runStatus(c, "--no-color", "--format", "line")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
@@ -5749,7 +5749,7 @@ func (s *StatusSuite) TestFilterToExposedApplication(c *gc.C) {
 	// And the wordpress application is not exposed
 	setApplicationExposed{"wordpress", false}.step(c, ctx)
 	// When I run juju status --format oneline exposed
-	_, stdout, stderr := runStatus(c, "--no-color","--format", "oneline", "exposed")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -6298,7 +6298,7 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 }
 
 func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
-	code, stdout, stderr := runStatus(c, "--no-color","unmatched")
+	code, stdout, stderr := runStatus(c, "--no-color", "unmatched")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filter.\n")
 	expected := `
