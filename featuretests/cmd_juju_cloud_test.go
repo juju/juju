@@ -28,10 +28,10 @@ func (s *CmdCloudSuite) TestAddCloudDuplicate(c *gc.C) {
 		Name: ".local/share/clouds.yaml",
 		Data: `
 clouds:
-  testdummy:
-    type: rackspace
+  testcloud:
+    type: ec2
     description: Dummy Test Cloud Metadata
-    auth-types: [ userpass ]
+    auth-types: [ access-key ]
 `,
 	})
 
@@ -40,14 +40,14 @@ clouds:
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
-	ctx, err = s.run(c, "add-cloud", "testdummy", "-c", "kontroll", "--force")
+	ctx, err = s.run(c, "add-cloud", "testcloud", "-c", "kontroll", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cloud "testdummy" added to controller "kontroll".`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cloud "testcloud" added to controller "kontroll".`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
-	ctx, err = s.run(c, "add-cloud", "testdummy", "-c", "kontroll", "--force")
+	ctx, err = s.run(c, "add-cloud", "testcloud", "-c", "kontroll", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cloud "testdummy" already exists on the controller "kontroll".`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cloud "testcloud" already exists on the controller "kontroll".`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
@@ -56,6 +56,6 @@ func (s *CmdCloudSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := commands.NewJujuCommand(context, "")
 	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	err := command.Run(context)
-	loggo.RemoveWriter("warning")
+	_, _ = loggo.RemoveWriter("warning")
 	return context, err
 }
