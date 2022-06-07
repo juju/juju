@@ -83,7 +83,7 @@ func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, e
 	return azureStorageConfig, nil
 }
 
-func (e *azureStorageProvider) ValidateStorageProvider(bool, map[string]any) error {
+func (e *azureStorageProvider) ValidateForK8s(map[string]any) error {
 	// no validation required
 	return nil
 }

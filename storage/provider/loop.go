@@ -31,12 +31,8 @@ type loopProvider struct {
 
 var _ storage.Provider = (*loopProvider)(nil)
 
-func (*loopProvider) ValidateStorageProvider(isCaas bool, _ map[string]any) error {
-	// loop does not work with CaaS
-	if isCaas {
-		return errors.NotValidf("storage provider type %q", LoopProviderType)
-	}
-	return nil
+func (*loopProvider) ValidateForK8s(map[string]any) error {
+	return errors.NotValidf("storage provider type %q", LoopProviderType)
 }
 
 // ValidateConfig is defined on the Provider interface.

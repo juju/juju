@@ -37,11 +37,7 @@ var _ jujustorage.Provider = (*storageProvider)(nil)
 
 //ValidateStorageProvider returns an error if the storage type and config is not valid
 // for a Kubernetes deployment.
-func (g *storageProvider) ValidateStorageProvider(isCaas bool, attributes map[string]any) error {
-
-	if !isCaas {
-		return errors.NotValidf("storage provider type %q", constants.StorageProviderType)
-	}
+func (g *storageProvider) ValidateForK8s(attributes map[string]any) error {
 
 	if attributes == nil {
 		return nil

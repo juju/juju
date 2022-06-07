@@ -41,7 +41,7 @@ type storageProvider struct {
 
 var _ storage.Provider = (*storageProvider)(nil)
 
-func (g *storageProvider) ValidateStorageProvider(bool, map[string]any) error {
+func (g *storageProvider) ValidateForK8s(map[string]any) error {
 	// no validation required
 	return nil
 }

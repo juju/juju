@@ -93,7 +93,7 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 	return &storageConfig{tags: tags}, nil
 }
 
-func (maasStorageProvider) ValidateStorageProvider(bool, map[string]any) error {
+func (maasStorageProvider) ValidateForK8s(map[string]any) error {
 	// no validation required
 	return nil
 }

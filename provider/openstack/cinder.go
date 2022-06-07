@@ -188,9 +188,8 @@ func (s *cinderProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
-func (p *cinderProvider) ValidateStorageProvider(bool, map[string]any) error {
-	// no validation required
-	return nil
+func (p *cinderProvider) ValidateForK8s(map[string]any) error {
+	return errors.NotValidf("storage provider type %q", CinderProviderType)
 }
 
 // ValidateConfig implements storage.Provider.

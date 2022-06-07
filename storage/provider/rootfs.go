@@ -28,12 +28,12 @@ var (
 	_ storage.Provider = (*rootfsProvider)(nil)
 )
 
-func (p *rootfsProvider) ValidateStorageProvider(isCaas bool, config map[string]any) error {
-	if isCaas {
-		return errors.NotValidf("storage provider type %q", RootfsProviderType)
+func (p *rootfsProvider) ValidateForK8s(attributes map[string]any) error {
+	if attributes == nil {
+		return nil
 	}
-
-	return nil
+	// check the configuration
+	return checkK8sConfig(attributes)
 }
 
 // ValidateConfig is defined on the Provider interface.

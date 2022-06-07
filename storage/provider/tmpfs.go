@@ -30,12 +30,13 @@ var (
 	_ storage.Provider = (*tmpfsProvider)(nil)
 )
 
-func (p *tmpfsProvider) ValidateStorageProvider(isCaas bool, config map[string]any) error {
-	if !isCaas {
-		return errors.NotValidf("storage provider type %q", TmpfsProviderType)
+func (p *tmpfsProvider) ValidateForK8s(attributes map[string]any) error {
+	if attributes == nil {
+		return nil
 	}
 
-	return nil
+	// check the configuration
+	return checkK8sConfig(attributes)
 }
 
 // ValidateConfig is defined on the Provider interface.

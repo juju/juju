@@ -83,9 +83,8 @@ func (s *storageProvider) DefaultPools() []*storage.Config {
 	return []*storage.Config{pool}
 }
 
-func (s *storageProvider) ValidateStorageProvider(bool, map[string]any) error {
-	// no validation required
-	return nil
+func (s *storageProvider) ValidateForK8s(map[string]any) error {
+	return errors.NotValidf("storage provider type %q", ociStorageProviderType)
 }
 
 func (s *storageProvider) ValidateConfig(cfg *storage.Config) error {

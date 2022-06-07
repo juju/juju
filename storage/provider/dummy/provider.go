@@ -44,6 +44,10 @@ type StorageProvider struct {
 	// otherwise ValidateConfig returns nil.
 	ValidateConfigFunc func(*storage.Config) error
 
+	// ValidateForK8sFunc will be called by ValidateForK8s, if non-nil;
+	// otherwise ValidateForK8s returns nil.
+	ValidateForK8sFunc func(map[string]any) error
+
 	// SupportsFunc will be called by Supports, if non-nil; otherwise,
 	// Supports returns true.
 	SupportsFunc func(kind storage.StorageKind) bool
@@ -76,9 +80,9 @@ func (p *StorageProvider) ValidateConfig(providerConfig *storage.Config) error {
 	return nil
 }
 
-func (p *StorageProvider) ValidateStorageProvider(bool, map[string]any) error {
-	// no validation required
-	return nil
+func (p *StorageProvider) ValidateForK8s(attributes map[string]any) error {
+	p.MethodCall(p, "ValidateForK8s", attributes)
+	return p.ValidateForK8sFunc(attributes)
 }
 
 // Supports is defined on storage.Provider.

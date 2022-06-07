@@ -1875,9 +1875,11 @@ func validateStoragePool(
 			*machineId = ""
 		}
 	}
-	isCaas := sb.modelType == ModelTypeCAAS
-	if err := aProvider.ValidateStorageProvider(isCaas, poolConfig); err != nil {
-		return errors.Annotatef(err, "invalid storage config")
+	//
+	if sb.modelType == ModelTypeCAAS {
+		if err := aProvider.ValidateForK8s(poolConfig); err != nil {
+			return errors.Annotatef(err, "invalid storage config")
+		}
 	}
 
 	return nil

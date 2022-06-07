@@ -130,9 +130,8 @@ func newLXDStorageConfig(attrs map[string]interface{}) (*lxdStorageConfig, error
 	return lxdStorageConfig, nil
 }
 
-func (e *lxdStorageProvider) ValidateStorageProvider(bool, map[string]any) error {
-	// no validation required
-	return nil
+func (e *lxdStorageProvider) ValidateForK8s(map[string]any) error {
+	return errors.NotValidf("storage provider type %q", lxdStorageProviderType)
 }
 
 // ValidateConfig is part of the Provider interface.

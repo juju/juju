@@ -271,7 +271,7 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	return ebsConfig, nil
 }
 
-func (e *ebsProvider) ValidateStorageProvider(bool, map[string]any) error {
+func (e *ebsProvider) ValidateForK8s(map[string]any) error {
 	// no validation required
 	return nil
 }
