@@ -129,7 +129,7 @@ plugs:
   peers:
     interface: content
     content: microk8s
-    target: $SNAP_DATA
+    target: $SNAP_DATA/microk8s
 
   dot-local-share-juju:
     interface: personal-files
