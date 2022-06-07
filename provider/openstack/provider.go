@@ -66,11 +66,6 @@ type EnvironProvider struct {
 	FirewallerFactory FirewallerFactory
 	FlavorFilter      FlavorFilter
 
-	// NetworkingDecorator, if non-nil, will be used to
-	// decorate the default networking implementation.
-	// This can be used to override behaviour.
-	NetworkingDecorator NetworkingDecorator
-
 	// ClientFromEndpoint returns an Openstack client for the given endpoint.
 	ClientFromEndpoint func(endpoint string) client.AuthenticatingClient
 }
@@ -85,7 +80,6 @@ var providerInstance = &EnvironProvider{
 	Configurator:        &defaultConfigurator{},
 	FirewallerFactory:   &firewallerFactory{},
 	FlavorFilter:        FlavorFilterFunc(AcceptAllFlavors),
-	NetworkingDecorator: nil,
 	ClientFromEndpoint:  newGooseClient,
 }
 
@@ -220,15 +214,6 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking,
 			"newer to maintain compatibility.")
 	}
 	networking := newNetworking(e)
-	if p.NetworkingDecorator != nil {
-		var err error
-		// The NetworkingDecorator is used by the rackspace provider, which
-		// uses a majority of this provider's code.
-		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
 	return networking, p.FirewallerFactory.GetFirewaller(e), nil
 }
 
