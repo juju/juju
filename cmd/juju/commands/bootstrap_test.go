@@ -1997,7 +1997,7 @@ cloudsigma
 equinix                                       
 google                                        
 oracle                                        
-rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
+?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
@@ -2060,7 +2060,7 @@ cloudsigma
 equinix                                       
 google                                        
 oracle                                        
-rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
+?(localhost\s+)?(microk8s\s+)?
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
 dummy-cloud-with-region-config                
