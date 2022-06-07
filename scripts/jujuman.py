@@ -175,7 +175,7 @@ Records the UUIDs of all models known to Juju.
 .I "~/.local/share/juju/ssh/"
 A directory containing the SSH credentials for the Juju client.
 .SH "SEE ALSO"
-.UR https://jaas.ai/docs
-.BR https://jaas.ai/docs
+.UR https://juju.is/docs/olm
+.BR https://juju.is/docs/olm
 """
 

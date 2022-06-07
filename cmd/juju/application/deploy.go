@@ -556,7 +556,7 @@ for security purposes by allowing only certain configurations and devices. Use
 the '--force' option to bypass this check. Doing so is not recommended as it
 can lead to unexpected behaviour.
 
-Further reading: https://jaas.ai/docs/deploying-applications
+Further reading: https://juju.is/docs/olm/manage-applications
 
 Examples:
 
