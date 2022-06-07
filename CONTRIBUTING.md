@@ -17,7 +17,7 @@ Quick links
 Issue tracker: https://bugs.launchpad.net/juju/+bugs
 
 Documentation:
-* https://jaas.ai/docs
+* https://juju.is/docs
 * [source tree docs](doc/)
 
 Community:
