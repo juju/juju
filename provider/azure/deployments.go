@@ -29,11 +29,15 @@ func createDeployment(
 			Mode:     resources.DeploymentModeIncremental,
 		},
 	}
-	_, err = client.CreateOrUpdate(
+	deployFuture, err := client.CreateOrUpdate(
 		ctx,
 		resourceGroup,
 		deploymentName,
 		deployment,
 	)
-	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating deployment %q", deploymentName), ctx)
+	if err != nil {
+		return errorutils.HandleCredentialError(errors.Annotatef(err, "creating Azure deployment %q", deploymentName), ctx)
+	}
+	err = deployFuture.WaitForCompletionRef(ctx, client.Client)
+	return errors.Annotatef(err, "creating Azure deployment %q", deploymentName)
 }
