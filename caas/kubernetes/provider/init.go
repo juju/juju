@@ -44,26 +44,31 @@ func init() {
 		caas.K8sCloudMicrok8s: {
 			Name:              "hostpath",
 			Provisioner:       "microk8s.io/hostpath",
+			SupportsDefault:   false,
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudGCE: {
 			Name:              "GCE Persistent Disk",
 			Provisioner:       "kubernetes.io/gce-pd",
+			SupportsDefault:   true,
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudAzure: {
 			Name:              "Azure Disk",
 			Provisioner:       "kubernetes.io/azure-disk",
+			SupportsDefault:   true,
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudEC2: {
 			Name:              "EBS Volume",
 			Provisioner:       "kubernetes.io/aws-ebs",
+			SupportsDefault:   true,
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudOpenStack: {
 			Name:              "Cinder Disk",
 			Provisioner:       "csi-cinderplugin",
+			SupportsDefault:   false,
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 	}
