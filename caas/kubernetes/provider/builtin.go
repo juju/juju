@@ -5,19 +5,19 @@ package provider
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/exec"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/version"
 )
 
 func attemptMicroK8sCloud(cmdRunner CommandRunner) (jujucloud.Cloud, error) {
@@ -67,47 +67,23 @@ func attemptMicroK8sCredential(cmdRunner CommandRunner) (jujucloud.Credential, e
 	return k8scloud.CredentialFromKubeConfig(context.AuthInfo, conf)
 }
 
-func readMicroK8sConfigFromContentInterface() []byte {
-	snapDataPath := os.Getenv("SNAP_DATA")
-	if snapDataPath == "" {
-		return nil
-	}
-	clientConfigPath := filepath.Join(snapDataPath, "credentials", "client.config")
-	content, err := ioutil.ReadFile(clientConfigPath)
-	if err != nil {
-		logger.Debugf("cannot read %q: %v", clientConfigPath, err)
-	}
-	return content
-}
-
 func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
 	_, err := cmdRunner.LookPath("microk8s")
 	if err != nil {
 		return []byte{}, errors.NotFoundf("microk8s")
 	}
-
-	if content := readMicroK8sConfigFromContentInterface(); len(content) > 0 {
-		return content, nil
+	notSupportErr := errors.NewNotSupported(nil, fmt.Sprintf("juju %q can only work with strict confined microk8s", version.Current))
+	snapDataPath := os.Getenv("SNAP_DATA")
+	if snapDataPath == "" {
+		return nil, errors.Annotate(notSupportErr, "SNAP_DATA is empty")
 	}
-
-	execParams := exec.RunParams{
-		Commands: "microk8s config",
+	clientConfigPath := filepath.Join(snapDataPath, "credentials", "client.config")
+	content, err := ioutil.ReadFile(clientConfigPath)
+	if os.IsNotExist(err) {
+		return nil, errors.Annotatef(notSupportErr, "%q does not exist", clientConfigPath)
 	}
-	result, err := cmdRunner.RunCommands(execParams)
 	if err != nil {
-		return []byte{}, err
+		return nil, errors.Annotatef(err, "cannot read %q", clientConfigPath)
 	}
-	if result.Code != 0 {
-		// TODO - confined snaps can't execute other commands.
-		errMessage := strings.ReplaceAll(string(result.Stderr), "\n", "")
-		if strings.HasSuffix(strings.ToLower(errMessage), "permission denied") {
-			return []byte{}, errors.NotFoundf("microk8s")
-		}
-		return []byte{}, errors.New(string(result.Stderr))
-	} else {
-		if strings.HasPrefix(strings.ToLower(string(result.Stdout)), "microk8s is not running") {
-			return []byte{}, errors.NotFoundf("microk8s is not running")
-		}
-	}
-	return result.Stdout, nil
+	return content, nil
 }

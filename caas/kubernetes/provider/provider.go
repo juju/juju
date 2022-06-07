@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
+// ClusterMetadataStorageChecker provides functionalities for checking k8s cluster storage and pods details.
 type ClusterMetadataStorageChecker interface {
 	k8s.ClusterMetadataChecker
 	ListStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error)
