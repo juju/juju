@@ -13,12 +13,8 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
-
 var (
-	k8sCloudCheckers             map[string][]k8slabels.Selector
-	jujuPreferredWorkloadStorage map[string]k8s.PreferredStorage
-	jujuPreferredOperatorStorage map[string]k8s.PreferredStorage
+	k8sCloudCheckers map[string][]k8slabels.Selector
 
 	// lifecycleApplicationRemovalSelector is the label selector for removing global resources for application removal.
 	lifecycleApplicationRemovalSelector k8slabels.Selector
@@ -35,45 +31,6 @@ func init() {
 	// k8sCloudCheckers is a collection of k8s node selector requirement definitions
 	// used for detecting cloud provider from node labels.
 	k8sCloudCheckers = compileK8sCloudCheckers()
-
-	// jujuPreferredWorkloadStorage defines the opinionated storage
-	// that Juju requires to be available on supported clusters.
-	jujuPreferredWorkloadStorage = map[string]k8s.PreferredStorage{
-		// WaitForFirstConsumer mode which will delay the binding and provisioning of a PersistentVolume until a
-		// Pod using the PersistentVolumeClaim is created.
-		// https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode
-		k8s.K8sCloudMicrok8s: {
-			Name:              "hostpath",
-			Provisioner:       "microk8s.io/hostpath",
-			VolumeBindingMode: volBindModeWaitFirstConsumer,
-		},
-		k8s.K8sCloudGCE: {
-			Name:              "GCE Persistent Disk",
-			Provisioner:       "kubernetes.io/gce-pd",
-			VolumeBindingMode: volBindModeWaitFirstConsumer,
-		},
-		k8s.K8sCloudAzure: {
-			Name:              "Azure Disk",
-			Provisioner:       "kubernetes.io/azure-disk",
-			VolumeBindingMode: volBindModeWaitFirstConsumer,
-		},
-		k8s.K8sCloudEC2: {
-			Name:              "EBS Volume",
-			Provisioner:       "kubernetes.io/aws-ebs",
-			VolumeBindingMode: volBindModeWaitFirstConsumer,
-		},
-		k8s.K8sCloudOpenStack: {
-			Name:              "Cinder Disk",
-			Provisioner:       "csi-cinderplugin",
-			VolumeBindingMode: volBindModeWaitFirstConsumer,
-		},
-	}
-
-	// jujuPreferredOperatorStorage defines the opinionated storage
-	// that Juju requires to be available on supported clusters to
-	// provision storage for operators.
-	// TODO - support regional storage for GCE etc
-	jujuPreferredOperatorStorage = jujuPreferredWorkloadStorage
 
 	lifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector()
 	lifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector()

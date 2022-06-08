@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 )
 
@@ -40,4 +42,29 @@ func IsAvailabilityZoneIndependent(err error) bool {
 		return err.AvailabilityZoneIndependent()
 	}
 	return false
+}
+
+// PreferredStorageNotFound is an error that indicates to the caller the environ
+// was unable to completes it's operation because it could not find the storage
+// it prefers for the operation. i.e aws block storage or Kubernetes cluster
+// storage.
+type PreferredStorageNotFound struct {
+	Message string
+}
+
+// NominatedStorageNotFound is an error that indicates the storage the user
+// nominated to use for a specific operation was not found and needs to be
+// checked for existence or typo's.
+type NominatedStorageNotFound struct {
+	StorageName string
+}
+
+// Error implements the error interface
+func (p *PreferredStorageNotFound) Error() string {
+	return p.Message
+}
+
+// Error implements the error interface
+func (n *NominatedStorageNotFound) Error() string {
+	return fmt.Sprintf("nominated storage %q not found", n.StorageName)
 }
