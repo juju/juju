@@ -422,23 +422,31 @@ func (s *environSuite) initResourceGroupSenders(resourceGroupName string) azuret
 }
 
 type startInstanceSenderParams struct {
-	bootstrap             bool
-	subnets               []network.Subnet
-	diskEncryptionSetName string
-	vaultName             string
-	existingNetwork       string
-	withQuotaRetry        bool
+	bootstrap               bool
+	subnets                 []network.Subnet
+	diskEncryptionSetName   string
+	vaultName               string
+	existingNetwork         string
+	withQuotaRetry          bool
+	withConflictRetry       bool
+	existingAvailabilitySet bool
 }
 
 func (s *environSuite) startInstanceSenders(c *gc.C, args startInstanceSenderParams) azuretesting.Senders {
 	senders := azuretesting.Senders{s.resourceSkusSender()}
+	if args.existingAvailabilitySet {
+		senders = append(senders, makeSender("/availabilitySets/mysql", &compute.AvailabilitySet{}))
+	}
+
 	if s.ubuntuServerSKUs != nil {
 		senders = append(senders, makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
 	}
 	if !args.bootstrap {
 		// When starting an instance, we must wait for the common
 		// deployment to complete.
-		senders = append(senders, makeSender("/deployments/common", s.commonDeployment))
+		if !args.existingAvailabilitySet {
+			senders = append(senders, makeSender("/deployments/common", s.commonDeployment))
+		}
 
 		// If the deployment has any providers, then we assume
 		// storage accounts are in use, for unmanaged storage.
@@ -507,7 +515,12 @@ func (s *environSuite) startInstanceSenders(c *gc.C, args startInstanceSenderPar
 		quotaErr := autorestazure.ServiceError{Code: "QuotaExceeded"}
 		senders = append(senders, s.makeErrorSender(c, "/deployments/machine-0", quotaErr, 1))
 	}
-	senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
+	if args.withConflictRetry {
+		conflictErr := autorestazure.ServiceError{Code: "Conflict"}
+		senders = append(senders, s.makeErrorSender(c, "/deployments/machine-0", conflictErr, 3))
+	} else {
+		senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
+	}
 	return senders
 }
 
@@ -695,33 +708,43 @@ func (s *environSuite) TestRetryOnInvalidCredential(c *gc.C) {
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, true, false)
+	s.assertStartInstance(c, nil, nil, true, false, false)
 }
 
 func (s *environSuite) TestStartInstancePrivateIP(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, false, false)
+	s.assertStartInstance(c, nil, nil, false, false, false)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskSmallerThanMin(c *gc.C) {
 	wantedRootDisk := 22
-	s.assertStartInstance(c, &wantedRootDisk, nil, true, false)
+	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *gc.C) {
 	wantedRootDisk := 40
-	s.assertStartInstance(c, &wantedRootDisk, nil, true, false)
+	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false)
 }
 
 func (s *environSuite) TestStartInstanceQuotaRetry(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, false, true)
+	s.assertStartInstance(c, nil, nil, false, true, false)
+}
+
+func (s *environSuite) TestStartInstanceConflictRetry(c *gc.C) {
+	s.assertStartInstance(c, nil, nil, false, false, true)
 }
 
 func (s *environSuite) assertStartInstance(
-	c *gc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{}, publicIP, withQuotaRetry bool,
+	c *gc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{},
+	publicIP, withQuotaRetry, withConflictRetry bool,
 ) {
 	env := s.openEnviron(c)
 
 	args := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	if withConflictRetry {
+		unitsDeployed := "mysql/0 wordpress/0"
+		s.vmTags[tags.JujuUnitsDeployed] = &unitsDeployed
+		args.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
+	}
 	diskEncryptionSetName := ""
 	vaultName := ""
 	if len(rootDiskSourceParams) > 0 {
@@ -739,7 +762,19 @@ func (s *environSuite) assertStartInstance(
 		diskEncryptionSetName: diskEncryptionSetName,
 		vaultName:             vaultName,
 		withQuotaRetry:        withQuotaRetry,
+		withConflictRetry:     withConflictRetry,
 	})
+	if withConflictRetry {
+		// Retry after a conflict - the same instance creation senders are
+		// used except that the availability set now exists.
+		s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{
+			bootstrap:               false,
+			diskEncryptionSetName:   diskEncryptionSetName,
+			vaultName:               vaultName,
+			withQuotaRetry:          withQuotaRetry,
+			existingAvailabilitySet: true,
+		})...)
+	}
 	s.requests = nil
 	expectedRootDisk := uint64(30 * 1024) // 30 GiB
 	expectedDiskSize := 32
@@ -771,7 +806,7 @@ func (s *environSuite) assertStartInstance(
 		RootDisk: &expectedRootDisk,
 		CpuCores: &cpuCores,
 	})
-	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+	startParams := assertStartInstanceRequestsParams{
 		imageReference:    &xenialImageReference,
 		diskSizeGB:        expectedDiskSize,
 		osProfile:         &s.linuxOsProfile,
@@ -780,7 +815,12 @@ func (s *environSuite) assertStartInstance(
 		diskEncryptionSet: diskEncryptionSetName,
 		vaultName:         vaultName,
 		withQuotaRetry:    withQuotaRetry,
-	})
+		withConflictRetry: withConflictRetry,
+	}
+	if withConflictRetry {
+		startParams.availabilitySetName = "mysql"
+	}
+	s.assertStartInstanceRequests(c, s.requests, startParams)
 }
 
 func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
@@ -1195,6 +1235,7 @@ type assertStartInstanceRequestsParams struct {
 	subnets             []string
 	placementSubnet     string
 	withQuotaRetry      bool
+	withConflictRetry   bool
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1565,6 +1606,8 @@ func (s *environSuite) assertStartInstanceRequests(
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+5)
 			} else if args.withQuotaRetry {
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+1)
+			} else if args.withConflictRetry {
+				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+6)
 			} else {
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
 			}
@@ -2724,7 +2767,7 @@ func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *gc.C) {
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
 	}
-	s.assertStartInstance(c, nil, rootDiskParams, true, false)
+	s.assertStartInstance(c, nil, rootDiskParams, true, false, false)
 }
 
 func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
@@ -2734,5 +2777,5 @@ func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
 		"vault-name-prefix":        "my-vault",
 		"vault-key-name":           "shhhh",
 	}
-	s.assertStartInstance(c, nil, rootDiskParams, true, false)
+	s.assertStartInstance(c, nil, rootDiskParams, true, false, false)
 }

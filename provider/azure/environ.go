@@ -626,10 +626,21 @@ func (env *azureEnviron) startInstance(
 		usePublicIP = *args.Constraints.AllocatePublicIP
 	}
 	stdCtx := stdcontext.Background()
-	if err := env.createVirtualMachine(
+	err = env.createVirtualMachine(
 		stdCtx, ctx, vmName, vmTags, envTags,
-		instanceSpec, args, usePublicIP,
-	); err != nil {
+		instanceSpec, args, usePublicIP, true,
+	)
+	// If there's a conflict, it's because another machine is
+	// being provisioned with the same availability set so
+	// retry and do not create the availability set.
+	if errorutils.IsConflictError(err) {
+		logger.Debugf("conflict creating %s, retrying...", vmName)
+		err = env.createVirtualMachine(
+			stdCtx, ctx, vmName, vmTags, envTags,
+			instanceSpec, args, usePublicIP, false,
+		)
+	}
+	if err != nil {
 		logger.Debugf("creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
 			logger.Errorf("could not destroy failed virtual machine: %v", err)
@@ -681,6 +692,7 @@ func (env *azureEnviron) createVirtualMachine(
 	instanceSpec *instances.InstanceSpec,
 	args environs.StartInstanceParams,
 	usePublicIP bool,
+	createAvailabilitySet bool,
 ) error {
 	deploymentsClient := resources.DeploymentsClient{
 		BaseClient: env.resources,
@@ -767,11 +779,24 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return errors.Annotate(err, "getting availability set name")
 	}
+	availabilitySetId := fmt.Sprintf(
+		`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
+		availabilitySetName,
+	)
 	if availabilitySetName != "" {
-		availabilitySetId := fmt.Sprintf(
-			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
-			availabilitySetName,
-		)
+		availabilitySetSubResource = &compute.SubResource{
+			ID: to.StringPtr(availabilitySetId),
+		}
+	}
+	if !createAvailabilitySet && availabilitySetName != "" {
+		availabilitySetClient := compute.AvailabilitySetsClient{
+			BaseClient: env.compute,
+		}
+		if _, err = availabilitySetClient.Get(ctx, env.resourceGroup, availabilitySetName); err != nil {
+			return errors.Annotatef(err, "expeting availability set %q to be available", availabilitySetName)
+		}
+	}
+	if createAvailabilitySet && availabilitySetName != "" {
 		var (
 			availabilitySetProperties  interface{}
 			availabilityStorageOptions *armtemplates.Sku
@@ -800,9 +825,6 @@ func (env *azureEnviron) createVirtualMachine(
 			Properties: availabilitySetProperties,
 			Sku:        availabilityStorageOptions,
 		})
-		availabilitySetSubResource = &compute.SubResource{
-			ID: to.StringPtr(availabilitySetId),
-		}
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
@@ -935,13 +957,6 @@ func (env *azureEnviron) createVirtualMachine(
 
 	logger.Debugf("- creating virtual machine deployment in %q", env.resourceGroup)
 	template := armtemplates.Template{Resources: res}
-	// NOTE(axw) VMs take a long time to go to "Succeeded", so we do not
-	// block waiting for them to be fully provisioned. This means we won't
-	// return an error from StartInstance if the VM fails provisioning;
-	// we will instead report the error via the instance's status.
-	deploymentsClient.ResponseInspector = asyncCreationRespondDecorator(
-		deploymentsClient.ResponseInspector,
-	)
 	if err := createDeployment(
 		ctx,
 		deploymentsClient,
