@@ -212,7 +212,6 @@ func (p kubernetesEnvironProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 func (p kubernetesEnvironProvider) validateCloudSpec(spec environscloudspec.CloudSpec) error {
-
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}

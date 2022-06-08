@@ -5,8 +5,6 @@ package provider_test
 
 import (
 	"fmt"
-	"runtime"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
@@ -111,12 +109,6 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
@@ -153,12 +145,6 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
 
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
@@ -192,12 +178,6 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
@@ -206,12 +186,6 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccessNew(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
@@ -220,12 +194,6 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccessNew(c *gc.C) {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
@@ -234,12 +202,6 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNewDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
@@ -248,31 +210,11 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNewDisabled(c *gc.C) {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
 	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable dns'`)
-}
-
-func (s *cloudSuite) TestEnsureMicroK8sSuitableNotInGroup(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("no need to check user group setup for windows")
-	}
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`}).Returns(
-		&exec.ExecResponse{Code: 1}, nil)
-	err := provider.EnsureMicroK8sSuitable(s.runner)
-	c.Assert(err, gc.NotNil)
-	c.Assert(strings.Replace(err.Error(), "\n", "", -1),
-		gc.Matches, `The microk8s user group is created during the microk8s snap installation.*`)
 }
 
 type mockContext struct {

@@ -10,7 +10,6 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os/v2"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/exec"
 	"gopkg.in/yaml.v2"
@@ -307,43 +306,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	return cld, nil
 }
 
-func checkMicrok8sUserGroupSetup(cmdRunner CommandRunner) error {
-	if jujuos.HostOS() == jujuos.Windows || jujuos.HostOS() == jujuos.OSX {
-		// The microk8s on windows and macOS is running on a vm managed by multipass.
-		// Even the vm does not have the user group properly configured but it is not
-		// a problem because microk8s CLI uses `multipass exec` with sudo to run the commands.
-		// https://github.com/ubuntu/microk8s/blob/master/installer/vm_providers/_multipass/_multipass.py#L50
-		return nil
-	}
-	resp, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`,
-	})
-	if err != nil {
-		return errors.Annotate(err, "checking microk8s setup")
-	}
-	if resp.Code != 0 {
-		user, _ := utils.OSUsername()
-		if user == "" {
-			user = "<username>"
-		}
-		return errors.Errorf(`
-The microk8s user group is created during the microk8s snap installation.
-Users in that group are granted access to microk8s commands and this
-is needed for Juju to be able to interact with microk8s.
-
-Add yourself to that group before trying again:
-	sudo usermod -a -G microk8s %s  # classic confined microk8s.
-	sudo usermod -a -G snap_microk8s %s  # strictly confined microk8s.
-`[1:], user)
-	}
-	return nil
-}
-
 func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
-	if err := checkMicrok8sUserGroupSetup(cmdRunner); err != nil {
-		return errors.Trace(err)
-	}
-
 	status, err := microK8sStatus(cmdRunner)
 	if err != nil {
 		return errors.Trace(err)
