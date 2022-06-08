@@ -415,9 +415,10 @@ func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
 func getPodSpec(c *gc.C) corev1.PodSpec {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
-		ServiceAccountName:           "gitlab",
-		AutomountServiceAccountToken: pointer.BoolPtr(true),
-		ImagePullSecrets:             []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
+		ServiceAccountName:            "gitlab",
+		AutomountServiceAccountToken:  pointer.BoolPtr(true),
+		ImagePullSecrets:              []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
+		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,

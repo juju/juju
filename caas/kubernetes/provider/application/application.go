@@ -1452,10 +1452,11 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 
 	automountToken := true
 	return &corev1.PodSpec{
-		AutomountServiceAccountToken: &automountToken,
-		ServiceAccountName:           a.serviceAccountName(),
-		NodeSelector:                 nodeSelector,
-		ImagePullSecrets:             imagePullSecrets,
+		AutomountServiceAccountToken:  &automountToken,
+		ServiceAccountName:            a.serviceAccountName(),
+		NodeSelector:                  nodeSelector,
+		ImagePullSecrets:              imagePullSecrets,
+		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
