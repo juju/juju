@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/utils/v3"
@@ -315,7 +316,7 @@ func checkMicrok8sUserGroupSetup(cmdRunner CommandRunner) error {
 		return nil
 	}
 	resp, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`,
+		Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s\|snap_microk8s"`,
 	})
 	if err != nil {
 		return errors.Annotate(err, "checking microk8s setup")
@@ -331,7 +332,8 @@ Users in that group are granted access to microk8s commands and this
 is needed for Juju to be able to interact with microk8s.
 
 Add yourself to that group before trying again:
-	sudo usermod -a -G microk8s %s
+	sudo usermod -a -G microk8s %s  # classic confined microk8s.
+	sudo usermod -a -G snap_microk8s %s  # strictly confined microk8s.
 `[1:], user)
 	}
 	return nil
@@ -346,19 +348,20 @@ func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var requiredAddons []string
-	if storageStatus, ok := status.Addons["storage"]; ok {
-		if storageStatus != "enabled" {
-			requiredAddons = append(requiredAddons, "storage")
+	requiredAddons := set.NewStrings("dns", "storage")
+	for _, addon := range status.Addons {
+		if addon.Name == "dns" && addon.Status == "enabled" {
+			requiredAddons.Remove("dns")
+		}
+		if (addon.Name == "storage" || addon.Name == "hostpath-storage") && addon.Status == "enabled" {
+			requiredAddons.Remove("storage")
 		}
 	}
-	if dns, ok := status.Addons["dns"]; ok {
-		if dns != "enabled" {
-			requiredAddons = append(requiredAddons, "dns")
-		}
-	}
-	if len(requiredAddons) > 0 {
-		return errors.Errorf("required addons not enabled for microk8s, run 'microk8s enable %s'", strings.Join(requiredAddons, " "))
+
+	if requiredAddons.Size() > 0 {
+		return errors.Errorf("required addons not enabled for microk8s, run 'microk8s enable %s'",
+			strings.Join(requiredAddons.SortedValues(), " "),
+		)
 	}
 	return nil
 }
@@ -366,7 +369,7 @@ func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
 func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 	var status microk8sStatus
 	result, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: "microk8s status --wait-ready --timeout 15 --yaml",
+		Commands: "microk8s status --wait-ready --timeout 15 --format yaml",
 	})
 	if err != nil {
 		return status, errors.Trace(err)
@@ -394,5 +397,10 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 }
 
 type microk8sStatus struct {
-	Addons map[string]string `yaml:"addons"`
+	Addons []microk8sAddon `yaml:"addons"`
+}
+
+type microk8sAddon struct {
+	Name   string `yaml:"name"`
+	Status string `yaml:"status"`
 }
