@@ -839,7 +839,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Type:                 e.model.Type(),
 		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
-		CharmURL:             application.doc.CharmURL.String(),
+		CharmURL:             *application.doc.CharmURL,
 		Channel:              application.doc.Channel,
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
@@ -1983,9 +1983,10 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	}, nil
 }
 
-func deduceOrigin(url *charm.URL) (description.CharmOriginArgs, error) {
-	if url == nil {
-		return description.CharmOriginArgs{}, errors.NotValidf("charm url")
+func deduceOrigin(cURL *string) (description.CharmOriginArgs, error) {
+	url, err := charm.ParseURL(*cURL)
+	if err != nil {
+		return description.CharmOriginArgs{}, errors.NewNotValid(err, "charm url")
 	}
 
 	switch url.Schema {

@@ -84,7 +84,7 @@ type applicationDoc struct {
 	// be relatively straight forward, but very time consuming.
 	// When moving to CharmHub or removing CharmStore from Juju it should be
 	// tackled then.
-	CharmURL             *charm.URL   `bson:"charmurl"`
+	CharmURL             *string      `bson:"charmurl"`
 	Channel              string       `bson:"cs-channel"`
 	CharmOrigin          *CharmOrigin `bson:"charm-origin"`
 	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
@@ -162,8 +162,8 @@ func applicationGlobalOperatorKey(appName string) string {
 	return applicationGlobalKey(appName) + "#operator"
 }
 
-func applicationCharmConfigKey(appName string, curl *charm.URL) string {
-	return fmt.Sprintf("a#%s#%s", appName, curl)
+func applicationCharmConfigKey(appName string, curl *string) string {
+	return fmt.Sprintf("a#%s#%s", appName, *curl)
 }
 
 // charmConfigKey returns the charm-version-specific settings collection
@@ -182,8 +182,8 @@ func (a *Application) applicationConfigKey() string {
 	return applicationConfigKey(a.doc.Name)
 }
 
-func applicationStorageConstraintsKey(appName string, curl *charm.URL) string {
-	return fmt.Sprintf("asc#%s#%s", appName, curl)
+func applicationStorageConstraintsKey(appName string, curl *string) string {
+	return fmt.Sprintf("asc#%s#%s", appName, *curl)
 }
 
 // storageConstraintsKey returns the charm-version-specific storage
@@ -192,8 +192,8 @@ func (a *Application) storageConstraintsKey() string {
 	return applicationStorageConstraintsKey(a.doc.Name, a.doc.CharmURL)
 }
 
-func applicationDeviceConstraintsKey(appName string, curl *charm.URL) string {
-	return fmt.Sprintf("adc#%s#%s", appName, curl)
+func applicationDeviceConstraintsKey(appName string, curl *string) string {
+	return fmt.Sprintf("adc#%s#%s", appName, *curl)
 }
 
 // deviceConstraintsKey returns the charm-version-specific device
@@ -896,14 +896,15 @@ func (a *Application) setExposed(exposed bool, exposedEndpoints map[string]Expos
 
 // Charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
-func (a *Application) Charm() (ch *Charm, force bool, err error) {
+func (a *Application) Charm() (*Charm, bool, error) {
 	// We don't worry about the channel since we aren't interacting
 	// with the charm store here.
-	ch, err = a.st.Charm(a.doc.CharmURL)
+	cURL, force := a.CharmURL()
+	ch, err := a.st.Charm(cURL)
 	if err != nil {
 		return nil, false, err
 	}
-	return ch, a.doc.ForceCharm, nil
+	return ch, force, nil
 }
 
 // CharmOrigin returns the origin of a charm associated with a application.
@@ -925,8 +926,13 @@ func (a *Application) CharmModifiedVersion() int {
 
 // CharmURL returns the application's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
-func (a *Application) CharmURL() (curl *charm.URL, force bool) {
-	return a.doc.CharmURL, a.doc.ForceCharm
+func (a *Application) CharmURL() (*charm.URL, bool) {
+	cURL, err := charm.ParseURL(*a.doc.CharmURL)
+	if err != nil {
+		// TODO: (hml) change method signature
+		return nil, false
+	}
+	return cURL, a.doc.ForceCharm
 }
 
 // Channel identifies the charm store channel from which the application's
@@ -1170,9 +1176,10 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 
+	cURL := ch.URL().String()
 	// Create or replace application settings.
 	var settingsOp txn.Op
-	newSettingsKey := applicationCharmConfigKey(a.doc.Name, ch.URL())
+	newSettingsKey := applicationCharmConfigKey(a.doc.Name, &cURL)
 	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
@@ -1216,7 +1223,7 @@ func (a *Application) changeCharmOps(
 
 	// Add or create a reference to the new charm, settings,
 	// and storage constraints docs.
-	incOps, err := appCharmIncRefOps(a.st, a.doc.Name, ch.URL(), true)
+	incOps, err := appCharmIncRefOps(a.st, a.doc.Name, &cURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1252,7 +1259,7 @@ func (a *Application) changeCharmOps(
 			C:  applicationsC,
 			Id: a.doc.DocID,
 			Update: bson.D{{"$set", bson.D{
-				{"charmurl", ch.URL()},
+				{"charmurl", cURL},
 				{"cs-channel", channel},
 				{"forcecharm", forceUnits},
 			}}},
@@ -1415,7 +1422,8 @@ func (a *Application) newCharmStorageOps(
 	if err := validateStorageConstraints(sb, newStorageConstraints, ch.Meta()); err != nil {
 		return fail(errors.Annotate(err, "validating storage constraints"))
 	}
-	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, ch.URL())
+	cURL := ch.URL().String()
+	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, &cURL)
 	if _, err := readStorageConstraints(sb.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
 		storageConstraintsOp = createStorageConstraintsOp(
 			newStorageConstraintsKey, newStorageConstraints,
@@ -1547,7 +1555,11 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
 		return errors.Errorf("cannot change an application's subordinacy")
 	}
-	currentCharm, err := a.st.Charm(a.doc.CharmURL)
+	curl, err := charm.ParseURL(*a.doc.CharmURL)
+	if err != nil {
+		return errors.Annotate(err, "parsing charm url")
+	}
+	currentCharm, err := a.st.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1623,7 +1635,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			}),
 		}}
 
-		if a.doc.CharmURL.String() == cfg.Charm.URL().String() {
+		if *a.doc.CharmURL == cfg.Charm.URL().String() {
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
@@ -1714,7 +1726,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
-	a.doc.CharmURL = cfg.Charm.URL()
+	cURL := cfg.Charm.URL().String()
+	a.doc.CharmURL = &cURL
 	a.doc.Channel = channel
 	a.doc.ForceCharm = cfg.ForceUnits
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
@@ -2642,17 +2655,12 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
-		maybeDoFinal := *u.doc.CharmURL != a.doc.CharmURL.String()
-
-		cURL, err := u.CharmURL()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		maybeDoFinal := *u.doc.CharmURL != *a.doc.CharmURL
 
 		// When 'force' is set, this call will return both needed operations
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, cURL, maybeDoFinal, op)
+		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if op.FatalError(err) {
@@ -2756,13 +2764,17 @@ func (a *Application) CharmConfig(branchName string) (charm.Settings, error) {
 	return s, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 }
 
-func charmSettingsWithDefaults(st *State, cURL *charm.URL, appName, branchName string) (charm.Settings, error) {
+func charmSettingsWithDefaults(st *State, cURL *string, appName, branchName string) (charm.Settings, error) {
 	cfg, err := branchCharmSettings(st, cURL, appName, branchName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ch, err := st.Charm(cURL)
+	charmURL, err := charm.ParseURL(*cURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ch, err := st.Charm(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2774,7 +2786,7 @@ func charmSettingsWithDefaults(st *State, cURL *charm.URL, appName, branchName s
 	return result, nil
 }
 
-func branchCharmSettings(st *State, cURL *charm.URL, appName, branchName string) (*Settings, error) {
+func branchCharmSettings(st *State, cURL *string, appName, branchName string) (*Settings, error) {
 	key := applicationCharmConfigKey(appName, cURL)
 	cfg, err := readSettings(st.db(), settingsC, key)
 	if err != nil {

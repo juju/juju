@@ -649,7 +649,7 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 		ModelUUID:   app.ModelUUID,
 		Name:        app.Name,
 		Exposed:     app.Exposed,
-		CharmURL:    app.CharmURL.String(),
+		CharmURL:    *app.CharmURL,
 		Life:        life.Value(app.Life.String()),
 		MinUnits:    app.MinUnits,
 		Subordinate: app.Subordinate,

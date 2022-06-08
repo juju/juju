@@ -1921,12 +1921,14 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 }
 
 func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {
-	_, err := state.ApplicationSettingsRefCount(st, appName, sch.URL())
+	cURL := sch.URL().String()
+	_, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm, refcount int) {
-	rc, err := state.ApplicationSettingsRefCount(st, appName, sch.URL())
+	cURL := sch.URL().String()
+	rc, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc, gc.Equals, refcount)
 }

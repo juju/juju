@@ -1239,13 +1239,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
+	cURL := args.Charm.URL().String()
 	appDoc := &applicationDoc{
 		DocID:         applicationID,
 		Name:          args.Name,
 		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
 		Subordinate:   subordinate,
-		CharmURL:      args.Charm.URL(),
+		CharmURL:      &cURL,
 		CharmOrigin:   args.CharmOrigin,
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),

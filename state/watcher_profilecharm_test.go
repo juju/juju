@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
 	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -193,7 +192,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionI
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
-			CharmURL: charm.MustParseURL(url),
+			CharmURL: &url,
 		}).Return(nil)
 	}
 }
@@ -218,7 +217,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionIns
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
-			CharmURL: charm.MustParseURL(url),
+			CharmURL: &url,
 		}).Return(nil)
 	}
 }
