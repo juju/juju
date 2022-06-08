@@ -5162,7 +5162,7 @@ mysql/1       terminated   idle   1        10.0.1.1               gooooone
 wordpress/0*  active       idle   1        10.0.1.1               
   logging/0   active       idle            10.0.1.1               
 
-Machine  State    DNS       Inst id       Series   AZ          Message
+Machine  State    Addess    Inst id       Series   AZ          Message
 0        started  10.0.0.1  controller-0  quantal  us-east-1a  
 1        started  10.0.1.1  snowflake     quantal              
 2        started  10.0.2.1  controller-2  quantal              
