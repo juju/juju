@@ -236,6 +236,8 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 		}
 	}
 
+	// TODO (hmlanigan) 2022-06-08
+	// Is there any reason for the local and remote CharmURL to not be string pointers?
 	sameCharm := *local.CharmURL == *remote.CharmURL
 	if haveCharmDir && (!local.State.Started || sameCharm) {
 		return nil
