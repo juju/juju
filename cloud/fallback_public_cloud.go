@@ -323,24 +323,6 @@ clouds:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
         identity-endpoint: https://graph.chinacloudapi.cn
-  rackspace:
-    type: rackspace
-    description: Rackspace Cloud
-    auth-types: [ userpass ]
-    endpoint: https://identity.api.rackspacecloud.com/v2.0
-    regions:
-      dfw:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      ord:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      iad:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      lon:
-        endpoint: https://lon.identity.api.rackspacecloud.com/v2.0
-      syd:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      hkg:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
   cloudsigma:
     type: cloudsigma
     description: CloudSigma Cloud

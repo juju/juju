@@ -173,7 +173,7 @@ Examples:
     juju bootstrap aws
     juju bootstrap aws/us-east-1
     juju bootstrap google joe-us-east1
-    juju bootstrap --config=~/config-rs.yaml rackspace joe-syd
+    juju bootstrap --config=~/config-rs.yaml google joe-syd
     juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
     juju bootstrap aws --storage-pool name=secret --storage-pool type=ebs --storage-pool encrypted=true
