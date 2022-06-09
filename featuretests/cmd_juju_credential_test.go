@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing/factory"
 )
@@ -54,7 +55,7 @@ func (s *CmdCredentialSuite) TestUpdateCredentialCommand(c *gc.C) {
 		Data: `
 clouds:
   dummy:
-    type: cloudsigma
+    type: openstack
     description: Dummy Test Cloud Metadata
     auth-types: [ userpass ]
 `,
@@ -121,7 +122,7 @@ func (s *CmdCredentialSuite) TestSetModelCredentialCommand(c *gc.C) {
 		Data: `
 clouds:
   dummy:
-    type: cloudsigma
+    type: openstack
     description: Dummy Test Cloud Metadata
     auth-types: [ userpass ]
 `,
