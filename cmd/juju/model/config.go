@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sort"
 	"strings"
 
@@ -14,9 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
@@ -253,10 +250,15 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		switch action {
 		case config.GetOne:
 			err = c.getConfig(client, ctx)
-		case config.Set:
-			err = c.setConfig(client)
+		case config.SetArgs:
+			err = c.setConfig(client, c.configBase.ValsToSet)
 		case config.SetFile:
-			err = c.setConfigFile(client, ctx)
+			var attrs config.Attrs
+			attrs, err = c.configBase.ReadFile(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = c.setConfig(client, attrs)
 		case config.Reset:
 			err = c.resetConfig(client)
 		default:
@@ -280,45 +282,12 @@ func (c *configCommand) resetConfig(client configCommandAPI) error {
 }
 
 // setConfig sets the provided key/value pairs on the model.
-func (c *configCommand) setConfig(client configCommandAPI) error {
-	// Have to convert c.configBase.ValsToSet to a map[string]interface{}
-	// This could probably be done better with generics: we could change
-	// c.validateValues to accept a `map[string]V` for `V any`
-	attrs := make(map[string]interface{})
-	for key, value := range c.configBase.ValsToSet {
-		attrs[key] = value
-	}
-
-	return c.validateSet(client, attrs)
-}
-
-// setConfigFile sets the model configuration from the provided file.
-func (c *configCommand) setConfigFile(client configCommandAPI, ctx *cmd.Context) error {
-	// Read file & unmarshal into yaml
-	attrs := make(map[string]interface{})
-	path, err := utils.NormalizePath(c.configBase.ConfigFile.Path)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	data, err := ioutil.ReadFile(ctx.AbsPath(path))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := yaml.Unmarshal(data, &attrs); err != nil {
-		return errors.Trace(err)
-	}
-
-	return c.validateSet(client, attrs)
-}
-
-// validateSet checks the provided map for read-only keys, coerces the keys,
-// and then sets the model config.
-func (c *configCommand) validateSet(client configCommandAPI, rawAttrs map[string]interface{}) error {
+func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) error {
 	var keys []string // collect and validate
 
 	// Sort through to catch read-only keys
 	values := make(configAttrs)
-	for k, v := range rawAttrs {
+	for k, v := range attrs {
 		if k == envconfig.AgentVersionKey {
 			if c.ignoreReadOnlyFields {
 				continue

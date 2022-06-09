@@ -215,7 +215,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		switch action {
 		case config.GetOne:
 			err = c.getConfig(client, ctx)
-		case config.Set:
+		case config.SetArgs:
 			err = c.setConfig(client, ctx)
 		case config.SetFile:
 			err = c.setConfigFile(client, ctx)
@@ -350,20 +350,21 @@ func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) er
 func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, error) {
 	settings := map[string]string{}
 	for k, v := range c.configBase.ValsToSet {
+		vStr := fmt.Sprint(v) // `v` is generally a string
 		//empty string is also valid as a setting value
-		if v == "" {
-			settings[k] = v
+		if vStr == "" {
+			settings[k] = vStr
 			continue
 		}
 
-		if v[0] != '@' {
-			if !utf8.ValidString(v) {
+		if vStr[0] != '@' {
+			if !utf8.ValidString(vStr) {
 				return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
 			}
-			settings[k] = v
+			settings[k] = vStr
 			continue
 		}
-		nv, err := utils.ReadValue(ctx, c.Filesystem(), v[1:])
+		nv, err := utils.ReadValue(ctx, c.Filesystem(), vStr[1:])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

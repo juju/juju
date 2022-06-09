@@ -5,6 +5,7 @@ package model_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -214,6 +215,26 @@ func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
 
 	_, err = s.run(c, "--file", configFile)
 	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]interface{}{
+		"special": "extra",
+		"name":    "test-model",
+		"running": true,
+	}
+	c.Assert(s.fake.values, jc.DeepEquals, expected)
+}
+
+func (s *ConfigCommandSuite) TestSetFromStdin(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("special: extra\n")
+	code := cmd.Main(model.NewConfigCommandForTest(s.fake), ctx,
+		[]string{"--file", "-"})
+
+	c.Assert(code, gc.Equals, 0)
+	output := strings.TrimSpace(cmdtesting.Stdout(ctx))
+	c.Assert(output, gc.Equals, "")
+	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
+	c.Assert(stderr, gc.Equals, "")
+
 	expected := map[string]interface{}{
 		"special": "extra",
 		"name":    "test-model",

@@ -202,6 +202,21 @@ func (s *ConfigSuite) TestSettingFromFile(c *gc.C) {
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
 }
 
+func (s *ConfigSuite) TestSettingFromStdin(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("juju-ha-space: value\n")
+	var api fakeControllerAPI
+	code := cmd.Main(controller.NewConfigCommandForTest(&api, s.store), ctx,
+		[]string{"--file", "-"})
+
+	c.Assert(code, gc.Equals, 0)
+	output := strings.TrimSpace(cmdtesting.Stdout(ctx))
+	c.Assert(output, gc.Equals, "")
+	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
+}
+
 func (s *ConfigSuite) TestOverrideFileFromArgs(c *gc.C) {
 	path := writeFile(c, "yaml", "juju-ha-space: value\naudit-log-max-backups: 2\n")
 	var api fakeControllerAPI

@@ -377,6 +377,32 @@ func (s *DefaultsCommandSuite) TestSetFromFile(c *gc.C) {
 	})
 }
 
+func (s *DefaultsCommandSuite) TestSetFromStdin(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("special: extra\n")
+	code := cmd.Main(model.NewDefaultsCommandForTest(
+		s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store), ctx,
+		[]string{"--file", "-"})
+
+	c.Assert(code, gc.Equals, 0)
+	output := strings.TrimSpace(cmdtesting.Stdout(ctx))
+	c.Assert(output, gc.Equals, "")
+	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
+	c.Assert(stderr, gc.Equals, "")
+
+	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {Controller: nil, Default: "foo", Regions: nil},
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"special": {Controller: "extra", Default: nil, Regions: nil},
+	})
+}
+
 func (s *DefaultsCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
