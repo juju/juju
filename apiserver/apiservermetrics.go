@@ -4,9 +4,13 @@
 package apiserver
 
 import (
+	"fmt"
+	"runtime"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -32,6 +36,9 @@ const (
 
 	// MetricLabelStatus defines a status constant for the Requests Label
 	MetricLabelStatus = "status"
+
+	// MetricLabelVersion is the metric for the Juju Version of the controller
+	MetricLabelVersion = "version"
 )
 
 // MetricAPIConnectionsLabelNames defines a series of labels for the
@@ -72,6 +79,7 @@ var MetricTotalRequestsLabelNames = []string{
 // Collector is a prometheus.Collector that collects metrics based
 // on apiserver status.
 type Collector struct {
+	BuildInfo        prometheus.Gauge
 	TotalConnections prometheus.Counter
 
 	LoginAttempts      prometheus.Gauge
@@ -90,6 +98,26 @@ type Collector struct {
 
 // NewMetricsCollector returns a new Collector.
 func NewMetricsCollector() *Collector {
+	// BuildInfo is a bit special as a 'metric'. It is following the guidance of
+	// https://prometheus.io/docs/instrumenting/writing_exporters/#target-labels-not-static-scraped-labels
+	// and https://www.robustperception.io/how-to-have-labels-for-machine-roles/
+	// you essentially have one const metric with a value of 1 and the labels are the strings
+	// that describe the instance.
+	buildInfo := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: apiserverMetricsNamespace,
+		Subsystem: apiserverSubsystemNamespace,
+		Name:      "build_info",
+		Help:      "The versions of various parts of the Juju Controller",
+		ConstLabels: prometheus.Labels{
+			MetricLabelVersion: version.Current.String(),
+			"official_build":   fmt.Sprint(version.OfficialBuild),
+			"go_compiler":      runtime.Compiler,
+			"go_version":       runtime.Version(),
+			"git_commit":       version.GitCommit,
+			"git_commit_state": version.GitTreeState,
+		},
+	})
+	buildInfo.Set(1.0)
 	return &Collector{
 		TotalConnections: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: apiserverMetricsNamespace,
@@ -165,6 +193,7 @@ func NewMetricsCollector() *Collector {
 				0.99: 0.001,
 			},
 		}, MetricTotalRequestsLabelNames),
+		BuildInfo: buildInfo,
 	}
 }
 
@@ -180,6 +209,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.TotalRequests.Describe(ch)
 	c.TotalRequestErrors.Describe(ch)
 	c.TotalRequestsDuration.Describe(ch)
+	c.BuildInfo.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
@@ -194,4 +224,5 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.TotalRequests.Collect(ch)
 	c.TotalRequestErrors.Collect(ch)
 	c.TotalRequestsDuration.Collect(ch)
+	c.BuildInfo.Collect(ch)
 }
