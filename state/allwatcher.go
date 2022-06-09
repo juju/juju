@@ -949,12 +949,13 @@ func (b *backingApplicationOffer) updated(ctx *allWatcherContext) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ch, _, err := localApp.Charm()
+	info.ApplicationName = offer.ApplicationName
+	cURL, _ := localApp.CharmURL()
+	curl, err := charm.ParseURL(*cURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info.ApplicationName = offer.ApplicationName
-	info.CharmName = ch.Tag().Id()
+	info.CharmName = curl.Name
 
 	remoteConnection, err := ctx.state.RemoteConnectionStatus(info.OfferUUID)
 	if err != nil {
