@@ -31,9 +31,6 @@ const (
 	// K8sCloudLXD is the name used for LXD k8s clouds(Kubernetes Core).
 	K8sCloudLXD = "lxd"
 
-	// K8sCloudRackspace is the name used for Rackspace k8s clouds(CDK).
-	K8sCloudRackspace = "rackspace"
-
 	// K8sCloudOther is the name used for any other k8s cloud is not listed above.
 	K8sCloudOther = "other"
 
