@@ -76,7 +76,7 @@ type Application interface {
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	ApplicationTag() names.ApplicationTag
 	Charm() (Charm, bool, error)
-	CharmURL() (*charm.URL, bool)
+	CharmURL() (*string, bool)
 	Channel() csparams.Channel
 	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error

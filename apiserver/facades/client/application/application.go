@@ -1403,7 +1403,7 @@ func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult
 		return params.StringResult{}, errors.Trace(err)
 	}
 	charmURL, _ := oneApplication.CharmURL()
-	return params.StringResult{Result: charmURL.String()}, nil
+	return params.StringResult{Result: *charmURL}, nil
 }
 
 // GetCharmURLOrigin isn't on the V12 API.
@@ -1420,7 +1420,11 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	charmURL, _ := oneApplication.CharmURL()
-	result := params.CharmURLOriginResult{URL: charmURL.String()}
+	if charmURL == nil {
+		err := errors.NotValidf("application charm url")
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	result := params.CharmURLOriginResult{URL: *charmURL}
 	chOrigin := oneApplication.CharmOrigin()
 	if chOrigin == nil {
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
@@ -3074,6 +3078,9 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		return nil, err
 	}
 	curl, _ := app.CharmURL()
+	if curl == nil {
+		return nil, errors.NotValidf("application charm url")
+	}
 	machineId, _ := unit.AssignedMachineId()
 	workloadVersion, err := unit.WorkloadVersion()
 	if err != nil {
@@ -3084,7 +3091,7 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		Tag:             unit.Tag().String(),
 		WorkloadVersion: workloadVersion,
 		Machine:         machineId,
-		Charm:           curl.String(),
+		Charm:           *curl,
 		Life:            unit.Life().String(),
 	}
 	if machineId != "" {

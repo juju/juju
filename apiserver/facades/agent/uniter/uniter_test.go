@@ -880,8 +880,8 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	c.Assert(curl, gc.DeepEquals, s.wpCharm.URL())
 
 	// Make sure wordpress application's charm is what we expect.
-	curl, force := s.wordpress.CharmURL()
-	c.Assert(curl, gc.DeepEquals, s.wpCharm.URL())
+	curlStr, force := s.wordpress.CharmURL()
+	c.Assert(*curlStr, gc.DeepEquals, s.wpCharm.URL().String())
 	c.Assert(force, jc.IsFalse)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -938,7 +938,7 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	charmURL, err := s.wordpressUnit.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmURL, gc.NotNil)
-	c.Assert(charmURL.String(), gc.Equals, s.wpCharm.String())
+	c.Assert(*charmURL, gc.Equals, s.wpCharm.String())
 }
 
 func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {

@@ -899,12 +899,15 @@ func (a *Application) setExposed(exposed bool, exposedEndpoints map[string]Expos
 func (a *Application) Charm() (*Charm, bool, error) {
 	// We don't worry about the channel since we aren't interacting
 	// with the charm store here.
-	cURL, force := a.CharmURL()
-	ch, err := a.st.Charm(cURL)
+	curl, err := charm.ParseURL(*a.doc.CharmURL)
 	if err != nil {
 		return nil, false, err
 	}
-	return ch, force, nil
+	ch, err := a.st.Charm(curl)
+	if err != nil {
+		return nil, false, err
+	}
+	return ch, a.doc.ForceCharm, nil
 }
 
 // CharmOrigin returns the origin of a charm associated with a application.
@@ -924,15 +927,11 @@ func (a *Application) CharmModifiedVersion() int {
 	return a.doc.CharmModifiedVersion
 }
 
-// CharmURL returns the application's charm URL, and whether units should upgrade
-// to the charm with that URL even if they are in an error state.
-func (a *Application) CharmURL() (*charm.URL, bool) {
-	cURL, err := charm.ParseURL(*a.doc.CharmURL)
-	if err != nil {
-		// TODO: (hml) change method signature
-		return nil, false
-	}
-	return cURL, a.doc.ForceCharm
+// CharmURL returns a string version of the application's charm URL, and
+// whether units should upgrade to the charm with that URL even if they are
+// in an error state.
+func (a *Application) CharmURL() (*string, bool) {
+	return a.doc.CharmURL, a.doc.ForceCharm
 }
 
 // Channel identifies the charm store channel from which the application's

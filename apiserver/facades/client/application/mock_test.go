@@ -137,9 +137,10 @@ func (m *mockApplication) Charm() (application.Charm, bool, error) {
 	return m.charm, true, nil
 }
 
-func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+func (m *mockApplication) CharmURL() (curl *string, force bool) {
 	m.MethodCall(m, "CharmURL")
-	return m.curl, true
+	str := m.curl.String()
+	return &str, true
 }
 
 func (m *mockApplication) CharmConfig(branchName string) (charm.Settings, error) {

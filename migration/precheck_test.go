@@ -933,12 +933,12 @@ func (a *fakeApp) Life() state.Life {
 	return a.life
 }
 
-func (a *fakeApp) CharmURL() (*charm.URL, bool) {
+func (a *fakeApp) CharmURL() (*string, bool) {
 	url := a.charmURL
 	if url == "" {
 		url = "cs:foo-1"
 	}
-	return charm.MustParseURL(url), false
+	return &url, false
 }
 
 func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {

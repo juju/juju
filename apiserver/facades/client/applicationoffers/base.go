@@ -185,12 +185,15 @@ func (api *BaseAPI) applicationOffersFromModel(
 
 func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
 	curl, _ := app.CharmURL()
+	if curl == nil {
+		return errors.NotValidf("application charm url")
+	}
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	offer.ApplicationName = app.Name()
-	offer.CharmURL = curl.String()
+	offer.CharmURL = *curl
 	for _, oc := range conns {
 		connDetails := params.OfferConnection{
 			SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),

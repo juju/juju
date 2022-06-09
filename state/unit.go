@@ -1562,8 +1562,9 @@ func (u *Unit) charm() (*Charm, error) {
 		if err != nil {
 			return nil, err
 		}
-		cURL, _ = app.CharmURL()
-		if cURL == nil {
+		appCURLStr, _ := app.CharmURL()
+		cURL, err = charm.ParseURL(*appCURLStr)
+		if err != nil {
 			return nil, errors.NotValidf("application charm url")
 		}
 	}
