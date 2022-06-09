@@ -584,7 +584,6 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeDBLock:           a.dbUpgradeComplete,
 			UpgradeStepsLock:        a.upgradeComplete,
 			UpgradeCheckLock:        a.initialUpgradeCheckComplete,
-			OpenController:          a.initController,
 			OpenStatePool:           a.initState,
 			OpenStateForUpgrade:     a.openStateForUpgrade,
 			StartAPIWorkers:         a.startAPIWorkers,
@@ -996,41 +995,6 @@ func mongoDialOptions(
 	}
 	dialOpts.PostDialServer = mongoDialCollector.PostDialServer
 	return dialOpts, nil
-}
-
-func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controller, error) {
-	info, ok := agentConfig.MongoInfo()
-	if !ok {
-		return nil, errors.Errorf("no state info available")
-	}
-
-	// Start MongoDB server and dial.
-	if err := a.ensureMongoServer(agentConfig); err != nil {
-		return nil, err
-	}
-	dialOpts, err := mongoDialOptions(
-		stateWorkerDialOpts,
-		agentConfig,
-		a.mongoDialCollector,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	session, err := mongo.DialWithInfo(*info, dialOpts)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer session.Close()
-
-	ctrl, err := state.OpenController(state.OpenParams{
-		Clock:                  clock.WallClock,
-		ControllerTag:          agentConfig.Controller(),
-		ControllerModelTag:     agentConfig.Model(),
-		MongoSession:           session,
-		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
-		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
-	})
-	return ctrl, errors.Trace(err)
 }
 
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {
