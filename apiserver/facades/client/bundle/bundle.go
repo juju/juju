@@ -701,11 +701,16 @@ func (b *BundleAPI) bundleDataApplications(
 		if result := b.constraints(application.Constraints()); len(result) != 0 {
 			newApplication.Constraints = strings.Join(result, " ")
 		}
-		if len(application.StorageConstraints()) != 0 {
+		if cons := application.StorageConstraints(); len(cons) != 0 {
 			newApplication.Storage = make(map[string]string)
-			for name, constr := range application.StorageConstraints() {
-				newApplication.Storage[name] = fmt.Sprintf("%s,%d,%d",
-					constr.Pool(), constr.Count(), constr.Size())
+			for name, constr := range cons {
+				if newApplication.Storage[name], err = storage.ToString(storage.Constraints{
+					Pool:  constr.Pool(),
+					Size:  constr.Size(),
+					Count: constr.Count(),
+				}); err != nil {
+					return nil, nil, nil, errors.NotValidf("storage %q for %q", name, application.Name())
+				}
 			}
 		}
 
