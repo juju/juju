@@ -2134,7 +2134,7 @@ func (s *FakeStoreStateSuite) assertApplicationsDeployed(c *gc.C, info map[strin
 			deviceConstraints = nil
 		}
 		deployed[app.Name()] = applicationInfo{
-			charm:       curl.String(),
+			charm:       *curl,
 			config:      config,
 			constraints: constr,
 			exposed:     app.IsExposed(),
