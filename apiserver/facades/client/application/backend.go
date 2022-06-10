@@ -127,10 +127,6 @@ type Charm interface {
 	String() string
 }
 
-type CharmMeta interface {
-	ComputedSeries() []string
-}
-
 // Machine defines a subset of the functionality provided by the
 // state.Machine type, as required by the application facade. For
 // details on the methods, see the methods on state.Machine with
