@@ -6,7 +6,6 @@ package charm
 import (
 	"errors"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/utils/v3"
 )
@@ -39,7 +38,10 @@ type Bundle interface {
 type BundleInfo interface {
 
 	// URL returns the charm URL identifying the bundle.
-	URL() *charm.URL
+	//URL() *charm.URL
+
+	// String return the charm URL as a string.
+	String() string
 
 	// ArchiveSha256 returns the hex-encoded SHA-256 digest of the bundle data.
 	ArchiveSha256() (string, error)
@@ -84,15 +86,15 @@ type Logger interface {
 var ErrConflict = errors.New("charm upgrade has conflicts")
 
 // ReadCharmURL reads a charm identity file from the supplied path.
-func ReadCharmURL(path string) (*charm.URL, error) {
+func ReadCharmURL(path string) (string, error) {
 	surl := ""
 	if err := utils.ReadYaml(path, &surl); err != nil {
-		return nil, err
+		return "", err
 	}
-	return charm.ParseURL(surl)
+	return surl, nil
 }
 
 // WriteCharmURL writes a charm identity file into the supplied path.
-func WriteCharmURL(path string, url *charm.URL) error {
-	return utils.WriteYaml(path, url.String())
+func WriteCharmURL(path string, url string) error {
+	return utils.WriteYaml(path, url)
 }

@@ -792,7 +792,7 @@ func (ch *backingCharm) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`charm "%s:%s" updated`, ctx.modelUUID, ctx.id)
 	info := &multiwatcher.CharmInfo{
 		ModelUUID:    ch.ModelUUID,
-		CharmURL:     ch.URL.String(),
+		CharmURL:     *ch.URL,
 		CharmVersion: ch.CharmVersion,
 		Life:         life.Value(ch.Life.String()),
 	}

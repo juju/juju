@@ -3349,6 +3349,9 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	charm1 := s.AddTestingCharm(c, "wordpress")
 	charm2, err := s.State.Charm(charm1.URL())
 	c.Assert(err, jc.ErrorIsNil)
+	// Refresh is required to set the charmURL, so the test will succeed.
+	err = charm2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm1, jc.DeepEquals, charm2)
 
 	wordpress1 := s.AddTestingApplication(c, "wordpress", charm1)

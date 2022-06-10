@@ -232,9 +232,9 @@ type mockReadCharm struct {
 	testing.Stub
 }
 
-func (m *mockReadCharm) ReadCharm(unitTag names.UnitTag, paths context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+func (m *mockReadCharm) ReadCharm(unitTag names.UnitTag, paths context.Paths) (string, map[string]corecharm.Metric, error) {
 	m.MethodCall(m, "ReadCharm", unitTag, paths)
-	return corecharm.MustParseURL("local:trusty/metered-1"),
+	return "local:trusty/metered-1",
 		map[string]corecharm.Metric{
 			"pings":      {Description: "test metric", Type: corecharm.MetricTypeAbsolute},
 			"juju-units": {},
