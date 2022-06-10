@@ -6,33 +6,56 @@ package cloud_test
 import (
 	"io/ioutil"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/cmd/juju/cloud/mocks"
+	"github.com/juju/juju/environs"
+	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
+// This is required since our test provider needs to have the capabilty to
+// provider built-in clouds. To do so, it must implement the optional interface
+// CloudDetector as well as CloudEnvironProvider from environs
+type mockBuiltinEnvironProvider struct {
+	*environmocks.MockCloudEnvironProvider
+	*environmocks.MockCloudDetector
+}
+
 type removeSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api   *fakeRemoveCloudAPI
 	store *jujuclient.MemStore
+
+	api          *mocks.MockRemoveCloudAPI
+	testProvider *mockBuiltinEnvironProvider
 }
 
 var _ = gc.Suite(&removeSuite{})
 
 func (s *removeSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.api = &fakeRemoveCloudAPI{}
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "mycontroller"
 	s.store = store
+}
+
+func (s *removeSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.api = mocks.NewMockRemoveCloudAPI(ctrl)
+	s.testProvider = &mockBuiltinEnvironProvider{
+		environmocks.NewMockCloudEnvironProvider(ctrl),
+		environmocks.NewMockCloudDetector(ctrl),
+	}
+	return ctrl
 }
 
 func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
@@ -75,6 +98,8 @@ clouds:
 }
 
 func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
 		func() (cloud.RemoveCloudAPI, error) {
@@ -90,6 +115,8 @@ func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 }
 
 func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.store.Controllers = nil
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
@@ -107,32 +134,42 @@ func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
 }
 
 func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
 		func() (cloud.RemoveCloudAPI, error) {
 			return s.api, nil
 		})
 	s.createTestCloudData(c)
+
+	s.api.EXPECT().RemoveCloud("homestack").Return(nil)
+	s.api.EXPECT().Close().Return(nil)
 	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "-c", "mycontroller")
+
 	c.Assert(err, jc.ErrorIsNil)
 	assertPersonalClouds(c, "homestack", "homestack2")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
-	s.api.CheckCallNames(c, "RemoveCloud", "Close")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 
 func (s *removeSuite) TestRemoveCloudBoth(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
 		func() (cloud.RemoveCloudAPI, error) {
 			return s.api, nil
 		})
 	s.createTestCloudData(c)
+
+	s.api.EXPECT().RemoveCloud("homestack").Return(nil)
+	s.api.EXPECT().Close().Return(nil)
 	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "-c", "mycontroller", "--client")
+
 	c.Assert(err, jc.ErrorIsNil)
 	assertPersonalClouds(c, "homestack2")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
-	s.api.CheckCallNames(c, "RemoveCloud", "Close")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
 		"Removed details of cloud \"homestack\" from this client\n"+
 			"Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
@@ -145,6 +182,20 @@ func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No cloud called \"prodstack\" exists on this client\n")
 }
 
+func (s *removeSuite) TestCannotRemoveBuiltinCloud(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.createTestCloudData(c)
+	unregister := environs.RegisterProvider("test", s.testProvider)
+	defer unregister()
+
+	s.testProvider.MockCloudDetector.EXPECT().DetectClouds().Return([]jujucloud.Cloud{{Name: "foo-builtin"}}, nil)
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "foo-builtin", "--client")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove built-in cloud \"foo-builtin\"\n")
+}
+
 func assertPersonalClouds(c *gc.C, names ...string) {
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,18 +204,4 @@ func assertPersonalClouds(c *gc.C, names ...string) {
 		actual = append(actual, name)
 	}
 	c.Assert(actual, jc.SameContents, names)
-}
-
-type fakeRemoveCloudAPI struct {
-	jujutesting.Stub
-}
-
-func (api *fakeRemoveCloudAPI) Close() error {
-	api.AddCall("Close", nil)
-	return api.NextErr()
-}
-
-func (api *fakeRemoveCloudAPI) RemoveCloud(cloud string) error {
-	api.AddCall("RemoveCloud", cloud)
-	return api.NextErr()
 }

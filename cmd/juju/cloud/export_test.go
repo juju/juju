@@ -23,7 +23,6 @@ type (
 	AddCredentialCommand = addCredentialCommand
 	UpdateCloudAPI       = updateCloudAPI
 	ShowCloudAPI         = showCloudAPI
-	RemoveCloudAPI       = removeCloudAPI
 )
 
 var (
@@ -62,7 +61,7 @@ func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (s
 	}
 }
 
-func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (removeCloudAPI, error)) *removeCloudCommand {
+func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (RemoveCloudAPI, error)) *removeCloudCommand {
 	return &removeCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		removeCloudAPIFunc:        cloudAPI,
