@@ -21,28 +21,8 @@ const (
 	emptyArray = "[]"
 )
 
-// Colors holds Color for each of the JSON data types.
-type Colors struct {
-	// Null is the Color for JSON nil.
-	Null *ansiterm.Context
-	// Bool is the Color for boolean values.
-	Bool *ansiterm.Context
-	// Number is the Color for number values.
-	Number *ansiterm.Context
-	// String is the Color for string values.
-	String *ansiterm.Context
-	// Key is the Color for JSON keys.
-	Key *ansiterm.Context
-	//KeyValSep separates key from values.
-	KeyValSep *ansiterm.Context
-	//InitialDepth used as multiplier for the number of spaces to be used for indentation.
-	InitialDepth int
-	// RawStrings enable parsing as json raw strings
-	RawStrings bool
-}
-
-// Formatter is a custom formatter that is used to custom format parsed input.
-type Formatter struct {
+// JSONFormatter is a custom formatter that is used to custom format parsed input.
+type JSONFormatter struct {
 	// Colors a list of colors that the formatter uses for writing output.
 	Colors
 	// Number of spaces before the first string is printed.
@@ -51,12 +31,16 @@ type Formatter struct {
 	writer *ansiterm.Writer
 	// buff is the internal buffer used by writer to write out ansi-color formatted strings.
 	buff *bytes.Buffer
+	//InitialDepth used as multiplier for the number of spaces to be used for indentation.
+	InitialDepth int
+	// RawStrings enable parsing as json raw strings
+	RawStrings bool
 }
 
 // NewFormatter instantiates a new formatter with default options.
-func NewFormatter() *Formatter {
+func NewFormatter() *JSONFormatter {
 	buff, writer := bufferedWriter()
-	return &Formatter{
+	return &JSONFormatter{
 		Colors: Colors{
 			Null:      ansiterm.Foreground(ansiterm.Magenta),
 			Key:       ansiterm.Foreground(ansiterm.BrightCyan).SetStyle(ansiterm.Bold),
@@ -82,23 +66,23 @@ func marshal(jsonObj interface{}) ([]byte, error) {
 	return NewFormatter().Marshal(jsonObj)
 }
 
-func (f *Formatter) writeIndent(buf *bytes.Buffer, depth int) {
+func (f *JSONFormatter) writeIndent(buf *bytes.Buffer, depth int) {
 	buf.WriteString(strings.Repeat(" ", f.Indent*depth))
 }
 
-func (f *Formatter) writeObjSep(buf *bytes.Buffer) {
+func (f *JSONFormatter) writeObjSep(buf *bytes.Buffer) {
 	if f.Indent != 0 {
 		buf.WriteByte('\n')
 	}
 }
 
-func (f *Formatter) Marshal(jsonObj interface{}) ([]byte, error) {
+func (f *JSONFormatter) Marshal(jsonObj interface{}) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	f.marshalValue(jsonObj, &buffer, f.InitialDepth)
 	return buffer.Bytes(), nil
 }
 
-func (f *Formatter) marshalString(str string, buf *bytes.Buffer) {
+func (f *JSONFormatter) marshalString(str string, buf *bytes.Buffer) {
 	if !f.RawStrings {
 		strBytes, _ := json.Marshal(str)
 		str = string(strBytes)
@@ -109,7 +93,7 @@ func (f *Formatter) marshalString(str string, buf *bytes.Buffer) {
 	f.buff.Reset()
 }
 
-func (f *Formatter) marshalMap(m map[string]interface{}, buf *bytes.Buffer, depth int) {
+func (f *JSONFormatter) marshalMap(m map[string]interface{}, buf *bytes.Buffer, depth int) {
 	remaining := len(m)
 
 	if remaining == 0 {
@@ -147,7 +131,7 @@ func (f *Formatter) marshalMap(m map[string]interface{}, buf *bytes.Buffer, dept
 	buf.WriteString(endMap)
 }
 
-func (f *Formatter) marshalArray(a []interface{}, buf *bytes.Buffer, depth int) {
+func (f *JSONFormatter) marshalArray(a []interface{}, buf *bytes.Buffer, depth int) {
 	if len(a) == 0 {
 		buf.WriteString(emptyArray)
 		return
@@ -168,7 +152,7 @@ func (f *Formatter) marshalArray(a []interface{}, buf *bytes.Buffer, depth int) 
 	buf.WriteString(endArray)
 }
 
-func (f *Formatter) marshalValue(val interface{}, buf *bytes.Buffer, depth int) {
+func (f *JSONFormatter) marshalValue(val interface{}, buf *bytes.Buffer, depth int) {
 	switch v := val.(type) {
 	case map[string]interface{}:
 		f.marshalMap(v, buf, depth)
