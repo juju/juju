@@ -31,7 +31,7 @@ type JSONFormatter struct {
 	writer *ansiterm.Writer
 	// buff is the internal buffer used by writer to write out ansi-color formatted strings.
 	buff *bytes.Buffer
-	//InitialDepth used as multiplier for the number of spaces to be used for indentation.
+	// InitialDepth used as multiplier for the number of spaces to be used for indentation.
 	InitialDepth int
 	// RawStrings enable parsing as json raw strings
 	RawStrings bool
