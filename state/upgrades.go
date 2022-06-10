@@ -25,7 +25,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
@@ -522,7 +521,8 @@ func updateLegacyKubernetesCloudsOps(st *State) ([]txn.Op, error) {
 		if c.Type != "kubernetes" {
 			continue
 		}
-		set := bson.D{{"auth-types", k8scloud.SupportedNonLegacyAuthTypes()}}
+		//set := bson.D{{"auth-types", k8scloud.SupportedNonLegacyAuthTypes()}}
+		set := bson.D{{"auth-types", upgrade.SupportedNonLegacyAuthTypes()}}
 		ops = append(ops, txn.Op{
 			C:      cloudsC,
 			Id:     c.Name,
@@ -617,7 +617,7 @@ func updateLegacyKubernetesCredentialsOps(st *State, cloudName string) ([]txn.Op
 			credDoc.Revoked,
 		)
 
-		updatedCred, err := k8scloud.MigrateLegacyCredential(&cloudCredential)
+		updatedCred, err := upgrade.MigrateLegacyCredential(&cloudCredential)
 		if errors.IsNotSupported(err) {
 			continue
 		} else if err != nil {
