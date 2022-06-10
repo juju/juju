@@ -76,6 +76,8 @@ func (f *JSONFormatter) writeObjSep(buf *bytes.Buffer) {
 	}
 }
 
+// Marshal traverses the value jsonObj recursively, encoding each field and appending it
+// with ansi escape sequence for colored output.
 func (f *JSONFormatter) Marshal(jsonObj interface{}) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	f.marshalValue(jsonObj, &buffer, f.InitialDepth)
