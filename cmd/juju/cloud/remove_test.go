@@ -79,7 +79,21 @@ clouds:
   prodstack:
     type: openstack
     auth-types: [userpass, access-key]
-    endpoint: http://homestack
+    endpoint: http://prodstack
+  prodstack2:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://prodstack2
+`[1:]), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ioutil.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(`
+credentials:
+  prodstack2:
+    cred-name:
+      auth-type: userpass
+      username: user
+      password: pass
 `[1:]), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -179,7 +193,15 @@ func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	s.createTestCloudData(c)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No cloud called \"prodstack\" exists on this client\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack\"\n")
+}
+
+func (s *removeSuite) TestCannotRemovePublicCloudWithCredentials(c *gc.C) {
+	s.createTestCloudData(c)
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack2", "--client")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack2\"\n"+
+		"To hide this cloud, remove it's credentials with `juju remove-credential`\n")
 }
 
 func (s *removeSuite) TestCannotRemoveBuiltinCloud(c *gc.C) {
