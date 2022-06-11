@@ -5,8 +5,6 @@ package provider_test
 
 import (
 	"fmt"
-	"runtime"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
@@ -18,7 +16,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )
@@ -31,50 +28,50 @@ var microk8sStatusEnabled = `
 microk8s:
   running: true
 addons:
-  jaeger: disabled
-  fluentd: disabled
-  gpu: disabled
-  storage: enabled
-  registry: disabled
-  ingress: disabled
-  dns: enabled
-  metrics-server: disabled
-  prometheus: disabled
-  istio: disabled
-  dashboard: disabled
+  - name: storage
+    status: enabled
+  - name: dns
+    status: enabled
+`
+
+var microk8sStatusNewEnabled = `
+microk8s:
+  running: true
+addons:
+  - name: hostpath-storage
+    status: enabled
+  - name: dns
+    status: enabled
 `
 
 var microk8sStatusStorageDisabled = `
 microk8s:
   running: true
 addons:
-  jaeger: disabled
-  fluentd: disabled
-  gpu: disabled
-  storage: disabled
-  registry: disabled
-  ingress: disabled
-  dns: enabled
-  metrics-server: disabled
-  prometheus: disabled
-  istio: disabled
-  dashboard: disabled
+  - name: storage
+    status: disabled
+  - name: dns
+    status: enabled
 `
+
+var microk8sStatusStorageNewDisabled = `
+microk8s:
+  running: true
+addons:
+  - name: hostpath-storage
+    status: disabled
+  - name: dns
+    status: enabled
+`
+
 var microk8sStatusDNSDisabled = `
 microk8s:
   running: true
 addons:
-  jaeger: disabled
-  fluentd: disabled
-  gpu: disabled
-  storage: enabled
-  registry: disabled
-  ingress: disabled
-  dns: disabled
-  metrics-server: disabled
-  prometheus: disabled
-  istio: disabled
-  dashboard: disabled
+  - name: storage
+    status: enabled
+  - name: dns
+    status: disabled
 `
 
 type cloudSuite struct {
@@ -85,8 +82,8 @@ type cloudSuite struct {
 var defaultK8sCloud = jujucloud.Cloud{
 	Name:           caas.K8sCloudMicrok8s,
 	Endpoint:       "http://1.1.1.1:8080",
-	Type:           cloud.CloudTypeCAAS,
-	AuthTypes:      []cloud.AuthType{cloud.UserPassAuthType},
+	Type:           jujucloud.CloudTypeCAAS,
+	AuthTypes:      []jujucloud.AuthType{jujucloud.UserPassAuthType},
 	CACertificates: []string{""},
 	SkipTLSVerify:  true,
 }
@@ -97,8 +94,8 @@ var defaultClusterMetadata = &caas.ClusterMetadata{
 	OperatorStorageClass: &caas.StorageProvisioner{Name: "operator-sc"},
 }
 
-func getDefaultCredential() cloud.Credential {
-	defaultCredential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "admin", "password": ""})
+func getDefaultCredential() jujucloud.Credential {
+	defaultCredential := jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{"username": "admin", "password": ""})
 	defaultCredential.Label = "kubernetes credential \"admin\""
 	return defaultCredential
 }
@@ -112,15 +109,9 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
 
 	var ctx mockContext
@@ -154,15 +145,9 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
 
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
 
 	var ctx mockContext
@@ -193,59 +178,43 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
 	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
+func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccessNew(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusNewEnabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), jc.ErrorIsNil)
+}
+
+func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
+	s.runner.Call(
+		"RunCommands",
+		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusStorageDisabled)}, nil)
 	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable storage'`)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
+func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNewDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
-		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable dns'`)
+		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusStorageNewDisabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable storage'`)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableNotInGroup(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("no need to check user group setup for windows")
-	}
+func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-		&exec.ExecResponse{Code: 1}, nil)
-	err := provider.EnsureMicroK8sSuitable(s.runner)
-	c.Assert(err, gc.NotNil)
-	c.Assert(strings.Replace(err.Error(), "\n", "", -1),
-		gc.Matches, `The microk8s user group is created during the microk8s snap installation.*`)
+		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --format yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable dns'`)
 }
 
 type mockContext struct {
