@@ -5,6 +5,9 @@ package provider_test
 
 import (
 	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -12,7 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -101,51 +104,34 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 
 func (s *builtinSuite) TestGetLocalMicroK8sConfigNotInstalled(c *gc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", errors.NotFoundf("microk8s"))
-	result, err := provider.GetLocalMicroK8sConfig(s.runner)
+	result, err := provider.GetLocalMicroK8sConfig(s.runner, func() (string, error) { return "", nil })
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(result, gc.HasLen, 0)
 }
 
-func (s *builtinSuite) TestGetLocalMicroK8sConfigCallFails(c *gc.C) {
+func (s *builtinSuite) TestGetLocalMicroK8sConfigFileDoesNotExists(c *gc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", nil)
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 1, Stderr: []byte("cannot find config")}, nil)
-	result, err := provider.GetLocalMicroK8sConfig(s.runner)
-	c.Assert(err, gc.ErrorMatches, `cannot find config`)
+	result, err := provider.GetLocalMicroK8sConfig(s.runner, func() (string, error) { return "non-exist-dir", nil })
+	c.Assert(err, gc.ErrorMatches, `"non-exist-dir" does not exist: juju ".*" can only work with strictly confined microk8s`)
 	c.Assert(result, gc.HasLen, 0)
 }
 
-func (s *builtinSuite) TestGetLocalMicroK8sConfigNotRunning(c *gc.C) {
-	s.runner.Call("LookPath", "microk8s").Returns("", nil)
-	s.runner.Call("LookPath", "microk8s").Returns("", nil)
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte("microk8s is not running")}, nil)
-	result, err := provider.GetLocalMicroK8sConfig(s.runner)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(string(result), gc.Equals, "")
-}
-
-func (s *builtinSuite) TestGetLocalMicroK8sConfig(c *gc.C) {
-	s.runner.Call("LookPath", "microk8s").Returns("", nil)
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte("a bunch of config")}, nil)
-
-	result, err := provider.GetLocalMicroK8sConfig(s.runner)
+func (s *builtinSuite) prepareKubeConfigFile(c *gc.C, content string) string {
+	dir := c.MkDir()
+	fileDir := filepath.Join(dir, "microk8s", "credentials")
+	os.MkdirAll(fileDir, os.ModePerm)
+	path := filepath.Join(fileDir, "client.config")
+	err := ioutil.WriteFile(path, []byte(content), 0660)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(result), gc.Equals, "a bunch of config")
+	return path
 }
 
 func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", nil)
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s config"}).Returns(&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sConfig)}, nil)
+	kubeconfigFile := s.prepareKubeConfigFile(c, microk8sConfig)
 
-	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner)
+	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner, func() (string, error) { return kubeconfigFile, nil })
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{
 		Name:     k8s.K8sCloudMicrok8s,
@@ -168,7 +154,25 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 
 func (s *builtinSuite) TestAttemptMicroK8sCloudErrors(c *gc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", errors.NotFoundf("microk8s"))
-	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner)
+	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner, func() (string, error) { return "", nil })
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{})
+}
+
+func (s *builtinSuite) assertDecideKubeConfigDir(c *gc.C, isOfficial bool, clientConfigPath string) {
+	s.PatchValue(&provider.CheckJujuOfficial, func(string) (version.Binary, bool, error) {
+		return version.Binary{}, isOfficial, nil
+	})
+	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
+	p, err := provider.DecideKubeConfigDir()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(p, gc.DeepEquals, clientConfigPath)
+}
+
+func (s *builtinSuite) TestDecideKubeConfigDirOfficial(c *gc.C) {
+	s.assertDecideKubeConfigDir(c, true, `snap-data-dir/microk8s/credentials/client.config`)
+}
+
+func (s *builtinSuite) TestDecideKubeConfigDirLocalBuild(c *gc.C) {
+	s.assertDecideKubeConfigDir(c, false, `/var/snap/microk8s/current/credentials/client.config`)
 }
