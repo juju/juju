@@ -100,7 +100,6 @@ clouds:                           # mandatory
 
 <cloud types> for public clouds:
  - azure
- - cloudsigma
  - ec2
  - gce
  - oci
