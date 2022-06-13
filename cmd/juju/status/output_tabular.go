@@ -6,6 +6,7 @@ package status
 import (
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -44,6 +45,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
+
+	// NO_COLOR; regardless of its value,is required by ansiterm to enable
+	// toggling color capability on or off
+	os.Setenv("NO_COLOR", "")
 
 	// To format things into columns.
 	tw := output.TabWriter(writer)
