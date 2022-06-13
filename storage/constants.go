@@ -18,4 +18,8 @@ const (
 	K8sStorageProvisioner = "storage-provisioner"
 	K8sStorageMedium      = "storage-medium"
 	K8sStorageMode        = "storage-mode"
+	K8sWorkloadStorageKey = "workload-storage"
+	// OperatorStorageKey is the model config attribute used to specify
+	// the storage class for provisioning operator storage.
+	K8sOperatorStorageKey = "operator-storage"
 )

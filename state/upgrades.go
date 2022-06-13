@@ -25,8 +25,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -40,6 +38,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/upgrade"
+	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/tools"
 )
@@ -568,7 +567,7 @@ func KubernetesInClusterCredentialSpec(
 			errors.Annotate(err, "fetching controller cloud spec")
 	}
 
-	if cloudSpec.Type != k8sconstants.CAASProviderType {
+	if cloudSpec.Type != CAASProviderType {
 		return cloudSpec, nil, "",
 			errors.NotFoundf("controller not in a Kubernetes cloud")
 	}
@@ -2068,7 +2067,7 @@ func updateKubernetesStorageConfig(st *State) error {
 	if err != nil {
 		return errors.Annotate(err, "getting cloud config")
 	}
-	operatorStorage, haveDefaultOperatorStorage := defaults[k8sconstants.OperatorStorageKey]
+	operatorStorage, haveDefaultOperatorStorage := defaults[jujustorage.K8sOperatorStorageKey]
 	if !haveDefaultOperatorStorage {
 		cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
 		if err != nil {
@@ -2093,8 +2092,8 @@ func updateKubernetesStorageConfig(st *State) error {
 		}
 		operatorStorage = metadata.NominatedStorageClass.Name
 		err = st.updateConfigDefaults(model.CloudName(), cloud.Attrs{
-			k8sconstants.OperatorStorageKey: operatorStorage,
-			k8sconstants.WorkloadStorageKey: operatorStorage, // use same storage for both
+			jujustorage.K8sOperatorStorageKey: operatorStorage,
+			jujustorage.K8sWorkloadStorageKey: operatorStorage, // use same storage for both
 		}, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -2102,12 +2101,11 @@ func updateKubernetesStorageConfig(st *State) error {
 	}
 
 	attrs := make(map[string]interface{})
-	if _, ok := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]; !ok {
-		attrs[k8sconstants.OperatorStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[jujustorage.K8sOperatorStorageKey]; !ok {
+		attrs[jujustorage.K8sOperatorStorageKey] = operatorStorage
 	}
-	if _, ok := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey]; !ok {
-		attrs[k8sconstants.WorkloadStorageKey] = operatorStorage
-
+	if _, ok := cfg.AllAttrs()[jujustorage.K8sWorkloadStorageKey]; !ok {
+		attrs[jujustorage.K8sWorkloadStorageKey] = operatorStorage
 	}
 
 	if len(attrs) == 0 {
@@ -3697,7 +3695,7 @@ func TranslateK8sServiceTypes(pool *StatePool) error {
 	defer iter.Close()
 	var doc settingsDoc
 	for iter.Next(&doc) {
-		serviceTypeVal := doc.Settings[k8sprovider.ServiceTypeConfigKey]
+		serviceTypeVal := doc.Settings[K8sServiceTypeConfigKey]
 		serviceType, ok := serviceTypeVal.(string)
 		if !ok {
 			continue
@@ -3712,7 +3710,7 @@ func TranslateK8sServiceTypes(pool *StatePool) error {
 		default:
 			continue
 		}
-		doc.Settings[k8sprovider.ServiceTypeConfigKey] = serviceType
+		doc.Settings[K8sServiceTypeConfigKey] = serviceType
 		ops = append(ops, txn.Op{
 			C:      settingsC,
 			Id:     doc.DocID,

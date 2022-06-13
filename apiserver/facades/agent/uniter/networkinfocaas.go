@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -114,7 +113,7 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 	}
 
 	var pollAddr bool
-	svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
+	svcType := cfg.GetString(state.K8sServiceTypeConfigKey, "")
 	switch caas.ServiceType(svcType) {
 	case caas.ServiceLoadBalancer, caas.ServiceExternal:
 		pollAddr = true
