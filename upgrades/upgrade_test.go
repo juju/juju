@@ -607,70 +607,16 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 
 func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{
-		"2.0.0",
-		"2.1.0",
-		"2.2.0",
-		"2.2.1",
-		"2.2.2",
-		"2.2.3",
-		"2.3.0",
-		"2.3.1",
-		"2.3.2",
-		"2.3.4",
-		"2.3.6",
-		"2.3.7",
-		"2.4.0",
-		"2.5.0",
-		"2.5.3",
-		"2.5.4",
-		"2.6.0",
-		"2.6.3",
-		"2.6.5",
-		"2.7.0",
-		"2.7.7",
-		"2.8.0",
-		"2.8.1",
-		"2.8.2",
-		"2.8.6",
-		"2.8.9",
-		"2.9.0",
-		"2.9.5",
-		"2.9.6",
-		"2.9.9",
-		"2.9.10",
-		"2.9.12",
-		"2.9.15",
-		"2.9.17",
-		"2.9.19",
-		"2.9.20",
-		"2.9.22",
-		"2.9.24",
-		"2.9.26",
-		"2.9.29",
-		"2.9.30",
-		"2.9.32",
-	})
+	c.Assert(versions, gc.DeepEquals, []string{})
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{
-		"2.0.0",
-		"2.2.0",
-		"2.4.0",
-		"2.4.5",
-		"2.6.3",
-		"2.7.0",
-		"2.7.2",
-		"2.7.6",
-		"2.8.0",
-		"2.9.0",
-	})
+	c.Assert(versions, gc.DeepEquals, []string{})
 }
 
 func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {
-	var versions []string
+	var versions []string = make([]string, 0)
 	for _, utv := range ops {
 		vers := utv.TargetVersion()
 		// Upgrade steps should only be targeted at final versions (not alpha/beta).
