@@ -10,22 +10,16 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ControllerConfigAPI implements two common methods for use by various
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
-	st state.ControllerAccessor
+	st ControllerConfigState
 }
 
 // NewStateControllerConfig returns a new NewControllerConfigAPI.
-func NewStateControllerConfig(st *state.State) *ControllerConfigAPI {
-	return NewControllerConfig(&controllerStateShim{st})
-}
-
-// NewControllerConfig returns a new NewControllerConfigAPI.
-func NewControllerConfig(st state.ControllerAccessor) *ControllerConfigAPI {
+func NewStateControllerConfig(st ControllerConfigState) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
 		st: st,
 	}
@@ -47,44 +41,48 @@ func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (
 	var result params.ControllerAPIInfoResults
 	result.Results = make([]params.ControllerAPIInfoResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		modelTag, err := names.ParseModelTag(entity.Tag)
+		info, err := s.getModelControllerInfo(entity)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		addrs, caCert, err := s.st.ControllerInfo(modelTag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result.Results[i].Addresses = addrs
-		result.Results[i].CACert = caCert
+		result.Results[i] = info
 	}
 	return result, nil
 }
 
-type controllerStateShim struct {
-	*state.State
-}
-
-// ControllerInfo returns the external controller details for the specified model.
-func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, CACert string, _ error) {
-	// First see if the requested model UUID is hosted by this controller.
-	modelExists, err := s.State.ModelExists(modelUUID)
+// GetModelControllerInfo returns the external controller details for the specified model.
+func (s *ControllerConfigAPI) getModelControllerInfo(model params.Entity) (params.ControllerAPIInfoResult, error) {
+	modelTag, err := names.ParseModelTag(model.Tag)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return params.ControllerAPIInfoResult{}, errors.Trace(err)
+	}
+	// First see if the requested model UUID is hosted by this controller.
+	modelExists, err := s.st.ModelExists(modelTag.Id())
+	if err != nil {
+		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 	if modelExists {
-		return StateControllerInfo(s.State)
+		addrs, caCert, err := StateControllerInfo(s.st)
+		if err != nil {
+			return params.ControllerAPIInfoResult{}, errors.Trace(err)
+		}
+		return params.ControllerAPIInfoResult{
+			Addresses: addrs,
+			CACert:    caCert,
+		}, nil
 	}
 
-	ec := state.NewExternalControllers(s.State)
-	ctrl, err := ec.ControllerForModel(modelUUID)
+	ec := s.st.NewExternalControllers()
+	ctrl, err := ec.ControllerForModel(modelTag.Id())
 	if err == nil {
-		return ctrl.ControllerInfo().Addrs, ctrl.ControllerInfo().CACert, nil
+		return params.ControllerAPIInfoResult{
+			Addresses: ctrl.ControllerInfo().Addrs,
+			CACert:    ctrl.ControllerInfo().CACert,
+		}, nil
 	}
 	if !errors.IsNotFound(err) {
-		return nil, "", errors.Trace(err)
+		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 
 	// The model may have been migrated from this controller to another.
@@ -93,13 +91,13 @@ func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, 
 	// on the same controller as migrated model, but not for consumers on other
 	// controllers.
 	// They will have to follow redirects and update their own relation data.
-	mig, err := s.State.CompletedMigrationForModel(modelUUID)
+	mig, err := s.st.CompletedMigrationForModel(modelTag.Id())
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 	target, err := mig.TargetInfo()
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 
 	logger.Debugf("found migrated model on another controller, saving the information")
@@ -108,15 +106,18 @@ func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, 
 		Alias:         target.ControllerAlias,
 		Addrs:         target.Addrs,
 		CACert:        target.CACert,
-	}, modelUUID)
+	}, modelTag.Id())
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
-	return target.Addrs, target.CACert, nil
+	return params.ControllerAPIInfoResult{
+		Addresses: target.Addrs,
+		CACert:    target.CACert,
+	}, nil
 }
 
 // StateControllerInfo returns the local controller details for the given State.
-func StateControllerInfo(st *state.State) (addrs []string, caCert string, _ error) {
+func StateControllerInfo(st controllerInfoState) (addrs []string, caCert string, _ error) {
 	addr, err := apiAddresses(st)
 	if err != nil {
 		return nil, "", errors.Trace(err)

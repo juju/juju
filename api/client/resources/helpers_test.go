@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	"strings"
@@ -14,9 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -32,7 +31,7 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
-	res := resource.Resource{
+	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -53,7 +52,7 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	apiRes := api.Resource2API(res)
+	apiRes := Resource2API(res)
 
 	c.Check(apiRes, jc.DeepEquals, params.Resource{
 		CharmResource: params.CharmResource{
@@ -78,7 +77,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
-	expected := resource.Resource{
+	expected := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -100,7 +99,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitExpected := resource.Resource{
+	unitExpected := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "unitspam",
@@ -185,7 +184,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 		Size:        11,
 	}
 
-	resources, err := api.APIResult2ApplicationResources(params.ResourcesResult{
+	res, err := apiResult2ApplicationResources(params.ResourcesResult{
 		Resources: []params.Resource{
 			apiRes,
 		},
@@ -208,17 +207,17 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceResource := resource.ApplicationResources{
-		Resources: []resource.Resource{
+	serviceResource := resources.ApplicationResources{
+		Resources: []resources.Resource{
 			expected,
 		},
 		CharmStoreResources: []charmresource.Resource{
 			chExpected,
 		},
-		UnitResources: []resource.UnitResources{
+		UnitResources: []resources.UnitResources{
 			{
 				Tag: names.NewUnitTag("foo/0"),
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					unitExpected,
 				},
 				DownloadProgress: map[string]int64{
@@ -228,14 +227,14 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 		},
 	}
 
-	c.Check(resources, jc.DeepEquals, serviceResource)
+	c.Check(res, jc.DeepEquals, serviceResource)
 }
 
 func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
-	expected := resource.Resource{
+	expected := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -257,7 +256,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitExpected := resource.Resource{
+	unitExpected := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "unitspam",
@@ -315,7 +314,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 		Timestamp:     now,
 	}
 
-	_, err = api.APIResult2ApplicationResources(params.ResourcesResult{
+	_, err = apiResult2ApplicationResources(params.ResourcesResult{
 		Resources: []params.Resource{
 			apiRes,
 		},
@@ -349,7 +348,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesFailure(c *gc.C) {
 	}
 	failure := errors.New("<failure>")
 
-	_, err := api.APIResult2ApplicationResources(params.ResourcesResult{
+	_, err := apiResult2ApplicationResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: failure.Error(),
@@ -379,7 +378,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	_, err := api.APIResult2ApplicationResources(params.ResourcesResult{
+	_, err := apiResult2ApplicationResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: `application "a-application" not found`,
@@ -396,7 +395,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 
 func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 	now := time.Now()
-	res, err := api.API2Resource(params.Resource{
+	res, err := API2Resource(params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
@@ -417,7 +416,7 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
-	expected := resource.Resource{
+	expected := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -459,7 +458,7 @@ func (HelpersSuite) TestCharmResource2API(c *gc.C) {
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	apiInfo := api.CharmResource2API(res)
+	apiInfo := CharmResource2API(res)
 
 	c.Check(apiInfo, jc.DeepEquals, params.CharmResource{
 		Name:        "spam",
@@ -474,7 +473,7 @@ func (HelpersSuite) TestCharmResource2API(c *gc.C) {
 }
 
 func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
-	res, err := api.API2CharmResource(params.CharmResource{
+	res, err := API2CharmResource(params.CharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
@@ -518,15 +517,15 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 	chres1.Revision++
 	chres2.Revision++
 
-	svcRes := resource.ApplicationResources{
-		Resources: []resource.Resource{
+	svcRes := resources.ApplicationResources{
+		Resources: []resources.Resource{
 			res1,
 			res2,
 		},
-		UnitResources: []resource.UnitResources{
+		UnitResources: []resources.UnitResources{
 			{
 				Tag: tag0,
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					res1,
 					res2,
 				},
@@ -544,13 +543,13 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 		},
 	}
 
-	result := api.ApplicationResources2APIResult(svcRes)
+	result := ApplicationResources2APIResult(svcRes)
 
-	apiRes1 := api.Resource2API(res1)
-	apiRes2 := api.Resource2API(res2)
+	apiRes1 := Resource2API(res1)
+	apiRes2 := Resource2API(res2)
 
-	apiChRes1 := api.CharmResource2API(chres1)
-	apiChRes2 := api.CharmResource2API(chres2)
+	apiChRes1 := CharmResource2API(chres1)
+	apiChRes2 := CharmResource2API(chres2)
 
 	c.Check(result, jc.DeepEquals, params.ResourcesResult{
 		Resources: []params.Resource{

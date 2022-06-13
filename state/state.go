@@ -1333,11 +1333,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		if len(args.Resources) > 0 {
 			// Collect pending resource resolution operations.
-			resources, err := st.Resources()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+			resources := st.resources()
+			resOps, err := resources.resolveApplicationPendingResourcesOps(args.Name, args.Resources)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1616,7 +1613,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	return results, nil
 }
 
-// UnitAssignments returns all staged unit assignments in the model.
+// AllUnitAssignments returns all staged unit assignments in the model.
 func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 	return st.unitAssignments(nil)
 }

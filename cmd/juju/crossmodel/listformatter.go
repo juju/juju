@@ -101,7 +101,7 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 	}
 	sort.Sort(allOffers)
 
-	w.Println("Offer", "User", "Relation id", "Status", "Endpoint", "Interface", "Role", "Ingress subnets")
+	w.Println("Offer", "User", "Relation ID", "Status", "Endpoint", "Interface", "Role", "Ingress subnets")
 	for _, offer := range allOffers {
 		// Sort endpoints alphabetically.
 		endpoints := []string{}

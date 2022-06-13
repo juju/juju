@@ -446,7 +446,7 @@ even with potentially orphaned cloud resources.
 The following errors were encountered during destroying the model.
 You can fix the problem causing the errors and run destroy-model again.
 
-Resource    Id  Message
+Resource    ID  Message
 Filesystem  0   failed to destroy filesystem 0
             1   failed to destroy filesystem 1
 Volume      0   failed to destroy volume 0

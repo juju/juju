@@ -8,9 +8,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.apiserver.payloadshookcontext")
 
 // NewHookContextFacade returns a new payloads hook context facade for
 // the State and Unit given. It is used for facade registration.
-func NewHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+func NewHookContextFacade(st *state.State, unit *state.Unit) (*UnitFacade, error) {
 	up, err := st.UnitPayloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -30,12 +30,12 @@ func NewHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error
 // UnitPayloadBackend exposes the State functionality for a unit's payloads.
 type UnitPayloadBackend interface {
 	// Track tracks a payload for the unit and info.
-	Track(info payload.Payload) error
+	Track(info payloads.Payload) error
 
 	// List returns information on the payload with the id on the unit.
-	List(ids ...string) ([]payload.Result, error)
+	List(ids ...string) ([]payloads.Result, error)
 
-	// Settatus sets the status for the payload with the given id on the unit.
+	// SetStatus sets the status for the payload with the given id on the unit.
 	SetStatus(id, status string) error
 
 	// LookUp returns the payload ID for the given name/rawID pair.
@@ -74,7 +74,7 @@ func (uf UnitFacade) Track(args params.TrackPayloadArgs) (params.PayloadResults,
 	return r, nil
 }
 
-func (uf UnitFacade) track(pl payload.Payload) (string, error) {
+func (uf UnitFacade) track(pl payloads.Payload) (string, error) {
 	if err := uf.backend.Track(pl); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -185,7 +185,7 @@ func (uf UnitFacade) Untrack(args params.Entities) (params.PayloadResults, error
 // newPayloadResult builds a new PayloadResult from the provided tag
 // and error. NotFound is also set based on the error.
 func newPayloadResult(id string, err error) params.PayloadResult {
-	result := payload.Result{
+	result := payloads.Result{
 		ID:       id,
 		Payload:  nil,
 		NotFound: errors.IsNotFound(err),
@@ -194,8 +194,8 @@ func newPayloadResult(id string, err error) params.PayloadResult {
 	return Result2api(result)
 }
 
-// Result2api converts the payload.Result into a PayloadResult.
-func Result2api(result payload.Result) params.PayloadResult {
+// Result2api converts the payloads.Result into a PayloadResult.
+func Result2api(result payloads.Result) params.PayloadResult {
 	res := params.PayloadResult{
 		NotFound: result.NotFound,
 	}

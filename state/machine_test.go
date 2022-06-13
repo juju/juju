@@ -651,7 +651,8 @@ func testSetMongoPassword(
 		MongoSession:       mgoSession,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
 		err := st.SetAdminMongoPassword("")
@@ -694,7 +695,8 @@ func testSetMongoPassword(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer pool1.Close()
-	st1 := pool1.SystemState()
+	st1, err := pool1.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Change the password with an entity derived from the newly
 	// opened and authenticated state.

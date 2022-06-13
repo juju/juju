@@ -296,11 +296,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 			// TODO(babbageclunk): rework the deploy API so the
 			// resources are created transactionally to avoid needing
 			// to do this.
-			resources, err := api.backend.Resources()
-			if err != nil {
-				logger.Errorf("couldn't get backend.Resources")
-				continue
-			}
+			resources := api.backend.Resources()
 			err = resources.RemovePendingAppResources(arg.ApplicationName, arg.Resources)
 			if err != nil {
 				logger.Errorf("couldn't remove pending resources for %q", arg.ApplicationName)
@@ -436,7 +432,7 @@ func caasPrecheck(
 				"deploying this Kubernetes application requires a suitable storage class.\n" +
 					"None have been configured. Set the operator-storage model config to " +
 					"specify which storage class should be used to allocate operator storage.\n" +
-					"See https://discourse.jujucharms.com/t/getting-started/152.",
+					"See https://discourse.charmhub.io/t/getting-started/152.",
 			)
 		}
 		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
@@ -738,6 +734,9 @@ func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error
 	app := args.ApplicationName
 
 	for _, p := range args.Placement {
+		if p == nil {
+			continue
+		}
 		dir := p.Directive
 
 		toProvisionedMachine := p.Scope == instance.MachineScope

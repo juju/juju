@@ -59,7 +59,8 @@ type statusCommand struct {
 	retryCount int
 	retryDelay time.Duration
 
-	color bool
+	color   bool
+	noColor bool
 
 	// relations indicates if 'relations' section is displayed
 	relations bool
@@ -139,8 +140,14 @@ Examples:
     juju status --format=json
 
     # Watch the status of the mysql application every five seconds
-	# Only available for unix-based systems.
+    # Only available for unix-based systems.
     juju status --watch 5s mysql
+
+    # Show only applications/units in active status
+    juju status active
+
+    # Show only applications/units in error status
+    juju status error
 
 See also:
 
@@ -166,6 +173,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "Display timestamps in the UTC timezone")
 
 	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
+	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
 	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section in tabular output")
 	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section in tabular output")
 
@@ -221,6 +229,11 @@ func (c *statusCommand) Init(args []string) error {
 	if c.clock == nil {
 		c.clock = clock.WallClock
 	}
+
+	if c.color && c.noColor {
+		return errors.Errorf("cannot mix --no-color and --color")
+	}
+
 	return nil
 }
 
@@ -421,6 +434,10 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
+	if c.noColor {
+		return FormatTabular(writer, false, value)
+	}
+
 	//color mode enabled by default
 	return FormatTabular(writer, true, value)
 }

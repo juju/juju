@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 
@@ -17,7 +18,7 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
-	apiresources "github.com/juju/juju/api/client/resources/client"
+	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resources"
 )
@@ -123,11 +124,11 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 	for name, resValue := range resourceValues {
 		r, err := OpenResource(resValue, d.resources[name].Type, d.filesystem.Open)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "resource %q", name)
 		}
 		id, err := d.uploadPendingResource(name, resValue, r)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "resource %q", name)
 		}
 		pending[name] = id
 	}
@@ -145,7 +146,7 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 			var dockerDetails resources.DockerImageDetails
 			dockerDetails, err = getDockerDetailsData(value, d.filesystem.Open)
 			if err != nil {
-				return err
+				return errors.Annotatef(err, "resource %q", name)
 			}
 			// At the moment this is the same validation that occurs in getDockerDetailsData
 			err = resources.CheckDockerDetails(name, dockerDetails)
@@ -273,9 +274,17 @@ func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error
 		return details, errors.Trace(err)
 	}
 
-	if err := json.Unmarshal(contents, &details); err != nil {
-		if err := yaml.Unmarshal(contents, &details); err != nil {
-			return details, errors.Annotate(err, "file neither valid json or yaml")
+	if errJ := json.Unmarshal(contents, &details); errJ != nil {
+		if errY := yaml.Unmarshal(contents, &details); errY != nil {
+			contentType := http.DetectContentType(contents)
+			if strings.Contains(contentType, "text/plain") {
+				// Check first character - `{` means probably JSON
+				if strings.TrimSpace(string(contents))[0] == '{' {
+					return details, errors.Annotate(errJ, "json parsing")
+				}
+				return details, errY
+			}
+			return details, errors.New("expected json or yaml file containing oci-image registry details")
 		}
 	}
 	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {

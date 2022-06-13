@@ -126,9 +126,9 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Results: []params.StringResult{{
 			Result: URL.WithRevision(1).ShortString(),
 		}, {
-			Error: &params.Error{Message: `rotate interval "-1h0m0s" not valid`},
+			Error: &params.Error{Message: `rotate interval "-1h0m0s" not valid`, Code: params.CodeNotValid},
 		}, {
-			Error: &params.Error{Message: `empty secret value not valid`},
+			Error: &params.Error{Message: `empty secret value not valid`, Code: params.CodeNotValid},
 		}},
 	})
 }
@@ -201,15 +201,15 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		}, {
 			Error: &params.Error{Message: `at least one attribute to update must be specified`},
 		}, {
-			Error: &params.Error{Message: `rotate interval -1h0m0s not valid`},
+			Error: &params.Error{Code: params.CodeNotValid, Message: `rotate interval -1h0m0s not valid`},
 		}, {
 			Error: &params.Error{Code: "not supported", Message: `updating a single secret attribute "password" not supported`},
 		}, {
 			Error: &params.Error{Code: "not supported", Message: `updating secret revision 2 not supported`},
 		}, {
-			Error: &params.Error{Code: "", Message: `secret URL with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
+			Error: &params.Error{Code: params.CodeNotValid, Message: `secret URL with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
 		}, {
-			Error: &params.Error{Code: "", Message: `secret URL with model UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
+			Error: &params.Error{Code: params.CodeNotValid, Message: `secret URL with model UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
 		}},
 	})
 }
@@ -328,7 +328,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 				Error: &params.Error{Code: "", Message: `boom`},
 			},
 			{
-				Error: &params.Error{Code: "", Message: `secret URL scheme "" not valid`},
+				Error: &params.Error{Code: params.CodeNotValid, Message: `secret URL scheme "" not valid`},
 			},
 		},
 	})

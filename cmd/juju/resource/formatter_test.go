@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 var _ = gc.Suite(&CharmFormatterSuite{})
@@ -51,7 +51,7 @@ type SvcFormatterSuite struct {
 func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
-	r := resource.Resource{
+	r := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "website",
@@ -94,7 +94,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
-	r := resource.Resource{
+	r := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "vincent-van-gogh-blog",
@@ -134,7 +134,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
 }
 
 func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
-	r := resource.Resource{
+	r := resources.Resource{
 		Timestamp: time.Time{},
 	}
 	f := resourcecmd.FormatAppResource(r)
@@ -142,7 +142,7 @@ func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
 }
 
 func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
-	r := resource.Resource{
+	r := resources.Resource{
 		Timestamp: time.Now(),
 	}
 	f := resourcecmd.FormatAppResource(r)
@@ -151,7 +151,7 @@ func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
 
 func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
 	// represents what we get when we first deploy an application
-	r := resource.Resource{
+	r := resources.Resource{
 		Resource: charmresource.Resource{
 			Origin: charmresource.OriginUpload,
 		},
@@ -163,7 +163,7 @@ func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
 }
 
 func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
-	r := resource.Resource{
+	r := resources.Resource{
 		Resource: charmresource.Resource{
 			Origin: charmresource.OriginUpload,
 		},
@@ -182,7 +182,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := resource.Resource{
+	svc := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "website",
@@ -204,7 +204,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("other"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit := resource.Resource{
+	unit := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "website",
@@ -241,7 +241,7 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := resource.Resource{
+	svc := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "website",
@@ -260,7 +260,7 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	unit := resource.Resource{}
+	unit := resources.Resource{}
 	tag := names.NewUnitTag("a-application/55")
 
 	d := resourcecmd.FormatDetailResource(tag, svc, unit, 0)

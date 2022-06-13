@@ -21,9 +21,8 @@ Documentation:
 * [source tree docs](doc/)
 
 Community:
-* https://jujucharms.com/community/
-* https://discourse.jujucharms.com/
-* [#juju on freenode](http://webchat.freenode.net/?channels=juju)
+* https://chat.charmhub.io
+* https://discourse.charmhub.io/
 
 Building Juju
 =============
@@ -361,7 +360,7 @@ All PRs run pre-merge check - unit tests and a small but representative sample
 of functional tests. This check is re-run anytime the PR changes, for example
 when a new commit is added.
 
-You can also initiate this check by commenting !!build!! in the PR.
+You can also initiate this check by commenting /build in the PR.
 
 Code review
 -----------
@@ -381,7 +380,7 @@ Continuous integration
 Continuous integration is automated through Jenkins:
 
 The bot runs on all commits during the PRE process, as well as handles merges.
-Use the `$$merge$$` comment to land a PR.
+Use the `/merge` comment to land a PR.
 
 Static Analysis
 ---------------
@@ -408,6 +407,5 @@ beyond the workflow and the [issue tracker](https://bugs.launchpad.net/juju/+bug
 
 Use the following links to contact the community:
 
- - Community page: https://jujucharms.com/community/
- - IRC channel on freenode: `#juju`
- - Discourse forum: [https://discourse.jujucharms.com/](https://discourse.jujucharms.com/)
+ - Mattermost chat: [https://chat.charmhub.io/](https://chat.charmhub.io/)
+ - Discourse forum: [https://discourse.charmhub.io/](https://discourse.charmhub.io/)

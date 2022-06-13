@@ -1979,7 +1979,8 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 		constraints.MustParse("instance-type=D1"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons.String(), gc.Equals, "instance-type=D1")
+	// For now we can have a compatible arch and instance-type due to charmhub arch workarounds.
+	c.Assert(cons.String(), gc.Equals, "arch=amd64 instance-type=D1")
 }
 
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {

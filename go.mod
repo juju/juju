@@ -53,7 +53,7 @@ require (
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471
-	github.com/juju/http/v2 v2.0.0-20220207005632-792b5de45d16
+	github.com/juju/http/v2 v2.0.0-20220519154824-1d0dd7a3175e
 	github.com/juju/idmclient/v2 v2.0.0-20220207024613-525e1ac3a890
 	github.com/juju/jsonschema v0.0.0-20220207021905-6f321f9146b3
 	github.com/juju/jsonschema-gen v0.0.0-20220207021829-b1697c753155
@@ -61,7 +61,7 @@ require (
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
 	github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c
-	github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823
+	github.com/juju/names/v4 v4.0.0-20220518060443-d77cb46f6093
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os/v2 v2.2.3
 	github.com/juju/packaging/v2 v2.0.0-20220207023655-2ed4de2dc5b4
@@ -112,7 +112,7 @@ require (
 	gopkg.in/retry.v1 v1.0.3
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.23.4
 	k8s.io/apiextensions-apiserver v0.21.10
 	k8s.io/apimachinery v0.23.4

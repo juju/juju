@@ -452,7 +452,8 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 		[]string{
 			constraints.Mem,
 			constraints.Cores,
-			constraints.Arch,
+			// TODO: move to a dynamic conflict for arch when azure supports more than amd64
+			//constraints.Arch,
 		},
 	)
 	return validator, nil
@@ -519,6 +520,10 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	}
 	// Start the instance - if we get a quota error, that instance type is ignored
 	// and we'll try the next most expensive one, up to a reasonable number of attempts.
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for i := 0; i < 15; i++ {
 		// Identify the instance type and image to provision.
 		instanceSpec, err := findInstanceSpec(
@@ -528,7 +533,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 			&instances.InstanceConstraint{
 				Region:      env.location,
 				Series:      args.InstanceConfig.Series,
-				Arches:      args.Tools.Arches(),
+				Arch:        arch,
 				Constraints: args.Constraints,
 			},
 			imageStream,

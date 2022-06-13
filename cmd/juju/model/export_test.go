@@ -28,6 +28,7 @@ func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
 // NewDefaultsCommandForTest returns a defaultsCommand with the api provided as specified.
 func NewDefaultsCommandForTest(apiRoot api.Connection, dAPI defaultsCommandAPI, cAPI cloudAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &defaultsCommand{
+		configBase:     defConfigBase,
 		newAPIRoot:     func() (api.Connection, error) { return apiRoot, nil },
 		newDefaultsAPI: func(caller base.APICallCloser) defaultsCommandAPI { return dAPI },
 		newCloudAPI:    func(caller base.APICallCloser) cloudAPI { return cAPI },

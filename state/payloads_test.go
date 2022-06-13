@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -157,7 +157,7 @@ func (s *PayloadsSuite) TestTrackMultipleUnits(c *gc.C) {
 	// Check the independent payload only shows up in
 	// the fixture's ModelPayloads, not its UnitPayloads.
 	full1 := fix.FullPayload(initial)
-	full2 := payload.FullPayloadInfo{
+	full2 := payloads.FullPayloadInfo{
 		Payload: additional,
 		Machine: machine2.Id(),
 	}
@@ -329,7 +329,7 @@ func (s *PayloadsSuite) TestSetStatusRaceUntrack(c *gc.C) {
 	}).Check()
 
 	err := fix.UnitPayloads.SetStatus(initial.Name, "stopped")
-	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)
+	c.Check(errors.Cause(err), gc.Equals, payloads.ErrNotFound)
 	c.Check(err, gc.ErrorMatches, "payload not found")
 	fix.CheckNoPayload(c)
 }
@@ -398,7 +398,7 @@ func (s *PayloadsSuite) newFixture(c *gc.C) payloadsFixture {
 	}
 }
 
-func (s *PayloadsSuite) newPayloadFixture(c *gc.C) (payloadsFixture, payload.Payload) {
+func (s *PayloadsSuite) newPayloadFixture(c *gc.C) (payloadsFixture, payloads.Payload) {
 	fix := s.newFixture(c)
 	initial := fix.SamplePayload("some-docker-id")
 	err := fix.UnitPayloads.Track(initial)
@@ -406,13 +406,13 @@ func (s *PayloadsSuite) newPayloadFixture(c *gc.C) (payloadsFixture, payload.Pay
 	return fix, initial
 }
 
-func (fix payloadsFixture) SamplePayload(id string) payload.Payload {
-	return payload.Payload{
+func (fix payloadsFixture) SamplePayload(id string) payloads.Payload {
+	return payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "database",
 			Type: "docker",
 		},
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		ID:     id,
 		Unit:   fix.Unit.Name(),
 	}
@@ -422,8 +422,8 @@ func (fix payloadsFixture) DeadUnitMessage() string {
 	return fmt.Sprintf("unit %q no longer available", fix.Unit.Name())
 }
 
-func (fix payloadsFixture) FullPayload(pl payload.Payload) payload.FullPayloadInfo {
-	return payload.FullPayloadInfo{
+func (fix payloadsFixture) FullPayload(pl payloads.Payload) payloads.FullPayloadInfo {
+	return payloads.FullPayloadInfo{
 		Payload: pl,
 		Machine: fix.Machine.Id(),
 	}
@@ -434,13 +434,13 @@ func (fix payloadsFixture) CheckNoPayload(c *gc.C) {
 	fix.CheckUnitPayloads(c)
 }
 
-func (fix payloadsFixture) CheckOnePayload(c *gc.C, expect payload.Payload) {
+func (fix payloadsFixture) CheckOnePayload(c *gc.C, expect payloads.Payload) {
 	full := fix.FullPayload(expect)
 	fix.CheckModelPayloads(c, full)
 	fix.CheckUnitPayloads(c, full)
 }
 
-func (fix payloadsFixture) CheckModelPayloads(c *gc.C, expect ...payload.FullPayloadInfo) {
+func (fix payloadsFixture) CheckModelPayloads(c *gc.C, expect ...payloads.FullPayloadInfo) {
 	actual, err := fix.ModelPayloads.ListAll()
 	c.Check(err, jc.ErrorIsNil)
 	sort.Sort(byPayloadInfo(actual))
@@ -448,7 +448,7 @@ func (fix payloadsFixture) CheckModelPayloads(c *gc.C, expect ...payload.FullPay
 	c.Check(actual, jc.DeepEquals, expect)
 }
 
-func (fix payloadsFixture) CheckUnitPayloads(c *gc.C, expect ...payload.FullPayloadInfo) {
+func (fix payloadsFixture) CheckUnitPayloads(c *gc.C, expect ...payloads.FullPayloadInfo) {
 	actual, err := fix.UnitPayloads.List()
 	c.Check(err, jc.ErrorIsNil)
 	extracted := fix.extractInfos(c, actual)
@@ -457,8 +457,8 @@ func (fix payloadsFixture) CheckUnitPayloads(c *gc.C, expect ...payload.FullPayl
 	c.Check(extracted, jc.DeepEquals, expect)
 }
 
-func (payloadsFixture) extractInfos(c *gc.C, results []payload.Result) []payload.FullPayloadInfo {
-	fulls := make([]payload.FullPayloadInfo, 0, len(results))
+func (payloadsFixture) extractInfos(c *gc.C, results []payloads.Result) []payloads.FullPayloadInfo {
+	fulls := make([]payloads.FullPayloadInfo, 0, len(results))
 	for _, result := range results {
 		c.Assert(result.ID, gc.Equals, result.Payload.Name)
 		c.Assert(result.Payload, gc.NotNil)
@@ -469,7 +469,7 @@ func (payloadsFixture) extractInfos(c *gc.C, results []payload.Result) []payload
 	return fulls
 }
 
-type byPayloadInfo []payload.FullPayloadInfo
+type byPayloadInfo []payloads.FullPayloadInfo
 
 func (s byPayloadInfo) Len() int      { return len(s) }
 func (s byPayloadInfo) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
@@ -507,16 +507,16 @@ func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
 	st, err := s.State.ModelPayloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	payloads, err := st.ListAll()
+	payloadInfo, err := st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(payloads, gc.HasLen, 0)
+	c.Check(payloadInfo, gc.HasLen, 0)
 
-	err = ust.Track(payload.Payload{
+	err = ust.Track(payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "payloadA",
 			Type: "docker",
 		},
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		ID:     "xyz",
 		Unit:   "a-application/0",
 	})
@@ -526,16 +526,16 @@ func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPayloads, gc.HasLen, 1)
 
-	payloads, err = st.ListAll()
+	payloadInfo, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{{
-		Payload: payload.Payload{
+	c.Check(payloadInfo, jc.DeepEquals, []payloads.FullPayloadInfo{{
+		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: "payloadA",
 				Type: "docker",
 			},
 			ID:     "xyz",
-			Status: payload.StateRunning,
+			Status: payloads.StateRunning,
 			Labels: []string{},
 			Unit:   "a-application/0",
 		},
@@ -548,9 +548,9 @@ func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
 	err = ust.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	payloads, err = st.ListAll()
+	payloadInfo, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(payloads, gc.HasLen, 0)
+	c.Check(payloadInfo, gc.HasLen, 0)
 }
 
 func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
@@ -569,13 +569,13 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, 0)
 
-	pl := payload.Payload{
+	pl := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "payloadA",
 			Type: "docker",
 		},
 		ID:     "xyz",
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Unit:   "a-application/0",
 	}
 	err = st.Track(pl)
@@ -587,9 +587,9 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 	// the following two lines.
 	c.Assert(results, gc.HasLen, 1)
 	id := results[0].ID
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID: id,
-		Payload: &payload.FullPayloadInfo{
+		Payload: &payloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: machine,
 		},
@@ -602,9 +602,9 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 	c.Logf("using ID %q", id)
 	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID: id,
-		Payload: &payload.FullPayloadInfo{
+		Payload: &payloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: machine,
 		},
@@ -615,9 +615,9 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 
 	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID: id,
-		Payload: &payload.FullPayloadInfo{
+		Payload: &payloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: machine,
 		},
@@ -630,9 +630,9 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []payload.Result{{
+	c.Check(results, jc.DeepEquals, []payloads.Result{{
 		ID: id,
-		Payload: &payload.FullPayloadInfo{
+		Payload: &payloads.FullPayloadInfo{
 			Payload: update,
 			Machine: machine,
 		},

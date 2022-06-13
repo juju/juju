@@ -40,11 +40,10 @@ type namespace struct {
 // model UUID. NewNamespace returns an error if the model tag is invalid.
 func NewNamespace(modelUUID string) (Namespace, error) {
 	if !names.IsValidModel(modelUUID) {
-		return nil, errors.Errorf("model ID %q is not a valid model", modelUUID)
+		return nil, errors.NotValidf("model UUID %q", modelUUID)
 	}
 	// The suffix is the last six hex digits of the model uuid.
 	suffix := modelUUID[len(modelUUID)-uuidSuffixDigits:]
-
 	return &namespace{name: suffix}, nil
 }
 

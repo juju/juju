@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 // UploadRequest defines a single upload request.
@@ -46,7 +46,7 @@ func NewUploadRequest(application, name, filename string, r io.ReadSeeker) (Uplo
 		return UploadRequest{}, errors.Errorf("invalid application %q", application)
 	}
 
-	content, err := resource.GenerateContent(r)
+	content, err := resources.GenerateContent(r)
 	if err != nil {
 		return UploadRequest{}, errors.Trace(err)
 	}
@@ -86,7 +86,7 @@ const FilenameParamForContentDispositionHeader = "filename"
 // HTTPRequest generates a new HTTP request.
 func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
-	urlStr := NewEndpointPath(ur.Application, ur.Name)
+	urlStr := newEndpointPath(ur.Application, ur.Name)
 
 	req, err := http.NewRequest(http.MethodPut, urlStr, ur.Content)
 	if err != nil {

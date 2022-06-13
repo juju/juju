@@ -477,7 +477,7 @@ func (s modelResourceErrorStatusSummary) PrettyPrint(writer io.Writer) error {
 The following errors were encountered during destroying the model.
 You can fix the problem causing the errors and run destroy-model again.
 `)
-	w.Println("Resource", "Id", "Message")
+	w.Println("Resource", "ID", "Message")
 	for _, resources := range []map[string][]modelResourceErrorStatus{
 		{"Machine": s.Machines},
 		{"Filesystem": s.Filesystems},

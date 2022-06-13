@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/v3/arch"
 
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 
@@ -303,7 +304,6 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 	}
 
 	// convert shapes to InstanceType
-	arch := []string{"amd64"}
 	types := []instances.InstanceType{}
 	for _, val := range shapes {
 		spec, ok := shapeSpecs[*val.Shape]
@@ -314,7 +314,7 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 		instanceType := string(spec.Type)
 		newType := instances.InstanceType{
 			Name:     *val.Shape,
-			Arches:   arch,
+			Arch:     arch.AMD64,
 			Mem:      uint64(spec.Memory),
 			CpuCores: uint64(spec.Cpus),
 			// it's not really virtualization type. We have just 3 types of images:

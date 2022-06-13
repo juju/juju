@@ -13,6 +13,7 @@ import (
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 )
@@ -109,7 +110,9 @@ func (c *CharmAdaptor) resolveCharmFallback(url *charm.URL, preferredOrigin comm
 
 	resultURL, channel, supportedSeries, err := charmRepo.ResolveWithPreferredChannel(url, csparams.Channel(preferredOrigin.Risk))
 	if err != nil {
-		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
+		// Ideally the would be restored before now, however the
+		// callee is in the core package, let's not add dependecies there.
+		return nil, commoncharm.Origin{}, nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	origin := preferredOrigin
 	origin.Risk = string(channel)

@@ -225,6 +225,7 @@ func bakeryError(err error) error {
 	return bakeryErr
 }
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination base/mocks/httpdoer_mock.go github.com/juju/juju/api HTTPDoer
 // HTTPDoer exposes the functionality of httprequest.Client needed here.
 type HTTPDoer interface {
 	// Do sends the given request.

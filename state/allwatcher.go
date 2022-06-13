@@ -524,7 +524,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
-		info.CharmURL = u.CharmURL.String()
+		info.CharmURL = *u.CharmURL
 	}
 
 	// Construct a unit for the purpose of retrieving other fields as necessary.
@@ -1621,7 +1621,7 @@ type AllWatcherBacking interface {
 // NewAllWatcherBacking creates a backing object that watches
 // all the models in the controller for changes that are fed through
 // the multiwatcher infrastructure.
-func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
+func NewAllWatcherBacking(pool *StatePool) (AllWatcherBacking, error) {
 	collectionNames := []string{
 		// The ordering here matters. We want to load machines, then
 		// applications, then units. The others don't matter so much.
@@ -1648,13 +1648,16 @@ func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 		podSpecsC,
 	}
 	collectionMap := makeAllWatcherCollectionInfo(collectionNames)
-	controllerState := pool.SystemState()
+	controllerState, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &allWatcherBacking{
 		watcher:          controllerState.workers.txnLogWatcher(),
 		stPool:           pool,
 		collections:      collectionNames,
 		collectionByName: collectionMap,
-	}
+	}, nil
 }
 
 // Watch watches all the collections.
@@ -1673,7 +1676,11 @@ func (b *allWatcherBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allWatcherBacking) GetAll(store multiwatcher.Store) error {
-	modelUUIDs, err := b.stPool.SystemState().AllModelUUIDs()
+	systemState, err := b.stPool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelUUIDs, err := systemState.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "error loading models")
 	}
@@ -1722,9 +1729,13 @@ func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Cha
 
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
+	systemState, err := b.stPool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	ctx := &allWatcherContext{
 		// In order to have a valid state instance, use the controller model initially.
-		state:     b.stPool.SystemState(),
+		state:     systemState,
 		store:     store,
 		modelUUID: modelUUID,
 		id:        id,
@@ -1765,7 +1776,11 @@ func (b *allWatcherBacking) idForChange(change watcher.Change) (string, string, 
 		return modelUUID, modelUUID, nil
 	} else if change.C == permissionsC {
 		// All permissions can just load using the system state.
-		modelUUID := b.stPool.SystemState().ModelUUID()
+		systemState, err := b.stPool.SystemState()
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+		modelUUID := systemState.ModelUUID()
 		return modelUUID, change.Id.(string), nil
 	}
 

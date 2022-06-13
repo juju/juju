@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,8 @@ import (
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
+
+var logger = loggo.GetLogger("juju.kubernetes.provider.storage")
 
 // VolumeParams holds PV and PVC related config.
 type VolumeParams struct {

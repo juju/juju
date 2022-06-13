@@ -56,7 +56,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -66,11 +65,6 @@ type EnvironProvider struct {
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
 	FlavorFilter      FlavorFilter
-
-	// NetworkingDecorator, if non-nil, will be used to
-	// decorate the default networking implementation.
-	// This can be used to override behaviour.
-	NetworkingDecorator NetworkingDecorator
 
 	// ClientFromEndpoint returns an Openstack client for the given endpoint.
 	ClientFromEndpoint func(endpoint string) client.AuthenticatingClient
@@ -86,7 +80,6 @@ var providerInstance = &EnvironProvider{
 	Configurator:        &defaultConfigurator{},
 	FirewallerFactory:   &firewallerFactory{},
 	FlavorFilter:        FlavorFilterFunc(AcceptAllFlavors),
-	NetworkingDecorator: nil,
 	ClientFromEndpoint:  newGooseClient,
 }
 
@@ -221,15 +214,6 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking,
 			"newer to maintain compatibility.")
 	}
 	networking := newNetworking(e)
-	if p.NetworkingDecorator != nil {
-		var err error
-		// The NetworkingDecorator is used by the rackspace provider, which
-		// uses a majority of this provider's code.
-		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
 	return networking, p.FirewallerFactory.GetFirewaller(e), nil
 }
 
@@ -592,6 +576,7 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
+		// TODO: move to a dynamic conflict for arch when openstack supports defining arch in flavors
 		[]string{constraints.Mem, constraints.Cores})
 	// NOTE: RootDiskSource and RootDisk constraints are validated in PrecheckInstance.
 	validator.RegisterUnsupported(unsupportedConstraints)
@@ -1085,24 +1070,20 @@ func (e *Environ) startInstance(
 		return nil, errors.Trace(err)
 	}
 
-	arches := args.Tools.Arches()
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
 		Series:      args.InstanceConfig.Series,
-		Arches:      arches,
+		Arch:        arch,
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
-	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return nil, common.ZoneIndependentError(
-			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
-		)
-	}
-
-	if err := args.InstanceConfig.SetTools(tools); err != nil {
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
 
@@ -2076,13 +2057,15 @@ func rulesToRuleInfo(groupId string, rules firewall.IngressRules) []neutron.Rule
 		ruleInfo := neutron.RuleInfoV2{
 			Direction:     "ingress",
 			ParentGroupId: groupId,
-			PortRangeMin:  r.PortRange.FromPort,
-			PortRangeMax:  r.PortRange.ToPort,
 			IPProtocol:    r.PortRange.Protocol,
+		}
+		if ruleInfo.IPProtocol != "icmp" {
+			ruleInfo.PortRangeMin = r.PortRange.FromPort
+			ruleInfo.PortRangeMax = r.PortRange.ToPort
 		}
 		sourceCIDRs := r.SourceCIDRs.Values()
 		if len(sourceCIDRs) == 0 {
-			sourceCIDRs = append(sourceCIDRs, firewall.AllNetworksIPV4CIDR)
+			sourceCIDRs = append(sourceCIDRs, firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)
 		}
 		for _, sr := range sourceCIDRs {
 			addrType, _ := network.CIDRAddressType(sr)

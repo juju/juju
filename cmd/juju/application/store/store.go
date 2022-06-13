@@ -43,7 +43,7 @@ func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl
 		if !params.IsCodeUnauthorized(err) {
 			return nil, nil, commoncharm.Origin{}, errors.Trace(err)
 		}
-		m, err := authorizeCharmStoreEntity(cs, curl)
+		m, err := AuthorizeCharmStoreEntity(cs, curl)
 		if err != nil {
 			return nil, nil, commoncharm.Origin{}, common.MaybeTermsAgreementError(err)
 		}
@@ -65,11 +65,11 @@ var NewCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclien
 	})
 }
 
-// authorizeCharmStoreEntity acquires and return the charm store
+// AuthorizeCharmStoreEntity acquires and return the charm store
 // delegatable macaroon to be used to add the charm corresponding
 // to the given URL. The macaroon is properly attenuated so that
 // it can only be used to deploy the given charm URL.
-func authorizeCharmStoreEntity(csClient MacaroonGetter, curl *charm.URL) (*macaroon.Macaroon, error) {
+func AuthorizeCharmStoreEntity(csClient MacaroonGetter, curl *charm.URL) (*macaroon.Macaroon, error) {
 	endpoint := "/delegatable-macaroon?id=" + url.QueryEscape(curl.String())
 	var m *macaroon.Macaroon
 	if err := csClient.Get(endpoint, &m); err != nil {

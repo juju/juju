@@ -83,12 +83,15 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	w := startSection(tw, true, header...)
 	versionPos := indexOf("Version", header)
 	w.Print(values[:versionPos]...)
-	modelVersionNum, err := version.Parse(fs.Model.Version)
-	if err == nil && jujuversion.Current.Compare(modelVersionNum) > 0 {
-		w.PrintColor(output.WarningHighlight, fs.Model.Version)
-	} else {
-		w.Print(fs.Model.Version)
+	if fs.Model.Version != "" {
+		modelVersionNum, err := version.Parse(fs.Model.Version)
+		if err == nil && jujuversion.Current.Compare(modelVersionNum) > 0 {
+			w.PrintColor(output.WarningHighlight, fs.Model.Version)
+		} else {
+			w.Print(fs.Model.Version)
+		}
 	}
+
 	w.Println(values[versionPos:]...)
 	if len(fs.Branches) > 0 {
 		printBranches(tw, fs.Branches)
@@ -232,7 +235,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print("no")
 		}
 
-		w.PrintColor(output.EmphasisHighlight.Gray, app.StatusInfo.Message)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, app.StatusInfo.Message)
 		w.Println()
 		for un, u := range app.Units {
 			units[un] = u
@@ -266,14 +269,14 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if fs.Model.Type == caasModelType {
 			w.PrintColor(output.InfoHighlight, u.Address)
 			printPorts(w, u.OpenedPorts)
-			w.PrintColor(output.EmphasisHighlight.Gray, message)
+			w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
 			w.Println()
 			return
 		}
 		w.Print(u.Machine)
 		w.PrintColor(output.InfoHighlight, u.PublicAddress)
 		printPorts(w, u.OpenedPorts)
-		w.PrintColor(output.EmphasisHighlight.Gray, message)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
 		w.Println()
 	}
 
@@ -396,9 +399,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		w.Print(r.Interface, r.Type)
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
-			if r.Message != "" {
-				w.PrintColor(output.EmphasisHighlight.Gray, " - "+r.Message)
-			}
+			w.PrintColorNoTab(output.EmphasisHighlight.Gray, r.Message)
 		}
 		w.Println()
 	}
@@ -494,7 +495,7 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	w.PrintColor(output.InfoHighlight, m.DNSName)
 	w.Print(m.machineName(), m.Series, az)
 	if message != "" { //some unit tests were failing because of the printed empty string .
-		w.PrintColor(output.EmphasisHighlight.Gray, message)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
 	}
 	w.Println()
 

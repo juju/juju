@@ -1061,7 +1061,11 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 	}
 	logger.Infof("juju database opened")
 
-	reportOpenedState(pool.SystemState())
+	systemState, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	reportOpenedState(systemState)
 
 	return pool, nil
 }
@@ -1102,7 +1106,10 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		if err := paths.SetSyslogOwner(modelsDir); err != nil {
 			return nil, errors.Annotate(err, "unable to set owner for log directory")
 		}
-		filename := cfg.ModelName + "-" + cfg.ModelUUID[:6] + ".log"
+		if !names.IsValidModel(cfg.ModelUUID) {
+			return nil, errors.NotValidf("model UUID %q", cfg.ModelUUID)
+		}
+		filename := cfg.ModelName + "-" + names.NewModelTag(cfg.ModelUUID).ShortId() + ".log"
 		logFilename := filepath.Join(modelsDir, filename)
 		if err := paths.PrimeLogFile(logFilename); err != nil {
 			return nil, errors.Annotate(err, "unable to prime log file")
@@ -1272,7 +1279,10 @@ func openStatePool(
 			pool.Close()
 		}
 	}()
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	controller, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {

@@ -472,7 +472,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	return app
 }
 
-// MakeApplication creates an application with the specified parameters, substituting
+// MakeApplicationReturningPassword creates an application with the specified parameters, substituting
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 // It returns the application and its password.
@@ -492,8 +492,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	rSt, err := factory.st.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := factory.st.Resources()
 
 	resourceMap := make(map[string]string)
 	for name, res := range params.Charm.Meta().Resources {
@@ -679,8 +678,8 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		}}
 	}
 
-	chURL, ok := params.Unit.CharmURL()
-	c.Assert(ok, gc.Equals, true)
+	chURL, err := params.Unit.CharmURL()
+	c.Assert(err, jc.ErrorIsNil)
 
 	metric, err := factory.st.AddMetrics(
 		state.BatchParam{

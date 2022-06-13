@@ -12,8 +12,8 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -46,8 +46,8 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 	opened2 := resourcetesting.NewResource(c, s.stub, "eggs", "a-application", "other data")
 	res2 := opened2.Resource
 	store := &stubUnitDataStore{Stub: s.stub}
-	store.ReturnListResources = resource.ApplicationResources{
-		Resources: []resource.Resource{res1, res2},
+	store.ReturnListResources = resources.ApplicationResources{
+		Resources: []resources.Resource{res1, res2},
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
 
@@ -69,8 +69,8 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
-	store.ReturnListResources = resource.ApplicationResources{
-		Resources: []resource.Resource{opened.Resource},
+	store.ReturnListResources = resources.ApplicationResources{
+		Resources: []resources.Resource{opened.Resource},
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
 
@@ -88,8 +88,8 @@ func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
-	store.ReturnListResources = resource.ApplicationResources{
-		Resources: []resource.Resource{opened.Resource},
+	store.ReturnListResources = resources.ApplicationResources{
+		Resources: []resources.Resource{opened.Resource},
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
 

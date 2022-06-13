@@ -168,7 +168,9 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[0], gc.FitsTypeOf, raftlease.StoreConfig{})
 	storeConfig := args[0].(raftlease.StoreConfig)
 
-	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, s.stateTracker.pool.SystemState().LeaseTrapdoorFunc())
+	systemState, err := s.stateTracker.pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, systemState.LeaseTrapdoorFunc())
 	storeConfig.Trapdoor = nil
 	storeConfig.Client = nil
 	storeConfig.MetricsCollector = nil

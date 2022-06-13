@@ -13,7 +13,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	unitfacade "github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
-	"github.com/juju/juju/payload"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -44,7 +44,7 @@ func (s *suite) TestTrack(c *gc.C) {
 			Class:  "idfoo",
 			Type:   "type",
 			ID:     "bar",
-			Status: payload.StateRunning,
+			Status: payloads.StateRunning,
 		}},
 	}
 
@@ -62,12 +62,12 @@ func (s *suite) TestTrack(c *gc.C) {
 		}},
 	})
 
-	c.Check(s.state.payload, jc.DeepEquals, payload.Payload{
+	c.Check(s.state.payload, jc.DeepEquals, payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "idfoo",
 			Type: "type",
 		},
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Labels: []string{},
 		ID:     "bar",
 	})
@@ -75,18 +75,18 @@ func (s *suite) TestTrack(c *gc.C) {
 
 func (s *suite) TestListOne(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	pl := payload.Payload{
+	pl := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
 			Type: "type",
 		},
 		ID:     "idfoo",
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Unit:   "a-application/0",
 	}
-	s.state.payloads = []payload.Result{{
+	s.state.payloads = []payloads.Result{{
 		ID: id,
-		Payload: &payload.FullPayloadInfo{
+		Payload: &payloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -105,7 +105,7 @@ func (s *suite) TestListOne(c *gc.C) {
 		Class:   "foobar",
 		Type:    "type",
 		ID:      "idfoo",
-		Status:  payload.StateRunning,
+		Status:  payloads.StateRunning,
 		Labels:  []string{},
 		Unit:    "unit-a-application-0",
 		Machine: "machine-1",
@@ -126,18 +126,18 @@ func (s *suite) TestListOne(c *gc.C) {
 func (s *suite) TestListAll(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
-	pl := payload.Payload{
+	pl := payloads.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
 			Type: "type",
 		},
 		ID:     "idfoo",
-		Status: payload.StateRunning,
+		Status: payloads.StateRunning,
 		Unit:   "a-application/0",
 	}
-	s.state.payloads = []payload.Result{{
+	s.state.payloads = []payloads.Result{{
 		ID: id,
-		Payload: &payload.FullPayloadInfo{
+		Payload: &payloads.FullPayloadInfo{
 			Payload: pl,
 			Machine: "1",
 		},
@@ -152,7 +152,7 @@ func (s *suite) TestListAll(c *gc.C) {
 		Class:   "foobar",
 		Type:    "type",
 		ID:      "idfoo",
-		Status:  payload.StateRunning,
+		Status:  payloads.StateRunning,
 		Labels:  []string{},
 		Unit:    "unit-a-application-0",
 		Machine: "machine-1",
@@ -259,14 +259,14 @@ func (s *suite) TestSetStatus(c *gc.C) {
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
-			Status: payload.StateRunning,
+			Status: payloads.StateRunning,
 		}},
 	}
 	res, err := a.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.state.id, gc.Equals, id)
-	c.Assert(s.state.status, gc.Equals, payload.StateRunning)
+	c.Assert(s.state.status, gc.Equals, payloads.StateRunning)
 
 	expected := params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -352,11 +352,11 @@ type FakeState struct {
 	id      string
 	ids     []string
 	status  string
-	payload payload.Payload
+	payload payloads.Payload
 
 	//outputs
 	stateIDs []string
-	payloads []payload.Result
+	payloads []payloads.Result
 }
 
 func (f *FakeState) nextID() string {
@@ -368,7 +368,7 @@ func (f *FakeState) nextID() string {
 	return id
 }
 
-func (f *FakeState) Track(pl payload.Payload) error {
+func (f *FakeState) Track(pl payloads.Payload) error {
 	f.payload = pl
 	if err := f.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -377,7 +377,7 @@ func (f *FakeState) Track(pl payload.Payload) error {
 	return nil
 }
 
-func (f *FakeState) List(ids ...string) ([]payload.Result, error) {
+func (f *FakeState) List(ids ...string) ([]payloads.Result, error) {
 	f.ids = ids
 	if err := f.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

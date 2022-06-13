@@ -7,7 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/container"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.
@@ -77,8 +80,6 @@ func AuthFuncForTagKind(kind string) GetAuthFunc {
 	}
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
-
 // Authorizer represents the authenticated entity using the API server.
 type Authorizer interface {
 
@@ -128,4 +129,20 @@ func AuthFuncForMachineAgent(authorizer Authorizer) GetAuthFunc {
 			}
 		}, nil
 	}
+}
+
+// ControllerConfigState defines the methods needed by
+// ControllerConfigAPI
+type ControllerConfigState interface {
+	ControllerConfig() (controller.Config, error)
+
+	ModelExists(string) (bool, error)
+	NewExternalControllers() state.ExternalControllers
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	CompletedMigrationForModel(string) (state.ModelMigration, error)
+}
+
+type controllerInfoState interface {
+	ControllerConfig() (controller.Config, error)
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 }

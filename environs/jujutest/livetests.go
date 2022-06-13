@@ -363,9 +363,9 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
@@ -386,9 +386,9 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
@@ -396,9 +396,9 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -431,10 +431,10 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 	err = fwInst2.ClosePorts(t.ProviderCallContext,
@@ -451,7 +451,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
@@ -459,9 +459,9 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -490,7 +490,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -556,11 +556,11 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -577,9 +577,9 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -597,9 +597,9 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -943,7 +943,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
 		[]string{"trusty"},
-		possibleTools.Arches(),
+		[]string{"amd64"},
 		&params.ImageMetadata,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -1034,7 +1034,7 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
-			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -1052,7 +1052,7 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24", "192.168.0.0/24"),
-			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -1070,7 +1070,7 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
-			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 
@@ -1087,7 +1087,7 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 	c.Assert(
 		rules, jc.DeepEquals,
 		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 }

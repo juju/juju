@@ -1,5 +1,9 @@
 name: "Snapcraft"
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 permissions:
   contents: read
 
@@ -50,7 +54,13 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo snap install *.snap --dangerous --classic
+        sudo snap install *.snap --dangerous
+        # Since we're installing dangerously, we need to
+        # manually grant permissions to juju
+        sudo snap connect juju:lxd lxd
+        sudo snap connect juju:dot-local-share-juju
+        sudo snap connect juju:ssh-public-keys
+        snap connections juju
 
     - name: Test bootstrap
       shell: bash

@@ -6,6 +6,8 @@ package remoterelations
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
@@ -20,9 +22,13 @@ func Register(registry facade.FacadeRegistry) {
 
 // newAPI creates a new server-side API facade backed by global state.
 func newAPI(ctx facade.Context) (*API, error) {
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		common.NewStateControllerConfig(ctx.StatePool().SystemState()),
+		common.NewStateControllerConfig(systemState),
 		ctx.Resources(), ctx.Auth(),
 	)
 }

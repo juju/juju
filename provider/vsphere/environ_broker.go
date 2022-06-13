@@ -168,7 +168,11 @@ func (env *sessionEnviron) newRawInstance(
 		statusUpdateArgs: statusUpdateArgs,
 	}
 
-	vmTemplate, arch, err := tplManager.EnsureTemplate(env.ctx, args.InstanceConfig.Series, args.Tools.Arches())
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	vmTemplate, arch, err := tplManager.EnsureTemplate(env.ctx, args.InstanceConfig.Series, arch)
 	if err != nil {
 		return nil, nil, common.ZoneIndependentError(err)
 	}

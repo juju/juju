@@ -88,11 +88,12 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.tlsConfig.ServerName = "juju-apiserver"
 	s.tlsConfig.Certificates = []tls.Certificate{*testing.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
-
+	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
+	c.Assert(err, jc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
-		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -429,7 +430,7 @@ func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
 		User:     "123@",
 		Commands: []string{"status --color"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`})
+	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`, Code: params.CodeNotValid})
 }
 
 func (s *apiserverSuite) TestEmbeddedCommandInvalidMacaroon(c *gc.C) {

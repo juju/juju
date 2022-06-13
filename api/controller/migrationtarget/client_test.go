@@ -28,7 +28,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/resource/resourcetesting"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"

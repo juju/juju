@@ -10,7 +10,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -97,13 +96,6 @@ type CloudAccessor interface {
 type ModelAccessor interface {
 	WatchForModelConfigChanges() NotifyWatcher
 	ModelConfig() (*config.Config, error)
-}
-
-// ControllerAccessor defines the methods needed to
-// access controller information.
-type ControllerAccessor interface {
-	ControllerConfig() (controller.Config, error)
-	ControllerInfo(modelUUID string) (addrs []string, CACert string, _ error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a

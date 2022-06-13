@@ -160,7 +160,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"proxy",
 		"provider/lxd/lxdnames",
 		"pubsub/agent",
-		"resource",
 		"rpc",
 		"rpc/jsoncodec",
 		"service",

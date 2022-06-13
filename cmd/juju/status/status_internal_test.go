@@ -4715,7 +4715,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		args := []string{"--format", format.name}
+		args := []string{"--no-color", "--format", format.name}
 		if ctx.expectIsoTime {
 			args = append(args, "--utc")
 		}
@@ -4810,7 +4810,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	}
 
 	for _, format := range statusFormats {
-		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
+		code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
 		c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
@@ -4839,7 +4839,7 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
-	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
@@ -4863,7 +4863,7 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 	err = model.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
@@ -4959,7 +4959,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	for _, s := range steps {
 		s.step(c, ctx)
 	}
-	code, stdout, stderr := runStatus(c, "--format", "summary")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "summary")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, `
@@ -5041,19 +5041,19 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 }
 
 func assertOneLineStatus(c *gc.C, expected string) {
-	code, stdout, stderr := runStatus(c, "--format", "oneline")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 
 	c.Log(`Check that "short" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c, "--format", "short")
+	code, stdout, stderr = runStatus(c, "--no-color", "--format", "short")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 
 	c.Log(`Check that "line" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c, "--format", "line")
+	code, stdout, stderr = runStatus(c, "--no-color", "--format", "line")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
@@ -5182,7 +5182,7 @@ wordpress:logging-dir  logging:logging-directory  logging    subordinate
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--relations")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 
@@ -5195,7 +5195,7 @@ func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
 
-	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations", "-m", s.Model.UUID())
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--relations", "-m", s.Model.UUID())
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 
@@ -5207,7 +5207,7 @@ func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
 func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "yaml")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "yaml")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), jc.Contains, "display-name: snowflake")
@@ -5216,7 +5216,7 @@ func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 func (s *StatusSuite) TestStatusWithFormatJson(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "json")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "json")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), jc.Contains, `"display-name":"snowflake"`)
@@ -5455,7 +5455,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 		return &client, nil
 	})
 
-	code, _, stderr := runStatus(c, "--format", "tabular")
+	code, _, stderr := runStatus(c, "--no-color", "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
 	c.Check(string(stderr), gc.Equals, "ERROR unable to obtain the current status\n")
 }
@@ -5591,7 +5591,7 @@ func (s *StatusSuite) TestFilterToActive(c *gc.C) {
 	// And unit 0 of the "mysql" application has an error
 	setAgentStatus{"mysql/0", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline started
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "active")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "active")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5608,7 +5608,7 @@ func (s *StatusSuite) TestFilterToMachine(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format oneline 1
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "1")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "1")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5625,7 +5625,7 @@ func (s *StatusSuite) TestFilterToMachineShowsContainer(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format yaml 0
-	_, stdout, stderr := runStatus(c, "--format", "yaml", "0")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "yaml", "0")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output matching:
 	const expected = "(.|\n)*machines:(.|\n)*\"0\"(.|\n)*0/lxd/0(.|\n)*"
@@ -5638,7 +5638,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format yaml 0/lxd/0
-	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxd/0")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "yaml", "0/lxd/0")
 	c.Assert(string(stderr), gc.Equals, "")
 
 	const expected = "" +
@@ -5708,7 +5708,7 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	// Given unit 1 of the "logging" application has an error
 	setAgentStatus{"logging/1", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline error
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "error")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "error")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5725,7 +5725,7 @@ func (s *StatusSuite) TestFilterToApplication(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format oneline error
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "mysql")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "mysql")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5749,7 +5749,7 @@ func (s *StatusSuite) TestFilterToExposedApplication(c *gc.C) {
 	// And the wordpress application is not exposed
 	setApplicationExposed{"wordpress", false}.step(c, ctx)
 	// When I run juju status --format oneline exposed
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "exposed")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5767,7 +5767,7 @@ func (s *StatusSuite) TestFilterToNotExposedApplication(c *gc.C) {
 
 	setApplicationExposed{"mysql", true}.step(c, ctx)
 	// When I run juju status --format oneline not exposed
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "not", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5788,7 +5788,7 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	// And the address for machine "2" is "10.0.2.1"
 	setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5810,7 +5810,7 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 	setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")}.step(c, ctx)
 	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
 	// When I run juju status --format oneline 80/tcp
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "80/tcp")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5827,7 +5827,7 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format oneline 80/tcp
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "logging")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "logging")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5848,7 +5848,7 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	// Given the wordpress application is exposed
 	setApplicationExposed{"wordpress", true}.step(c, ctx)
 	// When I run juju status --format oneline not exposed
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "not", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5863,7 +5863,7 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "mysql/0")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "wordpress/0", "mysql/0")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
@@ -5880,9 +5880,9 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "active")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "wordpress/0", "active")
 	c.Assert(stderr, gc.IsNil)
-	// Then I should receive output prefixed with:
+	// Then I should receive output prefixed with:runStatus
 	const expected = `
 
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
@@ -6171,7 +6171,7 @@ func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c)
+	_, stdout, stderr := runStatus(c, "--no-color")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsFalse)
 }
@@ -6180,7 +6180,7 @@ func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--relations")
+	_, stdout, stderr := runStatus(c, "--no-color", "--relations")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsTrue)
 }
@@ -6189,7 +6189,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--relations")
 	c.Assert(string(stderr), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
 	logger.Debugf("stdout -> \n%q", stdout)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
@@ -6200,7 +6200,7 @@ func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--storage")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--storage")
 	c.Assert(string(stderr), gc.Equals, "provided storage option is always enabled in non tabular formats\n")
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
@@ -6210,7 +6210,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations", "--storage")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--relations", "--storage")
 	c.Assert(string(stderr), gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
@@ -6220,7 +6220,7 @@ func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
@@ -6258,7 +6258,7 @@ func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
 		c.Fatalf(`Expected "bla" got %q. This test failed because the file store did not save the value in time of access`, m.ActiveBranch)
 	}
 
-	_, stdout, stderr := runStatus(c)
+	_, stdout, stderr := runStatus(c, "--no-color")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "bla*"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "test*"), jc.IsFalse)
@@ -6279,13 +6279,13 @@ func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
 	if m.ActiveBranch != "bla" {
 		c.Fatalf(`Expected "bla" got %q. This test failed because the file store did not save the value in time of access`, m.ActiveBranch)
 	}
-	_, stdout, stderr := runStatus(c, "--format=yaml")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "active: true"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
-	code, stdout, stderr := runStatus(c)
+	code, stdout, stderr := runStatus(c, "--no-color")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "Model \"controller\" is empty.\n")
 	expected := `
@@ -6298,7 +6298,7 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 }
 
 func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
-	code, stdout, stderr := runStatus(c, "unmatched")
+	code, stdout, stderr := runStatus(c, "--no-color", "unmatched")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filter.\n")
 	expected := `
@@ -6309,6 +6309,6 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(string(output), gc.Equals, expected)
 
-	_, _, stderr = runStatus(c, "cannot", "match", "me")
+	_, _, stderr = runStatus(c, "--no-color", "cannot", "match", "me")
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filters.\n")
 }

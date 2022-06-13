@@ -7,20 +7,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 )
 
 // PrecheckShim wraps a pair of *state.States to implement PrecheckBackend.
 func PrecheckShim(modelState, controllerState *state.State) (PrecheckBackend, error) {
-	rSt, err := modelState.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &precheckShim{
 		State:           modelState,
 		controllerState: controllerState,
-		resourcesSt:     rSt,
 	}, nil
 }
 
@@ -29,7 +23,6 @@ func PrecheckShim(modelState, controllerState *state.State) (PrecheckBackend, er
 type precheckShim struct {
 	*state.State
 	controllerState *state.State
-	resourcesSt     state.Resources
 }
 
 // Model implements PrecheckBackend.
@@ -97,12 +90,6 @@ func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
 		out[i] = &precheckRelationShim{rel}
 	}
 	return out, nil
-}
-
-// ListPendingResources implements PrecheckBackend.
-func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
-	resources, err := s.resourcesSt.ListPendingResources(app)
-	return resources, errors.Trace(err)
 }
 
 // ControllerBackend implements PrecheckBackend.

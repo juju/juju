@@ -5,7 +5,7 @@ package utils
 
 import (
 	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmresource_mock.go github.com/juju/juju/cmd/juju/application/utils CharmClient
@@ -20,5 +20,5 @@ type CharmClient interface {
 // ResourceLister defines a subset of the resources facade, as required
 // by the upgrade-charm command and to deploy bundles.
 type ResourceLister interface {
-	ListResources([]string) ([]resource.ApplicationResources, error)
+	ListResources([]string) ([]resources.ApplicationResources, error)
 }

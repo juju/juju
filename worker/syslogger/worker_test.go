@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/syslogger"
 )
 
@@ -54,15 +55,16 @@ func (s *WorkerSuite) TestLog(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wrk := w.(syslogger.SysLogger)
 	err = wrk.Log([]corelogger.LogRecord{{
-		Time:    now,
-		Entity:  "foo",
-		Module:  "bar",
-		Message: "baz",
+		Time:      now,
+		Entity:    "foo",
+		Module:    "bar",
+		Message:   "baz",
+		ModelUUID: coretesting.ModelTag.Id(),
 	}})
 	c.Assert(err, gc.IsNil)
 
 	dateTime := now.In(time.UTC).Format("2006-01-02 15:04:05")
-	c.Assert(buf.String(), gc.Equals, fmt.Sprintf("%s foo bar baz\n", dateTime))
+	c.Assert(buf.String(), gc.Equals, fmt.Sprintf("%s foo bar.deadbe baz\n", dateTime))
 }
 
 func (s *WorkerSuite) TestClosingLogBeforeWriting(c *gc.C) {
@@ -85,10 +87,11 @@ func (s *WorkerSuite) TestClosingLogBeforeWriting(c *gc.C) {
 
 	wrk := w.(syslogger.SysLogger)
 	err = wrk.Log([]corelogger.LogRecord{{
-		Time:    now,
-		Entity:  "foo",
-		Module:  "bar",
-		Message: "baz",
+		Time:      now,
+		Entity:    "foo",
+		Module:    "bar",
+		Message:   "baz",
+		ModelUUID: coretesting.ModelTag.Id(),
 	}})
 	c.Assert(err, gc.IsNil)
 }
@@ -122,10 +125,11 @@ func (s *WorkerSuite) TestClosingLogWhilstWriting(c *gc.C) {
 				return
 			case <-time.After(time.Millisecond):
 				err = wrk.Log([]corelogger.LogRecord{{
-					Time:    now,
-					Entity:  "foo",
-					Module:  "bar",
-					Message: "baz",
+					Time:      now,
+					Entity:    "foo",
+					Module:    "bar",
+					Message:   "baz",
+					ModelUUID: coretesting.ModelTag.Id(),
 				}})
 				c.Assert(err, gc.IsNil)
 			}

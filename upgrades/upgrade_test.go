@@ -207,9 +207,9 @@ type mockStateBackend struct {
 	testing.Stub
 }
 
-func (mock *mockStateBackend) ControllerUUID() string {
+func (mock *mockStateBackend) ControllerUUID() (string, error) {
 	mock.MethodCall(mock, "ControllerUUID")
-	return "a-b-c-d"
+	return "a-b-c-d", mock.Stub.NextErr()
 }
 
 func stateUpgradeOperations() []upgrades.Operation {
@@ -648,6 +648,8 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 		"2.9.24",
 		"2.9.26",
 		"2.9.29",
+		"2.9.30",
+		"2.9.32",
 	})
 }
 

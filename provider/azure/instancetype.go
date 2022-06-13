@@ -485,9 +485,10 @@ func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
 
 	vtype := "Hyper-V"
 	return instances.InstanceType{
-		Id:       sizeName,
-		Name:     sizeName,
-		Arches:   []string{arch.AMD64},
+		Id:   sizeName,
+		Name: sizeName,
+		// TODO(wallyworld) - add arm64 once supported
+		Arch:     arch.AMD64,
 		CpuCores: uint64(to.Int32(size.NumberOfCores)),
 		Mem:      uint64(to.Int32(size.MemoryInMB)),
 		// NOTE(axw) size.OsDiskSizeInMB is the *maximum*
@@ -528,7 +529,7 @@ func findInstanceSpec(
 	imageStream string,
 ) (*instances.InstanceSpec, error) {
 
-	if !constraintHasArch(constraint, arch.AMD64) {
+	if constraint.Arch != arch.AMD64 {
 		// Azure only supports AMD64.
 		return nil, errors.NotFoundf("%s in arch constraints", arch.AMD64)
 	}
@@ -545,15 +546,6 @@ func findInstanceSpec(
 	}
 	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
 	return instances.FindInstanceSpec(images, constraint, instanceTypes)
-}
-
-func constraintHasArch(constraint *instances.InstanceConstraint, arch string) bool {
-	for _, constraintArch := range constraint.Arches {
-		if constraintArch == arch {
-			return true
-		}
-	}
-	return false
 }
 
 // If you specify no constraints at all, you're going to get the smallest

@@ -188,7 +188,7 @@ func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
-Id  Status   Started  Finished             Task IDs  Summary
+ID  Status   Started  Finished             Task IDs  Summary
  1  error                                  2         operation 1
  3  running           2014-02-14T06:06:06  4         operation 3
  5  pending                                6         operation 5
@@ -216,7 +216,7 @@ func (s *ListOperationsSuite) TestRunPlainTruncated(c *gc.C) {
 Displaying operation results 13 to 16.
 Run the command again with --offset=16 --limit=4 to see the next batch.
 
-Id  Status   Started  Finished             Task IDs  Summary
+ID  Status   Started  Finished             Task IDs  Summary
  1  error                                  2         operation 1
  3  running           2014-02-14T06:06:06  4         operation 3
  5  pending                                6         operation 5
@@ -284,7 +284,7 @@ func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
-Id  Status     Started              Finished  Task IDs      Summary
+ID  Status     Started              Finished  Task IDs      Summary
  1  completed  2015-02-14T06:06:06            2,3,4,5,6...  operation 1
 
 `[1:]

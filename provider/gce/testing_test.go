@@ -205,7 +205,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	s.InstanceType = instances.InstanceType{
 		Name:     instType,
-		Arches:   machArches,
+		Arch:     arch.AMD64,
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(275),
 		Mem:      3750,

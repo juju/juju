@@ -129,7 +129,10 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to connect to database")
 	}
 	defer statePool.Close()
-	st0 := statePool.SystemState()
+	st0, err := statePool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	modelUUIDs, err := st0.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")

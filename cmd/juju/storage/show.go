@@ -27,9 +27,9 @@ func NewShowCommand() cmd.Command {
 
 const showCommandDoc = `
 Show extended information about storage instances.
-Storage instances to display are specified by storage ids. 
-Storage ids are positional arguments to the command and do not need to be comma
-separated when more than one id is desired.
+Storage instances to display are specified by storage IDs. 
+Storage IDs are positional arguments to the command and do not need to be comma
+separated when more than one ID is desired.
 
 `
 
@@ -44,7 +44,7 @@ type showCommand struct {
 // Init implements Command.Init.
 func (c *showCommand) Init(args []string) (err error) {
 	if len(args) < 1 {
-		return errors.New("must specify storage id(s)")
+		return errors.New("must specify storage ID(s)")
 	}
 	c.ids = args
 	return nil
@@ -108,7 +108,7 @@ func (c *showCommand) getStorageTags() ([]names.StorageTag, error) {
 	tags := make([]names.StorageTag, len(c.ids))
 	for i, id := range c.ids {
 		if !names.IsValidStorage(id) {
-			return nil, errors.Errorf("invalid storage id %v", id)
+			return nil, errors.Errorf("invalid storage ID %v", id)
 		}
 		tags[i] = names.NewStorageTag(id)
 	}

@@ -135,11 +135,14 @@ func (cfg *ControllerPodConfig) UnitAgentConfig() (agent.ConfigSetterWriter, err
 		Tag:               names.NewUnitTag("controller/" + cfg.ControllerId),
 		UpgradedToVersion: cfg.JujuVersion,
 		Password:          password,
-		APIAddresses:      cfg.APIHostAddrs(),
-		CACert:            cfg.APIInfo.CACert,
-		Values:            cfg.AgentEnvironment,
-		Controller:        cfg.ControllerTag,
-		Model:             cfg.APIInfo.ModelTag,
+		// Unit agent should always connect to the local controller.
+		APIAddresses: []string{net.JoinHostPort(
+			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort),
+		)},
+		CACert:     cfg.APIInfo.CACert,
+		Values:     cfg.AgentEnvironment,
+		Controller: cfg.ControllerTag,
+		Model:      cfg.APIInfo.ModelTag,
 	}
 	conf, err := agent.NewAgentConfig(configParams)
 	if err != nil {

@@ -6,6 +6,7 @@ package caasmodeloperator
 import (
 	"reflect"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -21,7 +22,11 @@ func Register(registry facade.FacadeRegistry) {
 func newAPIFromContext(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewAPI(authorizer, resources,
-		stateShim{ctx.StatePool().SystemState()},
+		stateShim{systemState},
 		stateShim{ctx.State()})
 }

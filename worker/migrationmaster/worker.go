@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/migration"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/fortress"
@@ -127,8 +127,8 @@ type Config struct {
 
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
-	if config.ModelUUID == "" {
-		return errors.NotValidf("empty ModelUUID")
+	if !names.IsValidModel(config.ModelUUID) {
+		return errors.NotValidf("model UUID %q", config.ModelUUID)
 	}
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
@@ -162,9 +162,9 @@ func New(config Config) (*Worker, error) {
 
 	// Soon we will get model specific logs generated in the
 	// controller logged against the model. Until then, distinguish
-	// the logs from different migrationmaster insteads using the
+	// the logs from different migrationmaster insteads using the short
 	// model UUID suffix.
-	loggerName := "juju.worker.migrationmaster." + config.ModelUUID[len(config.ModelUUID)-6:]
+	loggerName := "juju.worker.migrationmaster." + names.NewModelTag(config.ModelUUID).ShortId()
 	logger := loggo.GetLogger(loggerName)
 
 	w := &Worker{
@@ -385,17 +385,17 @@ func (w *uploadWrapper) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*ch
 }
 
 // UploadResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadResource(res resource.Resource, content io.ReadSeeker) error {
+func (w *uploadWrapper) UploadResource(res resources.Resource, content io.ReadSeeker) error {
 	return w.client.UploadResource(w.modelUUID, res, content)
 }
 
 // SetPlaceholderResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetPlaceholderResource(res resource.Resource) error {
+func (w *uploadWrapper) SetPlaceholderResource(res resources.Resource) error {
 	return w.client.SetPlaceholderResource(w.modelUUID, res)
 }
 
 // SetUnitResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetUnitResource(unitName string, res resource.Resource) error {
+func (w *uploadWrapper) SetUnitResource(unitName string, res resources.Resource) error {
 	return w.client.SetUnitResource(w.modelUUID, unitName, res)
 }
 

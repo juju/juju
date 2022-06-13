@@ -602,7 +602,10 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 		"baz": "qux",
 	})
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -705,7 +708,10 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 		"baz": "qux",
 	})
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -3997,14 +4003,15 @@ func (s *upgradesSuite) TestRemoveControllerConfigMaxLogAgeAndSize(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestIncrementTaskSequence(c *gc.C) {
-	st := s.pool.SystemState()
+	st, err := s.pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	st1 := s.newState(c)
 	st2 := s.newState(c)
 	sequenceColl, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
 
 	// No tasks sequence requests, so no update.
-	err := IncrementTasksSequence(s.pool)
+	err = IncrementTasksSequence(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, s := range []*State{st, st1, st2} {
 		n, err := sequenceColl.FindId(s.ModelUUID() + ":tasks").Count()
@@ -5051,7 +5058,10 @@ func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsCertificate(c 
 	}}
 
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyKubernetesCloudCredentials(st)
 	}
 	s.assertUpgradedData(c, f,
@@ -5122,7 +5132,10 @@ func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsOAuth2(c *gc.C
 	}}
 
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyKubernetesCloudCredentials(st)
 	}
 	s.assertUpgradedData(c, f,
@@ -5195,7 +5208,10 @@ func (s *upgradesSuite) TestUpdateLegacyKubernetesCloudCredentialsOAuth2Cert(c *
 	}}
 
 	f := func(pool *StatePool) error {
-		st := pool.SystemState()
+		st, err := pool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return UpdateLegacyKubernetesCloudCredentials(st)
 	}
 	s.assertUpgradedData(c, f,
@@ -5435,10 +5451,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 			"source":   "local",
 			"type":     "charm",
 			"revision": 12,
-			"channel": bson.M{
-				"track": "latest",
-				"risk":  "edge",
-			},
 			"platform": bson.M{
 				"architecture": "amd64",
 				"series":       "focal",
@@ -5457,10 +5469,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 			"id":       "local:test",
 			"hash":     "",
 			"revision": -1,
-			"channel": bson.M{
-				"track": "latest",
-				"risk":  "",
-			},
 			"platform": bson.M{
 				"architecture": "amd64",
 				"series":       "focal",
@@ -5529,10 +5537,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 				"source":   "local",
 				"type":     "charm",
 				"revision": 12,
-				"channel": bson.M{
-					"track": "latest",
-					"risk":  "edge",
-				},
 				"platform": bson.M{
 					"architecture": "amd64",
 					"series":       "focal",
@@ -5550,10 +5554,6 @@ func (s *upgradesSuite) TestEnsureCharmOriginRisk(c *gc.C) {
 				"id":       "local:test",
 				"hash":     "",
 				"revision": -1,
-				"channel": bson.M{
-					"track": "latest",
-					"risk":  "stable",
-				},
 				"platform": bson.M{
 					"architecture": "amd64",
 					"series":       "focal",
@@ -6505,6 +6505,279 @@ func setupActionsTestUpdateOperationWithEnqueuingErrors(c *gc.C, actColl *mgo.Co
 	}
 	err := actColl.Insert(docs[0], docs[1], docs[2])
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestRemoveLocalCharmOriginChannels(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	appColl, appCloser := s.state.db().GetRawCollection(applicationsC)
+	defer appCloser()
+
+	var err error
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"name":       "app1",
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("cs:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app2"),
+		"name":       "app2",
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("local:test").String(),
+		"charm-origin": bson.M{
+			"source":   "local",
+			"type":     "charm",
+			"revision": 12,
+			"channel": bson.M{
+				"risk": "",
+			},
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "focal",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app3"),
+		"name":       "app3",
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("local:test2").String(),
+		"charm-origin": bson.M{
+			"source":   "local",
+			"type":     "charm",
+			"id":       "local:test",
+			"hash":     "",
+			"revision": -1,
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "focal",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app4"),
+		"name":       "app4",
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("cs:focal/test-13").String(),
+		"cs-channel": "edge",
+		"charm-origin": bson.M{
+			"source":   "charm-store",
+			"type":     "charm",
+			"revision": 12,
+			"channel": bson.M{
+				"track": "latest",
+				"risk":  "stable",
+			},
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "focal",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app5"),
+		"name":       "app5",
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("ch:amd64/focal/test").String(),
+		"charm-origin": bson.M{
+			"source":   "charm-hub",
+			"type":     "charm",
+			"id":       "yyyy",
+			"hash":     "xxxx",
+			"revision": 12,
+			"channel": bson.M{
+				"track": "latest",
+				"risk":  "edge",
+			},
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "focal",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "app1"),
+			"model-uuid": uuid1,
+			"name":       "app1",
+			"charmurl":   "cs:test",
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "app2"),
+			"model-uuid": uuid1,
+			"name":       "app2",
+			"charmurl":   "local:test",
+			"charm-origin": bson.M{
+				"source":   "local",
+				"type":     "charm",
+				"revision": 12,
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "focal",
+				},
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app3"),
+			"model-uuid": uuid2,
+			"name":       "app3",
+			"charmurl":   "local:test2",
+			"charm-origin": bson.M{
+				"source":   "local",
+				"type":     "charm",
+				"id":       "local:test",
+				"hash":     "",
+				"revision": -1,
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "focal",
+				},
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app4"),
+			"model-uuid": uuid2,
+			"name":       "app4",
+			"charmurl":   "cs:focal/test-13",
+			"cs-channel": "edge",
+			"charm-origin": bson.M{
+				"source":   "charm-store",
+				"type":     "charm",
+				"revision": 12,
+				"channel": bson.M{
+					"track": "latest",
+					"risk":  "stable",
+				},
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "focal",
+				},
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app5"),
+			"model-uuid": uuid2,
+			"name":       "app5",
+			"charmurl":   "ch:amd64/focal/test",
+			"charm-origin": bson.M{
+				"source":   "charm-hub",
+				"type":     "charm",
+				"revision": 12,
+				"hash":     "xxxx",
+				"id":       "yyyy",
+				"channel": bson.M{
+					"track": "latest",
+					"risk":  "edge",
+				},
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "focal",
+				},
+			},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, RemoveLocalCharmOriginChannels,
+		upgradedData(appColl, expected),
+	)
+}
+
+func (s *upgradesSuite) TestFixCharmhubLastPolltime(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+	model1.stateClock = s.state.stateClock
+	model2.stateClock = s.state.stateClock
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	coll, resCloser := s.state.db().GetRawCollection(resourcesC)
+	defer resCloser()
+
+	existingNow := time.Now().Round(time.Second).UTC()
+	var err error
+	err = coll.Insert(bson.M{
+		"_id":         ensureModelUUID(uuid1, "res1"),
+		"resource-id": "res1-id",
+		"name":        "res1",
+		"model-uuid":  uuid1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":                        ensureModelUUID(uuid1, "res1#charmstore"),
+		"resource-id":                "res1-id",
+		"name":                       "res1",
+		"model-uuid":                 uuid1,
+		"timestamp-when-last-polled": existingNow,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":         ensureModelUUID(uuid1, "res2#charmstore"),
+		"resource-id": "res2-id",
+		"name":        "res2",
+		"model-uuid":  uuid1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":                        ensureModelUUID(uuid2, "res3#charmstore"),
+		"resource-id":                "res3-id",
+		"name":                       "res3",
+		"model-uuid":                 uuid2,
+		"timestamp-when-last-polled": time.Time{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	expected := bsonMById{
+		{
+			"_id":         ensureModelUUID(uuid1, "res1"),
+			"resource-id": "res1-id",
+			"name":        "res1",
+			"model-uuid":  uuid1,
+		}, {
+			"_id":                        ensureModelUUID(uuid1, "res1#charmstore"),
+			"resource-id":                "res1-id",
+			"name":                       "res1",
+			"model-uuid":                 uuid1,
+			"timestamp-when-last-polled": existingNow,
+		}, {
+			"_id":                        ensureModelUUID(uuid1, "res2#charmstore"),
+			"resource-id":                "res2-id",
+			"name":                       "res2",
+			"model-uuid":                 uuid1,
+			"timestamp-when-last-polled": model1.nowToTheSecond(),
+		}, {
+			"_id":                        ensureModelUUID(uuid2, "res3#charmstore"),
+			"resource-id":                "res3-id",
+			"name":                       "res3",
+			"model-uuid":                 uuid2,
+			"timestamp-when-last-polled": model2.nowToTheSecond(),
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, FixCharmhubLastPolltime,
+		upgradedData(coll, expected),
+	)
 }
 
 type docById []bson.M

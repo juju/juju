@@ -255,7 +255,10 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 
 	repo := NewCharmHubRepository(s.logger, s.client)
 	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
-	c.Assert(err, gc.ErrorMatches, `selecting releases: no charm or bundle matching channel or platform; suggestions: stable with focal`)
+	c.Assert(err, gc.ErrorMatches,
+		`(?m)selecting releases: charm or bundle not found for channel "", platform "amd64"
+available releases are:
+  channel "stable": available series are: focal`)
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -427,7 +430,7 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *gc.
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefresh(c *gc.C, cfg charmhub.RefreshConfig) {
-	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfgMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfigMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
 		return []transport.RefreshResponse{{
@@ -472,7 +475,7 @@ func (s *charmHubRepositorySuite) expectBundleRefresh(c *gc.C) {
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfgMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfigMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
 		return []transport.RefreshResponse{{
@@ -548,15 +551,15 @@ func (s *charmHubRepositorySuite) expectedCURL(curl *charm.URL, revision int, ar
 	return curl.WithRevision(revision).WithArchitecture(arch).WithSeries(series)
 }
 
-// RefreshConfgMatcher is required so that we do check somethings going into
+// RefreshConfigMatcher is required so that we do check somethings going into
 // the refresh method. As instanceKey is private we don't know what it is until
 // it's called.
-type RefreshConfgMatcher struct {
+type RefreshConfigMatcher struct {
 	c      *gc.C
 	Config charmhub.RefreshConfig
 }
 
-func (m RefreshConfgMatcher) Matches(x interface{}) bool {
+func (m RefreshConfigMatcher) Matches(x interface{}) bool {
 	rc, ok := x.(charmhub.RefreshConfig)
 	if !ok {
 		return false
@@ -575,7 +578,7 @@ func (m RefreshConfgMatcher) Matches(x interface{}) bool {
 	return cb.Actions[0].ID != nil && rcb.Actions[0].ID != nil && *cb.Actions[0].ID == *rcb.Actions[0].ID
 }
 
-func (RefreshConfgMatcher) String() string {
+func (RefreshConfigMatcher) String() string {
 	return "is refresh config"
 }
 
@@ -838,7 +841,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *
 	}}, corecharm.Origin{
 		Channel: &channel,
 	})
-	c.Assert(err, gc.ErrorMatches, `no charm or bundle matching channel or platform`)
+	c.Assert(err, gc.ErrorMatches, `charm or bundle not found for channel "stable", platform ""`)
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C) {
@@ -857,7 +860,10 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C)
 			Architecture: "arch",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `no charm or bundle matching channel or platform; suggestions: stable with focal`)
+	c.Assert(err, gc.ErrorMatches,
+		`charm or bundle not found for channel "", platform "arch"
+available releases are:
+  channel "stable": available series are: focal`)
 }
 
 func (s *selectNextBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -912,7 +918,7 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with focal",
+		`channel "stable": available series are: focal`,
 	})
 }
 
@@ -932,7 +938,7 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with focal",
+		`channel "stable": available series are: focal`,
 	})
 }
 
@@ -973,8 +979,8 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with focal, bionic",
-		"2.0/stable with bionic",
+		`channel "stable": available series are: focal, bionic`,
+		`channel "2.0/stable": available series are: bionic`,
 	})
 }
 
@@ -994,7 +1000,7 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with centos7",
+		`channel "stable": available series are: centos7`,
 	})
 }
 

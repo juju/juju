@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -24,6 +25,8 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/pki"
+	pkiassertion "github.com/juju/juju/pki/assertion"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
@@ -273,11 +276,9 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 // This is an optional interface to check if the server certificate has not
 // been filled in.
 func (p environProviderCredentials) ShouldFinalizeCredential(cred cloud.Credential) bool {
-	// The credential is fully formed, so we assume the client
-	// certificate is uploaded to the server already.
-	credAttrs := cred.Attributes()
-	_, ok := credAttrs[credAttrServerCert]
-	return !ok
+	// We should always finalize the credentials  so we can perform some sanity
+	// checking on them.
+	return true
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
@@ -320,6 +321,34 @@ func (p environProviderCredentials) FinalizeCredential(
 	}
 }
 
+// validateServerCertificate validates the server certificate we have
+// been supplied with to make sure that it meets our expectations. Checks
+// involve making sure there is a certificate contained in the pem data and that
+// certificate can be used for server authentication.
+//
+// NOTE (tlm): This was added to help users who have potentially made a mistake
+// in their credentials.yaml file when calling juju add-credential. The case
+// that prompted this function was mixing the client certificate with the server
+// certificate.
+func validateServerCertificate(serverPemCertificate string) error {
+	certs, _, err := pki.UnmarshalPemData([]byte(serverPemCertificate))
+	if err != nil {
+		return fmt.Errorf("parsing LXD server certificate as PEM: %w", err)
+	}
+
+	if len(certs) == 0 {
+		return errors.NotFoundf("LXD server certificate")
+	}
+
+	// We only care about the first certificate here as any more cert's in the
+	// file are considered to form the rest of the supporting chain.
+	if !pkiassertion.HasExtKeyUsage(certs[0], x509.ExtKeyUsageServerAuth) {
+		return errors.New("certificate from LXD server certificate file is not signed for server authentication")
+	}
+
+	return nil
+}
+
 func (p environProviderCredentials) finalizeCredential(
 	ctx environs.FinalizeCredentialContext,
 	args environs.FinalizeCredentialParams,
@@ -329,11 +358,6 @@ func (p environProviderCredentials) finalizeCredential(
 	// credential, and fill in the server certificate if we can.
 	stderr := ctx.GetStderr()
 	credAttrs := args.Credential.Attributes()
-	// The credential is fully formed, so we assume the client
-	// certificate is uploaded to the server already.
-	if v, ok := credAttrs[credAttrServerCert]; ok && v != "" {
-		return &args.Credential, nil
-	}
 
 	certPEM := credAttrs[credAttrClientCert]
 	keyPEM := credAttrs[credAttrClientKey]
@@ -361,6 +385,10 @@ func (p environProviderCredentials) finalizeCredential(
 			args.Credential.Label,
 		)
 		return cred, errors.Trace(err)
+	}
+
+	if v, ok := credAttrs[credAttrServerCert]; ok && v != "" {
+		return &args.Credential, validateServerCertificate(v)
 	}
 
 	// We're not local, so setup the remote server and automate the remote

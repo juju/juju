@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
@@ -49,7 +48,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 		steps:                dep.Steps,
 	}
 	if dep.DeployResources == nil {
-		d.deployResources = resourceadapters.DeployResources
+		d.deployResources = DeployResources
 	}
 	return d
 }
@@ -106,7 +105,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 
 // DeployerDependencies are required for any deployer to be run.
 type DeployerDependencies struct {
-	DeployResources      resourceadapters.DeployResourcesFunc
+	DeployResources      DeployResourcesFunc
 	Model                ModelCommand
 	FileSystem           modelcmd.Filesystem
 	CharmReader          CharmReader
@@ -136,7 +135,7 @@ type DeployerConfig struct {
 	Constraints          constraints.Value
 	ModelConstraints     constraints.Value
 	Devices              map[string]devices.Constraints
-	DeployResources      resourceadapters.DeployResourcesFunc
+	DeployResources      DeployResourcesFunc
 	DryRun               bool
 	FlagSet              *gnuflag.FlagSet
 	Force                bool
@@ -155,7 +154,7 @@ type DeployerConfig struct {
 type factory struct {
 	// DeployerDependencies
 	model                ModelCommand
-	deployResources      resourceadapters.DeployResourcesFunc
+	deployResources      DeployResourcesFunc
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	fileSystem           modelcmd.Filesystem
 	charmReader          CharmReader
@@ -491,15 +490,19 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if charm.CharmHub.Matches(userRequestedURL.Schema) && d.channel.Empty() && d.revision != -1 {
+		// Tell the user they need to specify a channel
+		return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
+	}
 	// To deploy by revision, the revision number must be in the origin for a
 	// charmhub charm and in the url for a charmstore charm.
 	if charm.CharmHub.Matches(userRequestedURL.Schema) {
 		if userRequestedURL.Revision != -1 {
 			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 		}
-		if d.revision != -1 && d.channel.Empty() {
-			return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
-		}
+		//if d.revision != -1 && d.channel.Empty() {
+		//	return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
+		//}
 	} else if charm.CharmStore.Matches(userRequestedURL.Schema) {
 		if userRequestedURL.Revision != -1 && d.revision != -1 && userRequestedURL.Revision != d.revision {
 			return nil, errors.Errorf("two different revisions to deploy: specified %d and %d, please choose one.", userRequestedURL.Revision, d.revision)
@@ -636,7 +639,7 @@ func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) e
 
 	var missingImages []string
 	for resName, resMeta := range charmMeta.Resources {
-		if resMeta.Type == resource.TypeContainerImage {
+		if resMeta.Type == charmresource.TypeContainerImage {
 			if _, ok := d.resources[resName]; !ok {
 				missingImages = append(missingImages, resName)
 			}
