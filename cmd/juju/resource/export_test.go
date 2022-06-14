@@ -40,15 +40,15 @@ func NewCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.Mod
 	return modelcmd.Wrap(&c)
 }
 
-func NewUploadCommandForTest(deps UploadDeps, filesystem modelcmd.Filesystem) *UploadCommand {
-	cmd := &UploadCommand{deps: deps}
+func NewUploadCommandForTest(newClient func() (UploadClient, error), filesystem modelcmd.Filesystem) *UploadCommand {
+	cmd := &UploadCommand{newClient: newClient}
 	cmd.SetFilesystem(filesystem)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return cmd
 }
 
-func NewListCommandForTest(deps ListDeps) *ListCommand {
-	cmd := &ListCommand{deps: deps}
+func NewListCommandForTest(newClient func() (ListClient, error)) *ListCommand {
+	cmd := &ListCommand{newClient: newClient}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return cmd
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/tools"
 )
 
 //
@@ -50,12 +49,7 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 		return nil, err
 	}
 
-	tools, err := args.Tools.Match(tools.Filter{Arch: img.Arch})
-	if err != nil {
-		return nil, errors.Errorf("chosen architecture %v not present in %v", img.Arch, args.Tools.Arches())
-	}
-
-	if err := args.InstanceConfig.SetTools(tools); err != nil {
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {

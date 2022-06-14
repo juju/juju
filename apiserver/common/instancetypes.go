@@ -22,13 +22,15 @@ func toParamsInstanceTypeResult(itypes []instances.InstanceType) []params.Instan
 		}
 		result[i] = params.InstanceType{
 			Name:         t.Name,
-			Arches:       t.Arches,
 			CPUCores:     int(t.CpuCores),
 			Memory:       int(t.Mem),
 			RootDiskSize: int(t.RootDisk),
 			VirtType:     virtType,
 			Deprecated:   t.Deprecated,
 			Cost:         int(t.Cost),
+		}
+		if t.Arch != "" {
+			result[i].Arches = []string{t.Arch}
 		}
 	}
 	return result

@@ -12,7 +12,7 @@ while true; do
   fi
   attempts=$((attempts+1))
 
-  ip=$(juju status --format json | jq -r '.applications."elasticsearch-k8s".units[].address' || echo "")
+  ip=$(juju status --format json | jq -r '.applications."elasticsearch-k8s".address' || echo "")
   app_status=$(curl --silent --max-time 3 "${ip}:9200/_cluster/health" | jq -r ".status" || echo "")
   [ "$app_status" == "green" ] && break
 

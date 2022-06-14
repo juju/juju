@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	resource "github.com/juju/juju/resource"
+	resources "github.com/juju/juju/core/resources"
 )
 
 // MockResourceLister is a mock of ResourceLister interface.
@@ -35,10 +35,10 @@ func (m *MockResourceLister) EXPECT() *MockResourceListerMockRecorder {
 }
 
 // ListResources mocks base method.
-func (m *MockResourceLister) ListResources(arg0 []string) ([]resource.ApplicationResources, error) {
+func (m *MockResourceLister) ListResources(arg0 []string) ([]resources.ApplicationResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListResources", arg0)
-	ret0, _ := ret[0].([]resource.ApplicationResources)
+	ret0, _ := ret[0].([]resources.ApplicationResources)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

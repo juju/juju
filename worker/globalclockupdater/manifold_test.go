@@ -22,13 +22,16 @@ import (
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/globalclockupdater"
 )
 
 type ManifoldSuite struct {
+	statetesting.StateSuite
 	testing.IsolationSuite
+
 	stub         testing.Stub
 	config       globalclockupdater.ManifoldConfig
 	worker       worker.Worker
@@ -55,10 +58,35 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.worker = worker.NewRunner(worker.RunnerParams{})
 	s.target = &noopTarget{}
+
+	s.StateSuite.SetUpTest(c)
+
 	s.stateTracker = &stubStateTracker{
+		pool: s.StatePool,
 		done: make(chan struct{}),
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.worker) })
+}
+
+func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+
+	testing.MgoServer.EnableReplicaSet = true
+	err := testing.MgoServer.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.IsolationSuite.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })
+
+	s.StateSuite.SetUpSuite(c)
+}
+
+func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
+	s.StateSuite.TearDownSuite(c)
+	s.IsolationSuite.TearDownSuite(c)
+}
+
+func (s *ManifoldSuite) TearDownTest(c *gc.C) {
+	s.StateSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *ManifoldSuite) newWorker(config globalclockupdater.Config) (worker.Worker, error) {
@@ -141,7 +169,9 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccess(c *gc.C) {
 
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 2)
-	c.Assert(args[0], gc.Equals, s.stateTracker.pool.SystemState())
+	systemState, err := s.stateTracker.pool.SystemState()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(args[0], gc.Equals, systemState)
 	var logWriter raftleasestore.Logger
 	c.Assert(args[1], gc.Implements, &logWriter)
 
@@ -204,13 +234,13 @@ func (stubFSM) GlobalTime() time.Time {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool state.StatePool
+	pool *state.StatePool
 	done chan struct{}
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
+	return s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

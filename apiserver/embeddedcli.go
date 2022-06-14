@@ -143,7 +143,11 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 	// Figure out what model to run the commands on.
 	resolvedModelUUID := modelUUID
 	if resolvedModelUUID == "" {
-		resolvedModelUUID = h.ctxt.srv.shared.statePool.SystemState().ModelUUID()
+		systemState, err := h.ctxt.srv.shared.statePool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resolvedModelUUID = systemState.ModelUUID()
 	}
 	m, closer, err := h.ctxt.srv.shared.statePool.GetModel(resolvedModelUUID)
 	if err != nil {

@@ -6,6 +6,7 @@ package cloud
 import (
 	"reflect"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -20,6 +21,10 @@ func Register(registry facade.FacadeRegistry) {
 func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	pool := NewModelPoolBackend(context.StatePool())
-	ctlrSt := NewStateBackend(pool.SystemState())
+	systemState, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctlrSt := NewStateBackend(systemState)
 	return NewCloudAPI(st, ctlrSt, pool, context.Auth())
 }

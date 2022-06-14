@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -55,7 +55,7 @@ func (s *BaseSuite) newLocalFactory() func(_ *charm.URL) (NewCharmRepository, er
 	}
 }
 
-func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
+func newResource(c *gc.C, name, username, data string) (resources.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username
@@ -86,26 +86,26 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, param
 type stubDataStore struct {
 	stub *testing.Stub
 
-	ReturnListResources         resource.ApplicationResources
+	ReturnListResources         resources.ApplicationResources
 	ReturnAddPendingResource    string
-	ReturnGetResource           resource.Resource
-	ReturnGetPendingResource    resource.Resource
-	ReturnSetResource           resource.Resource
-	ReturnUpdatePendingResource resource.Resource
+	ReturnGetResource           resources.Resource
+	ReturnGetPendingResource    resources.Resource
+	ReturnSetResource           resources.Resource
+	ReturnUpdatePendingResource resources.Resource
 }
 
-func (s *stubDataStore) OpenResource(application, name string) (resource.Resource, io.ReadCloser, error) {
+func (s *stubDataStore) OpenResource(application, name string) (resources.Resource, io.ReadCloser, error) {
 	s.stub.AddCall("OpenResource", application, name)
 	if err := s.stub.NextErr(); err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resources.Resource{}, nil, errors.Trace(err)
 	}
 	return s.ReturnGetResource, nil, nil
 }
 
-func (s *stubDataStore) ListResources(application string) (resource.ApplicationResources, error) {
+func (s *stubDataStore) ListResources(application string) (resources.ApplicationResources, error) {
 	s.stub.AddCall("ListResources", application)
 	if err := s.stub.NextErr(); err != nil {
-		return resource.ApplicationResources{}, errors.Trace(err)
+		return resources.ApplicationResources{}, errors.Trace(err)
 	}
 
 	return s.ReturnListResources, nil
@@ -120,37 +120,37 @@ func (s *stubDataStore) AddPendingResource(application, userID string, chRes cha
 	return s.ReturnAddPendingResource, nil
 }
 
-func (s *stubDataStore) GetResource(application, name string) (resource.Resource, error) {
+func (s *stubDataStore) GetResource(application, name string) (resources.Resource, error) {
 	s.stub.AddCall("GetResource", application, name)
 	if err := s.stub.NextErr(); err != nil {
-		return resource.Resource{}, errors.Trace(err)
+		return resources.Resource{}, errors.Trace(err)
 	}
 
 	return s.ReturnGetResource, nil
 }
 
-func (s *stubDataStore) GetPendingResource(application, name, pendingID string) (resource.Resource, error) {
+func (s *stubDataStore) GetPendingResource(application, name, pendingID string) (resources.Resource, error) {
 	s.stub.AddCall("GetPendingResource", application, name, pendingID)
 	if err := s.stub.NextErr(); err != nil {
-		return resource.Resource{}, errors.Trace(err)
+		return resources.Resource{}, errors.Trace(err)
 	}
 
 	return s.ReturnGetPendingResource, nil
 }
 
-func (s *stubDataStore) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+func (s *stubDataStore) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resources.Resource, error) {
 	s.stub.AddCall("SetResource", applicationID, userID, res, r)
 	if err := s.stub.NextErr(); err != nil {
-		return resource.Resource{}, errors.Trace(err)
+		return resources.Resource{}, errors.Trace(err)
 	}
 
 	return s.ReturnSetResource, nil
 }
 
-func (s *stubDataStore) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+func (s *stubDataStore) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resources.Resource, error) {
 	s.stub.AddCall("UpdatePendingResource", applicationID, pendingID, userID, res, r)
 	if err := s.stub.NextErr(); err != nil {
-		return resource.Resource{}, errors.Trace(err)
+		return resources.Resource{}, errors.Trace(err)
 	}
 
 	return s.ReturnUpdatePendingResource, nil

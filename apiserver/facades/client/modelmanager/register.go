@@ -27,10 +27,12 @@ func Register(registry facade.FacadeRegistry) {
 func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
-	ctlrSt := pool.SystemState()
+	ctlrSt, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	auth := ctx.Auth()
 
-	var err error
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -23,11 +23,6 @@ var (
 
 	virtType = "kvm"
 
-	// NOTE(achilleasa/20210310): At this point in time, google cloud only
-	// provides amd64 machine types. For more information see:
-	// https://cloud.google.com/compute/docs/cpu-platforms.
-	machArches = []string{arch.AMD64}
-
 	// minCpuCores is the assumed minimum CPU cores we prefer in order to run a server.
 	minCpuCores uint64 = 2
 
@@ -91,7 +86,8 @@ func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext, clock c
 				Name:     m.Name,
 				CpuCores: uint64(m.GuestCpus),
 				Mem:      uint64(m.MemoryMb),
-				Arches:   machArches,
+				// TODO: support arm64 once the API can report arch.
+				Arch:     arch.AMD64,
 				VirtType: &virtType,
 			}
 			resultUnique[m.Name] = i

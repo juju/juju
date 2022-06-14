@@ -362,14 +362,14 @@ func (p *StatePool) maybeRemoveItem(item *PoolItem) (bool, error) {
 }
 
 // SystemState returns the State passed in to NewStatePool.
-func (p *StatePool) SystemState() *State {
+func (p *StatePool) SystemState() (*State, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	// State pool is closed, no more access to the system state.
 	if p.pool == nil {
-		return nil
+		return nil, errors.New("pool is closed")
 	}
-	return p.systemState
+	return p.systemState, nil
 }
 
 // Close closes all State instances in the pool.

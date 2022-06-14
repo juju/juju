@@ -1269,8 +1269,8 @@ func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, ok = s.unit.CharmURL()
-	c.Assert(ok, jc.IsTrue)
+	curl, err = s.unit.CharmURL()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, s.charm.URL())
 }
 
@@ -1310,8 +1310,8 @@ func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
 	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, ok := s.unit.CharmURL()
-	c.Assert(ok, jc.IsTrue)
+	curl, err := s.unit.CharmURL()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, s.charm.URL())
 }
 
@@ -1359,9 +1359,9 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Verify it worked after the second attempt.
 				err := s.unit.Refresh()
 				c.Assert(err, jc.ErrorIsNil)
-				currentURL, hasURL := s.unit.CharmURL()
+				currentURL, err := s.unit.CharmURL()
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(currentURL, jc.DeepEquals, s.charm.URL())
-				c.Assert(hasURL, jc.IsTrue)
 			},
 		},
 	).Check()
@@ -2649,7 +2649,8 @@ func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "")
 
-	unit.SetWorkloadVersion("3.combined")
+	err = unit.SetWorkloadVersion("3.combined")
+	c.Assert(err, jc.ErrorIsNil)
 	version, err = unit.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "3.combined")
@@ -2840,12 +2841,9 @@ func (s *CAASUnitSuite) TestCannotShortCircuitDestroyAllocatedUnit(c *gc.C) {
 	// the unit has been allocated and a pod created.
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	now := coretesting.NonZeroTime()
-	err = unit.SetAgentStatus(status.StatusInfo{
-		Status:  status.Error,
-		Message: "some error",
-		Since:   &now,
-	})
+	unitState := state.NewUnitState()
+	unitState.SetUniterState("error")
+	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3054,7 +3052,9 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 
 	// Ensure the following operation to set the unit as Dying
 	// is not short circuited to remove the unit.
-	err = unit.SetAgentStatus(status.StatusInfo{Status: status.Idle})
+	unitState := state.NewUnitState()
+	unitState.SetUniterState("idle")
+	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
 	err = unit.Destroy()
@@ -3115,7 +3115,9 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 
 	// Ensure the following operation to set the unit as Dying
 	// is not short circuited to remove the unit.
-	err = unit.SetAgentStatus(status.StatusInfo{Status: status.Idle})
+	unitState := state.NewUnitState()
+	unitState.SetUniterState("idle")
+	err = unit.SetState(unitState, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
 	err = unit.Destroy()

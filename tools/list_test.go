@@ -60,12 +60,12 @@ var (
 	t210all       = tools.List{t210ubuntu, t211ubuntu, t215ubuntu, t2152ubuntu}
 )
 
-type stringsTest struct {
+type releaseTest struct {
 	src    tools.List
 	expect []string
 }
 
-var releaseTests = []stringsTest{{
+var releaseTests = []releaseTest{{
 	src:    tools.List{t100ubuntu},
 	expect: []string{"ubuntu"},
 }, {
@@ -86,21 +86,36 @@ func (s *ListSuite) TestReleases(c *gc.C) {
 	}
 }
 
-var archesTests = []stringsTest{{
+type archTest struct {
+	src    tools.List
+	expect string
+	err    string
+}
+
+var archesTests = []archTest{{
 	src:    tools.List{t100ubuntu},
-	expect: []string{"amd64"},
+	expect: "amd64",
 }, {
 	src:    tools.List{t100ubuntu, t100windows, t200ubuntu},
-	expect: []string{"amd64"},
+	expect: "amd64",
 }, {
-	src:    tAllBefore210,
-	expect: []string{"amd64", "i386"},
+	src: tAllBefore210,
+	err: "more than one agent arch present: \\[amd64 i386\\]",
+}, {
+	src: tools.List{},
+	err: "tools list is empty",
 }}
 
-func (s *ListSuite) TestArches(c *gc.C) {
+func (s *ListSuite) TestOneArch(c *gc.C) {
 	for i, test := range archesTests {
 		c.Logf("test %d", i)
-		c.Check(test.src.Arches(), gc.DeepEquals, test.expect)
+		arch, err := test.src.OneArch()
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(arch, gc.Equals, test.expect)
+		}
 	}
 }
 

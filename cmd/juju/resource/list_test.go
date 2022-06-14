@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 var _ = gc.Suite(&ShowApplicationSuite{})
@@ -32,26 +32,26 @@ func (s *ShowApplicationSuite) SetUpTest(c *gc.C) {
 	stub := &testing.Stub{}
 	s.stubDeps = &stubShowApplicationDeps{
 		stub:   stub,
-		client: &stubApplicationClient{stub: stub},
+		client: &stubResourceClient{stub: stub},
 	}
 }
 
 func (*ShowApplicationSuite) TestInitEmpty(c *gc.C) {
-	s := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{})
+	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*ShowApplicationSuite) TestInitGood(c *gc.C) {
-	s := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{})
+	s := resourcecmd.NewListCommandForTest(nil)
 	err := s.Init([]string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resourcecmd.ListCommandTarget(s), gc.Equals, "foo")
 }
 
 func (*ShowApplicationSuite) TestInitTooManyArgs(c *gc.C) {
-	s := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{})
+	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
@@ -77,12 +77,10 @@ updates available for resources from the charmstore.
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {
-	data := []resource.ApplicationResources{{}}
+	data := []resources.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
-		NewClient: s.stubDeps.NewClient,
-	})
+	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc")
 	c.Check(code, gc.Equals, 0)
@@ -92,9 +90,9 @@ func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {
 }
 
 func (s *ShowApplicationSuite) TestRun(c *gc.C) {
-	data := []resource.ApplicationResources{
+	data := []resources.ApplicationResources{
 		{
-			Resources: []resource.Resource{
+			Resources: []resources.Resource{
 				{
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
@@ -181,9 +179,7 @@ func (s *ShowApplicationSuite) TestRun(c *gc.C) {
 	}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
-		NewClient: s.stubDeps.NewClient,
-	})
+	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc")
 	c.Check(code, gc.Equals, 0)
@@ -206,12 +202,10 @@ openjdk   10
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
-	data := []resource.ApplicationResources{{}}
+	data := []resources.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
-		NewClient: s.stubDeps.NewClient,
-	})
+	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/0")
 	c.Assert(code, gc.Equals, 0)
@@ -223,8 +217,8 @@ func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
 func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) {
 	unitName := "svc/0"
 
-	data := []resource.ApplicationResources{{
-		Resources: []resource.Resource{
+	data := []resources.ApplicationResources{{
+		Resources: []resources.Resource{
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
@@ -250,7 +244,7 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 				Origin:   charmresource.OriginStore,
 			},
 		},
-		UnitResources: []resource.UnitResources{
+		UnitResources: []resources.UnitResources{
 			{
 				Tag: names.NewUnitTag(unitName),
 			},
@@ -258,9 +252,7 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
-		NewClient: s.stubDeps.NewClient,
-	})
+	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, unitName)
 	c.Assert(code, gc.Equals, 0)
@@ -274,9 +266,9 @@ openjdk   -
 }
 
 func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
-	data := []resource.ApplicationResources{
+	data := []resources.ApplicationResources{
 		{
-			Resources: []resource.Resource{
+			Resources: []resources.Resource{
 				{
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
@@ -303,9 +295,9 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 					ID:        "two",
 				},
 			},
-			UnitResources: []resource.UnitResources{{
+			UnitResources: []resources.UnitResources{{
 				Tag: names.NewUnitTag("svc/0"),
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -339,9 +331,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 		}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
-		NewClient: s.stubDeps.NewClient,
-	})
+	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/0")
 	c.Assert(code, gc.Equals, 0)
@@ -358,8 +348,8 @@ website2  2012-12-12T12:12
 }
 
 func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
-	data := []resource.ApplicationResources{{
-		Resources: []resource.Resource{
+	data := []resources.ApplicationResources{{
+		Resources: []resources.Resource{
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
@@ -420,10 +410,10 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 				Origin: charmresource.OriginUpload,
 			},
 		},
-		UnitResources: []resource.UnitResources{
+		UnitResources: []resources.UnitResources{
 			{
 				Tag: names.NewUnitTag("svc/10"),
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -456,7 +446,7 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 			},
 			{
 				Tag: names.NewUnitTag("svc/5"),
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -500,9 +490,7 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
-		NewClient: s.stubDeps.NewClient,
-	})
+	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc", "--details")
 	c.Check(code, gc.Equals, 0)
@@ -523,8 +511,8 @@ svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
 }
 
 func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
-	data := []resource.ApplicationResources{{
-		Resources: []resource.Resource{
+	data := []resources.ApplicationResources{{
+		Resources: []resources.Resource{
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
@@ -561,10 +549,10 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
 		},
-		UnitResources: []resource.UnitResources{
+		UnitResources: []resources.UnitResources{
 			{
 				Tag: names.NewUnitTag("svc/10"),
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -596,7 +584,7 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 			},
 			{
 				Tag: names.NewUnitTag("svc/5"),
-				Resources: []resource.Resource{
+				Resources: []resources.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -637,9 +625,7 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
-		NewClient: s.stubDeps.NewClient,
-	})
+	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/10", "--details")
 	c.Assert(code, gc.Equals, 0)
@@ -658,11 +644,11 @@ charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 0%)
 
 type stubShowApplicationDeps struct {
 	stub   *testing.Stub
-	client *stubApplicationClient
+	client *stubResourceClient
 }
 
-func (s *stubShowApplicationDeps) NewClient(c *resourcecmd.ListCommand) (resourcecmd.ListClient, error) {
-	s.stub.AddCall("NewClient", c)
+func (s *stubShowApplicationDeps) NewClient() (resourcecmd.ListClient, error) {
+	s.stub.AddCall("NewClient")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -670,12 +656,12 @@ func (s *stubShowApplicationDeps) NewClient(c *resourcecmd.ListCommand) (resourc
 	return s.client, nil
 }
 
-type stubApplicationClient struct {
+type stubResourceClient struct {
 	stub            *testing.Stub
-	ReturnResources []resource.ApplicationResources
+	ReturnResources []resources.ApplicationResources
 }
 
-func (s *stubApplicationClient) ListResources(applications []string) ([]resource.ApplicationResources, error) {
+func (s *stubResourceClient) ListResources(applications []string) ([]resources.ApplicationResources, error) {
 	s.stub.AddCall("ListResources", applications)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -683,7 +669,7 @@ func (s *stubApplicationClient) ListResources(applications []string) ([]resource
 	return s.ReturnResources, nil
 }
 
-func (s *stubApplicationClient) Close() error {
+func (s *stubResourceClient) Close() error {
 	s.stub.AddCall("Close")
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)

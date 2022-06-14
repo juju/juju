@@ -188,6 +188,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.LeadershipTrackerFunc = nil
 	config.StartUniterFunc = nil
 	config.UniterFacadeFunc = nil
+	config.ResourcesFacadeFunc = nil
+	config.PayloadFacadeFunc = nil
 	config.RunListenerSocketFunc = nil
 	config.UniterParams.UpdateStatusSignal = nil
 	config.UniterParams.NewOperationExecutor = nil

@@ -170,7 +170,10 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		}
 	}()
 
-	systemState := statePool.SystemState()
+	systemState, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	tlsConfig, err := config.NewTLSConfig(
 		systemState,
 		pkitls.AuthoritySNITLSGetter(authority, config.Logger),

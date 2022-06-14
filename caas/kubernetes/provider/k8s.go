@@ -16,6 +16,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/arch"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -53,7 +55,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -507,7 +509,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(ctx, JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newcontrollerStack(ctx, k8sconstants.JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2198,7 +2200,7 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 		}
 
 		terminated := p.DeletionTimestamp != nil
-		statusMessage, unitStatus, since, err := podToJujuStatus(p, now, eventGetter)
+		statusMessage, unitStatus, since, err := resources.PodToJujuStatus(p, now, eventGetter)
 
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2258,6 +2260,21 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 		units = append(units, unitInfo)
 	}
 	return units, nil
+}
+
+// ListPods filters a list of pods for the provided namespace and labels.
+func (k *kubernetesClient) ListPods(namespace string, selector k8slabels.Selector) ([]core.Pod, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: selector.String(),
+	}
+	list, err := k.client().CoreV1().Pods(namespace).List(context.TODO(), listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(list.Items) == 0 {
+		return nil, errors.NotFoundf("pods with selector %q", selector)
+	}
+	return list.Items, nil
 }
 
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
@@ -2321,7 +2338,7 @@ func (k *kubernetesClient) getStatusFromEvents(name, kind string, jujuStatus sta
 		evt := events[count-1]
 		if jujuStatus == "" {
 			if evt.Type == core.EventTypeWarning && evt.Reason == "FailedCreate" {
-				jujuStatus = status.Blocked
+				jujuStatus = status.Error
 				statusMessage = evt.Message
 			}
 		}
@@ -2403,7 +2420,7 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 }
 
 func prepareWorkloadSpec(
-	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails resources.DockerImageDetails,
+	appName, deploymentName string, podSpec *specs.PodSpec, imageDetails coreresources.DockerImageDetails,
 ) (*workloadSpec, error) {
 	var spec workloadSpec
 	if err := processContainers(deploymentName, podSpec, &spec.Pod.PodSpec); err != nil {

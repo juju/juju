@@ -41,11 +41,11 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -118,6 +118,8 @@ type testContext struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
+	resources              *apiuniter.ResourcesFacadeClient
+	payloads               *apiuniter.PayloadFacadeClient
 	apiConn                api.Connection
 	leaseManager           corelease.Manager
 	leaderTracker          *mockLeaderTracker
@@ -207,6 +209,10 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testApi, gc.NotNil)
 	ctx.api = testApi
+	ctx.payloads = apiuniter.NewPayloadFacadeClient(apiConn)
+	resourcesApi, err := apiuniter.NewResourcesFacadeClient(apiConn, ctx.unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.resources = resourcesApi
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
@@ -511,6 +517,13 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 	if ctx.api == nil {
 		panic("API connection not established")
 	}
+	if ctx.resources == nil {
+		panic("resources API connection not established")
+	}
+	if ctx.payloads == nil {
+		panic("payloads API connection not established")
+	}
+
 	if ctx.runner == nil {
 		panic("process runner not set up")
 	}
@@ -537,6 +550,8 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {
 			return ctx.leaderTracker
 		},
+		PayloadFacade:        ctx.payloads,
+		ResourcesFacade:      ctx.resources,
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
@@ -795,13 +810,16 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
-			url, ok := ctx.unit.CharmURL()
-			if !ok || *url != *curl(s.charm) {
-				var got string
-				if ok {
-					got = url.String()
-				}
-				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
+			url, err := ctx.unit.CharmURL()
+			if err != nil {
+				c.Fatalf("cannot refresh unit: %v", err)
+			}
+			if url == nil {
+				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
+				continue
+			}
+			if *url != *curl(s.charm) {
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), url.String())
 				continue
 			}
 			statusInfo, err := s.statusGetter(ctx)()
@@ -1026,8 +1044,9 @@ func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	}
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	url, ok := ctx.unit.CharmURL()
-	c.Assert(ok, jc.IsTrue)
+
+	url, err := ctx.unit.CharmURL()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
 
@@ -1036,9 +1055,8 @@ type pushResource struct{}
 func (s pushResource) step(c *gc.C, ctx *testContext) {
 	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ApplicationName(), "the bytes")
 
-	res, err := ctx.st.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = res.SetResource(
+	res := ctx.st.Resources()
+	_, err := res.SetResource(
 		ctx.unit.ApplicationName(),
 		opened.Username,
 		opened.Resource.Resource,

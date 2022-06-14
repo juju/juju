@@ -115,10 +115,12 @@ func NewBlobStoreChecker() *BlobStoreChecker {
 	jujuDB := session.DB("juju")
 	managedResources := jujuDB.C(managedResourceC)
 	resources := jujuDB.C(resourceCatalogC)
+	systemState, err := statePool.SystemState()
+	checkErr(err, "pool is closed")
 	return &BlobStoreChecker{
 		pool:    statePool,
 		session: session,
-		system:  statePool.SystemState(),
+		system:  systemState,
 
 		managedResources: managedResources,
 		resources:        resources,
@@ -611,8 +613,7 @@ func resourceDocID(modelUUID, resourceID string) string {
 // readApplicationsAndUnits figures out what CharmURLs are referenced by apps and units
 func (checker *ModelChecker) readApplicationsAndUnits() {
 	resourcesCollection := checker.session.DB("juju").C(resourcesC)
-	charmResources, err := checker.model.State().Resources()
-	checkErr(err, "resources")
+	charmResources := checker.model.State().Resources()
 	agentVersion, err := checker.model.AgentVersion()
 	checkErr(err, "model AgentVersion")
 	// Models track the desired version.Number, but Units track version.Binary
@@ -627,8 +628,9 @@ func (checker *ModelChecker) readApplicationsAndUnits() {
 		units, err := app.AllUnits()
 		checkErr(err, "AllUnits")
 		for _, unit := range units {
-			unitCharmURL, found := unit.CharmURL()
-			if !found {
+			unitCharmURL, err := unit.CharmURL()
+			checkErr(err, "unit CharmURL")
+			if unitCharmURL == nil {
 				continue
 			}
 			unitString := unitCharmURL.String()

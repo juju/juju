@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
@@ -46,7 +45,7 @@ type deployBundle struct {
 	resolver             Resolver
 	authorizer           store.MacaroonGetter
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
-	deployResources      resourceadapters.DeployResourcesFunc
+	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
 
 	useExistingMachines bool
@@ -189,9 +188,6 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		return d.newConsumeDetailsAPI(url)
 	}
 
-	getResourceLister := func(deployerAPI DeployerAPI) (utils.ResourceLister, error) {
-		return resourceadapters.NewAPIClient(deployerAPI)
-	}
 	knownSpaces, err := apiRoot.ListSpaces()
 	if err != nil && !errors.IsNotSupported(err) {
 		return bundleDeploySpec{}, errors.Trace(err)
@@ -219,7 +215,6 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		authorizer:           d.authorizer,
 		getConsumeDetailsAPI: getConsumeDetails,
 		deployResources:      d.deployResources,
-		getResourceLister:    getResourceLister,
 		useExistingMachines:  d.useExistingMachines,
 		bundleMachines:       d.bundleMachines,
 		bundleStorage:        d.bundleStorage,

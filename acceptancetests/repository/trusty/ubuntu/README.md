@@ -48,5 +48,5 @@ This charm has no configuration options.
 
 - Author: Juju Charm Community
 - Report bugs at: [http://bugs.launchpad.net/charms/+source/ubuntu](http://bugs.launchpad.net/charms/+source/ubuntu)
-- Location: [http://jujucharms.com/charms/precise/ubuntu](http://jujucharms.com/charms/precise/ubuntu)
+- Location: [http://charmhub.io/ubuntu](http://charmhub.io/ubuntu)
 

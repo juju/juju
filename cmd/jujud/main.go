@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
-	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"
@@ -52,13 +51,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
-
-func init() {
-	if err := components.RegisterForServer(); err != nil {
-		logger.Criticalf("unable to register server components: %v", err)
-		os.Exit(1)
-	}
-}
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())

@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -1559,7 +1560,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
-	c.Assert(err, gc.ErrorMatches, `no metadata for "saucy" images in some-region with arches \[amd64\]`)
+	c.Assert(err, gc.ErrorMatches, `no metadata for "saucy" images in some-region with arch amd64`)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
@@ -1677,7 +1678,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.large",
 		imageMetadata,
 	)
-	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
+	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "arch=amd64 instance-type=m1.large"`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
@@ -3020,6 +3021,67 @@ func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
 	))
+}
+
+func (s *localServerSuite) TestICMPFirewallRules(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
+	firewaller := openstack.GetFirewaller(s.env)
+	err = firewaller.OpenInstancePorts(s.callCtx, inst, "100", firewall.IngressRules{
+		{
+			PortRange: network.PortRange{
+				FromPort: -1,
+				ToPort:   -1,
+				Protocol: "icmp",
+			},
+			SourceCIDRs: set.NewStrings("0.0.0.0/0", "::/0"),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err := firewaller.InstanceIngressRules(s.callCtx, inst, "100")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(rules), gc.Equals, 1)
+	c.Assert(rules[0].PortRange.FromPort, gc.Equals, -1)
+	c.Assert(rules[0].PortRange.ToPort, gc.Equals, -1)
+	c.Assert(rules[0].PortRange.Protocol, gc.Equals, "icmp")
+	c.Assert(rules[0].SourceCIDRs.Size(), gc.Equals, 2)
+	c.Assert(rules[0].SourceCIDRs.Contains("0.0.0.0/0"), jc.IsTrue)
+	c.Assert(rules[0].SourceCIDRs.Contains("::/0"), jc.IsTrue)
+}
+
+// TestIPv6RuleCreationForEmptyCIDR is a regression test for lp1709312
+func (s *localServerSuite) TestIPv6RuleCreationForEmptyCIDR(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
+	firewaller := openstack.GetFirewaller(s.env)
+	err = firewaller.OpenInstancePorts(s.callCtx, inst, "100", firewall.IngressRules{
+		{
+			PortRange: network.PortRange{
+				FromPort: 443,
+				ToPort:   443,
+				Protocol: "tcp",
+			},
+			SourceCIDRs: set.NewStrings(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err := firewaller.InstanceIngressRules(s.callCtx, inst, "100")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(rules), gc.Equals, 1)
+	c.Assert(rules[0].PortRange.FromPort, gc.Equals, 443)
+	c.Assert(rules[0].PortRange.ToPort, gc.Equals, 443)
+	c.Assert(rules[0].PortRange.Protocol, gc.Equals, "tcp")
+	c.Assert(rules[0].SourceCIDRs.Size(), gc.Equals, 2)
+	c.Assert(rules[0].SourceCIDRs.Contains("0.0.0.0/0"), jc.IsTrue)
+	c.Assert(rules[0].SourceCIDRs.Contains("::/0"), jc.IsTrue)
 }
 
 func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {

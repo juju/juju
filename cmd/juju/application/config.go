@@ -99,10 +99,14 @@ See also:
 `
 )
 
+var appConfigBase = config.ConfigCommandBase{
+	Resettable: true,
+}
+
 // NewConfigCommand returns a command used to get, reset, and set application
 // charm attributes.
 func NewConfigCommand() cmd.Command {
-	return modelcmd.Wrap(&configCommand{})
+	return modelcmd.Wrap(&configCommand{configBase: appConfigBase})
 }
 
 // configCommand get, sets, and resets configuration values of an application' charm.
@@ -206,22 +210,29 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	switch c.configBase.Actions[0] {
-	case config.GetOne:
-		return c.getConfig(client, ctx)
-	case config.Set:
-		return c.setConfig(client, ctx)
-	case config.SetFile:
-		return c.setConfigFile(client, ctx)
-	case config.Reset:
-		return c.resetConfig(client, ctx)
-	default:
-		return c.getAllConfig(client, ctx)
+	for _, action := range c.configBase.Actions {
+		var err error
+		switch action {
+		case config.GetOne:
+			err = c.getConfig(client, ctx)
+		case config.SetArgs:
+			err = c.setConfig(client, ctx)
+		case config.SetFile:
+			err = c.setConfigFile(client, ctx)
+		case config.Reset:
+			err = c.resetConfig(client)
+		default:
+			err = c.getAllConfig(client, ctx)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+	return nil
 }
 
 // resetConfig is the run action when we are resetting attributes.
-func (c *configCommand) resetConfig(client ApplicationAPI, ctx *cmd.Context) error {
+func (c *configCommand) resetConfig(client ApplicationAPI) error {
 	err := client.UnsetApplicationConfig(c.branchName, c.applicationName, c.configBase.KeysToReset)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
@@ -287,7 +298,10 @@ func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error
 	}
 
 	logger.Infof("format %v is ignored", c.out.Name())
-	key := c.configBase.KeyToGet
+	if len(c.configBase.KeysToGet) == 0 {
+		return errors.New("c.configBase.KeysToGet is empty")
+	}
+	key := c.configBase.KeysToGet[0]
 	info, found := results.CharmConfig[key].(map[string]interface{})
 	if !found && len(results.ApplicationConfig) > 0 {
 		info, found = results.ApplicationConfig[key].(map[string]interface{})
@@ -336,20 +350,21 @@ func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) er
 func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, error) {
 	settings := map[string]string{}
 	for k, v := range c.configBase.ValsToSet {
+		vStr := fmt.Sprint(v) // `v` is generally a string
 		//empty string is also valid as a setting value
-		if v == "" {
-			settings[k] = v
+		if vStr == "" {
+			settings[k] = vStr
 			continue
 		}
 
-		if v[0] != '@' {
-			if !utf8.ValidString(v) {
+		if vStr[0] != '@' {
+			if !utf8.ValidString(vStr) {
 				return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
 			}
-			settings[k] = v
+			settings[k] = vStr
 			continue
 		}
-		nv, err := utils.ReadValue(ctx, c.Filesystem(), v[1:])
+		nv, err := utils.ReadValue(ctx, c.Filesystem(), vStr[1:])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

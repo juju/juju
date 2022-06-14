@@ -162,7 +162,9 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 
 	pool, err := stTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(pool.SystemState(), gc.Equals, s.State)
+	systemState, err := pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(systemState, gc.Equals, s.State)
 	c.Assert(stTracker.Done(), jc.ErrorIsNil)
 
 	// Ensure State is closed when the worker is done.

@@ -252,7 +252,10 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	st *state.State,
 	modelStorage binarystorage.Storage,
 ) error {
-	systemState := h.ctxt.statePool().SystemState()
+	systemState, err := h.ctxt.statePool().SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	controllerModel, err := systemState.Model()
 	if err != nil {

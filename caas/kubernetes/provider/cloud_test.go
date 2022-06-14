@@ -5,78 +5,27 @@ package provider_test
 
 import (
 	"fmt"
-	"runtime"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
 	gc "gopkg.in/check.v1"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cloud"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )
 
-var (
-	_ = gc.Suite(&cloudSuite{})
-)
-
-var microk8sStatusEnabled = `
-microk8s:
-  running: true
-addons:
-  jaeger: disabled
-  fluentd: disabled
-  gpu: disabled
-  storage: enabled
-  registry: disabled
-  ingress: disabled
-  dns: enabled
-  metrics-server: disabled
-  prometheus: disabled
-  istio: disabled
-  dashboard: disabled
-`
-
-var microk8sStatusStorageDisabled = `
-microk8s:
-  running: true
-addons:
-  jaeger: disabled
-  fluentd: disabled
-  gpu: disabled
-  storage: disabled
-  registry: disabled
-  ingress: disabled
-  dns: enabled
-  metrics-server: disabled
-  prometheus: disabled
-  istio: disabled
-  dashboard: disabled
-`
-var microk8sStatusDNSDisabled = `
-microk8s:
-  running: true
-addons:
-  jaeger: disabled
-  fluentd: disabled
-  gpu: disabled
-  storage: enabled
-  registry: disabled
-  ingress: disabled
-  dns: disabled
-  metrics-server: disabled
-  prometheus: disabled
-  istio: disabled
-  dashboard: disabled
-`
+var _ = gc.Suite(&cloudSuite{})
 
 type cloudSuite struct {
 	fakeBroker fakeK8sClusterMetadataChecker
@@ -86,8 +35,8 @@ type cloudSuite struct {
 var defaultK8sCloud = jujucloud.Cloud{
 	Name:           k8s.K8sCloudMicrok8s,
 	Endpoint:       "http://1.1.1.1:8080",
-	Type:           cloud.CloudTypeKubernetes,
-	AuthTypes:      []cloud.AuthType{cloud.UserPassAuthType},
+	Type:           jujucloud.CloudTypeKubernetes,
+	AuthTypes:      []jujucloud.AuthType{jujucloud.UserPassAuthType},
 	CACertificates: []string{""},
 	SkipTLSVerify:  true,
 }
@@ -98,8 +47,8 @@ var defaultClusterMetadata = &k8s.ClusterMetadata{
 	OperatorStorageClass: &k8s.StorageProvisioner{Name: "operator-sc"},
 }
 
-func getDefaultCredential() cloud.Credential {
-	defaultCredential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "admin", "password": ""})
+func getDefaultCredential() jujucloud.Credential {
+	defaultCredential := jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{"username": "admin", "password": ""})
 	defaultCredential.Label = "kubernetes credential \"admin\""
 	return defaultCredential
 }
@@ -113,16 +62,31 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
-		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
 
 	var ctx mockContext
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
@@ -155,17 +119,6 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
 
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
-		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
-
 	var ctx mockContext
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, preparedCloud)
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,64 +142,66 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 		s.runner,
 		credentialGetterFunc(ret),
 		cloudGetterFunc(ret),
-		func(environs.OpenParams) (k8s.ClusterMetadataChecker, error) { return &s.fakeBroker, nil },
+		func(environs.OpenParams) (provider.ClusterMetadataStorageChecker, error) { return &s.fakeBroker, nil },
 	)
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
-		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), jc.ErrorIsNil)
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(&s.fakeBroker), jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
-		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusStorageDisabled)}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable storage'`)
+func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNotEnabled(c *gc.C) {
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{}, nil,
+	)
+	err := provider.EnsureMicroK8sSuitable(&s.fakeBroker)
+	c.Assert(err, gc.ErrorMatches, `required storage addon is not enabled`)
 }
 
-func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
-	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-		s.runner.Call(
-			"RunCommands",
-			exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-			&exec.ExecResponse{Code: 0}, nil)
-	}
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: "microk8s status --wait-ready --timeout 15 --yaml"}).Returns(
-		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable dns'`)
-}
-
-func (s *cloudSuite) TestEnsureMicroK8sSuitableNotInGroup(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("no need to check user group setup for windows")
-	}
-	s.runner.Call(
-		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
-		&exec.ExecResponse{Code: 1}, nil)
-	err := provider.EnsureMicroK8sSuitable(s.runner)
-	c.Assert(err, gc.NotNil)
-	c.Assert(strings.Replace(err.Error(), "\n", "", -1),
-		gc.Matches, `The microk8s user group is created during the microk8s snap installation.*`)
+func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSNotEnabled(c *gc.C) {
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{}, nil)
+	err := provider.EnsureMicroK8sSuitable(&s.fakeBroker)
+	c.Assert(err, gc.ErrorMatches, `required dns addon is not enabled`)
 }
 
 type mockContext struct {
@@ -275,4 +230,14 @@ func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster st
 func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
 	results := api.MethodCall(api, "EnsureStorageProvisioner")
 	return results[0].(*k8s.StorageProvisioner), false, testing.TypeAssertError(results[1])
+}
+
+func (api *fakeK8sClusterMetadataChecker) ListPods(namespace string, selector k8slabels.Selector) ([]corev1.Pod, error) {
+	results := api.MethodCall(api, "ListPods", namespace, selector)
+	return results[0].([]corev1.Pod), nil
+}
+
+func (api *fakeK8sClusterMetadataChecker) ListStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error) {
+	results := api.MethodCall(api, "ListStorageClasses", selector)
+	return results[0].([]storagev1.StorageClass), nil
 }

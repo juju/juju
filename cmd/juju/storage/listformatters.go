@@ -23,7 +23,7 @@ func formatStorageInstancesListTabular(writer io.Writer, s CombinedStorage) erro
 	storagePool, storageSize := getStoragePoolAndSize(s)
 	units, byUnit := sortStorageInstancesByUnitId(s)
 
-	w.Print("Unit", "Storage id", "Type")
+	w.Print("Unit", "Storage ID", "Type")
 	if len(storagePool) > 0 {
 		// Older versions of Juju do not include
 		// the pool name in the storage details.
@@ -33,7 +33,7 @@ func formatStorageInstancesListTabular(writer io.Writer, s CombinedStorage) erro
 	w.Println("Size", "Status", "Message")
 
 	for _, unit := range units {
-		// Then sort by storage ids
+		// Then sort by storage IDs
 		byStorage := byUnit[unit]
 		storageIds := make([]string, 0, len(byStorage))
 		for storageId := range byStorage {
@@ -143,7 +143,7 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 	units, byUnit := sortStorageInstancesByUnitId(s)
 
 	w.Println()
-	w.Print("Storage Unit", "Storage id", "Type")
+	w.Print("Storage Unit", "Storage ID", "Type")
 	if len(storagePool) > 0 {
 		w.Print("Pool")
 	}
@@ -169,7 +169,8 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 			w.Print(getFilesystemAttachment(s, info).MountPoint)
 			w.Print(humanizeStorageSize(storageSize[storageId]))
 			w.PrintStatus(info.status.Current)
-			w.Println(info.status.Message)
+			w.PrintColorNoTab(output.EmphasisHighlight.Gray, info.status.Message)
+			w.Println()
 		}
 	}
 	return w.Flush()

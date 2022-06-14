@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
@@ -41,7 +40,7 @@ type deployCharm struct {
 	modelConstraints constraints.Value
 	csMac            *macaroon.Macaroon
 	devices          map[string]devices.Constraints
-	deployResources  resourceadapters.DeployResourcesFunc
+	deployResources  DeployResourcesFunc
 	force            bool
 	id               application.CharmID
 	flagSet          *gnuflag.FlagSet
@@ -182,7 +181,7 @@ func (d *deployCharm) deploy(
 
 	ids, err := d.deployResources(
 		applicationName,
-		client.CharmID{
+		resources.CharmID{
 			URL:    id.URL,
 			Origin: id.Origin,
 		},

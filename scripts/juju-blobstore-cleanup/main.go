@@ -177,10 +177,14 @@ func NewBlobstoreCleaner() (*BlobstoreCleaner, error) {
 	blobstoreDB := session.DB("blobstore")
 	blobstoreFiles := blobstoreDB.C(blobstoreFilesC)
 	blobstoreChunks := blobstoreDB.C(blobstoreChunksC)
+	systemState, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &BlobstoreCleaner{
 		pool:    statePool,
 		session: session,
-		system:  statePool.SystemState(),
+		system:  systemState,
 
 		managedResources: managedResources,
 		storedResources:  storedResources,

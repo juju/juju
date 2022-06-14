@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/juju/payload"
 	"github.com/juju/juju/cmd/juju/resource"
 	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
 	"github.com/juju/juju/cmd/juju/secrets"
@@ -43,12 +44,10 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -558,25 +557,9 @@ func registerCommands(r commandRegistry) {
 	// Juju Dashboard commands.
 	r.Register(dashboard.NewDashboardCommand())
 
-	// Resource commands
-	r.Register(resource.NewUploadCommand(resource.UploadDeps{
-		NewClient: func(c *resource.UploadCommand) (resource.UploadClient, error) {
-			apiRoot, err := c.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return resourceadapters.NewAPIClient(apiRoot)
-		},
-	}))
-	r.Register(resource.NewListCommand(resource.ListDeps{
-		NewClient: func(c *resource.ListCommand) (resource.ListClient, error) {
-			apiRoot, err := c.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return resourceadapters.NewAPIClient(apiRoot)
-		},
-	}))
+	// Resource commands.
+	r.Register(resource.NewUploadCommand())
+	r.Register(resource.NewListCommand())
 	r.Register(resource.NewCharmResourcesCommand())
 
 	// CharmHub related commands
@@ -589,15 +572,9 @@ func registerCommands(r commandRegistry) {
 		r.Register(secrets.NewListSecretsCommand())
 	}
 
-	// Commands registered elsewhere.
-	for _, newCommand := range registeredCommands {
-		command := newCommand()
-		r.Register(command)
-	}
-	for _, newCommand := range registeredEnvCommands {
-		command := newCommand()
-		r.Register(modelcmd.Wrap(command))
-	}
+	// Payload commands.
+	r.Register(payload.NewListCommand())
+
 	rcmd.RegisterAll(r)
 }
 

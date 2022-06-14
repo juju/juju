@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resources"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.utils")
@@ -90,18 +90,18 @@ func GetUpgradeResources(
 func getResources(
 	applicationID string,
 	resourceLister ResourceLister,
-) (map[string]resource.Resource, error) {
+) (map[string]resources.Resource, error) {
 	svcs, err := resourceLister.ListResources([]string{applicationID})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return resource.AsMap(svcs[0].Resources), nil
+	return resources.AsMap(svcs[0].Resources), nil
 }
 
 func filterResources(
 	newCharmURL *charm.URL,
 	meta map[string]charmresource.Meta,
-	current map[string]resource.Resource,
+	current map[string]resources.Resource,
 	uploads map[string]string,
 ) (map[string]charmresource.Meta, error) {
 	filtered := make(map[string]charmresource.Meta)
@@ -122,7 +122,7 @@ func filterResources(
 // flag. For resources we're not adding with --resource, we only upload metadata
 // for charmstore resources.  Previously uploaded resources stay pinned to the
 // data the user uploaded.
-func shouldUpgradeResource(newCharmURL *charm.URL, res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) (bool, error) {
+func shouldUpgradeResource(newCharmURL *charm.URL, res charmresource.Meta, uploads map[string]string, current map[string]resources.Resource) (bool, error) {
 	// Always upload metadata for resources the user is uploading during
 	// upgrade-charm.
 	if _, ok := uploads[res.Name]; ok {

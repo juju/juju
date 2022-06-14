@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -63,7 +62,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 		dummyRunner{},
 		credentialGetterFunc(builtin),
 		cloudGetterFunc(builtin),
-		func(environs.OpenParams) (k8s.ClusterMetadataChecker, error) {
+		func(environs.OpenParams) (provider.ClusterMetadataStorageChecker, error) {
 			return &fakeK8sClusterMetadataChecker{}, nil
 		},
 	)

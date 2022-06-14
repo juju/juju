@@ -338,14 +338,23 @@ func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceI
 func populateNetworkInterfaces(networkFile string) string {
 	s := `
 if [ ! -f /sbin/ifup ]; then
-    echo "No /sbin/ifup, applying netplan configuration."
-    netplan generate
-    netplan apply
+  echo "No /sbin/ifup, applying netplan configuration."
+  netplan generate
+  netplan apply
+  for i in {1..5}; do
+    hostip=$(hostname -I)
+    if [ -z "$hostip" ]; then
+      sleep 1
+    else
+      echo "Got IP addresses $hostip"
+      break
+    fi
+  done
 else
   if [ -f /usr/bin/python ]; then
-      python %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
+    python %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
   else
-      python3 %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
+    python3 %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
   fi
   ifdown -a
   sleep 1.5

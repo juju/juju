@@ -68,11 +68,15 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 	getCanWatch := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &DeployerAPI{
 		Remover:         common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:    common.NewAPIAddresser(ctx.StatePool().SystemState(), resources),
+		APIAddresser:    common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
 		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
 		st:              st,

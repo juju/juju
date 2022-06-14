@@ -77,7 +77,10 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerState := api.pool.SystemState()
+	controllerState, err := api.pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// NOTE (thumper): it isn't clear to me why api.state would be different
 	// from the controllerState as I had thought that the Precheck call was
 	// on the controller model, in which case it should be the same as the

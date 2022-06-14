@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/resource"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -35,6 +36,7 @@ type CharmRevisionUpdater interface {
 // implementation of the api end point.
 type CharmRevisionUpdaterAPI struct {
 	state State
+	clock clock.Clock
 
 	newCharmstoreClient newCharmstoreClientFunc
 	newCharmhubClient   newCharmhubClientFunc
@@ -49,11 +51,13 @@ var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 // with a State interface directly (mainly for use in tests).
 func NewCharmRevisionUpdaterAPIState(
 	state State,
+	clock clock.Clock,
 	newCharmstoreClient newCharmstoreClientFunc,
 	newCharmhubClient newCharmhubClientFunc,
 ) (*CharmRevisionUpdaterAPI, error) {
 	return &CharmRevisionUpdaterAPI{
 		state:               state,
+		clock:               clock,
 		newCharmstoreClient: newCharmstoreClient,
 		newCharmhubClient:   newCharmhubClient,
 	}, nil
@@ -77,10 +81,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	}
 
 	// Process the resulting info for each charm.
-	resources, err := api.state.Resources()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	resources := api.state.Resources()
 	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
 		if err := api.state.AddCharmPlaceholder(info.url); err != nil {
@@ -377,7 +378,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(cfg *config.Config, ids
 		}
 		metadata["environment_uuid"] = cfg.UUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	}
-	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
+	results, err := charmstore.LatestCharmInfo(client, ids, metadata, api.clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -418,7 +419,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids [
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids)
+	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids, api.clock.Now().UTC())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

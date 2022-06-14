@@ -41,7 +41,7 @@ func (s *InstanceTypeSuite) TestStandard(c *gc.C) {
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2",
 		Name:     "Standard_A2",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		VirtType: to.StringPtr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
@@ -61,7 +61,7 @@ func (s *InstanceTypeSuite) TestStandardVersioned(c *gc.C) {
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4",
 		Name:     "Standard_A2_v4",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		VirtType: to.StringPtr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
@@ -81,7 +81,7 @@ func (s *InstanceTypeSuite) TestStandardPromo(c *gc.C) {
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4_Promo",
 		Name:     "Standard_A2_v4_Promo",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		VirtType: to.StringPtr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
@@ -101,7 +101,7 @@ func (s *InstanceTypeSuite) TestBasic(c *gc.C) {
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Basic_A2",
 		Name:     "Basic_A2",
-		Arches:   []string{"amd64"},
+		Arch:     "amd64",
 		VirtType: to.StringPtr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,

@@ -36,7 +36,10 @@ func (w *stateWorker) loop() error {
 	}
 	defer func() { _ = w.stTracker.Done() }()
 
-	systemState := w.pool.SystemState()
+	systemState, err := w.pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	w.setStatePool(w.pool)
 	defer w.setStatePool(nil)

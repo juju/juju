@@ -60,6 +60,8 @@ type runCommandBase struct {
 	defaultWait time.Duration
 
 	logMessageHandler func(*cmd.Context, string)
+
+	hideProgress bool // whether to hide progress info by default
 }
 
 // SetFlags offers an option for YAML output.
@@ -117,7 +119,7 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		if numTasks > 1 {
 			plural = "s"
 		}
-		ctx.Infof("Running operation %s with %d task%s", operationID, numTasks, plural)
+		c.progressf(ctx, "Running operation %s with %d task%s", operationID, numTasks, plural)
 	}
 
 	var actionID string
@@ -126,13 +128,15 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		actionID = result.task
 
 		if !c.background {
-			ctx.Infof("  - task %s on %s", actionID, result.receiver)
+			c.progressf(ctx, "  - task %s on %s", actionID, result.receiver)
 		}
 		info[result.receiverId()] = map[string]string{
 			"id": result.task,
 		}
 	}
-	ctx.Infof("")
+	if !c.background {
+		c.progressf(ctx, "")
+	}
 	if numTasks == 0 {
 		ctx.Infof("Operation %s failed to schedule any tasks:\n%s", operationID, strings.Join(enqueueErrs, "\n"))
 		return nil
@@ -213,7 +217,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 	failed := make(map[string]int)
 	resultReceivers := set.NewStrings()
 	for i, result := range runningTasks {
-		ctx.Infof("Waiting for task %v...\n", result.task)
+		c.progressf(ctx, "Waiting for task %v...\n", result.task)
 		// tick every two seconds, to delay the loop timer.
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		tick := c.clock.NewTimer(resultPollTime)
@@ -222,7 +226,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 			waitForWatcher()
 			if haveLogs {
 				// Make the logs a bit separate in the output.
-				ctx.Infof("\n")
+				c.progressf(ctx, "\n")
 			}
 		}
 		if err != nil {
@@ -264,6 +268,27 @@ func (c *runCommandBase) handleTimeout(tasks []enqueuedAction, got set.Strings) 
 		receivers = append(receivers, names.ReadableString(tag))
 	}
 	return errors.Errorf("timed out waiting for results from: %v", strings.Join(receivers, ", "))
+}
+
+// progressf prints progress information such as:
+//   "Running operation 1 with 2 tasks"
+//   "Waiting for task 3..."
+// This output is sent to either logs or console as per this table:
+//
+//    c.hideProgress = |  true   |  false  |
+//   ------------------|---------|---------|
+//       --quiet flag  |  logs   |  logs   |
+//       neither flag  |  logs   | console |
+//     --verbose flag  | console | console |
+//
+// By setting the hideProgress field, commands can choose whether these
+// messages are logged or sent to console by default.
+func (c *runCommandBase) progressf(ctx *cmd.Context, format string, params ...interface{}) {
+	if c.hideProgress {
+		ctx.Verbosef(format, params...)
+	} else {
+		ctx.Infof(format, params...)
+	}
 }
 
 // GetActionResult tries to repeatedly fetch a task until it is

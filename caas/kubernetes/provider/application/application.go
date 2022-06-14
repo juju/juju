@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -1074,7 +1075,7 @@ func (a *app) Service() (*caas.Service, error) {
 	}
 	ctx := context.Background()
 	now := a.clock.Now()
-	statusMessage, svcStatus, since, err := svc.ComputeStatus(ctx, a.client, now)
+	statusMessage, svcStatus, since, err := a.computeStatus(ctx, a.client, now)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1090,6 +1091,38 @@ func (a *app) Service() (*caas.Service, error) {
 		Generation: nil,
 		Scale:      nil,
 	}, nil
+}
+
+func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	jujuStatus := status.Waiting
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		ss, err := a.getStatefulSet()
+		if err != nil {
+			return "", jujuStatus, now, errors.Trace(err)
+		}
+		if ss.GetDeletionTimestamp() != nil {
+			return "", status.Terminated, now, nil
+		} else if ss.Status.ReadyReplicas > 0 {
+			return "", status.Active, now, nil
+		}
+		var statusMessage string
+		events, err := ss.Events(ctx, client)
+		if err != nil {
+			return "", jujuStatus, now, errors.Trace(err)
+		}
+		// Take the most recent event.
+		if count := len(events); count > 0 {
+			evt := events[count-1]
+			if evt.Type == corev1.EventTypeWarning && evt.Reason == "FailedCreate" {
+				jujuStatus = status.Error
+				statusMessage = evt.Message
+			}
+		}
+		return statusMessage, jujuStatus, now, nil
+	default:
+		return "", jujuStatus, now, errors.NotSupportedf("deployment type %q", a.deploymentType)
+	}
 }
 
 // Units of the application fetched from kubernetes by matching pod labels.

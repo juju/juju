@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/storage"
@@ -1215,9 +1215,8 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
+	resources := s.State.Resources()
+	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Destroy()
@@ -1240,9 +1239,8 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
+	resources := s.State.Resources()
+	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Destroy()
