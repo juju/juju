@@ -21,9 +21,10 @@ var _ = gc.Suite(&ContextSuite{})
 
 type dummyPaths struct{}
 
-func (*dummyPaths) GetToolsDir() string { return "/dummy/tools" }
-func (*dummyPaths) GetCharmDir() string { return "/dummy/charm" }
-func (*dummyPaths) GetBaseDir() string  { return "/dummy/" }
+func (*dummyPaths) GetToolsDir() string     { return "/dummy/tools" }
+func (*dummyPaths) GetCharmDir() string     { return "/dummy/charm" }
+func (*dummyPaths) GetResourcesDir() string { return "/dummy/resource" }
+func (*dummyPaths) GetBaseDir() string      { return "/dummy/" }
 func (*dummyPaths) GetJujucServerSocket(remote bool) sockets.Socket {
 	return sockets.Socket{Network: "unix", Address: "/dummy/jujuc.sock"}
 }

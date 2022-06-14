@@ -45,6 +45,13 @@ func (w *Wrapper) Print(values ...interface{}) {
 	}
 }
 
+// PrintNoTab writes each value adjacent to each other.
+func (w *Wrapper) PrintNoTab(values ...interface{}) {
+	for _, v := range values {
+		fmt.Fprintf(w, "%v", v)
+	}
+}
+
 // Printf writes the formatted text followed by a tab.
 func (w *Wrapper) Printf(format string, values ...interface{}) {
 	fmt.Fprintf(w, format+"\t", values...)
@@ -71,6 +78,27 @@ func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
 	}
 }
 
+// PrintColorNoTab writes the value out in the color context specified.
+func (w *Wrapper) PrintColorNoTab(ctx *ansiterm.Context, value interface{}) {
+	if ctx != nil {
+		ctx.Fprintf(w.TabWriter, "%v", value)
+	} else {
+		fmt.Fprintf(w, "%v", value)
+	}
+}
+
+// PrintHeaders writes out many tab separated values in the color context specificed.
+func (w *Wrapper) PrintHeaders(ctx *ansiterm.Context, values ...interface{}) {
+	for i, v := range values {
+		if i != len(values)-1 {
+			ctx.Fprintf(w, "%v\t", v)
+		} else {
+			ctx.Fprintf(w, "%v", v)
+		}
+	}
+	fmt.Fprintln(w)
+}
+
 // PrintStatus writes out the status value in the standard color.
 func (w *Wrapper) PrintStatus(status status.Status) {
 	w.PrintColor(statusColors[status], status)
@@ -90,6 +118,37 @@ var WarningHighlight = ansiterm.Foreground(ansiterm.Yellow)
 
 // GoodHighlight is used to indicate good or success conditions.
 var GoodHighlight = ansiterm.Foreground(ansiterm.Green)
+
+// InfoHighlight is  the color used to indicate important details.
+// Generally that might be important to a user but not necessarily that
+// obvious.
+var InfoHighlight = ansiterm.Foreground(ansiterm.Cyan)
+
+// EmphasisHighlight is used to show accompanying information, which
+// might be deemed as important by the user.
+var EmphasisHighlight = struct {
+	White         *ansiterm.Context
+	DefaultBold   *ansiterm.Context
+	BoldWhite     *ansiterm.Context
+	Gray          *ansiterm.Context
+	BoldGray      *ansiterm.Context
+	DarkGray      *ansiterm.Context
+	BoldDarkGray  *ansiterm.Context
+	Magenta       *ansiterm.Context
+	BrightMagenta *ansiterm.Context
+	BrightGreen   *ansiterm.Context
+}{
+	White:         ansiterm.Foreground(ansiterm.White),
+	DefaultBold:   ansiterm.Foreground(ansiterm.Default).SetStyle(ansiterm.Bold),
+	BoldWhite:     ansiterm.Foreground(ansiterm.White).SetStyle(ansiterm.Bold),
+	Gray:          ansiterm.Foreground(ansiterm.Gray),
+	BoldGray:      ansiterm.Foreground(ansiterm.Gray).SetStyle(ansiterm.Bold),
+	BoldDarkGray:  ansiterm.Foreground(ansiterm.DarkGray).SetStyle(ansiterm.Bold),
+	DarkGray:      ansiterm.Foreground(ansiterm.DarkGray),
+	Magenta:       ansiterm.Foreground(ansiterm.Magenta),
+	BrightMagenta: ansiterm.Foreground(ansiterm.BrightMagenta),
+	BrightGreen:   ansiterm.Foreground(ansiterm.BrightGreen),
+}
 
 var statusColors = map[status.Status]*ansiterm.Context{
 	// good

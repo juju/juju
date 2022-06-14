@@ -183,7 +183,7 @@ func ExistingJujuLocation() (string, error) {
 // tests.)
 var VersionFileFallbackDir = "/usr/lib/juju"
 
-func copyExistingJujus(dir string) error {
+func copyExistingJujus(dir string, skipCopyVersionFile bool) error {
 	// Assume that the user is running juju.
 	jujuDir, err := ExistingJujuLocation()
 	if err != nil {
@@ -216,6 +216,9 @@ func copyExistingJujus(dir string) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if skipCopyVersionFile {
+		return nil
 	}
 	// If there's a version file beside the jujud binary or in the
 	// fallback location, include that.
@@ -277,9 +280,9 @@ func buildJujus(dir string) error {
 	return nil
 }
 
-func packageLocalTools(toolsDir string, buildAgent bool) error {
+func packageLocalTools(toolsDir string, buildAgent, skipCopyVersionFile bool) error {
 	if !buildAgent {
-		if err := copyExistingJujus(toolsDir); err != nil {
+		if err := copyExistingJujus(toolsDir, skipCopyVersionFile); err != nil {
 			return errors.New("no prepackaged agent available and no jujud binary can be found")
 		}
 		return nil
@@ -296,29 +299,51 @@ func packageLocalTools(toolsDir string, buildAgent bool) error {
 type BundleToolsFunc func(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, bool, string, error)
 
 // Override for testing.
-var BundleTools BundleToolsFunc = bundleTools
+var BundleTools BundleToolsFunc = func(
+	build bool, w io.Writer, forceVersion *version.Number,
+) (version.Binary, bool, string, error) {
+	return bundleTools(build, w, forceVersion, JujudVersion)
+}
 
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.  If forceVersion is not nil and the
 // file isn't an official build, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
-func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (_ version.Binary, official bool, sha256hash string, _ error) {
+func bundleTools(
+	build bool, w io.Writer, forceVersion *version.Number, jujudVersion func(dir string) (version.Binary, bool, error),
+) (_ version.Binary, official bool, sha256hash string, _ error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, false, "", err
 	}
 	defer os.RemoveAll(dir)
-	if err := packageLocalTools(dir, build); err != nil {
+
+	existingJujuLocation, err := ExistingJujuLocation()
+	if err != nil {
+		return version.Binary{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
+	}
+	_, official, err = jujudVersion(existingJujuLocation)
+	if err != nil {
+		return version.Binary{}, official, "", errors.Trace(err)
+	}
+	if official && build {
+		return version.Binary{}, official, "", errors.Errorf("cannot build agent for official build")
+	}
+
+	writeForceVersion := forceVersion != nil
+	if err := packageLocalTools(dir, build, writeForceVersion); err != nil {
 		return version.Binary{}, false, "", err
 	}
 
-	tvers, official, err := JujudVersion(dir)
+	// We need to get the version again because the juju binaries at dir might be built from source code.
+	tvers, official, err := jujudVersion(dir)
 	if err != nil {
 		return version.Binary{}, false, "", errors.Trace(err)
 	}
 	if official {
 		logger.Debugf("using official version %s", tvers)
-	} else if forceVersion != nil {
+	}
+	if writeForceVersion {
 		logger.Debugf("forcing version to %s", forceVersion)
 		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
 			return version.Binary{}, false, "", err
@@ -332,11 +357,12 @@ func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (_ versi
 	return tvers, official, sha256hash, err
 }
 
-var execCommand = exec.Command
+// Override for testing.
+var ExecCommand = exec.Command
 
 func getVersionFromJujud(dir string) (version.Binary, error) {
 	path := filepath.Join(dir, names.Jujud)
-	cmd := execCommand(path, "version")
+	cmd := ExecCommand(path, "version")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

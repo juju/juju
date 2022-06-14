@@ -104,7 +104,7 @@ func RequestHTTPTransport(recorder jujuhttp.RequestRecorder, policy jujuhttp.Ret
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
-			jujuhttp.WithLogger(logger),
+			jujuhttp.WithLogger(logger.ChildWithLabels("transport", corelogger.CHARMHUB, corelogger.HTTP)),
 		)
 	}
 }

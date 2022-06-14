@@ -36,7 +36,10 @@ func NewStateAuthenticator(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	stateAuthenticator.AddHandlers(mux)
+	errH := stateAuthenticator.AddHandlers(mux)
+	if errH != nil {
+		return nil, errors.Trace(errH)
+	}
 	go stateAuthenticator.Maintain(abort)
 	return stateAuthenticator, nil
 }

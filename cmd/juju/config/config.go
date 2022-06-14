@@ -4,28 +4,35 @@
 package config
 
 import (
+	"fmt"
+	"io"
 	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
+	"gopkg.in/yaml.v3"
 )
 
-// ConfigAction represents the action we want to perform here.
+// Action represents the action we want to perform here.
 // The action will be set in Init, and then accessed by the child command's
 // Run method to decide what to do.
-type ConfigAction string
+type Action string
 
 // The strings here are descriptions which will be used in the error message:
 // "cannot X and Y simultaneously"
 const (
-	GetOne  ConfigAction = "get value"
-	GetAll  ConfigAction = "get all values"
-	Set     ConfigAction = "set key=value pairs"
-	SetFile ConfigAction = "use --file flag"
-	Reset   ConfigAction = "use --reset flag"
+	GetOne  Action = "get value"
+	GetAll  Action = "get all values"
+	SetArgs Action = "set key=value pairs"
+	SetFile Action = "use --file flag"
+	Reset   Action = "use --reset flag"
 )
+
+// Attrs represents configuration attributes from either the command-line
+// (key=value arguments) or a yaml file.
+type Attrs map[string]interface{}
 
 // ConfigCommandBase provides a common interface/functionality for configuration
 // commands (such as config and model-config). It defines SetFlags and Init
@@ -41,10 +48,10 @@ type ConfigCommandBase struct {
 	reset      []string // Holds the keys to be reset until parsed.
 
 	// Fields to be set during initialisation
-	Actions     []ConfigAction // The action which we want to handle, set in Init.
-	KeyToGet    string
+	Actions     []Action // The action which we want to handle, set in Init.
+	KeysToGet   []string
 	KeysToReset []string // Holds keys to be reset after parsing.
-	ValsToSet   map[string]string
+	ValsToSet   Attrs
 }
 
 // Info - to be implemented by child command
@@ -54,7 +61,7 @@ func (c *ConfigCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.ConfigFile, "file", "path to yaml-formatted configuration file")
 	if c.Resettable {
 		f.Var(cmd.NewAppendStringsValue(&c.reset), "reset",
-			"Reset the provided comma delimited keys, deletes keys not in the model config")
+			"Reset the provided comma delimited keys")
 	}
 }
 
@@ -65,6 +72,9 @@ func (c *ConfigCommandBase) SetFlags(f *gnuflag.FlagSet) {
 // its own Init command, where it strips the required arguments and passes the
 // rest to the parent.
 func (c *ConfigCommandBase) Init(args []string) error {
+	// Don't change the order - it's important SetFile comes before Set/Reset
+	// so that set/reset arguments override args specified in file
+
 	// Check if --file has been specified
 	if c.ConfigFile.Path != "" {
 		c.Actions = append(c.Actions, SetFile)
@@ -72,59 +82,47 @@ func (c *ConfigCommandBase) Init(args []string) error {
 
 	// Check if --reset has been specified
 	if c.Resettable && len(c.reset) != 0 {
-		c.Actions = append(c.Actions, Reset)
 		err := c.parseResetKeys()
 		if err != nil {
 			return errors.Trace(err)
 		}
+		c.Actions = append(c.Actions, Reset)
 	}
 
-	// The remaining arguments are divided into setKeys (args containing `=`)
-	// and getKeys, so we can work out what the user is trying to do.
-	var setKeys, getKeys []string
+	// The remaining arguments are divided into keys to set (if the arg
+	// contains `=`) and keys to get (otherwise).
+	c.ValsToSet = make(Attrs)
 	for _, arg := range args {
-		splitArg := strings.Split(arg, "=")
-		if len(splitArg) > 1 {
-			setKeys = append(setKeys, splitArg[0])
+		splitArg := strings.SplitN(arg, "=", 2)
+		if len(splitArg) == 2 {
+			key := splitArg[0]
+			if len(key) == 0 {
+				return errors.Errorf(`expected "key=value", got %q`, arg)
+			}
+			if _, exists := c.ValsToSet[key]; exists {
+				return keyvalues.DuplicateError(
+					fmt.Sprintf("key %q specified more than once", key))
+			}
+			c.ValsToSet[key] = splitArg[1]
 		} else {
-			getKeys = append(getKeys, arg)
+			c.KeysToGet = append(c.KeysToGet, arg)
 		}
 	}
 
-	if len(setKeys) == 0 && len(getKeys) == 0 && len(c.Actions) == 0 {
-		// Nothing specified - get full config
-		c.Actions = append(c.Actions, GetAll)
-	}
-
-	if len(setKeys) == 0 && len(getKeys) == 1 {
-		// Get the single key specified
+	if len(c.KeysToGet) > 0 {
 		c.Actions = append(c.Actions, GetOne)
-		c.KeyToGet = args[0]
+	}
+	if len(c.ValsToSet) > 0 {
+		c.Actions = append(c.Actions, SetArgs)
+	}
+	if len(c.Actions) == 0 {
+		// Nothing has been specified - so we get all
+		c.Actions = []Action{GetAll}
+		return nil
 	}
 
-	if len(setKeys) == 0 && len(getKeys) > 1 {
-		// Trying to get multiple keys - error
-		return errors.New("cannot specify multiple keys to get")
-	}
-
-	if len(setKeys) > 0 && len(getKeys) == 0 {
-		// Set specified keys to given values
-		c.Actions = append(c.Actions, Set)
-		var err error
-		c.ValsToSet, err = keyvalues.Parse(args, true)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(setKeys) > 0 && len(getKeys) > 0 {
-		// Looks like user is trying to get & set simultaneously
-		c.Actions = append(c.Actions, GetOne, Set)
-		// Error will be return in next step
-	}
-
-	// Check that we haven't tried to set/get as well as reset/set from file.
-	return c.checkSingleAction()
+	// Check the requested combination of actions is valid
+	return c.validateActions()
 }
 
 // parseResetKeys splits the keys provided to --reset after trimming any
@@ -150,7 +148,7 @@ func (c *ConfigCommandBase) parseResetKeys() error {
 
 // sliceContains is a utility method to check if the given (string) slice
 // contains a given value.
-func sliceContains(slice []string, val string) bool {
+func sliceContains[T comparable](slice []T, val T) bool {
 	for _, s := range slice {
 		if s == val {
 			return true
@@ -159,21 +157,37 @@ func sliceContains(slice []string, val string) bool {
 	return false
 }
 
-// checkSingleAction checks that exactly one action has been specified.
-func (c *ConfigCommandBase) checkSingleAction() error {
-	switch len(c.Actions) {
-	case 0:
-		return errors.New("no action specified")
-	case 1:
-		return nil
-	default:
+// validateActions checks that the requested combination of actions is valid
+// (i.e. we permit doing these actions simultaneously). The rules are:
+//   - Set & Reset can be done simultaneously, as long as we don't try to
+//     set and reset the same key;
+//   - SetFile can be done simultaneously with Set and/or Reset - in this case,
+//     the Set/Reset arguments will override anything specified in the file;
+//   - GetOne cannot be done along with any other action.
+func (c *ConfigCommandBase) validateActions() error {
+	if len(c.Actions) > 1 && sliceContains(c.Actions, GetOne) {
+		// We have specified GetOne and another action - invalid
 		return multiActionError(c.Actions)
 	}
+
+	// This combination of actions seems valid
+	// Check we're not trying to get multiple keys
+	if len(c.KeysToGet) > 1 {
+		return errors.New("cannot specify multiple keys to get")
+	}
+
+	// Check there are no keys being set/reset
+	for _, key := range c.KeysToReset {
+		if _, exists := c.ValsToSet[key]; exists {
+			return errors.Errorf("cannot set and reset key %q simultaneously", key)
+		}
+	}
+	return nil
 }
 
 // multiActionError returns an error saying that the provided actions
 // cannot be done simultaneously.
-func multiActionError(actions []ConfigAction) error {
+func multiActionError(actions []Action) error {
 	actionList := ""
 	for i, descr := range actions {
 		// put in the right (grammatical) list separator
@@ -192,3 +206,30 @@ func multiActionError(actions []ConfigAction) error {
 }
 
 // Run - to be implemented by child command
+
+// Helper methods - to be used by child commands
+
+// ReadFile reads the yaml file at c.ConfigFile.Path, and parses it into
+// an Attrs object.
+func (c *ConfigCommandBase) ReadFile(ctx *cmd.Context) (Attrs, error) {
+	var (
+		data []byte
+		err  error
+	)
+	if c.ConfigFile.Path == "-" {
+		// Read from stdin
+		data, err = io.ReadAll(ctx.Stdin)
+	} else {
+		// Read from file
+		data, err = c.ConfigFile.Read(ctx)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	attrs := make(Attrs)
+	if err := yaml.Unmarshal(data, &attrs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return attrs, nil
+}

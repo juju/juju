@@ -46,11 +46,16 @@ func (s *StateTrackerSuite) TestTooManyDones(c *gc.C) {
 
 func (s *StateTrackerSuite) TestUse(c *gc.C) {
 	pool, err := s.stateTracker.Use()
-	c.Check(pool.SystemState(), gc.Equals, s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	systemState, err := pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(systemState, gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 
+	systemState, err = pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	pool, err = s.stateTracker.Use()
-	c.Check(pool.SystemState(), gc.Equals, s.State)
+	c.Check(systemState, gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -95,13 +100,17 @@ func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
 }
 
 func assertStatePoolNotClosed(c *gc.C, pool *state.StatePool) {
-	c.Assert(pool.SystemState(), gc.NotNil)
-	err := pool.SystemState().Ping()
+	systemState, err := pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(systemState, gc.NotNil)
+	err = systemState.Ping()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func assertStatePoolClosed(c *gc.C, pool *state.StatePool) {
-	c.Assert(pool.SystemState(), gc.IsNil)
+	systemState, err := pool.SystemState()
+	c.Assert(err, gc.ErrorMatches, "pool is closed")
+	c.Assert(systemState, gc.IsNil)
 }
 
 func isTxnLogStarted(report map[string]interface{}) bool {

@@ -4,6 +4,7 @@
 package constraints_test
 
 import (
+	"fmt"
 	"regexp"
 
 	jc "github.com/juju/testing/checkers"
@@ -154,6 +155,26 @@ func (s *validationSuite) TestValidation(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
+}
+
+func (s *validationSuite) TestConstraintResolver(c *gc.C) {
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts([]string{"instance-type"}, []string{"arch"})
+	cons := constraints.MustParse("arch=amd64 instance-type=foo-amd64")
+	_, err := validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type"`)
+	validator.RegisterConflictResolver("instance-type", "arch", func(attrValues map[string]interface{}) error {
+		if attrValues["arch"] == "amd64" && attrValues["instance-type"] == "foo-amd64" {
+			return nil
+		}
+		return fmt.Errorf("instance-type=%q and arch=%q are incompatible", attrValues["instance-type"], attrValues["arch"])
+	})
+	_, err = validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons = constraints.MustParse("arch=arm64 instance-type=foo-s390x")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="foo-s390x" and arch="arm64" are incompatible`)
 }
 
 var mergeTests = []struct {

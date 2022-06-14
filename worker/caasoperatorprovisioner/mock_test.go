@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	"github.com/juju/version/v2"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
 

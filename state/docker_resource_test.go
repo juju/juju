@@ -47,12 +47,12 @@ func (s *dockerMetadataStorageSuite) TestSaveNewResource(c *gc.C) {
 
 func (s *dockerMetadataStorageSuite) TestSaveUpdatesExistingResource(c *gc.C) {
 	id := "test-123"
-	resource := resources.DockerImageDetails{
+	resource1 := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 	}
-	err := s.metadataStorage.Save(id, resource)
+	err := s.metadataStorage.Save(id, resource1)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSavedDockerResource(c, id, resource)
+	s.assertSavedDockerResource(c, id, resource1)
 
 	resource2 := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:deadbeef",

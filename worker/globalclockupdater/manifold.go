@@ -94,7 +94,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	st := statePool.SystemState()
+	st, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	notifyTarget := config.NewTarget(st, config.Logger)
 	w, err := config.NewWorker(Config{

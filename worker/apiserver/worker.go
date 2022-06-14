@@ -126,7 +126,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	controllerConfig, err := config.StatePool.SystemState().ControllerConfig()
+	systemState, err := config.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerConfig, err := systemState.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}

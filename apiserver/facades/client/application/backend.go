@@ -50,7 +50,7 @@ type Backend interface {
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
 	ControllerConfig() (controller.Config, error)
-	Resources() (Resources, error)
+	Resources() Resources
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	Branch(string) (Generation, error)
@@ -411,7 +411,7 @@ func (s stateShim) UnitsInError() ([]Unit, error) {
 	return result, nil
 }
 
-func (s stateShim) Resources() (Resources, error) {
+func (s stateShim) Resources() Resources {
 	return s.State.Resources()
 }
 

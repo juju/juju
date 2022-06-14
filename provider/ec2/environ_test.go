@@ -185,38 +185,48 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 	}{{
 		about: "single port",
 		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))},
-		expected: []types.IpPermission{{
-			IpProtocol: aws.String("tcp"),
-			FromPort:   aws.Int32(80),
-			ToPort:     aws.Int32(80),
-			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-		}},
+		expected: []types.IpPermission{
+			{
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int32(80),
+				ToPort:     aws.Int32(80),
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+			},
+		},
 	}, {
 		about: "multiple ports",
 		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"))},
-		expected: []types.IpPermission{{
-			IpProtocol: aws.String("tcp"),
-			FromPort:   aws.Int32(80),
-			ToPort:     aws.Int32(82),
-			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-		}},
+		expected: []types.IpPermission{
+			{
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int32(80),
+				ToPort:     aws.Int32(82),
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+			},
+		},
 	}, {
 		about: "multiple port ranges",
 		rules: firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("100-120/tcp")),
 		},
-		expected: []types.IpPermission{{
-			IpProtocol: aws.String("tcp"),
-			FromPort:   aws.Int32(80),
-			ToPort:     aws.Int32(82),
-			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-		}, {
-			IpProtocol: aws.String("tcp"),
-			FromPort:   aws.Int32(100),
-			ToPort:     aws.Int32(120),
-			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-		}},
+		expected: []types.IpPermission{
+			{
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int32(80),
+				ToPort:     aws.Int32(82),
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+			}, {
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int32(100),
+				ToPort:     aws.Int32(120),
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+			},
+		},
 	}, {
 		about: "source ranges",
 		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"), "192.168.1.0/24", "0.0.0.0/0")},

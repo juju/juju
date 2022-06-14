@@ -5,6 +5,7 @@ package model_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -66,9 +67,9 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 			errorMatch: "cannot specify multiple keys to get",
 		}, {
 			// test variations
-			desc:       "test reset interspersed",
-			args:       []string{"--reset", "one", "special=foo", "--reset", "two"},
-			errorMatch: "cannot use --reset flag and set key=value pairs simultaneously",
+			desc:   "test reset interspersed",
+			args:   []string{"--reset", "one", "special=foo", "--reset", "two"},
+			nilErr: true,
 		},
 	} {
 		c.Logf("test %d: %s", i, test.desc)
@@ -191,8 +192,19 @@ func (s *ConfigCommandSuite) TestSetCharmhubURL(c *gc.C) {
 }
 
 func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {
+	_, err := s.run(c, "--reset", "special", "foo=bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.fake.resetKeys, jc.DeepEquals, []string{"special"})
+	c.Check(s.fake.values, jc.DeepEquals, map[string]interface{}{
+		"name":    "test-model",
+		"special": "special value",
+		"running": true,
+		"foo":     "bar"})
+}
+
+func (s *ConfigCommandSuite) TestSetAndResetSameKey(c *gc.C) {
 	_, err := s.run(c, "--reset", "special", "special=bar")
-	c.Assert(err, gc.ErrorMatches, "cannot use --reset flag and set key=value pairs simultaneously")
+	c.Assert(err, gc.ErrorMatches, `cannot set and reset key "special" simultaneously`)
 }
 
 func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
@@ -205,6 +217,28 @@ func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]interface{}{
 		"special": "extra",
+		"name":    "test-model",
+		"running": true,
+	}
+	c.Assert(s.fake.values, jc.DeepEquals, expected)
+}
+
+func (s *ConfigCommandSuite) TestSetFromStdin(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("special: extra\n")
+	code := cmd.Main(model.NewConfigCommandForTest(s.fake), ctx,
+		[]string{"--file", "-"})
+
+	c.Assert(code, gc.Equals, 0)
+	output := strings.TrimSpace(cmdtesting.Stdout(ctx))
+	c.Assert(output, gc.Equals, "")
+	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
+	c.Assert(stderr, gc.Equals, "")
+
+	expected := map[string]interface{}{
+		"special": "extra",
+		"name":    "test-model",
+		"running": true,
 	}
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
@@ -223,6 +257,8 @@ special:
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]interface{}{
 		"special": "extra",
+		"name":    "test-model",
+		"running": true,
 	}
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
@@ -230,11 +266,33 @@ special:
 func (s *ConfigCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	err := ioutil.WriteFile(configFile, []byte("special: extra\nunknown: bar"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile, "unknown=foo")
-	c.Assert(err, gc.ErrorMatches, "cannot use --file flag and set key=value pairs simultaneously")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.fake.values, jc.DeepEquals, map[string]interface{}{
+		"special": "extra", "unknown": "foo",
+		"name":    "test-model",
+		"running": true,
+	})
+}
+
+func (s *ConfigCommandSuite) TestSetFromFileCombinedReset(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("special: extra\nunknown: bar"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, "--file", configFile, "--reset", "special,name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.fake.values, jc.DeepEquals, map[string]interface{}{
+		"special": "extra",
+		"name":    "test-model",
+		"running": true,
+		"unknown": "bar",
+	})
+	c.Check(s.fake.resetKeys, jc.DeepEquals, []string{"special", "name"})
 }
 
 func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
@@ -243,6 +301,8 @@ func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
 	expected := map[string]interface{}{
 		"special": "extra",
 		"unknown": "foo",
+		"name":    "test-model",
+		"running": true,
 	}
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }

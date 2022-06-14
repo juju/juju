@@ -63,7 +63,14 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 }
 
 func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
-	f.values = config
+	if f.values == nil {
+		f.values = config
+	} else {
+		// Append values rather than overwriting
+		for key, val := range config {
+			f.values[key] = val
+		}
+	}
 	return f.err
 }
 

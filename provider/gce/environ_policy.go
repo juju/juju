@@ -39,7 +39,8 @@ var unsupportedConstraints = []string{
 // instanceTypeConstraints defines the fields defined on each of the
 // instance types. See instancetypes.go.
 var instanceTypeConstraints = []string{
-	constraints.Arch, // Arches
+	// TODO: move to a dynamic conflict for arch when gce supports more than amd64
+	//constraints.Arch, // Arches
 	constraints.Cores,
 	constraints.CpuPower,
 	constraints.Mem,

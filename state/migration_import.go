@@ -28,11 +28,11 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -42,7 +42,10 @@ import (
 
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
-	st := ctrl.pool.SystemState()
+	st, err := ctrl.pool.SystemState()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	modelUUID := model.Tag().Id()
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", modelUUID)
@@ -1059,10 +1062,7 @@ func (i *importer) appResourceOps(app description.Application) []txn.Op {
 		}
 		if storeRev := r.CharmStoreRevision(); storeRev.Timestamp().IsZero() {
 			doc := makeResourceDoc(resID, resName, storeRev)
-			// Now the resource code is particularly stupid and instead of using
-			// the ID, or encoding the type somewhere, it uses the fact that the
-			// LastPolled time to indicate it is the charm store version.
-			doc.LastPolled = time.Now()
+			doc.LastPolled = i.st.nowToTheSecond()
 			result = append(result, txn.Op{
 				C:      resourcesC,
 				Id:     charmStoreResourceID(resID),
@@ -1240,14 +1240,14 @@ func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg contr
 	})
 }
 
-func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload) error {
+func (i *importer) importUnitPayloads(unit *Unit, payloadInfo []description.Payload) error {
 	up, err := i.st.UnitPayloads(unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, p := range payloads {
-		if err := up.Track(payload.Payload{
+	for _, p := range payloadInfo {
+		if err := up.Track(payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: p.Name(),
 				Type: p.Type(),

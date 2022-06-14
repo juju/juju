@@ -45,11 +45,11 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -111,7 +111,7 @@ type Server struct {
 
 	// resourceLock is used to limit the number of
 	// concurrent resource downloads to units.
-	resourceLock resourceadapters.ResourceDownloadLock
+	resourceLock resource.ResourceDownloadLock
 
 	// registerIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
@@ -282,7 +282,11 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(cfg ServerConfig) (_ *Server, err error) {
-	controllerConfig, err := cfg.StatePool.SystemState().ControllerConfig()
+	systemState, err := cfg.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerConfig, err := systemState.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
@@ -302,7 +306,11 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	model, err := cfg.StatePool.SystemState().Model()
+	systemState, err = cfg.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := systemState.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -492,10 +500,10 @@ func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) {
 	defer srv.mu.Unlock()
 	globalLimit := cfg.ControllerResourceDownloadLimit()
 	appLimit := cfg.ApplicationResourceDownloadLimit()
-	srv.resourceLock = resourceadapters.NewResourceDownloadLimiter(globalLimit, appLimit)
+	srv.resourceLock = resource.NewResourceDownloadLimiter(globalLimit, appLimit)
 }
 
-func (srv *Server) getResourceDownloadLimiter() resourceadapters.ResourceDownloadLock {
+func (srv *Server) getResourceDownloadLimiter() resource.ResourceDownloadLock {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	return srv.resourceLock
@@ -581,7 +589,11 @@ func (srv *Server) loop(ready chan struct{}) error {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
-	for _, ep := range srv.endpoints() {
+	endpoints, err := srv.endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ep := range endpoints {
 		_ = srv.mux.AddHandler(ep.Method, ep.Pattern, ep.Handler)
 		defer srv.mux.RemoveHandler(ep.Method, ep.Pattern)
 		if ep.Method == "GET" {
@@ -605,7 +617,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 	return tomb.ErrDying
 }
 
-func (srv *Server) endpoints() []apihttp.Endpoint {
+func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	const modelRoutePrefix = "/model/:modeluuid"
 
 	type handler struct {
@@ -618,7 +630,11 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		noModelUUID     bool
 	}
 	var endpoints []apihttp.Endpoint
-	controllerModelUUID := srv.shared.statePool.SystemState().ModelUUID()
+	systemState, err := srv.shared.statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerModelUUID := systemState.ModelUUID()
 	addHandler := func(handler handler) {
 		methods := handler.methods
 		if methods == nil {
@@ -713,10 +729,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
-			rst, err := st.Resources()
-			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
-			}
+			rst := st.Resources()
 			return rst, st, entity.Tag(), nil
 		},
 		ChangeAllowedFunc: func(req *http.Request) error {
@@ -732,7 +745,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	}
 	unitResourcesHandler := &UnitResourcesHandler{
-		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, state.PoolHelper, error) {
+		NewOpener: func(req *http.Request, tagKinds ...string) (resources.Opener, state.PoolHelper, error) {
 			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
@@ -742,15 +755,15 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			opener, err := resourceadapters.NewResourceOpener(
-				resourceadapters.NewResourceOpenerState(st.State), srv.getResourceDownloadLimiter, tag.Id())
+			opener, err := resource.NewResourceOpener(st.State, srv.getResourceDownloadLimiter, tag.Id())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
 			return opener, st, nil
 		},
 	}
-	controllerAdminAuthorizer := controllerAdminAuthorizer{srv.shared.statePool.SystemState()}
+
+	controllerAdminAuthorizer := controllerAdminAuthorizer{systemState}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -928,7 +941,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		addHandler(handler)
 	}
 
-	return endpoints
+	return endpoints, nil
 }
 
 // trackRequests wraps a http.Handler, incrementing and decrementing
@@ -1025,7 +1038,11 @@ func (srv *Server) serveConn(
 	resolvedModelUUID := modelUUID
 	statePool := srv.shared.statePool
 	if modelUUID == "" {
-		resolvedModelUUID = statePool.SystemState().ModelUUID()
+		systemState, err := statePool.SystemState()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resolvedModelUUID = systemState.ModelUUID()
 	}
 	var (
 		st *state.PooledState

@@ -49,6 +49,7 @@ type ContextSuite struct {
 	unit        *state.Unit
 	uniter      *uniter.State
 	apiUnit     *uniter.Unit
+	payloads    *uniter.PayloadFacadeClient
 	storage     *runnertesting.StorageContextAccessor
 
 	apiRelunits map[int]*uniter.RelationUnit
@@ -88,6 +89,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	s.payloads = uniter.NewPayloadFacadeClient(s.st)
 
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
@@ -106,6 +108,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
 		State:            s.uniter,
 		Unit:             s.apiUnit,
+		Payloads:         s.payloads,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,

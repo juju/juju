@@ -520,8 +520,7 @@ func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
 
 func (s *applicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFailure(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy-resource")
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	resources := s.State.Resources()
 	pendingID, err := resources.AddPendingResource("haha/borken", "user", charmresource.Resource{
 		Meta:   charm.Meta().Resources["dummy"],
 		Origin: charmresource.OriginUpload,
@@ -543,13 +542,13 @@ func (s *applicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 
 	res, err := resources.ListPendingResources("haha/borken")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 0)
+	c.Assert(res.Resources, gc.HasLen, 0)
+	c.Assert(res.UnitResources, gc.HasLen, 0)
 }
 
 func (s *applicationSuite) TestApplicationDeploymentLeavesResourcesOnSuccess(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy-resource")
-	resources, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	resources := s.State.Resources()
 	pendingID, err := resources.AddPendingResource("unborken", "user", charmresource.Resource{
 		Meta:   charm.Meta().Resources["dummy"],
 		Origin: charmresource.OriginUpload,

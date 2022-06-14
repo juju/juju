@@ -7,54 +7,10 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
-
-var _ = gc.Suite(&commandsSuite{})
-
-type commandsSuite struct {
-	testing.CleanupSuite
-
-	stub    *testing.Stub
-	command *stubCommand
-}
-
-func (s *commandsSuite) SetUpTest(c *gc.C) {
-	s.CleanupSuite.SetUpTest(c)
-
-	s.PatchValue(&registeredCommands, nil)
-	s.PatchValue(&registeredEnvCommands, nil)
-
-	s.stub = &testing.Stub{}
-	s.command = &stubCommand{stub: s.stub}
-}
-
-func (s *commandsSuite) TestRegisterCommand(c *gc.C) {
-	RegisterCommand(func() cmd.Command {
-		return s.command
-	})
-
-	// We can't compare functions directly, so...
-	c.Check(registeredEnvCommands, gc.HasLen, 0)
-	c.Assert(registeredCommands, gc.HasLen, 1)
-	command := registeredCommands[0]()
-	c.Check(command, gc.Equals, s.command)
-}
-
-func (s *commandsSuite) TestRegisterEnvCommand(c *gc.C) {
-	RegisterEnvCommand(func() modelcmd.ModelCommand {
-		return s.command
-	})
-
-	// We can't compare functions directly, so...
-	c.Assert(registeredCommands, gc.HasLen, 0)
-	c.Assert(registeredEnvCommands, gc.HasLen, 1)
-	command := registeredEnvCommands[0]()
-	c.Check(command, gc.Equals, s.command)
-}
 
 type stubCommand struct {
 	modelcmd.ModelCommandBase

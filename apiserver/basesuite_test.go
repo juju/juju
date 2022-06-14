@@ -38,10 +38,12 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
+	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
+	c.Assert(err, jc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
-		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

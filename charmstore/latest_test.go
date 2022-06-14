@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -79,7 +80,7 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 		"controller_version": version.Current.String(),
 		"is_controller":      "false",
 	}
-	results, err := LatestCharmInfo(client, charms, metadata)
+	results, err := LatestCharmInfo(client, charms, metadata, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	header := []string{

@@ -113,6 +113,11 @@ type manifoldsConfig struct {
 	// messaging only. This is used for interactions between workers
 	// and the introspection worker.
 	LocalHub *pubsub.SimpleHub
+
+	// ColocatedWithController is true when the unit agent is running on
+	// the same machine/pod as a Juju controller, where they share the same
+	// networking namespace in linux.
+	ColocatedWithController bool
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -123,7 +128,7 @@ type manifoldsConfig struct {
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config manifoldsConfig) dependency.Manifolds {
 	// NOTE: this agent doesn't have any upgrade steps checks because it will just be restarted when upgrades happen.
-	return dependency.Manifolds{
+	dp := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
@@ -241,32 +246,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
-		// The api address updater is a leaf worker that rewrites agent config
-		// as the controller addresses change. We should only need one of
-		// these in a consolidated agent.
-		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
-		})),
-
-		// Probe HTTP server is a http server for handling probe requests from
-		// Kubernetes. It provides a mux that is used by the caas prober to
-		// register handlers.
-		probeHTTPServerName: muxhttpserver.Manifold(muxhttpserver.ManifoldConfig{
-			Logger: loggo.GetLogger("juju.worker.probehttpserver"),
-			Port:   config.ProbePort,
-		}),
-
-		// Kubernetes probe handler responsible for reporting status for
-		// Kubernetes probes
-		caasProberName: caasprober.Manifold(caasprober.ManifoldConfig{
-			MuxName: probeHTTPServerName,
-			Providers: []string{
-				uniterName,
-			},
-		}),
-
 		// The charmdir resource coordinates whether the charm directory is
 		// available or not; after 'start' hook and before 'stop' hook
 		// executes, and not during upgrades.
@@ -332,6 +311,39 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Hub:           config.LocalHub,
 		}),
 	}
+
+	// If the container agent is colocated with the controller for the controller charm, then it doesn't
+	// need the api address updater, http probe server or the cass prober workers.
+	// For every other deployment of the containeragent, these workers are required.
+	if !config.ColocatedWithController {
+		// The api address updater is a leaf worker that rewrites agent config
+		// as the controller addresses change. We should only need one of
+		// these in a consolidated agent.
+		dp[apiAddressUpdaterName] = ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
+		}))
+
+		// Probe HTTP server is a http server for handling probe requests from
+		// Kubernetes. It provides a mux that is used by the caas prober to
+		// register handlers.
+		dp[probeHTTPServerName] = muxhttpserver.Manifold(muxhttpserver.ManifoldConfig{
+			Logger: loggo.GetLogger("juju.worker.probehttpserver"),
+			Port:   config.ProbePort,
+		})
+
+		// Kubernetes probe handler responsible for reporting status for
+		// Kubernetes probes
+		dp[caasProberName] = caasprober.Manifold(caasprober.ManifoldConfig{
+			MuxName: probeHTTPServerName,
+			Providers: []string{
+				uniterName,
+			},
+		})
+	}
+
+	return dp
 }
 
 var ifNotMigrating = engine.Housing{

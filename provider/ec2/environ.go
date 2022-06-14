@@ -25,6 +25,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
+	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	coreseries "github.com/juju/juju/core/series"
@@ -258,12 +260,16 @@ var unsupportedConstraints = []string{
 // ConstraintsValidator is defined on the Environs interface.
 func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
+	validator.RegisterVocabulary(
+		constraints.Arch,
+		[]string{arch.AMD64, arch.ARM64},
+	)
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
+		[]string{constraints.Arch, constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	instanceTypes, err := e.supportedInstanceTypes(ctx)
 
+	instanceTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -272,8 +278,27 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	for i, itype := range instanceTypes {
 		instTypeNames[i] = itype.Name
 	}
-
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
+		instanceTypeName := attrValues[constraints.InstanceType].(string)
+		arch := attrValues[constraints.Arch].(string)
+		for _, itype := range instanceTypes {
+			if itype.Name != instanceTypeName {
+				continue
+			}
+			if itype.Arch != arch {
+				return fmt.Errorf("%v=%q expected %v=%q not %q",
+					constraints.InstanceType, instanceTypeName,
+					constraints.Arch, itype.Arch, arch)
+			}
+			// The instance-type and arch are a valid combination.
+			return nil
+		}
+		// Should never get here as the instance type value should be already validated to be
+		// in instanceTypes.
+		return errors.NotFoundf("%v %q", constraints.InstanceType, instanceTypeName)
+	})
+
 	return validator, nil
 }
 
@@ -1951,6 +1976,7 @@ func rulesToIPPerms(rules firewall.IngressRules) []types.IpPermission {
 		}
 		if len(r.SourceCIDRs) == 0 {
 			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock)}}
+			ipPerms[i].Ipv6Ranges = []types.Ipv6Range{{CidrIpv6: aws.String(defaultRouteIPv6CIDRBlock)}}
 		} else {
 			for _, cidr := range r.SourceCIDRs.SortedValues() {
 				// CIDRs are pre-validated; if an invalid CIDR
@@ -2042,6 +2068,7 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 		}
 		if len(sourceCIDRs) == 0 {
 			sourceCIDRs = append(sourceCIDRs, defaultRouteCIDRBlock)
+			sourceCIDRs = append(sourceCIDRs, defaultRouteIPv6CIDRBlock)
 		}
 		portRange := network.PortRange{
 			Protocol: aws.ToString(p.IpProtocol),
@@ -2771,7 +2798,7 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	}
 
 	httpClient := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.Child("http")),
+		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 	)
 
 	var err error

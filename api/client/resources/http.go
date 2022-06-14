@@ -3,22 +3,9 @@
 
 package resources
 
-// TODO(ericsnow) Eliminate the apiserver dependencies, if possible.
-
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
-
-	"github.com/juju/errors"
-	"github.com/juju/loggo"
-
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
 )
-
-var logger = loggo.GetLogger("juju.resource.api")
 
 const (
 	// HTTPEndpointPath is the URL path, with substitutions, for
@@ -29,9 +16,6 @@ const (
 const (
 	// ContentTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
 	ContentTypeRaw = "application/octet-stream"
-
-	// ContentTypeJSON is the HTTP content-type value used for JSON content.
-	ContentTypeJSON = "application/json"
 )
 
 const (
@@ -55,48 +39,7 @@ const (
 	QueryParamPendingID = "pendingid"
 )
 
-// NewEndpointPath returns the API URL path for the identified resource.
-func NewEndpointPath(application, name string) string {
+// newEndpointPath returns the API URL path for the identified resource.
+func newEndpointPath(application, name string) string {
 	return fmt.Sprintf(HTTPEndpointPath, application, name)
-}
-
-// ExtractEndpointDetails pulls the endpoint wildcard values from
-// the provided URL.
-func ExtractEndpointDetails(url *url.URL) (application, name string) {
-	application = url.Query().Get(":application")
-	name = url.Query().Get(":resource")
-	return application, name
-}
-
-// TODO(ericsnow) These are copied from apiserver/httpcontext.go...
-
-// SendHTTPError sends a JSON-encoded error response
-// for errors encountered during processing.
-func SendHTTPError(w http.ResponseWriter, err error) {
-	err1, statusCode := apiservererrors.ServerErrorAndStatus(err)
-	logger.Debugf("sending error: %d %v", statusCode, err1)
-	SendHTTPStatusAndJSON(w, statusCode, &params.ErrorResult{
-		Error: err1,
-	})
-}
-
-// SendHTTPStatusAndJSON sends an HTTP status code and
-// a JSON-encoded response to a client.
-func SendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
-	body, err := json.Marshal(response)
-	if err != nil {
-		http.Error(w, errors.Annotatef(err, "cannot marshal JSON result %#v", response).Error(), 504)
-		return
-	}
-
-	if statusCode == http.StatusUnauthorized {
-		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	}
-	w.Header().Set("Content-Type", params.ContentTypeJSON)
-	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
-	w.WriteHeader(statusCode)
-	_, err = w.Write(body)
-	if err != nil {
-		logger.Errorf("%v", err)
-	}
 }

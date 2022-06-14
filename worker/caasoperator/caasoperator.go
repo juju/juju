@@ -136,6 +136,12 @@ type Config struct {
 	// UniterFacadeFunc is a function for making a uniter facade.
 	UniterFacadeFunc func(unitTag names.UnitTag) *apiuniter.State
 
+	// ResourcesFacadeFunc is a function for making a unit resources facade.
+	ResourcesFacadeFunc func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error)
+
+	// PayloadFacadeFunc is a function for making a unit payload facade.
+	PayloadFacadeFunc func() *apiuniter.PayloadFacadeClient
+
 	// UniterParams are parameters used to construct a uniter worker.
 	UniterParams *uniter.UniterParams
 
@@ -176,6 +182,12 @@ func (config Config) Validate() error {
 	}
 	if config.UniterFacadeFunc == nil {
 		return errors.NotValidf("missing UniterFacadeFunc")
+	}
+	if config.ResourcesFacadeFunc == nil {
+		return errors.NotValidf("missing ResourcesFacadeFunc")
+	}
+	if config.PayloadFacadeFunc == nil {
+		return errors.NotValidf("missing PayloadFacadeFunc")
 	}
 	if config.UniterParams == nil {
 		return errors.NotValidf("missing UniterParams")
@@ -583,6 +595,10 @@ func (op *caasOperator) loop() (err error) {
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
+				if params.ResourcesFacade, err = op.config.ResourcesFacadeFunc(unitTag); err != nil {
+					return errors.Trace(err)
+				}
+				params.PayloadFacade = op.config.PayloadFacadeFunc()
 				params.LeadershipTrackerFunc = op.config.LeadershipTrackerFunc
 				params.Logger = params.Logger.Child(unitID)
 				if op.deploymentMode != caas.ModeOperator {

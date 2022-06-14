@@ -26,7 +26,6 @@ import (
 	unitcommand "github.com/juju/juju/cmd/containeragent/unit"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
-	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
@@ -35,13 +34,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cmd.containeragent")
-
-func init() {
-	if err := components.RegisterForContainerAgent(); err != nil {
-		logger.Criticalf("unable to register container agent components: %v", err)
-		os.Exit(1)
-	}
-}
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())

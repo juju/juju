@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/migration"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -69,21 +67,6 @@ func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 	}
 	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
-}
-
-func (*SourcePrecheckSuite) TestPendingResources(c *gc.C) {
-	backend := newHappyBackend()
-	backend.pendingResources = []resource.Resource{
-		resourcetesting.NewResource(c, nil, "blob", "foo", "body").Resource,
-	}
-	err := sourcePrecheck(backend)
-	// Pending resources shouldn't prevent a migration. If they exist
-	// alongside an application, they're remains of a previous failed
-	// deploy that haven't been cleaned up (see lp:1705730). If they
-	// exist without an application that indicates an impending
-	// application deployment - the migration exporter won't migrate
-	// pending resources.
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
@@ -768,9 +751,6 @@ type fakeBackend struct {
 	credentials    state.Credential
 	credentialsErr error
 
-	pendingResources    []resource.Resource
-	pendingResourcesErr error
-
 	controllerBackend *fakeBackend
 }
 
@@ -812,10 +792,6 @@ func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error)
 
 func (b *fakeBackend) AllRelations() ([]migration.PrecheckRelation, error) {
 	return b.relations, b.allRelsErr
-}
-
-func (b *fakeBackend) ListPendingResources(_ string) ([]resource.Resource, error) {
-	return b.pendingResources, b.pendingResourcesErr
 }
 
 func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {

@@ -45,7 +45,7 @@ import (
 	apicharms "github.com/juju/juju/api/client/charms"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	apitesting "github.com/juju/juju/api/testing"
@@ -67,7 +67,6 @@ import (
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -91,7 +90,7 @@ var defaultLocalOrigin = commoncharm.Origin{
 type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
-	DeployResources resourceadapters.DeployResourcesFunc
+	DeployResources deployer.DeployResourcesFunc
 
 	fakeAPI *fakeDeployAPI
 }
@@ -169,7 +168,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.DeployResources = func(applicationID string,
-		chID client.CharmID,
+		chID resources.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -205,10 +204,7 @@ func deployResources(
 	if len(resources) == 0 {
 		return nil, nil
 	}
-	stRes, err := st.Resources()
-	if err != nil {
-		return nil, err
-	}
+	stRes := st.Resources()
 	ids = make(map[string]string)
 	for _, res := range resources {
 		content := res.Name + " content"
@@ -1000,7 +996,7 @@ type CAASDeploySuiteBase struct {
 	jujutesting.IsolationSuite
 	deployer.DeployerAPI
 	Store           *jujuclient.MemStore
-	DeployResources resourceadapters.DeployResourcesFunc
+	DeployResources deployer.DeployResourcesFunc
 
 	CharmsPath string
 	factory    *mocks.MockDeployerFactory
@@ -1189,7 +1185,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	)
 	s.DeployResources = func(
 		applicationID string,
-		chID client.CharmID,
+		chID resources.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -2540,7 +2536,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		},
 		DeployResources: func(
 			applicationID string,
-			chID client.CharmID,
+			chID resources.CharmID,
 			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,
@@ -2740,6 +2736,10 @@ func (f *fakeDeployAPI) AddCharmWithAuthorization(
 func (f *fakeDeployAPI) CharmInfo(url string) (*apicommoncharms.CharmInfo, error) {
 	results := f.MethodCall(f, "CharmInfo", url)
 	return results[0].(*apicommoncharms.CharmInfo), jujutesting.TypeAssertError(results[1])
+}
+
+func (f *fakeDeployAPI) Get(endpoint string, extra interface{}) error {
+	return nil
 }
 
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {

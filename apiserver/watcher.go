@@ -1050,7 +1050,7 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
 
-var getControllerBackend = func(pool *state.StatePool) controllerBackend {
+var getControllerBackend = func(pool *state.StatePool) (controllerBackend, error) {
 	return pool.SystemState()
 }
 
@@ -1081,11 +1081,15 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
+	controllerBackend, err := getControllerBackend(pool)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &srvMigrationStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
 		watcher:       w,
 		st:            getMigrationBackend(st),
-		ctrlSt:        getControllerBackend(pool),
+		ctrlSt:        controllerBackend,
 	}, nil
 }
 

@@ -5,9 +5,15 @@ package config
 
 import (
 	"bytes"
+	"context"
+	"io"
+	"io/fs"
+	"os"
+	"path"
 	stdtesting "testing"
 
-	"github.com/juju/cmd/v3"
+	jujucmd "github.com/juju/cmd/v3"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -56,19 +62,15 @@ type parseFailTest struct {
 // (depending on the value of `fail`).
 func testParse(c *gc.C, test parseFailTest, fail bool) {
 	cmd := ConfigCommandBase{Resettable: test.resettable}
-	parseFail := false
-	var errWriter bytes.Buffer
-
-	f := &gnuflag.FlagSet{
-		Usage: func() { parseFail = true },
-	}
-	f.SetOutput(&errWriter)
+	f := &gnuflag.FlagSet{}
+	f.SetOutput(io.Discard)
 
 	cmd.SetFlags(f)
-	f.Parse(true, test.args)
-	c.Assert(parseFail, gc.Equals, fail)
+	err := f.Parse(true, test.args)
 	if fail {
-		c.Assert(errWriter.String(), gc.Equals, test.errMsg)
+		c.Assert(err, gc.ErrorMatches, test.errMsg)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -87,11 +89,11 @@ type initTest struct {
 	about       string
 	args        []string
 	cantReset   []string
-	action      ConfigAction
-	configFile  cmd.FileVar
+	actions     []Action
+	configFile  jujucmd.FileVar
 	keyToGet    string
 	keysToReset []string
-	valsToSet   map[string]string
+	valsToSet   Attrs
 }
 
 // setupInitTest sets up the ConfigCommandBase and error for TestInitFail and
@@ -103,8 +105,9 @@ func setupInitTest(c *gc.C, args []string, cantReset []string) (ConfigCommandBas
 	}
 	f := flagSetForTest(c)
 	cmd.SetFlags(f)
-	f.Parse(true, args)
-	err := cmd.Init(f.Args())
+	err := f.Parse(true, args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Init(f.Args())
 
 	return cmd, err
 }
@@ -135,12 +138,116 @@ func (s *suite) TestInitSuccess(c *gc.C) {
 
 		cmd, err := setupInitTest(c, test.args, test.cantReset)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(cmd.Actions), gc.Equals, 1)
-		c.Check(cmd.Actions[0], gc.Equals, test.action)
+		c.Check(cmd.Actions, jc.SameContents, test.actions)
+		s.checkFileFirst(c, cmd.Actions)
 		c.Check(cmd.ConfigFile, gc.DeepEquals, test.configFile)
-		c.Check(cmd.KeyToGet, gc.DeepEquals, test.keyToGet)
+
+		if sliceContains(cmd.Actions, GetOne) {
+			c.Assert(cmd.KeysToGet, gc.HasLen, 1)
+			c.Check(cmd.KeysToGet[0], gc.Equals, test.keyToGet)
+		} else {
+			c.Assert(cmd.KeysToGet, gc.HasLen, 0)
+		}
+
 		c.Check(cmd.KeysToReset, gc.DeepEquals, test.keysToReset)
-		c.Check(cmd.ValsToSet, gc.DeepEquals, test.valsToSet)
+		if test.valsToSet == nil {
+			c.Check(cmd.ValsToSet, gc.HasLen, 0)
+		} else {
+			c.Check(cmd.ValsToSet, gc.DeepEquals, test.valsToSet)
+		}
+	}
+}
+
+var fileContents = []byte(`
+key1: val1
+key2: val2`)
+var configAttrs = Attrs{
+	"key1": "val1",
+	"key2": "val2",
+}
+
+func (s *suite) TestReadFile(c *gc.C) {
+	// Create file to read from
+	dir := c.MkDir()
+	filename := "cfg.yaml"
+	err := os.WriteFile(path.Join(dir, filename), fileContents, 0666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: filename},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Dir:     dir,
+	}
+
+	attrs, err := cmd.ReadFile(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attrs, gc.DeepEquals, configAttrs)
+}
+
+func (s *suite) TestReadFileStdin(c *gc.C) {
+	stdin := &bytes.Buffer{}
+	stdin.Write(fileContents)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: "-"},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Stdin:   stdin,
+	}
+
+	attrs, err := cmd.ReadFile(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attrs, gc.DeepEquals, configAttrs)
+}
+
+func (s *suite) TestReadNoSuchFile(c *gc.C) {
+	// Create empty dir
+	dir := c.MkDir()
+	filename := "cfg.yaml"
+	_, err := os.Stat(path.Join(dir, filename))
+	c.Assert(errors.Is(err, fs.ErrNotExist), jc.IsTrue)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: filename},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Dir:     dir,
+	}
+
+	_, err = cmd.ReadFile(ctx)
+	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+}
+
+func (s *suite) TestReadFileBadYAML(c *gc.C) {
+	// Create file to read from
+	dir := c.MkDir()
+	filename := "cfg.yaml"
+	err := os.WriteFile(path.Join(dir, filename), []byte("foo: foo: foo"), 0666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := ConfigCommandBase{
+		ConfigFile: jujucmd.FileVar{Path: filename},
+	}
+	ctx := &jujucmd.Context{
+		Context: context.TODO(),
+		Dir:     dir,
+	}
+
+	_, err = cmd.ReadFile(ctx)
+	c.Assert(err, gc.ErrorMatches, ".*yaml.*")
+}
+
+// checkFileFirst checks that if the provided list of Actions contains the
+// SetFile action, then this is the first action in the list. This is important
+// so that set/reset values from the command-line will override anything
+// specified in a file.
+func (s *suite) checkFileFirst(c *gc.C, actions []Action) {
+	if sliceContains(actions, SetFile) {
+		c.Check(actions[0], gc.Equals, SetFile)
 	}
 }
 
@@ -156,24 +263,24 @@ var parseTests = []parseFailTest{
 	{
 		about:  "no argument provided to --file",
 		args:   []string{"--file"},
-		errMsg: " needs an argument: --file\n",
+		errMsg: " needs an argument: --file",
 	},
 	{
 		about:      "--reset when unresettable",
 		resettable: false,
 		args:       []string{"--reset", "key1"},
-		errMsg:     " provided but not defined: --reset\n",
+		errMsg:     " provided but not defined: --reset",
 	},
 	{
 		about:      "no argument provided to --reset",
 		resettable: true,
 		args:       []string{"--reset"},
-		errMsg:     " needs an argument: --reset\n",
+		errMsg:     " needs an argument: --reset",
 	},
 	{
 		about:  "undefined flag --foo",
 		args:   []string{"--foo"},
-		errMsg: " provided but not defined: --foo\n",
+		errMsg: " provided but not defined: --foo",
 	},
 }
 
@@ -204,14 +311,9 @@ var initFailTests = []initFailTest{
 		errMsg: "cannot use --reset flag and get value simultaneously",
 	},
 	{
-		about:  "set and reset",
-		args:   []string{"key1=val1", "--reset", "key2"},
-		errMsg: "cannot use --reset flag and set key=value pairs simultaneously",
-	},
-	{
 		about:  "set and reset same key",
 		args:   []string{"key1=val1", "--reset", "key1"},
-		errMsg: "cannot use --reset flag and set key=value pairs simultaneously",
+		errMsg: `cannot set and reset key "key1" simultaneously`,
 	},
 	{
 		about:  "get and set from file",
@@ -219,24 +321,14 @@ var initFailTests = []initFailTest{
 		errMsg: "cannot use --file flag and get value simultaneously",
 	},
 	{
-		about:  "set and set from file",
-		args:   []string{"key1=val1", "--file", "path"},
-		errMsg: "cannot use --file flag and set key=value pairs simultaneously",
-	},
-	{
-		about:  "set from file and reset",
-		args:   []string{"--file", "path", "--reset", "key1,key2"},
-		errMsg: "cannot use --file flag and use --reset flag simultaneously",
-	},
-	{
 		about:  "get, set from file & reset",
 		args:   []string{"key1", "--file", "path", "--reset", "key1,key2"},
 		errMsg: "cannot use --file flag, use --reset flag and get value simultaneously",
 	},
 	{
-		about:  "set, set from file and reset",
+		about:  "set from file, set/reset same key",
 		args:   []string{"key1=val1", "--file", "path", "--reset", "key1,key2"},
-		errMsg: "cannot use --file flag, use --reset flag and set key=value pairs simultaneously",
+		errMsg: `cannot set and reset key "key1" simultaneously`,
 	},
 	{
 		about:  "get, set, set from file and reset",
@@ -265,31 +357,41 @@ var initFailTests = []initFailTest{
 		args:   []string{"--reset", "key1,key2=val2,key3"},
 		errMsg: `--reset accepts a comma delimited set of keys "a,b,c", received: "key2=val2"`,
 	},
+	{
+		about:  "--reset with multiple get keys",
+		args:   []string{"--reset", "key1,key2,key3", "key4", "key5"},
+		errMsg: "cannot use --reset flag and get value simultaneously",
+	},
+	{
+		about:  "setting empty key is invalid",
+		args:   []string{"=val"},
+		errMsg: `expected "key=value", got "=val"`,
+	},
 }
 
 var initTests = []initTest{
 	{
-		about:  "no args",
-		args:   []string{},
-		action: GetAll,
+		about:   "no args",
+		args:    []string{},
+		actions: []Action{GetAll},
 	},
 	{
 		about:    "get single key",
 		args:     []string{"key1"},
-		action:   GetOne,
+		actions:  []Action{GetOne},
 		keyToGet: "key1",
 	},
 	{
 		about:     "set key",
 		args:      []string{"key1=val1"},
-		action:    Set,
-		valsToSet: map[string]string{"key1": "val1"},
+		actions:   []Action{SetArgs},
+		valsToSet: Attrs{"key1": "val1"},
 	},
 	{
-		about:  "set multiple keys",
-		args:   []string{"key1=val1", "key2=val2", "key3=val3"},
-		action: Set,
-		valsToSet: map[string]string{
+		about:   "set multiple keys",
+		args:    []string{"key1=val1", "key2=val2", "key3=val3"},
+		actions: []Action{SetArgs},
+		valsToSet: Attrs{
 			"key1": "val1",
 			"key2": "val2",
 			"key3": "val3",
@@ -298,33 +400,94 @@ var initTests = []initTest{
 	{
 		about:       "reset key",
 		args:        []string{"--reset", "key1"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1"},
 	},
 	{
 		about:       "reset multiple keys",
 		args:        []string{"--reset", "key1,key2,key3"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1", "key2", "key3"},
 	},
 	{
 		about:      "set from file",
 		args:       []string{"--file", "path"},
-		action:     SetFile,
-		configFile: cmd.FileVar{Path: "path"},
+		actions:    []Action{SetFile},
+		configFile: jujucmd.FileVar{Path: "path"},
 	},
 	{
 		about:       "reset resettable key",
 		args:        []string{"--reset", "key1"},
 		cantReset:   []string{"key2"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1"},
 	},
 	{
 		about:       "reset resettable keys",
 		args:        []string{"--reset", "key1,key2,key3"},
 		cantReset:   []string{"key4", "key5"},
-		action:      Reset,
+		actions:     []Action{Reset},
 		keysToReset: []string{"key1", "key2", "key3"},
+	},
+	{
+		about:   "set and reset",
+		args:    []string{"key1=val1", "--reset", "key2"},
+		actions: []Action{SetArgs, Reset},
+		valsToSet: Attrs{
+			"key1": "val1",
+		},
+		keysToReset: []string{"key2"},
+	},
+	{
+		about:   "set and reset multiple",
+		args:    []string{"key1=val1", "key2=val2", "--reset", "key3,key4"},
+		actions: []Action{SetArgs, Reset},
+		valsToSet: Attrs{
+			"key1": "val1",
+			"key2": "val2",
+		},
+		keysToReset: []string{"key3", "key4"},
+	},
+	{
+		about:   "set multiple with multiple --reset",
+		args:    []string{"key1=val1", "--reset", "key2", "key3=val3", "--reset", "key4"},
+		actions: []Action{SetArgs, Reset},
+		valsToSet: Attrs{
+			"key1": "val1",
+			"key3": "val3",
+		},
+		keysToReset: []string{"key2", "key4"},
+	},
+	{
+		about:   "set and set from file",
+		args:    []string{"key1=val1", "--file", "path"},
+		actions: []Action{SetArgs, SetFile},
+		valsToSet: Attrs{
+			"key1": "val1",
+		},
+		configFile: jujucmd.FileVar{Path: "path"},
+	},
+	{
+		about:       "set from file and reset",
+		args:        []string{"--file", "path", "--reset", "key1,key2"},
+		actions:     []Action{SetFile, Reset},
+		configFile:  jujucmd.FileVar{Path: "path"},
+		keysToReset: []string{"key1", "key2"},
+	},
+	{
+		about:   "set from file, set and reset",
+		args:    []string{"key1=val1", "--file", "path", "--reset", "key2,key3"},
+		actions: []Action{SetFile, Reset, SetArgs},
+		valsToSet: Attrs{
+			"key1": "val1",
+		},
+		configFile:  jujucmd.FileVar{Path: "path"},
+		keysToReset: []string{"key2", "key3"},
+	},
+	{
+		about:      "read from stdin",
+		args:       []string{"--file", "-"},
+		actions:    []Action{SetFile},
+		configFile: jujucmd.FileVar{Path: "-"},
 	},
 }

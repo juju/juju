@@ -29,8 +29,8 @@ import (
 	"github.com/juju/juju/api/controller/migrationmaster"
 	macapitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -312,7 +312,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 			version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
 		},
 		Resources: []migration.SerializedModelResource{{
-			ApplicationRevision: resource.Resource{
+			ApplicationRevision: resources.Resource{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
 						Name:        "bin",
@@ -329,7 +329,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 				Username:      "bob",
 				Timestamp:     appTs,
 			},
-			CharmStoreRevision: resource.Resource{
+			CharmStoreRevision: resources.Resource{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
 						Name:        "bin",
@@ -344,7 +344,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 				ApplicationID: "fooapp",
 				Username:      "xena",
 			},
-			UnitRevisions: map[string]resource.Resource{
+			UnitRevisions: map[string]resources.Resource{
 				"fooapp/0": {
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{

@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
@@ -56,7 +56,6 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(7).AnyTimes()
 	s.modelCommand.EXPECT().BakeryClient().Return(nil, nil)
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
@@ -94,7 +93,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		configOptions: s.configFlag,
 		deployResources: func(
 			string,
-			client.CharmID,
+			resources.CharmID,
 			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,

@@ -29,10 +29,10 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -3243,8 +3243,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Add a resource to the application, ensuring it is stored.
-	rSt, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := s.State.Resources()
 	const content = "abc"
 	res := resourcetesting.NewCharmResource(c, "blob", content)
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content), state.IncrementCharmModifiedVersion)
@@ -3274,8 +3273,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Add a placeholder resource to the application.
-	rSt, err := s.State.Resources()
-	c.Assert(err, jc.ErrorIsNil)
+	rSt := s.State.Resources()
 	res := resourcetesting.NewPlaceholderResource(c, "blob", s.mysql.Name())
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil, state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)

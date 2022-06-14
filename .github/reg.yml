@@ -80,5 +80,5 @@ spec:
   clusterIP: 10.152.183.69
   ports:
     - name: "registry"
-      port: 5000
+      port: 443
       targetPort: 5000

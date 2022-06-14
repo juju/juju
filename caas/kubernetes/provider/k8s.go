@@ -16,6 +16,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/arch"
@@ -508,7 +509,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(ctx, JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newcontrollerStack(ctx, k8sconstants.JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2261,6 +2262,21 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 	return units, nil
 }
 
+// ListPods filters a list of pods for the provided namespace and labels.
+func (k *kubernetesClient) ListPods(namespace string, selector k8slabels.Selector) ([]core.Pod, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: selector.String(),
+	}
+	list, err := k.client().CoreV1().Pods(namespace).List(context.TODO(), listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(list.Items) == 0 {
+		return nil, errors.NotFoundf("pods with selector %q", selector)
+	}
+	return list.Items, nil
+}
+
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
@@ -2277,7 +2293,7 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 
 func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, status.Status, error) {
 	terminated := ss.DeletionTimestamp != nil
-	jujuStatus := status.Allocating
+	jujuStatus := status.Waiting
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2289,7 +2305,7 @@ func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, s
 
 func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
 	terminated := deployment.DeletionTimestamp != nil
-	jujuStatus := status.Allocating
+	jujuStatus := status.Waiting
 	if terminated {
 		jujuStatus = status.Terminated
 	}
@@ -2301,7 +2317,7 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 
 func (k *kubernetesClient) getDaemonSetStatus(ds *apps.DaemonSet) (string, status.Status, error) {
 	terminated := ds.DeletionTimestamp != nil
-	jujuStatus := status.Allocating
+	jujuStatus := status.Waiting
 	if terminated {
 		jujuStatus = status.Terminated
 	}

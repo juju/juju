@@ -60,6 +60,11 @@ type EnqueuedActions struct {
 	Actions      []ActionResult `json:"actions,omitempty"`
 }
 
+type EnqueuedActionsV2 struct {
+	OperationTag string         `json:"operation"`
+	Actions      []ActionResult `json:"actions,omitempty"`
+}
+
 // ActionResults is a slice of ActionResult for bulk requests.
 type ActionResults struct {
 	Results []ActionResult `json:"results,omitempty"`

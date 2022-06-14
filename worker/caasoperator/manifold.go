@@ -178,6 +178,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			newUniterFunc := func(unitTag names.UnitTag) *apiuniter.State {
 				return apiuniter.NewState(apiCaller, unitTag)
 			}
+			newResourcesFacadeFunc := func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error) {
+				return apiuniter.NewResourcesFacadeClient(apiCaller, unitTag)
+			}
+			newPayloadFacadeFunc := func() *apiuniter.PayloadFacadeClient {
+				return apiuniter.NewPayloadFacadeClient(apiCaller)
+			}
 			leadershipTrackerFunc := func(unitTag names.UnitTag) coreleadership.TrackerWorker {
 				claimer := apileadership.NewClient(apiCaller)
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
@@ -226,6 +232,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				RunListenerSocketFunc: runListenerSocketFunc,
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
+				ResourcesFacadeFunc:   newResourcesFacadeFunc,
+				PayloadFacadeFunc:     newPayloadFacadeFunc,
 				ExecClientGetter: func() (exec.Executor, error) {
 					return config.NewExecClient(os.Getenv(caasconstants.OperatorNamespaceEnvName))
 				},

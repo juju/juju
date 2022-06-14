@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -113,7 +113,7 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 }
 
 // UploadResource uploads a resource to the migration endpoint.
-func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.ReadSeeker) error {
+func (c *Client) UploadResource(modelUUID string, res resources.Resource, r io.ReadSeeker) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
 	err := c.resourcePost(modelUUID, args, r)
@@ -121,7 +121,7 @@ func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.Re
 }
 
 // SetPlaceholderResource sets the metadata for a placeholder resource.
-func (c *Client) SetPlaceholderResource(modelUUID string, res resource.Resource) error {
+func (c *Client) SetPlaceholderResource(modelUUID string, res resources.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
 	err := c.resourcePost(modelUUID, args, nil)
@@ -129,7 +129,7 @@ func (c *Client) SetPlaceholderResource(modelUUID string, res resource.Resource)
 }
 
 // SetUnitResource sets the metadata for a particular unit resource.
-func (c *Client) SetUnitResource(modelUUID, unit string, res resource.Resource) error {
+func (c *Client) SetUnitResource(modelUUID, unit string, res resources.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("unit", unit)
 	err := c.resourcePost(modelUUID, args, nil)
@@ -143,7 +143,7 @@ func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker
 	return errors.Trace(err)
 }
 
-func makeResourceArgs(res resource.Resource) url.Values {
+func makeResourceArgs(res resources.Resource) url.Values {
 	args := url.Values{}
 	args.Add("name", res.Name)
 	args.Add("type", res.Type.String())
