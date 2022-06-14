@@ -355,7 +355,7 @@ install-mongo-dependencies:
 
 .PHONY: install-viddy
 install-viddy:
-## install-viddy-dependencies: Install Viddy
+## install-viddy: Install Viddy
 	@echo Installing Viddy
 	@go install github.com/sachaos/viddy@v0.3.4
 

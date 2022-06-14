@@ -85,9 +85,9 @@ jobs:
         sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
       shell: bash
 
-    - name: "Install Viddy Dependencies"
+    - name: "Install Viddy"
         run: |
-          make install-viddy-dependencies
+          make install-viddy
 
     - name: "Test client: macOS-latest"
       if: (matrix.os == 'macOS-latest')
