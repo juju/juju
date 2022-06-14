@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -396,6 +397,13 @@ type RefreshErrorsStateSuite struct {
 
 var _ = gc.Suite(&RefreshErrorsStateSuite{})
 
+func (s *RefreshErrorsStateSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
+	s.RepoSuite.SetUpSuite(c)
+}
+
 func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
@@ -507,6 +515,13 @@ type RefreshSuccessStateSuite struct {
 
 var _ = gc.Suite(&RefreshSuccessStateSuite{})
 
+func (s *RefreshSuccessStateSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
+	s.RepoSuite.SetUpSuite(c)
+}
+
 func (s *RefreshSuccessStateSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) *charm.URL {
 	err := riak.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -522,6 +537,9 @@ func (s *RefreshSuccessStateSuite) runRefresh(c *gc.C, cmd cmd.Command, args ...
 }
 
 func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.RepoSuite.SetUpTest(c)
 
 	s.charmClient = mockCharmClient{}
