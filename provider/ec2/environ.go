@@ -595,7 +595,7 @@ func (e *environ) StartInstance(
 		return nil, errors.Trace(err)
 	}
 	spec, err := findInstanceSpec(
-		args.InstanceConfig.Controller != nil,
+		args.InstanceConfig.IsController(),
 		args.ImageMetadata,
 		instanceTypes,
 		&instances.InstanceConstraint{
@@ -622,9 +622,9 @@ func (e *environ) StartInstance(
 
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	apiPorts := make([]int, 0, 2)
-	if args.InstanceConfig.Controller != nil {
-		apiPorts = append(apiPorts, args.InstanceConfig.Controller.Config.APIPort())
-		if args.InstanceConfig.Controller.Config.AutocertDNSName() != "" {
+	if args.InstanceConfig.IsController() {
+		apiPorts = append(apiPorts, args.InstanceConfig.ControllerConfig.APIPort())
+		if args.InstanceConfig.ControllerConfig.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
 			apiPorts = append(apiPorts, 80)
 		}
@@ -641,7 +641,7 @@ func (e *environ) StartInstance(
 	blockDeviceMappings, err := getBlockDeviceMappings(
 		args.Constraints,
 		args.InstanceConfig.Series,
-		args.InstanceConfig.Controller != nil,
+		args.InstanceConfig.IsController(),
 		args.RootDisk,
 	)
 	if err != nil {

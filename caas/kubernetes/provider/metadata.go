@@ -101,6 +101,7 @@ func toCaaSStorageProvisioner(sc storage.StorageClass) *k8s.StorageProvisioner {
 		Name:        sc.Name,
 		Provisioner: sc.Provisioner,
 		Parameters:  sc.Parameters,
+		IsDefault:   isDefaultStorageClass(sc),
 	}
 	if sc.VolumeBindingMode != nil {
 		caasSc.VolumeBindingMode = string(*sc.VolumeBindingMode)

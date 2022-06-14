@@ -289,7 +289,7 @@ func newcontrollerStack(
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cloudconfig.FileNameBootstrapParams)
 	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
-	if cs.dockerAuthSecretData, err = pcfg.Controller.Config.CAASImageRepo().SecretData(); err != nil {
+	if cs.dockerAuthSecretData, err = pcfg.Controller.CAASImageRepo().SecretData(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return cs, nil
@@ -1208,7 +1208,7 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 	}
 
 	var wiredTigerCacheSize float32
-	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
+	if c.pcfg.Controller.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
 		wiredTigerCacheSize = mongo.LowCacheSize
 	}
 	if wiredTigerCacheSize > 0 {
@@ -1450,7 +1450,7 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	repo := c.pcfg.Controller.ControllerConfig.Config.CAASOperatorImagePath()
+	repo := c.pcfg.Controller.CAASOperatorImagePath()
 	charmBaseImage, err := podcfg.ImageForBase(repo.Repository, charm.Base{
 		Name: strings.ToLower(os.String()),
 		Channel: charm.Channel{

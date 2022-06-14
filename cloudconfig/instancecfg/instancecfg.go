@@ -53,9 +53,12 @@ type InstanceConfig struct {
 	// Controller must also be set.
 	Bootstrap *BootstrapConfig
 
-	// Controller contains controller-specific configuration. If this is
-	// set, then the instance will be configured as a controller machine.
-	Controller *ControllerConfig
+	// Controller contains configuration for the controller
+	// used to manage this new instance.
+	ControllerConfig controller.Config
+
+	// The public key used to sign Juju simplestreams image metadata.
+	PublicImageSigningKey string
 
 	// APIInfo holds the means for the new instance to communicate with the
 	// juju state API. Unless the new instance is running a controller (Controller is
@@ -191,16 +194,6 @@ type InstanceConfig struct {
 
 	// Profiles is a slice of (lxd) profile names to be used by a container
 	Profiles []string
-}
-
-// ControllerConfig represents controller-specific initialization information
-// for a new juju instance. This is only relevant for controller machines.
-type ControllerConfig struct {
-	// Config contains controller config attributes.
-	Config controller.Config
-
-	// The public key used to sign Juju simplestreams image metadata.
-	PublicImageSigningKey string
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -453,6 +446,10 @@ func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
 	)
 }
 
+func (cfg *InstanceConfig) IsController() bool {
+	return model.AnyJobNeedsState(cfg.Jobs...)
+}
+
 func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
 	return cfg.agentInfo().ToolsDir(renderer)
 }
@@ -491,9 +488,9 @@ func (cfg *InstanceConfig) AgentConfig(
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
 	}
-	if cfg.Controller != nil {
-		configParams.AgentLogfileMaxBackups = cfg.Controller.Config.AgentLogfileMaxBackups()
-		configParams.AgentLogfileMaxSizeMB = cfg.Controller.Config.AgentLogfileMaxSizeMB()
+	if cfg.ControllerConfig != nil {
+		configParams.AgentLogfileMaxBackups = cfg.ControllerConfig.AgentLogfileMaxBackups()
+		configParams.AgentLogfileMaxSizeMB = cfg.ControllerConfig.AgentLogfileMaxSizeMB()
 	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
@@ -705,7 +702,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 
 func (cfg *InstanceConfig) verifyBootstrapConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid bootstrap configuration")
-	if cfg.Controller == nil {
+	if cfg.ControllerConfig == nil {
 		return errors.New("bootstrap config supplied without controller config")
 	}
 	if err := cfg.Bootstrap.VerifyConfig(); err != nil {
@@ -798,12 +795,10 @@ func NewBootstrapInstanceConfig(
 	if err != nil {
 		return nil, err
 	}
-	icfg.Controller = &ControllerConfig{
-		PublicImageSigningKey: publicImageSigningKey,
-	}
-	icfg.Controller.Config = make(map[string]interface{})
+	icfg.PublicImageSigningKey = publicImageSigningKey
+	icfg.ControllerConfig = make(map[string]interface{})
 	for k, v := range config {
-		icfg.Controller.Config[k] = v
+		icfg.ControllerConfig[k] = v
 	}
 	icfg.Bootstrap = &BootstrapConfig{
 		StateInitializationParams: StateInitializationParams{
@@ -937,25 +932,25 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	); err != nil {
 		return errors.Trace(err)
 	}
-	if icfg.Controller != nil {
+	if icfg.IsController() {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
-		// Only makes sense for controller
-		logger.Debugf("Setting numa ctl preference to %v", icfg.Controller.Config.NUMACtlPreference())
+		// Only makes sense for controller,
+		logger.Debugf("Setting numa ctl preference to %v", icfg.ControllerConfig.NUMACtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
-		icfg.AgentEnvironment[agent.NUMACtlPreference] = fmt.Sprintf("%v", icfg.Controller.Config.NUMACtlPreference())
+		icfg.AgentEnvironment[agent.NUMACtlPreference] = fmt.Sprintf("%v", icfg.ControllerConfig.NUMACtlPreference())
 	}
 	return nil
 }
 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
-func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []model.MachineJob) map[string]string {
+func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, isController bool) map[string]string {
 	instanceTags := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
 		names.NewControllerTag(controllerUUID),
 		tagger,
 	)
-	if model.AnyJobNeedsState(jobs...) {
+	if isController {
 		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags

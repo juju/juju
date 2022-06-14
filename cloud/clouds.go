@@ -483,7 +483,6 @@ var defaultCloudDescription = map[string]string{
 	"google":      "Google Cloud Platform",
 	"azure":       "Microsoft Azure",
 	"azure-china": "Microsoft Azure China",
-	"rackspace":   "Rackspace Cloud",
 	"cloudsigma":  "CloudSigma Cloud",
 	"lxd":         "LXD Container Hypervisor",
 	"maas":        "Metal As A Service",

@@ -172,3 +172,41 @@ func (*ConstraintsSuite) testStorageConstraintsError(c *gc.C, s []string, mustHa
 	_, err := storage.ParseConstraintsMap(s, mustHave)
 	c.Check(err, gc.ErrorMatches, e)
 }
+
+func (s *ConstraintsSuite) TestToString(c *gc.C) {
+	_, err := storage.ToString(storage.Constraints{})
+	c.Assert(err, gc.ErrorMatches, "must provide one of pool or size or count")
+
+	for _, t := range []struct {
+		pool     string
+		count    uint64
+		size     uint64
+		expected string
+	}{
+		{"loop", 0, 0, "loop"},
+		{"loop", 1, 0, "loop,1"},
+		{"loop", 0, 1024, "loop,1024M"},
+		{"loop", 1, 1024, "loop,1,1024M"},
+		{"", 0, 1024, "1024M"},
+		{"", 1, 0, "1"},
+		{"", 1, 1024, "1,1024M"},
+	} {
+		str, err := storage.ToString(storage.Constraints{
+			Pool:  t.pool,
+			Size:  t.size,
+			Count: t.count,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(str, gc.Equals, t.expected)
+
+		// Test roundtrip, count defaults to 1.
+		if t.count == 0 {
+			t.count = 1
+		}
+		s.testParse(c, str, storage.Constraints{
+			Pool:  t.pool,
+			Size:  t.size,
+			Count: t.count,
+		})
+	}
+}

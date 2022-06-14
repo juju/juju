@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -23,7 +24,7 @@ type cloudSuite struct {
 var _ = gc.Suite(&cloudSuite{})
 
 var publicCloudNames = []string{
-	"aws", "aws-china", "aws-gov", "equinix", "google", "azure", "azure-china", "rackspace", "cloudsigma", "oracle",
+	"aws", "aws-china", "aws-gov", "equinix", "google", "azure", "azure-china", "cloudsigma", "oracle",
 }
 
 func parsePublicClouds(c *gc.C) map[string]cloud.Cloud {
@@ -51,25 +52,21 @@ func (s *cloudSuite) TestAuthTypesContains(c *gc.C) {
 
 func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 	clouds := parsePublicClouds(c)
-	rackspace := clouds["rackspace"]
-	c.Assert(rackspace.Type, gc.Equals, "rackspace")
-	c.Assert(rackspace.Endpoint, gc.Equals, "https://identity.api.rackspacecloud.com/v2.0")
+	oracle := clouds["oracle"]
+	c.Assert(oracle.Type, gc.Equals, "oci")
 	var regionNames []string
-	for _, region := range rackspace.Regions {
+	for _, region := range oracle.Regions {
 		regionNames = append(regionNames, region.Name)
-		if region.Name == "lon" {
-			c.Assert(region.Endpoint, gc.Equals, "https://lon.identity.api.rackspacecloud.com/v2.0")
-		} else {
-			c.Assert(region.Endpoint, gc.Equals, "https://identity.api.rackspacecloud.com/v2.0")
-		}
+		endpointURL := fmt.Sprintf("https://iaas.%s.oraclecloud.com", region.Name)
+		c.Assert(region.Endpoint, gc.Equals, endpointURL)
 	}
-	c.Assert(regionNames, jc.SameContents, []string{"dfw", "ord", "iad", "lon", "syd", "hkg"})
+	c.Assert(regionNames, jc.SameContents, []string{"us-phoenix-1", "us-ashburn-1", "eu-frankfurt-1", "uk-london-1"})
 }
 
 func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {
 	clouds := parsePublicClouds(c)
-	rackspace := clouds["rackspace"]
-	c.Assert(rackspace.AuthTypes, jc.SameContents, cloud.AuthTypes{"userpass"})
+	equinix := clouds["equinix"]
+	c.Assert(equinix.AuthTypes, jc.SameContents, cloud.AuthTypes{"access-key"})
 }
 
 func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {

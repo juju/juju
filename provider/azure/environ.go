@@ -611,10 +611,21 @@ func (env *azureEnviron) startInstance(
 		usePublicIP = *args.Constraints.AllocatePublicIP
 	}
 	stdCtx := stdcontext.Background()
-	if err := env.createVirtualMachine(
+	err = env.createVirtualMachine(
 		stdCtx, ctx, vmName, vmTags, envTags,
-		instanceSpec, args, usePublicIP,
-	); err != nil {
+		instanceSpec, args, usePublicIP, true,
+	)
+	// If there's a conflict, it's because another machine is
+	// being provisioned with the same availability set so
+	// retry and do not create the availability set.
+	if errorutils.IsConflictError(err) {
+		logger.Debugf("conflict creating %s, retrying...", vmName)
+		err = env.createVirtualMachine(
+			stdCtx, ctx, vmName, vmTags, envTags,
+			instanceSpec, args, usePublicIP, false,
+		)
+	}
+	if err != nil {
 		logger.Debugf("creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
 			logger.Errorf("could not destroy failed virtual machine: %v", err)
@@ -666,16 +677,16 @@ func (env *azureEnviron) createVirtualMachine(
 	instanceSpec *instances.InstanceSpec,
 	args environs.StartInstanceParams,
 	usePublicIP bool,
+	createAvailabilitySet bool,
 ) error {
 	deploymentsClient := resources.DeploymentsClient{
 		BaseClient: env.resources,
 	}
 	instanceConfig := args.InstanceConfig
-	controller := instanceConfig.Controller != nil
 	apiPorts := make([]int, 0, 2)
-	if controller {
-		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
-		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
+	if instanceConfig.IsController() {
+		apiPorts = append(apiPorts, instanceConfig.ControllerConfig.APIPort())
+		if instanceConfig.ControllerConfig.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
 			apiPorts = append(apiPorts, 80)
 		}
@@ -735,7 +746,7 @@ func (env *azureEnviron) createVirtualMachine(
 
 	var availabilitySetSubResource *compute.SubResource
 	availabilitySetName, err := availabilitySetName(
-		vmName, vmTags, instanceConfig.Controller != nil,
+		vmName, vmTags, instanceConfig.IsController(),
 	)
 	if err != nil {
 		return errors.Annotate(err, "getting availability set name")
@@ -762,17 +773,22 @@ func (env *azureEnviron) createVirtualMachine(
 			Properties: availabilitySetProperties,
 			Sku:        &armtemplates.Sku{Name: "Aligned"},
 		})
-		availabilitySetSubResource = &compute.SubResource{
-			ID: to.StringPtr(availabilitySetId),
-		}
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
+	}
+	if !createAvailabilitySet && availabilitySetName != "" {
+		availabilitySetClient := compute.AvailabilitySetsClient{
+			BaseClient: env.compute,
+		}
+		if _, err = availabilitySetClient.Get(ctx, env.resourceGroup, availabilitySetName); err != nil {
+			return errors.Annotatef(err, "expecting availability set %q to be available", availabilitySetName)
+		}
 	}
 
 	placementSubnetID, err := env.findPlacementSubnet(ctx, args.Placement)
 	if err != nil {
 		return common.ZoneIndependentError(err)
 	}
-	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, controller, placementSubnetID)
+	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
 	if err != nil {
 		return common.ZoneIndependentError(err)
 	}
@@ -897,13 +913,6 @@ func (env *azureEnviron) createVirtualMachine(
 
 	logger.Debugf("- creating virtual machine deployment in %q", env.resourceGroup)
 	template := armtemplates.Template{Resources: res}
-	// NOTE(axw) VMs take a long time to go to "Succeeded", so we do not
-	// block waiting for them to be fully provisioned. This means we won't
-	// return an error from StartInstance if the VM fails provisioning;
-	// we will instead report the error via the instance's status.
-	deploymentsClient.ResponseInspector = asyncCreationRespondDecorator(
-		deploymentsClient.ResponseInspector,
-	)
 	if err := createDeployment(
 		ctx,
 		deploymentsClient,
