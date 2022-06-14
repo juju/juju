@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
+	viddy "github.com/juju/viddy"
+	"github.com/spf13/viper"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.status")
@@ -411,17 +413,42 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 				break
 			}
 		}
-		// Use value of '--watch' flag as a value of '-n' flag of viddy command
+
+		v := viper.New()
+		v.SetConfigType("toml")
+		v.SetConfigName("viddy")
+		v.AddConfigPath(xdg.ConfigHome)
+
+		_ = v.ReadInConfig()
+
 		viddyArgs := append([]string{"--no-title", "--differences", "--interval", watchValue}, jujuStatusArgsWithoutWatch...)
-		cmd := exec.Command("viddy", viddyArgs...)
-		stdout, err := cmd.Output()
+		conf, err := viddy.NewConfig(v, viddyArgs)
 
 		if err != nil {
-			return err
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 
-		// Print the output
-		fmt.Println(string(stdout))
+		//tview.Styles = conf.theme.Theme
+
+		app := viddy.NewViddy(conf)
+
+		if err := app.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		//// Use value of '--watch' flag as a value of '-n' flag of viddy command
+		//viddyArgs := append([]string{"--no-title", "--differences", "--interval", watchValue}, jujuStatusArgsWithoutWatch...)
+		//cmd := exec.Command("viddy", viddyArgs...)
+		//stdout, err := cmd.Output()
+		//
+		//if err != nil {
+		//	return err
+		//}
+		//
+		//// Print the output
+		//fmt.Println(string(stdout))
 	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
