@@ -6699,15 +6699,13 @@ func (s *upgradesSuite) TestRemoveLocalCharmOriginChannels(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) TestFixCharmhubLastPolltime(c *gc.C) {
+func (s *upgradesSuite) TestFixCharmhubLastPollTime(c *gc.C) {
 	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
 	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
 	defer func() {
 		_ = model1.Close()
 		_ = model2.Close()
 	}()
-	model1.stateClock = s.state.stateClock
-	model2.stateClock = s.state.stateClock
 
 	uuid1 := model1.ModelUUID()
 	uuid2 := model2.ModelUUID()

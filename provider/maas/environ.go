@@ -896,6 +896,19 @@ func (env *maasEnviron) StartInstance(
 	}, nil
 }
 
+<<<<<<< HEAD
+=======
+func (env *maasEnviron) tagInstance1(inst *maas1Instance, instanceConfig *instancecfg.InstanceConfig) {
+	if !instanceConfig.IsController() {
+		return
+	}
+	err := common.AddStateInstance(env.Storage(), inst.Id())
+	if err != nil {
+		logger.Errorf("could not record instance in provider-state: %v", err)
+	}
+}
+
+>>>>>>> upstream/2.9
 func (env *maasEnviron) tagInstance2(inst *maas2Instance, instanceConfig *instancecfg.InstanceConfig) {
 	err := inst.machine.SetOwnerData(instanceConfig.Tags)
 	if err != nil {

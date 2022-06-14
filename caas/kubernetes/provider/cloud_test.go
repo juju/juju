@@ -27,6 +27,56 @@ import (
 
 var _ = gc.Suite(&cloudSuite{})
 
+var microk8sStatusEnabled = `
+microk8s:
+  running: true
+addons:
+  - name: storage
+    status: enabled
+  - name: dns
+    status: enabled
+`
+
+var microk8sStatusNewEnabled = `
+microk8s:
+  running: true
+addons:
+  - name: hostpath-storage
+    status: enabled
+  - name: dns
+    status: enabled
+`
+
+var microk8sStatusStorageDisabled = `
+microk8s:
+  running: true
+addons:
+  - name: storage
+    status: disabled
+  - name: dns
+    status: enabled
+`
+
+var microk8sStatusStorageNewDisabled = `
+microk8s:
+  running: true
+addons:
+  - name: hostpath-storage
+    status: disabled
+  - name: dns
+    status: enabled
+`
+
+var microk8sStatusDNSDisabled = `
+microk8s:
+  running: true
+addons:
+  - name: storage
+    status: enabled
+  - name: dns
+    status: disabled
+`
+
 type cloudSuite struct {
 	fakeBroker fakeK8sClusterMetadataChecker
 	runner     dummyRunner

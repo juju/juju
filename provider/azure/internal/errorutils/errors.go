@@ -30,7 +30,7 @@ func ServiceError(err error) (*azure.ServiceError, bool) {
 	}
 	err = errors.Cause(err)
 	if d, ok := err.(autorest.DetailedError); ok {
-		err = d.Original
+		err = errors.Cause(d.Original)
 	}
 	if se, ok := err.(*azure.ServiceError); ok {
 		return se, true
@@ -40,6 +40,9 @@ func ServiceError(err error) (*azure.ServiceError, bool) {
 	}
 	// The error Azure gives us back can also be a struct
 	// not a pointer.
+	if se, ok := err.(azure.ServiceError); ok {
+		return &se, true
+	}
 	if r, ok := err.(azure.RequestError); ok {
 		return r.ServiceError, true
 	}
@@ -53,12 +56,33 @@ func QuotaExceededError(err error) (error, bool) {
 	if !ok {
 		return err, false
 	}
+	if serviceErr.Code == "QuotaExceeded" {
+		return errors.Errorf("%v", serviceErr.Message), true
+	}
 	for _, d := range serviceErr.Details {
 		if code, ok := d["code"].(string); ok && code == "QuotaExceeded" {
 			return errors.Errorf("%v", d["message"]), true
 		}
 	}
 	return err, false
+}
+
+// IsConflictError returns true if the error is
+// caused by a deployment Conflict.
+func IsConflictError(err error) bool {
+	serviceErr, ok := ServiceError(err)
+	if !ok {
+		return false
+	}
+	if serviceErr.Code == "Conflict" {
+		return true
+	}
+	for _, d := range serviceErr.Details {
+		if code, ok := d["code"].(string); ok && code == "Conflict" {
+			return true
+		}
+	}
+	return false
 }
 
 // HandleCredentialError determines if given error relates to invalid credential.

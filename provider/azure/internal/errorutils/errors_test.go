@@ -110,6 +110,22 @@ func (*ErrorSuite) TestQuotaExceededError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (*ErrorSuite) TestConflictError(c *gc.C) {
+	se := &azure.ServiceError{
+		Details: []map[string]interface{}{{
+			"code":    "Conflict",
+			"message": "boom",
+		}}}
+	ok := errorutils.IsConflictError(se)
+	c.Assert(ok, jc.IsTrue)
+
+	se2 := azure.ServiceError{
+		Code: "Conflict",
+	}
+	ok = errorutils.IsConflictError(se2)
+	c.Assert(ok, jc.IsTrue)
+}
+
 var checkForGraphErrorTests = []struct {
 	about        string
 	responseBody string

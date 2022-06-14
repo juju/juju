@@ -150,7 +150,7 @@ func BootstrapInstance(
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 	instanceConfig.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 
-	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, instanceConfig.Jobs)
+	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, true)
 
 	// We're creating a new instance; inject host keys so that we can then
 	// make an SSH connection with known keys.

@@ -1113,7 +1113,7 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.Controller.PublicImageSigningKey, gc.Equals, "publickey")
+	c.Assert(env.instanceConfig.PublicImageSigningKey, gc.Equals, "publickey")
 }
 
 func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
@@ -1162,7 +1162,7 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 			"b-key": "b-value",
 		},
 	})
-	controllerCfg := icfg.Controller.Config
+	controllerCfg := icfg.ControllerConfig
 	c.Check(controllerCfg["ca-private-key"], gc.IsNil)
 	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
 	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())

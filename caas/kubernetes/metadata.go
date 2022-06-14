@@ -68,6 +68,7 @@ type PreferredStorage struct {
 	Name              string
 	Provisioner       string
 	Parameters        map[string]string
+	SupportsDefault   bool
 	VolumeBindingMode string
 }
 
@@ -80,6 +81,7 @@ type StorageProvisioner struct {
 	Model             string
 	ReclaimPolicy     string
 	VolumeBindingMode string
+	IsDefault         bool
 }
 
 // NonPreferredStorageError is raised when a cluster does not have

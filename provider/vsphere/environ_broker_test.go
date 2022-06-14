@@ -78,7 +78,7 @@ func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.Sta
 
 	return environs.StartInstanceParams{
 		AvailabilityZone: "z1",
-		ControllerUUID:   instanceConfig.Controller.Config.ControllerUUID(),
+		ControllerUUID:   instanceConfig.ControllerConfig.ControllerUUID(),
 		InstanceConfig:   instanceConfig,
 		Tools:            tools,
 		Constraints:      cons,

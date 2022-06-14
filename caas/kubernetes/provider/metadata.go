@@ -101,6 +101,7 @@ func toCaaSStorageProvisioner(sc storage.StorageClass) *k8s.StorageProvisioner {
 		Name:        sc.Name,
 		Provisioner: sc.Provisioner,
 		Parameters:  sc.Parameters,
+		IsDefault:   isDefaultStorageClass(sc),
 	}
 	if sc.VolumeBindingMode != nil {
 		caasSc.VolumeBindingMode = string(*sc.VolumeBindingMode)
@@ -250,6 +251,10 @@ func (k *kubernetesClient) CheckDefaultWorkloadStorage(cloudType string, storage
 }
 
 func storageClassMatches(preferredStorage k8s.PreferredStorage, storageProvisioner *k8s.StorageProvisioner) error {
+	if preferredStorage.SupportsDefault && storageProvisioner.IsDefault {
+		return nil
+	}
+
 	if storageProvisioner == nil || preferredStorage.Provisioner != storageProvisioner.Provisioner {
 		return &k8s.NonPreferredStorageError{PreferredStorage: preferredStorage}
 	}

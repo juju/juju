@@ -723,7 +723,7 @@ func finalizeInstanceBootstrapConfig(
 	if icfg.APIInfo != nil {
 		return errors.New("machine configuration already has api info")
 	}
-	controllerCfg := icfg.Controller.Config
+	controllerCfg := icfg.ControllerConfig
 	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {
 		return errors.New("controller configuration has no ca-cert")
@@ -790,7 +790,7 @@ func finalizePodBootstrapConfig(
 		return errors.New("machine configuration already has api info")
 	}
 
-	controllerCfg := pcfg.Controller.Config
+	controllerCfg := pcfg.Controller
 	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {
 		return errors.New("controller configuration has no ca-cert")
