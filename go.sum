@@ -683,6 +683,8 @@ github.com/juju/viddy v0.0.0-alpha.3 h1:5mieSoBEX586XiX4yXWxKPfubpGO/dyFYMSOSiGC
 github.com/juju/viddy v0.0.0-alpha.3/go.mod h1:tfu+gzg19RWR7XKdoZ1nTDUKHSHJwzyDI1MCgchqak0=
 github.com/juju/viddy v0.0.0-alpha.4 h1:q+8dVsNcYMJsc2yosG6e3wp0AOAg3RWV5+nfeghkmLE=
 github.com/juju/viddy v0.0.0-alpha.4/go.mod h1:tfu+gzg19RWR7XKdoZ1nTDUKHSHJwzyDI1MCgchqak0=
+github.com/juju/viddy v0.0.0-alpha.5 h1:JOmPh4guYYzO0hl2EGYXk+nKHPWv+nAOgCgfA+61RFM=
+github.com/juju/viddy v0.0.0-alpha.5/go.mod h1:tfu+gzg19RWR7XKdoZ1nTDUKHSHJwzyDI1MCgchqak0=
 github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=

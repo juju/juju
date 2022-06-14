@@ -82,7 +82,7 @@ require (
 	github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647
 	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
 	github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935
-	github.com/juju/viddy v0.0.0-alpha.4
+	github.com/juju/viddy v0.0.0-alpha.5
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.0-20220204100750-e23db69a42d2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -95,6 +95,7 @@ require (
 	github.com/packethost/packngo v0.19.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
+	github.com/rivo/tview v0.0.0-20220610163003-691f46d6f500
 	github.com/spf13/viper v1.12.0
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
@@ -212,7 +213,6 @@ require (
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/rivo/tview v0.0.0-20220610163003-691f46d6f500 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect

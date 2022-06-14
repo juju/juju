@@ -353,14 +353,8 @@ install-mongo-dependencies:
 	@$(WAIT_FOR_DPKG)
 	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
-.PHONY: install-viddy
-install-viddy:
-## install-viddy: Install Viddy
-	@echo Installing Viddy
-	@go install github.com/sachaos/viddy@v0.3.4
-
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-mongo-dependencies install-viddy
+install-dependencies: install-snap-dependencies install-mongo-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
 

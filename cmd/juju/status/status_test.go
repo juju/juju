@@ -5,8 +5,6 @@ package status_test
 
 import (
 	"errors"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -56,12 +54,8 @@ func (s *MinimalStatusSuite) TestGoodCall(c *gc.C) {
 	c.Assert(s.clock.waits, gc.HasLen, 0)
 }
 
-func (s *MinimalStatusSuite) TestViddyBinaryExists(c *gc.C) {
-	path, err := exec.LookPath("viddy")
-	if err != nil {
-		c.Error("can't find viddy ('watch' command analog) binary")
-	}
-	c.Assert(strings.HasSuffix(path, "viddy"), gc.Equals, true)
+func (s *MinimalStatusSuite) TestViddyOutput(c *gc.C) {
+	c.Skip("Not implemented yet")
 }
 
 func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {

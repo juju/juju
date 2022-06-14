@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 	viddy "github.com/juju/viddy"
+	"github.com/rivo/tview"
 	"github.com/spf13/viper"
 )
 
@@ -425,30 +426,18 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		conf, err := viddy.NewConfig(v, viddyArgs)
 
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(os.Stderr, err) // TODO: change to standard juju errors
 			os.Exit(1)
 		}
 
-		//tview.Styles = conf.theme.Theme
+		tview.Styles = conf.Theme.Theme
 
 		app := viddy.NewViddy(conf)
 
 		if err := app.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(os.Stderr, err) // TODO: change to standard juju errors
 			os.Exit(1)
 		}
-
-		//// Use value of '--watch' flag as a value of '-n' flag of viddy command
-		//viddyArgs := append([]string{"--no-title", "--differences", "--interval", watchValue}, jujuStatusArgsWithoutWatch...)
-		//cmd := exec.Command("viddy", viddyArgs...)
-		//stdout, err := cmd.Output()
-		//
-		//if err != nil {
-		//	return err
-		//}
-		//
-		//// Print the output
-		//fmt.Println(string(stdout))
 	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
