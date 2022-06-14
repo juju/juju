@@ -881,7 +881,7 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 
 	// Make sure wordpress application's charm is what we expect.
 	curlStr, force := s.wordpress.CharmURL()
-	c.Assert(*curlStr, gc.DeepEquals, s.wpCharm.URL().String())
+	c.Assert(*curlStr, gc.Equals, s.wpCharm.String())
 	c.Assert(force, jc.IsFalse)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1364,7 +1364,7 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 		Entities: []params.EntityCharmURL{
 			{
 				Tag:      s.wordpressUnit.Tag().String(),
-				CharmURL: s.wpCharm.URL().String(),
+				CharmURL: s.wpCharm.String(),
 			},
 		},
 	})
@@ -4071,7 +4071,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
 				UUID:     uuid,
-				CharmURL: s.meteredCharm.URL().String(),
+				CharmURL: s.meteredCharm.String(),
 				Created:  time.Now(),
 				Metrics:  metrics,
 			}}}},
@@ -4085,7 +4085,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 	batch, err := s.State.MetricBatch(uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL().String())
+	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.String())
 	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
 	storedMetrics := batch.Metrics()
 	c.Assert(storedMetrics, gc.HasLen, 1)
@@ -4102,7 +4102,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
 				UUID:     uuid,
-				CharmURL: s.meteredCharm.URL().String(),
+				CharmURL: s.meteredCharm.String(),
 				Created:  time.Now(),
 				Metrics:  metrics,
 			}}}})
@@ -4115,7 +4115,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 	batch, err := s.State.MetricBatch(uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL().String())
+	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.String())
 	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
 	storedMetrics := batch.Metrics()
 	c.Assert(storedMetrics, gc.HasLen, 1)
