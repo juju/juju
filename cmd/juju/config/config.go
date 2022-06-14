@@ -46,6 +46,7 @@ type ConfigCommandBase struct {
 	// Flag values
 	ConfigFile cmd.FileVar
 	reset      []string // Holds the keys to be reset until parsed.
+	Color      bool
 
 	// Fields to be set during initialisation
 	Actions     []Action // The action which we want to handle, set in Init.
@@ -59,10 +60,12 @@ type ConfigCommandBase struct {
 // SetFlags implements cmd.Command.SetFlags.
 func (c *ConfigCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.ConfigFile, "file", "path to yaml-formatted configuration file")
+	f.BoolVar(&c.Color, "color", false, "Use ANSI color codes in output")
 	if c.Resettable {
 		f.Var(cmd.NewAppendStringsValue(&c.reset), "reset",
 			"Reset the provided comma delimited keys")
 	}
+
 }
 
 // Init provides a basic implementation of cmd.Command.Init.
