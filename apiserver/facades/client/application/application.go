@@ -1420,10 +1420,6 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	charmURL, _ := oneApplication.CharmURL()
-	if charmURL == nil {
-		err := errors.NotValidf("application charm url")
-		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
-	}
 	result := params.CharmURLOriginResult{URL: *charmURL}
 	chOrigin := oneApplication.CharmOrigin()
 	if chOrigin == nil {
