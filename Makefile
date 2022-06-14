@@ -353,8 +353,14 @@ install-mongo-dependencies:
 	@$(WAIT_FOR_DPKG)
 	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
+.PHONY: install-viddy-dependencies
+install-viddy-dependencies:
+## install-viddy-dependencies: Install viddy and its dependencies
+	@echo Installing viddy
+	@go install github.com/juju/viddy@v0.0.0-alpha.1
+
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-mongo-dependencies
+install-dependencies: install-snap-dependencies install-mongo-dependencies install-viddy-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
 
