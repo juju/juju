@@ -39,6 +39,7 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Metrics().Return(&charm.Metrics{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
 	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
+	ch.EXPECT().String().Return("ch:foo-1")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(true)

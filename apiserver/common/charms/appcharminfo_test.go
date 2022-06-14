@@ -36,7 +36,7 @@ func (s *appCharmInfoSuite) TestBasic(c *gc.C) {
 
 	// The convertCharm logic is tested in the CharmInfo tests, so just test
 	// the minimal set of fields here.
-	ch.EXPECT().URL().Return(&charm.URL{Schema: "ch", Name: "foo", Revision: 1})
+	ch.EXPECT().String().Return("ch:foo-1")
 	ch.EXPECT().Revision().Return(1)
 	ch.EXPECT().Config().Return(&charm.Config{})
 	ch.EXPECT().Meta().Return(&charm.Meta{Name: "foo"})
