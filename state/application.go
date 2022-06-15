@@ -1904,7 +1904,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			// All units have the same subordinates...
 			unit = units[0]
 			for _, n := range unit.SubordinateNames() {
-				app, err := a.st.Application(unitAppName(n))
+				app, err := a.st.Application(n)
 				if err != nil {
 					return nil, err
 				}

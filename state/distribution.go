@@ -83,12 +83,12 @@ func ApplicationMachines(st *State, application string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	applicationName := unitAppName(application)
+	applicationName := application
 	var machineIds []string
 	for _, machine := range machines {
 		principalSet := set.NewStrings()
 		for _, principal := range machine.Principals() {
-			principalSet.Add(unitAppName(principal))
+			principalSet.Add(principal)
 		}
 		if principalSet.Contains(applicationName) {
 			machineIds = append(machineIds, machine.Id())
