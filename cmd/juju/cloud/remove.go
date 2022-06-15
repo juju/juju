@@ -125,11 +125,11 @@ func (c *removeCloudCommand) removeLocalCloud(ctxt *cmd.Context) error {
 		return c.removeLocalPersonalCloud(ctxt)
 	}
 	if _, ok := cloudDetails.builtin[c.Cloud]; ok {
-		ctxt.Infof("Cannot remove built-in cloud %q", c.Cloud)
+		ctxt.Infof("Cannot remove built-in cloud %q from client", c.Cloud)
 		return nil
 	}
 	if cloudDetails, ok := cloudDetails.public[c.Cloud]; ok {
-		ctxt.Infof("Cannot remove public cloud %q", c.Cloud)
+		ctxt.Infof("Cannot remove public cloud %q from client", c.Cloud)
 		if cloudDetails.CredentialCount != 0 {
 			ctxt.Infof("To hide this cloud, remove it's credentials with `juju remove-credential`")
 		}
@@ -145,7 +145,7 @@ func (c *removeCloudCommand) removeLocalPersonalCloud(ctxt *cmd.Context) error {
 		return err
 	}
 	if _, ok := personalClouds[c.Cloud]; !ok {
-		ctxt.Infof("Local cloud %q not found", c.Cloud)
+		ctxt.Infof("No local cloud called %q exists on this client", c.Cloud)
 		return nil
 	}
 	delete(personalClouds, c.Cloud)

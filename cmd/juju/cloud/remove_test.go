@@ -193,14 +193,14 @@ func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	s.createTestCloudData(c)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack\"\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack\" from client\n")
 }
 
 func (s *removeSuite) TestCannotRemovePublicCloudWithCredentials(c *gc.C) {
 	s.createTestCloudData(c)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack2", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack2\"\n"+
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack2\" from client\n"+
 		"To hide this cloud, remove it's credentials with `juju remove-credential`\n")
 }
 
@@ -215,7 +215,7 @@ func (s *removeSuite) TestCannotRemoveBuiltinCloud(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "foo-builtin", "--client")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove built-in cloud \"foo-builtin\"\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove built-in cloud \"foo-builtin\" from client\n")
 }
 
 func assertPersonalClouds(c *gc.C, names ...string) {
