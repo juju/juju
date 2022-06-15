@@ -568,6 +568,8 @@ func allCollections() CollectionSchema {
 
 		// ----------------------
 
+		serviceLocatorsC: {},
+
 		// Raw-access collections
 		// ======================
 
@@ -679,4 +681,7 @@ const (
 	secretMetadataC = "secretMetadata"
 	secretValuesC   = "secretValues"
 	secretRotateC   = "secretRotate"
+
+	// Service locators
+	serviceLocatorsC = "serviceLocators" //TODO: we need to unify collection naming system (all camel-case, or all non camel-case)
 )
