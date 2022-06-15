@@ -253,7 +253,7 @@ jobs:
 
         juju wait-for application ${CHARM_${{ matrix.model_type }}}
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 10
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
     - name: Build snap
       if: env.RUN_TEST == 'RUN'
@@ -360,7 +360,7 @@ jobs:
             exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
     - name: Test upgrade model
       if: env.RUN_TEST == 'RUN'
@@ -399,7 +399,7 @@ jobs:
           exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
     - name: Wrap up
       if: env.RUN_TEST == 'RUN'
