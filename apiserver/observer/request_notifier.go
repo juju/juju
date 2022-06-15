@@ -170,16 +170,20 @@ func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 
 	n.requestStart = n.clock.Now()
 
+	tracing := n.logger.IsTraceEnabled()
+
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
-		n.logRequestTrace(n.pingLogger, hdr, body)
+		if tracing {
+			n.pingLogger.Tracef("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+		}
 		return
 	}
 
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
-	if n.logger.IsTraceEnabled() {
-		n.logRequestTrace(n.logger, hdr, body)
+	if tracing {
+		n.logger.Tracef("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 	} else {
 		n.logger.Debugf("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
 	}
@@ -194,16 +198,20 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 		return
 	}
 
+	tracing := n.logger.IsTraceEnabled()
+
 	if req.Type == "Pinger" && req.Action == "Ping" {
-		n.logReplyTrace(n.pingLogger, hdr, body)
+		if tracing {
+			n.pingLogger.Tracef("-> [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+		}
 		return
 	}
 
 	// TODO(rog) 2013-10-11 remove secrets from some responses.
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
-	if n.logger.IsTraceEnabled() {
-		n.logReplyTrace(n.logger, hdr, body)
+	if tracing {
+		n.logger.Tracef("-> [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 	} else {
 		n.logger.Debugf(
 			"-> [%X] %s %s %s %s[%q].%s",
@@ -215,19 +223,5 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 			req.Id,
 			req.Action,
 		)
-	}
-}
-
-func (n *rpcObserver) logRequestTrace(logger loggo.Logger, hdr *rpc.Header, body interface{}) {
-	n.logTrace(logger, "<-", hdr, body)
-}
-
-func (n *rpcObserver) logReplyTrace(logger loggo.Logger, hdr *rpc.Header, body interface{}) {
-	n.logTrace(logger, "->", hdr, body)
-}
-
-func (n *rpcObserver) logTrace(logger loggo.Logger, prefix string, hdr *rpc.Header, body interface{}) {
-	if logger.IsTraceEnabled() {
-		logger.Tracef("%s [%X] %s %s", prefix, n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 	}
 }
