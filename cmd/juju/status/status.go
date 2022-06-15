@@ -439,7 +439,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
-			return errors.Annotate(err, "unable to run juju status command")
+			return err
 		}
 	}
 
