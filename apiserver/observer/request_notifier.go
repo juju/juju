@@ -202,7 +202,9 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		if tracing {
-			n.pingLogger.Tracef("-> [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+			n.pingLogger.Tracef(
+				"-> [%X] %s %s %s %s[%q].%s",
+				n.id, n.tag, time.Since(n.requestStart), jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 		}
 		return
 	}
@@ -211,7 +213,9 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
 	if tracing {
-		n.logger.Tracef("-> [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+		n.logger.Tracef(
+			"-> [%X] %s %s %s %s[%q].%s",
+			n.id, n.tag, time.Since(n.requestStart), jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 	} else {
 		n.logger.Debugf(
 			"-> [%X] %s %s %s %s[%q].%s",
