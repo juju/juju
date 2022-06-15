@@ -938,7 +938,7 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	charmURL, err := s.wordpressUnit.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmURL, gc.NotNil)
-	c.Assert(*charmURL, gc.Equals, s.wpCharm.String())
+	c.Assert(charmURL.String(), gc.Equals, s.wpCharm.String())
 }
 
 func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
