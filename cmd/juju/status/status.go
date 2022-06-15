@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
-	viddy "github.com/juju/viddy"
+	"github.com/juju/viddy"
 	"github.com/rivo/tview"
 	"github.com/spf13/viper"
 )
@@ -415,33 +415,31 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
+		// Create Viddy config
 		v := viper.New()
 		v.SetConfigType("toml")
 		v.SetConfigName("viddy")
 		v.AddConfigPath(xdg.ConfigHome)
-
 		_ = v.ReadInConfig()
 
+		// Prepare Viddy args
 		viddyArgs := append([]string{"--no-title", "--differences", "--interval", watchValue}, jujuStatusArgsWithoutWatch...)
 		conf, err := viddy.NewConfig(v, viddyArgs)
-
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err) // TODO: change to standard juju errors
-			os.Exit(1)
+			return errors.Annotate(err, "unable to create Viddy (watcher for status command) config")
 		}
 
+		// Define tview styles and launch Viddy watcher
 		tview.Styles = conf.Theme.Theme
-
 		app := viddy.NewViddy(conf)
-
 		if err := app.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, err) // TODO: change to standard juju errors
-			os.Exit(1)
+			return errors.Annotate(err, "unable to run Viddy (watcher for status command)")
 		}
+		
 	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
-			return err
+			return errors.Annotate(err, "unable to run juju status command")
 		}
 	}
 
