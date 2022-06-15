@@ -51,7 +51,7 @@ func appCharmIncRefOps(mb modelBackend, appName string, cURL *string, canCreate 
 	}
 	curl, err := charm.ParseURL(*cURL)
 	if err != nil {
-		return nil, errors.Annotate(err, "charm url parsing")
+		return nil, errors.Annotate(err, "parsing charm url")
 	}
 	charmKey := charmGlobalKey(curl)
 	charmOp, err := getIncRefOp(refcounts, charmKey, 1)
