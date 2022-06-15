@@ -194,10 +194,10 @@ func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
 }
 
 // CharmURL mocks base method.
-func (m *MockApplication) CharmURL() (*v8.URL, bool) {
+func (m *MockApplication) CharmURL() (*string, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
-	ret0, _ := ret[0].(*v8.URL)
+	ret0, _ := ret[0].(*string)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

@@ -2947,12 +2947,12 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	coll, closer := s.state.db().GetRawCollection(applicationsC)
 	defer closer()
 
-	curl := charm.MustParseURL("cs:test-charm")
+	curl := "cs:test-charm"
 	err := coll.Insert(applicationDoc{
 		DocID:     ensureModelUUID(uuid, name),
 		Name:      name,
 		ModelUUID: uuid,
-		CharmURL:  curl,
+		CharmURL:  &curl,
 		Life:      life,
 	})
 	c.Assert(err, jc.ErrorIsNil)

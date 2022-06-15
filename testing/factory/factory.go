@@ -630,7 +630,8 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 
 	if params.SetCharmURL {
-		applicationCharmURL, _ := params.Application.CharmURL()
+		applicationCharmURLStr, _ := params.Application.CharmURL()
+		applicationCharmURL, _ := charm.ParseURL(*applicationCharmURLStr)
 		err = unit.SetCharmURL(applicationCharmURL)
 		c.Assert(err, jc.ErrorIsNil)
 	}

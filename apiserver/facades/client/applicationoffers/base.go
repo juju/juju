@@ -190,7 +190,7 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 		return errors.Trace(err)
 	}
 	offer.ApplicationName = app.Name()
-	offer.CharmURL = curl.String()
+	offer.CharmURL = *curl
 	for _, oc := range conns {
 		connDetails := params.OfferConnection{
 			SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),

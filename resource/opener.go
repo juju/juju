@@ -78,7 +78,11 @@ func newInternalResourceOpener(
 	if unit != nil {
 		charmURL, _ = unit.CharmURL()
 	} else {
-		charmURL, _ = application.CharmURL()
+		cURL, _ := application.CharmURL()
+		charmURL, err = charm.ParseURL(*cURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	switch {
 	case charm.CharmHub.Matches(charmURL.Schema):

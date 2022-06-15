@@ -35,11 +35,13 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 		source = "charm-store"
 	}
 
-	app.EXPECT().CharmURL().Return(&charm.URL{
+	curl := &charm.URL{
 		Schema:   schema,
 		Name:     charmName,
 		Revision: revision,
-	}, false).AnyTimes()
+	}
+	str := curl.String()
+	app.EXPECT().CharmURL().Return(&str, false).AnyTimes()
 	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source:   source,
 		Type:     "charm",

@@ -612,7 +612,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
-			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db": "myspace"}},
+			charm: ch, curl: "ch:db2-2", bindings: map[string]string{"db": "myspace"}},
 	}
 
 	model := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
@@ -654,7 +654,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	}
 	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
-			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"db2": "anotherspace"}},
+			charm: ch, curl: "ch:mysql-2", bindings: map[string]string{"db2": "anotherspace"}},
 	}
 	anotherState.spaces["anotherspace"] = &mockSpace{
 		name:       "anotherspace",
@@ -894,7 +894,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		"db2": &mockApplication{
 			name:  "db2",
 			charm: ch,
-			curl:  charm.MustParseURL("cs:db2-2"),
+			curl:  "cs:db2-2",
 			bindings: map[string]string{
 				"db2": "myspace",
 			},
@@ -942,14 +942,14 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		"mysql": &mockApplication{
 			name:  "mysql",
 			charm: ch,
-			curl:  charm.MustParseURL("cs:mysql-2"),
+			curl:  "cs:mysql-2",
 			bindings: map[string]string{
 				"mysql": "anotherspace",
 			},
 		},
 		"postgresql": &mockApplication{
 			charm: ch,
-			curl:  charm.MustParseURL("cs:postgresql-2"),
+			curl:  "cs:postgresql-2",
 			bindings: map[string]string{
 				"postgresql": "anotherspace",
 			},

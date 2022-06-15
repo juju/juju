@@ -160,7 +160,7 @@ func CloudModelRefCount(st *State, cloudName string) (int, error) {
 	return nsRefcounts.read(refcounts, key)
 }
 
-func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
+func ApplicationSettingsRefCount(st *State, appName string, curl *string) (int, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 

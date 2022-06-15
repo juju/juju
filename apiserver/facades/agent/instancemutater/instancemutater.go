@@ -4,6 +4,7 @@
 package instancemutater
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -339,7 +340,12 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 			changeResults[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		chURL := app.CharmURL()
+		cURL := app.CharmURL()
+		chURL, err := charm.ParseURL(*cURL)
+		if err != nil {
+			changeResults[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		ch, err := api.st.Charm(chURL)
 		if err != nil {
 			changeResults[i].Error = apiservererrors.ServerError(err)
@@ -356,7 +362,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 		}
 		changeResults[i] = params.ProfileInfoResult{
 			ApplicationName: appName,
-			Revision:        chURL.Revision,
+			Revision:        ch.Revision(),
 			Profile:         normalised,
 		}
 	}
