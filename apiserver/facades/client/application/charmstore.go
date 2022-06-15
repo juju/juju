@@ -271,7 +271,7 @@ func (c *charmRepoShim) Resolve(ref *charm.URL) (*charm.URL, []string, error) {
 	return c.charmStore.Resolve(ref)
 }
 
-func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
+func checkCAASMinVersion(ch Charm, caasVersion *version.Number) (err error) {
 	// check caas min version.
 	charmDeployment := ch.Meta().Deployment
 	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {

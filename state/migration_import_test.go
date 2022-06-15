@@ -670,7 +670,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
@@ -722,7 +722,7 @@ func (s *MigrationImportSuite) TestApplicationsWithMissingPlatform(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 
@@ -755,7 +755,7 @@ func (s *MigrationImportSuite) TestApplicationsWithMissingPlatformWithoutConstra
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 
@@ -797,7 +797,7 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, false)
@@ -841,7 +841,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "kubernetes",
-		URL:      charm.URL().String(),
+		URL:      charm.String(),
 		Revision: strconv.Itoa(charm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
@@ -916,7 +916,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "kubernetes",
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	newApp, err := newSt.Application(application.Name())

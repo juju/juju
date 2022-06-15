@@ -148,7 +148,7 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 			continue
 		}
 		results.Results[i].Result = &params.ApplicationCharm{
-			URL:                  ch.URL().String(),
+			URL:                  ch.String(),
 			ForceUpgrade:         force,
 			SHA256:               ch.BundleSha256(),
 			CharmModifiedVersion: application.CharmModifiedVersion(),

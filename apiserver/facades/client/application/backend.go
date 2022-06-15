@@ -122,7 +122,9 @@ type Bindings interface {
 // details on the methods, see the methods on state.Charm with
 // the same names.
 type Charm interface {
-	charm.Charm
+	Config() *charm.Config
+	Manifest() *charm.Manifest
+	Meta() *charm.Meta
 	URL() *charm.URL
 	String() string
 }

@@ -767,7 +767,7 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	}
 
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
-		URL:      ch.URL().String(),
+		URL:      ch.String(),
 		Meta:     ch.Meta(),
 		Revision: ch.Revision(),
 	}
