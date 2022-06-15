@@ -1874,6 +1874,12 @@ func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) erro
 	return errors.Annotatef(err, "merging application bindings")
 }
 
+// unitAppName returns the name of the Application, given a Unit's name.
+func unitAppName(unitName string) string {
+	unitParts := strings.Split(unitName, "/")
+	return unitParts[0]
+}
+
 // UpdateApplicationSeries updates the series for the Application.
 func (a *Application) UpdateApplicationSeries(series string, force bool) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1904,7 +1910,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			// All units have the same subordinates...
 			unit = units[0]
 			for _, n := range unit.SubordinateNames() {
-				app, err := a.st.Application(n)
+				app, err := a.st.Application(unitAppName(n))
 				if err != nil {
 					return nil, err
 				}
