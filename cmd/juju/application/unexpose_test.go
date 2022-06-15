@@ -4,6 +4,7 @@
 package application
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/juju/charm/v8"
@@ -25,6 +26,9 @@ type UnexposeSuite struct {
 }
 
 func (s *UnexposeSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.RepoSuite.SetUpTest(c)
 	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil

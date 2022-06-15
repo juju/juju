@@ -4,6 +4,8 @@
 package application
 
 import (
+	"runtime"
+
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +23,9 @@ type ExposeSuite struct {
 }
 
 func (s *ExposeSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
