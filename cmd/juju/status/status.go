@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/viddy"
 
 	storageapi "github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/viddy"
 	"github.com/rivo/tview"
 	"github.com/spf13/viper"
 )
@@ -435,7 +435,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		if err := app.Run(); err != nil {
 			return errors.Annotate(err, "unable to run Viddy (watcher for status command)")
 		}
-		
+
 	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
