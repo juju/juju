@@ -4,7 +4,6 @@
 package transport
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -97,8 +96,8 @@ type RefreshEntity struct {
 	CreatedAt time.Time          `json:"created-at"`
 
 	// The minimum set of metadata required for deploying a charm.
-	MetadataYAML json.RawMessage `json:"metadata-yaml,omitempty"`
-	ConfigYAML   json.RawMessage `json:"config-yaml,omitempty"`
+	MetadataYAML string `json:"metadata-yaml,omitempty"`
+	ConfigYAML   string `json:"config-yaml,omitempty"`
 }
 
 // RefreshResourceRevision represents a resource name revision pair for
