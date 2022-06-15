@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/charm/v8"
-	"gopkg.in/macaroon.v2"
-
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
