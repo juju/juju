@@ -514,8 +514,6 @@ github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2 h1:VqIDC6dRE0C7w
 github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2/go.mod h1:w3BDUH3gGgrcrAyvEbBy3lNb1vmdqG31UMn3njL8oGc=
 github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471 h1:9QpnrjtVMMzjghavLeUrx3NxwwscXj+jDzTKEnPEGGQ=
 github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0SPuyelcUmk=
-github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e h1:JoXBbhRrYNw6EIPGcMb4iW4LzsVKNvDKSVvPf4A89mY=
-github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e/go.mod h1:OPBu48GcIJ30kNTA1cm+VbZb6GkQ6vthnr5v6NJ49eM=
 github.com/juju/http/v2 v2.0.0-20220519154824-1d0dd7a3175e h1:UShWLLTk5e/dd1bSTh07/RokQ67j+u8MOtrV4FVXSvk=
 github.com/juju/http/v2 v2.0.0-20220519154824-1d0dd7a3175e/go.mod h1:hqjfdSwUaD23PurU7FZyY/rsqVL90RF3w4Xl0iPILRA=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
