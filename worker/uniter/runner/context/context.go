@@ -990,6 +990,15 @@ func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, la
 	return errors.New("metrics not allowed in this context")
 }
 
+// AddServiceLocator adds service locator to the hook context.
+// Implements jujuc.HookContext.ContextServiceLocators, part of runner.Context.
+func (ctx *HookContext) AddServiceLocator(slId string, slName string, slType string) error {
+	ctx.logger.Infof("Service Locator ID = %s", slId)
+	ctx.logger.Infof("Service Locator Name = %s", slName)
+	ctx.logger.Infof("Service Locator Type = %s", slType)
+	return nil
+}
+
 // ActionData returns the context's internal action data. It's meant to be
 // transitory; it exists to allow uniter and runner code to keep working as
 // it did; it should be considered deprecated, and not used by new clients.

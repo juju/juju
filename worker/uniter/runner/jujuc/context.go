@@ -50,6 +50,7 @@ type HookContext interface {
 	ContextRelations
 	ContextVersion
 	ContextSecrets
+	ContextServiceLocators
 
 	// GetLogger returns a juju loggo Logger for the supplied module that is
 	// correctly wired up for the given context
@@ -291,6 +292,12 @@ type ContextMetrics interface {
 	AddMetric(string, string, time.Time) error
 	// AddMetricLabels records a metric with tags to return after hook execution.
 	AddMetricLabels(string, string, time.Time, map[string]string) error
+}
+
+// ContextServiceLocators is the part of a hook context related to service locators.
+type ContextServiceLocators interface {
+	// AddServiceLocator records a metric to return after hook execution.
+	AddServiceLocator(string, string, string) error
 }
 
 // ContextStorage is the part of a hook context related to storage
