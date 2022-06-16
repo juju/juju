@@ -147,6 +147,11 @@ func (*RestrictedContext) AddMetricLabels(string, string, time.Time, map[string]
 	return ErrRestrictedContext
 }
 
+// AddServiceLocator implements hooks.Context.
+func (*RestrictedContext) AddServiceLocator(string, string, string) error {
+	return ErrRestrictedContext
+}
+
 // StorageTags implements hooks.Context.
 func (*RestrictedContext) StorageTags() ([]names.StorageTag, error) { return nil, ErrRestrictedContext }
 
