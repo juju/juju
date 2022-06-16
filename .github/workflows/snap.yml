@@ -20,7 +20,7 @@ jobs:
       run: |
         set -euxo pipefail
         sudo apt-get remove lxd lxd-client
-        sudo snap install snapcraft --classic
+        sudo snap install snapcraft --classic --channel=6.x/stable
         sudo snap install lxd
         sudo lxd waitready
         sudo lxd init --auto
