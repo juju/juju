@@ -2088,10 +2088,10 @@ func updateKubernetesStorageConfig(st *State) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if metadata.NominatedStorageClass == nil {
+		if metadata.WorkloadStorageClass == nil {
 			return nil
 		}
-		operatorStorage = metadata.NominatedStorageClass.Name
+		operatorStorage = metadata.WorkloadStorageClass.Name
 		err = st.updateConfigDefaults(model.CloudName(), cloud.Attrs{
 			k8sconstants.OperatorStorageKey: operatorStorage,
 			k8sconstants.WorkloadStorageKey: operatorStorage, // use same storage for both

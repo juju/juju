@@ -28,11 +28,13 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -450,24 +452,11 @@ var clusterQueryErrMsg = `
 	%s.
 `[1:]
 
-var unknownClusterErrMsg = `
-	Juju needs to query the k8s cluster to ensure that the recommended
-	storage defaults are available and to detect the cluster's cloud/region.
-	This was not possible in this case because the cloud %q is not known to Juju.
-	Run add-k8s again, using --storage=<name> to specify the storage class to use.
-`[1:]
-
-var noClusterSpecifiedErrMsg = `
-	Juju needs to know what storage class to use to provision workload storage.
-	Run add-k8s again, using --storage=<name> to specify the storage class to use.
-`[1:]
-
-var noRecommendedStorageErrMsg = `
+var noRecommendedStorageError = errors.New(`
 	No recommended storage configuration is defined on this cluster.
 	Run add-k8s again with --storage=<name> and Juju will use the
-	specified storage class or create a storage-class using the recommended
-	%q provisioner.
-`[1:]
+	specified storage class.
+`[1:])
 
 // Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
@@ -561,10 +550,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var storageMsg string
-	if c.skipStorage {
-		storageMsg = " with no configured storage provisioning capability"
-	} else {
+	if !c.skipStorage {
 		storageParams := provider.KubeCloudStorageParams{
 			WorkloadStorage:        c.workloadStorage,
 			HostCloudRegion:        c.hostCloudRegion,
@@ -573,7 +559,8 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 
 		var err error
-		storageMsg, err = provider.UpdateKubeCloudWithStorage(&newCloud, storageParams)
+		var preferredStorageErr *environs.PreferredStorageNotFound
+		newCloud, err = provider.UpdateKubeCloudWithStorage(newCloud, storageParams)
 		if err != nil {
 			if provider.IsClusterQueryError(err) {
 				cloudArg := "--cloud=<cloud> to specify the cloud"
@@ -585,15 +572,8 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 				}
 				return errors.Annotatef(err, clusterQueryErrMsg, cloudArg)
 			}
-			if provider.IsNoRecommendedStorageError(err) {
-				return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
-			}
-			if provider.IsUnknownClusterError(err) {
-				cloudName := err.(provider.UnknownClusterError).CloudName
-				if cloudName == "" {
-					return errors.New(noClusterSpecifiedErrMsg)
-				}
-				return errors.Errorf(unknownClusterErrMsg, cloudName)
+			if errors.As(err, &preferredStorageErr) {
+				return noRecommendedStorageError
 			}
 			return errors.Trace(err)
 		}
@@ -644,6 +624,15 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if clusterName != "" {
 		clusterName = fmt.Sprintf("%q ", clusterName)
 	}
+	storageMsg := " with no configured storage provisioning capability"
+	if !c.skipStorage && c.workloadStorage != "" {
+		storageMsg = fmt.Sprintf(` with storage provisioned
+by the existing %q storage class`,
+			newCloud.Config[k8sconstants.WorkloadStorageKey])
+	} else if !c.skipStorage && c.workloadStorage == "" {
+		storageMsg = ""
+	}
+
 	successMsg := fmt.Sprintf("k8s substrate %sadded as cloud %q%s", clusterName, c.caasName, storageMsg)
 	var msgDisplayed bool
 	if c.Client && returnErr == nil {

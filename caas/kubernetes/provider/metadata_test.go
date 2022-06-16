@@ -4,20 +4,21 @@
 package provider_test
 
 import (
-	"strings"
+	"context"
+	"errors"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 
-	k8s "github.com/juju/juju/caas/kubernetes"
+	"github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/environs"
 )
 
 type K8sMetadataSuite struct {
@@ -26,10 +27,94 @@ type K8sMetadataSuite struct {
 
 var _ = gc.Suite(&K8sMetadataSuite{})
 
-func newNode(labels map[string]string) core.Node {
+var (
+	annotatedOperatorStorage = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "operator-storage",
+			Annotations: map[string]string{
+				"juju.is/operator-storage": "true",
+			},
+		},
+	}
+
+	annotatedWorkloadStorage = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "workload-storage",
+			Annotations: map[string]string{
+				"juju.is/workload-storage": "true",
+			},
+		},
+	}
+
+	azureNode = newNode(map[string]string{
+		"failure-domain.beta.kubernetes.io/region": "wallyworld-region",
+		"kubernetes.azure.com/cluster":             "true",
+	})
+
+	azureStorageClass = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "mynode",
+		},
+		Provisioner: "kubernetes.io/azure-disk",
+	}
+
+	defaultStorage = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "default",
+			Annotations: map[string]string{
+				"storageclass.kubernetes.io/is-default-class": "true",
+			},
+		},
+	}
+
+	ec2Node = newNode(map[string]string{
+		"failure-domain.beta.kubernetes.io/region": "wallyworld-region",
+		"manufacturer": "amazon_ec2",
+	})
+
+	ec2StorageClass = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "mynode",
+		},
+		Provisioner: "kubernetes.io/aws-ebs",
+	}
+
+	gceNode = newNode(map[string]string{
+		"failure-domain.beta.kubernetes.io/region": "wallyworld-region",
+		"cloud.google.com/gke-nodepool":            "true",
+		"cloud.google.com/gke-os-distribution":     "true",
+	})
+
+	gceStorageClass = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "mynode",
+		},
+		Provisioner: "kubernetes.io/gce-pd",
+	}
+
+	microk8sNode = newNode(map[string]string{
+		"microk8s.io/cluster":                      "true",
+		"failure-domain.beta.kubernetes.io/region": "wallyworld-region",
+	})
+
+	microk8sStorageClass = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "mynode",
+		},
+		Provisioner: "microk8s.io/hostpath",
+	}
+
+	nominatedStorage = &storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "nominated",
+		},
+	}
+)
+
+func newNode(labels map[string]string) *core.Node {
 	n := core.Node{}
 	n.SetLabels(labels)
-	return n
+	return &n
 }
 
 func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
@@ -68,30 +153,30 @@ func (s *K8sMetadataSuite) TestK8sCloudCheckersValidationPass(c *gc.C) {
 type hostRegionTestcase struct {
 	expectedCloud   string
 	expectedRegions set.Strings
-	nodes           *core.NodeList
+	node            *core.Node
 }
 
 var hostRegionsTestCases = []hostRegionTestcase{
 	{
 		expectedRegions: set.NewStrings(),
-		nodes:           newNodeList(map[string]string{}),
+		node:            newNode(map[string]string{}),
 	},
 	{
 		expectedRegions: set.NewStrings(),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"cloud.google.com/gke-nodepool": "",
 		}),
 	},
 	{
 		expectedRegions: set.NewStrings(),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"cloud.google.com/gke-os-distribution": "",
 		}),
 	},
 	{
 		expectedCloud:   "gce",
 		expectedRegions: set.NewStrings(""),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"cloud.google.com/gke-nodepool":        "",
 			"cloud.google.com/gke-os-distribution": "",
 		}),
@@ -99,61 +184,61 @@ var hostRegionsTestCases = []hostRegionTestcase{
 	{
 		expectedCloud:   "gce",
 		expectedRegions: set.NewStrings(""),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"juju.is/cloud": "gce",
 		}),
 	},
 	{
 		expectedCloud:   "ec2",
 		expectedRegions: set.NewStrings(""),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"juju.is/cloud": "ec2",
 		}),
 	},
 	{
 		expectedCloud:   "azure",
 		expectedRegions: set.NewStrings(""),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"juju.is/cloud": "azure",
 		}),
 	},
 	{
 		expectedCloud:   "azure",
 		expectedRegions: set.NewStrings(""),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"kubernetes.azure.com/cluster": "",
 		}),
 	},
 	{
 		expectedCloud:   "ec2",
 		expectedRegions: set.NewStrings(""),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"manufacturer": "amazon_ec2",
 		}),
 	},
 	{
 		expectedCloud:   "ec2",
 		expectedRegions: set.NewStrings(""),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"eks.amazonaws.com/nodegroup": "any-node-group",
 		}),
 	},
 	{
 		expectedRegions: set.NewStrings(),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 		}),
 	},
 	{
 		expectedRegions: set.NewStrings(),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"cloud.google.com/gke-nodepool":            "",
 		}),
 	},
 	{
 		expectedRegions: set.NewStrings(),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"cloud.google.com/gke-os-distribution":     "",
 		}),
@@ -161,7 +246,7 @@ var hostRegionsTestCases = []hostRegionTestcase{
 	{
 		expectedCloud:   "gce",
 		expectedRegions: set.NewStrings("a-fancy-region"),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"cloud.google.com/gke-nodepool":            "",
 			"cloud.google.com/gke-os-distribution":     "",
@@ -170,7 +255,7 @@ var hostRegionsTestCases = []hostRegionTestcase{
 	{
 		expectedCloud:   "azure",
 		expectedRegions: set.NewStrings("a-fancy-region"),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"kubernetes.azure.com/cluster":             "",
 		}),
@@ -178,341 +263,481 @@ var hostRegionsTestCases = []hostRegionTestcase{
 	{
 		expectedCloud:   "ec2",
 		expectedRegions: set.NewStrings("a-fancy-region"),
-		nodes: newNodeList(map[string]string{
+		node: newNode(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"manufacturer": "amazon_ec2",
 		}),
 	},
 }
 
-func newNodeList(labels map[string]string) *core.NodeList {
-	return &core.NodeList{Items: []core.Node{newNode(labels)}}
-}
-
 func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	for _, v := range hostRegionsTestCases {
+		clientSet := fake.NewSimpleClientset(v.node)
 
-	for i, v := range hostRegionsTestCases {
-		c.Logf("test %d", i)
-		gomock.InOrder(
-			s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-				Return(v.nodes, nil),
-			s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-				Return(&storagev1.StorageClassList{}, nil),
+		metadata, err := provider.GetClusterMetadata(
+			context.TODO(),
+			"",
+			clientSet.CoreV1().Nodes(),
+			clientSet.StorageV1().StorageClasses(),
 		)
-		metadata, err := s.broker.GetClusterMetadata("")
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(metadata.Cloud, gc.Equals, v.expectedCloud)
 		c.Check(metadata.Regions, jc.DeepEquals, v.expectedRegions)
 	}
 }
 
-func (s *K8sMetadataSuite) TestNoDefaultStorageClasses(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
+	tests := []struct {
+		Name             string
+		InitialObjects   []runtime.Object
+		NominatedStorage string
+		Result           kubernetes.ClusterMetadata
+	}{
+		// EC2 tests
+		{
+			Name: "Test ec2 cloud finds provisioner storage",
+			InitialObjects: []runtime.Object{
+				ec2Node,
+				ec2StorageClass,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "ec2",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: ec2StorageClass,
+				OperatorStorageClass: ec2StorageClass,
+			},
+		},
+		{
+			Name: "Test ec2 cloud prefers annotation storage",
+			InitialObjects: []runtime.Object{
+				ec2Node,
+				ec2StorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "ec2",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: annotatedWorkloadStorage,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test ec2 cloud prefers annotation storage without workload",
+			InitialObjects: []runtime.Object{
+				ec2Node,
+				annotatedOperatorStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "ec2",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test ec2 cloud prefers nominated storage as first priority",
+			InitialObjects: []runtime.Object{
+				ec2Node,
+				ec2StorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+				nominatedStorage,
+			},
+			NominatedStorage: "nominated",
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "ec2",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nominatedStorage,
+				OperatorStorageClass: nominatedStorage,
+			},
+		},
+		{
+			Name: "Test ec2 cloud with no found storage",
+			InitialObjects: []runtime.Object{
+				ec2Node,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "ec2",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: nil,
+			},
+		},
+		{
+			Name: "Test ec2 cloud with default storage",
+			InitialObjects: []runtime.Object{
+				ec2Node,
+				defaultStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "ec2",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: defaultStorage,
+				OperatorStorageClass: defaultStorage,
+			},
+		},
 
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				Provisioner: "a-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "a-provisioner",
-		Parameters:  map[string]string{"foo": "bar"},
-	})
-}
+		// Microk8s
+		{
+			Name: "Test microk8s cloud finds provisioner storage",
+			InitialObjects: []runtime.Object{
+				microk8sNode,
+				microk8sStorageClass,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "microk8s",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: microk8sStorageClass,
+				OperatorStorageClass: microk8sStorageClass,
+			},
+		},
+		{
+			Name: "Test microk8s cloud prefers annotation storage",
+			InitialObjects: []runtime.Object{
+				microk8sNode,
+				microk8sStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "microk8s",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: annotatedWorkloadStorage,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test microk8s cloud prefers annotation storage without workload",
+			InitialObjects: []runtime.Object{
+				microk8sNode,
+				annotatedOperatorStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "microk8s",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test microk8s cloud prefers nominated storage as first priority",
+			InitialObjects: []runtime.Object{
+				microk8sNode,
+				microk8sStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+				nominatedStorage,
+			},
+			NominatedStorage: "nominated",
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "microk8s",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nominatedStorage,
+				OperatorStorageClass: nominatedStorage,
+			},
+		},
+		{
+			Name: "Test microk8s cloud with no found storage",
+			InitialObjects: []runtime.Object{
+				microk8sNode,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "microk8s",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: nil,
+			},
+		},
+		{
+			Name: "Test microk8s cloud doesn't use default storage",
+			InitialObjects: []runtime.Object{
+				microk8sNode,
+				defaultStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "microk8s",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: nil,
+			},
+		},
 
-func (s *K8sMetadataSuite) TestNoDefaultStorageClassesTooMany(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+		// Azure
+		{
+			Name: "Test azure cloud finds provisioner storage",
+			InitialObjects: []runtime.Object{
+				azureNode,
+				azureStorageClass,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "azure",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: azureStorageClass,
+				OperatorStorageClass: azureStorageClass,
+			},
+		},
+		{
+			Name: "Test azure cloud prefers annotation storage",
+			InitialObjects: []runtime.Object{
+				azureNode,
+				azureStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "azure",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: annotatedWorkloadStorage,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test azure cloud prefers annotation storage without workload",
+			InitialObjects: []runtime.Object{
+				azureNode,
+				annotatedOperatorStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "azure",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test azure cloud prefers nominated storage as first priority",
+			InitialObjects: []runtime.Object{
+				azureNode,
+				azureStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+				nominatedStorage,
+			},
+			NominatedStorage: "nominated",
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "azure",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nominatedStorage,
+				OperatorStorageClass: nominatedStorage,
+			},
+		},
+		{
+			Name: "Test azure cloud with no found storage",
+			InitialObjects: []runtime.Object{
+				azureNode,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "azure",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: nil,
+			},
+		},
+		{
+			Name: "Test azure cloud with default storage",
+			InitialObjects: []runtime.Object{
+				azureNode,
+				defaultStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "azure",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: defaultStorage,
+				OperatorStorageClass: defaultStorage,
+			},
+		},
 
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				Provisioner: "a-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}, {
-				Provisioner: "b-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, gc.IsNil)
-}
+		// GCE
+		{
+			Name: "Test gce cloud finds provisioner storage",
+			InitialObjects: []runtime.Object{
+				gceNode,
+				gceStorageClass,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "gce",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: gceStorageClass,
+				OperatorStorageClass: gceStorageClass,
+			},
+		},
+		{
+			Name: "Test gce cloud prefers annotation storage",
+			InitialObjects: []runtime.Object{
+				gceNode,
+				gceStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "gce",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: annotatedWorkloadStorage,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test gce cloud prefers annotation storage without workload",
+			InitialObjects: []runtime.Object{
+				gceNode,
+				annotatedOperatorStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "gce",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test gce cloud prefers nominated storage as first priority",
+			InitialObjects: []runtime.Object{
+				gceNode,
+				gceStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+				nominatedStorage,
+			},
+			NominatedStorage: "nominated",
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "gce",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nominatedStorage,
+				OperatorStorageClass: nominatedStorage,
+			},
+		},
+		{
+			Name: "Test gce cloud with no found storage",
+			InitialObjects: []runtime.Object{
+				gceNode,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "gce",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: nil,
+			},
+		},
+		{
+			Name: "Test gce cloud with default storage",
+			InitialObjects: []runtime.Object{
+				gceNode,
+				defaultStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "gce",
+				Regions:              set.NewStrings("wallyworld-region"),
+				WorkloadStorageClass: defaultStorage,
+				OperatorStorageClass: defaultStorage,
+			},
+		},
 
-func (s *K8sMetadataSuite) TestPreferDefaultStorageClass(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
-				Provisioner: "a-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}, {
-				Provisioner: "b-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "a-provisioner",
-		Parameters:  map[string]string{"foo": "bar"},
-		IsDefault:   true,
-	})
-}
-
-func (s *K8sMetadataSuite) TestBetaDefaultStorageClass(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.beta.kubernetes.io/is-default-class": "true"}},
-				Provisioner: "a-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}, {
-				Provisioner: "b-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "a-provisioner",
-		Parameters:  map[string]string{"foo": "bar"},
-		IsDefault:   true,
-	})
-}
-
-func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
-				Labels: map[string]string{"manufacturer": "amazon_ec2"},
-			}}}}, nil),
-		s.mockStorageClass.EXPECT().Get(gomock.Any(), "foo", v1.GetOptions{}).
-			Return(&storagev1.StorageClass{
-				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
-				Provisioner: "a-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				Provisioner: "kubernetes.io/aws-ebs",
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("foo")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "a-provisioner",
-		Parameters:  map[string]string{"foo": "bar"},
-		IsDefault:   true,
-	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "kubernetes.io/aws-ebs",
-	})
-}
-
-func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
-				Labels: map[string]string{"manufacturer": "amazon_ec2"},
-			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				Provisioner: "kubernetes.io/aws-ebs",
-			}, {
-				Provisioner: "kubernetes.io/aws-ebs",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	// More than one match so need to be explicit for workload storage.
-	c.Check(metadata.NominatedStorageClass, gc.IsNil)
-	// Take the first match for operator storage.
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "kubernetes.io/aws-ebs",
-	})
-}
-
-func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
-				Labels: map[string]string{"manufacturer": "amazon_ec2"},
-			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				Provisioner: "kubernetes.io/aws-ebs",
-			}, {
-				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
-				Provisioner: "kubernetes.io/aws-ebs",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "kubernetes.io/aws-ebs",
-		Parameters:  map[string]string{"foo": "bar"},
-		IsDefault:   true,
-	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Provisioner: "kubernetes.io/aws-ebs",
-		Parameters:  map[string]string{"foo": "bar"},
-		IsDefault:   true,
-	})
-}
-
-func (s *K8sMetadataSuite) TestAnnotatedWorkloadStorageClass(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
-				Labels: map[string]string{"manufacturer": "amazon_ec2"},
-			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				ObjectMeta: v1.ObjectMeta{
-					Name: "juju-preferred-workload-storage",
-					Annotations: map[string]string{
-						"juju.is/workload-storage": "true",
-					},
-				},
-				Provisioner: "kubernetes.io/aws-ebs",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Name:        "juju-preferred-workload-storage",
-		Provisioner: "kubernetes.io/aws-ebs",
-		Parameters:  map[string]string{"foo": "bar"},
-	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Name:        "juju-preferred-workload-storage",
-		Provisioner: "kubernetes.io/aws-ebs",
-		Parameters:  map[string]string{"foo": "bar"},
-	})
-}
-
-func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{Limit: 5}).
-			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
-				Labels: map[string]string{"manufacturer": "amazon_ec2"},
-			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{
-				{
-					ObjectMeta: v1.ObjectMeta{
-						Name: "juju-preferred-workload-storage",
-						Annotations: map[string]string{
-							"juju.is/workload-storage": "true",
-						},
-					},
-					Provisioner: "kubernetes.io/aws-ebs",
-					Parameters:  map[string]string{"foo": "bar"},
-				},
-				{
-					ObjectMeta: v1.ObjectMeta{
-						Name: "juju-preferred-operator-storage",
-						Annotations: map[string]string{
-							"juju.is/operator-storage": "true",
-						},
-					},
-					Provisioner: "kubernetes.io/aws-ebs",
-					Parameters:  map[string]string{"foo": "bar"},
-				},
-			}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Name:        "juju-preferred-workload-storage",
-		Provisioner: "kubernetes.io/aws-ebs",
-		Parameters:  map[string]string{"foo": "bar"},
-	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
-		Name:        "juju-preferred-operator-storage",
-		Provisioner: "kubernetes.io/aws-ebs",
-		Parameters:  map[string]string{"foo": "bar"},
-	})
-}
-
-func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageUnknownCluster(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	err := s.broker.CheckDefaultWorkloadStorage("foo", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageNonpreferred(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	err := s.broker.CheckDefaultWorkloadStorage("microk8s", &k8s.StorageProvisioner{Provisioner: "foo"})
-	c.Assert(err, jc.Satisfies, k8s.IsNonPreferredStorageError)
-	npse, ok := errors.Cause(err).(*k8s.NonPreferredStorageError)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(npse.Provisioner, gc.Equals, "microk8s.io/hostpath")
-}
-
-func (s *K8sMetadataSuite) TestLabelSetToRequirements(c *gc.C) {
-	labels := map[string]string{
-		"foo":  "bar",
-		"foo1": "bar1",
+		// Other
+		{
+			Name: "Test other cloud prefers annotation storage",
+			InitialObjects: []runtime.Object{
+				newNode(map[string]string{}),
+				gceStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "",
+				Regions:              set.NewStrings(),
+				WorkloadStorageClass: annotatedWorkloadStorage,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test other cloud prefers annotation storage without workload",
+			InitialObjects: []runtime.Object{
+				newNode(map[string]string{}),
+				annotatedOperatorStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "",
+				Regions:              set.NewStrings(),
+				WorkloadStorageClass: annotatedOperatorStorage,
+				OperatorStorageClass: annotatedOperatorStorage,
+			},
+		},
+		{
+			Name: "Test other cloud prefers nominated storage as first priority",
+			InitialObjects: []runtime.Object{
+				newNode(map[string]string{}),
+				gceStorageClass,
+				annotatedOperatorStorage,
+				annotatedWorkloadStorage,
+				nominatedStorage,
+			},
+			NominatedStorage: "nominated",
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "",
+				Regions:              set.NewStrings(),
+				WorkloadStorageClass: nominatedStorage,
+				OperatorStorageClass: nominatedStorage,
+			},
+		},
+		{
+			Name: "Test other cloud with no found storage",
+			InitialObjects: []runtime.Object{
+				newNode(map[string]string{}),
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "",
+				Regions:              set.NewStrings(),
+				WorkloadStorageClass: nil,
+				OperatorStorageClass: nil,
+			},
+		},
+		{
+			Name: "Test other cloud with default storage",
+			InitialObjects: []runtime.Object{
+				newNode(map[string]string{}),
+				defaultStorage,
+			},
+			Result: kubernetes.ClusterMetadata{
+				Cloud:                "",
+				Regions:              set.NewStrings(),
+				WorkloadStorageClass: defaultStorage,
+				OperatorStorageClass: defaultStorage,
+			},
+		},
 	}
-	var out []string
-	for _, v := range provider.LabelSetToRequirements(labels) {
-		out = append(out, v.String())
+
+	for _, test := range tests {
+		c.Logf("running test %s", test.Name)
+		clientSet := fake.NewSimpleClientset(test.InitialObjects...)
+
+		metadata, err := provider.GetClusterMetadata(
+			context.TODO(),
+			test.NominatedStorage,
+			clientSet.CoreV1().Nodes(),
+			clientSet.StorageV1().StorageClasses(),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(*metadata, jc.DeepEquals, test.Result)
 	}
-	c.Assert(strings.Join(out, ","), gc.DeepEquals, `foo=bar,foo1=bar1`)
 }
 
-func (s *K8sMetadataSuite) TestMergeSelectors(c *gc.C) {
-	selector1 := k8slabels.SelectorFromSet(map[string]string{"foo": "bar"})
-	selector2 := k8slabels.SelectorFromSet(map[string]string{"foo1": "bar1"})
-	c.Assert(provider.MergeSelectors(selector1, selector2), gc.DeepEquals,
-		k8slabels.SelectorFromSet(map[string]string{
-			"foo":  "bar",
-			"foo1": "bar1",
-		}),
+func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *gc.C) {
+	clientSet := fake.NewSimpleClientset(
+		newNode(map[string]string{}),
+		gceStorageClass,
+		annotatedOperatorStorage,
+		annotatedWorkloadStorage,
 	)
+
+	_, err := provider.GetClusterMetadata(
+		context.TODO(),
+		"my-nominated-storage",
+		clientSet.CoreV1().Nodes(),
+		clientSet.StorageV1().StorageClasses(),
+	)
+
+	var notFoundError *environs.NominatedStorageNotFound
+	c.Assert(err, gc.NotNil)
+	c.Assert(errors.As(err, &notFoundError), jc.IsTrue)
+	c.Assert(notFoundError.StorageName, gc.Equals, "my-nominated-storage")
 }

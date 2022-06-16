@@ -22,6 +22,8 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
+	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -2770,8 +2772,15 @@ type fakeBroker struct {
 
 func (f *fakeBroker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
 	return &k8s.ClusterMetadata{
-		NominatedStorageClass: &k8s.StorageProvisioner{
-			Name: "storage-provisioner",
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "storage-provisioner",
+			},
+		},
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "storage-provisioner",
+			},
 		},
 	}, nil
 }
