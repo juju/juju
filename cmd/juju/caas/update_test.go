@@ -16,6 +16,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
+	storagev1 "k8s.io/api/storage/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -117,7 +119,9 @@ func (s *updateCAASSuite) SetUpTest(c *gc.C) {
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
-		OperatorStorageClass: &k8s.StorageProvisioner{Name: "operator-sc"},
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "operator-sc"},
+		},
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
 		CallMocker: jujutesting.NewCallMocker(logger),
