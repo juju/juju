@@ -25,6 +25,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 )
@@ -108,7 +109,9 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 }
 
 func PublishedPublicClouds(url, key string) (map[string]jujucloud.Cloud, error) {
-	client := jujuhttp.NewClient()
+	client := jujuhttp.NewClient(
+		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+	)
 	resp, err := client.Get(context.TODO(), url)
 	if err != nil {
 		return nil, err

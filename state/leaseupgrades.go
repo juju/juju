@@ -122,7 +122,10 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 // LegacyLeases returns information about all of the leases in the
 // state-based lease store.
 func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corelease.Info, error) {
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	reader, err := globalclock.NewReader(globalclock.ReaderConfig{
 		Config: globalclock.Config{
 			Collection: globalClockC,
@@ -178,7 +181,10 @@ func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corel
 // DropLeasesCollection removes the leases collection. Tolerates the
 // collection already not existing.
 func DropLeasesCollection(pool *StatePool) error {
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	names, err := st.MongoSession().DB("juju").CollectionNames()
 	if err != nil {
 		return errors.Trace(err)

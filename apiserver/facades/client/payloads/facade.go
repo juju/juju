@@ -6,15 +6,15 @@ package payloads
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
+	api "github.com/juju/juju/api/client/payloads"
+	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
 // payloadBackend exposes the State functionality for payloads in a model.
 type payloadBackend interface {
 	// ListAll returns information on the payload with the id on the unit.
-	ListAll() ([]payload.FullPayloadInfo, error)
+	ListAll() ([]payloads.FullPayloadInfo, error)
 }
 
 // API serves payload-specific API methods.
@@ -34,18 +34,18 @@ func NewAPI(backend payloadBackend) *API {
 func (a API) List(args params.PayloadListArgs) (params.PayloadListResults, error) {
 	var r params.PayloadListResults
 
-	payloads, err := a.backend.ListAll()
+	payloadInfo, err := a.backend.ListAll()
 	if err != nil {
 		return r, errors.Trace(err)
 	}
 
-	filters, err := payload.BuildPredicatesFor(args.Patterns)
+	filters, err := payloads.BuildPredicatesFor(args.Patterns)
 	if err != nil {
 		return r, errors.Trace(err)
 	}
-	payloads = payload.Filter(payloads, filters...)
+	payloadInfo = payloads.Filter(payloadInfo, filters...)
 
-	for _, payload := range payloads {
+	for _, payload := range payloadInfo {
 		apiInfo := api.Payload2api(payload)
 		r.Results = append(r.Results, apiInfo)
 	}

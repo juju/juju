@@ -60,13 +60,13 @@ jobs:
 
     - name: "Remove Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@e80bd39bb49cae70b67ea53d52d00833a7255c21 # v1
+      uses: crazy-max/ghaction-chocolatey@b59ffdb6594d2e2c36d9e1174e15ac799dd0a8f1 # v1
       with:
         args: uninstall mongodb mongodb.install -y --all-versions
 
     - name: "Install Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
-      uses: crazy-max/ghaction-chocolatey@e80bd39bb49cae70b67ea53d52d00833a7255c21 # v1
+      uses: crazy-max/ghaction-chocolatey@b59ffdb6594d2e2c36d9e1174e15ac799dd0a8f1 # v1
       with:
         args: install mongodb.install --version=5.0.5 --allow-downgrade
 
@@ -88,10 +88,12 @@ jobs:
     - name: "Test client: macOS-latest"
       if: (matrix.os == 'macOS-latest')
       run: |
-        # There is a concurrency issue with macos setup for the "./cmd/juju/..." packages.
-        # So we have to limit amount of used CPUs and therefore parallelization
-        go test -v -p 1 ./cmd/juju/... -check.v
-        go test -v  ./cmd/plugins/... -check.v
+        # We increase the number of file descriptors that processes can have 
+        # open so mongo doesn't fail. Client tests still rely on mongo and as
+        # such we have a high request count for FD's
+        ulimit -n 8192
+        go test -v ./cmd/juju/... -check.v
+        go test -v ./cmd/plugins/... -check.v
       shell: bash
 
     - name: "Test client: ubuntu-latest"

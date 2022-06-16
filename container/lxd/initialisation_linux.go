@@ -4,12 +4,9 @@
 package lxd
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
-	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -93,11 +90,6 @@ func (ci *containerInitialiser) Initialise() error {
 		return errors.Trace(err)
 	}
 
-	// LXD init is only run on Xenial and later.
-	if localSeries == "trusty" {
-		return nil
-	}
-
 	output, err := ci.getExecCommand(
 		"lxd",
 		"init",
@@ -169,114 +161,26 @@ func (ci *containerInitialiser) internalConfigureLXDBridge() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// If LXD itself supports managing networks (added in LXD 2.3) we can allow
-	// it to do all of the network configuration.
-	if server.networkAPISupport {
-		profile, eTag, err := server.GetProfile(lxdDefaultProfileName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// If there are no suitable bridged NICs in the profile,
-		// ensure the bridge is set up and create one.
-		if server.verifyNICsWithAPI(getProfileNICs(profile)) == nil {
-			return nil
-		}
-		return server.ensureDefaultNetworking(profile, eTag)
+	// We do not support LXD versions without the network API,
+	// which was added in 2.3.
+	if !server.networkAPISupport {
+		return errors.NotSupportedf("versions of LXD without network API")
 	}
-	return configureLXDBridgeForOlderLXD()
-}
 
-// configureLXDBridgeForOlderLXD is used for LXD agents that don't support the
-// Network API (pre 2.3)
-func configureLXDBridgeForOlderLXD() error {
-	f, err := os.OpenFile(BridgeConfigFile, os.O_RDWR, 0777)
-	if err != nil {
-		/* We're using an old version of LXD which doesn't have
-		 * lxd-bridge; let's not fail here.
-		 */
-		if os.IsNotExist(err) {
-			logger.Debugf("couldn't find %s, not configuring it", BridgeConfigFile)
-			return nil
-		}
-		return errors.Trace(err)
-	}
-	defer f.Close()
-
-	existing, err := ioutil.ReadAll(f)
+	profile, eTag, err := server.GetProfile(lxdDefaultProfileName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	newBridgeCfg, err := bridgeConfiguration(string(existing))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if newBridgeCfg == string(existing) {
+	// If there are no suitable bridged NICs in the profile,
+	// ensure the bridge is set up and create one.
+	if server.verifyNICsWithAPI(getProfileNICs(profile)) == nil {
 		return nil
 	}
-
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = f.WriteString(newBridgeCfg)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	/* non-systemd systems don't have the lxd-bridge service, so this always fails */
-	_ = exec.Command("service", "lxd-bridge", "restart").Run()
-	return exec.Command("service", "lxd", "restart").Run()
+	return server.ensureDefaultNetworking(profile, eTag)
 }
 
 var interfaceAddrs = func() ([]net.Addr, error) {
 	return net.InterfaceAddrs()
-}
-
-func editLXDBridgeFile(input string, subnet string) string {
-	buffer := bytes.Buffer{}
-
-	newValues := map[string]string{
-		"USE_LXD_BRIDGE":      "true",
-		"EXISTING_BRIDGE":     "",
-		"LXD_BRIDGE":          "lxdbr0",
-		"LXD_IPV4_ADDR":       fmt.Sprintf("10.0.%s.1", subnet),
-		"LXD_IPV4_NETMASK":    "255.255.255.0",
-		"LXD_IPV4_NETWORK":    fmt.Sprintf("10.0.%s.1/24", subnet),
-		"LXD_IPV4_DHCP_RANGE": fmt.Sprintf("10.0.%s.2,10.0.%s.254", subnet, subnet),
-		"LXD_IPV4_DHCP_MAX":   "253",
-		"LXD_IPV4_NAT":        "true",
-		"LXD_IPV6_PROXY":      "false",
-	}
-	found := map[string]bool{}
-
-	for _, line := range strings.Split(input, "\n") {
-		out := line
-
-		for prefix, value := range newValues {
-			if strings.HasPrefix(line, prefix+"=") {
-				out = fmt.Sprintf(`%s="%s"`, prefix, value)
-				found[prefix] = true
-				break
-			}
-		}
-
-		buffer.WriteString(out)
-		buffer.WriteString("\n")
-	}
-
-	for prefix, value := range newValues {
-		if !found[prefix] {
-			buffer.WriteString(prefix)
-			buffer.WriteString("=")
-			buffer.WriteString(value)
-			buffer.WriteString("\n")
-			found[prefix] = true // not necessary but keeps "found" logically consistent
-		}
-	}
-
-	return buffer.String()
 }
 
 // ensureDependencies install the required dependencies for running LXD.
@@ -400,51 +304,6 @@ func findNextAvailableIPv4Subnet() (string, error) {
 		}
 	}
 	return "", errors.New("could not find unused subnet")
-}
-
-func parseLXDBridgeConfigValues(input string) map[string]string {
-	values := make(map[string]string)
-
-	for _, line := range strings.Split(input, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
-			continue
-		}
-
-		tokens := strings.Split(line, "=")
-		if tokens[0] == "" {
-			continue // no key
-		}
-
-		value := ""
-		if len(tokens) > 1 {
-			value = tokens[1]
-			if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
-				value = strings.Trim(value, `"`)
-			}
-		}
-		values[tokens[0]] = value
-	}
-	return values
-}
-
-// bridgeConfiguration ensures that input has a valid setting for
-// LXD_IPV4_ADDR, returning the existing input if is already set, and
-// allocating the next available subnet if it is not.
-func bridgeConfiguration(input string) (string, error) {
-	values := parseLXDBridgeConfigValues(input)
-	ipAddr := net.ParseIP(values["LXD_IPV4_ADDR"])
-
-	if ipAddr == nil || ipAddr.To4() == nil {
-		logger.Infof("LXD_IPV4_ADDR is not set; searching for unused subnet")
-		subnet, err := findNextAvailableIPv4Subnet()
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		logger.Infof("setting LXD_IPV4_ADDR=10.0.%s.1", subnet)
-		return editLXDBridgeFile(input, subnet), nil
-	}
-	return input, nil
 }
 
 func isRunningLocally() (bool, error) {

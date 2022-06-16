@@ -342,7 +342,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer func() { _ = controller.Close() }()
-	st := controller.SystemState()
+	st, err := controller.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Set up default container networking mode
 	model, err := st.Model()

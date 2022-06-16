@@ -48,12 +48,6 @@ import (
 )
 
 const (
-	// JujuControllerStackName is the juju CAAS controller stack name.
-	JujuControllerStackName = "controller"
-
-	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
-	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
-
 	proxyResourceName = "proxy"
 	storageName       = "storage"
 )
@@ -1507,6 +1501,10 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 			continue
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+		ct.Args = append(ct.Args, "--controller")
+		ct.LivenessProbe = nil
+		ct.ReadinessProbe = nil
+		ct.StartupProbe = nil
 		spec.Containers[i] = ct
 	}
 	return spec, nil

@@ -19,16 +19,16 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
-	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
@@ -867,7 +867,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 	spec := s.bundleDeploySpec()
 	spec.deployResources = func(
 		_ string,
-		_ client.CharmID,
+		_ resources.CharmID,
 		_ *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -880,10 +880,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 			results[k] = "1"
 		}
 		return results, nil
-	}
-	spec.getResourceLister = func(DeployerAPI) (utils.ResourceLister, error) {
-		// the resourceLister is passed to the deployResources func we've mocked above.
-		return nil, nil
 	}
 
 	s.runDeployWithSpec(c, charmWithResourcesBundle, spec)
@@ -925,7 +921,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 	spec := s.bundleDeploySpec()
 	spec.deployResources = func(
 		_ string,
-		_ client.CharmID,
+		_ resources.CharmID,
 		_ *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -939,10 +935,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 			results[k] = "1"
 		}
 		return results, nil
-	}
-	spec.getResourceLister = func(DeployerAPI) (utils.ResourceLister, error) {
-		// the resourceLister is passed to the deployResources func we've mocked above.
-		return nil, nil
 	}
 
 	s.runDeployWithSpec(c, specifyResourcesBundle, spec)
@@ -2008,7 +2000,7 @@ machines:
 
 func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
-		_ client.CharmID,
+		_ resources.CharmID,
 		_ *macaroon.Macaroon,
 		_ map[string]string,
 		_ map[string]charmresource.Meta,
@@ -2026,9 +2018,6 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 		},
 		bundleResolver:  s.bundleResolver,
 		deployResources: deployResourcesFunc,
-		getResourceLister: func(DeployerAPI) (utils.ResourceLister, error) {
-			return nil, nil
-		},
 	}
 }
 
@@ -2129,6 +2118,8 @@ func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []cha
 func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
+	s.deployerAPI.EXPECT().BestFacadeVersion("Resources").Return(666).AnyTimes()
+	s.deployerAPI.EXPECT().HTTPClient().Return(&httprequest.Client{}, nil).AnyTimes()
 	s.bundleResolver = mocks.NewMockResolver(ctrl)
 	s.allWatcher = mocks.NewMockAllWatch(ctrl)
 	s.stdOut = mocks.NewMockWriter(ctrl)

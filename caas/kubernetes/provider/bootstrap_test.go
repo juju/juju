@@ -633,6 +633,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				"--charm-modified-version", "0",
 				"--append-env", "PATH=$PATH:/charm/bin",
 				"--show-log",
+				"--controller",
 			},
 			Resources: core.ResourceRequirements{
 				Requests: core.ResourceList{
@@ -656,42 +657,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			SecurityContext: &core.SecurityContext{
 				RunAsUser:  int64Ptr(0),
 				RunAsGroup: int64Ptr(0),
-			},
-			LivenessProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					HTTPGet: &core.HTTPGetAction{
-						Path: "/liveness",
-						Port: intstr.Parse("3856"),
-					},
-				},
-				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    2,
-			},
-			ReadinessProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					HTTPGet: &core.HTTPGetAction{
-						Path: "/readiness",
-						Port: intstr.Parse("3856"),
-					},
-				},
-				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    2,
-			},
-			StartupProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					HTTPGet: &core.HTTPGetAction{
-						Path: "/startup",
-						Port: intstr.Parse("3856"),
-					},
-				},
-				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    2,
 			},
 			VolumeMounts: []core.VolumeMount{
 				{

@@ -75,7 +75,10 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 
 	logDir := agent.CurrentConfig().LogDir()
 
-	st := statePool.SystemState()
+	st, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
 		return auditlog.NewLogFile(logDir, cfg.MaxSizeMB, cfg.MaxBackups)

@@ -191,49 +191,18 @@ type ResourceRequest struct {
 	Revision int
 }
 
-// ResourceData represents the response from the charmstore about a request for
-// resource bytes.
-type ResourceData struct {
-	// ReadCloser holds the bytes for the resource.
-	io.ReadCloser
-
-	// Resource holds the metadata for the resource.
-	Resource resource.Resource
-}
-
-// GetResource returns the data (bytes) and metadata for a resource from the charmstore.
-func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) {
+// DownloadResource returns the data (bytes) for a resource from the charmstore.
+func (c Client) DownloadResource(req ResourceRequest) (io.ReadCloser, string, error) {
 	if err := c.jar.Activate(req.Charm); err != nil {
-		return ResourceData{}, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 	defer func() { _ = c.jar.Deactivate() }()
-	meta, err := c.csWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
 
-	if err != nil {
-		return ResourceData{}, errors.Trace(err)
-	}
-	data.Resource, err = csparams.API2Resource(meta)
-	if err != nil {
-		return ResourceData{}, errors.Trace(err)
-	}
 	resData, err := c.csWrapper.GetResource(req.Channel, req.Charm, req.Name, req.Revision)
 	if err != nil {
-		return ResourceData{}, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
-	defer func() {
-		if err != nil {
-			resData.Close()
-		}
-	}()
-	data.ReadCloser = resData.ReadCloser
-	if data.Resource.Type == resource.TypeFile {
-		fpHash := data.Resource.Fingerprint.String()
-		if resData.Hash != fpHash {
-			return ResourceData{},
-				errors.Errorf("fingerprint for data (%s) does not match fingerprint in metadata (%s)", resData.Hash, fpHash)
-		}
-	}
-	return data, nil
+	return resData.ReadCloser, resData.Hash, nil
 }
 
 // ResourceInfo returns the metadata for the given resource from the charmstore.

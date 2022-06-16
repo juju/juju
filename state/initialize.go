@@ -174,7 +174,10 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 
 	// The system state is owned by the pool, which is closed by the
 	// controller close, so no close needed here.
-	st := ctlr.pool.SystemState()
+	st, err := ctlr.pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// A valid model is used as a signal that the
 	// state has already been initialized. If this is the case

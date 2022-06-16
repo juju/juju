@@ -147,6 +147,7 @@ func (*podcfgSuite) TestUnitAgentConfig(c *gc.C) {
 		ModelTag: testing.ModelTag,
 		CACert:   testing.CACert,
 	}
+	podConfig.Bootstrap.StateServingInfo.APIPort = 1234
 	podConfig.JujuVersion = version.MustParse("6.6.6")
 	c.Assert(err, jc.ErrorIsNil)
 	agentCfg, err := podConfig.UnitAgentConfig()
@@ -154,4 +155,5 @@ func (*podcfgSuite) TestUnitAgentConfig(c *gc.C) {
 	apiInfo, ok := agentCfg.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(agentCfg.OldPassword(), gc.Equals, apiInfo.Password)
+	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{"localhost:1234"})
 }

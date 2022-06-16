@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/migration"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/fortress"
@@ -385,17 +385,17 @@ func (w *uploadWrapper) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*ch
 }
 
 // UploadResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadResource(res resource.Resource, content io.ReadSeeker) error {
+func (w *uploadWrapper) UploadResource(res resources.Resource, content io.ReadSeeker) error {
 	return w.client.UploadResource(w.modelUUID, res, content)
 }
 
 // SetPlaceholderResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetPlaceholderResource(res resource.Resource) error {
+func (w *uploadWrapper) SetPlaceholderResource(res resources.Resource) error {
 	return w.client.SetPlaceholderResource(w.modelUUID, res)
 }
 
 // SetUnitResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetUnitResource(unitName string, res resource.Resource) error {
+func (w *uploadWrapper) SetUnitResource(unitName string, res resources.Resource) error {
 	return w.client.SetUnitResource(w.modelUUID, unitName, res)
 }
 

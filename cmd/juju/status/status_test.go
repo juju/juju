@@ -67,7 +67,7 @@ func (s *MinimalStatusSuite) TestWatchUntilError(c *gc.C) {
 		errors.New("boom"),
 	}
 
-	ctx, err := s.runStatus(c, "--watch", "1ms", "--retry-count", "0")
+	ctx, err := s.runStatus(c, "--no-color", "--watch", "1ms", "--retry-count", "0")
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 	// We expect the correct output for the first 3 nil errors before termination.
@@ -86,7 +86,7 @@ test   test        foo
 }
 
 func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
-	context, err := s.runStatus(c, "--storage")
+	context, err := s.runStatus(c, "--no-color", "--storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clock.waits, gc.HasLen, 0)
 
@@ -111,7 +111,7 @@ func (s *MinimalStatusSuite) TestRetryOnError(c *gc.C) {
 		errors.New("splat"),
 	}
 
-	_, err := s.runStatus(c)
+	_, err := s.runStatus(c, "--no-color")
 	c.Assert(err, jc.ErrorIsNil)
 	delay := 100 * time.Millisecond
 	// Two delays of the default time.
@@ -124,7 +124,7 @@ func (s *MinimalStatusSuite) TestRetryDelays(c *gc.C) {
 		errors.New("splat"),
 	}
 
-	_, err := s.runStatus(c, "--retry-delay", "250ms")
+	_, err := s.runStatus(c, "--no-color", "--retry-delay", "250ms")
 	c.Assert(err, jc.ErrorIsNil)
 	delay := 250 * time.Millisecond
 	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay})
@@ -141,7 +141,7 @@ func (s *MinimalStatusSuite) TestRetryCount(c *gc.C) {
 		errors.New("error 7"),
 	}
 
-	_, err := s.runStatus(c, "--retry-count", "5")
+	_, err := s.runStatus(c, "--no-color", "--retry-count", "5")
 	c.Assert(err.Error(), gc.Equals, "error 6")
 	// We expect five waits of the default duration.
 	delay := 100 * time.Millisecond
@@ -155,7 +155,7 @@ func (s *MinimalStatusSuite) TestRetryCountOfZero(c *gc.C) {
 		errors.New("error 3"),
 	}
 
-	_, err := s.runStatus(c, "--retry-count", "0")
+	_, err := s.runStatus(c, "--no-color", "--retry-count", "0")
 	c.Assert(err.Error(), gc.Equals, "error 1")
 	// No delays.
 	c.Assert(s.clock.waits, gc.HasLen, 0)

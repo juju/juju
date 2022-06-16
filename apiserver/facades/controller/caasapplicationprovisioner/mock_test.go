@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -101,9 +100,9 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 	return cons, nil
 }
 
-func (st *mockState) Resources() (caasapplicationprovisioner.Resources, error) {
+func (st *mockState) Resources() caasapplicationprovisioner.Resources {
 	st.MethodCall(st, "Resources")
-	return st.resource, nil
+	return st.resource
 }
 
 type mockResources struct {
@@ -111,9 +110,9 @@ type mockResources struct {
 	resource *resources.DockerImageDetails
 }
 
-func (m *mockResources) OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error) {
+func (m *mockResources) OpenResource(applicationID string, name string) (resources.Resource, io.ReadCloser, error) {
 	out, err := json.Marshal(m.resource)
-	return resource.Resource{}, ioutil.NopCloser(bytes.NewBuffer(out)), err
+	return resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer(out)), err
 }
 
 type mockStorageRegistry struct {
@@ -612,11 +611,11 @@ type mockResourceOpener struct {
 	resources *mockResources
 }
 
-func (ro *mockResourceOpener) OpenResource(name string) (resource.Opened, error) {
+func (ro *mockResourceOpener) OpenResource(name string) (resources.Opened, error) {
 	ro.MethodCall(ro, "OpenResource", name)
 	r, rio, err := ro.resources.OpenResource(ro.appName, name)
 	if err != nil {
-		return resource.Opened{}, err
+		return resources.Opened{}, err
 	}
-	return resource.Opened{Resource: r, ReadCloser: rio}, nil
+	return resources.Opened{Resource: r, ReadCloser: rio}, nil
 }

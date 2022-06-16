@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -835,7 +836,7 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newCharmstoreClient, newCharmhubClient)
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, clock.WallClock, newCharmstoreClient, newCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -913,7 +914,9 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Model = m
 
-	hp, err := s.StatePool.SystemState().APIHostPortsForClients()
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	hp, err := systemState.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	var addrs []network.SpaceAddress
 	for _, server := range hp {

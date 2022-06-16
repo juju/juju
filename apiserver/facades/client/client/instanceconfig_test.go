@@ -44,7 +44,9 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	instanceConfig, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, apiParams.Nonce, "")
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	instanceConfig, err := client.InstanceConfig(systemState, s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.State.ControllerConfig()
@@ -68,7 +70,9 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 	machines, err := apiclient.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
-	_, err = client.InstanceConfig(s.StatePool.SystemState(), s.State, machines[0].Machine, apiParams.Nonce, "")
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.InstanceConfig(systemState, s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
 }
 
@@ -85,6 +89,8 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	}
 	machines, err := apiclient.NewClient(s.APIState).AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.InstanceConfig(s.StatePool.SystemState(), s.State, machines[0].Machine, apiParams.Nonce, "")
+	systemState, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.InstanceConfig(systemState, s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, "finding agent binaries: "+coretools.ErrNoMatches.Error())
 }

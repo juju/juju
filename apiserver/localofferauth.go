@@ -46,7 +46,10 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 	// Create a bakery service for discharging third-party caveats for
 	// local offer access authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
-	st := pool.SystemState()
+	st, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	location := "juju model " + st.ModelUUID()
 	checker := checkers.New(charmstore.MacaroonNamespace)
 

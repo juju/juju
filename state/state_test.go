@@ -231,7 +231,9 @@ func (s *StateSuite) TestOpenControllerSetsModelTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer controller.Close()
 
-	m, err := controller.SystemState().Model()
+	sysState, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := sysState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(m.ModelTag(), gc.Equals, s.modelTag)
@@ -4239,7 +4241,9 @@ func testWatcherDiesWhenStateCloses(
 		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	watcher := startWatcher(c, controller.SystemState())
+	sysState, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	watcher := startWatcher(c, sysState)
 	err = controller.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	done := make(chan error)
@@ -4278,7 +4282,9 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer controller.Close()
 
-	info, err = controller.SystemState().ControllerInfo()
+	sysState, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	info, err = sysState.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
@@ -4321,7 +4327,8 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -4426,7 +4433,8 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	hostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
@@ -4470,7 +4478,8 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -4502,7 +4511,8 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -4528,7 +4538,8 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
-	ctrlSt := s.StatePool.SystemState()
+	ctrlSt, err := s.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
@@ -4582,7 +4593,8 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	controller, err := state.OpenController(params)
 	c.Assert(err, jc.ErrorIsNil)
 	defer controller.Close()
-	st := controller.SystemState()
+	st, err := controller.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(getCalls(), gc.HasLen, 0)
 
@@ -4677,7 +4689,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		AdminPassword: password,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	st := ctlr.SystemState()
+	st, err := ctlr.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	defer ctlr.Close()
 
 	// Check that we can SetAdminMongoPassword to nothing when there's

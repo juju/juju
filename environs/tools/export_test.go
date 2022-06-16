@@ -11,7 +11,7 @@ var (
 	CurrentStreamsVersion         = currentStreamsVersion
 	MarshalToolsMetadataIndexJSON = marshalToolsMetadataIndexJSON
 	GetVersionFromJujud           = getVersionFromJujud
-	ExecCommand                   = &execCommand
+	BundleToolsForTest            = bundleTools
 )
 
 func VersionsMatchingHash(v *Versions, h string) []string {

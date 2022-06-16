@@ -11,11 +11,13 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
@@ -40,7 +42,7 @@ var (
 
 	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
 	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
-	yamlConfigValue     = "dummy-application:\n  skill-level: 9000\n  username: admin001\n\n"
+	yamlConfigValue     = "dummy-application:\n  skill-level: 9000\n  username: admin002\n\n"
 )
 
 var charmSettings = map[string]interface{}{
@@ -249,10 +251,6 @@ var setCommandInitErrorTests = []struct {
 	args:        []string{"--file", "testconfig.yaml"},
 	expectError: "no application name specified",
 }, {
-	about:       "--file and options specified",
-	args:        []string{"application", "--file", "testconfig.yaml", "bees="},
-	expectError: "cannot use --file flag and set key=value pairs simultaneously",
-}, {
 	about:       "--reset and no config name provided",
 	args:        []string{"application", "--reset"},
 	expectError: "option needs an argument: --reset",
@@ -276,6 +274,10 @@ var setCommandInitErrorTests = []struct {
 	about:       "--branch with no value",
 	args:        []string{"application", "key", "--branch"},
 	expectError: "option needs an argument: --branch",
+}, {
+	about:       "set and reset same key",
+	args:        []string{"application", "key=val", "--reset", "key"},
+	expectError: `cannot set and reset key "key" simultaneously`,
 }}
 
 func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
@@ -447,6 +449,49 @@ func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 	c.Check(c.GetTestLog(), gc.Matches, "(.|\n)*TestBlockSetConfig(.|\n)*")
 }
 
+func (s *configCommandSuite) TestSetReset(c *gc.C) {
+	s.fake = &fakeApplicationAPI{
+		branchName: model.GenerationMaster,
+		name:       "dummy-application", appValues: map[string]interface{}{
+			"juju-external-hostname": "app-value",
+		}}
+	s.assertResetSuccess(c, s.dir, []string{
+		"username=foo",
+		"--reset",
+		"juju-external-hostname",
+	}, make(map[string]interface{}), map[string]interface{}{"username": "foo"})
+}
+
+func (s *configCommandSuite) TestSetYAML(c *gc.C) {
+	ctx := cmdtesting.ContextForDir(c, s.dir)
+	api := &parseYamlAPI{*s.fake}
+	code := cmd.Main(application.NewConfigCommandForTest(api, s.store), ctx, []string{
+		"dummy-application", "--file", "testconfig.yaml"})
+	c.Assert(code, gc.Equals, 0)
+	c.Check(api.charmValues["skill-level"], gc.Equals, "9000")
+	c.Check(api.charmValues["username"], gc.Equals, "admin002")
+}
+
+func (s *configCommandSuite) TestSetYAMLOverrideSet(c *gc.C) {
+	ctx := cmdtesting.ContextForDir(c, s.dir)
+	api := &parseYamlAPI{*s.fake}
+	code := cmd.Main(application.NewConfigCommandForTest(api, s.store), ctx, []string{
+		"dummy-application", "--file", "testconfig.yaml", "username=foo"})
+	c.Assert(code, gc.Equals, 0)
+	c.Check(api.charmValues["skill-level"], gc.Equals, "9000")
+	c.Check(api.charmValues["username"], gc.Equals, "foo")
+}
+
+func (s *configCommandSuite) TestSetYAMLOverrideReset(c *gc.C) {
+	ctx := cmdtesting.ContextForDir(c, s.dir)
+	api := &parseYamlAPI{*s.fake}
+	code := cmd.Main(application.NewConfigCommandForTest(api, s.store), ctx, []string{
+		"dummy-application", "--file", "testconfig.yaml", "--reset", "skill-level"})
+	c.Assert(code, gc.Equals, 0)
+	c.Check(api.charmValues["skill-level"], gc.Equals, nil)
+	c.Check(api.charmValues["username"], gc.Equals, "admin002")
+}
+
 // assertSetSuccess sets configuration options and checks the expected settings.
 func (s *configCommandSuite) assertSetSuccess(
 	c *gc.C, dir string, args []string,
@@ -548,4 +593,54 @@ func setupConfigFile(c *gc.C, dir string) string {
 	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
+}
+
+// parseYamlAPI is a variant of fakeApplicationAPI which sets attributes from the provided YAML file.
+type parseYamlAPI struct {
+	fakeApplicationAPI
+}
+
+func (f *parseYamlAPI) SetConfig(branchName, application, configYAML string, config map[string]string) error {
+	if branchName != f.branchName {
+		return errors.Errorf("expected branch %q, got %q", f.branchName, branchName)
+	}
+	if f.err != nil {
+		return f.err
+	}
+
+	if application != f.name {
+		return errors.NotFoundf("application %q", application)
+	}
+
+	// Parse YAML into the config map
+	parsed := map[string]map[string]string{}
+	err := yaml.Unmarshal([]byte(configYAML), parsed)
+	if err != nil {
+		return err
+	}
+	for app, cfg := range parsed {
+		if app == application {
+			for key, val := range cfg {
+				config[key] = val
+			}
+		}
+	}
+
+	if application != f.name {
+		return errors.NotFoundf("application %q", application)
+	}
+
+	charmKeys := set.NewStrings("title", "skill-level", "username", "outlook")
+	if f.charmValues == nil {
+		f.charmValues = make(map[string]interface{})
+	}
+	for k, v := range config {
+		if charmKeys.Contains(k) {
+			f.charmValues[k] = v
+		} else {
+			f.appValues[k] = v
+		}
+	}
+
+	return nil
 }

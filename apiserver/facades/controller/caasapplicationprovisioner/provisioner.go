@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -57,7 +56,7 @@ type APIGroup struct {
 	*API
 }
 
-type NewResourceOpenerFunc func(appName string) (resource.Opener, error)
+type NewResourceOpenerFunc func(appName string) (resources.Opener, error)
 
 type API struct {
 	auth      facade.Authorizer
@@ -75,7 +74,6 @@ type API struct {
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
 func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	authorizer := ctx.Auth()
-	resources := ctx.Resources()
 
 	st := ctx.State()
 	sb, err := state.NewStorageBackend(ctx.State())
@@ -104,14 +102,18 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
-	newResourceOpener := func(appName string) (resource.Opener, error) {
-		return resourceadapters.NewResourceOpenerForApplication(resourceadapters.NewResourceOpenerState(st), appName)
+	newResourceOpener := func(appName string) (resources.Opener, error) {
+		return resource.NewResourceOpenerForApplication(st, appName)
 	}
 
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	api, err := NewCAASApplicationProvisionerAPI(
-		stateShim{ctx.StatePool().SystemState()},
+		stateShim{systemState},
 		stateShim{st},
-		resources,
+		ctx.Resources(),
 		newResourceOpener,
 		authorizer,
 		sb,
@@ -135,7 +137,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
@@ -808,7 +810,7 @@ func (a *API) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (pa
 		appStatus := appUpdate.Status
 		if appStatus.Status != "" && appStatus.Status != status.Unknown {
 			now := a.clock.Now()
-			err = app.SetStatus(status.StatusInfo{
+			err = app.SetOperatorStatus(status.StatusInfo{
 				Status:  appStatus.Status,
 				Message: appStatus.Info,
 				Data:    appStatus.Data,

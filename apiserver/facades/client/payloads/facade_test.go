@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	api "github.com/juju/juju/api/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/payloads"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
+	corepayloads "github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -33,21 +33,21 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.state = &stubState{stub: s.stub}
 }
 
-func (Suite) newPayload(name string) (payload.FullPayloadInfo, params.Payload) {
+func (Suite) newPayload(name string) (corepayloads.FullPayloadInfo, params.Payload) {
 	ptype := "docker"
 	id := "id" + name
 	tags := []string{"a-tag"}
 	unit := "a-application/0"
 	machine := "1"
 
-	pl := payload.FullPayloadInfo{
-		Payload: payload.Payload{
+	pl := corepayloads.FullPayloadInfo{
+		Payload: corepayloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: name,
 				Type: ptype,
 			},
 			ID:     id,
-			Status: payload.StateRunning,
+			Status: corepayloads.StateRunning,
 			Labels: tags,
 			Unit:   unit,
 		},
@@ -57,7 +57,7 @@ func (Suite) newPayload(name string) (payload.FullPayloadInfo, params.Payload) {
 		Class:   name,
 		Type:    ptype,
 		ID:      id,
-		Status:  payload.StateRunning,
+		Status:  corepayloads.StateRunning,
 		Labels:  tags,
 		Unit:    names.NewUnitTag(unit).String(),
 		Machine: names.NewMachineTag(machine).String(),
@@ -204,14 +204,14 @@ func (s *Suite) TestListPartialMultiMatch(c *gc.C) {
 }
 
 func (s *Suite) TestListAllFilters(c *gc.C) {
-	pl := payload.FullPayloadInfo{
-		Payload: payload.Payload{
+	pl := corepayloads.FullPayloadInfo{
+		Payload: corepayloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: "spam",
 				Type: "docker",
 			},
 			ID:     "idspam",
-			Status: payload.StateRunning,
+			Status: corepayloads.StateRunning,
 			Labels: []string{"a-tag"},
 			Unit:   "a-application/0",
 		},
@@ -222,13 +222,13 @@ func (s *Suite) TestListAllFilters(c *gc.C) {
 
 	facade := payloads.NewAPI(s.state)
 	patterns := []string{
-		"spam",               // name
-		"docker",             // type
-		"idspam",             // ID
-		payload.StateRunning, // status
-		"a-application/0",    // unit
-		"1",                  // machine
-		"a-tag",              // tags
+		"spam",                    // name
+		"docker",                  // type
+		"idspam",                  // ID
+		corepayloads.StateRunning, // status
+		"a-application/0",         // unit
+		"1",                       // machine
+		"a-tag",                   // tags
 	}
 	for _, pattern := range patterns {
 		c.Logf("trying pattern %q", pattern)
@@ -252,10 +252,10 @@ func (s *Suite) TestListAllFilters(c *gc.C) {
 type stubState struct {
 	stub *testing.Stub
 
-	payloads []payload.FullPayloadInfo
+	payloads []corepayloads.FullPayloadInfo
 }
 
-func (s *stubState) ListAll() ([]payload.FullPayloadInfo, error) {
+func (s *stubState) ListAll() ([]corepayloads.FullPayloadInfo, error) {
 	s.stub.AddCall("ListAll")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

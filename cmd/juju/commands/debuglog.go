@@ -72,18 +72,18 @@ append filtered messages:
 
     juju debug-log --exclude machine-0 --lines 100
 
-Include only unit mysql/0 messages; show a maximum of 50 lines; and then
+Include only messages from the mysql/0 unit; show a maximum of 50 lines; and then
 exit:
 
-    juju debug-log --include unit-mysql-0 --limit 50
+    juju debug-log --include mysql/0 --limit 50
 
-Include only k8s application gitlab-k8s messages:
+Include only messages from the gitlab-k8s application:
 
     juju debug-log --include gitlab-k8s
 
-Show all messages from unit apache2/3 or machine 1 and then exit:
+Show all messages from the apache/2 unit or machine 1 and then exit:
 
-    juju debug-log --replay --include unit-apache2-3 --include machine-1 --no-tail
+    juju debug-log --replay --include apache/2 --include machine-1 --no-tail
 
 Show all juju.worker.uniter logging module messages that are also unit
 wordpress/0 messages, and then show any new log messages which match the
@@ -91,7 +91,7 @@ filter and append:
 
     juju debug-log --replay
         --include-module juju.worker.uniter \
-        --include unit-wordpress-0
+        --include wordpress/0
 
 Show all messages from the juju.worker.uniter module, except those sent from
 machine-3 or machine-4, and then stop:

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"k8s.io/apimachinery/pkg/labels"
 
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/proxy"
 )
@@ -66,7 +67,7 @@ func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy
 // controller deployed in this provider.
 func (k *kubernetesClient) ConnectionProxyInfo() (proxy.Proxier, error) {
 	p, err := k8sproxy.GetControllerProxy(
-		getBootstrapResourceName(JujuControllerStackName, proxyResourceName),
+		getBootstrapResourceName(k8sconstants.JujuControllerStackName, proxyResourceName),
 		k.k8sCfgUnlocked.Host,
 		k.client().CoreV1().ConfigMaps(k.GetCurrentNamespace()),
 		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),

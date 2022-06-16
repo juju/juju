@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -21,9 +21,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/resources"
+	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
-	jujuresource "github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -524,10 +524,10 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{
-				Resources: map[string]resource.Meta{
+				Resources: map[string]charmresource.Meta{
 					"gitlab-image": {
 						Name: "gitlab-image",
-						Type: resource.TypeContainerImage,
+						Type: charmresource.TypeContainerImage,
 					},
 				},
 			},
@@ -656,9 +656,14 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units},
+			{
+				ApplicationTag: "application-gitlab",
+				Units:          units,
+				Status:         params.EntityStatus{Status: status.Active, Info: "working"},
+			},
 		},
 	}
+
 	results, err := s.api.UpdateApplicationsUnits(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
@@ -669,7 +674,10 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 			},
 		},
 	})
-	s.st.app.CheckCallNames(c, "Life", "AllUnits", "UpdateUnits", "Name")
+	s.st.app.CheckCallNames(c, "Life", "SetOperatorStatus", "AllUnits", "UpdateUnits", "Name")
+	now := s.clock.Now()
+	s.st.app.CheckCall(c, 1, "SetOperatorStatus",
+		status.StatusInfo{Status: status.Active, Message: "working", Since: &now})
 	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
 	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("gitlab-0"),
@@ -697,7 +705,6 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	s.storage.CheckCall(c, 2, "UnitStorageAttachments", names.NewUnitTag("gitlab/1"))
 	s.storage.CheckCall(c, 3, "StorageInstance", names.NewStorageTag("data/1"))
 
-	now := s.clock.Now()
 	s.storage.CheckCall(c, 6, "SetVolumeInfo",
 		names.NewVolumeTag("1"),
 		state.VolumeInfo{

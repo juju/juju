@@ -551,9 +551,9 @@ func (s *mockState) DropLeasesCollection() error {
 	return s.stub.NextErr()
 }
 
-func (s *mockState) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
+func (s *mockState) LeaseNotifyTarget(logger raftleasestore.Logger) (raftlease.NotifyTarget, error) {
 	s.stub.AddCall("LeaseNotifyTarget", logger)
-	return s.target
+	return s.target, s.stub.NextErr()
 }
 
 type mockTarget struct {

@@ -45,6 +45,8 @@ var commonModelFacadeNames = set.NewStrings(
 	"ModelUpgrader",
 	"NotifyWatcher",
 	"OfferStatusWatcher",
+	"Payloads",
+	"PayloadsHookContext",
 	"Pinger",
 	"ProxyUpdater",
 	"Resources",

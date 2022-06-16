@@ -364,6 +364,7 @@ type badBuildSuite struct {
 	jujutesting.LoggingSuite
 	jujutesting.CleanupSuite
 	envtesting.ToolsFixture
+	jujutesting.PatchExecHelper
 }
 
 var badGo = `
@@ -414,6 +415,8 @@ func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
 }
 
 func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
+	s.patchExecCommand(c)
+
 	// Test that original bundleTools Func fails as expected
 	vers, official, sha256Hash, err := bundleTools(c)
 	c.Assert(vers, gc.DeepEquals, version.Binary{})
@@ -433,6 +436,8 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 }
 
 func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
+	s.patchExecCommand(c)
+
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -455,7 +460,17 @@ func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
 }
 
+func (s *badBuildSuite) patchExecCommand(c *gc.C) {
+	execCommand := s.GetExecCommand(jujutesting.PatchExecConfig{
+		Stdout: coretesting.CurrentVersion(c).String(),
+		Args:   make(chan []string, 2),
+	})
+	s.PatchValue(&envtools.ExecCommand, execCommand)
+}
+
 func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
+	s.patchExecCommand(c)
+
 	// Test that original BuildAgentTarball fails
 	builtTools, err := sync.BuildAgentTarball(true, nil, "released")
 	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
@@ -470,6 +485,8 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 }
 
 func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *gc.C) {
+	s.patchExecCommand(c)
+
 	builtTools, err := sync.BuildAgentTarball(false, nil, "released")
 	c.Assert(err, gc.ErrorMatches, `no prepackaged agent available and no jujud binary can be found`)
 	c.Assert(builtTools, gc.IsNil)

@@ -14,9 +14,9 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 )
 
@@ -26,7 +26,7 @@ type CAASApplicationProvisionerState interface {
 	Model() (Model, error)
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
-	Resources() (Resources, error)
+	Resources() Resources
 	WatchApplications() state.StringsWatcher
 }
 
@@ -81,7 +81,7 @@ type Unit interface {
 }
 
 type Resources interface {
-	OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(applicationID string, name string) (resources.Resource, io.ReadCloser, error)
 }
 
 type stateShim struct {
@@ -104,7 +104,7 @@ func (s stateShim) Application(name string) (Application, error) {
 	return &applicationShim{app}, nil
 }
 
-func (s stateShim) Resources() (Resources, error) {
+func (s stateShim) Resources() Resources {
 	return s.State.Resources()
 }
 

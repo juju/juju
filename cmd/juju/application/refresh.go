@@ -24,13 +24,14 @@ import (
 	apicharms "github.com/juju/juju/api/client/charms"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
-	"github.com/juju/juju/api/client/resources/client"
+	"github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -39,14 +40,13 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 
 func newRefreshCommand() *refreshCommand {
 	return &refreshCommand{
-		DeployResources: resourceadapters.DeployResources,
+		DeployResources: deployer.DeployResources,
 		NewCharmAdder:   newCharmAdder,
 		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
 			return apicharms.NewClient(conn)
@@ -55,7 +55,7 @@ func newRefreshCommand() *refreshCommand {
 			return application.NewClient(conn)
 		},
 		NewResourceLister: func(conn base.APICallCloser) (utils.ResourceLister, error) {
-			resclient, err := resourceadapters.NewAPIClient(conn)
+			resclient, err := resources.NewClient(conn)
 			if err != nil {
 				return nil, err
 			}
@@ -135,7 +135,7 @@ type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy, sto
 type refreshCommand struct {
 	modelcmd.ModelCommandBase
 
-	DeployResources       resourceadapters.DeployResourcesFunc
+	DeployResources       deployer.DeployResourcesFunc
 	NewCharmAdder         NewCharmAdderFunc
 	NewCharmStore         NewCharmStoreFunc
 	NewCharmResolver      NewCharmResolverFunc
@@ -392,24 +392,27 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	charmID, err := factory.Run(cfg)
-	if err != nil {
-		if errors.Is(err, refresher.ErrAlreadyUpToDate) {
-			// Charm already up-to-date - success
+	if err == nil {
+		curl := charmID.URL
+		charmOrigin := charmID.Origin
+		// The current charm URL that's been found and selected.
+		channel := ""
+		if charmOrigin.Source == corecharm.CharmHub || charmOrigin.Source == corecharm.CharmStore {
+			channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
+		}
+		ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmOrigin.Source, curl.Name, curl.Revision, channel)
+	} else if errors.Is(err, refresher.ErrAlreadyUpToDate) {
+		if len(c.Resources) == 0 {
+			// Charm already up-to-date and no resources to refresh.
 			ctx.Infof(err.Error())
 			return nil
 		}
+	} else {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	// The current charm URL that's been found and selected.
-	curl := charmID.URL
-	channel := ""
-	if charmID.Origin.Source == corecharm.CharmHub || charmID.Origin.Source == corecharm.CharmStore {
-		channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
-	}
-	ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmID.Origin.Source, curl.Name, curl.Revision, channel)
 
 	// Next, upgrade resources.
 
@@ -417,7 +420,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Fetch information about the charm we want to upgrade to and
+	curl := charmID.URL
 	charmsClient := c.NewCharmClient(apiRoot)
 	charmInfo, err := charmsClient.CharmInfo(curl.String())
 	if err != nil {
@@ -544,7 +547,7 @@ func (c *refreshCommand) upgradeResources(
 	// checked further down the stack.
 	ids, err := c.DeployResources(
 		c.ApplicationName,
-		client.CharmID{
+		resources.CharmID{
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},

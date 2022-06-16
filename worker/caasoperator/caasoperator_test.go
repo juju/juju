@@ -59,6 +59,8 @@ type WorkerSuite struct {
 	uniterParams          *uniter.UniterParams
 	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.State
+	resourceFacadeFunc    func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error)
+	payloadFacadeFunc     func() *apiuniter.PayloadFacadeClient
 	runListenerSocketFunc func(*uniter.SocketConfig) (*sockets.Socket, error)
 	mockExecutor          *mockExecutor
 }
@@ -113,6 +115,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.uniterFacadeFunc = func(unitTag names.UnitTag) *apiuniter.State {
 		return &apiuniter.State{}
 	}
+	s.resourceFacadeFunc = func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error) {
+		return &apiuniter.ResourcesFacadeClient{}, nil
+	}
+	s.payloadFacadeFunc = func() *apiuniter.PayloadFacadeClient {
+		return &apiuniter.PayloadFacadeClient{}
+	}
 	s.runListenerSocketFunc = func(*uniter.SocketConfig) (*sockets.Socket, error) {
 		socket := sockPath(c)
 		return &socket, nil
@@ -135,6 +143,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		UniterParams:          s.uniterParams,
 		LeadershipTrackerFunc: s.leadershipTrackerFunc,
 		UniterFacadeFunc:      s.uniterFacadeFunc,
+		ResourcesFacadeFunc:   s.resourceFacadeFunc,
+		PayloadFacadeFunc:     s.payloadFacadeFunc,
 		RunListenerSocketFunc: s.runListenerSocketFunc,
 		StartUniterFunc:       func(runner *worker.Runner, params *uniter.UniterParams) error { return nil },
 		ExecClientGetter:      func() (exec.Executor, error) { return s.mockExecutor, nil },
@@ -176,6 +186,14 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterFacadeFunc = nil
 	}, `missing UniterFacadeFunc not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.ResourcesFacadeFunc = nil
+	}, `missing ResourcesFacadeFunc not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.PayloadFacadeFunc = nil
+	}, `missing PayloadFacadeFunc not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterParams = nil
