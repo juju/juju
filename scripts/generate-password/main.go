@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/juju/gnuflag"
@@ -46,15 +47,19 @@ func main() {
 		fmt.Printf(`db.users.update({"_id": "%s"}, {"$set": {"passwordsalt": "%s", "passwordhash": "%s"}})`+"\n",
 			*user, salt, hash)
 	} else {
-		hash := utils.AgentPasswordHash(passwd)
-		fmt.Printf("oldpassword: %s\n", passwd)
 		var collection string
 		if strings.Index(agent, "/") < 0 {
 			// must be a machine
 			collection = "machines"
+			if _, err := strconv.Atoi(agent); err != nil {
+				fmt.Fprintf(os.Stderr, "Agent %q isn't a unit agent (with /) nor an integer machine id\n", agent)
+				os.Exit(1)
+			}
 		} else {
 			collection = "units"
 		}
+		hash := utils.AgentPasswordHash(passwd)
+		fmt.Printf("oldpassword: %s\n", passwd)
 		fmt.Printf(`db.%s.update({"_id": "%s:%s"}, {$set: {"passwordhash": "%s"}})`+"\n",
 			collection, modelUUID, agent, hash)
 	}
