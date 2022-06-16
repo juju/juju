@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 
@@ -24,9 +23,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// Yes this is global. We should probably put a logger into the State object,
-// and create a child logger from that.
-var allWatcherLogger = loggo.GetLogger("juju.state.allwatcher")
+var allWatcherLogger = logger.Child("allwatcher")
 
 // allWatcherBacking implements AllWatcherBacking by fetching entities
 // for all models from the State.
@@ -1830,42 +1827,43 @@ func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[
 		if c.subsidiary {
 			continue
 		}
-
-		if err := func(name string) error {
-			col, closer := db.GetCollection(name)
-			defer closer()
-			infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
-
-			// models is a global collection so need to filter on UUID.
-			var filter bson.M
-			if name == modelsC {
-				filter = bson.M{"_id": st.ModelUUID()}
-			}
-			query := col.Find(filter)
-			// Units are ordered so we load the subordinates first.
-			if name == unitsC {
-				// Subordinates have a principal, so will sort after the
-				// empty string, which is what principal units have.
-				query = query.Sort("principal")
-			}
-			if err := query.All(infoSlicePtr.Interface()); err != nil {
-				return errors.Errorf("cannot get all %s: %v", name, err)
-			}
-			infos := infoSlicePtr.Elem()
-			for i := 0; i < infos.Len(); i++ {
-				info := infos.Index(i).Addr().Interface().(backingEntityDoc)
-				ctx.id = info.mongoID()
-				err := info.updated(ctx)
-				if err != nil {
-					return errors.Annotatef(err, "failed to initialise backing for %s:%v", name, ctx.id)
-				}
-			}
-			return nil
-		}(c.name); err != nil {
+		if err := loadOneWatcherEntity(ctx, db, st.ModelUUID(), c.docType, c.name); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
+	return nil
+}
+
+func loadOneWatcherEntity(ctx *allWatcherContext, db Database, modelUUID string, docType reflect.Type, name string) error {
+	col, closer := db.GetCollection(name)
+	defer closer()
+	infoSlicePtr := reflect.New(reflect.SliceOf(docType))
+
+	// models is a global collection so need to filter on UUID.
+	var filter bson.M
+	if name == modelsC {
+		filter = bson.M{"_id": modelUUID}
+	}
+	query := col.Find(filter)
+	// Units are ordered so we load the subordinates first.
+	if name == unitsC {
+		// Subordinates have a principal, so will sort after the
+		// empty string, which is what principal units have.
+		query = query.Sort("principal")
+	}
+	if err := query.All(infoSlicePtr.Interface()); err != nil {
+		return errors.Errorf("cannot get all %s: %v", name, err)
+	}
+	infos := infoSlicePtr.Elem()
+	for i := 0; i < infos.Len(); i++ {
+		info := infos.Index(i).Addr().Interface().(backingEntityDoc)
+		ctx.id = info.mongoID()
+		err := info.updated(ctx)
+		if err != nil {
+			return errors.Annotatef(err, "failed to initialise backing for %s:%v", name, ctx.id)
+		}
+	}
 	return nil
 }
 
