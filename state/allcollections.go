@@ -683,5 +683,5 @@ const (
 	secretRotateC   = "secretRotate"
 
 	// Service locators
-	serviceLocatorsC = "serviceLocators" //TODO: we need to unify collection naming system (all camel-case, or all non camel-case)
+	serviceLocatorsC = "serviceLocators" // TODO(anvial): unify collection naming (camel-case, or not camel-case)
 )
