@@ -94,6 +94,7 @@ type StateBackend interface {
 	// AddCharmOriginToApplications() error
 	// ExposeWildcardEndpointForExposedApplications() error
 	// RemoveLinkLayerDevicesRefsCollection() error
+	// 2.9.x related functions
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
 	// TranslateK8sServiceTypes() error
 	// UpdateKubernetesCloudCredentials() error
