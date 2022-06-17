@@ -4,13 +4,10 @@
 package jujuc
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
-
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/utils/v3"
 )
 
 // AddServiceLocatorCommand implements the locator-add command.
@@ -47,7 +44,7 @@ func (c *AddServiceLocatorCommand) Init(args []string) error {
 	}
 	c.Name = args[0]
 	if c.Name == "" {
-		return fmt.Errorf("no service locator name specified")
+		return errors.Errorf("no service locator name specified")
 	}
 	return cmd.CheckEmpty(args[1:])
 }
@@ -67,5 +64,5 @@ func (c *AddServiceLocatorCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "cannot record service locator")
 	}
-	return c.out.Write(ctx, c.Name) // TODO(anvial): think what should be the output
+	return nil
 }
