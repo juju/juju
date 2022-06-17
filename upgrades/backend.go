@@ -30,74 +30,8 @@ type StateBackend interface {
 	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
 	DropLeasesCollection() error
 
-	// StripLocalUserDomain() error
-	// RenameAddModelPermission() error
-	// AddMigrationAttempt() error
-	// AddLocalCharmSequences() error
-	// UpdateLegacyLXDCloudCredentials(string, cloud.Credential) error
-	// UpgradeNoProxyDefaults() error
-	// AddNonDetachableStorageMachineId() error
-	// RemoveNilValueApplicationSettings() error
-	// AddControllerLogCollectionsSizeSettings() error
-	// AddStatusHistoryPruneSettings() error
-	// AddActionPruneSettings() error
-	// AddStorageInstanceConstraints() error
-	// SplitLogCollections() error
-	// AddUpdateStatusHookSettings() error
-	// CorrectRelationUnitCounts() error
-	// AddModelEnvironVersion() error
-	// AddModelType() error
-	// MigrateLeasesToGlobalTime() error
-	// MoveOldAuditLog() error
-	// AddRelationStatus() error
-	// DeleteCloudImageMetadata() error
-	// EnsureContainerImageStreamDefault() error
-	// RemoveContainerImageStreamFromNonModelSettings() error
-	// MoveMongoSpaceToHASpaceConfig() error
-	// CreateMissingApplicationConfig() error
-	// RemoveVotingMachineIds() error
-	// AddCloudModelCounts() error
-
-	// MigrateStorageMachineIdFields() error
-	// MigrateAddModelPermissions() error
-
-	// SetEnableDiskUUIDOnVsphere() error
-	// UpdateInheritedControllerConfig() error
-	// UpdateKubernetesStorageConfig() error
-	// EnsureDefaultModificationStatus() error
-	// EnsureApplicationDeviceConstraints() error
-	// RemoveInstanceCharmProfileDataCollection() error
-	// UpdateK8sModelNameIndex() error
-	// AddModelLogsSize() error
-	// AddControllerNodeDocs() error
-	// AddSpaceIdToSpaceDocs() error
-	// ChangeSubnetAZtoSlice() error
-	// ChangeSubnetSpaceNameToSpaceID() error
-	// AddSubnetIdToSubnetDocs() error
-	// ReplacePortsDocSubnetIDCIDR() error
-	// EnsureRelationApplicationSettings() error
-	// ConvertAddressSpaceIDs() error
-	// ReplaceSpaceNameWithIDEndpointBindings() error
-	// EnsureDefaultSpaceSetting() error
-	// RemoveControllerConfigMaxLogAgeAndSize() error
-	// IncrementTasksSequence() error
-	// AddMachineIDToSubordinates() error
-	// AddOriginToIPAddresses() error
-	// DropPresenceDatabase() error
-
-	// RemoveUnsupportedLinkLayer() error
-	// AddBakeryConfig() error
-	// ReplaceNeverSetWithUnset() error
-	// ResetDefaultRelationLimitInCharmMetadata() error
-	// RollUpAndConvertOpenedPortDocuments() error
-	// AddCharmHubToModelConfig() error
-	// AddCharmOriginToApplications() error
-	// ExposeWildcardEndpointForExposedApplications() error
-	// RemoveLinkLayerDevicesRefsCollection() error
 	// 2.9.x related functions
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
-	// TranslateK8sServiceTypes() error
-	// UpdateKubernetesCloudCredentials() error
 	UpdateDHCPAddressConfigs() error
 	KubernetesInClusterCredentialSpec() (environscloudspec.CloudSpec, *config.Config, string, error)
 	AddSpawnedTaskCountToOperations() error
@@ -182,10 +116,6 @@ func (s stateBackend) AddNonDetachableStorageMachineId() error {
 	return state.AddNonDetachableStorageMachineId(s.pool)
 }
 
-// func (s stateBackend) RemoveNilValueApplicationSettings() error {
-// 	return state.RemoveNilValueApplicationSettings(s.pool)
-// }
-
 func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
 	return state.AddControllerLogCollectionsSizeSettings(s.pool)
 }
@@ -198,81 +128,13 @@ func (s stateBackend) AddActionPruneSettings() error {
 	return state.AddActionPruneSettings(s.pool)
 }
 
-// func (s stateBackend) AddUpdateStatusHookSettings() error {
-// 	return state.AddUpdateStatusHookSettings(s.pool)
-// }
-
-// func (s stateBackend) AddStorageInstanceConstraints() error {
-// 	return state.AddStorageInstanceConstraints(s.pool)
-// }
-
-// func (s stateBackend) SplitLogCollections() error {
-// 	return state.SplitLogCollections(s.pool)
-// }
-
-// func (s stateBackend) CorrectRelationUnitCounts() error {
-// 	return state.CorrectRelationUnitCounts(s.pool)
-// }
-
-// func (s stateBackend) AddModelEnvironVersion() error {
-// 	return state.AddModelEnvironVersion(s.pool)
-// }
-
-// func (s stateBackend) AddModelType() error {
-// 	return state.AddModelType(s.pool)
-//}
-
 func (s stateBackend) MigrateLeasesToGlobalTime() error {
 	return state.MigrateLeasesToGlobalTime(s.pool)
 }
 
-// func (s stateBackend) MoveOldAuditLog() error {
-// 	return state.MoveOldAuditLog(s.pool)
-// }
-
-// func (s stateBackend) AddRelationStatus() error {
-// 	return state.AddRelationStatus(s.pool)
-// }
-
-// func (s stateBackend) MoveMongoSpaceToHASpaceConfig() error {
-// 	return state.MoveMongoSpaceToHASpaceConfig(s.pool)
-// }
-
-// func (s stateBackend) CreateMissingApplicationConfig() error {
-// 	return state.CreateMissingApplicationConfig(s.pool)
-// }
-
-// func (s stateBackend) RemoveVotingMachineIds() error {
-// 	return state.RemoveVotingMachineIds(s.pool)
-// }
-
-// func (s stateBackend) AddCloudModelCounts() error {
-// 	return state.AddCloudModelCounts(s.pool)
-// }
-
 func (s stateBackend) ReplicaSetMembers() ([]replicaset.Member, error) {
 	return state.ReplicaSetMembers(s.pool)
 }
-
-// func (s stateBackend) MigrateStorageMachineIdFields() error {
-// 	return state.MigrateStorageMachineIdFields(s.pool)
-// }
-
-// func (s stateBackend) MigrateAddModelPermissions() error {
-// 	return state.MigrateAddModelPermissions(s.pool)
-// }
-
-// func (s stateBackend) DeleteCloudImageMetadata() error {
-// 	return state.DeleteCloudImageMetadata(s.pool)
-// }
-
-// func (s stateBackend) EnsureContainerImageStreamDefault() error {
-// 	return state.UpgradeContainerImageStreamDefault(s.pool)
-// }
-
-// func (s stateBackend) RemoveContainerImageStreamFromNonModelSettings() error {
-// 	return state.RemoveContainerImageStreamFromNonModelSettings(s.pool)
-// }
 
 func (s stateBackend) ControllerConfig() (controller.Config, error) {
 	systemState, err := s.pool.SystemState()
@@ -294,152 +156,13 @@ func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Inf
 	return state.LegacyLeases(s.pool, localTime)
 }
 
-// func (s stateBackend) SetEnableDiskUUIDOnVsphere() error {
-// 	return state.SetEnableDiskUUIDOnVsphere(s.pool)
-// }
-
-// func (s stateBackend) UpdateInheritedControllerConfig() error {
-// 	return state.UpdateInheritedControllerConfig(s.pool)
-// }
-
-// func (s stateBackend) UpdateKubernetesStorageConfig() error {
-// 	return state.UpdateKubernetesStorageConfig(s.pool)
-// }
-
-// func (s stateBackend) EnsureDefaultModificationStatus() error {
-// 	return state.EnsureDefaultModificationStatus(s.pool)
-// }
-
-// func (s stateBackend) EnsureApplicationDeviceConstraints() error {
-// 	return state.EnsureApplicationDeviceConstraints(s.pool)
-// }
-
-// func (s stateBackend) RemoveInstanceCharmProfileDataCollection() error {
-// 	return state.RemoveInstanceCharmProfileDataCollection(s.pool)
-// }
-
-// func (s stateBackend) UpdateK8sModelNameIndex() error {
-// 	return state.UpdateK8sModelNameIndex(s.pool)
-// }
-
-// func (s stateBackend) AddModelLogsSize() error {
-// 	return state.AddModelLogsSize(s.pool)
-// }
-
-// func (s stateBackend) AddControllerNodeDocs() error {
-// 	return state.AddControllerNodeDocs(s.pool)
-// }
-
-// func (s stateBackend) AddSpaceIdToSpaceDocs() error {
-// 	return state.AddSpaceIdToSpaceDocs(s.pool)
-// }
-
-// func (s stateBackend) ChangeSubnetAZtoSlice() error {
-// 	return state.ChangeSubnetAZtoSlice(s.pool)
-// }
-
-// func (s stateBackend) ChangeSubnetSpaceNameToSpaceID() error {
-// 	return state.ChangeSubnetSpaceNameToSpaceID(s.pool)
-// }
-
-// func (s stateBackend) AddSubnetIdToSubnetDocs() error {
-// 	return state.AddSubnetIdToSubnetDocs(s.pool)
-// }
-
-// func (s stateBackend) ReplacePortsDocSubnetIDCIDR() error {
-// 	return state.ReplacePortsDocSubnetIDCIDR(s.pool)
-// }
-
-// func (s stateBackend) EnsureRelationApplicationSettings() error {
-// 	return state.EnsureRelationApplicationSettings(s.pool)
-// }
-
-// func (s stateBackend) ConvertAddressSpaceIDs() error {
-// 	return state.ConvertAddressSpaceIDs(s.pool)
-// }
-
-// func (s stateBackend) ReplaceSpaceNameWithIDEndpointBindings() error {
-// 	return state.ReplaceSpaceNameWithIDEndpointBindings(s.pool)
-// }
-
-// func (s stateBackend) EnsureDefaultSpaceSetting() error {
-// 	return state.EnsureDefaultSpaceSetting(s.pool)
-// }
-// func (s stateBackend) RemoveControllerConfigMaxLogAgeAndSize() error {
-// 	return state.RemoveControllerConfigMaxLogAgeAndSize(s.pool)
-// }
-
-// func (s stateBackend) IncrementTasksSequence() error {
-// 	return state.IncrementTasksSequence(s.pool)
-// }
-
-// func (s stateBackend) AddMachineIDToSubordinates() error {
-// 	return state.AddMachineIDToSubordinates(s.pool)
-// }
-
-// func (s stateBackend) AddOriginToIPAddresses() error {
-// 	return state.AddOriginToIPAddresses(s.pool)
-// }
-
-// func (s stateBackend) DropPresenceDatabase() error {
-// 	return state.DropPresenceDatabase(s.pool)
-// }
-
 func (s stateBackend) DropLeasesCollection() error {
 	return state.DropLeasesCollection(s.pool)
 }
 
-// func (s stateBackend) RemoveUnsupportedLinkLayer() error {
-// 	return state.RemoveUnsupportedLinkLayer(s.pool)
-// }
-
-// func (s stateBackend) AddBakeryConfig() error {
-// 	return state.AddBakeryConfig(s.pool)
-// }
-
-// func (s stateBackend) ReplaceNeverSetWithUnset() error {
-// 	return state.ReplaceNeverSetWithUnset(s.pool)
-// }
-
-// func (s stateBackend) ResetDefaultRelationLimitInCharmMetadata() error {
-// 	return state.ResetDefaultRelationLimitInCharmMetadata(s.pool)
-// }
-
-// func (s stateBackend) AddCharmHubToModelConfig() error {
-// 	return state.AddCharmHubToModelConfig(s.pool)
-// }
-
-// func (s stateBackend) RollUpAndConvertOpenedPortDocuments() error {
-// 	return state.RollUpAndConvertOpenedPortDocuments(s.pool)
-// }
-
-// func (s stateBackend) AddCharmOriginToApplications() error {
-// 	return state.AddCharmOriginToApplications(s.pool)
-// }
-
-// func (s stateBackend) ExposeWildcardEndpointForExposedApplications() error {
-// 	return state.ExposeWildcardEndpointForExposedApplications(s.pool)
-// }
-
-// func (s stateBackend) RemoveLinkLayerDevicesRefsCollection() error {
-// 	return state.RemoveLinkLayerDevicesRefsCollection(s.pool)
-// }
-
 func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
 	return state.RemoveUnusedLinkLayerDeviceProviderIDs(s.pool)
 }
-
-// func (s stateBackend) TranslateK8sServiceTypes() error {
-// 	return state.TranslateK8sServiceTypes(s.pool)
-// }
-
-// func (s stateBackend) UpdateKubernetesCloudCredentials() error {
-// 	systemState, err := s.pool.SystemState()
-// 	if err != nil {
-// 		return errors.Trace(err)
-// 	}
-// 	return state.UpdateLegacyKubernetesCloudCredentials(systemState)
-// }
 
 func (s stateBackend) UpdateDHCPAddressConfigs() error {
 	return state.UpdateDHCPAddressConfigs(s.pool)
