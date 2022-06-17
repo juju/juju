@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-08-01/storage"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -67,8 +67,8 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	configAttrStorageAccountType:  string(storage.SkuNameStandardLRS),
-	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
+	configAttrStorageAccountType:  string(armstorage.SKUNameStandardLRS),
+	configAttrLoadBalancerSkuName: string(armnetwork.LoadBalancerSKUNameStandard),
 	configAttrResourceGroupName:   schema.Omit,
 	configAttrNetwork:             schema.Omit,
 }
@@ -116,7 +116,7 @@ type azureModelConfig struct {
 //
 // The term "account type" is is used in previous versions of the Azure SDK.
 func knownStorageAccountTypes() (accountTypes []string) {
-	for _, name := range storage.PossibleSkuNameValues() {
+	for _, name := range armstorage.PossibleSKUNameValues() {
 		accountTypes = append(accountTypes, string(name))
 	}
 	return accountTypes
@@ -124,7 +124,7 @@ func knownStorageAccountTypes() (accountTypes []string) {
 
 // knownLoadBalancerSkuNames returns a list of valid load balancer SKU names.
 func knownLoadBalancerSkuNames() (skus []string) {
-	for _, name := range network.PossibleLoadBalancerSkuNameValues() {
+	for _, name := range armnetwork.PossibleLoadBalancerSKUNameValues() {
 		skus = append(skus, string(name))
 	}
 	return skus
@@ -237,7 +237,7 @@ Please choose a model name of no more than %d characters.`,
 			)
 		}
 	} else {
-		loadBalancerSkuName = string(network.LoadBalancerSkuNameStandard)
+		loadBalancerSkuName = string(armnetwork.LoadBalancerSKUNameStandard)
 	}
 
 	networkName, _ := validated[configAttrNetwork].(string)
