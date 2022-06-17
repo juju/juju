@@ -189,14 +189,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 	c)
 		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .type")
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
-		num_regions=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .regions | length")
-		if [[ ${num_regions} -gt 1 ]]; then
-			echo "more than 1 region, must specify"
-			exit 1
-		fi
 		CLOUD="${OPTARG}"
-		REGION=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${CLOUD}\"] | .regions | keys[0]")
-		export BOOTSTRAP_REGION="${REGION}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
 	R)
