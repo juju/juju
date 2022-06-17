@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 
@@ -17,7 +15,6 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/wrench"
 )
 
 // ResolverConfig defines configuration for the uniter resolver.
@@ -154,11 +151,13 @@ func (s *uniterResolver) NextOp(
 			return opFactory.NewRunHook(*localState.Hook)
 
 		case operation.Done:
-			curl := localState.CharmURL
-			if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
-				s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
-				return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
-			}
+			// TODO hmlanigan 17-06-2002
+			// Resolve the wrench
+			//curl := localState.CharmURL
+			//if curl != "" && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
+			//	s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+			//	return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+			//}
 
 			logger.Infof("committing %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
@@ -283,10 +282,10 @@ func (s *uniterResolver) nextOpHookError(
 
 func (s *uniterResolver) charmModified(local resolver.LocalState, remote remotestate.Snapshot) bool {
 	// CAAS models may not yet have read the charm url from state.
-	if remote.CharmURL == nil {
+	if remote.CharmURL == "" {
 		return false
 	}
-	if *local.CharmURL != *remote.CharmURL {
+	if local.CharmURL != remote.CharmURL {
 		s.config.Logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
 		return true
 	}

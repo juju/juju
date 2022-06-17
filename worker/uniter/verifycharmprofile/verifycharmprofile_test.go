@@ -4,7 +4,6 @@
 package verifycharmprofile_test
 
 import (
-	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -63,12 +62,10 @@ func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *gc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.Upgrade},
 	}
-	curl, err := charm.ParseURL("cs:wordpress-75")
-	c.Assert(err, jc.ErrorIsNil)
 	remote := remotestate.Snapshot{
 		CharmProfileRequired: true,
 		LXDProfileName:       "juju-wordpress-74",
-		CharmURL:             curl,
+		CharmURL:             "cs:wordpress-75",
 	}
 	res := newVerifyCharmProfileResolver()
 
@@ -81,12 +78,10 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.Upgrade},
 	}
-	curl, err := charm.ParseURL("cs:wordpress-75")
-	c.Assert(err, jc.ErrorIsNil)
 	remote := remotestate.Snapshot{
 		CharmProfileRequired: true,
 		LXDProfileName:       "juju-wordpress-75",
-		CharmURL:             curl,
+		CharmURL:             "cs:wordpress-75",
 	}
 	res := newVerifyCharmProfileResolver()
 

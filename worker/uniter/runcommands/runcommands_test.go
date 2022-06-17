@@ -4,7 +4,6 @@
 package runcommands_test
 
 import (
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -20,7 +19,7 @@ import (
 )
 
 type runcommandsSuite struct {
-	charmURL         *charm.URL
+	charmURL         string
 	remoteState      remotestate.Snapshot
 	mockRunner       mockRunner
 	callbacks        *mockCallbacks
@@ -34,7 +33,7 @@ type runcommandsSuite struct {
 var _ = gc.Suite(&runcommandsSuite{})
 
 func (s *runcommandsSuite) SetUpTest(c *gc.C) {
-	s.charmURL = charm.MustParseURL("cs:precise/mysql-2")
+	s.charmURL = "cs:precise/mysql-2"
 	s.remoteState = remotestate.Snapshot{
 		CharmURL: s.charmURL,
 	}

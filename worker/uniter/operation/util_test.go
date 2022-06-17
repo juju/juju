@@ -6,7 +6,6 @@ package operation_test
 import (
 	"sync"
 
-	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -24,22 +23,22 @@ import (
 )
 
 type MockGetArchiveInfo struct {
-	gotCharmURL *corecharm.URL
+	gotCharmURL string
 	info        charm.BundleInfo
 	err         error
 }
 
-func (mock *MockGetArchiveInfo) Call(charmURL *corecharm.URL) (charm.BundleInfo, error) {
+func (mock *MockGetArchiveInfo) Call(charmURL string) (charm.BundleInfo, error) {
 	mock.gotCharmURL = charmURL
 	return mock.info, mock.err
 }
 
 type MockSetCurrentCharm struct {
-	gotCharmURL *corecharm.URL
+	gotCharmURL string
 	err         error
 }
 
-func (mock *MockSetCurrentCharm) Call(charmURL *corecharm.URL) error {
+func (mock *MockSetCurrentCharm) Call(charmURL string) error {
 	mock.gotCharmURL = charmURL
 	return mock.err
 }
@@ -51,11 +50,11 @@ type DeployCallbacks struct {
 	MockInitializeMetricsTimers *MockNoArgs
 }
 
-func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
+func (cb *DeployCallbacks) GetArchiveInfo(charmURL string) (charm.BundleInfo, error) {
 	return cb.MockGetArchiveInfo.Call(charmURL)
 }
 
-func (cb *DeployCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
+func (cb *DeployCallbacks) SetCurrentCharm(charmURL string) error {
 	return cb.MockSetCurrentCharm.Call(charmURL)
 }
 
@@ -546,14 +545,13 @@ func (mock *MockSendResponse) Call(response *utilexec.ExecResponse, err error) b
 	return mock.eatError
 }
 
-var curl = corecharm.MustParseURL
 var someActionId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 var randomActionId = "9f484882-2f18-4fd2-967d-db9663db7bea"
 var overwriteState = operation.State{
 	Kind:     operation.Continue,
 	Step:     operation.Pending,
 	Started:  true,
-	CharmURL: curl("cs:quantal/wordpress-2"),
+	CharmURL: "cs:quantal/wordpress-2",
 	ActionId: &randomActionId,
 	Hook:     &hook.Info{Kind: hooks.Install},
 }

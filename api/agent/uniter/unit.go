@@ -503,42 +503,38 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
 var ErrNoCharmURLSet = errors.New("unit has no charm url set")
 
 // CharmURL returns the charm URL this unit is currently using.
-func (u *Unit) CharmURL() (*charm.URL, error) {
+func (u *Unit) CharmURL() (string, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("CharmURL", args, &results)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return "", result.Error
 	}
 	if result.Result != "" {
-		curl, err := charm.ParseURL(result.Result)
-		if err != nil {
-			return nil, err
-		}
-		return curl, nil
+		return result.Result, nil
 	}
-	return nil, ErrNoCharmURLSet
+	return "", ErrNoCharmURLSet
 }
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
 // An error will be returned if the unit is dead, or the charm URL not known.
-func (u *Unit) SetCharmURL(curl *charm.URL) error {
-	if curl == nil {
+func (u *Unit) SetCharmURL(curl string) error {
+	if curl == "" {
 		return errors.Errorf("charm URL cannot be nil")
 	}
 	var result params.ErrorResults
 	args := params.EntitiesCharmURL{
 		Entities: []params.EntityCharmURL{
-			{Tag: u.tag.String(), CharmURL: curl.String()},
+			{Tag: u.tag.String(), CharmURL: curl},
 		},
 	}
 	err := u.st.facade.FacadeCall("SetCharmURL", args, &result)

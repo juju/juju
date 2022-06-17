@@ -6,7 +6,6 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -92,30 +91,26 @@ func (s *Application) CharmModifiedVersion() (int, error) {
 //
 // NOTE: This differs from state.Application.CharmURL() by returning
 // an error instead as well, because it needs to make an API call.
-func (s *Application) CharmURL() (*charm.URL, bool, error) {
+func (s *Application) CharmURL() (string, bool, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.facade.FacadeCall("CharmURL", args, &results)
 	if err != nil {
-		return nil, false, err
+		return "", false, err
 	}
 	if len(results.Results) != 1 {
-		return nil, false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, false, result.Error
+		return "", false, result.Error
 	}
 	if result.Result != "" {
-		curl, err := charm.ParseURL(result.Result)
-		if err != nil {
-			return nil, false, err
-		}
-		return curl, result.Ok, nil
+		return result.Result, result.Ok, nil
 	}
-	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
+	return "", false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
 // SetStatus sets the status of the application if the passed unitName,

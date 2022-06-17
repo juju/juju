@@ -6,7 +6,6 @@ package operation
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 
@@ -20,7 +19,7 @@ type deploy struct {
 	DoesNotRequireMachineLock
 
 	kind     Kind
-	charmURL *corecharm.URL
+	charmURL string
 	revert   bool
 	resolved bool
 
@@ -109,7 +108,7 @@ func (d *deploy) checkAlreadyDone(state State) error {
 	if state.Kind != d.kind {
 		return nil
 	}
-	if *state.CharmURL != *d.charmURL {
+	if state.CharmURL != d.charmURL {
 		return nil
 	}
 	if state.Step == Done {

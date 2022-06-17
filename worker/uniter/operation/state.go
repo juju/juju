@@ -4,7 +4,6 @@
 package operation
 
 import (
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
@@ -98,7 +97,7 @@ type State struct {
 
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
-	CharmURL *charm.URL `yaml:"charm,omitempty"`
+	CharmURL string `yaml:"charm,omitempty"`
 
 	// ConfigHash stores a hash of the latest known charm
 	// configuration settings - it's used to determine whether we need
@@ -121,7 +120,7 @@ func (st State) Validate() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid operation state")
 	hasHook := st.Hook != nil
 	hasActionId := st.ActionId != nil
-	hasCharm := st.CharmURL != nil
+	hasCharm := st.CharmURL != ""
 	switch st.Kind {
 	case Install:
 		if st.Installed {
@@ -200,7 +199,7 @@ type stateChange struct {
 	Step            Step
 	Hook            *hook.Info
 	ActionId        *string
-	CharmURL        *charm.URL
+	CharmURL        string
 	HasRunStatusSet bool
 }
 

@@ -111,7 +111,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
 			Started:  true,
-			CharmURL: curl("cs:quantal/wordpress-2"),
+			CharmURL: "cs:quantal/wordpress-2",
 			ActionId: &randomActionId,
 		},
 		after: operation.State{
@@ -125,7 +125,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
 			Started:  true,
-			CharmURL: curl("cs:quantal/wordpress-2"),
+			CharmURL: "cs:quantal/wordpress-2",
 			ActionId: &randomActionId,
 			Hook:     &hook.Info{Kind: hooks.Install},
 		},

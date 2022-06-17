@@ -6,7 +6,6 @@ package remotestate_test
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -93,7 +92,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			application: mockApplication{
 				tag:                   names.NewApplicationTag("mysql"),
 				life:                  life.Alive,
-				curl:                  charm.MustParseURL("cs:trusty/mysql"),
+				curl:                  "cs:trusty/mysql",
 				charmModifiedVersion:  5,
 				leaderSettingsWatcher: newMockNotifyWatcher(),
 			},
@@ -1028,7 +1027,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	// EnforcedCharmModifiedVersion prevents the charm upgrading if it isn't the right version.
 	snapshot := s.watcher.Snapshot()
 	c.Assert(snapshot.CharmModifiedVersion, gc.Equals, 0)
-	c.Assert(snapshot.CharmURL, gc.IsNil)
+	c.Assert(snapshot.CharmURL, gc.Equals, "")
 	c.Assert(snapshot.ForceCharmUpgrade, gc.Equals, false)
 
 	s.clock.Advance(5 * time.Minute)
@@ -1046,7 +1045,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:         map[string]int{},
 		CharmModifiedVersion:  0,
-		CharmURL:              nil,
+		CharmURL:              "",
 		ForceCharmUpgrade:     false,
 		ResolvedMode:          s.st.unit.resolved,
 		ConfigHash:            "confighash",
@@ -1092,10 +1091,10 @@ func (s *WatcherSuite) TestInitialWorkloadEventIDs(c *gc.C) {
 		InitialWorkloadEventIDs: []string{"a", "b", "c"},
 		Logger:                  loggo.GetLogger("test"),
 	}
-	watcher, err := remotestate.NewWatcher(config)
+	w, err := remotestate.NewWatcher(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	snapshot := watcher.Snapshot()
+	snapshot := w.Snapshot()
 	c.Assert(snapshot.WorkloadEvents, gc.DeepEquals, []string{"a", "b", "c"})
 }
 
