@@ -19,13 +19,15 @@ type Colors struct {
 	String *ansiterm.Context
 	// Key is the Color for JSON keys.
 	Key *ansiterm.Context
-	//KeyValSep separates key from values.
+	// KeyValSep separates key from values.
 	KeyValSep *ansiterm.Context
-	//DocumentStart is the color used to mark the beginning of a valid yaml document
+	// DocumentStart is the color used to mark the beginning of a valid yaml document
 	DocumentStart *ansiterm.Context
-	//Comment is the color used for yaml comments
+	// Comment is the color used for yaml comments
 	Comment *ansiterm.Context
-	//Scalar used to color scalar values
+	// Ip is the color for ip addresses
+	Ip *ansiterm.Context
+	// Scalar used to color scalar values
 	Scalar *ansiterm.Context
 	// IndentLine used to color indentation lines
 	IndentLine *ansiterm.Context
