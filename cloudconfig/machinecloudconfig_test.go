@@ -21,8 +21,6 @@ type fromHostSuite struct {
 	tempCloudCfgDir   string
 	tempCloudInitDir  string
 	tempCurtinCfgFile string
-
-	reader *cloudconfig.MachineInitReader
 }
 
 var _ = gc.Suite(&fromHostSuite{})
@@ -57,7 +55,6 @@ type cloudinitDataVerifyTest struct {
 	description     string
 	machineSeries   string
 	containerSeries string
-	err             string
 	result          map[string]interface{}
 }
 

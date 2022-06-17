@@ -23,6 +23,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/exec"
 	"github.com/juju/utils/v3/symlink"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
@@ -329,6 +330,7 @@ func NewMachineAgent(
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
 		isCaasAgent:                 isCaasAgent,
+		cmdRunner:                   &defaultRunner{},
 	}
 	return a, nil
 }
@@ -359,6 +361,22 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 		return errors.Annotate(err, "registering pubsub collector")
 	}
 	return nil
+}
+
+// CommandRunner allows to run commands on the underlying system
+type CommandRunner interface {
+	RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
+}
+
+type defaultRunner struct{}
+
+// RunCommands executes the Commands specified in the RunParams using
+// '/bin/bash -s' on everything else, passing the commands through as
+// stdin, and collecting stdout and stderr. If a non-zero return code is
+// returned, this is collected as the code for the response and this does
+// not classify as an error.
+func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error) {
+	return exec.RunCommands(run)
 }
 
 // MachineAgent is responsible for tying together all functionality
@@ -400,6 +418,7 @@ type MachineAgent struct {
 	pubsubMetrics *centralhub.PubsubMetrics
 
 	isCaasAgent bool
+	cmdRunner   CommandRunner
 }
 
 // Wait waits for the machine agent to finish.
@@ -760,7 +779,19 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			// the API, report "unknown job type" here.
 		}
 	}
-	if !isController {
+	if isController {
+		// We disallow "do-release-upgrade" to run on Juju Controller machine because we do not want to break mongodb.
+		// - https://bugs.launchpad.net/juju/+bug/1881218
+		result, err := a.cmdRunner.RunCommands(exec.RunParams{
+			Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if result.Code != 0 {
+			return nil, errors.New(fmt.Sprintf("cannot patch /etc/update-manager/release-upgrades: %s", result.Stderr))
+		}
+	} else {
 		_ = runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
 			facade := apimachiner.NewState(apiConn)

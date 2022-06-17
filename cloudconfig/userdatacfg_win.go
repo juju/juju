@@ -128,7 +128,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`, tools.Version),
 		fmt.Sprintf(`if ($dToolsHash.ToLower() -ne "%s"){ Throw "Tools checksum mismatch"}`,
 			tools.SHA256),
-		fmt.Sprintf(`GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir`),
+		`GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir`,
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
 	)

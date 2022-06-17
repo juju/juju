@@ -619,12 +619,6 @@ func (cfg *InstanceConfig) SetSnapSource(snapPath string, snapAssertionsPath str
 	return nil
 }
 
-type requiresError string
-
-func (e requiresError) Error() string {
-	return "invalid machine configuration: missing " + string(e)
-}
-
 // VerifyConfig verifies that the InstanceConfig is valid.
 func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
