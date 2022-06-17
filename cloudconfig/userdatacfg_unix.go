@@ -200,13 +200,17 @@ func (w *unixConfigure) ConfigureBasic() error {
 		// except when manually provisioning.
 		icfgKeys := w.icfg.Bootstrap.InitialSSHHostKeys
 		var keys cloudinit.SSHKeys
-		if icfgKeys.RSA != nil {
-			keys.RSA = &cloudinit.SSHKey{
-				Private: icfgKeys.RSA.Private,
-				Public:  icfgKeys.RSA.Public,
-			}
+		for _, hostKey := range icfgKeys {
+			keys = append(keys, cloudinit.SSHKey{
+				Private:            hostKey.Private,
+				Public:             hostKey.Public,
+				PublicKeyAlgorithm: hostKey.PublicKeyAlgorithm,
+			})
 		}
-		w.conf.SetSSHKeys(keys)
+		err := w.conf.SetSSHKeys(keys)
+		if err != nil {
+			return errors.Annotate(err, "setting ssh keys")
+		}
 	}
 
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
@@ -274,23 +278,19 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLog))
 	}
 
-	if w.icfg.Bootstrap != nil {
+	if w.icfg.Bootstrap != nil && len(w.icfg.Bootstrap.InitialSSHHostKeys) > 0 {
 		// Before anything else, we must regenerate the SSH host keys.
-		var any bool
-		keys := w.icfg.Bootstrap.InitialSSHHostKeys
-		if keys.RSA != nil {
-			any = true
-			w.conf.AddBootCmd(cloudinit.LogProgressCmd("Regenerating SSH RSA host key"))
-			w.conf.AddBootCmd(`rm /etc/ssh/ssh_host_rsa_key*`)
-			w.conf.AddBootCmd(`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`)
-		}
-		if any {
-			// ssh_keys was specified in cloud-config, which will
-			// disable all key generation. Generate the other keys
-			// that we did not generate previously.
-			w.conf.AddBootCmd(`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`)
-			w.conf.AddBootCmd(`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`)
-		}
+		// During bootstrap we provide our own keys, but to prevent keys being
+		// sniffed from metadata by user applications that shouldn't have access,
+		// we regenerate them.
+		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Regenerating SSH host keys"))
+		w.conf.AddBootCmd(`rm /etc/ssh/ssh_host_*_key*`)
+		w.conf.AddBootCmd(`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`)
+		w.conf.AddBootCmd(`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`)
+		// We drop DSA due to it not really being supported by default anymore,
+		// we also softly fail on ed25519 as it may not be supported by the target
+		// machine.
+		w.conf.AddBootCmd(`ssh-keygen -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key || true`)
 	}
 
 	if err := w.conf.AddPackageCommands(
