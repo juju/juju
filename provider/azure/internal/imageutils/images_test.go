@@ -6,7 +6,9 @@ package imageutils_test
 import (
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/provider/azure/internal/imageutils"
 	"github.com/juju/juju/testing"
 )
@@ -22,7 +25,7 @@ type imageutilsSuite struct {
 	testing.BaseSuite
 
 	mockSender *mocks.Sender
-	client     compute.VirtualMachineImagesClient
+	client     *armcompute.VirtualMachineImagesClient
 	callCtx    *context.CloudCallContext
 }
 
@@ -31,8 +34,14 @@ var _ = gc.Suite(&imageutilsSuite{})
 func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockSender = mocks.NewSender()
-	s.client.BaseClient = compute.New("subscription-id")
-	s.client.Sender = s.mockSender
+	opts := &arm.ClientOptions{
+		ClientOptions: policy.ClientOptions{
+			Transport: s.mockSender,
+		},
+	}
+	var err error
+	s.client, err = armcompute.NewVirtualMachineImagesClient("subscription-id", &azuretesting.FakeCredential{}, opts)
+	c.Assert(err, jc.ErrorIsNil)
 	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
@@ -106,7 +115,7 @@ func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageNotFound(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[]`))
 	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs not found")
+	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs for released stream not found")
 	c.Assert(image, gc.IsNil)
 }
 
@@ -125,7 +134,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 	}
 
 	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
-	c.Assert(err.Error(), jc.Contains, "StatusCode=401")
+	c.Assert(err.Error(), jc.Contains, "RESPONSE 401")
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -138,7 +147,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) 
 	}
 
 	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
-	c.Assert(err.Error(), jc.Contains, "StatusCode=308")
+	c.Assert(err.Error(), jc.Contains, "RESPONSE 308")
 	c.Assert(called, jc.IsFalse)
 }
 

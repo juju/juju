@@ -7,9 +7,37 @@ import (
 	"net/http"
 	"net/http/httputil"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/loggo"
 )
+
+type LoggingPolicy struct {
+	Logger loggo.Logger
+}
+
+func (p *LoggingPolicy) Do(req *policy.Request) (*http.Response, error) {
+	if p.Logger.IsTraceEnabled() {
+		dump, err := httputil.DumpRequest(req.Raw(), true)
+		if err != nil {
+			p.Logger.Tracef("failed to dump request: %v", err)
+			p.Logger.Tracef("%+v", req.Raw())
+		} else {
+			p.Logger.Tracef("%s", dump)
+		}
+	}
+	resp, err := req.Next()
+	if err == nil && p.Logger.IsTraceEnabled() {
+		dump, err := httputil.DumpResponse(resp, true)
+		if err != nil {
+			p.Logger.Tracef("failed to dump response: %v", err)
+			p.Logger.Tracef("%+v", resp)
+		} else {
+			p.Logger.Tracef("%s", dump)
+		}
+	}
+	return resp, err
+}
 
 // PrepareDecorator returns an autorest.PrepareDecorator that
 // logs requests at trace level.

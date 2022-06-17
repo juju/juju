@@ -8,10 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,14 +22,14 @@ import (
 type ErrorSuite struct {
 	testing.BaseSuite
 
-	azureError autorest.DetailedError
+	azureError *azcore.ResponseError
 }
 
 var _ = gc.Suite(&ErrorSuite{})
 
 func (s *ErrorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.azureError = autorest.DetailedError{
+	s.azureError = &azcore.ResponseError{
 		StatusCode: http.StatusUnauthorized,
 	}
 }
@@ -49,9 +46,9 @@ func (s *ErrorSuite) TestNilContext(c *gc.C) {
 
 func (s *ErrorSuite) TestHasDenialStatusCode(c *gc.C) {
 	c.Assert(errorutils.HasDenialStatusCode(
-		autorest.DetailedError{StatusCode: http.StatusUnauthorized}), jc.IsTrue)
+		&azcore.ResponseError{StatusCode: http.StatusUnauthorized}), jc.IsTrue)
 	c.Assert(errorutils.HasDenialStatusCode(
-		autorest.DetailedError{StatusCode: http.StatusNotFound}), jc.IsFalse)
+		&azcore.ResponseError{StatusCode: http.StatusNotFound}), jc.IsFalse)
 	c.Assert(errorutils.HasDenialStatusCode(nil), jc.IsFalse)
 	c.Assert(errorutils.HasDenialStatusCode(errors.New("FAIL")), jc.IsFalse)
 }
@@ -99,148 +96,65 @@ func (*ErrorSuite) TestNilAzureError(c *gc.C) {
 	c.Assert(returnedErr, jc.ErrorIsNil)
 }
 
-func (*ErrorSuite) TestQuotaExceededError(c *gc.C) {
-	se := &azure.ServiceError{
-		Details: []map[string]interface{}{{
-			"code":    "QuotaExceeded",
-			"message": "boom",
-		}}}
-	err, ok := errorutils.QuotaExceededError(se)
+func (*ErrorSuite) TestMaybeQuotaExceededError(c *gc.C) {
+	buf := strings.NewReader(
+		`{"error": {"code": "DeployError", "details": [{"code": "QuotaExceeded", "message": "boom"}]}}`)
+	re := &azcore.ResponseError{
+		StatusCode: http.StatusBadRequest,
+		RawResponse: &http.Response{
+			Body: ioutil.NopCloser(buf),
+		},
+	}
+	quotaErr, ok := errorutils.MaybeQuotaExceededError(re)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(quotaErr, gc.ErrorMatches, "boom")
 }
 
-func (*ErrorSuite) TestConflictError(c *gc.C) {
-	se := &azure.ServiceError{
-		Details: []map[string]interface{}{{
-			"code":    "Conflict",
-			"message": "boom",
-		}}}
-	ok := errorutils.IsConflictError(se)
+func (*ErrorSuite) TestIsConflictError(c *gc.C) {
+	buf := strings.NewReader(
+		`{"error": {"code": "DeployError", "details": [{"code": "Conflict", "message": "boom"}]}}`)
+
+	re := &azcore.ResponseError{
+		RawResponse: &http.Response{
+			Body: ioutil.NopCloser(buf),
+		},
+	}
+	ok := errorutils.IsConflictError(re)
 	c.Assert(ok, jc.IsTrue)
 
-	se2 := azure.ServiceError{
-		Code: "Conflict",
+	se2 := &azcore.ResponseError{
+		StatusCode: http.StatusConflict,
 	}
 	ok = errorutils.IsConflictError(se2)
 	c.Assert(ok, jc.IsTrue)
 }
 
-var checkForGraphErrorTests = []struct {
-	about        string
-	responseBody string
-	expectError  string
-}{{
-	about:        "error body",
-	responseBody: `{"odata.error":{"code":"ErrorCode","message":{"value": "error message"}}}`,
-	expectError:  "ErrorCode: error message",
-}, {
-	about:        "not error",
-	responseBody: `{}`,
-	expectError:  "",
-}, {
-	about:        "error body with unicode BOM",
-	responseBody: "\ufeff" + `{"odata.error":{"code":"ErrorCode","message":{"value": "error message"}}}`,
-	expectError:  "ErrorCode: error message",
-}, {
-	about:        "not error with unicode BOM",
-	responseBody: "\ufeff{}",
-	expectError:  "",
-}}
-
-func (ErrorSuite) TestCheckForGraphError(c *gc.C) {
-	for i, test := range checkForGraphErrorTests {
-		c.Logf("test %d. %s", i, test.about)
-
-		var nextResponderCalled bool
-		var r autorest.Responder
-		r = autorest.ResponderFunc(func(resp *http.Response) error {
-			nextResponderCalled = true
-
-			// If the next in the chain is called then the response body should be unchanged.
-			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Check(string(b), gc.Equals, test.responseBody)
-			return nil
-		})
-
-		r = errorutils.CheckForGraphError(r)
-
-		err := r.Respond(&http.Response{Body: ioutil.NopCloser(strings.NewReader(test.responseBody))})
-		if test.expectError == "" {
-			c.Check(nextResponderCalled, gc.Equals, true)
-			continue
-		}
-		c.Assert(err, gc.Not(jc.ErrorIsNil))
-		ge := errorutils.AsGraphError(err)
-		c.Check(ge, gc.Not(gc.IsNil))
-		c.Check(err.Error(), gc.Equals, test.expectError)
+func (*ErrorSuite) TestStatusCode(c *gc.C) {
+	re := &azcore.ResponseError{
+		StatusCode: http.StatusBadRequest,
 	}
+	code := errorutils.StatusCode(re)
+	c.Assert(code, gc.Equals, http.StatusBadRequest)
 }
 
-var asGraphErrorTests = []struct {
-	about            string
-	err              error
-	expectGraphError string
-}{{
-	about: "graph error",
-	err: &errorutils.GraphError{
-		GraphError: graphrbac.GraphError{
-			OdataError: &graphrbac.OdataError{
-				Code: to.StringPtr("ErrorCode"),
-				ErrorMessage: &graphrbac.ErrorMessage{
-					Message: to.StringPtr("error message"),
-				},
-			},
-		},
-	},
-	expectGraphError: "ErrorCode: error message",
-}, {
-	about: "nil error",
-	err:   nil,
-}, {
-	about: "unrelated error",
-	err:   errors.New("test error"),
-}, {
-	about: "in autorest.DetailedError",
-	err: autorest.DetailedError{
-		Original: &errorutils.GraphError{
-			GraphError: graphrbac.GraphError{
-				OdataError: &graphrbac.OdataError{
-					Code: to.StringPtr("ErrorCode"),
-					ErrorMessage: &graphrbac.ErrorMessage{
-						Message: to.StringPtr("error message"),
-					},
-				},
-			},
-		},
-	},
-	expectGraphError: "ErrorCode: error message",
-}, {
-	about: "traced graph error",
-	err: errors.Trace(&errorutils.GraphError{
-		GraphError: graphrbac.GraphError{
-			OdataError: &graphrbac.OdataError{
-				Code: to.StringPtr("ErrorCode"),
-				ErrorMessage: &graphrbac.ErrorMessage{
-					Message: to.StringPtr("error message"),
-				},
-			},
-		},
-	}),
-	expectGraphError: "ErrorCode: error message",
-}}
-
-func (ErrorSuite) TestAsGraphError(c *gc.C) {
-	for i, test := range asGraphErrorTests {
-		c.Logf("test %d. %s", i, test.about)
-		ge := errorutils.AsGraphError(test.err)
-		if test.expectGraphError == "" {
-			c.Check(ge, gc.IsNil)
-			continue
-		}
-		c.Assert(ge, gc.Not(gc.IsNil))
-		c.Check(ge.Error(), gc.Equals, test.expectGraphError)
+func (*ErrorSuite) TestErrorCode(c *gc.C) {
+	re := &azcore.ResponseError{
+		ErrorCode: "failed",
 	}
+	code := errorutils.ErrorCode(re)
+	c.Assert(code, gc.Equals, "failed")
+}
+
+func (*ErrorSuite) TestSimpleError(c *gc.C) {
+	buf := strings.NewReader(
+		`{"error": {"message": "failed"}}`)
+
+	re := &azcore.ResponseError{
+		RawResponse: &http.Response{
+			Body: ioutil.NopCloser(buf),
+		},
+	}
+
+	err := errorutils.SimpleError(re)
+	c.Assert(err, gc.ErrorMatches, "failed")
 }

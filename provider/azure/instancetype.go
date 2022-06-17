@@ -8,8 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
 
@@ -442,8 +441,8 @@ var machineSizeCost = []string{
 }
 
 // newInstanceType creates an InstanceType based on a VirtualMachineSize.
-func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
-	sizeName := to.String(size.Name)
+func newInstanceType(size armcompute.VirtualMachineSize) instances.InstanceType {
+	sizeName := toValue(size.Name)
 	// Actual instance type names often are suffixed with _v3, _v4 etc. We always
 	// prefer the highest version number.
 	namePart := instSizeVersionRegexp.ReplaceAllString(sizeName, "$name")
@@ -489,12 +488,12 @@ func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
 		Name: sizeName,
 		// TODO(wallyworld) - add arm64 once supported
 		Arch:     arch.AMD64,
-		CpuCores: uint64(to.Int32(size.NumberOfCores)),
-		Mem:      uint64(to.Int32(size.MemoryInMB)),
+		CpuCores: uint64(toValue(size.NumberOfCores)),
+		Mem:      uint64(toValue(size.MemoryInMB)),
 		// NOTE(axw) size.OsDiskSizeInMB is the *maximum*
 		// OS-disk size. When we create a VM, we can create
 		// one that is smaller.
-		RootDisk: mbToMib(uint64(to.Int32(size.OsDiskSizeInMB))),
+		RootDisk: mbToMib(uint64(toValue(size.OSDiskSizeInMB))),
 		Cost:     uint64(cost),
 		VirtType: &vtype,
 		// tags are not currently supported by azure
@@ -523,7 +522,7 @@ func mbToMib(mb uint64) uint64 {
 // Azure's image registry.
 func findInstanceSpec(
 	ctx context.ProviderCallContext,
-	client compute.VirtualMachineImagesClient,
+	client *armcompute.VirtualMachineImagesClient,
 	instanceTypesMap map[string]instances.InstanceType,
 	constraint *instances.InstanceConstraint,
 	imageStream string,

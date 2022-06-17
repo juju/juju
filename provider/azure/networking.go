@@ -6,8 +6,8 @@ package azure
 import (
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
@@ -76,19 +76,19 @@ const (
 )
 
 // newSecurityRule returns a security rule with the given parameters.
-func newSecurityRule(p newSecurityRuleParams) network.SecurityRule {
-	return network.SecurityRule{
-		Name: to.StringPtr(p.name),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr(p.description),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr(p.destPrefix),
-			DestinationPortRange:     to.StringPtr(fmt.Sprint(p.port)),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(int32(p.priority)),
-			Direction:                network.SecurityRuleDirectionInbound,
+func newSecurityRule(p newSecurityRuleParams) *armnetwork.SecurityRule {
+	return &armnetwork.SecurityRule{
+		Name: to.Ptr(p.name),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr(p.description),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourceAddressPrefix:      to.Ptr("*"),
+			SourcePortRange:          to.Ptr("*"),
+			DestinationAddressPrefix: to.Ptr(p.destPrefix),
+			DestinationPortRange:     to.Ptr(fmt.Sprint(p.port)),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(p.priority)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}
 }
@@ -112,7 +112,7 @@ func networkTemplateResources(
 	location string,
 	envTags map[string]string,
 	apiPorts []int,
-	extraRules []network.SecurityRule,
+	extraRules []*armnetwork.SecurityRule,
 ) ([]armtemplates.Resource, []string) {
 	securityRules := networkSecurityRules(apiPorts, extraRules)
 	nsgID := fmt.Sprintf(
@@ -125,28 +125,28 @@ func networkTemplateResources(
 		Name:       internalSecurityGroupName,
 		Location:   location,
 		Tags:       envTags,
-		Properties: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &securityRules,
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: securityRules,
 		},
 	}}
-	subnets := []network.Subnet{{
-		Name: to.StringPtr(internalSubnetName),
-		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr(internalSubnetPrefix),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr(nsgID),
+	subnets := []*armnetwork.Subnet{{
+		Name: to.Ptr(internalSubnetName),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr(internalSubnetPrefix),
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID: to.Ptr(nsgID),
 			},
 		},
 	}}
-	addressPrefixes := []string{internalSubnetPrefix}
+	addressPrefixes := []*string{to.Ptr(internalSubnetPrefix)}
 	if len(apiPorts) > 0 {
-		addressPrefixes = append(addressPrefixes, controllerSubnetPrefix)
-		subnets = append(subnets, network.Subnet{
-			Name: to.StringPtr(controllerSubnetName),
-			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-				AddressPrefix: to.StringPtr(controllerSubnetPrefix),
-				NetworkSecurityGroup: &network.SecurityGroup{
-					ID: to.StringPtr(nsgID),
+		addressPrefixes = append(addressPrefixes, to.Ptr(controllerSubnetPrefix))
+		subnets = append(subnets, &armnetwork.Subnet{
+			Name: to.Ptr(controllerSubnetName),
+			Properties: &armnetwork.SubnetPropertiesFormat{
+				AddressPrefix: to.Ptr(controllerSubnetPrefix),
+				NetworkSecurityGroup: &armnetwork.SecurityGroup{
+					ID: to.Ptr(nsgID),
 				},
 			},
 		})
@@ -157,9 +157,9 @@ func networkTemplateResources(
 		Name:       internalNetworkName,
 		Location:   location,
 		Tags:       envTags,
-		Properties: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace: &network.AddressSpace{&addressPrefixes},
-			Subnets:      &subnets,
+		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+			AddressSpace: &armnetwork.AddressSpace{addressPrefixes},
+			Subnets:      subnets,
 		},
 		DependsOn: []string{nsgID},
 	})
@@ -169,9 +169,9 @@ func networkTemplateResources(
 // networkSecurityRules creates network security rules for the environment.
 func networkSecurityRules(
 	apiPorts []int,
-	extraRules []network.SecurityRule,
-) []network.SecurityRule {
-	securityRules := []network.SecurityRule{newSecurityRule(newSecurityRuleParams{
+	extraRules []*armnetwork.SecurityRule,
+) []*armnetwork.SecurityRule {
+	securityRules := []*armnetwork.SecurityRule{newSecurityRule(newSecurityRuleParams{
 		name:        sshSecurityRuleName,
 		description: "Allow SSH access to all machines",
 		destPrefix:  "*",
@@ -195,14 +195,17 @@ func networkSecurityRules(
 
 // nextSecurityRulePriority returns the next available priority in the given
 // security group within a specified range.
-func nextSecurityRulePriority(group *network.SecurityGroup, min, max int32) (int32, error) {
-	if group.SecurityRules == nil {
+func nextSecurityRulePriority(group *armnetwork.SecurityGroup, min, max int32) (int32, error) {
+	if group.Properties == nil {
 		return min, nil
 	}
 	for p := min; p <= max; p++ {
 		var found bool
-		for _, rule := range *group.SecurityRules {
-			if to.Int32(rule.Priority) == p {
+		for _, rule := range group.Properties.SecurityRules {
+			if rule.Properties == nil {
+				continue
+			}
+			if toValue(rule.Properties.Priority) == p {
 				found = true
 				break
 			}

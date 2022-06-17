@@ -16,9 +16,9 @@ import (
 
 const (
 	fakeApplicationId         = "60a04dc9-1857-425f-8076-5ba81ca53d66"
+	fakeTenantId              = "11111111-1111-1111-1111-111111111111"
 	fakeSubscriptionId        = "22222222-2222-2222-2222-222222222222"
 	fakeManagedSubscriptionId = "33333333-3333-3333-3333-333333333333"
-	fakeStorageAccountKey     = "quay"
 )
 
 type configSuite struct {

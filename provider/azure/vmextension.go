@@ -4,8 +4,8 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/juju/errors"
 
 	jujuos "github.com/juju/juju/core/os"
@@ -34,7 +34,7 @@ const (
 
 // vmExtension creates a CustomScript VM extension for the given VM
 // which will execute the CustomData on the machine as a script.
-func vmExtensionProperties(os jujuos.OSType) (*compute.VirtualMachineExtensionProperties, error) {
+func vmExtensionProperties(os jujuos.OSType) (*armcompute.VirtualMachineExtensionProperties, error) {
 	var commandToExecute, extensionPublisher, extensionType, extensionVersion string
 
 	switch os {
@@ -58,11 +58,11 @@ func vmExtensionProperties(os jujuos.OSType) (*compute.VirtualMachineExtensionPr
 	extensionSettings := map[string]interface{}{
 		"commandToExecute": commandToExecute,
 	}
-	return &compute.VirtualMachineExtensionProperties{
-		Publisher:               to.StringPtr(extensionPublisher),
-		Type:                    to.StringPtr(extensionType),
-		TypeHandlerVersion:      to.StringPtr(extensionVersion),
-		AutoUpgradeMinorVersion: to.BoolPtr(true),
+	return &armcompute.VirtualMachineExtensionProperties{
+		Publisher:               to.Ptr(extensionPublisher),
+		Type:                    to.Ptr(extensionType),
+		TypeHandlerVersion:      to.Ptr(extensionVersion),
+		AutoUpgradeMinorVersion: to.Ptr(true),
 		Settings:                &extensionSettings,
 	}, nil
 }
