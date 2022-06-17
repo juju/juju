@@ -247,6 +247,7 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 		// This can happen in situations where the upgrade completion hook
 		// fails and requires resolution before re-running.
 		if sts == p.Status {
+			logger.Debugf("unit %s already has upgrade series status %s", tag.Id(), sts)
 			continue
 		}
 
