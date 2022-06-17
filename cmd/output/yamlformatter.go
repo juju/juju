@@ -11,6 +11,7 @@ import (
 	"github.com/juju/ansiterm"
 	yamlv2 "gopkg.in/yaml.v2"
 	yamlv3 "gopkg.in/yaml.v3"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -51,6 +52,7 @@ func NewYamlFormatter() *YamlFormatter {
 			Bool:           ansiterm.Foreground(ansiterm.Magenta),
 			Number:         ansiterm.Foreground(ansiterm.Magenta),
 			KeyValSep:      ansiterm.Foreground(ansiterm.BrightMagenta),
+			Ip:             ansiterm.Foreground(ansiterm.Yellow),
 			String:         ansiterm.Foreground(ansiterm.Default),
 			IndentLine:     ansiterm.Foreground(ansiterm.Default),
 			DocumentStart:  ansiterm.Foreground(ansiterm.Default),
@@ -115,16 +117,6 @@ func (f *YamlFormatter) marshalScalar(prefix string, obj interface{}, buf *bytes
 		line := scanner.Text()
 		f.formatYamlLine(line, buf)
 	}
-	//for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-	//	//fmt.Println(i, line)
-	//	//if i > 0 {
-	//	//	buf.WriteString(prefix)
-	//	//}
-	//
-	//	//buf.WriteString(line)
-	//	//buf.WriteString("\n")
-	//	f.formatYamlLine(line, buf)
-	//}
 
 	return nil
 }
@@ -159,7 +151,6 @@ func (f *YamlFormatter) marshalValue(prefix string, val interface{}, skipIndentO
 }
 
 func (f *YamlFormatter) marshalString(str string, buf *bytes.Buffer) error {
-
 	strBytes, err := yamlv2.Marshal(str)
 	if err != nil {
 		return err
@@ -596,12 +587,35 @@ func (f *YamlFormatter) colorByType(val interface{}) string {
 		f.Colors.Number.Fprint(f.writer, strconv.FormatFloat(v, 'f', -1, 64))
 		str = f.buff.String()
 		f.buff.Reset()
+	case int:
+		f.Colors.Number.Fprint(f.writer, v)
+		str = f.buff.String()
+		f.buff.Reset()
 	case bool:
 		f.Colors.Bool.Fprint(f.writer, strconv.FormatBool(v))
 		str = f.buff.String()
 		f.buff.Reset()
 	case string:
-		str = f.colorYamlString(v)
+		if isNetAddr(v) {
+			splitted := strings.Split(v, "/")
+			ip := splitted[0]
+			net := splitted[1]
+			f.Colors.Ip.Fprint(f.writer, ip)
+			ip = f.buff.String()
+			f.buff.Reset()
+			f.Colors.Number.Fprint(f.writer, net)
+			net = f.buff.String()
+			f.buff.Reset()
+			str = fmt.Sprintf("%s/%s", ip, net)
+		} else {
+			if num, err := strconv.Atoi(v); err == nil {
+				f.Colors.Number.Fprint(f.writer, num)
+				str = f.buff.String()
+				f.buff.Reset()
+			} else {
+				str = f.colorYamlString(v)
+			}
+		}
 	case nil:
 		f.Colors.Null.Fprint(f.writer, null)
 		str = f.buff.String()
@@ -628,4 +642,14 @@ func findIndent(line string) int {
 // toSpaces returns repeated spaces whose length is n.
 func toSpaces(n int) string {
 	return strings.Repeat(" ", n)
+}
+
+func isNetAddr(val string) bool {
+	ip, net, err := net.ParseCIDR(val)
+	if err == nil {
+		if net.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
