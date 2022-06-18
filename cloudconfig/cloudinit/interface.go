@@ -16,6 +16,7 @@ import (
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v3/shell"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
@@ -283,7 +284,7 @@ type SSHAuthorizedKeysConfig interface {
 // SSHKeysConfig is the interface for setting ssh host keys.
 type SSHKeysConfig interface {
 	// SetSSHKeys sets the SSH host keys for the machine.
-	SetSSHKeys(SSHKeys)
+	SetSSHKeys(SSHKeys) error
 }
 
 // RootUserConfig is the interface for all root user-related settings.
@@ -489,11 +490,11 @@ func New(ser string) (CloudConfig, error) {
 	}
 }
 
+// TODO: de duplicate with cloudconfig/instancecfg
 // SSHKeys contains SSH host keys to configure on a machine.
-type SSHKeys struct {
-	RSA *SSHKey
-}
+type SSHKeys []SSHKey
 
+// TODO: de duplicate with cloudconfig/instancecfg
 // SSHKey is an SSH key pair.
 type SSHKey struct {
 	// Private is the SSH private key.
@@ -501,6 +502,9 @@ type SSHKey struct {
 
 	// Public is the SSH public key.
 	Public string
+
+	// PublicKeyAlgorithm contains the public key algorithm as defined by golang.org/x/crypto/ssh KeyAlgo*
+	PublicKeyAlgorithm string
 }
 
 // SSHKeyType is the type of the four used key types passed to cloudinit
@@ -509,11 +513,29 @@ type SSHKeyType string
 
 // The constant SSH key types sent to cloudinit through the cloudconfig
 const (
-	RSAPrivate SSHKeyType = "rsa_private"
-	RSAPublic  SSHKeyType = "rsa_public"
-	DSAPrivate SSHKeyType = "dsa_private"
-	DSAPublic  SSHKeyType = "dsa_public"
+	RSAPrivate     SSHKeyType = "rsa_private"
+	RSAPublic      SSHKeyType = "rsa_public"
+	DSAPrivate     SSHKeyType = "dsa_private"
+	DSAPublic      SSHKeyType = "dsa_public"
+	ECDSAPrivate   SSHKeyType = "ecdsa_private"
+	ECDSAPublic    SSHKeyType = "ecdsa_public"
+	ED25519Private SSHKeyType = "ed25519_private"
+	ED25519Public  SSHKeyType = "ed25519_public"
 )
+
+func NamesForSSHKeyAlgorithm(sshPublicKeyAlgorithm string) (private SSHKeyType, public SSHKeyType, err error) {
+	switch sshPublicKeyAlgorithm {
+	case ssh.KeyAlgoDSA:
+		return DSAPrivate, DSAPublic, nil
+	case ssh.KeyAlgoED25519:
+		return ED25519Private, ED25519Public, nil
+	case ssh.KeyAlgoRSA:
+		return RSAPrivate, RSAPublic, nil
+	case ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521:
+		return ECDSAPrivate, ECDSAPublic, nil
+	}
+	return "", "", errors.NotValidf("ssh key type %s", sshPublicKeyAlgorithm)
+}
 
 // OutputKind represents the available destinations for command output as sent
 // through the cloudnit cloudconfig

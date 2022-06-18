@@ -5,7 +5,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -455,15 +454,15 @@ func (s *charmHubRepositorySuite) expectCharmRefresh(c *gc.C, cfg charmhub.Refre
 						Channel:      "20.04",
 					},
 				},
-				MetadataYAML: json.RawMessage([]byte(`
+				MetadataYAML: `
 name: wordpress
 summary: Blog engine
 description: Blog engine
-`[1:])),
-				ConfigYAML: json.RawMessage([]byte(`
+`[1:],
+				ConfigYAML: `
 options:
   blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
-`[1:])),
+`[1:],
 			},
 			EffectiveChannel: "latest/stable",
 		}}, nil

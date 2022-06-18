@@ -4,8 +4,8 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -31,18 +31,18 @@ func (s *InstanceTypeSuite) TestNoDupes(c *gc.C) {
 }
 
 func (s *InstanceTypeSuite) TestStandard(c *gc.C) {
-	vm := compute.VirtualMachineSize{
-		Name:           to.StringPtr("Standard_A2"),
-		MemoryInMB:     to.Int32Ptr(100),
-		NumberOfCores:  to.Int32Ptr(2),
-		OsDiskSizeInMB: to.Int32Ptr(1024 * 1024),
+	vm := armcompute.VirtualMachineSize{
+		Name:           to.Ptr("Standard_A2"),
+		MemoryInMB:     to.Ptr(int32(100)),
+		NumberOfCores:  to.Ptr(int32(2)),
+		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(vm)
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2",
 		Name:     "Standard_A2",
 		Arch:     "amd64",
-		VirtType: to.StringPtr("Hyper-V"),
+		VirtType: to.Ptr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     700, // 7 * 100
@@ -51,18 +51,18 @@ func (s *InstanceTypeSuite) TestStandard(c *gc.C) {
 }
 
 func (s *InstanceTypeSuite) TestStandardVersioned(c *gc.C) {
-	vm := compute.VirtualMachineSize{
-		Name:           to.StringPtr("Standard_A2_v4"),
-		MemoryInMB:     to.Int32Ptr(100),
-		NumberOfCores:  to.Int32Ptr(2),
-		OsDiskSizeInMB: to.Int32Ptr(1024 * 1024),
+	vm := armcompute.VirtualMachineSize{
+		Name:           to.Ptr("Standard_A2_v4"),
+		MemoryInMB:     to.Ptr(int32(100)),
+		NumberOfCores:  to.Ptr(int32(2)),
+		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(vm)
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4",
 		Name:     "Standard_A2_v4",
 		Arch:     "amd64",
-		VirtType: to.StringPtr("Hyper-V"),
+		VirtType: to.Ptr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     696, // 7 * 100 - 4
@@ -71,18 +71,18 @@ func (s *InstanceTypeSuite) TestStandardVersioned(c *gc.C) {
 }
 
 func (s *InstanceTypeSuite) TestStandardPromo(c *gc.C) {
-	vm := compute.VirtualMachineSize{
-		Name:           to.StringPtr("Standard_A2_v4_Promo"),
-		MemoryInMB:     to.Int32Ptr(100),
-		NumberOfCores:  to.Int32Ptr(2),
-		OsDiskSizeInMB: to.Int32Ptr(1024 * 1024),
+	vm := armcompute.VirtualMachineSize{
+		Name:           to.Ptr("Standard_A2_v4_Promo"),
+		MemoryInMB:     to.Ptr(int32(100)),
+		NumberOfCores:  to.Ptr(int32(2)),
+		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(vm)
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4_Promo",
 		Name:     "Standard_A2_v4_Promo",
 		Arch:     "amd64",
-		VirtType: to.StringPtr("Hyper-V"),
+		VirtType: to.Ptr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     40300, // len(costs),
@@ -91,18 +91,18 @@ func (s *InstanceTypeSuite) TestStandardPromo(c *gc.C) {
 }
 
 func (s *InstanceTypeSuite) TestBasic(c *gc.C) {
-	vm := compute.VirtualMachineSize{
-		Name:           to.StringPtr("Basic_A2"),
-		MemoryInMB:     to.Int32Ptr(100),
-		NumberOfCores:  to.Int32Ptr(2),
-		OsDiskSizeInMB: to.Int32Ptr(1024 * 1024),
+	vm := armcompute.VirtualMachineSize{
+		Name:           to.Ptr("Basic_A2"),
+		MemoryInMB:     to.Ptr(int32(100)),
+		NumberOfCores:  to.Ptr(int32(2)),
+		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(vm)
 	c.Assert(inst, jc.DeepEquals, instances.InstanceType{
 		Id:       "Basic_A2",
 		Name:     "Basic_A2",
 		Arch:     "amd64",
-		VirtType: to.StringPtr("Hyper-V"),
+		VirtType: to.Ptr("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     40300, // len(costs),

@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -22,6 +20,7 @@ import (
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azurecli"
+	"github.com/juju/juju/provider/azure/internal/azuretesting"
 )
 
 type credentialsSuite struct {
@@ -29,6 +28,7 @@ type credentialsSuite struct {
 	servicePrincipalCreator servicePrincipalCreator
 	azureCLI                azureCLI
 	provider                environs.EnvironProvider
+	sender                  azuretesting.Senders
 }
 
 var _ = gc.Suite(&credentialsSuite{})
@@ -40,6 +40,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	s.provider = newProvider(c, azure.ProviderConfig{
 		ServicePrincipalCreator: &s.servicePrincipalCreator,
 		AzureCLI:                &s.azureCLI,
+		Sender:                  azuretesting.NewSerialSender(&s.sender),
 	})
 }
 
@@ -76,6 +77,15 @@ func (s *credentialsSuite) TestDetectCredentialsListError(c *gc.C) {
 	_, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+const (
+	expectedToken        = "tenant-id|https://graph.invalid/|access-token"
+	expectedToken2       = "tenant-id2|https://graph.invalid/|access-token"
+	expectedHomeToken    = "home-tenant-id|https://graph.invalid/|access-token"
+	expectedArmToken     = "tenant-id|https://arm.invalid/|access-token"
+	expectedArmToken2    = "tenant-id2|https://arm.invalid/|access-token"
+	expectedHomeArmToken = "home-tenant-id|https://arm.invalid/|access-token"
+)
 
 func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	s.azureCLI.Accounts = []azurecli.Account{{
@@ -115,21 +125,19 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 1)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
-	c.Assert(calls[0].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:   "https://graph.invalid/",
-		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "home-tenant-id|https://graph.invalid/|access-token",
-			Type:        "Bearer",
-		}),
+	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedHomeToken)
+	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedHomeArmToken)
+	params.GraphTokenProvider = nil
+	params.ResourceManagerTokenProvider = nil
+	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid/",
+		GraphResourceId:           "https://graph.invalid/",
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "home-tenant-id|https://arm.invalid/|access-token",
-			Type:        "Bearer",
-		}),
-		SubscriptionId: "test-account-id",
-		TenantId:       "tenant-id",
+		SubscriptionId:            "test-account-id",
+		TenantId:                  "tenant-id",
 	})
 }
 
@@ -213,38 +221,34 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 2)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
-	c.Assert(calls[0].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:   "https://graph.invalid/",
-		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "tenant-id|https://graph.invalid/|access-token",
-			Type:        "Bearer",
-		}),
+	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedToken)
+	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedArmToken)
+	params.GraphTokenProvider = nil
+	params.ResourceManagerTokenProvider = nil
+	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid/",
+		GraphResourceId:           "https://graph.invalid/",
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "tenant-id|https://arm.invalid/|access-token",
-			Type:        "Bearer",
-		}),
-		SubscriptionId: "test-account1-id",
-		TenantId:       "tenant-id",
+		SubscriptionId:            "test-account1-id",
+		TenantId:                  "tenant-id",
 	})
 	c.Assert(calls[1].FuncName, gc.Equals, "Create")
-	c.Assert(calls[1].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:   "https://graph.invalid/",
-		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "tenant-id2|https://graph.invalid/|access-token",
-			Type:        "Bearer",
-		}),
+	params, ok = calls[1].Args[1].(azureauth.ServicePrincipalParams)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedToken2)
+	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedArmToken2)
+	params.GraphTokenProvider = nil
+	params.ResourceManagerTokenProvider = nil
+	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid/",
+		GraphResourceId:           "https://graph.invalid/",
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "tenant-id2|https://arm.invalid/|access-token",
-			Type:        "Bearer",
-		}),
-		SubscriptionId: "test-account2-id",
-		TenantId:       "tenant-id2",
+		SubscriptionId:            "test-account2-id",
+		TenantId:                  "tenant-id2",
 	})
 }
 
@@ -295,26 +299,25 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 1)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
-	c.Assert(calls[0].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:   "https://graph.invalid/",
-		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "tenant-id|https://graph.invalid/|access-token",
-			Type:        "Bearer",
-		}),
+	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedToken)
+	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedArmToken)
+	params.GraphTokenProvider = nil
+	params.ResourceManagerTokenProvider = nil
+	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid/",
+		GraphResourceId:           "https://graph.invalid/",
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
-			AccessToken: "tenant-id|https://arm.invalid/|access-token",
-			Type:        "Bearer",
-		}),
-		SubscriptionId: "test-account1-id",
-		TenantId:       "tenant-id",
+		SubscriptionId:            "test-account1-id",
+		TenantId:                  "tenant-id",
 	})
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
-	in := cloud.NewCredential("interactive", map[string]string{"subscription-id": "subscription"})
+	s.sender = azuretesting.Senders{discoverAuthSender()}
+	in := cloud.NewCredential("interactive", map[string]string{"subscription-id": fakeSubscriptionId})
 	ctx := cmdtesting.Context(c)
 	out, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		Credential:            in,
@@ -329,7 +332,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 		"application-id":        "appid",
 		"application-password":  "service-principal-password",
 		"application-object-id": "application-object-id",
-		"subscription-id":       "subscription",
+		"subscription-id":       fakeSubscriptionId,
 	})
 
 	s.servicePrincipalCreator.CheckCallNames(c, "InteractiveCreate")
@@ -339,12 +342,14 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 		GraphResourceId:           "https://graph.invalid/",
 		ResourceManagerEndpoint:   "https://arm.invalid",
 		ResourceManagerResourceId: "https://management.core.invalid/",
-		SubscriptionId:            "subscription",
+		SubscriptionId:            fakeSubscriptionId,
+		TenantId:                  fakeTenantId,
 	})
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialInteractiveError(c *gc.C) {
-	in := cloud.NewCredential("interactive", map[string]string{"subscription-id": "subscription"})
+	s.sender = azuretesting.Senders{discoverAuthSender()}
+	in := cloud.NewCredential("interactive", map[string]string{"subscription-id": fakeSubscriptionId})
 	s.servicePrincipalCreator.SetErrors(errors.New("blargh"))
 	ctx := cmdtesting.Context(c)
 	_, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{

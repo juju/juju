@@ -1925,7 +1925,6 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-cloudsigma                                    
 equinix                                       
 google                                        
 oracle                                        
@@ -1985,7 +1984,6 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-cloudsigma                                    
 equinix                                       
 google                                        
 oracle                                        

@@ -330,9 +330,9 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAppChangeCharmURLNo
 	s.wc0.AssertOneChange()
 
 	s.state.EXPECT().Application("foo").Return(s.app, nil)
-	curl := charm.MustParseURL("ch:name-me-3")
-	s.app.EXPECT().CharmURL().Return(curl)
-	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf(""))
+	curl := "ch:name-me-3"
+	s.app.EXPECT().CharmURL().Return(&curl)
+	s.state.EXPECT().Charm(charm.MustParseURL(curl)).Return(nil, errors.NotFoundf(""))
 
 	s.appChanges <- []string{"foo"}
 	s.wc0.AssertNoChange()
@@ -394,9 +394,9 @@ func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcher(rev stri
 	} else {
 		s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{})
 	}
-	chURL := charm.MustParseURL(curl)
 	s.state.EXPECT().Application("foo").Return(s.app, nil)
-	s.app.EXPECT().CharmURL().Return(chURL)
+	s.app.EXPECT().CharmURL().Return(&curl)
+	chURL := charm.MustParseURL(curl)
 	s.state.EXPECT().Charm(chURL).Return(s.charm, nil)
 	s.charmChanges <- []string{curl}
 	s.appChanges <- []string{"foo"}
@@ -451,14 +451,15 @@ func (s *lxdProfileWatcherSuite) setupScenario(startEmpty, withProfile bool) {
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
 	s.unit.EXPECT().Name().AnyTimes().Return("foo/0")
 
-	curl := charm.MustParseURL("ch:name-me")
+	curlStr := "ch:name-me"
+	curl := charm.MustParseURL(curlStr)
 	s.state.EXPECT().Charm(curl).Return(s.charm, nil)
 	if startEmpty {
 		s.machine0.EXPECT().Units().Return(nil, nil)
 	} else {
 		s.machine0.EXPECT().Units().Return([]instancemutater.Unit{s.unit}, nil)
 		s.unit.EXPECT().Application().Return(s.app, nil)
-		s.app.EXPECT().CharmURL().Return(curl)
+		s.app.EXPECT().CharmURL().Return(&curlStr)
 	}
 
 	if withProfile {

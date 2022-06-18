@@ -248,11 +248,7 @@ type BootstrapConfig struct {
 }
 
 // SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
-type SSHHostKeys struct {
-	// RSA, if non-nil, contains the RSA key to configure as the initial
-	// SSH host key.
-	RSA *SSHKeyPair
-}
+type SSHHostKeys []SSHKeyPair
 
 // SSHKeyPair is an SSH host key pair.
 type SSHKeyPair struct {
@@ -261,6 +257,9 @@ type SSHKeyPair struct {
 
 	// Public contains the public key in authorized_keys format.
 	Public string
+
+	// PublicKeyAlgorithm contains the public key algorithm as defined by golang.org/x/crypto/ssh KeyAlgo*
+	PublicKeyAlgorithm string
 }
 
 // StateInitializationParams contains parameters for initializing the

@@ -103,7 +103,7 @@ type applicationShim struct {
 	*state.Application
 }
 
-func (a *applicationShim) CharmURL() *charm.URL {
+func (a *applicationShim) CharmURL() *string {
 	curl, _ := a.Application.CharmURL()
 	return curl
 }

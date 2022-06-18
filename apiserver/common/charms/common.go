@@ -27,7 +27,7 @@ type Application interface {
 }
 
 type Charm interface {
-	URL() *charm.URL
+	String() string
 	Revision() int
 	Meta() *charm.Meta
 	Config() *charm.Config
@@ -89,7 +89,7 @@ func (a *CharmInfoAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
-	info := convertCharm(curl, aCharm)
+	info := convertCharm(aCharm)
 	return info, nil
 }
 
@@ -125,13 +125,13 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(args params.Entity) (para
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
-	return convertCharm(ch.URL(), ch), nil
+	return convertCharm(ch), nil
 }
 
-func convertCharm(curl *charm.URL, ch Charm) params.Charm {
+func convertCharm(ch Charm) params.Charm {
 	charm := params.Charm{
 		Revision: ch.Revision(),
-		URL:      curl.String(),
+		URL:      ch.String(),
 		Config:   params.ToCharmOptionMap(ch.Config()),
 		Meta:     convertCharmMeta(ch.Meta()),
 		Actions:  convertCharmActions(ch.Actions()),

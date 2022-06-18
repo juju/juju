@@ -21,7 +21,6 @@ import (
 	"github.com/juju/utils/v3/parallel"
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/ssh"
-	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -39,6 +38,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	pkissh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretools "github.com/juju/juju/tools"
@@ -532,9 +532,9 @@ func hostBootstrapSSHOptions(
 	hostKeys := instanceConfig.Bootstrap.InitialSSHHostKeys
 	var algos []string
 	var pubKeys []string
-	if hostKeys.RSA != nil {
-		algos = append(algos, cryptossh.KeyAlgoRSA)
-		pubKeys = append(pubKeys, hostKeys.RSA.Public)
+	for _, hostKey := range hostKeys {
+		algos = append(algos, hostKey.PublicKeyAlgorithm)
+		pubKeys = append(pubKeys, hostKey.Public)
 	}
 	if len(pubKeys) == 0 {
 		return options, cleanup, nil
@@ -812,13 +812,23 @@ func generateSSHHostKeys() (instancecfg.SSHHostKeys, error) {
 	// Generate a single ssh-rsa key. We'll configure the SSH client
 	// such that that is the only host key type we'll accept.
 	var keys instancecfg.SSHHostKeys
-	private, public, err := ssh.GenerateKey("juju-bootstrap")
+
+	hostKeys, err := pkissh.GenerateHostKeys()
 	if err != nil {
-		return keys, errors.Annotate(err, "generating SSH key")
+		return nil, errors.Annotate(err, "generating SSH keys")
 	}
-	keys.RSA = &instancecfg.SSHKeyPair{
-		Private: private,
-		Public:  public,
+
+	for i, key := range hostKeys {
+		private, public, keyType, err := pkissh.FormatKey(key, fmt.Sprintf("juju-bootstrap-%d", i))
+		if err != nil {
+			return nil, errors.Annotate(err, "generating SSH key")
+		}
+
+		keys = append(keys, instancecfg.SSHKeyPair{
+			Private:            private,
+			Public:             public,
+			PublicKeyAlgorithm: keyType,
+		})
 	}
 	return keys, nil
 }

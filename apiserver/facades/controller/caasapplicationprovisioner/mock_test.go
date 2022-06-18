@@ -291,9 +291,10 @@ func (a *mockApplication) CharmModifiedVersion() int {
 	return a.charmModifiedVersion
 }
 
-func (a *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+func (a *mockApplication) CharmURL() (curl *string, force bool) {
 	a.MethodCall(a, "CharmURL")
-	return a.charm.URL(), false
+	cURL := a.charm.URL().String()
+	return &cURL, false
 }
 
 func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, error) {

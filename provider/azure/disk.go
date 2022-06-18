@@ -9,13 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	keyvaultservices "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2019-09-01/keyvault"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/gofrs/uuid"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/context"
@@ -36,7 +35,6 @@ const (
 // diskEncryptionInfo creates the resources needed for encrypting a disk,
 // including disk encryption set and vault.
 func (env *azureEnviron) diskEncryptionInfo(
-	stdCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
 	rootDisk *storage.VolumeParams,
 	envTags map[string]string,
@@ -85,20 +83,17 @@ func (env *azureEnviron) diskEncryptionInfo(
 
 	envTagPtr := make(map[string]*string)
 	for k, v := range envTags {
-		envTagPtr[k] = to.StringPtr(v)
+		envTagPtr[k] = to.Ptr(v)
 	}
 
 	// See if the disk encryption set already exists.
-	encryptionSetClient := compute.DiskEncryptionSetsClient{
-		BaseClient: env.compute,
-	}
-	existingDes, err := encryptionSetClient.Get(stdCtx, env.resourceGroup, diskEncryptionSetName)
-	if err != nil && !isNotFoundResult(existingDes.Response) {
+	existingDes, err := env.encryptionSets.Get(ctx, env.resourceGroup, diskEncryptionSetName, nil)
+	if err != nil && !errorutils.IsNotFoundError(err) {
 		return "", errors.Trace(err)
 	}
 	// Record the identity of an existing disk encryption set
 	// so we can maintain the access policy on the vault.
-	var desIdentity *compute.EncryptionSetIdentity
+	var desIdentity *armcompute.EncryptionSetIdentity
 	if err == nil {
 		desIdentity = existingDes.Identity
 	}
@@ -111,7 +106,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 	defer env.mu.Unlock()
 
 	vaultName := fmt.Sprintf("%s-%s", vaultNamePrefix, env.config.Config.UUID()[:8])
-	vault, vaultParams, err := env.ensureVault(stdCtx, vaultName, userID, envTagPtr, desIdentity)
+	vault, vaultParams, err := env.ensureVault(ctx, vaultName, userID, envTagPtr, desIdentity)
 	if err != nil {
 		return "", errorutils.HandleCredentialError(errors.Annotatef(err, "creating vault %q", vaultName), ctx)
 	}
@@ -120,7 +115,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 	if keyName == "" {
 		keyName = "disk-secret"
 	}
-	keyRef, err := env.createVaultKey(stdCtx, *vault.Properties.VaultURI, keyName)
+	keyRef, err := env.createVaultKey(ctx, *vault.Properties.VaultURI, *vault.Name, keyName)
 	if err != nil {
 		return "", errorutils.HandleCredentialError(errors.Annotatef(err, "creating vault key in %q", vaultName), ctx)
 	}
@@ -131,38 +126,33 @@ func (env *azureEnviron) diskEncryptionInfo(
 	}
 
 	// Create the disk encryption set.
-	desIdentity, err = env.ensureDiskEncryptionSet(stdCtx, diskEncryptionSetName, envTagPtr, vault.ID, keyRef)
+	desIdentity, err = env.ensureDiskEncryptionSet(ctx, diskEncryptionSetName, envTagPtr, vault.ID, keyRef)
 	if err != nil {
-		return "", errorutils.HandleCredentialError(errors.Annotatef(err, "creating vault key in %q", vaultName), ctx)
+		return "", errorutils.HandleCredentialError(errors.Annotatef(err, "creating disk encryption set %q", diskEncryptionSetName), ctx)
 	}
 
 	// Update the vault access policies to allow the disk encryption set to access the key.
-	vaultClient := keyvault.VaultsClient{
-		BaseClient: env.vault,
-	}
-	vaultAccessPolicies := *vaultParams.Properties.AccessPolicies
+	vaultAccessPolicies := vaultParams.Properties.AccessPolicies
 	vaultAccessPolicies = append(vaultAccessPolicies, vaultAccessPolicy(desIdentity))
-	vaultParams.Properties.AccessPolicies = &vaultAccessPolicies
-	vaultFuture, err := vaultClient.CreateOrUpdate(stdCtx, env.resourceGroup, vaultName, *vaultParams)
+	vaultParams.Properties.AccessPolicies = vaultAccessPolicies
+	poller, err := env.vault.BeginCreateOrUpdate(ctx, env.resourceGroup, vaultName, *vaultParams, nil)
+	if err == nil {
+		_, err = poller.PollUntilDone(ctx, nil)
+	}
 	if err != nil {
 		return "", errorutils.HandleCredentialError(errors.Annotatef(err, "updating vault %q access policies ", vaultName), ctx)
-	}
-	if err := vaultFuture.WaitForCompletionRef(stdCtx, vaultClient.Client); err != nil {
-		return "", errorutils.HandleCredentialError(errors.Annotatef(err, "creating vault %q", vaultName), ctx)
 	}
 	return diskEncryptionSetID, nil
 }
 
-func vaultAccessPolicy(desIdentity *compute.EncryptionSetIdentity) keyvault.AccessPolicyEntry {
-	tenantID := uuid.FromStringOrNil(to.String(desIdentity.TenantID))
-	return keyvault.AccessPolicyEntry{
-		TenantID: &tenantID,
+func vaultAccessPolicy(desIdentity *armcompute.EncryptionSetIdentity) *armkeyvault.AccessPolicyEntry {
+	tenantID := uuid.FromStringOrNil(toValue(desIdentity.TenantID))
+	return &armkeyvault.AccessPolicyEntry{
+		TenantID: to.Ptr(tenantID.String()),
 		ObjectID: desIdentity.PrincipalID,
-		Permissions: &keyvault.Permissions{
-			Keys: &[]keyvault.KeyPermissions{
-				keyvault.KeyPermissionsWrapKey, keyvault.KeyPermissionsUnwrapKey,
-				keyvault.KeyPermissionsList, keyvault.KeyPermissionsGet,
-			},
+		Permissions: &armkeyvault.Permissions{
+			Keys: to.SliceOfPtrs(armkeyvault.KeyPermissionsWrapKey, armkeyvault.KeyPermissionsUnwrapKey,
+				armkeyvault.KeyPermissionsList, armkeyvault.KeyPermissionsGet),
 		},
 	}
 }
@@ -170,59 +160,50 @@ func vaultAccessPolicy(desIdentity *compute.EncryptionSetIdentity) keyvault.Acce
 // ensureDiskEncryptionSet creates or updates a disk encryption set
 // to use the specified vault and key.
 func (env *azureEnviron) ensureDiskEncryptionSet(
-	stdCtx stdcontext.Context,
+	ctx stdcontext.Context,
 	encryptionSetName string,
 	envTags map[string]*string,
 	vaultID, vaultKey *string,
-) (*compute.EncryptionSetIdentity, error) {
+) (*armcompute.EncryptionSetIdentity, error) {
 	logger.Debugf("ensure disk encryption set %q", encryptionSetName)
-	encryptionSetClient := compute.DiskEncryptionSetsClient{
-		BaseClient: env.compute,
-	}
-	diskEncryptionSetFuture, err := encryptionSetClient.CreateOrUpdate(stdCtx, env.resourceGroup, encryptionSetName, compute.DiskEncryptionSet{
-		Location: to.StringPtr(env.location),
+	poller, err := env.encryptionSets.BeginCreateOrUpdate(ctx, env.resourceGroup, encryptionSetName, armcompute.DiskEncryptionSet{
+		Location: to.Ptr(env.location),
 		Tags:     envTags,
-		Identity: &compute.EncryptionSetIdentity{
-			Type: compute.DiskEncryptionSetIdentityTypeSystemAssigned,
+		Identity: &armcompute.EncryptionSetIdentity{
+			Type: to.Ptr(armcompute.DiskEncryptionSetIdentityTypeSystemAssigned),
 		},
-		EncryptionSetProperties: &compute.EncryptionSetProperties{
-			ActiveKey: &compute.KeyForDiskEncryptionSet{
-				SourceVault: &compute.SourceVault{
+		Properties: &armcompute.EncryptionSetProperties{
+			ActiveKey: &armcompute.KeyForDiskEncryptionSet{
+				SourceVault: &armcompute.SourceVault{
 					ID: vaultID,
 				},
 				KeyURL: vaultKey,
 			},
 		},
-	})
+	}, nil)
+	var result armcompute.DiskEncryptionSetsClientCreateOrUpdateResponse
+	if err == nil {
+		result, err = poller.PollUntilDone(ctx, nil)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := diskEncryptionSetFuture.WaitForCompletionRef(stdCtx, encryptionSetClient.Client); err != nil {
-		return nil, errors.Trace(err)
-	}
-	encryptionSetValue, err := encryptionSetClient.Get(stdCtx, env.resourceGroup, encryptionSetName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return encryptionSetValue.Identity, nil
+	return result.Identity, nil
 }
 
 // ensureVault creates a vault and adds an access policy for the
 // specified disk encryption set identity.
 func (env *azureEnviron) ensureVault(
-	stdCtx stdcontext.Context,
+	ctx stdcontext.Context,
 	vaultName string,
 	userID string,
 	envTags map[string]*string,
-	desIdentity *compute.EncryptionSetIdentity,
-) (*keyvault.Vault, *keyvault.VaultCreateOrUpdateParameters, error) {
+	desIdentity *armcompute.EncryptionSetIdentity,
+) (*armkeyvault.Vault, *armkeyvault.VaultCreateOrUpdateParameters, error) {
 	logger.Debugf("ensure vault key %q", vaultName)
-	vaultClient := keyvault.VaultsClient{
-		BaseClient: env.vault,
-	}
-	vaultTenantID := uuid.FromStringOrNil(env.authorizer.tenantID)
+	vaultTenantID := uuid.FromStringOrNil(env.tenantId)
 	// Create the vault with full access for the tenant.
-	allKeyPermissions := keyvault.PossibleKeyPermissionsValues()
+	allKeyPermissions := armkeyvault.PossibleKeyPermissionsValues()
 
 	credAttrs := env.cloud.Credential.Attributes()
 	appObjectID := credAttrs[credAttrApplicationObjectId]
@@ -240,80 +221,74 @@ func (env *azureEnviron) ensureVault(
 		env.cloud.Credential = &cred
 	}
 
-	vaultAccessPolicies := []keyvault.AccessPolicyEntry{{
-		TenantID: &vaultTenantID,
-		ObjectID: to.StringPtr(appObjectID),
-		Permissions: &keyvault.Permissions{
-			Keys: &allKeyPermissions,
+	vaultAccessPolicies := []*armkeyvault.AccessPolicyEntry{{
+		TenantID: to.Ptr(vaultTenantID.String()),
+		ObjectID: to.Ptr(appObjectID),
+		Permissions: &armkeyvault.Permissions{
+			Keys: to.SliceOfPtrs(allKeyPermissions...),
 		},
 	}}
 	if userID != "" {
-		vaultAccessPolicies = append(vaultAccessPolicies, keyvault.AccessPolicyEntry{
-			TenantID: &vaultTenantID,
-			ObjectID: to.StringPtr(userID),
-			Permissions: &keyvault.Permissions{
-				Keys: &allKeyPermissions,
+		vaultAccessPolicies = append(vaultAccessPolicies, &armkeyvault.AccessPolicyEntry{
+			TenantID: to.Ptr(vaultTenantID.String()),
+			ObjectID: to.Ptr(userID),
+			Permissions: &armkeyvault.Permissions{
+				Keys: to.SliceOfPtrs(allKeyPermissions...),
 			},
 		})
 	}
 	if desIdentity != nil {
 		vaultAccessPolicies = append(vaultAccessPolicies, vaultAccessPolicy(desIdentity))
 	}
-	vaultParams := keyvault.VaultCreateOrUpdateParameters{
-		Location: to.StringPtr(env.location),
+	vaultParams := armkeyvault.VaultCreateOrUpdateParameters{
+		Location: to.Ptr(env.location),
 		Tags:     envTags,
-		Properties: &keyvault.VaultProperties{
-			TenantID:                 &vaultTenantID,
-			EnabledForDiskEncryption: to.BoolPtr(true),
-			EnableSoftDelete:         to.BoolPtr(true),
-			EnablePurgeProtection:    to.BoolPtr(true),
-			CreateMode:               keyvault.CreateModeDefault,
-			NetworkAcls: &keyvault.NetworkRuleSet{
-				Bypass:        keyvault.AzureServices,
-				DefaultAction: keyvault.Allow,
+		Properties: &armkeyvault.VaultProperties{
+			TenantID:                 to.Ptr(vaultTenantID.String()),
+			EnabledForDiskEncryption: to.Ptr(true),
+			EnableSoftDelete:         to.Ptr(true),
+			EnablePurgeProtection:    to.Ptr(true),
+			CreateMode:               to.Ptr(armkeyvault.CreateModeDefault),
+			NetworkACLs: &armkeyvault.NetworkRuleSet{
+				Bypass:        to.Ptr(armkeyvault.NetworkRuleBypassOptionsAzureServices),
+				DefaultAction: to.Ptr(armkeyvault.NetworkRuleActionAllow),
 			},
-			Sku: &keyvault.Sku{
-				Family: to.StringPtr("A"),
-				Name:   keyvault.Standard,
+			SKU: &armkeyvault.SKU{
+				Family: to.Ptr(armkeyvault.SKUFamilyA),
+				Name:   to.Ptr(armkeyvault.SKUNameStandard),
 			},
-			AccessPolicies: &vaultAccessPolicies,
+			AccessPolicies: vaultAccessPolicies,
 		},
 	}
 
 	// Before creating check to see if the key vault has been soft deleted.
-	softDeletedKeyVault, err := vaultClient.GetDeleted(stdCtx, vaultName, env.location)
+	_, err := env.vault.GetDeleted(ctx, vaultName, env.location, nil)
 	if err != nil {
-		if !isNotFoundResult(softDeletedKeyVault.Response) && !isForbiddenResult(softDeletedKeyVault.Response) {
+		if !errorutils.IsNotFoundError(err) && !errorutils.IsForbiddenError(err) {
 			return nil, nil, errors.Annotatef(err, "checking for an existing soft deleted vault %q", vaultName)
 		}
 	}
-	if !isNotFoundResult(softDeletedKeyVault.Response) && !isForbiddenResult(softDeletedKeyVault.Response) {
+	if !errorutils.IsNotFoundError(err) && !errorutils.IsForbiddenError(err) {
 		logger.Debugf("key vault %q has been soft deleted", vaultName)
-		vaultParams.Properties.CreateMode = keyvault.CreateModeRecover
+		vaultParams.Properties.CreateMode = to.Ptr(armkeyvault.CreateModeRecover)
 	}
-	vaultFuture, err := vaultClient.CreateOrUpdate(stdCtx, env.resourceGroup, vaultName, vaultParams)
+	var result armkeyvault.VaultsClientCreateOrUpdateResponse
+	poller, err := env.vault.BeginCreateOrUpdate(ctx, env.resourceGroup, vaultName, vaultParams, nil)
+	if err == nil {
+		result, err = poller.PollUntilDone(ctx, nil)
+	}
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "creating vault")
 	}
-	if err := vaultFuture.WaitForCompletionRef(stdCtx, vaultClient.Client); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	vault, err := vaultClient.Get(stdCtx, env.resourceGroup, vaultName)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting created vault")
-	}
-	return &vault, &vaultParams, nil
+	return &result.Vault, &vaultParams, nil
 }
 
-func (env *azureEnviron) deleteVault(stdCtx stdcontext.Context, ctx context.ProviderCallContext, vaultName string) error {
+func (env *azureEnviron) deleteVault(ctx context.ProviderCallContext, vaultName string) error {
 	logger.Debugf("delete vault key %q", vaultName)
-	vaultClient := keyvault.VaultsClient{
-		BaseClient: env.vault,
-	}
-	result, err := vaultClient.Delete(stdCtx, env.resourceGroup, vaultName)
+	_, err := env.vault.Delete(ctx, env.resourceGroup, vaultName, nil)
 	if err != nil {
 		err = errorutils.HandleCredentialError(err, ctx)
-		if !isNotFoundResult(result) {
+		if !errorutils.IsNotFoundError(err) {
 			return errors.Annotatef(err, "deleting vault key %q", vaultName)
 		}
 	}
@@ -323,56 +298,49 @@ func (env *azureEnviron) deleteVault(stdCtx stdcontext.Context, ctx context.Prov
 // createVaultKey creates, or recovers a soft deleted key,
 // in the specified vault.
 func (env *azureEnviron) createVaultKey(
-	stdCtx stdcontext.Context,
+	ctx stdcontext.Context,
 	vaultBaseURI string,
+	vaultName string,
 	keyName string,
 ) (*string, error) {
-	logger.Debugf("create vault key %q in %q", keyName, vaultBaseURI)
-	resp, err := env.vaultKey.CreateKey(
-		stdCtx,
-		vaultBaseURI,
-		keyName,
-		keyvaultservices.KeyCreateParameters{
-			KeyOps: &[]keyvaultservices.JSONWebKeyOperation{
-				keyvaultservices.WrapKey,
-				keyvaultservices.UnwrapKey,
-			},
+	logger.Debugf("create vault key %q in %q", keyName, vaultName)
+	keyClient, err := azkeys.NewClient(vaultBaseURI, env.credential, &azkeys.ClientOptions{
+		ClientOptions: env.clientOptions.ClientOptions})
+	if err != nil {
+		return nil, errors.Annotatef(err, "creating vault key client for %q", vaultName)
+	}
+
+	resp, err := keyClient.CreateKey(
+		ctx,
+		vaultName,
+		azkeys.KeyTypeRSA,
+		&azkeys.CreateKeyOptions{
 			// TODO(wallyworld) - make these configurable via storage pool attributes
-			KeyAttributes: &keyvaultservices.KeyAttributes{
-				Enabled: to.BoolPtr(true),
+			Size: to.Ptr(int32(4096)),
+			Operations: []*azkeys.Operation{
+				to.Ptr(azkeys.OperationWrapKey),
+				to.Ptr(azkeys.OperationUnwrapKey),
 			},
-			KeySize: to.Int32Ptr(4096),
-			Kty:     keyvaultservices.RSA,
+			Properties: &azkeys.Properties{
+				Name:    to.Ptr(keyName),
+				Enabled: to.Ptr(true),
+			},
 		})
 	if err == nil {
-		return resp.Key.Kid, nil
+		return resp.Key.ID, nil
 	}
-	if !isConflictResult(resp.Response) {
+	if !errorutils.IsConflictError(err) {
 		return nil, errors.Trace(err)
 	}
 
 	// If the key was previously soft deleted, recover it.
-	recoveredKey, err := env.vaultKey.RecoverDeletedKey(stdCtx, vaultBaseURI, keyName)
+	poller, err := keyClient.BeginRecoverDeletedKey(ctx, keyName, nil)
+	var result azkeys.RecoverDeletedKeyResponse
+	if err == nil {
+		result, err = poller.PollUntilDone(ctx, 5*time.Second)
+	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "restoring soft deleted vault key %q in %q", keyName, vaultName)
 	}
-	if err := env.waitForResource(
-		func() error {
-			_, err = env.vaultKey.GetKey(stdCtx, vaultBaseURI, keyName, "")
-			return err
-		},
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return recoveredKey.Key.Kid, nil
-}
-
-func (env *azureEnviron) waitForResource(getResource func() error) error {
-	return retry.Call(retry.CallArgs{
-		Func:        getResource,
-		Attempts:    -1,
-		Delay:       5 * time.Second,
-		MaxDuration: 5 * time.Minute,
-		Clock:       env.provider.config.RetryClock,
-	})
+	return result.Key.ID, nil
 }

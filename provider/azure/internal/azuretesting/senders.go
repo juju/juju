@@ -4,19 +4,27 @@
 package azuretesting
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"reflect"
 	"regexp"
 	"sync"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/juju/loggo"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")
+
+// FakeCredential is a credential that returns a fake token.
+type FakeCredential struct{}
+
+func (c *FakeCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{Token: "FakeToken"}, nil
+}
 
 // MockSender is a wrapper around autorest/mocks.Sender, extending it with
 // request path checking to ease testing.
@@ -44,16 +52,25 @@ func (s *MockSender) Do(req *http.Request) (*http.Response, error) {
 	return s.Sender.Do(req)
 }
 
+const fakeTenantId = "11111111-1111-1111-1111-111111111111"
+
 // NewSenderWithValue returns a *mocks.Sender that marshals the provided object
 // to JSON and sets it as the content. This function will panic if marshalling
 // fails.
 func NewSenderWithValue(v interface{}) *MockSender {
-	content, err := JsonMarshalRaw(v, reflect.TypeOf(date.Date{}), reflect.TypeOf(date.Time{}))
+	content, err := JsonMarshalRaw(v)
 	if err != nil {
 		panic(err)
 	}
 	sender := &MockSender{Sender: mocks.NewSender()}
-	sender.AppendResponse(mocks.NewResponseWithContent(string(content)))
+	resp := mocks.NewResponseWithContent(string(content))
+	mocks.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{
+		fmt.Sprintf(
+			`authorization="https://testing.invalid/%s" scope="scope" resource="resource"`,
+			fakeTenantId,
+		),
+	})
+	sender.AppendResponse(resp)
 	return sender
 }
 

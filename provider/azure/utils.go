@@ -5,11 +5,10 @@ package azure
 
 import (
 	"math/rand"
-	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/to"
+	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
@@ -38,63 +37,71 @@ func randomAdminPassword() string {
 	return string(password)
 }
 
-func isNotFoundResponse(resp *http.Response) bool {
-	return isNotFoundResult(autorest.Response{resp})
-}
-
-func isNotFoundResult(resp autorest.Response) bool {
-	if resp.Response != nil && resp.StatusCode == http.StatusNotFound {
-		return true
-	}
-	return false
-}
-
-func isConflictResult(resp autorest.Response) bool {
-	if resp.Response != nil && resp.StatusCode == http.StatusConflict {
-		return true
-	}
-	return false
-}
-
-func isForbiddenResult(resp autorest.Response) bool {
-	if resp.Response != nil && resp.StatusCode == http.StatusForbidden {
-		return true
-	}
-	return false
-}
-
 // collectAPIVersions returns a map of the latest API version for each
 // possible resource type. This is needed to use the Azure Resource
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(ctx context.ProviderCallContext, client resources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(ctx context.ProviderCallContext, client *armresources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
-	var res resources.ProviderListResultIterator
-	res, err := client.ListComplete(ctx, nil, "")
-	if err != nil {
-		return result, errorutils.HandleCredentialError(errors.Trace(err), ctx)
-	}
-	for ; res.NotDone(); err = res.NextWithContext(ctx) {
+	res := client.NewListPager(nil)
+	for res.More() {
+		p, err := res.NextPage(ctx)
 		if err != nil {
 			return map[string]string{}, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 		}
 
-		provider := res.Value()
-		if provider.ResourceTypes == nil {
-			continue
-		}
-
-		for _, resourceType := range *provider.ResourceTypes {
-			key := to.String(provider.Namespace) + "/" + to.String(resourceType.ResourceType)
-			versions := to.StringSlice(resourceType.APIVersions)
-			if len(versions) == 0 {
-				continue
+		providers := p.ProviderListResult
+		for _, provider := range providers.Value {
+			for _, resourceType := range provider.ResourceTypes {
+				key := toValue(provider.Namespace) + "/" + toValue(resourceType.ResourceType)
+				if len(resourceType.APIVersions) == 0 {
+					continue
+				}
+				// The versions are newest-first.
+				result[key] = toValue(resourceType.APIVersions[0])
 			}
-			// The versions are newest-first.
-			result[key] = versions[0]
 		}
 	}
 	return result, nil
+}
+
+func azureCloud(apiEndpoint, identityEndpoint string) azurecloud.Configuration {
+	// The AD graph API is deprecated. Use the new one.
+	if identityEndpoint == "https://graph.windows.net" {
+		identityEndpoint = azurecloud.AzurePublic.ActiveDirectoryAuthorityHost
+	}
+	return azurecloud.Configuration{
+		ActiveDirectoryAuthorityHost: identityEndpoint,
+		Services: map[azurecloud.ServiceName]azurecloud.ServiceConfiguration{
+			azurecloud.ResourceManager: {
+				Audience: "https://management.core.windows.net/",
+				Endpoint: apiEndpoint,
+			},
+		},
+	}
+}
+
+func toValue[T any](v *T) T {
+	if v == nil {
+		return *new(T)
+	}
+	return *v
+}
+
+func toMap(in map[string]*string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range in {
+		result[k] = toValue(v)
+	}
+	return result
+}
+
+func toMapPtr(in map[string]string) map[string]*string {
+	result := make(map[string]*string)
+	for k, v := range in {
+		result[k] = to.Ptr(v)
+	}
+	return result
 }
