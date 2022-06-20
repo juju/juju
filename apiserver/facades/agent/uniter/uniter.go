@@ -54,6 +54,7 @@ type UniterAPI struct {
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
 	lxdProfileAPI       *LXDProfileAPIv2
+	serviceLocatorAPI   *ServiceLocatorAPI
 	m                   *state.Model
 	st                  *state.State
 	clock               clock.Clock
@@ -2890,3 +2891,5 @@ func (u *UniterAPI) LXDProfileRequired(args params.CharmURLs) (params.BoolResult
 func (u *UniterAPI) CanApplyLXDProfile(args params.Entities) (params.BoolResults, error) {
 	return u.lxdProfileAPI.CanApplyLXDProfile(args)
 }
+
+func (u *UniterAPIV18) AddServiceLocator(_ struct{}) {}
