@@ -230,10 +230,6 @@ func (c *statusCommand) Init(args []string) error {
 		c.clock = clock.WallClock
 	}
 
-	if c.color && c.noColor {
-		return errors.Errorf("cannot mix --no-color and --color")
-	}
-
 	return nil
 }
 
