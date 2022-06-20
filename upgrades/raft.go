@@ -16,7 +16,6 @@ import (
 	"github.com/juju/replicaset/v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/raftlease"
 	raftworker "github.com/juju/juju/worker/raft"
 )
 
@@ -123,56 +122,6 @@ func makeRaftServers(members []replicaset.Member, apiPort int) (raft.Configurati
 		servers = append(servers, server)
 	}
 	return raft.Configuration{Servers: servers}, nil
-}
-
-// leasesInStore returns whether the logs and snapshots contain any
-// lease information (in which case we shouldn't migrate again).
-func leasesInStore(logStore raft.LogStore, snapshotStore raft.SnapshotStore) (bool, error) {
-	// There are leases in the store if either the last snapshot (if
-	// any) can be loaded by a raftlease FSM, or there are command
-	// entries in the log.
-	snapshots, err := snapshotStore.List()
-	if err != nil {
-		return false, errors.Annotate(err, "listing snapshots")
-	}
-	if len(snapshots) > 0 {
-		snapshot := snapshots[0]
-		_, source, err := snapshotStore.Open(snapshot.ID)
-		if err != nil {
-			return false, errors.Annotatef(err, "opening snapshot %q", snapshot.ID)
-		}
-		defer source.Close()
-		fsm := raftlease.NewFSM()
-		if fsm.Restore(source) == nil {
-			// The fact that the snapshot could be loaded into the FSM
-			// means that there are leases stored.
-			return true, nil
-		}
-	}
-
-	// Otherwise we need to check for command entries in the log.
-	first, err := logStore.FirstIndex()
-	if err != nil {
-		return false, errors.Annotate(err, "getting first index from log store")
-	}
-	last, err := logStore.LastIndex()
-	if err != nil {
-		return false, errors.Annotate(err, "getting last index from log store")
-	}
-	for i := first; i <= last; i++ {
-		var entry raft.Log
-		err := logStore.GetLog(i, &entry)
-		if err == raft.ErrLogNotFound {
-			continue
-		}
-		if err != nil {
-			return false, errors.Annotatef(err, "getting log %d", i)
-		}
-		if entry.Type == raft.LogCommand {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 type combinedStoreState struct {
