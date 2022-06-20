@@ -134,14 +134,24 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args AddServiceLocatorPar
 	return &ServiceLocator{doc: serviceLocatorDoc}, nil
 }
 
+// RemoveServiceLocator removes a service locator record
+func RemoveServiceLocator(slId string) []txn.Op {
+	op := txn.Op{
+		C:      serviceLocatorsC,
+		Id:     slId,
+		Remove: true,
+	}
+	return []txn.Op{op}
+}
+
 // AllServiceLocators returns all service locators in the model.
 func (sp *serviceLocatorPersistence) AllServiceLocators() ([]*ServiceLocator, error) {
-	locators, err := sp.ServiceLocators("")
+	locators, err := sp.serviceLocators(nil)
 	return locators, errors.Annotate(err, "getting service locators")
 }
 
-// ServiceLocators returns the service locator.
-func (sp *serviceLocatorPersistence) ServiceLocators(ServiceLocatorUUID string) ([]*ServiceLocator, error) {
+// ServiceLocator returns the service locator.
+func (sp *serviceLocatorPersistence) ServiceLocator(ServiceLocatorUUID string) ([]*ServiceLocator, error) {
 	locators, err := sp.serviceLocators(bson.D{{"service-locator-uuid", ServiceLocatorUUID}})
 	return locators, errors.Annotatef(err, "getting service locators for %v", ServiceLocatorUUID)
 }
