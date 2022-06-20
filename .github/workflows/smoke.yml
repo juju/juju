@@ -18,7 +18,7 @@ jobs:
       run: |
         set -euxo pipefail
         sudo apt-get remove lxd lxd-client
-        sudo snap install snapcraft --classic --channel=6.x/stable
+        sudo snap install snapcraft --classic
         sudo snap install lxd
         sudo lxd waitready
         sudo lxd init --auto
@@ -90,7 +90,7 @@ jobs:
       run: |
         set -euxo pipefail
         sudo apt-get remove lxd lxd-client
-        sudo snap install snapcraft --classic --channel=5.x/stable
+        sudo snap install snapcraft --classic
         sudo snap install lxd
         sudo snap install yq
         sudo snap install juju --classic --channel=${{ matrix.snap_version }}
