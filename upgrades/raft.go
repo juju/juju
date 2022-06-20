@@ -8,7 +8,6 @@ import (
 	"net"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/raft"
@@ -124,128 +123,6 @@ func makeRaftServers(members []replicaset.Member, apiPort int) (raft.Configurati
 		servers = append(servers, server)
 	}
 	return raft.Configuration{Servers: servers}, nil
-}
-
-// MigrateLegacyLeases converts leases in the legacy store into
-// corresponding ones in the raft store.
-func MigrateLegacyLeases(context Context) error {
-	// We know at this point in time that the raft workers aren't
-	// running - they're all guarded by the upgrade-steps gate.
-
-	// We need to migrate leases if:
-	// * there are some legacy leases,
-	// * there aren't already leases in the store.
-	st := context.State()
-
-	var zero time.Time
-	legacyLeases, err := st.LegacyLeases(zero)
-	if err != nil {
-		return errors.Annotate(err, "getting legacy leases")
-	}
-	if len(legacyLeases) == 0 {
-		logger.Debugf("no legacy leases to migrate")
-		return nil
-	}
-
-	storageDir := raftDir(context.AgentConfig())
-
-	// Always sync raft log writes when upgrading.
-	logStore, err := raftworker.NewLogStore(storageDir, raftworker.SyncAfterWrite)
-	if err != nil {
-		return errors.Annotate(err, "opening log store")
-	}
-	defer logStore.Close()
-
-	snapshotStore, err := raftworker.NewSnapshotStore(
-		storageDir, 2, logger)
-	if err != nil {
-		return errors.Annotate(err, "opening snapshot store")
-	}
-
-	hasLeases, err := leasesInStore(logStore, snapshotStore)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if hasLeases {
-		logger.Debugf("snapshots found in store - raft leases in use")
-		return nil
-	}
-
-	// We need the last term and index, latest configuration and
-	// configuration index from the log store.
-	storeState, err := getCombinedState(logStore, snapshotStore)
-	if err == errLogEmpty {
-		// This cluster hasn't been bootstrapped.
-		logger.Infof("raft cluster is uninitialised - bootstrapping before migrating leases")
-		err = bootstrapWithStores(context, logStore, snapshotStore)
-		if err != nil {
-			return errors.Annotate(err, "bootstrapping new raft cluster")
-		}
-		// Re-get the state from the cluster - if this fails it'll be
-		// caught by the error check below.
-		storeState, err = getCombinedState(logStore, snapshotStore)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	entries := make(map[raftlease.SnapshotKey]raftlease.SnapshotEntry, len(legacyLeases))
-	target, err := st.LeaseNotifyTarget(logger)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Populate the snapshot and the leaseholders collection.
-	for key, info := range legacyLeases {
-		if key.Lease == "" || info.Holder == "" {
-			logger.Debugf("not migrating blank lease %#v holder %q", key, info.Holder)
-			continue
-		}
-		entries[raftlease.SnapshotKey{
-			Namespace: key.Namespace,
-			ModelUUID: key.ModelUUID,
-			Lease:     key.Lease,
-		}] = raftlease.SnapshotEntry{
-			Holder:   info.Holder,
-			Start:    zero,
-			Duration: info.Expiry.Sub(zero),
-		}
-		// TODO(stickupkid): Only log out the error, look into if it's realistic
-		// to return here if there is an error attempting to claim the lease.
-		if err := target.Claimed(key, info.Holder); err != nil {
-			logger.Errorf("claiming lease %v", err)
-		}
-	}
-
-	newSnapshot := raftlease.Snapshot{
-		Version:    raftlease.SnapshotVersion,
-		Entries:    entries,
-		GlobalTime: zero,
-	}
-	// Store the snapshot.
-	_, transport := raft.NewInmemTransport(raft.ServerAddress("notused"))
-	defer transport.Close()
-	sink, err := snapshotStore.Create(
-		raft.SnapshotVersionMax,
-		storeState.lastIndex,
-		storeState.lastTerm,
-		storeState.config,
-		storeState.configIndex,
-		transport,
-	)
-	if err != nil {
-		return errors.Annotate(err, "creating snapshot sink")
-	}
-	defer sink.Close()
-	err = newSnapshot.Persist(sink)
-	if err != nil {
-		_ = sink.Cancel()
-		return errors.Annotate(err, "persisting snapshot")
-	}
-
-	// Now that the leases are migrated into raft we can drop the
-	// leases collection.
-	return errors.Trace(st.DropLeasesCollection())
 }
 
 // leasesInStore returns whether the logs and snapshots contain any

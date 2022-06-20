@@ -28,7 +28,6 @@ type StateBackend interface {
 	// Raft related functions
 	ReplicaSetMembers() ([]replicaset.Member, error)
 	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
-	DropLeasesCollection() error
 
 	// 2.9.x related functions
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
@@ -128,10 +127,6 @@ func (s stateBackend) AddActionPruneSettings() error {
 	return state.AddActionPruneSettings(s.pool)
 }
 
-func (s stateBackend) MigrateLeasesToGlobalTime() error {
-	return state.MigrateLeasesToGlobalTime(s.pool)
-}
-
 func (s stateBackend) ReplicaSetMembers() ([]replicaset.Member, error) {
 	return state.ReplicaSetMembers(s.pool)
 }
@@ -154,10 +149,6 @@ func (s stateBackend) LeaseNotifyTarget(logger raftleasestore.Logger) (raftlease
 
 func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
 	return state.LegacyLeases(s.pool, localTime)
-}
-
-func (s stateBackend) DropLeasesCollection() error {
-	return state.DropLeasesCollection(s.pool)
 }
 
 func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
