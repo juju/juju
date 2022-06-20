@@ -172,7 +172,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display timestamps in the UTC timezone")
 
-	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
+	f.BoolVar(&c.color, "color", true, "Use ANSI color codes in tabular output")
 	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
 	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section in tabular output")
 	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section in tabular output")
