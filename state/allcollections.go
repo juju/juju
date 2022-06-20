@@ -568,7 +568,11 @@ func allCollections() CollectionSchema {
 
 		// ----------------------
 
-		serviceLocatorsC: {},
+		serviceLocatorsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// Raw-access collections
 		// ======================

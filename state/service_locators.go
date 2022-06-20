@@ -6,7 +6,34 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v2/txn"
 )
+
+//// ServiceLocators describes the state functionality for service locators.
+//type ServiceLocators interface {
+//	// AllServiceLocators returns the list of all service locators.
+//	//AllServiceLocators() ([]*ServiceLocator, error)
+//}
+
+// ServiceLocators returns the service locators functionality for the current state.
+func (st *State) ServiceLocators() *serviceLocatorPersistence {
+	return st.serviceLocators()
+}
+
+// serviceLocators returns the service locators functionality for the current state.
+func (st *State) serviceLocators() *serviceLocatorPersistence {
+	return &serviceLocatorPersistence{
+		st: st,
+	}
+}
+
+var slLogger = logger.Child("service-locator")
+
+// serviceLocatorPersistence provides the persistence
+// functionality for service locators.
+type serviceLocatorPersistence struct {
+	st *State
+}
 
 // ServiceLocator represents the state of a juju network service locator.
 type ServiceLocator struct {
@@ -15,10 +42,11 @@ type ServiceLocator struct {
 }
 
 type serviceLocatorDoc struct {
-	DocId string `bson:"_id"`
-	Id    string `bson:"service-locator-id"`
-	Name  string `bson:"name"`
-	Type  string `bson:"type"`
+	DocId  string                 `bson:"_id"`
+	Id     string                 `bson:"service-locator-id"`
+	Name   string                 `bson:"name"`
+	Type   string                 `bson:"type"`
+	Params map[string]interface{} `bson:"params"`
 }
 
 func newServiceLocator(st *State, doc *serviceLocatorDoc) *ServiceLocator {
@@ -39,25 +67,98 @@ func (sl *ServiceLocator) Type() string {
 	return sl.doc.Type
 }
 
-// serviceLocators returns the service locators for the input condition
-func (st *State) serviceLocators(condition bson.D) ([]*ServiceLocator, error) {
-	serviceLocatorCollection, closer := st.db().GetCollection(serviceLocatorsC)
-	defer closer()
+// AddServiceLocatorParams contains the parameters for adding an service locator
+// to the model.
+type AddServiceLocatorParams struct {
+	// ServiceLocatorUUID is the UUID of the service locator.
+	ServiceLocatorUUID string
 
-	var connDocs []serviceLocatorDoc
-	if err := serviceLocatorCollection.Find(condition).All(&connDocs); err != nil {
+	// Name is the name of the service locator.
+	Name string
+
+	// Type is the type of the service locator.
+	Type string
+}
+
+func validateServiceLocatorParams(args AddServiceLocatorParams) (err error) {
+	// No Sanity checks.
+	return nil
+}
+
+// AddServiceLocator creates a new service locator record, which records details about a
+// network service provided to related units.
+func (sp *serviceLocatorPersistence) AddServiceLocator(args AddServiceLocatorParams) (_ *ServiceLocator, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add service locator for %q", args.ServiceLocatorUUID)
+
+	if err := validateServiceLocatorParams(args); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	conns := make([]*ServiceLocator, len(connDocs))
-	for i, v := range connDocs {
-		conns[i] = newServiceLocator(st, &v)
+	model, err := sp.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if model.Life() != Alive {
+		return nil, errors.Errorf("model is no longer alive")
 	}
-	return conns, nil
+
+	// Create the application addition operations.
+	serviceLocatorDoc := serviceLocatorDoc{
+		Id:    args.ServiceLocatorUUID,
+		Name:  args.Name,
+		Type:  args.Type,
+		DocId: args.ServiceLocatorUUID,
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// model may have been destroyed.
+		if attempt > 0 {
+			if err := checkModelActive(sp.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return nil, errors.AlreadyExistsf("service locator Name: %s ID: %s", args.Name, args.ServiceLocatorUUID)
+		}
+		ops := []txn.Op{
+			model.assertActiveOp(),
+			{
+				C:      serviceLocatorsC,
+				Id:     serviceLocatorDoc.DocId,
+				Assert: txn.DocMissing,
+				Insert: &serviceLocatorDoc,
+			},
+		}
+		return ops, nil
+	}
+	if err = sp.st.db().Run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ServiceLocator{doc: serviceLocatorDoc}, nil
 }
 
 // AllServiceLocators returns all service locators in the model.
-func (st *State) AllServiceLocators() ([]*ServiceLocator, error) {
-	conns, err := st.serviceLocators(nil)
-	return conns, errors.Annotate(err, "getting service locators")
+func (sp *serviceLocatorPersistence) AllServiceLocators() ([]*ServiceLocator, error) {
+	locators, err := sp.ServiceLocators("")
+	return locators, errors.Annotate(err, "getting service locators")
+}
+
+// ServiceLocators returns the service locator.
+func (sp *serviceLocatorPersistence) ServiceLocators(ServiceLocatorUUID string) ([]*ServiceLocator, error) {
+	locators, err := sp.serviceLocators(bson.D{{"service-locator-uuid", ServiceLocatorUUID}})
+	return locators, errors.Annotatef(err, "getting service locators for %v", ServiceLocatorUUID)
+}
+
+// serviceLocators returns the service locators for the input condition
+func (sp *serviceLocatorPersistence) serviceLocators(condition bson.D) ([]*ServiceLocator, error) {
+	serviceLocatorCollection, closer := sp.st.db().GetCollection(serviceLocatorsC)
+	defer closer()
+
+	var locatorDocs []serviceLocatorDoc
+	if err := serviceLocatorCollection.Find(condition).All(&locatorDocs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	locators := make([]*ServiceLocator, len(locatorDocs))
+	for i, v := range locatorDocs {
+		locators[i] = newServiceLocator(sp.st, &v)
+	}
+	return locators, nil
 }
