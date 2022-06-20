@@ -2223,7 +2223,18 @@ func (a *Application) addUnitOps(
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		if args.machineID != "" && !strings.HasPrefix(*a.doc.CharmURL, "juju-") {
+		// If the application is deployed to the controller model and the charm
+		// has the special juju- prefix to its name, then bypass the machineID
+		// empty check.
+		if args.machineID != "" && a.st.IsController() {
+			curl, err := charm.ParseURL(*a.doc.CharmURL)
+			if err != nil {
+				return "", nil, errors.Trace(err)
+			}
+			if !strings.HasPrefix(curl.Name, "juju-") {
+				return "", nil, errors.NotSupportedf("non-empty machineID")
+			}
+		} else if args.machineID != "" {
 			return "", nil, errors.NotSupportedf("non-empty machineID")
 		}
 	}
