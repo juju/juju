@@ -148,10 +148,6 @@ type ManifoldsConfig struct {
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
 
-	// OpenController is function used by the controller manifold to
-	// create a *state.Controller.
-	OpenController func(coreagent.Config) (*state.Controller, error)
-
 	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
 	OpenStatePool func(coreagent.Config) (*state.StatePool, error)

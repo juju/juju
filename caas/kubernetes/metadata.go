@@ -63,4 +63,5 @@ type StorageProvisioner struct {
 	Model             string
 	ReclaimPolicy     string
 	VolumeBindingMode string
+	IsDefault         bool
 }

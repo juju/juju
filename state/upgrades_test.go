@@ -2957,12 +2957,12 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	coll, closer := s.state.db().GetRawCollection(applicationsC)
 	defer closer()
 
-	curl := charm.MustParseURL("cs:test-charm")
+	curl := "cs:test-charm"
 	err := coll.Insert(applicationDoc{
 		DocID:     ensureModelUUID(uuid, name),
 		Name:      name,
 		ModelUUID: uuid,
-		CharmURL:  curl,
+		CharmURL:  &curl,
 		Life:      life,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -6708,15 +6708,13 @@ func (s *upgradesSuite) TestRemoveLocalCharmOriginChannels(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) TestFixCharmhubLastPolltime(c *gc.C) {
+func (s *upgradesSuite) TestFixCharmhubLastPollTime(c *gc.C) {
 	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
 	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
 	defer func() {
 		_ = model1.Close()
 		_ = model2.Close()
 	}()
-	model1.stateClock = s.state.stateClock
-	model2.stateClock = s.state.stateClock
 
 	uuid1 := model1.ModelUUID()
 	uuid2 := model2.ModelUUID()

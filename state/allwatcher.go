@@ -649,7 +649,7 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 		ModelUUID:   app.ModelUUID,
 		Name:        app.Name,
 		Exposed:     app.Exposed,
-		CharmURL:    app.CharmURL.String(),
+		CharmURL:    *app.CharmURL,
 		Life:        life.Value(app.Life.String()),
 		MinUnits:    app.MinUnits,
 		Subordinate: app.Subordinate,
@@ -949,8 +949,12 @@ func (b *backingApplicationOffer) updated(ctx *allWatcherContext) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	curl, _ := localApp.CharmURL()
 	info.ApplicationName = offer.ApplicationName
+	cURL, _ := localApp.CharmURL()
+	curl, err := charm.ParseURL(*cURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	info.CharmName = curl.Name
 
 	remoteConnection, err := ctx.state.RemoteConnectionStatus(info.OfferUUID)

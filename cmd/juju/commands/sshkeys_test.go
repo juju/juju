@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -62,6 +63,9 @@ func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 }
 
 func (s *keySuiteBase) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.JujuConnSuite.SetUpTest(c)
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)

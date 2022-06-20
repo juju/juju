@@ -143,7 +143,7 @@ type mockApplication struct {
 	crossmodel.Application
 	name      string
 	charm     *mockCharm
-	curl      *charm.URL
+	curl      string
 	endpoints []state.Endpoint
 	bindings  map[string]string
 }
@@ -156,8 +156,8 @@ func (m *mockApplication) Charm() (crossmodel.Charm, bool, error) {
 	return m.charm, true, nil
 }
 
-func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
-	return m.curl, true
+func (m *mockApplication) CharmURL() (curl *string, force bool) {
+	return &m.curl, true
 }
 
 func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {

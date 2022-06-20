@@ -212,7 +212,6 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 		return params.ErrorResults{}, err
 	}
 	for i, p := range args.Params {
-		//TODO[externalreality] refactor all of this, its being copied often.
 		tag, err := names.ParseUnitTag(p.Entity.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -244,6 +243,14 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 			continue
 		}
 
+		// If attempting to set the same status, we're done.
+		// This can happen in situations where the upgrade completion hook
+		// fails and requires resolution before re-running.
+		if sts == p.Status {
+			logger.Debugf("unit %s already has upgrade series status %s", tag.Id(), sts)
+			continue
+		}
+
 		fsm, err := model.NewUpgradeSeriesFSM(graph, sts)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -254,10 +261,8 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 			continue
 		}
 
-		err = unit.SetUpgradeSeriesStatus(p.Status, p.Message)
-		if err != nil {
+		if err = unit.SetUpgradeSeriesStatus(p.Status, p.Message); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
 		}
 	}
 	return result, nil

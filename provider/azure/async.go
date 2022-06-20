@@ -9,27 +9,28 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 )
 
-// asyncCreationRespondDecorator returns an autorest.RespondDecorator
-// that replaces non-failure provisioning states with "Succeeded", to
-// prevent the autorest code from blocking until the resource is completely
-// provisioned.
-func asyncCreationRespondDecorator(original autorest.RespondDecorator) autorest.RespondDecorator {
-	return func(r autorest.Responder) autorest.Responder {
-		return autorest.ResponderFunc(func(resp *http.Response) error {
-			if resp.Body != nil {
-				if err := overrideProvisioningState(resp); err != nil {
-					return err
-				}
-			}
-			return original(r).Respond(resp)
-		})
+// deploymentPolicy is a policy that replaces non-failure provisioning
+// states with "Succeeded" for the "common" deployment.
+// Do this to prevent the autorest code from blocking until
+// the resource is completely provisioned.
+type deploymentPolicy struct{}
+
+func (p *deploymentPolicy) Do(req *policy.Request) (*http.Response, error) {
+	resp, err := req.Next()
+	if err != nil {
+		return nil, err
 	}
+	return resp, overrideProvisioningState(resp)
 }
 
 func overrideProvisioningState(resp *http.Response) error {
+	if resp.Body == nil {
+		return nil
+	}
+
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(resp.Body); err != nil {
 		return err
@@ -45,6 +46,14 @@ func overrideProvisioningState(resp *http.Response) error {
 		// or we may get in the way of response handling.
 		return nil
 	}
+
+	// We only want to do this for the deployment of shared
+	// resources which we have called "common".
+	name, ok := body["name"].(string)
+	if !ok || name != "common" {
+		return nil
+	}
+
 	properties, ok := body["properties"].(map[string]interface{})
 	if !ok {
 		// No properties, nothing to do.

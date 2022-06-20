@@ -7,6 +7,7 @@ package cloudinit
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
@@ -332,15 +333,22 @@ func (cfg *cloudConfig) SetSSHAuthorizedKeys(rawKeys string) {
 }
 
 // SetSSHKeys is defined on the SSHKeysConfig interface.
-func (cfg *cloudConfig) SetSSHKeys(keys SSHKeys) {
-	if keys.RSA != nil {
-		cfg.SetAttr("ssh_keys", map[string]interface{}{
-			string(RSAPrivate): keys.RSA.Private,
-			string(RSAPublic):  keys.RSA.Public,
-		})
-	} else {
+func (cfg *cloudConfig) SetSSHKeys(keys SSHKeys) error {
+	if len(keys) == 0 {
 		cfg.UnsetAttr("ssh_keys")
+		return nil
 	}
+	attr := make(map[string]interface{})
+	for _, key := range keys {
+		privateKeyName, publicKeyName, err := NamesForSSHKeyAlgorithm(key.PublicKeyAlgorithm)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		attr[string(privateKeyName)] = key.Private
+		attr[string(publicKeyName)] = key.Public
+	}
+	cfg.SetAttr("ssh_keys", attr)
+	return nil
 }
 
 // SetDisableRoot is defined on the RootUserConfig interface.

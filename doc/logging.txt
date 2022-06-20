@@ -9,7 +9,7 @@ Accessing logs as a user
 Please consult the available user documentation for details of how to
 access Juju's logs. Specifically:
 
-  * https://jaas.ai/docs/logs
+  * https://juju.is/docs/olm/juju-logs
   * juju help logging
   * juju help debug-log
   * juju-dumplogs --help

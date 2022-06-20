@@ -9,8 +9,38 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/go-autorest/autorest"
 )
+
+type RequestRecorderPolicy struct {
+	mu       sync.Mutex
+	Requests *[]*http.Request
+}
+
+func (p *RequestRecorderPolicy) Do(req *policy.Request) (*http.Response, error) {
+	resp, err := req.Next()
+	// Save the request body, since it will be consumed.
+	reqCopy := *req.Raw()
+	if req.Raw().Body != nil {
+		var buf bytes.Buffer
+		if _, err := buf.ReadFrom(req.Raw().Body); err != nil {
+			return nil, err
+		}
+		if err := req.Raw().Body.Close(); err != nil {
+			return nil, err
+		}
+		reqCopy.Body = ioutil.NopCloser(&buf)
+		if err := req.RewindBody(); err != nil {
+			return nil, err
+		}
+	}
+	p.mu.Lock()
+	*p.Requests = append(*p.Requests, &reqCopy)
+	p.mu.Unlock()
+
+	return resp, err
+}
 
 // RequestRecorder returns an autorest.PrepareDecorator that records requests
 // to ghe given slice.

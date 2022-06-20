@@ -239,6 +239,10 @@ func (ch *mockCharm) URL() *charm.URL {
 	return ch.url
 }
 
+func (ch *mockCharm) String() string {
+	return ch.url.String()
+}
+
 func (ch *mockCharm) BundleSha256() string {
 	return ch.sha256
 }

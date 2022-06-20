@@ -18,13 +18,14 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	pacconf "github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -37,13 +38,13 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/os/v2/series"
 )
 
 type cloudinitSuite struct {
@@ -220,7 +221,7 @@ func (cfg *testInstanceConfig) setSeries(series string, vers version.Number, bui
 // a controller instance.
 func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 	cfg.setMachineID("0")
-	cfg.Controller = &instancecfg.ControllerConfig{}
+	cfg.ControllerConfig = controller.Config{}
 	cfg.Bootstrap = &instancecfg.BootstrapConfig{
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineInstanceId:  "i-bootstrap",
@@ -576,7 +577,7 @@ printf '%s\\n' '.*custom-image-metadata:.*us-east1.*.*' > '/var/lib/juju/bootstr
 	// custom image metadata signing key.
 	{
 		cfg: makeBootstrapConfig("trusty", 0).mutate(func(cfg *testInstanceConfig) {
-			cfg.Controller.PublicImageSigningKey = "publickey"
+			cfg.PublicImageSigningKey = "publickey"
 		}),
 		setEnvConfig:      true,
 		inexactMatch:      true,
@@ -1143,7 +1144,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 				},
 				StateServingInfo: stateServingInfo,
 			},
-			Controller:       &instancecfg.ControllerConfig{},
+			ControllerConfig: controller.Config{},
 			ControllerTag:    testing.ControllerTag,
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
@@ -1513,10 +1514,11 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 	instConfig := makeBootstrapConfig("quantal", 0).maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()
-	instConfig.Bootstrap.InitialSSHHostKeys.RSA = &instancecfg.SSHKeyPair{
-		Private: "private",
-		Public:  "public",
-	}
+	instConfig.Bootstrap.InitialSSHHostKeys = instancecfg.SSHHostKeys{{
+		Private:            "private",
+		Public:             "public",
+		PublicKeyAlgorithm: ssh.KeyAlgoRSA,
+	}}
 	cloudcfg, err := cloudinit.New(instConfig.Series)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1537,11 +1539,11 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 
 	cmds := cloudcfg.BootCmds()
 	c.Assert(cmds, jc.DeepEquals, []string{
-		`echo 'Regenerating SSH RSA host key' >&$JUJU_PROGRESS_FD`,
-		`rm /etc/ssh/ssh_host_rsa_key*`,
+		`echo 'Regenerating SSH host keys' >&$JUJU_PROGRESS_FD`,
+		`rm /etc/ssh/ssh_host_*_key*`,
 		`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`,
-		`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`,
 		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
+		`ssh-keygen -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key || true`,
 	})
 }
 

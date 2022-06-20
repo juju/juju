@@ -60,8 +60,9 @@ func NewUpgraderAPI(
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite, newEnviron),
+		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, toolsFinder, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		m:           model,
