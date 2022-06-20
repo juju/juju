@@ -18,6 +18,9 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Uniter", 18, func(ctx facade.Context) (facade.Facade, error) {
+		return newUniterAPIV18(ctx)
+	}, reflect.TypeOf((*UniterAPIV18)(nil)))
+	registry.MustRegister("Uniter", 19, func(ctx facade.Context) (facade.Facade, error) {
 		return newUniterAPI(ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }
@@ -95,6 +98,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
+		serviceLocatorAPI:          NewServiceLocatorAPI(st, logger),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(st, &cacheShim{cacheModel}, accessUnitOrApplication, leadershipChecker),
@@ -113,5 +117,16 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		accessCloudSpec:   accessCloudSpec,
 		cloudSpecer:       cloudSpec,
 		StorageAPI:        storageAPI,
+	}, nil
+}
+
+// newUniterAPIV18 creates an instance of the V18 uniter API.
+func newUniterAPIV18(context facade.Context) (*UniterAPIV18, error) {
+	uniterAPI, err := newUniterAPI(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV18{
+		UniterAPI: *uniterAPI,
 	}, nil
 }
