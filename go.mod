@@ -10,7 +10,6 @@ require (
 	github.com/Azure/go-autorest/autorest/mocks v0.4.1
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
-	github.com/adrg/xdg v0.4.0
 	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6
 	github.com/armon/go-metrics v0.3.10
 	github.com/aws/aws-sdk-go-v2 v1.9.1
@@ -82,7 +81,7 @@ require (
 	github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647
 	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
 	github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935
-	github.com/juju/viddy v0.0.0-alpha.7
+	github.com/juju/viddy v0.0.0-alpha.8
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.0-20220204100750-e23db69a42d2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -95,15 +94,13 @@ require (
 	github.com/packethost/packngo v0.19.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/rivo/tview v0.0.0-20220610163003-691f46d6f500
-	github.com/spf13/viper v1.12.0
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
-	golang.org/x/sys v0.0.0-20220614162138-6c1b26c55098
+	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c
 	golang.org/x/tools v0.1.10
 	google.golang.org/api v0.81.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -134,6 +131,7 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e // indirect
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
+	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 // indirect
@@ -211,6 +209,7 @@ require (
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/rivo/tview v0.0.0-20220610163003-691f46d6f500 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect
@@ -219,6 +218,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/viper v1.12.0 // indirect
 	github.com/subosito/gotenv v1.4.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect

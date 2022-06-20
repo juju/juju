@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adrg/xdg"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -26,8 +25,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
-	"github.com/rivo/tview"
-	"github.com/spf13/viper"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.status")
@@ -400,38 +397,34 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	return nil
 }
 
+// statusArgsWithoutWatch returns all args cut off '--watch' flag of status commands
+// and the value of '--watch' flag
+func (c *statusCommand) statusArgsWithoutWatch(args []string) ([]string, string) {
+	var jujuStatusArgsWithoutWatch []string
+	var watchValue string
+
+	for i := range args {
+		if args[i] == "--watch" {
+			watchValue = args[i+1]
+			jujuStatusArgsWithoutWatch = append(args[:i], args[i+2:]...)
+			break
+		}
+	}
+
+	return jujuStatusArgsWithoutWatch, watchValue
+}
+
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		//  Get list of all args, cut off '--watch' flag from 'juju status'
-		var jujuStatusArgsWithoutWatch []string
-		var watchValue string
-		for i := range os.Args {
-			if os.Args[i] == "--watch" {
-				watchValue = os.Args[i+1]
-				jujuStatusArgsWithoutWatch = append(os.Args[:i], os.Args[i+2:]...)
-				break
-			}
-		}
-
-		// Create Viddy config
-		v := viper.New()
-		v.SetConfigType("toml")
-		v.SetConfigName("viddy")
-		v.AddConfigPath(xdg.ConfigHome)
-		_ = v.ReadInConfig()
+		jujuStatusArgs, watchValue := c.statusArgsWithoutWatch(os.Args)
 
 		// Prepare Viddy args
-		viddyArgs := append([]string{"--no-title", "--differences", "--interval", watchValue}, jujuStatusArgsWithoutWatch...)
-		conf, err := viddy.NewConfig(v, viddyArgs)
-		if err != nil {
-			return errors.Annotate(err, "unable to create Viddy (watcher for status command) config")
-		}
+		viddyArgs := append([]string{"--no-title", "--differences", "--interval", watchValue}, jujuStatusArgs...)
 
-		// Define tview styles and launch Viddy watcher
-		tview.Styles = conf.Theme.Theme
-		app := viddy.NewViddy(conf)
+		// Define tview styles and launch preconfiged Viddy watcher
+		app := viddy.NewPreconfigedViddy(viddyArgs)
 		if err := app.Run(); err != nil {
 			return errors.Annotate(err, "unable to run Viddy (watcher for status command)")
 		}

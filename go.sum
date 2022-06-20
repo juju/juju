@@ -650,8 +650,8 @@ github.com/juju/version v0.0.0-20210303051006-2015802527a8/go.mod h1:YUOK6VK9+V4
 github.com/juju/version/v2 v2.0.0-20210319015800-dcfac8f4f057/go.mod h1:Ljlbryh9sYaUSGXucslAEDf0A2XUSGvDbHJgW8ps6nc=
 github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935 h1:6YoyzXVW1XkqN86y2s/rz365Jm7EiAy39v2G5ikzvHU=
 github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935/go.mod h1:ZeFjNy+UFEWJDDPdzW7Cm9NeU6dsViGaFYhXzycLQrw=
-github.com/juju/viddy v0.0.0-alpha.7 h1:2tcU0eNIhYOKFmWG09CH6z0OarCqD7qKByD0ppleNAY=
-github.com/juju/viddy v0.0.0-alpha.7/go.mod h1:tfu+gzg19RWR7XKdoZ1nTDUKHSHJwzyDI1MCgchqak0=
+github.com/juju/viddy v0.0.0-alpha.8 h1:5vjWrmZawXRZcKXn4WFthIWPNLCCWiGMtcYR6mhWNXo=
+github.com/juju/viddy v0.0.0-alpha.8/go.mod h1:tfu+gzg19RWR7XKdoZ1nTDUKHSHJwzyDI1MCgchqak0=
 github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=
@@ -1205,8 +1205,8 @@ golang.org/x/sys v0.0.0-20220328115105-d36c6a25d886/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20220412211240-33da011f77ad/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220502124256-b6088ccd6cba/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.0.0-20220614162138-6c1b26c55098 h1:PgOr27OhUx2IRqGJ2RxAWI4dJQ7bi9cSrB82uzFzfUA=
-golang.org/x/sys v0.0.0-20220614162138-6c1b26c55098/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c h1:aFV+BgZ4svzjfabn8ERpuB4JI4N6/rdy1iusx77G3oU=
+golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
