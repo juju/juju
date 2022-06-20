@@ -79,6 +79,12 @@ type UniterAPI struct {
 	cloudSpecer     cloudspec.CloudSpecer
 }
 
+// UniterAPIV18 implements version (v18) of the Uniter API, which adds
+// Service Locator
+type UniterAPIV18 struct {
+	UniterAPI
+}
+
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
 // unit on the provided machines grouped by application endpoint.
 func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(args params.Entities) (params.OpenMachinePortRangesByEndpointResults, error) {
