@@ -895,7 +895,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
-			`common resource deployment status is "Failed"`)
+			`"common" resource deployment status is "Failed"`)
 }
 
 func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
