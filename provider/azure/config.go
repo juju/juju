@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -55,7 +55,7 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
+	configAttrLoadBalancerSkuName: string(armnetwork.LoadBalancerSKUNameStandard),
 	configAttrResourceGroupName:   schema.Omit,
 	configAttrNetwork:             schema.Omit,
 }
@@ -100,7 +100,7 @@ type azureModelConfig struct {
 
 // knownLoadBalancerSkuNames returns a list of valid load balancer SKU names.
 func knownLoadBalancerSkuNames() (skus []string) {
-	for _, name := range network.PossibleLoadBalancerSkuNameValues() {
+	for _, name := range armnetwork.PossibleLoadBalancerSKUNameValues() {
 		skus = append(skus, string(name))
 	}
 	return skus
@@ -205,7 +205,7 @@ Please choose a model name of no more than %d characters.`,
 			)
 		}
 	} else {
-		loadBalancerSkuName = string(network.LoadBalancerSkuNameStandard)
+		loadBalancerSkuName = string(armnetwork.LoadBalancerSKUNameStandard)
 	}
 
 	networkName, _ := validated[configAttrNetwork].(string)

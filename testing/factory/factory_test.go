@@ -359,7 +359,7 @@ func (s *factorySuite) TestMakeApplication(c *gc.C) {
 
 	c.Assert(application.Name(), gc.Equals, "wordpress")
 	curl, _ := application.CharmURL()
-	c.Assert(curl, gc.DeepEquals, charm.URL())
+	c.Assert(*curl, gc.Equals, charm.String())
 
 	saved, err := s.State.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -402,7 +402,7 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 
 	applicationCharmURL, _ := application.CharmURL()
 	unitCharmURL, _ := saved.CharmURL()
-	c.Assert(unitCharmURL, gc.DeepEquals, applicationCharmURL)
+	c.Assert(unitCharmURL.String(), gc.Equals, *applicationCharmURL)
 }
 
 func (s *factorySuite) TestMakeRelationNil(c *gc.C) {

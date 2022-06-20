@@ -323,53 +323,6 @@ clouds:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
         identity-endpoint: https://graph.chinacloudapi.cn
-  rackspace:
-    type: rackspace
-    description: Rackspace Cloud
-    auth-types: [ userpass ]
-    endpoint: https://identity.api.rackspacecloud.com/v2.0
-    regions:
-      dfw:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      ord:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      iad:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      lon:
-        endpoint: https://lon.identity.api.rackspacecloud.com/v2.0
-      syd:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-      hkg:
-        endpoint: https://identity.api.rackspacecloud.com/v2.0
-  cloudsigma:
-    type: cloudsigma
-    description: CloudSigma Cloud
-    auth-types: [ userpass ]
-    regions:
-      dub:
-        endpoint: https://dub.cloudsigma.com/api/2.0/
-      fra:
-        endpoint: https://fra.cloudsigma.com/api/2.0/
-      hnl:
-        endpoint: https://hnl.cloudsigma.com/api/2.0/
-      mel:
-        endpoint: https://mel.cloudsigma.com/api/2.0/
-      mia:
-        endpoint: https://mia.cloudsigma.com/api/2.0/
-      mnl:
-        endpoint: https://mnl.cloudsigma.com/api/2.0/
-      per:
-        endpoint: https://per.cloudsigma.com/api/2.0/
-      ruh:
-        endpoint: https://ruh.cloudsigma.com/api/2.0/
-      sjc:
-        endpoint: https://sjc.cloudsigma.com/api/2.0/
-      waw:
-        endpoint: https://waw.cloudsigma.com/api/2.0/
-      wdc:
-        endpoint: https://wdc.cloudsigma.com/api/2.0/
-      zrh:
-        endpoint: https://zrh.cloudsigma.com/api/2.0/
   oracle:
     type: oci
     description: Oracle Cloud Infrastructure

@@ -527,8 +527,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName:           "controller",
-					AutomountServiceAccountToken: pointer.BoolPtr(true),
+					ServiceAccountName:            "controller",
+					AutomountServiceAccountToken:  pointer.BoolPtr(true),
+					TerminationGracePeriodSeconds: int64Ptr(300),
 					Volumes: []core.Volume{
 						{
 							Name: "charm-data",

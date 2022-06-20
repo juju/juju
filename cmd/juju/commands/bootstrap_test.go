@@ -1925,11 +1925,10 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-cloudsigma                                    
 equinix                                       
 google                                        
 oracle                                        
-rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
+?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
@@ -1985,11 +1984,10 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-cloudsigma                                    
 equinix                                       
 google                                        
 oracle                                        
-rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
+?(localhost\s+)?(microk8s\s+)?
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
 dummy-cloud-with-region-config                

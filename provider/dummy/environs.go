@@ -892,7 +892,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// It is set just below.
 			controller, err := state.Initialize(state.InitializeParams{
 				Clock:            clock.WallClock,
-				ControllerConfig: icfg.Controller.Config,
+				ControllerConfig: icfg.ControllerConfig,
 				ControllerModelArgs: state.ModelArgs{
 					Type:                    state.ModelTypeIAAS,
 					Owner:                   adminUser,
@@ -959,7 +959,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			estate.hub = centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
 
 			estate.leaseManager, err = leaseManager(
-				icfg.Controller.Config.ControllerUUID(),
+				icfg.ControllerConfig.ControllerUUID(),
 				st,
 			)
 			if err != nil {
@@ -1032,7 +1032,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					}
 					return observer.NewRequestObserver(ctx)
 				},
-				PublicDNSName: icfg.Controller.Config.AutocertDNSName(),
+				PublicDNSName: icfg.ControllerConfig.AutocertDNSName(),
 				UpgradeComplete: func() bool {
 					return true
 				},
@@ -1219,7 +1219,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	if args.InstanceConfig.MachineNonce == "" {
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
-	if args.InstanceConfig.Controller != nil {
+	if args.InstanceConfig.IsController() {
 		if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 			return nil, errors.New("entity tag must match started machine")
 		}

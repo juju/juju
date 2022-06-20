@@ -1081,9 +1081,9 @@ func EnsureCharmOriginRisk(pool *StatePool) error {
 		var ops []txn.Op
 		for _, doc := range docs {
 			// It is expected that every application should have a charm URL.
-			charmURL := doc.CharmURL
-			if charmURL == nil {
-				return errors.Errorf("charmurl is empty")
+			charmURL, err := charm.ParseURL(*doc.CharmURL)
+			if err != nil {
+				return errors.Annotatef(err, "parsing charm url")
 			}
 
 			if charmURL.Schema == "local" {
@@ -1693,9 +1693,9 @@ func RemoveLocalCharmOriginChannels(pool *StatePool) error {
 		var ops []txn.Op
 		for _, doc := range docs {
 			// It is expected that every application should have a charm URL.
-			charmURL := doc.CharmURL
-			if charmURL == nil {
-				return errors.Errorf("charmurl is empty")
+			charmURL, err := charm.ParseURL(*doc.CharmURL)
+			if err != nil {
+				return errors.Annotatef(err, "parsing charm url")
 			}
 
 			if charmURL.Schema != "local" {

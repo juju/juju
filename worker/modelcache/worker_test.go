@@ -510,7 +510,7 @@ func (s *WorkerSuite) TestAddCharm(c *gc.C) {
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.CharmChange)
 	c.Assert(ok, jc.IsTrue)
-	c.Check(obtained.CharmURL, gc.Equals, charm.URL().String())
+	c.Check(obtained.CharmURL, gc.Equals, charm.String())
 
 	controller := s.getController(c, w)
 	modUUIDs := controller.ModelUUIDs()
@@ -519,7 +519,7 @@ func (s *WorkerSuite) TestAddCharm(c *gc.C) {
 	mod, err := controller.Model(modUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	cachedCharm, err := mod.Charm(charm.URL().String())
+	cachedCharm, err := mod.Charm(charm.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedCharm, gc.NotNil)
 }
@@ -549,7 +549,7 @@ func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
 			mod, err := controller.Model(modUUID)
 			c.Assert(err, jc.ErrorIsNil)
 
-			_, err = mod.Charm(charm.URL().String())
+			_, err = mod.Charm(charm.String())
 			c.Check(errors.IsNotFound(err), jc.IsTrue)
 			return
 		}

@@ -243,6 +243,7 @@ func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	err = checkDNSAddonEnabled(broker)
 	if errors.IsNotFound(err) {
 		return errors.New("required dns addon is not enabled")

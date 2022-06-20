@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/juju/testing"
@@ -12,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/version"
 )
 
 type apiservermetricsSuite struct {
@@ -36,7 +38,7 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 10)
+	c.Assert(descs, gc.HasLen, 11)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
 	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connections".*`)
 	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
@@ -48,6 +50,13 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	c.Assert(descs[7].String(), gc.Matches, `.*fqName: "juju_apiserver_outbound_requests_total".*`)
 	c.Assert(descs[8].String(), gc.Matches, `.*fqName: "juju_apiserver_outbound_request_errors_total".*`)
 	c.Assert(descs[9].String(), gc.Matches, `.*fqName: "juju_apiserver_outbound_request_duration_seconds".*`)
+	build_info_description := descs[10].String()
+	c.Check(build_info_description, gc.Matches, `.*fqName: "juju_apiserver_build_info".*`)
+	// Ensure that the current version of the Juju controller is one of the const labels on the
+	//build_info metric.
+	expectedVersionRe := fmt.Sprintf(`.*constLabels:.*version="%s".*`,
+		regexp.QuoteMeta(version.Current.String()))
+	c.Check(build_info_description, gc.Matches, expectedVersionRe)
 }
 
 func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
@@ -61,7 +70,7 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, gc.HasLen, 2)
+	c.Assert(metrics, gc.HasLen, 3)
 }
 
 func (s *apiservermetricsSuite) TestLabelNames(c *gc.C) {
