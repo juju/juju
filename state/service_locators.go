@@ -103,10 +103,9 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args AddServiceLocatorPar
 
 	// Create the application addition operations.
 	serviceLocatorDoc := serviceLocatorDoc{
-		Id:    args.ServiceLocatorUUID,
-		Name:  args.Name,
-		Type:  args.Type,
-		DocId: args.ServiceLocatorUUID,
+		Id:   args.ServiceLocatorUUID,
+		Name: args.Name,
+		Type: args.Type,
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
