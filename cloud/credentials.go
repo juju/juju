@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -258,6 +259,13 @@ func ExpandFilePathsOfCredential(
 
 		val, exists := attributes[credAttr.Name]
 		if !exists || val == "" {
+			continue
+		}
+
+		// NOTE: tlm dirty fix for lp1976620. This will be removed in Juju 3.0
+		// when we stop overloading the keys in cloud credentials with different
+		// values.
+		if block, _ := pem.Decode([]byte(val)); block != nil {
 			continue
 		}
 

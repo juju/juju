@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	autorestazure "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/mocks"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -43,14 +44,16 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
 		Sender:                     &s.sender,
-		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
+		RequestInspector:           &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
+			return &azuretesting.FakeCredential{}, nil
+		},
 	})
 	s.sender = nil
 
 	var err error
 	env := openEnviron(c, envProvider, &s.sender)
-	azure.SetRetries(env)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudCallCtx = &context.CloudCallContext{
@@ -73,12 +76,6 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 
 	s.sender = azuretesting.Senders{}
 	volumeSource, err := s.provider.VolumeSource(storageConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Force an explicit refresh of the access token, so it isn't done
-	// implicitly during the tests.
-	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	err = azure.ForceVolumeSourceTokenRefresh(volumeSource)
 	c.Assert(err, jc.ErrorIsNil)
 	return volumeSource
 }
@@ -134,10 +131,10 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	}
 
 	makeSender := func(name string, sizeGB int32) *azuretesting.MockSender {
-		sender := azuretesting.NewSenderWithValue(&compute.Disk{
-			Name: to.StringPtr(name),
-			DiskProperties: &compute.DiskProperties{
-				DiskSizeGB: to.Int32Ptr(sizeGB),
+		sender := azuretesting.NewSenderWithValue(&armcompute.Disk{
+			Name: to.Ptr(name),
+			Properties: &armcompute.DiskProperties{
+				DiskSizeGB: to.Ptr(sizeGB),
 			},
 		})
 		sender.PathPattern = `.*/Microsoft\.Compute/disks/` + name
@@ -148,11 +145,8 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	s.requests = nil
 	s.sender = azuretesting.Senders{
 		makeSender("volume-0", 32),
-		makeSender("volume-0", 32), // future.Results call
 		makeSender("volume-1", 2),
-		makeSender("volume-1", 2), // future.Results call
 		makeSender("volume-2", 1),
-		makeSender("volume-2", 1), // future.Results call
 	}
 
 	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
@@ -182,36 +176,33 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	c.Check(results[2].Volume, jc.DeepEquals, makeVolume("2", 1*1024))
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 6)
+	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].Method, gc.Equals, "PUT") // create volume-0
-	c.Assert(s.requests[1].Method, gc.Equals, "GET") // create volume-0 - future.Results call
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // create volume-1
-	c.Assert(s.requests[3].Method, gc.Equals, "GET") // create volume-1 - future.Results call
-	c.Assert(s.requests[4].Method, gc.Equals, "PUT") // create volume-2
-	c.Assert(s.requests[5].Method, gc.Equals, "GET") // create volume-2 - future.Results call
+	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // create volume-1
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // create volume-2
 
-	makeDisk := func(name string, size int32) *compute.Disk {
+	makeDisk := func(name string, size int32) *armcompute.Disk {
 		tags := map[string]*string{
-			"foo": to.StringPtr("bar"),
+			"foo": to.Ptr("bar"),
 		}
-		return &compute.Disk{
-			Location: to.StringPtr("westus"),
+		return &armcompute.Disk{
+			Location: to.Ptr("westus"),
 			Tags:     tags,
-			Sku: &compute.DiskSku{
-				Name: compute.DiskStorageAccountTypes("Standard_LRS"),
+			SKU: &armcompute.DiskSKU{
+				Name: to.Ptr(armcompute.DiskStorageAccountTypesStandardLRS),
 			},
-			DiskProperties: &compute.DiskProperties{
-				DiskSizeGB: to.Int32Ptr(size),
-				CreationData: &compute.CreationData{
-					CreateOption: compute.DiskCreateOptionEmpty,
+			Properties: &armcompute.DiskProperties{
+				DiskSizeGB: to.Ptr(size),
+				CreationData: &armcompute.CreationData{
+					CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty),
 				},
 			},
 		}
 	}
 	// Only check the PUT requests.
 	assertRequestBody(c, s.requests[0], makeDisk("volume-0", 1))
-	assertRequestBody(c, s.requests[2], makeDisk("volume-1", 2))
-	assertRequestBody(c, s.requests[4], makeDisk("volume-2", 1))
+	assertRequestBody(c, s.requests[1], makeDisk("volume-1", 2))
+	assertRequestBody(c, s.requests[2], makeDisk("volume-2", 1))
 }
 
 func (s *storageSuite) createSenderWithUnauthorisedStatusCode() {
@@ -262,49 +253,47 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidCredential, jc.IsTrue)
 
 	// Validate HTTP request bodies.
-	// account for the retry attempts for volumes 1,2
 	// The authorised workflow attempts to refresh to token so
 	// there's additional requests to account for as well.
-	c.Assert(s.requests, gc.HasLen, 7)
+	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].Method, gc.Equals, "PUT") // create volume-0
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // create volume-1
-	c.Assert(s.requests[5].Method, gc.Equals, "PUT") // create volume-2
+	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // create volume-1
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // create volume-2
 
-	makeDisk := func(name string, size int32) *compute.Disk {
+	makeDisk := func(name string, size int32) *armcompute.Disk {
 		tags := map[string]*string{
-			"foo": to.StringPtr("bar"),
+			"foo": to.Ptr("bar"),
 		}
-		return &compute.Disk{
-			Location: to.StringPtr("westus"),
+		return &armcompute.Disk{
+			Location: to.Ptr("westus"),
 			Tags:     tags,
-			DiskProperties: &compute.DiskProperties{
-				DiskSizeGB: to.Int32Ptr(size),
-				CreationData: &compute.CreationData{
-					CreateOption: compute.DiskCreateOptionEmpty,
+			Properties: &armcompute.DiskProperties{
+				DiskSizeGB: to.Ptr(size),
+				CreationData: &armcompute.CreationData{
+					CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty),
 				},
 			},
-			Sku: &compute.DiskSku{
-				Name: compute.DiskStorageAccountTypes("Standard_LRS"),
+			SKU: &armcompute.DiskSKU{
+				Name: to.Ptr(armcompute.DiskStorageAccountTypesStandardLRS),
 			},
 		}
 	}
-	// account for the retry attempts for volumes 1,2
 	assertRequestBody(c, s.requests[0], makeDisk("volume-0", 1))
-	assertRequestBody(c, s.requests[3], makeDisk("volume-1", 2))
-	assertRequestBody(c, s.requests[5], makeDisk("volume-2", 1))
+	assertRequestBody(c, s.requests[1], makeDisk("volume-1", 2))
+	assertRequestBody(c, s.requests[2], makeDisk("volume-2", 1))
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
 	volumeSource := s.volumeSource(c)
-	disks := []compute.Disk{{
-		Name: to.StringPtr("volume-0"),
+	disks := []*armcompute.Disk{{
+		Name: to.Ptr("volume-0"),
 	}, {
-		Name: to.StringPtr("machine-0"),
+		Name: to.Ptr("machine-0"),
 	}, {
-		Name: to.StringPtr("volume-1"),
+		Name: to.Ptr("volume-1"),
 	}}
-	volumeSender := azuretesting.NewSenderWithValue(compute.DiskList{
-		Value: &disks,
+	volumeSender := azuretesting.NewSenderWithValue(armcompute.DiskList{
+		Value: disks,
 	})
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks`
 	s.sender = azuretesting.Senders{volumeSender}
@@ -333,14 +322,14 @@ func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 		sender, // for the retry attempt
 	}
 	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
-	c.Assert(err, gc.ErrorMatches, "listing disks: .*: no disks for you")
+	c.Assert(err, gc.ErrorMatches, "listing disks: no disks for you")
 }
 
 func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	volumeSource := s.volumeSource(c)
-	volumeSender := azuretesting.NewSenderWithValue(&compute.Disk{
-		DiskProperties: &compute.DiskProperties{
-			DiskSizeGB: to.Int32Ptr(1024),
+	volumeSender := azuretesting.NewSenderWithValue(&armcompute.Disk{
+		Properties: &armcompute.DiskProperties{
+			DiskSizeGB: to.Ptr(int32(1024)),
 		},
 	})
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
@@ -429,26 +418,16 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
 
 func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	// machine-1 has a single data disk with LUN 0.
-	machine1DataDisks := []compute.DataDisk{{
-		Lun:  to.Int32Ptr(0),
-		Name: to.StringPtr("volume-1"),
-		Vhd: &compute.VirtualHardDisk{
-			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
-				storageAccountName,
-			)),
-		},
+	machine1DataDisks := []*armcompute.DataDisk{{
+		Lun:  to.Ptr(int32(0)),
+		Name: to.Ptr("volume-1"),
 	}}
 	// machine-2 has 32 data disks; no LUNs free.
-	machine2DataDisks := make([]compute.DataDisk, 32)
+	machine2DataDisks := make([]*armcompute.DataDisk, 32)
 	for i := range machine2DataDisks {
-		machine2DataDisks[i].Lun = to.Int32Ptr(int32(i))
-		machine2DataDisks[i].Name = to.StringPtr(fmt.Sprintf("volume-%d", i))
-		machine2DataDisks[i].Vhd = &compute.VirtualHardDisk{
-			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.storage.azurestack.local/datavhds/volume-%d.vhd",
-				storageAccountName, i,
-			)),
+		machine2DataDisks[i] = &armcompute.DataDisk{
+			Lun:  to.Ptr(int32(i)),
+			Name: to.Ptr(fmt.Sprintf("volume-%d", i)),
 		}
 	}
 
@@ -475,29 +454,29 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		makeParams("42", "2", 50),
 	}
 
-	virtualMachines := []compute.VirtualMachine{{
-		Name: to.StringPtr("machine-0"),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{},
+	virtualMachines := []*armcompute.VirtualMachine{{
+		Name: to.Ptr("machine-0"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{},
 		},
 	}, {
-		Name: to.StringPtr("machine-1"),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{DataDisks: &machine1DataDisks},
+		Name: to.Ptr("machine-1"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{DataDisks: machine1DataDisks},
 		},
 	}, {
-		Name: to.StringPtr("machine-2"),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{DataDisks: &machine2DataDisks},
+		Name: to.Ptr("machine-2"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{DataDisks: machine2DataDisks},
 		},
 	}}
 
 	// There should be a one API calls to list VMs, and one update per modified instance.
-	virtualMachinesSender := azuretesting.NewSenderWithValue(compute.VirtualMachineListResult{
-		Value: &virtualMachines,
+	virtualMachinesSender := azuretesting.NewSenderWithValue(armcompute.VirtualMachineListResult{
+		Value: virtualMachines,
 	})
 	virtualMachinesSender.PathPattern = `.*/Microsoft\.Compute/virtualMachines`
-	updateVirtualMachine0Sender := azuretesting.NewSenderWithValue(&compute.VirtualMachine{})
+	updateVirtualMachine0Sender := azuretesting.NewSenderWithValue(&armcompute.VirtualMachine{})
 	updateVirtualMachine0Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-0`
 
 	volumeSource := s.volumeSource(c)
@@ -519,52 +498,50 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	c.Check(results[4].Error, gc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 2)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
-	c.Assert(s.requests[2].Method, gc.Equals, "GET") // result call
 
-	makeManagedDisk := func(volumeName string) *compute.ManagedDiskParameters {
-		return &compute.ManagedDiskParameters{
-			ID: to.StringPtr(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
+	makeManagedDisk := func(volumeName string) *armcompute.ManagedDiskParameters {
+		return &armcompute.ManagedDiskParameters{
+			ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
 		}
 	}
 
-	machine0DataDisks := []compute.DataDisk{{
-		Lun:          to.Int32Ptr(0),
-		Name:         to.StringPtr("volume-0"),
+	machine0DataDisks := []*armcompute.DataDisk{{
+		Lun:          to.Ptr(int32(0)),
+		Name:         to.Ptr("volume-0"),
 		ManagedDisk:  makeManagedDisk("volume-0"),
-		Caching:      compute.CachingTypesReadWrite,
-		CreateOption: compute.DiskCreateOptionTypesAttach,
+		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
+		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesAttach),
 	}, {
-		Lun:          to.Int32Ptr(1),
-		Name:         to.StringPtr("volume-2"),
+		Lun:          to.Ptr(int32(1)),
+		Name:         to.Ptr("volume-2"),
 		ManagedDisk:  makeManagedDisk("volume-2"),
-		Caching:      compute.CachingTypesReadWrite,
-		CreateOption: compute.DiskCreateOptionTypesAttach,
+		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
+		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesAttach),
 	}}
 
-	assertRequestBody(c, s.requests[1], &compute.VirtualMachine{
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &machine0DataDisks,
+	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks: machine0DataDisks,
 			},
 		},
-		Tags: map[string]*string{},
 	})
 }
 
 func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	// machine-0 has a three data disks: volume-0, volume-1 and volume-2
-	machine0DataDisks := []compute.DataDisk{{
-		Lun:  to.Int32Ptr(0),
-		Name: to.StringPtr("volume-0"),
+	machine0DataDisks := []*armcompute.DataDisk{{
+		Lun:  to.Ptr(int32(0)),
+		Name: to.Ptr("volume-0"),
 	}, {
-		Lun:  to.Int32Ptr(1),
-		Name: to.StringPtr("volume-1"),
+		Lun:  to.Ptr(int32(1)),
+		Name: to.Ptr("volume-1"),
 	}, {
-		Lun:  to.Int32Ptr(2),
-		Name: to.StringPtr("volume-2"),
+		Lun:  to.Ptr(int32(2)),
+		Name: to.Ptr("volume-2"),
 	}}
 
 	makeParams := func(volume, machine string) storage.VolumeAttachmentParams {
@@ -585,24 +562,24 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		makeParams("2", "42"),
 	}
 
-	virtualMachines := []compute.VirtualMachine{{
-		Name: to.StringPtr("machine-0"),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{DataDisks: &machine0DataDisks},
+	virtualMachines := []*armcompute.VirtualMachine{{
+		Name: to.Ptr("machine-0"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{DataDisks: machine0DataDisks},
 		},
 	}, {
-		Name: to.StringPtr("machine-1"),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{},
+		Name: to.Ptr("machine-1"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{},
 		},
 	}}
 
 	// There should be a one API calls to list VMs, and one update per modified instance.
-	virtualMachinesSender := azuretesting.NewSenderWithValue(compute.VirtualMachineListResult{
-		Value: &virtualMachines,
+	virtualMachinesSender := azuretesting.NewSenderWithValue(armcompute.VirtualMachineListResult{
+		Value: virtualMachines,
 	})
 	virtualMachinesSender.PathPattern = `.*/Microsoft\.Compute/virtualMachines`
-	updateVirtualMachine0Sender := azuretesting.NewSenderWithValue(&compute.VirtualMachine{})
+	updateVirtualMachine0Sender := azuretesting.NewSenderWithValue(&armcompute.VirtualMachine{})
 	updateVirtualMachine0Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-0`
 
 	volumeSource := s.volumeSource(c)
@@ -623,35 +600,27 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	c.Check(results[3], gc.ErrorMatches, "instance machine-42 not found")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 2)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
-	c.Assert(s.requests[2].Method, gc.Equals, "GET") // update machine-0 - future.Results call
 
-	assertRequestBody(c, s.requests[1], &compute.VirtualMachine{
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &[]compute.DataDisk{
+	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks: []*armcompute.DataDisk{
 					machine0DataDisks[0],
 					machine0DataDisks[2],
 				},
 			},
 		},
-		Tags: map[string]*string{},
 	})
 }
 
 func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 	// machine-0 has a one data disk: volume-0.
-	machine0DataDisks := []compute.DataDisk{{
-		Lun:  to.Int32Ptr(0),
-		Name: to.StringPtr("volume-0"),
-		Vhd: &compute.VirtualHardDisk{
-			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
-				storageAccountName,
-			)),
-		},
+	machine0DataDisks := []*armcompute.DataDisk{{
+		Lun:  to.Ptr(int32(0)),
+		Name: to.Ptr("volume-0"),
 	}}
 
 	params := []storage.VolumeAttachmentParams{{
@@ -664,19 +633,19 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 		VolumeId: "volume-0",
 	}}
 
-	virtualMachines := []compute.VirtualMachine{{
-		Name: to.StringPtr("machine-0"),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{DataDisks: &machine0DataDisks},
+	virtualMachines := []*armcompute.VirtualMachine{{
+		Name: to.Ptr("machine-0"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{DataDisks: machine0DataDisks},
 		},
 	}}
 
 	// There should be a one API call to list VMs, and one update to the VM.
-	virtualMachinesSender := azuretesting.NewSenderWithValue(compute.VirtualMachineListResult{
-		Value: &virtualMachines,
+	virtualMachinesSender := azuretesting.NewSenderWithValue(armcompute.VirtualMachineListResult{
+		Value: virtualMachines,
 	})
 	virtualMachinesSender.PathPattern = `.*/Microsoft\.Compute/virtualMachines`
-	updateVirtualMachine0Sender := azuretesting.NewSenderWithValue(&compute.VirtualMachine{})
+	updateVirtualMachine0Sender := azuretesting.NewSenderWithValue(&armcompute.VirtualMachine{})
 	updateVirtualMachine0Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-0`
 
 	volumeSource := s.volumeSource(c)
@@ -684,7 +653,6 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 	s.sender = azuretesting.Senders{
 		virtualMachinesSender,
 		updateVirtualMachine0Sender,
-		updateVirtualMachine0Sender, // future.Results call
 	}
 
 	results, err := volumeSource.DetachVolumes(s.cloudCallCtx, params)
@@ -693,17 +661,15 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 	c.Assert(results[0], jc.ErrorIsNil)
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 2)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
-	c.Assert(s.requests[2].Method, gc.Equals, "GET") // update machine-0 future.Results call
 
-	assertRequestBody(c, s.requests[1], &compute.VirtualMachine{
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &[]compute.DataDisk{},
+	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks: []*armcompute.DataDisk{},
 			},
 		},
-		Tags: map[string]*string{},
 	})
 }

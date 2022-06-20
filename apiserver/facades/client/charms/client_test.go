@@ -94,7 +94,7 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(
 		c, &factory.CharmParams{Name: "metered", URL: "cs:xenial/metered"})
 	info, err := s.api.CharmInfo(params.CharmURL{
-		URL: meteredCharm.URL().String(),
+		URL: meteredCharm.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := &params.CharmMetrics{
@@ -139,7 +139,7 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	metered, err := s.api.IsMetered(params.CharmURL{
-		URL: charm.URL().String(),
+		URL: charm.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metered.Metered, jc.IsFalse)
@@ -148,7 +148,7 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	metered, err := s.api.IsMetered(params.CharmURL{
-		URL: meteredCharm.URL().String(),
+		URL: meteredCharm.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metered.Metered, jc.IsTrue)

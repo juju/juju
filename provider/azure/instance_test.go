@@ -8,11 +8,12 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/go-autorest/autorest/mocks"
-	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -35,10 +36,10 @@ type instanceSuite struct {
 	requests          []*http.Request
 	sender            azuretesting.Senders
 	env               environs.Environ
-	deployments       []resources.DeploymentExtended
-	vms               []compute.VirtualMachine
-	networkInterfaces []network.Interface
-	publicIPAddresses []network.PublicIPAddress
+	deployments       []*armresources.DeploymentExtended
+	vms               []*armcompute.VirtualMachine
+	networkInterfaces []*armnetwork.Interface
+	publicIPAddresses []*armnetwork.PublicIPAddress
 
 	callCtx             *context.CloudCallContext
 	invalidteCredential bool
@@ -50,29 +51,31 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:                     &s.sender,
-		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
+		RequestInspector:           &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
+			return &azuretesting.FakeCredential{}, nil
+		},
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
-	azure.SetRetries(s.env)
 	s.sender = nil
 	s.requests = nil
-	s.networkInterfaces = []network.Interface{
+	s.networkInterfaces = []*armnetwork.Interface{
 		makeNetworkInterface("nic-0", "machine-0"),
 	}
 	s.publicIPAddresses = nil
-	s.deployments = []resources.DeploymentExtended{
-		makeDeployment("machine-0", resources.ProvisioningStateSucceeded),
-		makeDeployment("machine-1", resources.ProvisioningStateCreating),
+	s.deployments = []*armresources.DeploymentExtended{
+		makeDeployment("machine-0", armresources.ProvisioningStateSucceeded),
+		makeDeployment("machine-1", armresources.ProvisioningStateCreating),
 	}
-	s.vms = []compute.VirtualMachine{{
-		Name: to.StringPtr("machine-0"),
+	s.vms = []*armcompute.VirtualMachine{{
+		Name: to.Ptr("machine-0"),
 		Tags: map[string]*string{
-			"juju-controller-uuid": to.StringPtr("foo"),
-			"juju-is-controller":   to.StringPtr("true"),
+			"juju-controller-uuid": to.Ptr("foo"),
+			"juju-is-controller":   to.Ptr("true"),
 		},
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			ProvisioningState: to.StringPtr("Succeeded")},
+		Properties: &armcompute.VirtualMachineProperties{
+			ProvisioningState: to.Ptr("Succeeded")},
 	}}
 	s.callCtx = &context.CloudCallContext{
 		Context: stdcontext.TODO(),
@@ -83,77 +86,79 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func makeDeployment(name string, provisioningState resources.ProvisioningState) resources.DeploymentExtended {
-	dependsOn := []resources.BasicDependency{{
-		ResourceType: to.StringPtr("Microsoft.Compute/availabilitySets"),
-		ResourceName: to.StringPtr("mysql"),
+func makeDeployment(name string, provisioningState armresources.ProvisioningState) *armresources.DeploymentExtended {
+	dependsOn := []*armresources.BasicDependency{{
+		ResourceType: to.Ptr("Microsoft.Compute/availabilitySets"),
+		ResourceName: to.Ptr("mysql"),
 	}}
-	dependencies := []resources.Dependency{{
-		ResourceType: to.StringPtr("Microsoft.Compute/virtualMachines"),
-		DependsOn:    &dependsOn,
+	dependencies := []*armresources.Dependency{{
+		ResourceType: to.Ptr("Microsoft.Compute/virtualMachines"),
+		DependsOn:    dependsOn,
 	}}
-	return resources.DeploymentExtended{
-		Name: to.StringPtr(name),
-		Properties: &resources.DeploymentPropertiesExtended{
-			ProvisioningState: provisioningState,
-			Dependencies:      &dependencies,
+	return &armresources.DeploymentExtended{
+		Name: to.Ptr(name),
+		Properties: &armresources.DeploymentPropertiesExtended{
+			ProvisioningState: to.Ptr(provisioningState),
+			Dependencies:      dependencies,
 		},
 	}
 }
 
-func makeNetworkInterface(nicName, vmName string, ipConfigurations ...network.InterfaceIPConfiguration) network.Interface {
+func makeNetworkInterface(nicName, vmName string, ipConfigurations ...*armnetwork.InterfaceIPConfiguration) *armnetwork.Interface {
 	tags := map[string]*string{"juju-machine-name": &vmName}
-	return network.Interface{
-		Name: to.StringPtr(nicName),
+	return &armnetwork.Interface{
+		Name: to.Ptr(nicName),
 		Tags: tags,
-		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-			IPConfigurations: &ipConfigurations,
-			Primary:          to.BoolPtr(true),
+		Properties: &armnetwork.InterfacePropertiesFormat{
+			IPConfigurations: ipConfigurations,
+			Primary:          to.Ptr(true),
 		},
 	}
 }
 
-func makeIPConfiguration(privateIPAddress string) network.InterfaceIPConfiguration {
-	ipConfiguration := network.InterfaceIPConfiguration{
-		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{},
+func makeIPConfiguration(privateIPAddress string) *armnetwork.InterfaceIPConfiguration {
+	ipConfiguration := &armnetwork.InterfaceIPConfiguration{
+		Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{},
 	}
 	if privateIPAddress != "" {
-		ipConfiguration.PrivateIPAddress = to.StringPtr(privateIPAddress)
+		ipConfiguration.Properties.PrivateIPAddress = to.Ptr(privateIPAddress)
 	}
 	return ipConfiguration
 }
 
-func makePublicIPAddress(pipName, vmName, ipAddress string) network.PublicIPAddress {
+func makePublicIPAddress(pipName, vmName, ipAddress string) *armnetwork.PublicIPAddress {
 	tags := map[string]*string{"juju-machine-name": &vmName}
-	pip := network.PublicIPAddress{
-		Name:                            to.StringPtr(pipName),
-		Tags:                            tags,
-		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{},
+	pip := &armnetwork.PublicIPAddress{
+		Name:       to.Ptr(pipName),
+		Tags:       tags,
+		Properties: &armnetwork.PublicIPAddressPropertiesFormat{},
 	}
 	if ipAddress != "" {
-		pip.IPAddress = to.StringPtr(ipAddress)
+		pip.Properties.IPAddress = to.Ptr(ipAddress)
 	}
 	return pip
 }
 
-func makeSecurityGroup(rules ...network.SecurityRule) network.SecurityGroup {
-	return network.SecurityGroup{
-		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &rules,
+func makeSecurityGroup(rules ...*armnetwork.SecurityRule) armnetwork.SecurityGroup {
+	return armnetwork.SecurityGroup{
+		Name: to.Ptr("juju-internal-nsg"),
+		ID:   to.Ptr(internalSecurityGroupPath),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: rules,
 		},
 	}
 }
 
-func makeSecurityRule(name, ipAddress, ports string) network.SecurityRule {
-	return network.SecurityRule{
-		Name: to.StringPtr(name),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			DestinationAddressPrefix: to.StringPtr(ipAddress),
-			DestinationPortRange:     to.StringPtr(ports),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(200),
-			Direction:                network.SecurityRuleDirectionInbound,
+func makeSecurityRule(name, ipAddress, ports string) *armnetwork.SecurityRule {
+	return &armnetwork.SecurityRule{
+		Name: to.Ptr(name),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationAddressPrefix: to.Ptr(ipAddress),
+			DestinationPortRange:     to.Ptr(ports),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}
 }
@@ -174,29 +179,29 @@ func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instances.In
 }
 
 func (s *instanceSuite) getInstancesSender() azuretesting.Senders {
-	deploymentsSender := azuretesting.NewSenderWithValue(&resources.DeploymentListResult{
-		Value: &s.deployments,
+	deploymentsSender := azuretesting.NewSenderWithValue(&armresources.DeploymentListResult{
+		Value: s.deployments,
 	})
 	deploymentsSender.PathPattern = ".*/deployments"
-	vmSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{
-		Value: &s.vms,
+	vmSender := azuretesting.NewSenderWithValue(&armcompute.VirtualMachineListResult{
+		Value: s.vms,
 	})
 	vmSender.PathPattern = ".*/virtualMachines"
-	nicsSender := azuretesting.NewSenderWithValue(&network.InterfaceListResult{
-		Value: &s.networkInterfaces,
+	nicsSender := azuretesting.NewSenderWithValue(&armnetwork.InterfaceListResult{
+		Value: s.networkInterfaces,
 	})
 	nicsSender.PathPattern = ".*/networkInterfaces"
-	pipsSender := azuretesting.NewSenderWithValue(&network.PublicIPAddressListResult{
-		Value: &s.publicIPAddresses,
+	pipsSender := azuretesting.NewSenderWithValue(&armnetwork.PublicIPAddressListResult{
+		Value: s.publicIPAddresses,
 	})
 	pipsSender.PathPattern = ".*/publicIPAddresses"
 	return azuretesting.Senders{deploymentsSender, vmSender, nicsSender, pipsSender}
 }
 
-func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.MockSender {
-	nsgSender := azuretesting.NewSenderWithValue(&network.SecurityGroup{
-		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &rules,
+func networkSecurityGroupSender(rules []*armnetwork.SecurityRule) *azuretesting.MockSender {
+	nsgSender := azuretesting.NewSenderWithValue(&armnetwork.SecurityGroup{
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: rules,
 		},
 	})
 	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal-nsg"
@@ -209,16 +214,16 @@ func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploying(c *gc.C) {
-	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateCreating
+	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCreating)
 	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Provisioning, "")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
-	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateFailed
-	s.deployments[1].Properties.Error = &resources.ErrorResponse{
-		Details: &[]resources.ErrorResponse{{
-			Message: to.StringPtr("boom"),
+	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateFailed)
+	s.deployments[1].Properties.Error = &armresources.ErrorResponse{
+		Details: []*armresources.ErrorResponse{{
+			Message: to.Ptr("boom"),
 		}},
 	}
 	inst := s.getInstance(c, "machine-1")
@@ -226,13 +231,13 @@ func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
-	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateCanceled
+	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCanceled)
 	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Canceled")
 }
 
 func (s *instanceSuite) TestInstanceStatusUnsetProvisioningState(c *gc.C) {
-	s.deployments[1].Properties.ProvisioningState = resources.ProvisioningStateNotSpecified
+	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateNotSpecified)
 	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Allocating, "")
 }
@@ -251,21 +256,21 @@ func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
-	nic0IPConfigurations := []network.InterfaceIPConfiguration{
+	nic0IPConfigurations := []*armnetwork.InterfaceIPConfiguration{
 		makeIPConfiguration("10.0.0.4"),
 		makeIPConfiguration("10.0.0.5"),
 	}
-	nic1IPConfigurations := []network.InterfaceIPConfiguration{
+	nic1IPConfigurations := []*armnetwork.InterfaceIPConfiguration{
 		makeIPConfiguration(""),
 	}
-	s.networkInterfaces = []network.Interface{
+	s.networkInterfaces = []*armnetwork.Interface{
 		makeNetworkInterface("nic-0", "machine-0", nic0IPConfigurations...),
 		makeNetworkInterface("nic-1", "machine-0", nic1IPConfigurations...),
 		makeNetworkInterface("nic-2", "machine-0"),
 		// unrelated NIC
 		makeNetworkInterface("nic-3", "machine-1"),
 	}
-	s.publicIPAddresses = []network.PublicIPAddress{
+	s.publicIPAddresses = []*armnetwork.PublicIPAddress{
 		makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
 		makePublicIPAddress("pip-1", "machine-0", "1.2.3.5"),
 		// unrelated PIP
@@ -281,11 +286,11 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 	nic0IPConfiguration := makeIPConfiguration("10.0.0.4")
 	nic1IPConfiguration := makeIPConfiguration("10.0.0.5")
-	s.networkInterfaces = []network.Interface{
+	s.networkInterfaces = []*armnetwork.Interface{
 		makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration),
 		makeNetworkInterface("nic-1", "machine-1", nic1IPConfiguration),
 	}
-	s.publicIPAddresses = []network.PublicIPAddress{
+	s.publicIPAddresses = []*armnetwork.PublicIPAddress{
 		makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
 		makePublicIPAddress("pip-1", "machine-1", "1.2.3.5"),
 	}
@@ -316,120 +321,120 @@ func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
 	c.Assert(rules, gc.HasLen, 0)
 }
 
-func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...network.SecurityRule) *azuretesting.Senders {
-	nsg := &network.SecurityGroup{
+func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...*armnetwork.SecurityRule) *azuretesting.Senders {
+	nsg := &armnetwork.SecurityGroup{
 		ID:   &internalSecurityGroupPath,
-		Name: to.StringPtr("juju-internal-nsg"),
-		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &nsgRules,
+		Name: to.Ptr("juju-internal-nsg"),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: nsgRules,
 		},
 	}
-	nic0IPConfigurations := []network.InterfaceIPConfiguration{
+	nic0IPConfigurations := []*armnetwork.InterfaceIPConfiguration{
 		makeIPConfiguration("10.0.0.4"),
 	}
-	nic0IPConfigurations[0].Primary = to.BoolPtr(true)
-	nic0IPConfigurations[0].Subnet = &network.Subnet{
+	nic0IPConfigurations[0].Properties.Primary = to.Ptr(true)
+	nic0IPConfigurations[0].Properties.Subnet = &armnetwork.Subnet{
 		ID: &internalSubnetPath,
-		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+		Properties: &armnetwork.SubnetPropertiesFormat{
 			NetworkSecurityGroup: nsg,
 		},
 	}
-	s.networkInterfaces = []network.Interface{
+	s.networkInterfaces = []*armnetwork.Interface{
 		makeNetworkInterface("nic-0", "machine-0", nic0IPConfigurations...),
 		makeNetworkInterface("nic-2", "machine-0"),
 		// unrelated NIC
 		makeNetworkInterface("nic-3", "machine-1"),
 	}
 	return &azuretesting.Senders{
-		makeSender(internalSubnetPath, nic0IPConfigurations[0].Subnet), // GET: subnets to get security group
+		makeSender(internalSubnetPath, nic0IPConfigurations[0].Properties.Subnet), // GET: subnets to get security group
 		networkSecurityGroupSender(nsgRules),
 	}
 }
 
 func (s *instanceSuite) TestIngressRules(c *gc.C) {
-	nsgRules := []network.SecurityRule{{
-		Name: to.StringPtr("machine-0-xyzzy"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolUDP,
-			DestinationPortRange: to.StringPtr("*"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(200),
-			Direction:            network.SecurityRuleDirectionInbound,
+	nsgRules := []*armnetwork.SecurityRule{{
+		Name: to.Ptr("machine-0-xyzzy"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolUDP),
+			DestinationPortRange: to.Ptr("*"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(200)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-0-tcpcp-1"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
-			DestinationPortRange: to.StringPtr("1000-2000"),
-			SourceAddressPrefix:  to.StringPtr("*"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(201),
-			Direction:            network.SecurityRuleDirectionInbound,
+		Name: to.Ptr("machine-0-tcpcp-1"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: to.Ptr("1000-2000"),
+			SourceAddressPrefix:  to.Ptr("*"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(201)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-0-tcpcp-2"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
-			DestinationPortRange: to.StringPtr("1000-2000"),
-			SourceAddressPrefix:  to.StringPtr("192.168.1.0/24"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(201),
-			Direction:            network.SecurityRuleDirectionInbound,
+		Name: to.Ptr("machine-0-tcpcp-2"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: to.Ptr("1000-2000"),
+			SourceAddressPrefix:  to.Ptr("192.168.1.0/24"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(201)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-0-tcpcp-3"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
-			DestinationPortRange: to.StringPtr("1000-2000"),
-			SourceAddressPrefix:  to.StringPtr("10.0.0.0/24"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(201),
-			Direction:            network.SecurityRuleDirectionInbound,
+		Name: to.Ptr("machine-0-tcpcp-3"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: to.Ptr("1000-2000"),
+			SourceAddressPrefix:  to.Ptr("10.0.0.0/24"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(201)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-0-http"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolAsterisk,
-			DestinationPortRange: to.StringPtr("80"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(202),
-			Direction:            network.SecurityRuleDirectionInbound,
+		Name: to.Ptr("machine-0-http"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+			DestinationPortRange: to.Ptr("80"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(202)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-00-ignored"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
-			DestinationPortRange: to.StringPtr("80"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(202),
-			Direction:            network.SecurityRuleDirectionInbound,
+		Name: to.Ptr("machine-00-ignored"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: to.Ptr("80"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(202)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-0-ignored"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
-			DestinationPortRange: to.StringPtr("80"),
-			Access:               network.SecurityRuleAccessDeny,
-			Priority:             to.Int32Ptr(202),
-			Direction:            network.SecurityRuleDirectionInbound,
+		Name: to.Ptr("machine-0-ignored"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: to.Ptr("80"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessDeny),
+			Priority:             to.Ptr(int32(202)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-0-ignored"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
-			DestinationPortRange: to.StringPtr("80"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(202),
-			Direction:            network.SecurityRuleDirectionOutbound,
+		Name: to.Ptr("machine-0-ignored"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: to.Ptr("80"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(202)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 		},
 	}, {
-		Name: to.StringPtr("machine-0-ignored"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
-			DestinationPortRange: to.StringPtr("80"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(199), // internal range
-			Direction:            network.SecurityRuleDirectionInbound,
+		Name: to.Ptr("machine-0-ignored"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: to.Ptr("80"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(199)), // internal range
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}}
 	nsgSender := s.setupSecurityGroupRules(nsgRules...)
@@ -504,75 +509,75 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
-	assertRequestBody(c, s.requests[1], &network.SecurityRule{
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000/tcp from *"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourcePortRange:          to.StringPtr("*"),
-			SourceAddressPrefix:      to.StringPtr("*"),
-			DestinationPortRange:     to.StringPtr("1000"),
-			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(200),
-			Direction:                network.SecurityRuleDirectionInbound,
+	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr("1000/tcp from *"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          to.Ptr("*"),
+			SourceAddressPrefix:      to.Ptr("*"),
+			DestinationPortRange:     to.Ptr("1000"),
+			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
 	c.Assert(s.requests[2].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
-	assertRequestBody(c, s.requests[2], &network.SecurityRule{
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000-2000/udp from *"),
-			Protocol:                 network.SecurityRuleProtocolUDP,
-			SourcePortRange:          to.StringPtr("*"),
-			SourceAddressPrefix:      to.StringPtr("*"),
-			DestinationPortRange:     to.StringPtr("1000-2000"),
-			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(201),
-			Direction:                network.SecurityRuleDirectionInbound,
+	assertRequestBody(c, s.requests[2], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr("1000-2000/udp from *"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolUDP),
+			SourcePortRange:          to.Ptr("*"),
+			SourceAddressPrefix:      to.Ptr("*"),
+			DestinationPortRange:     to.Ptr("1000-2000"),
+			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(201)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
 	c.Assert(s.requests[3].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[3].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-10-0-0-0-24"))
-	assertRequestBody(c, s.requests[3], &network.SecurityRule{
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000-2000/tcp from 10.0.0.0/24"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourcePortRange:          to.StringPtr("*"),
-			SourceAddressPrefix:      to.StringPtr("10.0.0.0/24"),
-			DestinationPortRange:     to.StringPtr("1000-2000"),
-			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(202),
-			Direction:                network.SecurityRuleDirectionInbound,
+	assertRequestBody(c, s.requests[3], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr("1000-2000/tcp from 10.0.0.0/24"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          to.Ptr("*"),
+			SourceAddressPrefix:      to.Ptr("10.0.0.0/24"),
+			DestinationPortRange:     to.Ptr("1000-2000"),
+			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(202)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
 	c.Assert(s.requests[4].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[4].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-192-168-1-0-24"))
-	assertRequestBody(c, s.requests[4], &network.SecurityRule{
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000-2000/tcp from 192.168.1.0/24"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourcePortRange:          to.StringPtr("*"),
-			SourceAddressPrefix:      to.StringPtr("192.168.1.0/24"),
-			DestinationPortRange:     to.StringPtr("1000-2000"),
-			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(203),
-			Direction:                network.SecurityRuleDirectionInbound,
+	assertRequestBody(c, s.requests[4], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr("1000-2000/tcp from 192.168.1.0/24"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          to.Ptr("*"),
+			SourceAddressPrefix:      to.Ptr("192.168.1.0/24"),
+			DestinationPortRange:     to.Ptr("1000-2000"),
+			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(203)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
 }
 
 func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
-	nsgRule := network.SecurityRule{
-		Name: to.StringPtr("machine-0-tcp-1000"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolAsterisk,
-			DestinationPortRange: to.StringPtr("1000"),
-			Access:               network.SecurityRuleAccessAllow,
-			Priority:             to.Int32Ptr(202),
-			Direction:            network.SecurityRuleDirectionInbound,
+	nsgRule := &armnetwork.SecurityRule{
+		Name: to.Ptr("machine-0-tcp-1000"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+			DestinationPortRange: to.Ptr("1000"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             to.Ptr(int32(202)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}
 	nsgSender := s.setupSecurityGroupRules(nsgRule)
@@ -595,23 +600,23 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
-	assertRequestBody(c, s.requests[1], &network.SecurityRule{
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000-2000/udp from *"),
-			Protocol:                 network.SecurityRuleProtocolUDP,
-			SourcePortRange:          to.StringPtr("*"),
-			SourceAddressPrefix:      to.StringPtr("*"),
-			DestinationPortRange:     to.StringPtr("1000-2000"),
-			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(200),
-			Direction:                network.SecurityRuleDirectionInbound,
+	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr("1000-2000/udp from *"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolUDP),
+			SourcePortRange:          to.Ptr("*"),
+			SourceAddressPrefix:      to.Ptr("*"),
+			DestinationPortRange:     to.Ptr("1000-2000"),
+			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
 }
 
 func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
-	s.networkInterfaces = []network.Interface{
+	s.networkInterfaces = []*armnetwork.Interface{
 		makeNetworkInterface("nic-0", "machine-0"),
 	}
 	inst := s.getInstance(c, "machine-0")
@@ -641,7 +646,7 @@ func (s *instanceSuite) TestAllRunningInstances(c *gc.C) {
 }
 
 func (s *instanceSuite) TestControllerInstancesSomePending(c *gc.C) {
-	*(*(*s.deployments[1].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
+	*((s.deployments[1].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()
 	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
 	c.Assert(err, jc.ErrorIsNil)

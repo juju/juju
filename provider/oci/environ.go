@@ -557,9 +557,9 @@ func (e *Environ) startInstance(
 	// If the machine that is spawning is not a controller, then userdata
 	// will take care of it's initial setup, and waiting for a running
 	// status is not necessary
-	if args.InstanceConfig.Controller != nil {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
-		statePort = args.InstanceConfig.Controller.Config.StatePort()
+	if args.InstanceConfig.IsController() {
+		apiPort = args.InstanceConfig.ControllerConfig.APIPort()
+		statePort = args.InstanceConfig.ControllerConfig.StatePort()
 		desiredStatus = ociCore.InstanceLifecycleStateRunning
 	} else {
 		desiredStatus = ociCore.InstanceLifecycleStateProvisioning

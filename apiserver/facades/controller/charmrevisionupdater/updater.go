@@ -145,7 +145,11 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 		charmhubApps   []appInfo
 	)
 	for _, application := range applications {
-		curl, _ := application.CharmURL()
+		cURL, _ := application.CharmURL()
+		curl, err := charm.ParseURL(*cURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		switch {
 		case charm.Local.Matches(curl.Schema):
 			continue

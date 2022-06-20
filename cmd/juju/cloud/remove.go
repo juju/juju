@@ -29,7 +29,7 @@ If --client is specified, Juju removes the cloud from this client.
 
 Examples:
     juju remove-cloud mycloud
-     juju remove-cloud mycloud --client
+    juju remove-cloud mycloud --client
     juju remove-cloud mycloud --controller mycontroller
 
 See also:
@@ -44,10 +44,10 @@ type removeCloudCommand struct {
 	Cloud string
 
 	// Used when querying a controller for its cloud details
-	removeCloudAPIFunc func() (removeCloudAPI, error)
+	removeCloudAPIFunc func() (RemoveCloudAPI, error)
 }
 
-type removeCloudAPI interface {
+type RemoveCloudAPI interface {
 	RemoveCloud(cloud string) error
 	Close() error
 }
@@ -64,7 +64,7 @@ func NewRemoveCloudCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *removeCloudCommand) cloudAPI() (removeCloudAPI, error) {
+func (c *removeCloudCommand) cloudAPI() (RemoveCloudAPI, error) {
 	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -117,12 +117,35 @@ func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *removeCloudCommand) removeLocalCloud(ctxt *cmd.Context) error {
+	cloudDetails, err := listLocalCloudDetails(c.Store)
+	if err != nil {
+		return err
+	}
+	if _, ok := cloudDetails.personal[c.Cloud]; ok {
+		return c.removeLocalPersonalCloud(ctxt)
+	}
+	if _, ok := cloudDetails.builtin[c.Cloud]; ok {
+		ctxt.Infof("Cannot remove built-in cloud %q from client", c.Cloud)
+		return nil
+	}
+	if cloudDetails, ok := cloudDetails.public[c.Cloud]; ok {
+		ctxt.Infof("Cannot remove public cloud %q from client", c.Cloud)
+		if cloudDetails.CredentialCount != 0 {
+			ctxt.Infof("To hide this cloud, remove it's credentials with `juju remove-credential`")
+		}
+		return nil
+	}
+	ctxt.Infof("No cloud called %q exists on this client", c.Cloud)
+	return nil
+}
+
+func (c *removeCloudCommand) removeLocalPersonalCloud(ctxt *cmd.Context) error {
 	personalClouds, err := cloud.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
 	if _, ok := personalClouds[c.Cloud]; !ok {
-		ctxt.Infof("No cloud called %q exists on this client", c.Cloud)
+		ctxt.Infof("No local cloud called %q exists on this client", c.Cloud)
 		return nil
 	}
 	delete(personalClouds, c.Cloud)

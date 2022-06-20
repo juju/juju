@@ -8,8 +8,7 @@ import (
 	"math/rand"
 	"strings"
 
-	azurenetwork "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
+	azurenetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -55,7 +54,7 @@ func (env *azureEnviron) Subnets(
 	return subnets, errorutils.HandleCredentialError(err, ctx)
 }
 
-func (env *azureEnviron) allProviderSubnets(ctx context.ProviderCallContext) ([]azurenetwork.Subnet, error) {
+func (env *azureEnviron) allProviderSubnets(ctx context.ProviderCallContext) ([]*azurenetwork.Subnet, error) {
 	// Subnet discovery happens immediately after model creation.
 	// We need to ensure that the asynchronously invoked resource creation has
 	// completed and added our networking assets.
@@ -65,13 +64,17 @@ func (env *azureEnviron) allProviderSubnets(ctx context.ProviderCallContext) ([]
 		)
 	}
 
-	subClient := azurenetwork.SubnetsClient{BaseClient: env.network}
 	vnetRG, vnetName := env.networkInfo()
-	subnets, err := subClient.List(ctx, vnetRG, vnetName)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var result []*azurenetwork.Subnet
+	pager := env.subnets.NewListPager(vnetRG, vnetName, nil)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, next.Value...)
 	}
-	return subnets.Values(), nil
+	return result, nil
 }
 
 func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.SubnetInfo, error) {
@@ -82,10 +85,12 @@ func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.
 
 	var results []network.SubnetInfo
 	for _, sub := range values {
-		id := to.String(sub.ID)
-
+		id := toValue(sub.ID)
+		if sub.Properties == nil {
+			continue
+		}
 		// An empty CIDR is no use to us, so guard against it.
-		cidr := to.String(sub.AddressPrefix)
+		cidr := toValue(sub.Properties.AddressPrefix)
 		if cidr == "" {
 			logger.Debugf("ignoring subnet %q with empty address prefix", id)
 			continue
@@ -100,27 +105,29 @@ func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.
 }
 
 func (env *azureEnviron) allPublicIPs(ctx context.ProviderCallContext) (map[string]network.ProviderAddress, error) {
-	ipClient := azurenetwork.PublicIPAddressesClient{BaseClient: env.network}
-	ipList, err := ipClient.List(ctx, env.resourceGroup)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	idToIPMap := make(map[string]network.ProviderAddress)
-	for _, ipRes := range ipList.Values() {
-		if ipRes.ID == nil || ipRes.PublicIPAddressPropertiesFormat == nil || ipRes.IPAddress == nil {
-			continue
-		}
 
-		var cfgMethod = network.ConfigDHCP
-		if ipRes.PublicIPAllocationMethod == azurenetwork.IPAllocationMethodStatic {
-			cfgMethod = network.ConfigStatic
+	pager := env.publicAddresses.NewListPager(env.resourceGroup, nil)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		for _, ipRes := range next.Value {
+			if ipRes.ID == nil || ipRes.Properties == nil || ipRes.Properties.IPAddress == nil {
+				continue
+			}
 
-		idToIPMap[*ipRes.ID] = network.NewMachineAddress(
-			*ipRes.IPAddress,
-			network.WithConfigType(cfgMethod),
-		).AsProviderAddress()
+			var cfgMethod = network.ConfigDHCP
+			if toValue(ipRes.Properties.PublicIPAllocationMethod) == azurenetwork.IPAllocationMethodStatic {
+				cfgMethod = network.ConfigStatic
+			}
+
+			idToIPMap[*ipRes.ID] = network.NewMachineAddress(
+				toValue(ipRes.Properties.IPAddress),
+				network.WithConfigType(cfgMethod),
+			).AsProviderAddress()
+		}
 	}
 
 	return idToIPMap, nil
@@ -179,8 +186,7 @@ func (env *azureEnviron) NetworkInterfaces(ctx context.ProviderCallContext, inst
 		subnetIDToCIDR[sub.ProviderId.String()] = sub.CIDR
 	}
 
-	nicClient := azurenetwork.InterfacesClient{BaseClient: env.network}
-	instIfaceMap, err := instanceNetworkInterfaces(ctx, env.resourceGroup, nicClient)
+	instIfaceMap, err := instanceNetworkInterfaces(ctx, env.resourceGroup, env.interfaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -217,7 +223,7 @@ func (env *azureEnviron) NetworkInterfaces(ctx context.ProviderCallContext, inst
 	return res, nil
 }
 
-func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[string]string, ipMap map[string]network.ProviderAddress) network.InterfaceInfos {
+func mapAzureInterfaceList(in []*azurenetwork.Interface, subnetIDToCIDR map[string]string, ipMap map[string]network.ProviderAddress) network.InterfaceInfos {
 	var out = make(network.InterfaceInfos, len(in))
 
 	for idx, azif := range in {
@@ -229,30 +235,30 @@ func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[strin
 			Origin:        network.OriginProvider,
 		}
 
-		if azif.MacAddress != nil {
-			ni.MACAddress = network.NormalizeMACAddress(*azif.MacAddress)
+		if azif.Properties != nil && azif.Properties.MacAddress != nil {
+			ni.MACAddress = network.NormalizeMACAddress(toValue(azif.Properties.MacAddress))
 		}
 		if azif.ID != nil {
 			ni.ProviderId = network.Id(*azif.ID)
 		}
 
-		if azif.InterfacePropertiesFormat == nil || azif.IPConfigurations == nil {
+		if azif.Properties == nil || azif.Properties.IPConfigurations == nil {
 			out[idx] = ni
 			continue
 		}
 
-		for _, ipConf := range *azif.IPConfigurations {
-			if ipConf.InterfaceIPConfigurationPropertiesFormat == nil {
+		for _, ipConf := range azif.Properties.IPConfigurations {
+			if ipConf.Properties == nil {
 				continue
 			}
 
-			isPrimary := ipConf.Primary != nil && *ipConf.Primary
+			isPrimary := ipConf.Properties.Primary != nil && toValue(ipConf.Properties.Primary)
 
 			// Azure does not include the public IP address values
 			// but it does provide us with the ID of any assigned
 			// public addresses which we can use to index the ipMap.
-			if ipConf.PublicIPAddress != nil && ipConf.PublicIPAddress.ID != nil {
-				if providerAddr, found := ipMap[*ipConf.PublicIPAddress.ID]; found {
+			if ipConf.Properties.PublicIPAddress != nil && ipConf.Properties.PublicIPAddress.ID != nil {
+				if providerAddr, found := ipMap[toValue(ipConf.Properties.PublicIPAddress.ID)]; found {
 					// If this a primary address make sure it appears
 					// at the top of the shadow address list.
 					if isPrimary {
@@ -265,12 +271,12 @@ func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[strin
 			}
 
 			// Check if the configuration also includes a private address component.
-			if ipConf.PrivateIPAddress == nil {
+			if ipConf.Properties.PrivateIPAddress == nil {
 				continue
 			}
 
 			var cfgMethod = network.ConfigDHCP
-			if ipConf.PrivateIPAllocationMethod == azurenetwork.IPAllocationMethodStatic {
+			if toValue(ipConf.Properties.PrivateIPAllocationMethod) == azurenetwork.IPAllocationMethodStatic {
 				cfgMethod = network.ConfigStatic
 			}
 
@@ -280,15 +286,15 @@ func mapAzureInterfaceList(in []azurenetwork.Interface, subnetIDToCIDR map[strin
 			}
 
 			var subnetID string
-			if ipConf.Subnet != nil && ipConf.Subnet.ID != nil {
-				subnetID = *ipConf.Subnet.ID
+			if ipConf.Properties.Subnet != nil && ipConf.Properties.Subnet.ID != nil {
+				subnetID = toValue(ipConf.Properties.Subnet.ID)
 				if subnetCIDR := subnetIDToCIDR[subnetID]; subnetCIDR != "" {
 					addrOpts = append(addrOpts, network.WithCIDR(subnetCIDR))
 				}
 			}
 
 			providerAddr := network.NewMachineAddress(
-				*ipConf.PrivateIPAddress,
+				toValue(ipConf.Properties.PrivateIPAddress),
 				addrOpts...,
 			).AsProviderAddress()
 
@@ -340,8 +346,8 @@ func (env *azureEnviron) findSubnetID(ctx context.ProviderCallContext, subnetNam
 		return "", errorutils.HandleCredentialError(err, ctx)
 	}
 	for _, subnet := range subnets {
-		if to.String(subnet.Name) == subnetName {
-			return network.Id(to.String(subnet.ID)), nil
+		if toValue(subnet.Name) == subnetName {
+			return network.Id(toValue(subnet.ID)), nil
 		}
 	}
 	return "", errors.NotFoundf("subnet %q", subnetName)

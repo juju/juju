@@ -22,6 +22,8 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
+	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -2770,8 +2772,15 @@ type fakeBroker struct {
 
 func (f *fakeBroker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
 	return &k8s.ClusterMetadata{
-		NominatedStorageClass: &k8s.StorageProvisioner{
-			Name: "storage-provisioner",
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "storage-provisioner",
+			},
+		},
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "storage-provisioner",
+			},
 		},
 	}, nil
 }
@@ -2948,12 +2957,12 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	coll, closer := s.state.db().GetRawCollection(applicationsC)
 	defer closer()
 
-	curl := charm.MustParseURL("cs:test-charm")
+	curl := "cs:test-charm"
 	err := coll.Insert(applicationDoc{
 		DocID:     ensureModelUUID(uuid, name),
 		Name:      name,
 		ModelUUID: uuid,
-		CharmURL:  curl,
+		CharmURL:  &curl,
 		Life:      life,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -6699,15 +6708,13 @@ func (s *upgradesSuite) TestRemoveLocalCharmOriginChannels(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) TestFixCharmhubLastPolltime(c *gc.C) {
+func (s *upgradesSuite) TestFixCharmhubLastPollTime(c *gc.C) {
 	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
 	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
 	defer func() {
 		_ = model1.Close()
 		_ = model2.Close()
 	}()
-	model1.stateClock = s.state.stateClock
-	model2.stateClock = s.state.stateClock
 
 	uuid1 := model1.ModelUUID()
 	uuid2 := model2.ModelUUID()

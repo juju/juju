@@ -4,8 +4,8 @@
 package azure_test
 
 import (
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -33,17 +33,17 @@ func (s *environSuite) TestSubnetsSuccess(c *gc.C) {
 	// in the default virtual network created for every model.
 	s.sender = azuretesting.Senders{
 		makeSender("/deployments/common", s.commonDeployment),
-		makeSender("/virtualNetworks/juju-internal-network/subnets", network.SubnetListResult{
-			Value: &[]network.Subnet{
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{
 				{
-					ID: to.StringPtr("provider-sub-id"),
-					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-						AddressPrefix: to.StringPtr("10.0.0.0/24"),
+					ID: to.Ptr("provider-sub-id"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: to.Ptr("10.0.0.0/24"),
 					},
 				},
 				{
 					// Result without an address prefix is ignored.
-					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{},
+					Properties: &armnetwork.SubnetPropertiesFormat{},
 				},
 			},
 		}),
@@ -67,99 +67,99 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *gc.C) {
 	// in the default virtual network created for every model.
 	s.sender = azuretesting.Senders{
 		makeSender("/deployments/common", s.commonDeployment),
-		makeSender("/virtualNetworks/juju-internal-network/subnets", network.SubnetListResult{
-			Value: &[]network.Subnet{
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{
 				{
-					ID: to.StringPtr("subnet-42"),
-					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-						AddressPrefix: to.StringPtr("10.0.0.0/24"),
+					ID: to.Ptr("subnet-42"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: to.Ptr("10.0.0.0/24"),
 					},
 				},
 				{
-					ID: to.StringPtr("subnet-665"),
-					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-						AddressPrefix: to.StringPtr("172.0.0.0/24"),
+					ID: to.Ptr("subnet-665"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: to.Ptr("172.0.0.0/24"),
 					},
 				},
 			},
 		}),
-		makeSender(".*/networkInterfaces", network.InterfaceListResult{
-			Value: &[]network.Interface{
+		makeSender(".*/networkInterfaces", armnetwork.InterfaceListResult{
+			Value: []*armnetwork.Interface{
 				{
-					ID: to.StringPtr("az-nic-0"),
-					InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-						Primary:    to.BoolPtr(true),
-						MacAddress: to.StringPtr("AA-BB-CC-DD-EE-FF"), // azure reports MACs in this format; they are normalized internally
-						IPConfigurations: &[]network.InterfaceIPConfiguration{
+					ID: to.Ptr("az-nic-0"),
+					Properties: &armnetwork.InterfacePropertiesFormat{
+						Primary:    to.Ptr(true),
+						MacAddress: to.Ptr("AA-BB-CC-DD-EE-FF"), // azure reports MACs in this format; they are normalized internally
+						IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
 							{
-								InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-									PrivateIPAddress:          to.StringPtr("10.0.0.42"),
-									PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
-									Subnet: &network.Subnet{
-										ID: to.StringPtr("subnet-42"), // should match one of values returned by the Subnets() call
+								Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+									PrivateIPAddress:          to.Ptr("10.0.0.42"),
+									PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+									Subnet: &armnetwork.Subnet{
+										ID: to.Ptr("subnet-42"), // should match one of values returned by the Subnets() call
 									},
-									Primary: to.BoolPtr(false),
+									Primary: to.Ptr(false),
 								},
 							},
 							{
-								InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-									PrivateIPAddress:          to.StringPtr("172.0.0.99"),
-									PrivateIPAllocationMethod: network.IPAllocationMethodStatic,
-									Subnet: &network.Subnet{
-										ID: to.StringPtr("subnet-665"), // should match one of values returned by the Subnets() call
+								Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+									PrivateIPAddress:          to.Ptr("172.0.0.99"),
+									PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+									Subnet: &armnetwork.Subnet{
+										ID: to.Ptr("subnet-665"), // should match one of values returned by the Subnets() call
 									},
 									// This is the primary address for the NIC and should appear first in the mapped interface.
-									Primary: to.BoolPtr(true),
-									PublicIPAddress: &network.PublicIPAddress{
-										ID: to.StringPtr("bogus"), // should be ignored
+									Primary: to.Ptr(true),
+									PublicIPAddress: &armnetwork.PublicIPAddress{
+										ID: to.Ptr("bogus"), // should be ignored
 									},
 								},
 							},
 						},
 					},
 					Tags: map[string]*string{
-						"juju-machine-name": to.StringPtr("machine-0"),
+						"juju-machine-name": to.Ptr("machine-0"),
 					},
 				},
 				{
-					ID: to.StringPtr("az-nic-1"),
-					InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-						Primary:    to.BoolPtr(true),
-						MacAddress: to.StringPtr("BA-D0-C0-FF-EE-42"), // azure reports MACs in this format; they are normalized internally
-						IPConfigurations: &[]network.InterfaceIPConfiguration{
+					ID: to.Ptr("az-nic-1"),
+					Properties: &armnetwork.InterfacePropertiesFormat{
+						Primary:    to.Ptr(true),
+						MacAddress: to.Ptr("BA-D0-C0-FF-EE-42"), // azure reports MACs in this format; they are normalized internally
+						IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
 							{
-								InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-									Subnet: &network.Subnet{
-										ID: to.StringPtr("subnet-42"), // should match one of values returned by the Subnets() call
+								Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+									Subnet: &armnetwork.Subnet{
+										ID: to.Ptr("subnet-42"), // should match one of values returned by the Subnets() call
 									},
-									PublicIPAddress: &network.PublicIPAddress{
-										ID: to.StringPtr("az-ip-1"),
+									PublicIPAddress: &armnetwork.PublicIPAddress{
+										ID: to.Ptr("az-ip-1"),
 									},
-									Primary: to.BoolPtr(true),
+									Primary: to.Ptr(true),
 								},
 							},
 						},
 					},
 					Tags: map[string]*string{
-						"juju-machine-name": to.StringPtr("machine-0"),
+						"juju-machine-name": to.Ptr("machine-0"),
 					},
 				},
 			},
 		}),
-		makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{
-			Value: &[]network.PublicIPAddress{
+		makeSender(".*/publicIPAddresses", armnetwork.PublicIPAddressListResult{
+			Value: []*armnetwork.PublicIPAddress{
 				{
-					ID: to.StringPtr("az-ip-0"),
-					PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
-						PublicIPAllocationMethod: network.IPAllocationMethodStatic,
-						IPAddress:                to.StringPtr("20.30.40.50"),
+					ID: to.Ptr("az-ip-0"),
+					Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+						PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+						IPAddress:                to.Ptr("20.30.40.50"),
 					},
 				},
 				{
-					ID: to.StringPtr("az-ip-1"),
-					PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
-						PublicIPAllocationMethod: network.IPAllocationMethodDynamic,
-						IPAddress:                to.StringPtr("1.2.3.4"),
+					ID: to.Ptr("az-ip-1"),
+					Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+						PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+						IPAddress:                to.Ptr("1.2.3.4"),
 					},
 				},
 			},
@@ -222,24 +222,24 @@ func (s *environSuite) TestNetworkInterfacesPartialMatch(c *gc.C) {
 	// in the default virtual network created for every model.
 	s.sender = azuretesting.Senders{
 		makeSender("/deployments/common", s.commonDeployment),
-		makeSender("/virtualNetworks/juju-internal-network/subnets", network.SubnetListResult{
-			Value: &[]network.Subnet{},
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{},
 		}),
-		makeSender(".*/networkInterfaces", network.InterfaceListResult{
-			Value: &[]network.Interface{
+		makeSender(".*/networkInterfaces", armnetwork.InterfaceListResult{
+			Value: []*armnetwork.Interface{
 				{
-					ID: to.StringPtr("az-nic-0"),
-					InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-						Primary:    to.BoolPtr(true),
-						MacAddress: to.StringPtr("AA-BB-CC-DD-EE-FF"), // azure reports MACs in this format; they are normalized internally
+					ID: to.Ptr("az-nic-0"),
+					Properties: &armnetwork.InterfacePropertiesFormat{
+						Primary:    to.Ptr(true),
+						MacAddress: to.Ptr("AA-BB-CC-DD-EE-FF"), // azure reports MACs in this format; they are normalized internally
 					},
 					Tags: map[string]*string{
-						"juju-machine-name": to.StringPtr("machine-0"),
+						"juju-machine-name": to.Ptr("machine-0"),
 					},
 				},
 			},
 		}),
-		makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{}),
+		makeSender(".*/publicIPAddresses", armnetwork.PublicIPAddressListResult{}),
 	}
 
 	netEnv, ok := environs.SupportsNetworking(env)

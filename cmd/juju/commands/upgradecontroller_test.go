@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -184,6 +185,9 @@ type UpgradeIAASControllerSuite struct {
 }
 
 func (s *UpgradeIAASControllerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.UpgradeControllerBaseSuite.SetUpTest(c)
 	err := s.ControllerStore.RemoveModel(jujutesting.ControllerName, "admin/controller")
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,6 +217,9 @@ type UpgradeCAASControllerSuite struct {
 var _ = gc.Suite(&UpgradeCAASControllerSuite{})
 
 func (s *UpgradeCAASControllerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.UpgradeBaseSuite.SetUpTest(c)
 	err := s.ControllerStore.RemoveModel(jujutesting.ControllerName, "admin/controller")
 	c.Assert(err, jc.ErrorIsNil)

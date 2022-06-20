@@ -9,7 +9,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -55,6 +57,7 @@ type AzureCLI interface {
 type environProviderCredentials struct {
 	servicePrincipalCreator ServicePrincipalCreator
 	azureCLI                AzureCLI
+	transporter             policy.Transporter
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -169,12 +172,23 @@ func (c environProviderCredentials) FinalizeCredential(
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			opts := azcore.ClientOptions{
+				Cloud:     azureCloud(args.CloudEndpoint, args.CloudIdentityEndpoint),
+				Transport: c.transporter,
+			}
+			clientOpts := arm.ClientOptions{ClientOptions: opts}
+			sdkCtx := context.Background()
+			tenantID, err := azureauth.DiscoverTenantID(sdkCtx, subscriptionId, clientOpts)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			return c.deviceCodeCredential(ctx, args, azureauth.ServicePrincipalParams{
 				GraphEndpoint:             args.CloudIdentityEndpoint,
 				GraphResourceId:           graphResourceId,
 				ResourceManagerEndpoint:   args.CloudEndpoint,
 				ResourceManagerResourceId: resourceManagerResourceId,
 				SubscriptionId:            subscriptionId,
+				TenantId:                  tenantID,
 			})
 		}
 		params, err := c.getServicePrincipalParams(args.CloudEndpoint)
@@ -222,13 +236,13 @@ func (c environProviderCredentials) azureCLICredential(
 		logger.Debugf("error getting access token: %s", err)
 		return c.deviceCodeCredential(ctx, args, params)
 	}
-	params.GraphAuthorizer = autorest.NewBearerAuthorizer(graphToken.Token())
+	params.GraphTokenProvider = graphToken.Token()
 
 	resourceManagerAuthorizer, err := c.azureCLI.GetAccessToken(params.TenantId, params.ResourceManagerResourceId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get access token for %s", params.SubscriptionId)
 	}
-	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(resourceManagerAuthorizer.Token())
+	params.ResourceManagerTokenProvider = resourceManagerAuthorizer.Token()
 
 	sdkCtx := context.Background()
 	applicationId, spObjectId, password, err := c.servicePrincipalCreator.Create(sdkCtx, params)
@@ -259,14 +273,14 @@ func (c environProviderCredentials) accountCredential(
 	}
 	sdkCtx := context.Background()
 	applicationId, spObjectId, password, err := c.servicePrincipalCreator.Create(sdkCtx, azureauth.ServicePrincipalParams{
-		GraphEndpoint:             cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
-		GraphResourceId:           cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
-		GraphAuthorizer:           autorest.NewBearerAuthorizer(graphToken.Token()),
-		ResourceManagerEndpoint:   cloudInfo.Endpoints.ResourceManager,
-		ResourceManagerResourceId: cloudInfo.Endpoints.ResourceManager,
-		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(armToken.Token()),
-		SubscriptionId:            acc.ID,
-		TenantId:                  graphToken.Tenant,
+		GraphEndpoint:                cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
+		GraphResourceId:              cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
+		GraphTokenProvider:           graphToken.Token(),
+		ResourceManagerEndpoint:      cloudInfo.Endpoints.ResourceManager,
+		ResourceManagerResourceId:    cloudInfo.Endpoints.ResourceManager,
+		ResourceManagerTokenProvider: armToken.Token(),
+		SubscriptionId:               acc.ID,
+		TenantId:                     graphToken.Tenant,
 	})
 	if err != nil {
 		return cloud.Credential{}, errors.Annotate(err, "cannot get service principal")

@@ -34,7 +34,7 @@ func (s *suite) TestSetFlags(c *gc.C) {
 		cmd.SetFlags(f)
 
 		// Collect all flags
-		expectedFlags := []string{"file"}
+		expectedFlags := []string{"color", "file"}
 		if resettable {
 			expectedFlags = append(expectedFlags, "reset")
 		}

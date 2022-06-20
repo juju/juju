@@ -1213,7 +1213,7 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	charmURL, _ := oneApplication.CharmURL()
-	result := params.CharmURLOriginResult{URL: charmURL.String()}
+	result := params.CharmURLOriginResult{URL: *charmURL}
 	chOrigin := oneApplication.CharmOrigin()
 	if chOrigin == nil {
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
@@ -2737,6 +2737,9 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		return nil, err
 	}
 	curl, _ := app.CharmURL()
+	if curl == nil {
+		return nil, errors.NotValidf("application charm url")
+	}
 	machineId, _ := unit.AssignedMachineId()
 	workloadVersion, err := unit.WorkloadVersion()
 	if err != nil {
@@ -2747,7 +2750,7 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		Tag:             unit.Tag().String(),
 		WorkloadVersion: workloadVersion,
 		Machine:         machineId,
-		Charm:           curl.String(),
+		Charm:           *curl,
 		Life:            unit.Life().String(),
 	}
 	if machineId != "" {
@@ -2918,7 +2921,7 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 	return nil
 }
 
-func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
+func checkCAASMinVersion(ch Charm, caasVersion *version.Number) (err error) {
 	// check caas min version.
 	charmDeployment := ch.Meta().Deployment
 	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {

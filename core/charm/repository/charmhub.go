@@ -4,7 +4,6 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -429,7 +428,7 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 		if len(refreshResult.Entity.MetadataYAML) == 0 {
 			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of metadata.yaml", reqs[resIdx].CharmURL)
 		}
-		chMeta, err := charm.ReadMeta(bytes.NewReader(refreshResult.Entity.MetadataYAML))
+		chMeta, err := charm.ReadMeta(strings.NewReader(refreshResult.Entity.MetadataYAML))
 		if err != nil {
 			return nil, errors.Annotatef(err, "parsing metadata.yaml for %q", reqs[resIdx].CharmURL)
 		}
@@ -437,7 +436,7 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 		if len(refreshResult.Entity.ConfigYAML) == 0 {
 			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of config.yaml", reqs[resIdx].CharmURL)
 		}
-		chConfig, err := charm.ReadConfig(bytes.NewReader(refreshResult.Entity.ConfigYAML))
+		chConfig, err := charm.ReadConfig(strings.NewReader(refreshResult.Entity.ConfigYAML))
 		if err != nil {
 			return nil, errors.Annotatef(err, "parsing config.yaml for %q", reqs[resIdx].CharmURL)
 		}

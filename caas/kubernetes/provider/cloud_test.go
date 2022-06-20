@@ -42,9 +42,13 @@ var defaultK8sCloud = jujucloud.Cloud{
 }
 
 var defaultClusterMetadata = &k8s.ClusterMetadata{
-	Cloud:                k8s.K8sCloudMicrok8s,
-	Regions:              set.NewStrings(k8s.Microk8sRegion),
-	OperatorStorageClass: &k8s.StorageProvisioner{Name: "operator-sc"},
+	Cloud:   k8s.K8sCloudMicrok8s,
+	Regions: set.NewStrings(k8s.Microk8sRegion),
+	OperatorStorageClass: &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "operator-sc",
+		},
+	},
 }
 
 func getDefaultCredential() jujucloud.Credential {

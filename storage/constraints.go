@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -166,4 +167,23 @@ func parseSize(s string) (uint64, bool, error) {
 		return 0, true, err
 	}
 	return size, true, nil
+}
+
+// ToString returns a parsable string representation of the storage constraints.
+func ToString(c Constraints) (string, error) {
+	if c.Pool == "" && c.Size <= 0 && c.Count <= 0 {
+		return "", errors.Errorf("must provide one of pool or size or count")
+	}
+
+	var parts []string
+	if c.Pool != "" {
+		parts = append(parts, c.Pool)
+	}
+	if c.Count > 0 {
+		parts = append(parts, fmt.Sprintf("%d", c.Count))
+	}
+	if c.Size > 0 {
+		parts = append(parts, fmt.Sprintf("%dM", c.Size))
+	}
+	return strings.Join(parts, ","), nil
 }

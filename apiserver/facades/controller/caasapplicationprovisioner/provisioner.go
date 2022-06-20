@@ -288,6 +288,9 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}
 	caCert, _ := cfg.CACert()
 	charmURL, _ := app.CharmURL()
+	if charmURL == nil {
+		return nil, errors.NotValidf("application charm url nil")
+	}
 	appConfig, err := app.ApplicationConfig()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application config")
@@ -303,7 +306,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Series:               app.Series(),
 		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
-		CharmURL:             charmURL.String(),
+		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
 		Scale:                app.GetScale(),
 	}, nil

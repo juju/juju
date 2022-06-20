@@ -148,13 +148,15 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		return result, errors.Annotate(err, "cannot get controller configuration")
 	}
 
+	isController := false
 	jobs := m.Jobs()
 	result.Jobs = make([]model.MachineJob, len(jobs))
 	for i, job := range jobs {
 		result.Jobs[i] = job.ToParams()
+		isController = isController || result.Jobs[i].NeedsState()
 	}
 
-	if result.Tags, err = api.machineTags(m, result.Jobs); err != nil {
+	if result.Tags, err = api.machineTags(m, isController); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -254,7 +256,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 }
 
 // machineTags returns machine-specific tags to set on the instance.
-func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob) (map[string]string, error) {
+func (api *ProvisionerAPI) machineTags(m *state.Machine, isController bool) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//
 	// TODO(axw) 2015-06-02 #1461358
@@ -283,7 +285,7 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob
 		return nil, errors.Trace(err)
 	}
 
-	machineTags := instancecfg.InstanceTags(cfg.UUID(), controllerCfg.ControllerUUID(), cfg, jobs)
+	machineTags := instancecfg.InstanceTags(cfg.UUID(), controllerCfg.ControllerUUID(), cfg, isController)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}
