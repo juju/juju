@@ -456,9 +456,8 @@ func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 	// Try adding it again with the same revision and ensure we get the same document.
 	schCopy, err := s.State.PrepareCharmUpload(testCurl)
 	c.Assert(err, jc.ErrorIsNil)
-	// Refresh is required to set the charmURL, so the test will succeed.
-	err = schCopy.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	// URL is required to set the charmURL, so the test will succeed.
+	_ = schCopy.URL()
 	c.Assert(sch, jc.DeepEquals, schCopy)
 
 	// Now add a charm and try again - we should get the same result
