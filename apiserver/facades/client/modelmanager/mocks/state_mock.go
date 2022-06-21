@@ -49,6 +49,21 @@ func (mr *MockStatePoolMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStatePool)(nil).Get), arg0)
 }
 
+// MongoVersion mocks base method.
+func (m *MockStatePool) MongoVersion() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MongoVersion")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MongoVersion indicates an expected call of MongoVersion.
+func (mr *MockStatePoolMockRecorder) MongoVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockStatePool)(nil).MongoVersion))
+}
+
 // MockState is a mock of State interface.
 type MockState struct {
 	ctrl     *gomock.Controller
@@ -72,6 +87,21 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// AllModelUUIDs mocks base method.
+func (m *MockState) AllModelUUIDs() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllModelUUIDs")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllModelUUIDs indicates an expected call of AllModelUUIDs.
+func (mr *MockStateMockRecorder) AllModelUUIDs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockState)(nil).AllModelUUIDs))
+}
+
 // HasUpgradeSeriesLocks mocks base method.
 func (m *MockState) HasUpgradeSeriesLocks() (bool, error) {
 	m.ctrl.T.Helper()
@@ -85,6 +115,25 @@ func (m *MockState) HasUpgradeSeriesLocks() (bool, error) {
 func (mr *MockStateMockRecorder) HasUpgradeSeriesLocks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUpgradeSeriesLocks", reflect.TypeOf((*MockState)(nil).HasUpgradeSeriesLocks))
+}
+
+// MachineCountForSeries mocks base method.
+func (m *MockState) MachineCountForSeries(arg0 ...string) (int, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "MachineCountForSeries", varargs...)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MachineCountForSeries indicates an expected call of MachineCountForSeries.
+func (mr *MockStateMockRecorder) MachineCountForSeries(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineCountForSeries", reflect.TypeOf((*MockState)(nil).MachineCountForSeries), arg0...)
 }
 
 // Model mocks base method.
