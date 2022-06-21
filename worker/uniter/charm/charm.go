@@ -37,9 +37,6 @@ type Bundle interface {
 // BundleInfo describes a Bundle.
 type BundleInfo interface {
 
-	// URL returns the charm URL identifying the bundle.
-	//URL() *charm.URL
-
 	// String return the charm URL as a string.
 	String() string
 
