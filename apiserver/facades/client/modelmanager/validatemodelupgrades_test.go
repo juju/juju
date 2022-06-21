@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	"fmt"
+
 	"github.com/golang/mock/gomock"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/names/v4"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ValidateModelUpgradesSuite struct {
@@ -119,6 +122,16 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
+	gomock.InOrder(
+		statePool.EXPECT().MongoVersion().Return("4.4", nil),
+		state.EXPECT().AllModelUUIDs().Return([]string{s.st.model.tag.Id()}, nil),
+		statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil),
+		state.EXPECT().MachineCountForSeries(
+			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(0, nil),
+	)
+
 	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -130,6 +143,83 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.OneError(), jc.ErrorIsNil)
+}
+
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModelsFailedMongoTooOld(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().IsControllerModel().Return(true)
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().Release()
+	state.EXPECT().Model().Return(model, nil)
+
+	statePool := mocks.NewMockStatePool(ctrl)
+	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
+
+	gomock.InOrder(
+		statePool.EXPECT().MongoVersion().Return("4.3", nil),
+	)
+
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
+		Models: []params.ValidateModelUpgradeParam{{
+			ModelTag: s.st.model.tag.String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.OneError(), gc.ErrorMatches, `mongo version is not equal or greater than "4.4"`)
+}
+
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModelsFailedHostsWinMachines(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().IsControllerModel().Return(true)
+
+	controllerState := mocks.NewMockState(ctrl)
+	controllerState.EXPECT().Release()
+	controllerState.EXPECT().Model().Return(model, nil)
+	modelState := mocks.NewMockState(ctrl)
+	modelID := coretesting.ModelTag.Id()
+
+	statePool := mocks.NewMockStatePool(ctrl)
+	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(controllerState, nil)
+
+	gomock.InOrder(
+		statePool.EXPECT().MongoVersion().Return("4.4", nil),
+		controllerState.EXPECT().AllModelUUIDs().Return([]string{s.st.model.tag.Id(), modelID}, nil),
+
+		statePool.EXPECT().Get(s.st.model.tag.Id()).Return(controllerState, nil),
+		controllerState.EXPECT().MachineCountForSeries(
+			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(0, nil),
+
+		statePool.EXPECT().Get(modelID).Return(modelState, nil),
+		modelState.EXPECT().MachineCountForSeries(
+			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(1, nil),
+	)
+
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
+		Models: []params.ValidateModelUpgradeParam{{
+			ModelTag: s.st.model.tag.String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.OneError(), gc.ErrorMatches, fmt.Sprintf("model %q hosts 1 windows machine\\(s\\)", modelID))
 }
 
 func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerModels(c *gc.C) {
@@ -147,6 +237,13 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
+	gomock.InOrder(
+		state.EXPECT().MachineCountForSeries(
+			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(0, nil),
+	)
+
 	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -158,6 +255,41 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.OneError(), jc.ErrorIsNil)
+}
+
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerModelsFailedHostsWinMachines(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().IsControllerModel().Return(false)
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().Release()
+	state.EXPECT().Model().Return(model, nil)
+	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
+
+	statePool := mocks.NewMockStatePool(ctrl)
+	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
+
+	gomock.InOrder(
+		state.EXPECT().MachineCountForSeries(
+			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(3, nil),
+	)
+
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
+		Models: []params.ValidateModelUpgradeParam{{
+			ModelTag: s.st.model.tag.String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.OneError(), gc.ErrorMatches, fmt.Sprintf("model %q hosts 3 windows machine\\(s\\)", s.st.model.tag.Id()))
 }
 
 func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachines(c *gc.C) {
@@ -202,6 +334,13 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
+
+	gomock.InOrder(
+		state.EXPECT().MachineCountForSeries(
+			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(0, nil),
+	)
 
 	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
