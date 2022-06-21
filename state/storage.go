@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
@@ -1876,10 +1875,9 @@ func validateStoragePool(
 			*machineId = ""
 		}
 	}
-
-	// Validate any k8s config.
+	//
 	if sb.modelType == ModelTypeCAAS {
-		if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
+		if err := aProvider.ValidateForK8s(poolConfig); err != nil {
 			return errors.Annotatef(err, "invalid storage config")
 		}
 	}
