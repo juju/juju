@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -517,7 +518,29 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 				logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
 			}
 		}
-		var info params.DestroyMachineInfo
+		info := params.DestroyMachineInfo{
+			MachineId: machineTag.Id(),
+		}
+
+		containers, err := machine.Containers()
+		if err != nil {
+			return fail(err)
+		}
+		if len(containers) > 0 {
+			containerEntities := params.Entities{Entities: make([]params.Entity, len(containers))}
+			for i, container := range containers {
+				containerEntities.Entities[i] = params.Entity{Tag: names.NewMachineTag(container).String()}
+			}
+			if !force {
+				return fail(errors.Errorf("machine %v has container machine(s) %q", machineTag.Id(), strings.Join(containers, ", ")))
+			}
+			containerResults, err := mm.destroyMachine(containerEntities, force, keep, maxWait)
+			if err != nil {
+				return fail(err)
+			}
+			info.DestroyedContainers = containerResults.Results
+		}
+
 		units, err := machine.Units()
 		if err != nil {
 			return fail(err)

@@ -72,6 +72,21 @@ func (mr *MockMachineMockRecorder) CompleteUpgradeSeries() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteUpgradeSeries", reflect.TypeOf((*MockMachine)(nil).CompleteUpgradeSeries))
 }
 
+// Containers mocks base method.
+func (m *MockMachine) Containers() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Containers")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Containers indicates an expected call of Containers.
+func (mr *MockMachineMockRecorder) Containers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Containers", reflect.TypeOf((*MockMachine)(nil).Containers))
+}
+
 // CreateUpgradeSeriesLock mocks base method.
 func (m *MockMachine) CreateUpgradeSeriesLock(arg0 []string, arg1 string) error {
 	m.ctrl.T.Helper()

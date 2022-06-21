@@ -1231,6 +1231,9 @@ type DestroyMachineResult struct {
 // DestroyMachineInfo contains information related to the removal of
 // a machine.
 type DestroyMachineInfo struct {
+	// MachineId is the ID if the machine that will be destroyed
+	MachineId string `json:"machine-id"`
+
 	// DetachedStorage is the tags of storage instances that will be
 	// detached from the machine (assigned units) as a result of
 	// destroying the machine, and will remain in the model after
@@ -1241,9 +1244,13 @@ type DestroyMachineInfo struct {
 	// destroyed as a result of destroying the machine.
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
 
-	// DestroyedStorage is the tags of units that will be destroyed
+	// DestroyedUnits are the tags of units that will be destroyed
 	// as a result of destroying the machine.
 	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
+
+	// DestroyedContainers are the results of the destroyed containers hosted
+	// on a machine, destroyed as a result of destroying the machine
+	DestroyedContainers []DestroyMachineResult `json:"destroyed-containers,omitempty"`
 }
 
 // DestroyUnitResults contains the results of a DestroyUnit API request.
