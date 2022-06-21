@@ -37,7 +37,9 @@ func createDeployment(
 		deployment,
 		nil,
 	)
-	if err == nil {
+	// We only want to wait for deployments which are not shared
+	// resources, otherwise add model operations will be held up.
+	if err == nil && deploymentName != commonDeployment {
 		_, err = poller.PollUntilDone(ctx, nil)
 	}
 	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating Azure deployment %q", deploymentName), ctx)

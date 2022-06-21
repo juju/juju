@@ -25,7 +25,7 @@ description: |
 
 confinement: strict
 grade: devel
-base: core18
+base: core20
 
 apps:
   juju:
@@ -111,7 +111,7 @@ parts:
       # If needed, grab the agent from streams
       # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C $SNAPCRAFT_PART_INSTALL/bin/
       jujud=$SNAPCRAFT_PART_INSTALL/bin/jujud
-      version=$(jujud version)
+      version=$($jujud version)
       hash=$(sha256sum $jujud | cut -d " " -f 1)
       cat > jujud-versions.yaml <<EOF
       versions:
