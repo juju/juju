@@ -35,7 +35,7 @@ type serviceLocatorPersistence struct {
 	st *State
 }
 
-// ServiceLocator represents the state of a juju network service locator.
+// ServiceLocator represents the state of a juju service locator.
 type ServiceLocator struct {
 	st  *State
 	doc serviceLocatorDoc
