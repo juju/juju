@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -1448,6 +1449,37 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-ubuntu-amd64"))
 		c.Assert(m.Life(), gc.Equals, state.Dying)
 	}
+}
+
+func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
+	add_machine := func(series string) {
+		m, err := s.State.AddMachine(series, state.JobHostUnits)
+		c.Check(err, jc.ErrorIsNil)
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%s", series)), "", "fake_nonce", nil)
+		c.Check(err, jc.ErrorIsNil)
+		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-ubuntu-amd64"))
+		c.Check(err, jc.ErrorIsNil)
+		err = m.Destroy()
+		c.Check(err, jc.ErrorIsNil)
+	}
+
+	windowsVersions := series.WindowsVersions()
+	var winSeries []string
+	for _, ver := range windowsVersions {
+		winSeries = append(winSeries, ver)
+		add_machine(ver)
+	}
+	add_machine("quantal")
+
+	s.AssertMachineCount(c, len(windowsVersions)+1)
+
+	count, err := s.State.MachineCountForSeries(winSeries...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, len(windowsVersions))
+
+	count, err = s.State.MachineCountForSeries("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 1)
 }
 
 func (s *StateSuite) TestAllRelations(c *gc.C) {
