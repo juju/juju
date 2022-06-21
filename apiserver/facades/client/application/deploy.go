@@ -93,6 +93,10 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 		logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
+	if corecharm.IsKubernetes(args.Charm) && charm.MetaFormat(args.Charm) == charm.FormatV1 {
+		logger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", args.Charm.URL())
+	}
+
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
