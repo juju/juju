@@ -17,7 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
@@ -75,6 +75,9 @@ const (
 	// controllerAvailabilitySet is the name of the availability set
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
+
+	// commonDeployment is used to create resources common to all models.
+	commonDeployment = "common"
 
 	computeAPIVersion = "2018-10-01"
 	networkAPIVersion = "2018-08-01"
@@ -253,10 +256,6 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "create disk encryption sets client")
 	}
-	env.vault, err = armkeyvault.NewVaultsClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
-	if err != nil {
-		return errors.Annotate(err, "create vaults client")
-	}
 	env.images, err = armcompute.NewVirtualMachineImagesClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
 	if err != nil {
 		return errors.Annotate(err, "create vm images client")
@@ -265,6 +264,11 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "create availability sets client")
 	}
+	env.skus, err = armcompute.NewResourceSKUsClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
+	if err != nil {
+		return errors.Annotate(err, "create resource SKU client")
+	}
+
 	env.resourceGroups, err = armresources.NewResourceGroupsClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
 	if err != nil {
 		return errors.Annotate(err, "create resource groups client")
@@ -277,16 +281,14 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "create providers client")
 	}
-	env.skus, err = armcompute.NewResourceSKUsClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
-	if err != nil {
-		return errors.Annotate(err, "create resource SKU client")
-	}
-
-	deployOpts := to.Ptr(env.clientOptions)
-	deployOpts.PerCallPolicies = append(deployOpts.PerCallPolicies, &deploymentPolicy{})
-	env.deploy, err = armresources.NewDeploymentsClient(env.subscriptionId, env.credential, deployOpts)
+	env.deploy, err = armresources.NewDeploymentsClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
 	if err != nil {
 		return errors.Annotate(err, "create deployment client")
+	}
+
+	env.vault, err = armkeyvault.NewVaultsClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
+	if err != nil {
+		return errors.Annotate(err, "create vaults client")
 	}
 
 	env.publicAddresses, err = armnetwork.NewPublicIPAddressesClient(env.subscriptionId, env.credential, to.Ptr(env.clientOptions))
@@ -452,7 +454,7 @@ func (env *azureEnviron) createCommonResourceDeployment(
 		ctx,
 		env.deploy,
 		env.resourceGroup,
-		"common", // deployment name
+		commonDeployment,
 		template,
 	); err != nil {
 		return errors.Trace(err)
@@ -1109,7 +1111,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCa
 	// but we allow for a longer duration to be defensive.
 	var deployment *armresources.DeploymentExtended
 	waitDeployment := func() error {
-		result, err := env.deploy.Get(ctx, env.resourceGroup, "common", nil)
+		result, err := env.deploy.Get(ctx, env.resourceGroup, commonDeployment, nil)
 		if err != nil {
 			if errorutils.IsNotFoundError(err) {
 				// The controller model, and also models with bespoke
@@ -1131,7 +1133,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCa
 			deployment = to.Ptr(result.DeploymentExtended)
 			return nil
 		}
-		err = errors.Errorf("common resource deployment status is %q", state)
+		err = errors.Errorf("%q resource deployment status is %q", commonDeployment, state)
 		switch state {
 		case armresources.ProvisioningStateCanceled,
 			armresources.ProvisioningStateFailed,
