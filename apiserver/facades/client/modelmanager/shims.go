@@ -64,6 +64,14 @@ func (s statePoolShim) Get(uuid string) (State, error) {
 	}, nil
 }
 
+func (s statePoolShim) MongoVersion() (string, error) {
+	st, err := s.StatePool.SystemState()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return st.MongoVersion()
+}
+
 type stateShim struct {
 	*state.PooledState
 }
@@ -76,6 +84,22 @@ func (s stateShim) Model() (Model, error) {
 	return modelShim{
 		Model: model,
 	}, nil
+}
+
+func (s stateShim) MachineCountForSeries(series ...string) (int, error) {
+	count, err := s.PooledState.MachineCountForSeries(series...)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return count, nil
+}
+
+func (s stateShim) AllModelUUIDs() ([]string, error) {
+	allModelUUIDs, err := s.PooledState.AllModelUUIDs()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allModelUUIDs, nil
 }
 
 type modelShim struct {

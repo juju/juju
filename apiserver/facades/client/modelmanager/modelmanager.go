@@ -30,12 +30,14 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -133,6 +135,7 @@ type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caa
 // pool.
 type StatePool interface {
 	Get(string) (State, error)
+	MongoVersion() (string, error)
 }
 
 // State represents a point of use interface for modelling a current model.
@@ -140,6 +143,8 @@ type State interface {
 	Model() (Model, error)
 	HasUpgradeSeriesLocks() (bool, error)
 	Release() bool
+	AllModelUUIDs() ([]string, error)
+	MachineCountForSeries(series ...string) (int, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -1653,19 +1658,71 @@ func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgrade
 			continue
 		}
 
-		// If it's a controller model then we don't require certain validation
-		// checks.
-		if model.IsControllerModel() {
-			continue
+		isControllerModel := model.IsControllerModel()
+		if !isControllerModel {
+			// Now check for the validation of a model upgrade for non controller models only.
+			if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
+				results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+				continue
+			}
 		}
 
-		// Now check for the validation of a model upgrade.
-		if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
+		if err := m.deprecationCheck(isControllerModel, modelTag.Id(), st); err != nil {
 			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 			continue
 		}
 	}
 	return results, nil
+}
+
+func (m *ModelManagerAPI) deprecationCheck(isControllerModel bool, modelUUID string, st State) error {
+	var winSeries []string
+	for _, v := range series.WindowsVersions() {
+		winSeries = append(winSeries, v)
+		sort.Strings(winSeries)
+	}
+	check := func(mUUID string, state State) error {
+		winMachineCount, err := state.MachineCountForSeries(winSeries...)
+		if err != nil {
+			return errors.Annotatef(err, "cannot fetch machines for series %v", winSeries)
+		}
+		if winMachineCount > 0 {
+			return errors.NewNotSupported(nil, fmt.Sprintf("model %q hosts %d windows machine(s)", mUUID, winMachineCount))
+		}
+		return nil
+	}
+	if !isControllerModel {
+		return check(modelUUID, st)
+	}
+
+	v, err := m.statePool.MongoVersion()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	mongoVersion, err := mongo.NewVersion(v)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	mongoMinVersion := mongo.Version{Major: 4, Minor: 4}
+	if mongoVersion.NewerThan(mongoMinVersion) < 0 {
+		// Controllers with mongo version < 4.4 are not able to be upgraded further.
+		err := errors.NewNotSupported(nil, fmt.Sprintf("mongo version is not equal or greater than %q", mongoMinVersion))
+		return errors.Trace(err)
+	}
+	modelUUIDs, err := st.AllModelUUIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, id := range modelUUIDs {
+		st, err := m.statePool.Get(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := check(id, st); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
