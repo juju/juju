@@ -44,6 +44,7 @@ type ServiceLocator struct {
 type serviceLocatorDoc struct {
 	DocId  string                 `bson:"_id"`
 	Id     string                 `bson:"service-locator-id"`
+	UnitID int                    `bson:"unit-id"`
 	Name   string                 `bson:"name"`
 	Type   string                 `bson:"type"`
 	Params map[string]interface{} `bson:"params"`

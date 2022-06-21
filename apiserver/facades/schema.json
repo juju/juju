@@ -44562,7 +44562,7 @@
     {
         "Name": "Uniter",
         "Description": "UniterAPI implements the latest version (v18) of the Uniter API.",
-        "Version": 18,
+        "Version": 19,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
