@@ -40,7 +40,7 @@ var logger = loggo.GetLogger("juju.apiserver.uniter")
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
-// UniterAPI implements the latest version (v18) of the Uniter API.
+// UniterAPI implements the latest version (v19) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
