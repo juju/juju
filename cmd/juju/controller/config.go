@@ -48,17 +48,35 @@ type configCommand struct {
 
 const (
 	configCommandHelpDocPart1 = `
-When run with no arguments, this command displays the whole configuration
-(keys and values) for the controller. Supplying a single key returns the value
-for that key.
+To view all configuration values for the current controller, run
+    juju controller-config
+You can target a specific controller using the -c flag:
+    juju controller-config -c <controller>
+By default, the config will be printed in a tabular format. You can instead
+print it in json or yaml format using the --format flag:
+    juju controller-config --format json
+    juju controller-config --format yaml
 
-Supplying one or more key=value pairs will set the provided keys to those
-values. You can also set config values from a yaml file using the --file flag.
-Not all keys can be updated after bootstrap time.
+To view the value of a single config key, run
+    juju controller-config key
+To set config values, run
+    juju controller-config key1=val1 key2=val2 ...
 
-By default, all commands target the currently selected controller. You
-can target a different controller by using the -c flag.
+Config values can be imported from a yaml file using the --file flag:
+    juju controller-config --file=path/to/cfg.yaml
+This allows you to e.g. save a controller's config to a file:
+    juju controller-config --format=yaml > cfg.yaml
+and then import the config later. Note that the output of controller-config
+may include read-only values, which will cause an error when importing later.
+To prevent the error, use the --ignore-read-only-fields flag:
+    juju controller-config --file=cfg.yaml --ignore-read-only-fields
 
+You can also read from stdin using "-", which allows you to pipe config values
+from one controller to another:
+    juju controller-config -c c1 --format=yaml \
+      | juju controller-config -c c2 --file=- --ignore-read-only-fields
+You can simultaneously read config from a yaml file and set config keys
+as above. The command-line args will override any values specified in the file.
 `
 	controllerConfigHelpDocKeys = `
 The following keys are available:
