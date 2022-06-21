@@ -4,15 +4,16 @@
 package uniter_test
 
 import (
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
+	"github.com/juju/testing"
 )
 
 type serviceLocatorSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 
-	//backend *mocks.MockLXDProfileBackendV2
-	//charm   *mocks.MockLXDProfileCharmV2
-	//machine *mocks.MockLXDProfileMachineV2
-	//model   *mocks.MockLXDProfileModelV2
-	//unit    *mocks.MockLXDProfileUnitV2
+	backend *mocks.MockServiceLocatorBackend
 }
+
+var _ = gc.Suite(&serviceLocatorSuite{})
