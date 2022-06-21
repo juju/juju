@@ -44,7 +44,7 @@ type ServiceLocator struct {
 type serviceLocatorDoc struct {
 	DocId  string                 `bson:"_id"`
 	Id     string                 `bson:"service-locator-id"`
-	UnitID int                    `bson:"unit-id"`
+	UnitId int                    `bson:"unit-id"`
 	Name   string                 `bson:"name"`
 	Type   string                 `bson:"type"`
 	Params map[string]interface{} `bson:"params"`
@@ -58,6 +58,11 @@ func newServiceLocator(st *State, doc *serviceLocatorDoc) *ServiceLocator {
 	return app
 }
 
+// Id returns the ID of the service locator.
+func (sl *ServiceLocator) Id() string {
+	return sl.doc.Id
+}
+
 // Name returns the name of the service locator.
 func (sl *ServiceLocator) Name() string {
 	return sl.doc.Name
@@ -68,7 +73,17 @@ func (sl *ServiceLocator) Type() string {
 	return sl.doc.Type
 }
 
-// AddServiceLocatorParams contains the parameters for adding an service locator
+// UnitId returns the name of the service locator.
+func (sl *ServiceLocator) UnitId() int {
+	return sl.doc.UnitId
+}
+
+// Params returns the param list of the service locator.
+func (sl *ServiceLocator) Params() map[string]interface{} {
+	return sl.doc.Params
+}
+
+// AddServiceLocatorParams contains the parameters for adding a service locator
 // to the model.
 type AddServiceLocatorParams struct {
 	// ServiceLocatorUUID is the UUID of the service locator.
@@ -79,6 +94,12 @@ type AddServiceLocatorParams struct {
 
 	// Type is the type of the service locator.
 	Type string
+
+	// UnitId is the ID of the unit where service locator associated with.
+	UnitId int
+
+	// Params is the param lists of the service locator.
+	Params map[string]interface{}
 }
 
 func validateServiceLocatorParams(args AddServiceLocatorParams) (err error) {

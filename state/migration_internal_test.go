@@ -896,7 +896,7 @@ func (s *MigrationSuite) TestStorageConstraintsDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestPayloadDocFields(c *gc.C) {
 	definedThroughContainment := set.NewStrings(
-		"UnitID",
+		"UnitId",
 		"MachineID",
 	)
 	migrated := set.NewStrings(
