@@ -16,14 +16,14 @@ type ServiceLocatorBackend interface {
 	//AllServiceLocators() ([]*serviceLocator, error)
 }
 
-// ServiceLocatorBase implements the ServiceLocatorBackend indirection
+// ServiceLocatorState implements the ServiceLocatorBackend indirection
 // over state.State.
-type ServiceLocatorBase struct {
+type ServiceLocatorState struct {
 	st *state.State
 }
 
-func (s ServiceLocatorBase) AddServiceLocator(slId string, slName string, slType string) (*ServiceLocator, error) {
-	sl, err := s.st.ServiceLocators().AddServiceLocator(state.AddServiceLocatorParams{
+func (s ServiceLocatorState) AddServiceLocator(slId string, slName string, slType string) (*ServiceLocator, error) {
+	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(state.AddServiceLocatorParams{
 		ServiceLocatorUUID: slId,
 		Name:               slName,
 		Type:               slType,
@@ -31,16 +31,21 @@ func (s ServiceLocatorBase) AddServiceLocator(slId string, slName string, slType
 	return &ServiceLocator{sl}, err
 }
 
-//func (s ServiceLocatorBase) AllServiceLocators() ([]*serviceLocator, error) {
+//func (s ServiceLocatorState) ServiceLocator(id string) (ServiceLocatorBackend, error) {
+//	sl, err := s.st.ServiceLocatorsState.ServiceLocator(id)
+//	return &lxdProfileMachine{m}, err
+//}
+
+//func (s ServiceLocatorState) AllServiceLocators() ([]*serviceLocator, error) {
 //	sls, err := s.st.ServiceLocators().AllServiceLocators()
 //	return sls, err
 //}
 
-//func (s ServiceLocatorBase) Name() string {
+//func (s ServiceLocatorState) Name() string {
 //	return s.sl.Name()
 //}
 //
-//func (s ServiceLocatorBase) Type() string {
+//func (s ServiceLocatorState) Type() string {
 //	return s.sl.Type()
 //}
 
@@ -56,7 +61,7 @@ func NewExternalServiceLocatorAPI(
 	logger loggo.Logger,
 ) *ServiceLocatorAPI {
 	return NewServiceLocatorAPI(
-		ServiceLocatorBase{st},
+		ServiceLocatorState{st},
 		logger,
 	)
 }
