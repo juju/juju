@@ -193,12 +193,6 @@ See also:
     set-constraints
     show-cloud`
 
-const (
-	// defaultHostedModelName is the name of the hosted model created in each
-	// controller for deploying workloads to, in addition to the "controller" model.
-	defaultHostedModelName = "default"
-)
-
 func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
 	command.clock = jujuclock.WallClock
@@ -244,8 +238,9 @@ type bootstrapCommand struct {
 	noSwitch            bool
 	interactive         bool
 
+	// hostedModelName is the name of a new model to create
+	// in addition to the controller model.
 	hostedModelName string
-	noHostedModel   bool
 
 	ControllerCharmPath string
 	ControllerCharmRisk string
@@ -321,13 +316,13 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
 	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
 	f.Var(&c.storagePool, "storage-pool", "Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
-	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
-	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
+	// TODO(juju4) - default-model is deprecated, remove.
+	f.StringVar(&c.hostedModelName, "default-model", "", "Name of the default workload model for the controller")
+	f.StringVar(&c.hostedModelName, "workload-model", "", "Name of the default workload model for the controller")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
-	f.BoolVar(&c.noHostedModel, "no-default-model", false, "Do not create a default model")
 	f.StringVar(&c.ControllerCharmPath, "controller-charm-path", "", "Path to a locally built controller charm")
 	f.StringVar(&c.ControllerCharmRisk, "controller-charm-risk", "beta", "The controller charm risk if not using a local charm")
 }
@@ -395,9 +390,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
 	}
 
-	// controller is the name of the model created for internal juju management.
-	if c.hostedModelName == "controller" {
-		return errors.New(" 'controller' name is already assigned to juju internal management model")
+	if c.hostedModelName == "" {
+		c.hostedModelName = os.Getenv("JUJU_BOOTSTRAP_MODEL")
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -541,13 +535,9 @@ func (c *bootstrapCommand) initializeHostedModel(
 	environ environs.BootstrapEnviron,
 	bootstrapParams *bootstrap.BootstrapParams,
 ) (*jujuclient.ModelDetails, error) {
-	if c.noHostedModel {
-		return nil, nil
-	}
-	if isCAASController && c.hostedModelName == defaultHostedModelName {
-		// k8s controller does NOT have "default" hosted model
-		// if the user didn't specify a preferred hosted model name.
-		return nil, nil
+	if c.hostedModelName == "" || c.hostedModelName == "controller" {
+		// Nothing to do, but ensure the required model is selected by default.
+		return nil, store.SetCurrentModel(c.controllerName, c.hostedModelName)
 	}
 
 	hostedModelUUID, err := utils.NewUUID()
@@ -1536,14 +1526,13 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
 	}
 
-	// We need to do an Azure specific check here.
-	// This won't be needed once the "default" model is banished.
-	// Until it is, we need to ensure that if a resource-group-name is specified,
-	// the user has also disabled the default model, otherwise we end up with 2
+	// We need to do an Azure specific check here to ensure that
+	// if a resource-group-name is specified, the user has also
+	// not specified a default model, otherwise we end up with 2
 	// models with the same resource group name.
 	resourceGroupName, ok := bootstrapModelConfig["resource-group-name"]
-	if ok && resourceGroupName != "" && !c.noHostedModel {
-		return bootstrapConfigs{}, errors.Errorf("if using resource-group-name %q then --no-default-model is required as well", resourceGroupName)
+	if ok && resourceGroupName != "" && c.hostedModelName != "" {
+		return bootstrapConfigs{}, errors.Errorf("if using resource-group-name %q then a workload model cannot be specified as well", resourceGroupName)
 	}
 
 	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)
