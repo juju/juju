@@ -5,9 +5,10 @@ package output
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd/v3"
-	"io"
 
 	"github.com/juju/juju/core/status"
 )
@@ -26,7 +27,8 @@ func FormatYamlWithColor(w io.Writer, value interface{}) error {
 		return err
 	}
 
-	_, err = fmt.Fprint(w, string(result))
+	fmt.Fprint(w, string(result))
+
 	return nil
 }
 
@@ -41,7 +43,8 @@ func FormatJsonWithColor(w io.Writer, val interface{}) error {
 		return err
 	}
 
-	_, err = fmt.Fprintln(w, string(result))
+	fmt.Fprintln(w, string(result))
+
 	return err
 }
 

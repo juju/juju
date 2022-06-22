@@ -6,26 +6,13 @@ package output
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"github.com/juju/ansiterm"
-	yamlv2 "gopkg.in/yaml.v2"
-	yamlv3 "gopkg.in/yaml.v3"
 	"net"
-	"reflect"
 	"strconv"
 	"strings"
-)
 
-const (
-	nodeAnchor     = "&"
-	leadingDash    = "- "
-	documentStart  = "---"
-	emptyStructure = "[]"
-	emptyPrefix    = " "
-	dashPrefix     = "-"
-	colon          = ":"
-	indent         = "│"
+	"github.com/juju/ansiterm"
+	yamlv2 "gopkg.in/yaml.v2"
 )
 
 type YamlFormatter struct {
@@ -39,6 +26,16 @@ type YamlFormatter struct {
 	UseIndentLines bool
 	// inString detects strings that are within strings
 	inString bool
+	// raw is yaml serialised string
+	raw string
+	// key is yaml key parsed from a serialized string
+	key string
+	// val is yaml value parsed from a serialized string
+	val string
+	// foundChompingIndicator used to indicate presence of a multiline text i.e comment
+	foundChompingIndicator bool
+	// indentationSpaceBeforeComment used to track number of indentation spaces just before a comment line.
+	indentationSpaceBeforeComment int
 }
 
 func NewYamlFormatter() *YamlFormatter {
@@ -47,18 +44,15 @@ func NewYamlFormatter() *YamlFormatter {
 	writer.SetColorCapable(true)
 	return &YamlFormatter{
 		Colors: Colors{
-			Null:           ansiterm.Foreground(ansiterm.Magenta),
-			Key:            ansiterm.Foreground(ansiterm.BrightCyan).SetStyle(ansiterm.Bold),
-			Bool:           ansiterm.Foreground(ansiterm.Magenta),
-			Number:         ansiterm.Foreground(ansiterm.Magenta),
-			KeyValSep:      ansiterm.Foreground(ansiterm.BrightMagenta),
-			Ip:             ansiterm.Foreground(ansiterm.Yellow),
-			String:         ansiterm.Foreground(ansiterm.Default),
-			IndentLine:     ansiterm.Foreground(ansiterm.Default),
-			DocumentStart:  ansiterm.Foreground(ansiterm.Default),
-			EmptyStructure: ansiterm.Foreground(ansiterm.DarkGray),
-			Dash:           ansiterm.Foreground(ansiterm.BrightYellow),
-			NodeAnchor:     ansiterm.Foreground(ansiterm.BrightGreen),
+			Null:      ansiterm.Foreground(ansiterm.Magenta),
+			Key:       ansiterm.Foreground(ansiterm.BrightCyan).SetStyle(ansiterm.Bold),
+			Bool:      ansiterm.Foreground(ansiterm.Magenta),
+			Number:    ansiterm.Foreground(ansiterm.Magenta),
+			KeyValSep: ansiterm.Foreground(ansiterm.BrightMagenta),
+			Ip:        ansiterm.Foreground(ansiterm.Cyan),
+			String:    ansiterm.Foreground(ansiterm.Default),
+			Multiline: ansiterm.Foreground(ansiterm.DarkGray),
+			Comment:   ansiterm.Foreground(ansiterm.BrightMagenta),
 		},
 		UseIndentLines: true,
 		writer:         writer,
@@ -68,36 +62,14 @@ func NewYamlFormatter() *YamlFormatter {
 
 func marshalYaml(obj interface{}) ([]byte, error) {
 	buffer := bytes.Buffer{}
-	if err := NewYamlFormatter().MarshalYaml("", false, &buffer, obj); err != nil {
+	if err := NewYamlFormatter().MarshalYaml(&buffer, obj); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
 }
 
-func (f *YamlFormatter) MarshalYaml(prefix string, skipIndentOnFirstLine bool, buf *bytes.Buffer, val interface{}) error {
-	switch v := val.(type) {
-	case yamlv2.MapSlice:
-		return f.marshalMapSlice(prefix, skipIndentOnFirstLine, buf, v)
-	case []interface{}:
-		return f.marshalSlice(prefix, skipIndentOnFirstLine, v, buf)
-	case []yamlv2.MapSlice:
-		return f.marshalSlice(prefix, skipIndentOnFirstLine, f.simplify(v), buf)
-	case yamlv3.Node:
-		return f.marshalNode(prefix, skipIndentOnFirstLine, buf, &v)
-	default:
-		switch reflect.TypeOf(val).Kind() {
-		case reflect.Ptr:
-			return f.MarshalYaml(prefix, skipIndentOnFirstLine, buf, reflect.ValueOf(val).Elem().Interface())
-		case reflect.Struct:
-			return f.marshalStruct(prefix, skipIndentOnFirstLine, buf, v)
-		default:
-			return f.marshalScalar(prefix, v, buf)
-		}
-	}
-}
-
-func (f *YamlFormatter) marshalScalar(prefix string, obj interface{}, buf *bytes.Buffer) error {
-	// process nil values immediately and return afterwards
+// MarshalYaml renders yaml string with ansi color escape sequences to output colorized yaml string.
+func (f *YamlFormatter) MarshalYaml(buf *bytes.Buffer, obj interface{}) error {
 	if obj == nil {
 		f.Colors.Null.Fprint(f.writer, null)
 		buf.WriteString(f.buff.String())
@@ -114,542 +86,270 @@ func (f *YamlFormatter) marshalScalar(prefix string, obj interface{}, buf *bytes
 
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
-		line := scanner.Text()
-		f.formatYamlLine(line, buf)
+		if scanner.Text() == "EOF" {
+			break
+		}
+		// Check for errors during read
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+
+		f.raw = scanner.Text()
+
+		f.formatYamlLine(buf)
 	}
 
 	return nil
 }
 
-func (f *YamlFormatter) marshalValue(prefix string, val interface{}, skipIndentOnFirstLine bool, buf *bytes.Buffer) error {
-	switch v := val.(type) {
-	case map[string]interface{}:
-		return f.marshalSlice(prefix, skipIndentOnFirstLine, val.([]interface{}), buf)
-	case []interface{}:
-		return f.marshalSlice(prefix, skipIndentOnFirstLine, v, buf)
-	case string:
-		f.marshalString(v, buf)
-	case float64:
-		f.Colors.Number.Fprint(f.writer, strconv.FormatFloat(v, 'f', -1, 64))
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-	case bool:
-		f.Colors.Bool.Fprint(f.writer, strconv.FormatBool(v))
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-	case nil:
-		f.Colors.Null.Fprint(f.writer, null)
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-	case json.Number:
-		f.Colors.Number.Fprint(f.writer, v.String())
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-	}
+func (f *YamlFormatter) formatYamlLine(buf *bytes.Buffer) {
+	if f.foundChompingIndicator && (f.indentationSpaces() > f.indentationSpaceBeforeComment) {
+		// found multiline comment or configmap, not treated as YAML at all
+		f.colorMultiline(buf)
+	} else if f.isKeyValue() {
+		// valid YAML key: val line.
+		if f.isComment() {
+			f.colorComment(buf)
+		} else if f.isValueNumber() {
+			// value is a number
+			f.colorKeyNumber(buf)
+		} else if f.isValueIP() {
+			// value is an ip address x.x.x.x
+			f.colorKeyIP(buf)
+		} else if f.isValueCIDR() {
+			// value is cidr address x.x.x.x/x
+			f.colorKeyCIDR(buf)
+		} else if f.isValueBoolean() {
+			f.colorKeyBool(buf)
+		} else {
+			// this is a normal key/val line
+			f.colorKeyValue(buf)
+		}
 
-	return nil
+		// sign of a possible multiline text coming next
+		if f.valueHasChompingIndicator() {
+			//set flag for next execution in the iteration
+			f.foundChompingIndicator = true
+			// save current number of indentation spaces
+			f.indentationSpaceBeforeComment = f.indentationSpaces()
+		} else {
+			// reset multiline flag
+			f.foundChompingIndicator = false
+		}
+	} else if !f.isEmptyLine() {
+		// is not a YAML key: value and is not empty
+		if f.isComment() {
+			f.colorComment(buf)
+		} else if f.isElementOfList() {
+			f.colorListElement(buf)
+		} else {
+			// invalid YAML line. probably because of indentation.
+			buf.WriteString(fmt.Sprintf("%v\n", f.raw))
+		}
+		f.foundChompingIndicator = false
+	} else if f.isEmptyLine() {
+		// an empty line
+		buf.WriteString(f.raw)
+	}
 }
 
-func (f *YamlFormatter) marshalString(str string, buf *bytes.Buffer) error {
-	strBytes, err := yamlv2.Marshal(str)
-	if err != nil {
-		return err
-	}
-	str = string(strBytes)
-
-	f.Colors.String.Fprint(f.writer, str)
-	buf.WriteString(f.buff.String())
-	f.buff.Reset()
-
-	return nil
-}
-
-func (f *YamlFormatter) addPrefix() string {
-	var str string
-	if f.UseIndentLines {
-		f.Colors.IndentLine.Fprintf(f.writer, "%s ", indent)
-		str = f.buff.String()
-		f.buff.Reset()
-		return str
-	}
-	f.Colors.IndentLine.Fprintf(f.writer, emptyPrefix)
-	str = f.buff.String()
-	f.buff.Reset()
-	return str
-}
-
-func (f *YamlFormatter) isScalar(obj interface{}) bool {
-	switch v := obj.(type) {
-	case *yamlv3.Node:
-		return v.Kind == yamlv3.ScalarNode
-	case yamlv2.MapSlice, []interface{}, []yamlv2.MapSlice:
+// isKeyValue checks if the string contains a key value pair, if true it returns the key value pair.
+func (f *YamlFormatter) isKeyValue() bool {
+	if strings.Contains(f.raw, "://") {
+		// it is a URL not key/val
 		return false
-	default:
+	} else if strings.Contains(f.raw, ":") {
+		// Contains the ":" delimiter but it might not be a key/val
+		s := strings.Split(f.raw, ":")
+		if strings.HasPrefix(s[1], " ") || len(s[1]) == 0 {
+			// Checking if it's either:
+			// - a proper key/val entry with a space after ":"
+			// - or just key: \n
+			f.key = s[0]
+			f.val = strings.TrimSpace(strings.Join(s[1:], ":"))
+			return true
+		} else if len(s) > 2 && (strings.HasPrefix(s[len(s)-1], " ") || len(s[len(s)-1]) == 0) {
+			// Multiple ":" separators found, checking last one
+			/*
+				key:{"type":"Example"}:
+						  .: {}
+						  f:description: {}
+						  f:default: {}
+			*/
+			f.key = strings.Join(s[0:len(s)-1], ":")
+			f.val = strings.TrimSpace(s[len(s)-1])
+			return true
+		}
+
+	}
+	return false
+}
+
+func (f *YamlFormatter) isComment() bool {
+	if string(strings.TrimSpace(f.raw)[0]) == "#" { // convert the ascii code to string before matching
+		// line is a comment
 		return true
 	}
+	return false
 }
 
-//
-func (f *YamlFormatter) marshalSlice(prefix string, skipIndentOnFirstLine bool, vals []interface{}, buf *bytes.Buffer) error {
-	for _, val := range vals {
-		buf.WriteString(prefix)
-		f.Colors.Dash.Fprint(f.writer, "-")
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-		buf.WriteString(emptyPrefix)
-
-		prefix += f.addPrefix()
-		if err := f.MarshalYaml(prefix, true, buf, val); err != nil {
-			return err
-		}
+func (f *YamlFormatter) isValueBoolean() bool {
+	if (strings.ToLower(f.val) == "true") || (strings.ToLower(f.val) == "false") {
+		return true
 	}
-
-	return nil
+	return false
 }
 
-func (f *YamlFormatter) marshalMapSlice(prefix string, skipIndentOnFirstLine bool, buf *bytes.Buffer, mapSlice yamlv2.MapSlice) error {
-	f.Colors.KeyValSep.Fprint(f.writer, ":")
-	keyValSep := f.buff.String()
-	f.buff.Reset()
-
-	for i, mapItem := range mapSlice {
-		if i > 0 || !skipIndentOnFirstLine {
-			buf.WriteString(prefix)
-		}
-
-		f.Colors.Key.Fprintf(f.writer, "%s%s", mapItem.Key, keyValSep)
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-
-		switch mapItem.Value.(type) {
-		case yamlv2.MapSlice:
-			if len(mapItem.Value.(yamlv2.MapSlice)) == 0 {
-				buf.WriteString(emptyPrefix)
-				buf.WriteString(emptyMap)
-				buf.WriteString("\n")
-			} else {
-				buf.WriteString("\n")
-				prefix += f.addPrefix()
-				if err := f.marshalMapSlice(prefix, false, buf, mapItem.Value.(yamlv2.MapSlice)); err != nil {
-					return err
-				}
-			}
-		case []interface{}:
-			if len(mapItem.Value.([]interface{})) == 0 {
-				buf.WriteString(emptyPrefix)
-				f.Colors.EmptyStructure.Fprint(f.writer, emptyStructure)
-				buf.WriteString(f.buff.String())
-				f.buff.Reset()
-			} else {
-				buf.WriteString("\n")
-				if err := f.marshalSlice(prefix, false, mapItem.Value.([]interface{}), buf); err != nil {
-					return err
-				}
-			}
-		default:
-			buf.WriteString(emptyPrefix)
-			if err := f.marshalScalar(prefix, mapItem.Value, buf); err != nil {
-				return err
-			}
-		}
+func (f *YamlFormatter) isValueNumber() bool {
+	_, err := strconv.Atoi(f.val)
+	if err == nil {
+		// is a number
+		return true
 	}
-
-	return nil
+	return false
 }
 
-func (f *YamlFormatter) marshalNode(prefix string, skipIndentOnFirstLine bool, buf *bytes.Buffer, node *yamlv3.Node) error {
-	switch node.Kind {
-	case yamlv3.DocumentNode:
-		f.Colors.DocumentStart.Fprint(f.writer, documentStart)
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-		buf.WriteString("\n")
-		for _, content := range node.Content {
-			if err := f.MarshalYaml(prefix, false, buf, content); err != nil {
-				return err
-			}
-		}
-		if len(node.FootComment) > 0 {
-			f.Colors.Comment.Fprint(f.writer, node.FootComment)
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-		}
-	case yamlv3.SequenceNode:
-		for i, content := range node.Content {
-			if i == 0 {
-				if !skipIndentOnFirstLine {
-					buf.WriteString(prefix)
-				}
-			} else {
-				buf.WriteString(prefix)
-			}
-			f.Colors.Dash.Fprint(f.writer, dashPrefix)
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-			buf.WriteString(emptyPrefix)
-			prefix += f.addPrefix()
-			if err := f.marshalNode(prefix, true, buf, content); err != nil {
-				return err
-			}
-		}
-
-	case yamlv3.MappingNode:
-		for i := 0; i < len(node.Content); i += 2 {
-			if !skipIndentOnFirstLine || i > 0 {
-				buf.WriteString(prefix)
-			}
-
-			key := node.Content[i]
-			if len(key.HeadComment) > 0 {
-				f.Colors.Comment.Fprint(f.writer, key.HeadComment)
-				buf.WriteString(f.buff.String())
-				f.buff.Reset()
-				buf.WriteString("\n")
-			}
-			f.Colors.Key.Fprint(f.writer, key.Value)
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-
-			value := node.Content[i+1]
-			switch value.Kind {
-			case yamlv3.MappingNode:
-				if len(value.Content) == 0 {
-					buf.WriteString(emptyPrefix)
-					f.Colors.EmptyStructure.Fprint(f.writer, emptyStructure)
-					buf.WriteString(f.buff.String())
-					f.buff.Reset()
-					buf.WriteString("\n")
-				} else {
-					buf.WriteString(f.createAnchorDefinition(value))
-					buf.WriteString("\n")
-					if err := f.marshalNode(prefix, false, buf, value); err != nil {
-						return err
-					}
-				}
-			case yamlv3.SequenceNode:
-				if len(value.Content) == 0 {
-					buf.WriteString(emptyPrefix)
-					f.Colors.EmptyStructure.Fprint(f.writer, emptyMap)
-					buf.WriteString(f.buff.String())
-					f.buff.Reset()
-					buf.WriteString("\n")
-				} else {
-					buf.WriteString(f.createAnchorDefinition(value))
-					buf.WriteString("\n")
-					if err := f.marshalNode(prefix, false, buf, value); err != nil {
-						return err
-					}
-				}
-			case yamlv3.ScalarNode:
-				buf.WriteString(f.createAnchorDefinition(value))
-				buf.WriteString(emptyPrefix)
-				prefix += f.addPrefix()
-				if err := f.marshalNode(prefix, false, buf, value); err != nil {
-					return err
-				}
-			case yamlv3.AliasNode:
-				f.Colors.NodeAnchor.Fprintf(f.writer, "*%v", value.Value)
-				buf.WriteString(f.buff.String())
-				f.buff.Reset()
-			}
-			if len(key.FootComment) > 0 {
-				f.Colors.Comment.Fprint(f.writer, key.FootComment)
-				buf.WriteString(f.buff.String())
-				f.buff.Reset()
-				buf.WriteString("\n")
-			}
-		}
-	case yamlv3.ScalarNode:
-		parse := func() string {
-			var str string
-			lines := strings.Split(node.Value, "\n")
-			if len(lines) == 1 {
-				if strings.ContainsAny(node.Value, " *&:,") {
-					str += fmt.Sprintf("\"%s\"", node.Value)
-				} else {
-					str += node.Value
-				}
-			} else {
-				str += fmt.Sprintf("%s\n", indent)
-				for i, line := range lines {
-					str += fmt.Sprintf("%s%v", prefix, line)
-					if i != len(lines)-1 {
-						str += "\n"
-					}
-				}
-			}
-			return str
-		}
-
-		switch node.Tag {
-		case "!!binary":
-			f.Colors.Binary.Fprint(f.writer, parse())
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-		case "!!str":
-			f.Colors.String.Fprint(f.writer, parse())
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-		case "!!float":
-			f.Colors.Number.Fprint(f.writer, parse())
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-		case "!!int":
-			f.Colors.Number.Fprint(f.writer, parse())
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-		case "!!bool":
-			f.Colors.Bool.Fprint(f.writer, parse())
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-		}
-
-		if len(node.LineComment) > 0 {
-			f.Colors.Comment.Fprint(f.writer, node.LineComment)
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-		}
-		buf.WriteString("\n")
-		if len(node.FootComment) > 0 {
-			f.Colors.Comment.Fprint(f.writer, node.FootComment)
-			buf.WriteString(f.buff.String())
-			f.buff.Reset()
-			buf.WriteString("\n")
-		}
-	case yamlv3.AliasNode:
-		if err := f.marshalNode(prefix, skipIndentOnFirstLine, buf, node.Alias); err != nil {
-			return err
-		}
+func (f *YamlFormatter) isValueIP() bool {
+	_, err := strconv.Atoi(strings.ReplaceAll(f.val, ".", ""))
+	if err == nil {
+		// is an ip
+		return true
 	}
-	return nil
+	return false
 }
 
-func (f *YamlFormatter) createAnchorDefinition(node *yamlv3.Node) string {
-	var str string
-	if len(node.Anchor) != 0 {
-		f.Colors.NodeAnchor.Fprintf(f.writer, "%s%v", nodeAnchor, node.Anchor)
-		str = f.buff.String()
-		f.buff.Reset()
-	}
-	return str
-}
-
-func (f *YamlFormatter) simplify(list []yamlv2.MapSlice) []interface{} {
-	result := make([]interface{}, len(list))
-	for idx, value := range list {
-		result[idx] = value
-	}
-
-	return result
-}
-
-func (f *YamlFormatter) marshalStruct(prefix string, skipIndentOnFirstLine bool, buf *bytes.Buffer, obj interface{}) error {
-	// There might be better ways to do it. With generic struct objects, the
-	// only option is to do a round trip marshal and unmarshal to get the
-	// object into a universal Go YAML library version 3 node object and
-	// to render the node instead.
-	data, err := yamlv3.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	var tmp yamlv3.Node
-	if err := yamlv3.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-	return f.MarshalYaml(prefix, skipIndentOnFirstLine, buf, tmp)
-}
-
-func followAlias(node *yamlv3.Node) *yamlv3.Node {
-	if node != nil && node.Alias != nil {
-		return followAlias(node.Alias)
-	}
-
-	return node
-}
-
-func (f *YamlFormatter) formatYamlLine(line string, buf *bytes.Buffer) {
-	indentCount := findIndent(line)
-	indent := toSpaces(indentCount)
-	trimmedLine := strings.TrimLeft(line, emptyPrefix)
-
-	if f.inString {
-		// if inString is true, the line must be a part of a string which is broken into several lines
-		fmt.Fprintf(f.writer, "%s%s\n", indent, f.colorYamlString(trimmedLine))
-		f.inString = !f.isStringClosed(trimmedLine)
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-		return
-	}
-
-	splitted := strings.SplitN(trimmedLine, ": ", 2) //assuming key does not contain ": " while value might
-
-	if len(splitted) == 2 {
-		// key: value
-		key, val := splitted[0], splitted[1]
-		fmt.Fprintf(f.writer, "%s%s: %s\n", indent, f.colorYamlKey(key, indentCount, 2), f.colorYamlValue(val))
-		f.inString = f.isStringOpenedButNotClosed(val)
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-		return
-	}
-
-	// the line is just a "key:" or an element of an array
-	if strings.HasSuffix(splitted[0], ":") {
-		// key:
-		fmt.Fprintf(f.writer, "%s%s\n", indent, f.colorYamlKey(splitted[0], indentCount, 2))
-		buf.WriteString(f.buff.String())
-		f.buff.Reset()
-		return
-	}
-
-	fmt.Fprintf(f.writer, "%s%s\n", indent, f.colorYamlValue(splitted[0]))
-	buf.WriteString(f.buff.String())
-	f.buff.Reset()
-}
-
-func (f *YamlFormatter) colorYamlKey(key string, indentCount int, width int) string {
-	var str string
-	hasColon := strings.HasSuffix(key, colon)
-	hasLeadingDash := strings.HasPrefix(key, leadingDash)
-	key = strings.TrimSuffix(key, colon)
-	key = strings.TrimPrefix(key, leadingDash)
-
-	format := "%s"
-	if hasColon {
-		format += colon
-	}
-
-	if hasLeadingDash {
-		format = leadingDash + format
-		indentCount += 2
-	}
-
-	f.Colors.Key.Fprintf(f.writer, format, key)
-	str = f.buff.String()
-	f.buff.Reset()
-
-	return str
-}
-
-func (f *YamlFormatter) colorYamlValue(val string) string {
-	if val == emptyMap {
-		return emptyMap
-	}
-
-	hasLeadingDash := strings.HasPrefix(val, leadingDash)
-	val = strings.TrimPrefix(val, leadingDash)
-
-	isDoubleQuoted := strings.HasPrefix(val, leadingDash) && strings.HasSuffix(val, leadingDash)
-	trimmedVal := strings.TrimSuffix(strings.TrimPrefix(val, `"`), `"`)
-
-	var format string
-	switch {
-	case hasLeadingDash && isDoubleQuoted:
-		format = `- "%s"`
-	case hasLeadingDash:
-		format = "- %s"
-	case isDoubleQuoted:
-		format = `"%s"`
-	default:
-		format = "%s"
-	}
-
-	v := f.colorByType(trimmedVal)
-	return fmt.Sprintf(format, v)
-}
-
-func (f *YamlFormatter) colorYamlString(val string) string {
-	var str string
-
-	isDoubleQuoted := strings.HasPrefix(val, `"`) && strings.HasPrefix(val, `"`)
-	trimmedVal := strings.TrimRight(strings.TrimLeft(val, `"`), `"`)
-
-	var format string
-	switch {
-	case isDoubleQuoted:
-		format = `"%s"`
-	default:
-		format = "%s"
-	}
-
-	f.Colors.String.Fprintf(f.writer, format, trimmedVal)
-	str = f.buff.String()
-	f.buff.Reset()
-
-	return str
-}
-
-func (f *YamlFormatter) colorByType(val interface{}) string {
-	var str string
-	switch v := val.(type) {
-	case float64:
-		f.Colors.Number.Fprint(f.writer, strconv.FormatFloat(v, 'f', -1, 64))
-		str = f.buff.String()
-		f.buff.Reset()
-	case int:
-		f.Colors.Number.Fprint(f.writer, v)
-		str = f.buff.String()
-		f.buff.Reset()
-	case bool:
-		f.Colors.Bool.Fprint(f.writer, strconv.FormatBool(v))
-		str = f.buff.String()
-		f.buff.Reset()
-	case string:
-		if isNetAddr(v) {
-			splitted := strings.Split(v, "/")
-			ip := splitted[0]
-			net := splitted[1]
-			f.Colors.Ip.Fprint(f.writer, ip)
-			ip = f.buff.String()
-			f.buff.Reset()
-			f.Colors.Number.Fprint(f.writer, net)
-			net = f.buff.String()
-			f.buff.Reset()
-			str = fmt.Sprintf("%s/%s", ip, net)
-		} else {
-			if num, err := strconv.Atoi(v); err == nil {
-				f.Colors.Number.Fprint(f.writer, num)
-				str = f.buff.String()
-				f.buff.Reset()
-			} else {
-				str = f.colorYamlString(v)
-			}
-		}
-	case nil:
-		f.Colors.Null.Fprint(f.writer, null)
-		str = f.buff.String()
-		f.buff.Reset()
-	}
-
-	return str
-}
-
-func (f *YamlFormatter) isStringClosed(line string) bool {
-	return strings.HasSuffix(line, "'") || strings.HasSuffix(line, `"`)
-}
-
-func (f *YamlFormatter) isStringOpenedButNotClosed(line string) bool {
-	return (strings.HasPrefix(line, "'") && !strings.HasSuffix(line, "'")) ||
-		(strings.HasPrefix(line, `"`) && !strings.HasSuffix(line, `"`))
-}
-
-// findIndent returns a length of indent (spaces at left) in the given line
-func findIndent(line string) int {
-	return len(line) - len(strings.TrimLeft(line, " "))
-}
-
-// toSpaces returns repeated spaces whose length is n.
-func toSpaces(n int) string {
-	return strings.Repeat(" ", n)
-}
-
-func isNetAddr(val string) bool {
-	ip, net, err := net.ParseCIDR(val)
+func (f *YamlFormatter) isValueCIDR() bool {
+	ip, net, err := net.ParseCIDR(f.val)
 	if err == nil {
 		if net.Contains(ip) {
 			return true
 		}
 	}
 	return false
+}
+
+func (f *YamlFormatter) isEmptyLine() bool {
+	if len(strings.TrimSpace(f.raw)) > 0 {
+		return false
+	}
+	return true
+}
+
+func (f *YamlFormatter) isElementOfList() bool {
+	if string(strings.TrimSpace(f.raw)[0]) == "-" {
+		return true
+	}
+	return false
+}
+
+func (f *YamlFormatter) isUrl() bool {
+	if strings.Contains(f.raw, "://") {
+		return true
+	}
+	return false
+}
+
+// indentationSpaces checks how many indentation spaces were used before
+// the chomping indicator to catch a possible multiline comment or config
+func (f *YamlFormatter) indentationSpaces() int {
+	return len(f.raw) - len(strings.TrimLeft(f.raw, " "))
+}
+
+// valueHasChompingIndicator checks for multiline chomping indicator
+// ">", ">-", ">+", "|", "|-", "|+"
+func (f *YamlFormatter) valueHasChompingIndicator() bool {
+	indicators := []string{">", ">-", ">+", "|", "|-", "|+"}
+	for _, in := range indicators {
+		if strings.Contains(f.val, in) {
+			return true
+		}
+	}
+	return false
+}
+
+// colors yaml key together with its separator i.e key:
+func (f *YamlFormatter) colorKeyValSep(buf *bytes.Buffer) {
+	f.Colors.KeyValSep.Fprint(f.writer, ":")
+	keyValSep := f.buff.String()
+	f.buff.Reset()
+
+	f.Colors.Key.Fprintf(f.writer, "%v%s ", f.key, keyValSep)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
+}
+
+// colorKeyValue colors a key and a string value pair
+func (f *YamlFormatter) colorKeyValue(buf *bytes.Buffer) {
+	f.colorKeyValSep(buf)
+
+	f.Colors.String.Fprint(f.writer, f.val)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
+
+	buf.WriteString("\n")
+
+}
+
+func (f *YamlFormatter) colorComment(buf *bytes.Buffer) {
+	f.Colors.Comment.Fprintf(f.writer, "%v %v\n", f.key, f.val)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
+}
+
+func (f *YamlFormatter) colorMultiline(buf *bytes.Buffer) {
+	f.Colors.Multiline.Fprintf(f.writer, "%v\n", f.raw)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
+}
+
+// colorListElement colors elements belonging to a list.
+func (f *YamlFormatter) colorListElement(buf *bytes.Buffer) {
+	f.Colors.String.Fprintf(f.writer, "%v\n", f.raw)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
+}
+
+// colors ip block address i.e x.x.x.x/x
+func (f *YamlFormatter) colorKeyCIDR(buf *bytes.Buffer) {
+	keyBuffer := bytes.Buffer{}
+	f.colorKeyValSep(&keyBuffer)
+
+	splitted := strings.Split(f.val, "/")
+	ip := splitted[0]
+	net := splitted[1]
+	f.Colors.Ip.Fprint(f.writer, ip)
+	ip = f.buff.String()
+	f.buff.Reset()
+	f.Colors.Number.Fprint(f.writer, net)
+	net = f.buff.String()
+	f.buff.Reset()
+	f.Colors.Key.Fprintf(f.writer, "%v%v/%v\n", keyBuffer.String(), ip, net)
+	str := f.buff.String()
+	f.buff.Reset()
+	buf.WriteString(str)
+}
+
+func (f *YamlFormatter) colorKeyIP(buf *bytes.Buffer) {
+	f.colorKeyValSep(buf)
+
+	f.Colors.Ip.Fprint(f.writer, f.val)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
+	buf.WriteString("\n")
+}
+
+func (f *YamlFormatter) colorKeyNumber(buf *bytes.Buffer) {
+	f.colorKeyValSep(buf)
+
+	f.Colors.Number.Fprintf(f.writer, "%v\n", f.val)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
+}
+
+func (f *YamlFormatter) colorKeyBool(buf *bytes.Buffer) {
+	f.colorKeyValSep(buf)
+
+	f.Colors.Bool.Fprintf(f.writer, "%v\n", f.val)
+	buf.WriteString(f.buff.String())
+	f.buff.Reset()
 }
