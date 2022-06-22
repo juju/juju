@@ -12,7 +12,7 @@ import (
 // ServiceLocatorBackend describes service locator state methods
 // for executing a service locator upgrade.
 type ServiceLocatorBackend interface {
-	AddServiceLocator(string, string, string) (*serviceLocator, error)
+	AddServiceLocator(string, string, string) (*ServiceLocator, error)
 	//AllServiceLocators() ([]*serviceLocator, error)
 }
 
@@ -22,13 +22,13 @@ type ServiceLocatorBase struct {
 	st *state.State
 }
 
-func (s ServiceLocatorBase) AddServiceLocator(slId string, slName string, slType string) (*serviceLocator, error) {
+func (s ServiceLocatorBase) AddServiceLocator(slId string, slName string, slType string) (*ServiceLocator, error) {
 	sl, err := s.st.ServiceLocators().AddServiceLocator(state.AddServiceLocatorParams{
 		ServiceLocatorUUID: slId,
 		Name:               slName,
 		Type:               slType,
 	})
-	return &serviceLocator{sl}, err
+	return &ServiceLocator{sl}, err
 }
 
 //func (s ServiceLocatorBase) AllServiceLocators() ([]*serviceLocator, error) {
@@ -72,6 +72,6 @@ func NewServiceLocatorAPI(
 	}
 }
 
-type serviceLocator struct {
+type ServiceLocator struct {
 	*state.ServiceLocator
 }
