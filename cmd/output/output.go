@@ -5,10 +5,9 @@ package output
 
 import (
 	"fmt"
-	"io"
-
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd/v3"
+	"io"
 
 	"github.com/juju/juju/core/status"
 )
