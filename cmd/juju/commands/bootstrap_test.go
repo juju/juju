@@ -30,6 +30,7 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmdtest"
@@ -111,6 +112,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
 
+	// Ensure KUBECONFIG doesn't interfere with tests.
+	s.PatchEnvironment(k8scmd.RecommendedConfigPathEnvVar, filepath.Join(c.MkDir(), "config"))
+
+	s.PatchEnvironment("JUJU_BOOTSTRAP_MODEL", "")
+
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
@@ -156,7 +162,10 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 	c := s.bootstrapCmd
 	c.SetClientStore(s.store)
-	return modelcmd.Wrap(&c)
+	return modelcmd.Wrap(&c,
+		modelcmd.WrapSkipModelFlags,
+		modelcmd.WrapSkipDefaultModel,
+	)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
@@ -444,9 +453,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--config", "controller-name=test"},
 	err:  `controller name cannot be set via config, please use cmd args`,
 }, {
-	info: "resource-group-name needs --no-default-model",
-	args: []string{"--config", "resource-group-name=foo"},
-	err:  `if using resource-group-name "foo" then --no-default-model is required as well`,
+	info: "resource-group-name does not support workload-model",
+	args: []string{"--config", "resource-group-name=foo", "--workload-model", "foo"},
+	err:  `if using resource-group-name "foo" then a workload model cannot be specified as well`,
 }, {
 	info: "missing storage pool name",
 	args: []string{"--storage-pool", "type=ebs"},
@@ -541,13 +550,13 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade", "--workload-model", "workload")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin/default")
+	c.Assert(modelName, gc.Equals, "admin/workload")
 	m, err := s.store.ModelByName(currentController, modelName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.ModelType, gc.Equals, model.IAAS)
@@ -556,16 +565,44 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade", "--workload-model", "workload")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "devcontroller")
+	modelName, err := s.store.CurrentModel(currentController)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelName, gc.Equals, "admin/workload")
+	m, err := s.store.ModelByName(currentController, modelName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.ModelType, gc.Equals, model.IAAS)
+}
+
+func (s *BootstrapSuite) TestBootstrapWorkloadModelFromEnv(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "xenial")
+
+	s.PatchEnvironment("JUJU_BOOTSTRAP_MODEL", "workload")
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin/default")
+	c.Assert(modelName, gc.Equals, "admin/workload")
 	m, err := s.store.ModelByName(currentController, modelName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.ModelType, gc.Equals, model.IAAS)
+}
+
+func (s *BootstrapSuite) TestBootstrapNoCurrentModel(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "xenial")
+
+	// If no workload model specified, current model is not set.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "devcontroller")
+	_, err = s.store.CurrentModel(currentController)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *BootstrapSuite) TestNoSwitch(c *gc.C) {
@@ -590,7 +627,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
 	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
 }
 
-func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithWorkloadModel(c *gc.C) {
 	s.patchVersionAndSeries(c, "xenial")
 
 	var bootstrapFuncs fakeBootstrapFuncs
@@ -602,7 +639,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
-		"--default-model", "mymodel",
+		"--workload-model", "mymodel",
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
@@ -610,7 +647,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 	c.Assert(bootstrapFuncs.args.HostedModelConfig["foo"], gc.Equals, "bar")
 }
 
-func (s *BootstrapSuite) TestBootstrapNoDefaultModel(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *gc.C) {
 	s.patchVersionAndSeries(c, "xenial")
 
 	var bootstrapFuncs fakeBootstrapFuncs
@@ -622,7 +659,6 @@ func (s *BootstrapSuite) TestBootstrapNoDefaultModel(c *gc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
-		"--no-default-model",
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
@@ -692,6 +728,7 @@ func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
+		"--workload-model", "workload",
 		"--model-default", "network=foo",
 		"--model-default", "ftp-proxy=model-proxy",
 		"--config", "ftp-proxy=controller-proxy",

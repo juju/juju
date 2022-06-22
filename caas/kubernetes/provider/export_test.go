@@ -43,9 +43,6 @@ var (
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
 	CompileLifecycleModelTeardownSelector      = compileLifecycleModelTeardownSelector
 
-	LabelSetToRequirements = labelSetToRequirements
-	MergeSelectors         = mergeSelectors
-
 	UpdateStrategyForDeployment  = updateStrategyForDeployment
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	UpdateStrategyForDaemonSet   = updateStrategyForDaemonSet

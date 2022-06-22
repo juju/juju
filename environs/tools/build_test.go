@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	exttest "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
@@ -171,13 +172,16 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
-	v, err := tools.GetVersionFromJujud("foo")
+	dir := c.MkDir()
+	cmd := filepath.Join(dir, names.Jujud)
+	err := ioutil.WriteFile(cmd, []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err := tools.GetVersionFromJujud(dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v, gc.Equals, ver)
 
 	select {
 	case args := <-argsCh:
-		cmd := filepath.Join("foo", names.Jujud)
 		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
@@ -194,12 +198,15 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
 
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
-	_, err := tools.GetVersionFromJujud("foo")
+	dir := c.MkDir()
+	cmd := filepath.Join(dir, names.Jujud)
+	err := ioutil.WriteFile(cmd, []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = tools.GetVersionFromJujud(dir)
 	c.Assert(err, gc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
 
 	select {
 	case args := <-argsCh:
-		cmd := filepath.Join("foo", names.Jujud)
 		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
@@ -217,9 +224,12 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
-	_, err := tools.GetVersionFromJujud("foo")
+	dir := c.MkDir()
+	cmd := filepath.Join(dir, names.Jujud)
+	err := ioutil.WriteFile(cmd, []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = tools.GetVersionFromJujud(dir)
 
-	cmd := filepath.Join("foo", names.Jujud)
 	msg := fmt.Sprintf("cannot get version from %q: exit status 1; the stderr\nthe stdout\n", cmd)
 
 	c.Assert(err.Error(), gc.Equals, msg)
@@ -230,6 +240,16 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
 	}
+}
+
+func (b *buildSuite) TestGetVersionFromJujudNoJujud(c *gc.C) {
+	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+		ExitCode: 1,
+	})
+	b.PatchValue(&tools.ExecCommand, execCommand)
+
+	_, err := tools.GetVersionFromJujud("foo")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {

@@ -77,7 +77,7 @@ func decideKubeConfigDir() (string, error) {
 		return "", errors.Annotate(err, "cannot find juju binary")
 	}
 	_, isOffical, err := CheckJujuOfficial(jujuDir)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return "", errors.Trace(err)
 	}
 	if isOffical {
