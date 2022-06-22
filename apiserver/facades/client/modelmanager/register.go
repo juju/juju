@@ -43,7 +43,7 @@ func Register(registry facade.FacadeRegistry) {
 		return newFacadeV9(ctx) // Adds ValidateModelUpgrade
 	}, reflect.TypeOf((*ModelManagerAPIV9)(nil)))
 	registry.MustRegister("ModelManager", 10, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV10(ctx) // Adds ValidateModelUpgrade
+		return newFacadeV10(ctx) // ValidateModelUpgrade does target version check and some extra checks for Juju3.
 	}, reflect.TypeOf((*ModelManagerAPI)(nil)))
 }
 

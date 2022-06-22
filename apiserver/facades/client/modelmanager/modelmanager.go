@@ -179,7 +179,7 @@ type ModelManagerAPI struct {
 }
 
 // ModelManagerAPIV9 provides a way to wrap the different calls between
-// version 8 and version 8 of the model manager API
+// version 9 and version 9 of the model manager API
 type ModelManagerAPIV9 struct {
 	*ModelManagerAPI
 }
