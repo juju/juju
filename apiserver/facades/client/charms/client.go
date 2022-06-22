@@ -29,7 +29,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -48,7 +47,6 @@ type API struct {
 	requestRecorder facade.RequestRecorder
 
 	newStorage     func(modelUUID string) services.Storage
-	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
 	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
 
 	mu          sync.Mutex
@@ -96,14 +94,12 @@ func NewCharmsAPI(
 	m charmsinterfaces.BackendModel,
 	newStorage func(modelUUID string) services.Storage,
 	repoFactory corecharm.RepositoryFactory,
-	newDownloader func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error),
 ) (*API, error) {
 	return &API{
 		authorizer:      authorizer,
 		backendState:    st,
 		backendModel:    m,
 		newStorage:      newStorage,
-		newDownloader:   newDownloader,
 		tag:             m.ModelTag(),
 		requestRecorder: noopRequestRecorder{},
 		repoFactory:     repoFactory,
@@ -281,50 +277,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	charmURL, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	ctrlCfg, err := a.backendState.ControllerConfig()
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	// TODO(achilleasa): This escape hatch allows us to test the asynchronous
-	// charm download code-path without breaking the existing deploy logic.
-	//
-	// It will be removed once the new universal deploy facade is into place.
-	if ctrlCfg.Features().Contains(feature.AsynchronousCharmDownloads) {
-		actualOrigin, err := a.queueAsyncCharmDownload(args)
-		if err != nil {
-			return params.CharmOriginResult{}, errors.Trace(err)
-		}
-
-		return params.CharmOriginResult{
-			Origin: convertOrigin(actualOrigin),
-		}, nil
-	}
-
-	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
-
-	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:         logger,
-		Transport:      httpTransport(logger),
-		StorageFactory: a.newStorage,
-		StateBackend:   a.backendState,
-		ModelBackend:   a.backendModel,
-	})
-	if err != nil {
-		return params.CharmOriginResult{}, errors.Trace(err)
-	}
-
-	var macaroons macaroon.Slice
-	if args.CharmStoreMacaroon != nil {
-		macaroons = append(macaroons, args.CharmStoreMacaroon)
-	}
-
-	actualOrigin, err := downloader.DownloadAndStore(charmURL, convertParamsOrigin(args.Origin), macaroons, args.Force)
+	actualOrigin, err := a.queueAsyncCharmDownload(args)
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}

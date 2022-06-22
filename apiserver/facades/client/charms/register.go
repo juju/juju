@@ -11,7 +11,6 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/state/storage"
@@ -53,9 +52,6 @@ func newFacadeV4(ctx facade.Context) (*API, error) {
 		},
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
-		},
-		newDownloader: func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
-			return services.NewCharmDownloader(cfg)
 		},
 		tag:             m.ModelTag(),
 		requestRecorder: ctx.RequestRecorder(),

@@ -21,9 +21,7 @@ import (
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
@@ -34,7 +32,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -297,50 +294,8 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
-func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
-
-	curl, err := charm.ParseURL("cs:testme-8")
-	c.Assert(err, jc.ErrorIsNil)
-
-	requestedOrigin := corecharm.Origin{
-		Source: "charm-store",
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	}
-	resolvedOrigin := corecharm.Origin{
-		Source: "charm-store",
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	}
-
-	s.downloader.EXPECT().DownloadAndStore(curl, requestedOrigin, nil, false).Return(resolvedOrigin, nil)
-
-	api := s.api(c)
-
-	args := params.AddCharmWithOrigin{
-		URL: curl.String(),
-		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
-		},
-	}
-	obtained, err := api.AddCharm(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
-		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
-		},
-	})
-}
-
 func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
 	curl, err := charm.ParseURL("cs:testme-8")
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,7 +317,37 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	macaroons := macaroon.Slice{mac}
 
-	s.downloader.EXPECT().DownloadAndStore(curl, requestedOrigin, macaroons, false).Return(resolvedOrigin, nil)
+	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf("%q", curl))
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
+
+	expMeta := new(charm.Meta)
+	expManifest := new(charm.Manifest)
+	expConfig := new(charm.Config)
+	s.repository.EXPECT().GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL:  curl,
+		Origin:    requestedOrigin,
+		Macaroons: macaroons,
+	}).Return([]corecharm.EssentialMetadata{
+		{
+			Meta:           expMeta,
+			Manifest:       expManifest,
+			Config:         expConfig,
+			ResolvedOrigin: resolvedOrigin,
+		},
+	}, nil)
+
+	s.state.EXPECT().AddCharmMetadata(gomock.Any()).DoAndReturn(
+		func(ci state.CharmInfo) (*state.Charm, error) {
+			c.Assert(ci.ID, gc.DeepEquals, curl)
+			// Check that the essential metadata matches what
+			// the repository returned. We use pointer checks here.
+			c.Assert(ci.Charm.Meta(), gc.Equals, expMeta)
+			c.Assert(ci.Charm.Manifest(), gc.Equals, expManifest)
+			c.Assert(ci.Charm.Config(), gc.Equals, expConfig)
+			c.Assert(ci.Macaroon, gc.DeepEquals, macaroons)
+			return nil, nil
+		},
+	)
 
 	api := s.api(c)
 
@@ -372,7 +357,6 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 			Source: "charm-store",
 			Risk:   "stable",
 		},
-		Force:              false,
 		CharmStoreMacaroon: mac,
 	}
 	obtained, err := api.AddCharmWithAuthorization(args)
@@ -385,7 +369,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	})
 }
 
-func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
+func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("cs:testme-8")
@@ -404,9 +388,6 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{
-		controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-	}, nil)
 	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf("%q", curl))
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
 
@@ -456,7 +437,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 	})
 }
 
-func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlreadyDownloadedCharm(c *gc.C) {
+func (s *charmsMockSuite) TestAddCharmResolvesOriginAgainForAlreadyDownloadedCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl, err := charm.ParseURL("cs:testme-8")
@@ -471,9 +452,6 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 		},
 	}
 
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{
-		controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-	}, nil)
 	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
 	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any(), nil).Return(resURL, resolvedOrigin, nil)
@@ -675,9 +653,6 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		s.model,
 		nil,
 		s.repoFactory,
-		func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
-			return s.downloader, nil
-		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
