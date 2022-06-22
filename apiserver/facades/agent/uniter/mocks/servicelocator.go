@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 )
 
 // MockServiceLocatorBackend is a mock of ServiceLocatorBackend interface.
@@ -35,10 +34,10 @@ func (m *MockServiceLocatorBackend) EXPECT() *MockServiceLocatorBackendMockRecor
 }
 
 // AddServiceLocator mocks base method.
-func (m *MockServiceLocatorBackend) AddServiceLocator(arg0, arg1, arg2 string) (*uniter.ServiceLocator, error) {
+func (m *MockServiceLocatorBackend) AddServiceLocator(arg0, arg1, arg2 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddServiceLocator", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*uniter.ServiceLocator)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
