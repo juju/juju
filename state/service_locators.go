@@ -123,11 +123,12 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args AddServiceLocatorPar
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	// Create the application addition operations.
 	serviceLocatorDoc := serviceLocatorDoc{
-		Id:   args.ServiceLocatorUUID,
-		Name: args.Name,
-		Type: args.Type,
+		Id:     args.ServiceLocatorUUID,
+		Name:   args.Name,
+		Type:   args.Type,
+		UnitId: args.UnitId,
+		Params: args.Params,
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
@@ -142,7 +143,7 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args AddServiceLocatorPar
 			model.assertActiveOp(),
 			{
 				C:      serviceLocatorsC,
-				Id:     serviceLocatorDoc.DocId,
+				Id:     serviceLocatorDoc.Id,
 				Assert: txn.DocMissing,
 				Insert: &serviceLocatorDoc,
 			},
