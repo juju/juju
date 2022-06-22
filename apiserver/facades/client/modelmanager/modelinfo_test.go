@@ -194,7 +194,9 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV7{
 		&modelmanager.ModelManagerAPIV8{
-			s.modelmanager,
+			&modelmanager.ModelManagerAPIV9{
+				s.modelmanager,
+			},
 		},
 	}
 

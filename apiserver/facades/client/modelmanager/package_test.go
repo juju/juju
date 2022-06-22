@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmanager_test
+package modelmanager
 
 import (
 	stdtesting "testing"
@@ -14,3 +14,5 @@ import (
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
+
+var MajorVersionCheck = majorVersionCheck

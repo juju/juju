@@ -9,6 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
+	version "github.com/juju/version/v2"
 )
 
 // MockStatePool is a mock of StatePool interface.
@@ -186,6 +187,21 @@ func NewMockModel(ctrl *gomock.Controller) *MockModel {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
+}
+
+// AgentVersion mocks base method.
+func (m *MockModel) AgentVersion() (version.Number, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentVersion")
+	ret0, _ := ret[0].(version.Number)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AgentVersion indicates an expected call of AgentVersion.
+func (mr *MockModelMockRecorder) AgentVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockModel)(nil).AgentVersion))
 }
 
 // IsControllerModel mocks base method.

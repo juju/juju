@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ValidateModelUpgradesSuite struct {
@@ -108,7 +109,36 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesWithModelWithNoPer
 	c.Assert(results.OneError(), gc.ErrorMatches, `permission denied`)
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModels(c *gc.C) {
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesV9ForControllerModels(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().IsControllerModel().Return(true)
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().Release()
+	state.EXPECT().Model().Return(model, nil)
+
+	statePool := mocks.NewMockStatePool(ctrl)
+	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
+
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	v9 := modelmanager.ModelManagerAPIV9{api}
+
+	results, err := v9.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
+		Models: []params.ValidateModelUpgradeParam{{
+			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("2.9.99"),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.OneError(), jc.ErrorIsNil)
+}
+
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesV10ForControllerModelsJuju3(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -123,6 +153,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
 	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		statePool.EXPECT().MongoVersion().Return("4.4", nil),
 		state.EXPECT().AllModelUUIDs().Return([]string{s.st.model.tag.Id()}, nil),
 		statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil),
@@ -138,6 +169,39 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("3.0-beta1"),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.OneError(), jc.ErrorIsNil)
+}
+
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesV10ForControllerModelsJuju2(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().IsControllerModel().Return(true)
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().Release()
+	state.EXPECT().Model().Return(model, nil)
+
+	statePool := mocks.NewMockStatePool(ctrl)
+	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
+
+	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+	)
+
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
+		Models: []params.ValidateModelUpgradeParam{{
+			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("2.9.99"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,6 +224,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
 	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		statePool.EXPECT().MongoVersion().Return("4.3", nil),
 	)
 
@@ -169,11 +234,45 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("3.0-beta1"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.OneError(), gc.ErrorMatches, `mongo version is not equal or greater than "4.4"`)
+}
+
+func (s *ValidateModelUpgradesSuite) assertMajorVersionCheck(c *gc.C, tc majorVersionCheckTC) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().AgentVersion().Return(version.MustParse(tc.current), nil)
+
+	err := modelmanager.MajorVersionCheck(model, version.MustParse(tc.target))
+	if tc.err != "" {
+		c.Check(err, gc.ErrorMatches, tc.err)
+	} else {
+		c.Check(err, jc.ErrorIsNil)
+	}
+
+}
+
+type majorVersionCheckTC struct {
+	current, target string
+	err             string
+}
+
+func (s *ValidateModelUpgradesSuite) TestMajorVersionCheck(c *gc.C) {
+	for i, tc := range []majorVersionCheckTC{
+		{current: "2.9.1", target: "2.9.2"},
+		{current: "2.9.1", target: "3.0-beta1"},
+		{current: "1.9.1", target: "3.0-beta1", err: `upgrade from "1.9.1" to "3.0-beta1" not supported`}, // accross two major versions.
+		{current: "2.9.1", target: "1.9.2", err: `upgrade from "2.9.1" to "1.9.2" not supported`},         // downgrade.
+		{current: "3.9.1", target: "4.9.2", err: `upgrade from "3.9.1" to "4.9.2" not supported`},         // major 4 is not supported.
+	} {
+		c.Logf("testing %d", i)
+		s.assertMajorVersionCheck(c, tc)
+	}
 }
 
 func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModelsFailedHostsWinMachines(c *gc.C) {
@@ -193,6 +292,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(controllerState, nil)
 
 	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		statePool.EXPECT().MongoVersion().Return("4.4", nil),
 		controllerState.EXPECT().AllModelUUIDs().Return([]string{s.st.model.tag.Id(), modelID}, nil),
 
@@ -215,6 +315,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("3.0-beta1"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,7 +323,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForControllerModel
 	c.Assert(results.OneError(), gc.ErrorMatches, fmt.Sprintf("model %q hosts 1 windows machine\\(s\\)", modelID))
 }
 
-func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerModels(c *gc.C) {
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesV10ForNonControllerModelsJuju2(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -238,6 +339,40 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
 	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+	)
+
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
+		Models: []params.ValidateModelUpgradeParam{{
+			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("2.9.99"),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.OneError(), jc.ErrorIsNil)
+}
+
+func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesV10ForNonControllerModelsJuju3(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().IsControllerModel().Return(false)
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().Release()
+	state.EXPECT().Model().Return(model, nil)
+	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
+
+	statePool := mocks.NewMockStatePool(ctrl)
+	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
+
+	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		state.EXPECT().MachineCountForSeries(
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
@@ -250,6 +385,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("3.0-beta1"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -273,6 +409,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
 	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		state.EXPECT().MachineCountForSeries(
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
@@ -285,6 +422,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("3.0-beta1"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,12 +445,17 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
+	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+	)
+
 	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("2.9.99"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -336,10 +479,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
 
 	gomock.InOrder(
-		state.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
-		).Return(0, nil),
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 	)
 
 	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, statePool, nil, nil, s.authoriser, s.st.model, s.callContext)
@@ -348,6 +488,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	results, err := api.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
+			Version:  version.MustParse("2.9.99"),
 		}},
 		Force: true,
 	})
