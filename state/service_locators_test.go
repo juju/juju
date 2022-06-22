@@ -12,15 +12,12 @@ import (
 
 type serviceLocatorsSuite struct {
 	ConnSuite
-
-	suspendedRel *state.Relation
-	activeRel    *state.Relation
 }
 
 var _ = gc.Suite(&serviceLocatorsSuite{})
 
-func (s *serviceLocatorsSuite) TestAddServiceLocator(c *gc.C) {
-	oc, err := s.State.ServiceLocators().AddServiceLocator(state.AddServiceLocatorParams{
+func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
+	sl, err := s.State.ServiceLocators().AddServiceLocator(state.AddServiceLocatorParams{
 		ServiceLocatorUUID: "test-service-locator-uuid",
 		Name:               "test-locator",
 		Type:               "l4-service",
@@ -28,18 +25,29 @@ func (s *serviceLocatorsSuite) TestAddServiceLocator(c *gc.C) {
 		Params:             map[string]interface{}{"ip-address": "1.1.1.1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(oc.Id(), gc.Equals, "test-service-locator-uuid")
-	c.Assert(oc.Name(), gc.Equals, "test-locator")
-	c.Assert(oc.Type(), gc.Equals, "l4-service")
-	c.Assert(oc.UnitId(), gc.Equals, 17)
-	c.Assert(oc.Params(), gc.Equals, map[string]interface{}{"ip-address": "1.1.1.1"})
+	c.Assert(sl.Id(), gc.Equals, "test-service-locator-uuid")
+	c.Assert(sl.Name(), gc.Equals, "test-locator")
+	c.Assert(sl.Type(), gc.Equals, "l4-service")
+	c.Assert(sl.UnitId(), gc.Equals, 17)
+
+	sl2, err := s.State.ServiceLocators().AddServiceLocator(state.AddServiceLocatorParams{
+		ServiceLocatorUUID: "test-service-locator-uuid2",
+		Name:               "test-locator2",
+		Type:               "l4-service",
+		UnitId:             18,
+		Params:             map[string]interface{}{"ip-address": "2.2.2.2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sl2.Id(), gc.Equals, "test-service-locator-uuid2")
+	c.Assert(sl2.Name(), gc.Equals, "test-locator2")
+	c.Assert(sl2.Type(), gc.Equals, "l4-service")
+	c.Assert(sl2.UnitId(), gc.Equals, 18)
 
 	all, err := s.State.ServiceLocators().AllServiceLocators()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 2)
-	c.Assert(oc.Id(), gc.Equals, "test-service-locator-uuid")
-	c.Assert(oc.Name(), gc.Equals, "test-locator")
-	c.Assert(oc.Type(), gc.Equals, "l4-service")
-	c.Assert(oc.UnitId(), gc.Equals, 17)
-	c.Assert(oc.Params(), gc.Equals, map[string]interface{}{"ip-address": "1.1.1.1"})
+	c.Assert(all[0].Id(), gc.Equals, "test-service-locator-uuid")
+	c.Assert(all[0].Name(), gc.Equals, "test-locator")
+	c.Assert(all[0].Type(), gc.Equals, "l4-service")
+	c.Assert(all[0].UnitId(), gc.Equals, 17)
 }
