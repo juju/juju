@@ -33,30 +33,17 @@ func (m *MockServiceLocatorBackend) EXPECT() *MockServiceLocatorBackendMockRecor
 	return m.recorder
 }
 
-// Name mocks base method.
-func (m *MockServiceLocatorBackend) Name() string {
+// AddServiceLocator mocks base method.
+func (m *MockServiceLocatorBackend) AddServiceLocator(arg0, arg1, arg2 string) (*uniter.serviceLocator, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
-	ret0, _ := ret[0].(string)
-	return ret0
+	ret := m.ctrl.Call(m, "AddServiceLocator", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*uniter.serviceLocator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Name indicates an expected call of Name.
-func (mr *MockServiceLocatorBackendMockRecorder) Name() *gomock.Call {
+// AddServiceLocator indicates an expected call of AddServiceLocator.
+func (mr *MockServiceLocatorBackendMockRecorder) AddServiceLocator(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockServiceLocatorBackend)(nil).Name))
-}
-
-// Type mocks base method.
-func (m *MockServiceLocatorBackend) Type() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Type")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Type indicates an expected call of Type.
-func (mr *MockServiceLocatorBackendMockRecorder) Type() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockServiceLocatorBackend)(nil).Type))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddServiceLocator", reflect.TypeOf((*MockServiceLocatorBackend)(nil).AddServiceLocator), arg0, arg1, arg2)
 }
