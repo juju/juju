@@ -17,11 +17,6 @@ import (
 
 // ServiceLocatorsState returns the service locators for the current state.
 func (st *State) ServiceLocatorsState() *serviceLocatorPersistence {
-	return st.serviceLocators()
-}
-
-// serviceLocators returns the service locators functionality for the current state.
-func (st *State) serviceLocators() *serviceLocatorPersistence {
 	return &serviceLocatorPersistence{
 		st: st,
 	}
