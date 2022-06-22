@@ -1,6 +1,6 @@
 # -*- Mode:Python; indent-tabs-mode:nil; tab-width:4 -*-
 #
-# Copyright (C) 2018 Canonical Ltd
+# Copyright (C) 2020 Canonical Ltd
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -22,137 +22,99 @@ For more information check the 'plugins' topic for the former and the
 
 Additionally, this plugin uses the following plugin-specific keywords:
 
-    - go-packages:
+    - go-channel
+      (string, default: latest/stable)
+      The Snap Store channel to install go from.
+
+    - go-buildtags
       (list of strings)
-      Go packages to build/install, these must be a "main" package.
-      Dependencies should have already been retrieved.
-      Packages that are not "main" will not cause an error, but would
-      not be useful either.
+      Tags to use during the go build. Default is not to use any build tags.
 """
+from typing import Any, Dict, List, Set
 
-import logging
-import os
-import shutil
+from snapcraft.plugins.v2 import PluginV2
 
-import snapcraft
-from snapcraft import common
-from snapcraft import file_utils
 
-logger = logging.getLogger(__name__)
-
-# TODO(hpidcock): move to upstream go plugin when it has the features we need.
-class JujuGoPlugin(snapcraft.BasePlugin):
+class PluginImpl(PluginV2):
     @classmethod
-    def schema(cls):
-        schema = super().schema()
-        schema["properties"]["go-channel"] = {
-            "type": "string",
-            "default": "latest/stable",
-        }
-        schema["properties"]["go-packages"] = {
-            "type": "array",
-            "minitems": 1,
-            "uniqueItems": True,
-            "items": {"type": "string"},
-            "default": [],
-        }
-        schema["properties"]["go-external-strings"] = {
+    def get_schema(cls) -> Dict[str, Any]:
+        return {
+            "$schema": "http://json-schema.org/draft-04/schema#",
             "type": "object",
-            "additionalProperties": {"type": "string"},
-            "default": {},
+            "additionalProperties": False,
+            "properties": {
+                "go-channel": {"type": "string", "default": "latest/stable"},
+                "go-buildtags": {
+                    "type": "array",
+                    "uniqueItems": True,
+                    "items": {"type": "string"},
+                    "default": [],
+                },
+                "go-packages": {
+                    "type": "array",
+                    "minitems": 1,
+                    "uniqueItems": True,
+                    "items": {"type": "string"},
+                    "default": ["./..."],
+                },
+                "go-external-strings": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                    "default": {},
+                },
+                "go-static": {
+                    "type": "boolean",
+                    "default": False,
+                },
+                "go-strip": {
+                    "type": "boolean",
+                    "default": False,
+                },
+            },
+            "required": ["source"],
         }
-        schema["properties"]["go-static"] = {
-            "type": "boolean",
-            "default": False,
+
+    def get_build_snaps(self) -> Set[str]:
+        return {f"go/{self.options.go_channel}"}
+
+    def get_build_packages(self) -> Set[str]:
+        return {"gcc"}
+
+    def get_build_environment(self) -> Dict[str, str]:
+        env = {
+            "GOBIN": "${SNAPCRAFT_PART_INSTALL}/bin",
         }
-        schema["properties"]["go-strip"] = {
-            "type": "boolean",
-            "default": False,
-        }
-        return schema
-
-    @classmethod
-    def get_build_properties(cls):
-        # Inform Snapcraft of the properties associated with building. If these
-        # change in the YAML Snapcraft will consider the build step dirty.
-        return ["go-packages", "go-external-strings", "go-channel", "go-static", "go-strip"]
-
-    def __init__(self, name, options, project):
-        super().__init__(name, options, project)
-        self.build_packages.extend(["git"])
-        self.build_snaps.extend(["go/"+self.options.go_channel])
-        self._gopath = os.path.join(self.partdir, "go")
-        self._gopath_src = os.path.join(self._gopath, "src")
-        self._gopath_bin = os.path.join(self._gopath, "bin")
-        self._gopath_pkg = os.path.join(self._gopath, "pkg")
-
-    def pull(self):
-        super().pull()
-
-        logger.info("Obtaining project dependencies...")
-        self._run(["go", "mod", "vendor"])
-
-    def clean_pull(self):
-        super().clean_pull()
-
-        # Remove the gopath (if present)
-        if os.path.exists(self._gopath):
-            shutil.rmtree(self._gopath)
-
-    def build(self):
-        super().build()
-
-        install_bin_path = os.path.join(self.installdir, "bin")
-        os.makedirs(install_bin_path, exist_ok=True)
-
-        cmd = ["go", "build", "-o", install_bin_path, "-mod=vendor"]
-        cmd.append("-ldflags")
-        flags = ""
-        if self.options.go_strip:
-            flags += '-s -w '
         if self.options.go_static:
-            flags += '-extldflags "-static" '
-        flags = flags.strip()
+            env.update({
+                "CGO_ENABLED": "0"
+            })
+
+        ld_flags = ''
+        if self.options.go_strip:
+            ld_flags += '-s -w '
+        if self.options.go_static:
+            ld_flags += '-extldflags "-static" '
+        ld_flags = ld_flags.strip()
 
         if len(self.options.go_external_strings) > 0:
             for k, v in self.options.go_external_strings.items():
-                flags += " -X {}={}".format(k, v)
-        cmd.append(flags)
-
-        for go_package in self.options.go_packages:
-            cmd.append(go_package)
-
-        self._run(cmd)
-
-    def clean_build(self):
-        super().clean_build()
-
-        if os.path.isdir(self._gopath_bin):
-            shutil.rmtree(self._gopath_bin)
-
-        if os.path.isdir(self._gopath_pkg):
-            shutil.rmtree(self._gopath_pkg)
-
-    def _run(self, cmd, **kwargs):
-        env = self._build_environment()
-        return self.run(cmd, cwd=self.sourcedir, env=env, **kwargs)
-
-    def _build_environment(self):
-        env = os.environ.copy()
-        env["GOPATH"] = self._gopath
-        env["GOBIN"] = self._gopath_bin
-
-        if self.options.go_static:
-            env["CGO_ENABLED"] = "0"
-        else:
-            include_paths = []
-            for root in [self.installdir, self.project.stage_dir]:
-                include_paths.extend(
-                    common.get_library_paths(root, self.project.arch_triplet)
-                )
-            flags = common.combine_paths(include_paths, "-L", " ")
-            env["CGO_LDFLAGS"] = "{} {} {}".format(
-                env.get("CGO_LDFLAGS", ""), flags, env.get("LDFLAGS", "")
-            )
-
+                ld_flags += f' -X {k}={v}'
+        env.update({
+            "SNAPCRAFT_GO_LDFLAGS": f'{ld_flags}'
+        })
         return env
+
+    def get_build_commands(self) -> List[str]:
+        if self.options.go_buildtags:
+            tags = "-tags={}".format(",".join(self.options.go_buildtags))
+        else:
+            tags = ""
+
+        cmd = f'go install -p "${{SNAPCRAFT_PARALLEL_BUILD_COUNT}}" {tags} -ldflags "${{SNAPCRAFT_GO_LDFLAGS}}"'
+        for go_package in self.options.go_packages:
+            cmd += f" {go_package}"
+
+        return [
+            "go mod download",
+            cmd,
+        ]
