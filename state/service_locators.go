@@ -15,8 +15,8 @@ import (
 //	//AllServiceLocators() ([]*ServiceLocator, error)
 //}
 
-// ServiceLocators returns the service locators functionality for the current state.
-func (st *State) ServiceLocators() *serviceLocatorPersistence {
+// ServiceLocatorsState returns the service locators for the current state.
+func (st *State) ServiceLocatorsState() *serviceLocatorPersistence {
 	return st.serviceLocators()
 }
 

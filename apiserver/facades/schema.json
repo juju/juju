@@ -44561,7 +44561,7 @@
     },
     {
         "Name": "Uniter",
-        "Description": "UniterAPI implements the latest version (v18) of the Uniter API.",
+        "Description": "UniterAPI implements the latest version (v19) of the Uniter API.",
         "Version": 19,
         "AvailableTo": [
             "controller-machine-agent",
@@ -44625,6 +44625,18 @@
                         }
                     },
                     "description": "AddMetricBatches adds the metrics for the specified unit."
+                },
+                "AddServiceLocator": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "AddServiceLocator ..."
                 },
                 "AddUnitStorage": {
                     "type": "object",
