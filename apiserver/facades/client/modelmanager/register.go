@@ -41,11 +41,14 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*ModelManagerAPIV8)(nil)))
 	registry.MustRegister("ModelManager", 9, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV9(ctx) // Adds ValidateModelUpgrade
+	}, reflect.TypeOf((*ModelManagerAPIV9)(nil)))
+	registry.MustRegister("ModelManager", 10, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV10(ctx) // Adds ValidateModelUpgrade
 	}, reflect.TypeOf((*ModelManagerAPI)(nil)))
 }
 
-// newFacadeV9 is used for API registration.
-func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
+// newFacadeV10 is used for API registration.
+func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt, err := pool.SystemState()
@@ -85,6 +88,15 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 		model,
 		context.CallContext(st),
 	)
+}
+
+// newFacadeV9 is used for API registration.
+func newFacadeV9(ctx facade.Context) (*ModelManagerAPIV9, error) {
+	v10, err := newFacadeV10(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV9{v10}, nil
 }
 
 // newFacadeV8 is used for API registration.

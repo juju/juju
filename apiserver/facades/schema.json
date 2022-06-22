@@ -32806,7 +32806,7 @@
     {
         "Name": "ModelManager",
         "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.",
-        "Version": 9,
+        "Version": 10,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -34083,11 +34083,15 @@
                     "properties": {
                         "model-tag": {
                             "type": "string"
+                        },
+                        "version": {
+                            "$ref": "#/definitions/Number"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "model-tag"
+                        "model-tag",
+                        "version"
                     ]
                 },
                 "ValidateModelUpgradeParams": {

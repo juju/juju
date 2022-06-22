@@ -13,6 +13,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -50,6 +51,13 @@ var (
 	// Overridden by tests.
 	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
+
+// ModelManagerV10 defines the methods on the version 10 facade for the
+// modelmanager API endpoint.
+type ModelManagerV10 interface {
+	ModelManagerV9
+	// ValidateModelUpgrades checks the chosen version as well.
+}
 
 // ModelManagerV9 defines the methods on the version 9 facade for the
 // modelmanager API endpoint.
@@ -150,6 +158,7 @@ type State interface {
 // Model defines a point of use interface for the model from state.
 type Model interface {
 	IsControllerModel() bool
+	AgentVersion() (version.Number, error)
 }
 
 // ModelManagerAPI implements the model manager interface and is
@@ -169,10 +178,16 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
+// ModelManagerAPIV9 provides a way to wrap the different calls between
+// version 8 and version 8 of the model manager API
+type ModelManagerAPIV9 struct {
+	*ModelManagerAPI
+}
+
 // ModelManagerAPIV8 provides a way to wrap the different calls between
 // version 8 and version 8 of the model manager API
 type ModelManagerAPIV8 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV9
 }
 
 // ModelManagerAPIV7 provides a way to wrap the different calls between
@@ -212,14 +227,15 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
-	_ ModelManagerV8 = (*ModelManagerAPIV8)(nil)
-	_ ModelManagerV7 = (*ModelManagerAPIV7)(nil)
-	_ ModelManagerV6 = (*ModelManagerAPIV6)(nil)
-	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
-	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
-	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
-	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
+	_ ModelManagerV10 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV9  = (*ModelManagerAPIV9)(nil)
+	_ ModelManagerV8  = (*ModelManagerAPIV8)(nil)
+	_ ModelManagerV7  = (*ModelManagerAPIV7)(nil)
+	_ ModelManagerV6  = (*ModelManagerAPIV6)(nil)
+	_ ModelManagerV5  = (*ModelManagerAPIV5)(nil)
+	_ ModelManagerV4  = (*ModelManagerAPIV4)(nil)
+	_ ModelManagerV3  = (*ModelManagerAPIV3)(nil)
+	_ ModelManagerV2  = (*ModelManagerAPIV2)(nil)
 )
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -1601,6 +1617,36 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 	return params.ErrorResults{Results: results}, nil
 }
 
+func (m *ModelManagerAPIV9) ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error) {
+	for i, modelArg := range args.Models {
+		modelArg.Version = version.Zero
+		args.Models[i] = modelArg
+	}
+	return m.ModelManagerAPI.ValidateModelUpgrades(args)
+}
+
+func safeToUpgradeMajorVersion() set.Ints {
+	return set.NewInts(
+		3,
+	)
+}
+
+func majorVersionCheck(model Model, ver version.Number) error {
+	modelVer, err := model.AgentVersion()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	majorDiff := ver.Major - modelVer.Major
+	if majorDiff == 0 {
+		return nil
+	}
+	// We only support upgrading across one major version.
+	if majorDiff == 1 && safeToUpgradeMajorVersion().Contains(ver.Major) {
+		return nil
+	}
+	return errors.NotSupportedf("upgrade from %q to %q", modelVer, ver)
+}
+
 // ValidateModelUpgrades validates if a model is allowed to perform an upgrade.
 // Examples of why you would want to block a model upgrade, would be situations
 // like upgrade-series. If performing an upgrade-series we don't know the
@@ -1658,24 +1704,33 @@ func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgrade
 			continue
 		}
 
+		if arg.Version != version.Zero {
+			// The arg.Version is introduced from V10.
+			if err := majorVersionCheck(model, arg.Version); err != nil {
+				results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+				continue
+			}
+		}
+
 		isControllerModel := model.IsControllerModel()
 		if !isControllerModel {
-			// Now check for the validation of a model upgrade for non controller models only.
 			if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
 				results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 				continue
 			}
 		}
 
-		if err := m.deprecationCheck(isControllerModel, modelTag.Id(), st); err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
+		if arg.Version.Major == 3 {
+			if err := m.deprecationCheckV3(isControllerModel, modelTag.Id(), st); err != nil {
+				results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+				continue
+			}
 		}
 	}
 	return results, nil
 }
 
-func (m *ModelManagerAPI) deprecationCheck(isControllerModel bool, modelUUID string, st State) error {
+func (m *ModelManagerAPI) deprecationCheckV3(isControllerModel bool, modelUUID string, st State) error {
 	var winSeries []string
 	for _, v := range series.WindowsVersions() {
 		winSeries = append(winSeries, v)
@@ -1684,7 +1739,7 @@ func (m *ModelManagerAPI) deprecationCheck(isControllerModel bool, modelUUID str
 	check := func(mUUID string, state State) error {
 		winMachineCount, err := state.MachineCountForSeries(winSeries...)
 		if err != nil {
-			return errors.Annotatef(err, "cannot fetch machines for series %v", winSeries)
+			return errors.Annotatef(err, "cannot count machines for series %v", winSeries)
 		}
 		if winMachineCount > 0 {
 			return errors.NewNotSupported(nil, fmt.Sprintf("model %q hosts %d windows machine(s)", mUUID, winMachineCount))

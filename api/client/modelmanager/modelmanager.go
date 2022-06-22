@@ -9,10 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -605,16 +607,19 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 
 // ValidateModelUpgrade checks to see if it's possible to upgrade a model,
 // before actually attempting to do the real model-upgrade.
-func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
+func (c *Client) ValidateModelUpgrade(model names.ModelTag, chosen version.Number, force bool) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 9 {
 		return errors.NotImplementedf("ValidateModelUpgrade in version %v", bestVer)
 	}
-
+	modelArg := params.ValidateModelUpgradeParam{
+		ModelTag: model.String(),
+	}
+	if bestVer := c.BestAPIVersion(); bestVer >= 10 {
+		modelArg.Version = chosen
+	}
 	args := params.ValidateModelUpgradeParams{
-		Models: []params.ValidateModelUpgradeParam{{
-			ModelTag: model.String(),
-		}},
-		Force: force,
+		Models: []params.ValidateModelUpgradeParam{modelArg},
+		Force:  force,
 	}
 	var results params.ErrorResults
 	if err := c.facade.FacadeCall("ValidateModelUpgrades", args, &results); err != nil {
@@ -623,5 +628,5 @@ func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
 	if num := len(results.Results); num != 1 {
 		return errors.Errorf("expected one result, got %d", num)
 	}
-	return results.OneError()
+	return apiservererrors.RestoreError(results.OneError())
 }
