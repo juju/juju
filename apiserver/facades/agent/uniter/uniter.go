@@ -2896,38 +2896,9 @@ func (u *UniterAPI) getServiceLocatorName(id string) (string, error) {
 	return "TBD", nil
 }
 
-//// AddServiceLocator ...
-//func (u *UniterAPI) AddServiceLocator(args params.Entities) (params.StringResults, error) {
-//	result := params.StringResults{
-//		Results: make([]params.StringResult, len(args.Entities)),
-//	}
-//	canAccess, err := u.accessUnit()
-//	if err != nil {
-//		return params.StringResults{}, err
-//	}
-//	for i, entity := range args.Entities {
-//		tag, err := names.ParseUnitTag(entity.Tag)
-//		if err != nil {
-//			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-//			continue
-//		}
-//		if !canAccess(tag) {
-//			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-//			continue
-//		}
-//		unit, err := u.getUnit(tag)
-//		if err != nil {
-//			result.Results[i].Error = apiservererrors.ServerError(err)
-//			continue
-//		}
-//		machineId, err := unit.AssignedMachineId()
-//		if err != nil {
-//			result.Results[i].Error = apiservererrors.ServerError(err)
-//		} else {
-//			result.Results[i].Result = names.NewMachineTag(machineId).String()
-//		}
-//	}
-//	return result, nil
-//}
+// AddServiceLocator ...
+func (u *UniterAPI) AddServiceLocator(slId string, slName string, slType string) (string, error) {
+	return u.serviceLocatorAPI.backend.AddServiceLocator(slId, slName, slType)
+}
 
 func (u *UniterAPIV18) AddServiceLocator(_ struct{}) {}
