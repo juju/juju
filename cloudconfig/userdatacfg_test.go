@@ -180,7 +180,7 @@ func (cfg *testInstanceConfig) setControllerCharm(path string) *testInstanceConf
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
 	if envConfig != nil && cfg.Bootstrap != nil {
 		cfg.Bootstrap.ControllerModelConfig = envConfig
-		cfg.Bootstrap.HostedModelConfig = map[string]interface{}{"name": "hosted-model"}
+		cfg.Bootstrap.InitialModelConfig = map[string]interface{}{"name": "my-model"}
 	}
 	return cfg
 }
@@ -1140,7 +1140,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 				StateInitializationParams: instancecfg.StateInitializationParams{
 					BootstrapMachineInstanceId: "i-bootstrap",
 					ControllerModelConfig:      minimalModelConfig(c),
-					HostedModelConfig:          map[string]interface{}{"name": "hosted-model"},
+					InitialModelConfig:         map[string]interface{}{"name": "my-model"},
 				},
 				StateServingInfo: stateServingInfo,
 			},

@@ -235,12 +235,12 @@ func (cfg *ControllerPodConfig) GetPodName() string {
 	return "controller-" + cfg.ControllerId
 }
 
-// GetHostedModel checks if hosted model was requested to create.
-func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
-	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
-	if hasHostedModel {
-		modelName := cfg.Bootstrap.HostedModelConfig[config.NameKey].(string)
-		logger.Debugf("configured hosted model %q for bootstrapping", modelName)
+// GetInitialModel checks if hosted model was requested to create.
+func (cfg *ControllerPodConfig) GetInitialModel() (string, bool) {
+	hasInitialModel := len(cfg.Bootstrap.InitialModelConfig) > 0
+	if hasInitialModel {
+		modelName := cfg.Bootstrap.InitialModelConfig[config.NameKey].(string)
+		logger.Debugf("configured initial model %q for bootstrapping", modelName)
 		return modelName, true
 	}
 	return "", false

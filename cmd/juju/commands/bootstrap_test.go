@@ -453,8 +453,8 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--config", "controller-name=test"},
 	err:  `controller name cannot be set via config, please use cmd args`,
 }, {
-	info: "resource-group-name does not support workload-model",
-	args: []string{"--config", "resource-group-name=foo", "--workload-model", "foo"},
+	info: "resource-group-name does not support create-model",
+	args: []string{"--config", "resource-group-name=foo", "--create-model", "foo"},
 	err:  `if using resource-group-name "foo" then a workload model cannot be specified as well`,
 }, {
 	info: "missing storage pool name",
@@ -550,7 +550,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade", "--workload-model", "workload")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade", "--create-model", "workload")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
@@ -565,7 +565,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade", "--workload-model", "workload")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade", "--create-model", "workload")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
@@ -639,12 +639,12 @@ func (s *BootstrapSuite) TestBootstrapWithWorkloadModel(c *gc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
-		"--workload-model", "mymodel",
+		"--create-model", "mymodel",
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
-	c.Assert(bootstrapFuncs.args.HostedModelConfig["name"], gc.Equals, "mymodel")
-	c.Assert(bootstrapFuncs.args.HostedModelConfig["foo"], gc.Equals, "bar")
+	c.Assert(bootstrapFuncs.args.InitialModelConfig["name"], gc.Equals, "mymodel")
+	c.Assert(bootstrapFuncs.args.InitialModelConfig["foo"], gc.Equals, "bar")
 }
 
 func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *gc.C) {
@@ -662,7 +662,7 @@ func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *gc.C) {
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
-	c.Assert(bootstrapFuncs.args.HostedModelConfig, gc.HasLen, 0)
+	c.Assert(bootstrapFuncs.args.InitialModelConfig, gc.HasLen, 0)
 }
 
 func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
@@ -713,7 +713,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 		"--auto-upgrade",
 		"--config", "authorized-keys-path="+fakeSSHFile,
 	)
-	_, ok := bootstrapFuncs.args.HostedModelConfig["authorized-keys-path"]
+	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys-path"]
 	c.Assert(ok, jc.IsFalse)
 }
 
@@ -728,16 +728,16 @@ func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
-		"--workload-model", "workload",
+		"--create-model", "workload",
 		"--model-default", "network=foo",
 		"--model-default", "ftp-proxy=model-proxy",
 		"--config", "ftp-proxy=controller-proxy",
 	)
 
-	c.Check(bootstrapFuncs.args.HostedModelConfig["network"], gc.Equals, "foo")
+	c.Check(bootstrapFuncs.args.InitialModelConfig["network"], gc.Equals, "foo")
 	c.Check(bootstrapFuncs.args.ControllerInheritedConfig["network"], gc.Equals, "foo")
 
-	c.Check(bootstrapFuncs.args.HostedModelConfig["ftp-proxy"], gc.Equals, "controller-proxy")
+	c.Check(bootstrapFuncs.args.InitialModelConfig["ftp-proxy"], gc.Equals, "controller-proxy")
 	c.Check(bootstrapFuncs.args.ControllerInheritedConfig["ftp-proxy"], gc.Equals, "model-proxy")
 }
 
@@ -759,9 +759,9 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *
 		"--config", "authorized-keys=ssh-key",
 		"--config", "agent-version=1.19.0",
 	)
-	_, ok := bootstrapFuncs.args.HostedModelConfig["authorized-keys"]
+	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys"]
 	c.Assert(ok, jc.IsFalse)
-	_, ok = bootstrapFuncs.args.HostedModelConfig["agent-version"]
+	_, ok = bootstrapFuncs.args.InitialModelConfig["agent-version"]
 	c.Assert(ok, jc.IsFalse)
 }
 

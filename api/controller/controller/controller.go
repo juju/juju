@@ -102,7 +102,7 @@ type HostedConfig struct {
 }
 
 // HostedModelConfigs returns all model settings for the
-// controller model.
+// models hosted on the controller.
 func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
 	result := params.HostedModelConfigsResults{}
 	err := c.facade.FacadeCall("HostedModelConfigs", nil, &result)

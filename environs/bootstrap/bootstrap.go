@@ -112,10 +112,10 @@ type BootstrapParams struct {
 	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
-	// HostedModelConfig is the set of config attributes to be overlaid
+	// InitialModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
 	// config.
-	HostedModelConfig map[string]interface{}
+	InitialModelConfig map[string]interface{}
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -770,7 +770,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	icfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
 	icfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
-	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	icfg.Bootstrap.InitialModelConfig = args.InitialModelConfig
 	icfg.Bootstrap.StoragePools = args.StoragePools
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
@@ -846,7 +846,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
-	pcfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	pcfg.Bootstrap.InitialModelConfig = args.InitialModelConfig
 	pcfg.Bootstrap.StoragePools = args.StoragePools
 	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
